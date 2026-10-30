@@ -71,7 +71,7 @@ class CdsHistoricalSnapshotUnitTest {
     @BeforeEach void prepare() throws Exception {
         ledger = mock(CdsImportLedgerService.class);
         Properties properties = new Properties();
-        properties.setProperty("cds.import.enabled", "true");
+        properties.setProperty("cds.import.enabled", "true"); properties.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
         properties.setProperty("cds.import.source.test-source.profiles", "omd-5.2");
         properties.setProperty("cds.import.allowedRoot", temporary.resolve("input").toString());
         properties.setProperty("cds.import.stagingRoot", temporary.resolve("runs").toString());

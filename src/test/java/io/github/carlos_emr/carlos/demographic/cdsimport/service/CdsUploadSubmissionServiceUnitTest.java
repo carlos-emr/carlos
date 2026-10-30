@@ -92,7 +92,7 @@ class CdsUploadSubmissionServiceUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach void prepare() throws Exception {
         properties = new Properties();
-        properties.setProperty("cds.import.enabled", "true");
+        properties.setProperty("cds.import.enabled", "true"); properties.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
         properties.setProperty("cds.import.uploadRoot", temporary.resolve("uploads").toString());
         properties.setProperty("cds.import.stagingRoot", temporary.resolve("staging").toString());
         properties.setProperty("cds.import.source.clinic.profiles", "omd-5.2");

@@ -139,7 +139,7 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
         new CdsJdbcAdmissionInitializer(nodeOne, true, "validate").initialize();
         new CdsJdbcAdmissionInitializer(nodeTwo, true, "validate").initialize();
         Properties policy = new Properties();
-        policy.setProperty("cds.import.enabled", "true");
+        policy.setProperty("cds.import.enabled", "true"); policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
         policy.setProperty("cds.import.maintenanceMode", "true");
         first = new CdsImportMaintenanceService(nodeOne, new CdsImportConfigurationService(policy));
         second = new CdsImportMaintenanceService(nodeTwo, new CdsImportConfigurationService(policy));
@@ -659,7 +659,7 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
                         var dao=new io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoImpl() {
                             @Override protected jakarta.persistence.EntityManager entityManager() {return session;}
                         };
-                        Properties policy=new Properties(); policy.setProperty("cds.import.enabled","true");
+                        Properties policy=new Properties(); policy.setProperty("cds.import.enabled","true"); policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
                         policy.setProperty("cds.import.maintenanceMode","true");
                         var maintenance=new CdsImportMaintenanceService(source,new CdsImportConfigurationService(policy));
                         try (var actualOwner=maintenance.acquire()) {

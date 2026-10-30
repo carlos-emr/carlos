@@ -30,6 +30,8 @@ public record CdsHistoryNativeDto(
         Long observationMillis,
         Long createdMillis,
         String providerNo,
+        CdsTemporalDto observationDate,
+        String observationField,
         List<CdsClinicalDiagnosticDto> diagnostics) {
     public CdsHistoryNativeDto {
         diagnostics = List.copyOf(diagnostics);

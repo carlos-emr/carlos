@@ -13,7 +13,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-AlertsAndSpecialNeeds"
+              "history-observation"
             ]
           }
         },
@@ -27,7 +27,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-AlertsAndSpecialNeeds"
+              "history-observation"
             ]
           }
         },
@@ -41,7 +41,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-AlertsAndSpecialNeeds"
+              "history-observation"
             ]
           }
         }
@@ -944,7 +944,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-FamilyHistory"
+              "history-observation"
             ]
           }
         },
@@ -958,7 +958,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-FamilyHistory"
+              "history-observation"
             ]
           }
         },
@@ -972,7 +972,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-FamilyHistory"
+              "history-observation"
             ]
           }
         }
@@ -1668,7 +1668,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-PastHealth"
+              "history-observation"
             ]
           }
         },
@@ -1682,7 +1682,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-PastHealth"
+              "history-observation"
             ]
           }
         },
@@ -1696,7 +1696,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-PastHealth"
+              "history-observation"
             ]
           }
         }
@@ -1720,7 +1720,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-PastHealth"
+              "history-observation"
             ]
           }
         },
@@ -1734,7 +1734,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-PastHealth"
+              "history-observation"
             ]
           }
         },
@@ -1748,7 +1748,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-PastHealth"
+              "history-observation"
             ]
           }
         }
@@ -1824,7 +1824,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-ProblemList"
+              "history-observation"
             ]
           }
         },
@@ -1838,7 +1838,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-ProblemList"
+              "history-observation"
             ]
           }
         },
@@ -1852,7 +1852,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-ProblemList"
+              "history-observation"
             ]
           }
         }
@@ -2406,7 +2406,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-RiskFactors"
+              "history-observation"
             ]
           }
         },
@@ -2420,7 +2420,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-RiskFactors"
+              "history-observation"
             ]
           }
         },
@@ -2434,7 +2434,7 @@
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
             "fieldGroups": [
-              "source-only-RiskFactors"
+              "history-observation"
             ]
           }
         }
@@ -3582,7 +3582,7 @@
       "category": "AlertsAndSpecialNeeds",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:DateActive/dt:FullDate",
-      "reviewGroup": "source-only-AlertsAndSpecialNeeds",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -3654,7 +3654,7 @@
       "category": "AlertsAndSpecialNeeds",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:DateActive/dt:YearMonth",
-      "reviewGroup": "source-only-AlertsAndSpecialNeeds",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -3727,7 +3727,7 @@
       "category": "AlertsAndSpecialNeeds",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:DateActive/dt:YearOnly",
-      "reviewGroup": "source-only-AlertsAndSpecialNeeds",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -21525,7 +21525,7 @@
       "category": "FamilyHistory",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:StartDate/dt:FullDate",
-      "reviewGroup": "source-only-FamilyHistory",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -21597,7 +21597,7 @@
       "category": "FamilyHistory",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:StartDate/dt:YearMonth",
-      "reviewGroup": "source-only-FamilyHistory",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -21670,7 +21670,7 @@
       "category": "FamilyHistory",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:StartDate/dt:YearOnly",
-      "reviewGroup": "source-only-FamilyHistory",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -30387,7 +30387,7 @@
       "category": "PastHealth",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:OnsetOrEventDate/dt:FullDate",
-      "reviewGroup": "source-only-PastHealth",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -30459,7 +30459,7 @@
       "category": "PastHealth",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:OnsetOrEventDate/dt:YearMonth",
-      "reviewGroup": "source-only-PastHealth",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -30532,7 +30532,7 @@
       "category": "PastHealth",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:OnsetOrEventDate/dt:YearOnly",
-      "reviewGroup": "source-only-PastHealth",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -30745,7 +30745,7 @@
       "category": "PastHealth",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ProcedureDate/dt:FullDate",
-      "reviewGroup": "source-only-PastHealth",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -30817,7 +30817,7 @@
       "category": "PastHealth",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ProcedureDate/dt:YearMonth",
-      "reviewGroup": "source-only-PastHealth",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -30890,7 +30890,7 @@
       "category": "PastHealth",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ProcedureDate/dt:YearOnly",
-      "reviewGroup": "source-only-PastHealth",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -32067,7 +32067,7 @@
       "category": "ProblemList",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:OnsetDate/dt:FullDate",
-      "reviewGroup": "source-only-ProblemList",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -32139,7 +32139,7 @@
       "category": "ProblemList",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:OnsetDate/dt:YearMonth",
-      "reviewGroup": "source-only-ProblemList",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -32212,7 +32212,7 @@
       "category": "ProblemList",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:OnsetDate/dt:YearOnly",
-      "reviewGroup": "source-only-ProblemList",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -37229,7 +37229,7 @@
       "category": "RiskFactors",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:StartDate/dt:FullDate",
-      "reviewGroup": "source-only-RiskFactors",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -37301,7 +37301,7 @@
       "category": "RiskFactors",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:StartDate/dt:YearMonth",
-      "reviewGroup": "source-only-RiskFactors",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -37374,7 +37374,7 @@
       "category": "RiskFactors",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:StartDate/dt:YearOnly",
-      "reviewGroup": "source-only-RiskFactors",
+      "reviewGroup": "history-observation",
       "variants": [
         {
           "choiceArms": [
@@ -38156,14 +38156,17 @@
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
       "clinical-note-observation": {
-        "destination": "CaseManagementNote.observation_date only for representable exact clock.",
+        "destination": "CaseManagementNote.observation_date for a representable exact date/timestamp; casemgmt_note_ext cdsDatePrecision/cdsDateOriginal/cdsDateField preserve source meaning.",
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryNativeDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNoteExt.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTargetReceiptService.java"
         ],
-        "normalization": "Year/month/date-only/native range or timezone uncertainty stays source-only with warning; exact timestamp floor to native whole seconds, source fraction/offset retained. Native update_date is operational import/revision time, create_date formula not source time. Exact timestamps also require the reverse native Calendar/DATETIME instant round trip, including explicit-offset DST folds; unrepresentable optional native timing stays source-only with a visible warning.",
+        "normalization": "A full date uses a clinic-zone day storage anchor, not an asserted source clock. Year/month and missing dates keep observation_date null with explicit precision/source fields. Exact timestamps floor to native whole seconds; source fraction/offset remain intact. Native range or timezone ambiguity remains source-only with warning. Native update_date is operational revision time; create_date formula is not source time. Exact timestamps require the reverse native Calendar/DATETIME instant round trip, including offset DST folds.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 14 (ClinicalNotes)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -38174,7 +38177,8 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java",
           "src/main/webapp/WEB-INF/jsp/demographic/cdsSourceFields.jsp",
-          "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNote.java"
+          "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNote.java",
+          "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementNoteDAOImpl.java"
         ],
         "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
         "tests": [
@@ -38183,7 +38187,8 @@
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryVisibilityMariaDbIntegrationTest.java",
-          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalUnitTest.java"
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryProjectionIntegrationTest.java"
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
@@ -38747,8 +38752,45 @@
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
+      "history-observation": {
+        "destination": "CaseManagementNote.observation_date for a representable exact date/timestamp; casemgmt_note_ext cdsDatePrecision/cdsDateOriginal/cdsDateField preserve source meaning.",
+        "disposition": "native-and-source",
+        "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
+        "implementation": [
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryNativeDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNoteExt.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTargetReceiptService.java"
+        ],
+        "normalization": "Full dates use a clinic-zone day storage anchor with precision/original/field metadata. Year/month and absent dates keep observation_date null. Section fields are StartDate (FamilyHistory/RiskFactors), OnsetDate (ProblemList), DateActive (AlertsAndSpecialNeeds), and OnsetOrEventDate (PastHealth), with ProcedureDate used only when onset is absent. End/resolution dates are independent source fields. Original source bytes remain unchanged; the native issue-code reader sorts unknown dates last without dropping notes. Precision extension rows are included in native receipts.",
+        "normativeBasis": [
+          "EMR Data Migration Implementation Guide v1.1 section 14 (ClinicalNotes)",
+          "EMR Data Migration Requirements v1.1 DP02.01",
+          "Pinned XML Schema declaration/facets in generated row"
+        ],
+        "original": "Immutable accepted XML bytes are retained. Each original XML character value/attribute (XML line-end/entity processing already applied) or decoded binary is separately addressed by indexed XPath, namespace, ordinal and type in cds_import_field; large values use hash-bound spool offsets. Logical whitespace/corrections are separate. Source category view and original-value download remain protected.",
+        "reader": [
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java",
+          "src/main/webapp/WEB-INF/jsp/demographic/cdsSourceFields.jsp",
+          "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNote.java",
+          "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementNoteDAOImpl.java"
+        ],
+        "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
+        "tests": [
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/CdsXmlParserUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssemblerUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryVisibilityMariaDbIntegrationTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryProjectionIntegrationTest.java"
+        ],
+        "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
+      },
       "immunization-clinical": {
-        "destination": "Prevention preventionType/refused/preventionDate; PreventionExt manufacture/lot/route/location/dose/comments/instructions/cdsCode/cdsCodeSystem/cdsType/cdsDateOriginal/cdsDatePrecision.",
+        "destination": "Prevention preventionType/refused/preventionDate; PreventionExt cdsName/manufacture/lot/route/location/dose/comments/instructions/cdsCode/cdsCodeSystem/cdsType/cdsDateOriginal/cdsDatePrecision.",
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
@@ -38757,7 +38799,7 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java"
         ],
-        "normalization": "RefusedFlag required, both enum/Boolean choices precise. Optional unknown date stays null; year/month anchors require partial_date and precision-aware readers. No importing-provider attribution as administering clinician. Calendar-only dates use strict native civil anchors without asserting a source clock/instant; year/month precision remains separate. Exact timestamps must retain their reverse native instant, including DST folds, or require preflight review. DATETIME(0) floors seconds with full-source subsecond diagnostics; no blanket year-1000 minimum is imposed.",
+        "normalization": "RefusedFlag required, both enum/Boolean choices precise. Optional unknown date stays null; year/month anchors require partial_date and precision-aware readers. No importing-provider attribution as administering clinician. Calendar-only dates use strict native civil anchors without asserting a source clock/instant; year/month precision remains separate. Exact timestamps must retain their reverse native instant, including DST folds, or require preflight review. DATETIME(0) floors seconds with full-source subsecond diagnostics; no blanket year-1000 minimum is imposed. ImmunizationType selects a configured PREVENTION_ITEMS injection key through healthCanadaType, matching native CVC preference and generic overrides; absent/unmapped types use OtherA. The source name remains cdsName, not a native prevention key.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 11 (Immunizations)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -38780,7 +38822,8 @@
           "src/test/java/io/github/carlos_emr/carlos/prevention/PreventionPrecisionRulesUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalPersisterUnitTest.java#shouldRefuseUnrepresentableNativeDatesInCompletePreflight_beforeAnyClinicalDaoWrite",
-          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java#shouldPreserveEarlyCivilDatesAndRecordedPrecision_throughNativeImmunizationWriter"
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java#shouldPreserveEarlyCivilDatesAndRecordedPrecision_throughNativeImmunizationWriter",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImmunizationProjectionIntegrationTest.java"
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
@@ -39740,7 +39783,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described.",
-    "sha256": "8fb19088186a09d622fbde775ded2d3be9cd9053dc90eb550f3b1949b91a0a1f"
+    "sha256": "5fa7cc00478df19abed8e2d83d29734a90ed3754d15fb27501eb767e411b9c29"
   },
   "root": "cds:OmdCds",
   "schemas": [

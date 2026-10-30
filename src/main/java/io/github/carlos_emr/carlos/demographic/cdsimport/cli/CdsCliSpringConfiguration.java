@@ -91,6 +91,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
         includeFilters = @ComponentScan.Filter(type = FilterType.REGEX,
                 pattern = "io\\.github\\.carlos_emr\\.carlos\\.commn\\.dao\\.Cds(Import|Upload).*Dao"))
 @Import({DrugDaoImpl.class, PartialDateDaoImpl.class, PreventionDaoImpl.class,
+        io.github.carlos_emr.carlos.commn.dao.CVCMappingDaoImpl.class,
+        io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDaoImpl.class,
         PreventionExtDaoImpl.class, SecObjPrivilegeDaoImpl.class, SecuserroleDaoImpl.class,
         SecobjprivilegeDaoImpl.class, SecurityInfoManagerImpl.class, ProviderDaoImpl.class,
         CdsLegacyProjectionDao.class, ContactDaoImpl.class, DemographicContactDaoImpl.class,
@@ -107,6 +109,11 @@ public class CdsCliSpringConfiguration {
     // Match the established WAR qualifiers without registering its duplicate legacy aliases.
     @Bean(name="CaseManagementNoteDAO")
     public CaseManagementNoteDAO caseManagementNoteDao() { return new CaseManagementNoteDAOImpl(); }
+
+    @Bean(name="CaseManagementNoteExtDAO")
+    public io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO caseManagementNoteExtDao() {
+        return new io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAOImpl();
+    }
 
     @Bean(name="CaseManagementIssueDAO")
     public CaseManagementIssueDAO caseManagementIssueDao() { return new CaseManagementIssueDAOImpl(); }

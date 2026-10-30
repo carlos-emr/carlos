@@ -259,6 +259,44 @@ class CdsClinicalPersisterUnitTest {
     }
 
     @Test
+    void shouldUseConfiguredPreventionTypes_insteadOfSourceBrandNames() throws Exception {
+        var writer = new CdsImmunizationPersister(mock(PreventionDao.class), mock(PreventionExtDao.class), dates,
+                normalization, "America/Toronto");
+        for (String[] choice : java.util.List.of(new String[]{"DTaP", "DTaP"}, new String[]{"Tdap", "Tdap"},
+                new String[]{"Unknown source type", "OtherA"})) {
+            var source = normalization.immunization(CdsClinicalFixture.record(directory, "Immunizations",
+                    Map.of("ImmunizationName", "Source brand name", "ImmunizationType", choice[0], "RefusedFlag/ynIndicatorsimple", "N")));
+            assertThat(writer.candidate(42, "999998", source).getPreventionType()).isEqualTo(choice[1]);
+        }
+    }
+
+    @Test
+    void shouldUseLocalPreventionNames_andRetainCvcOverrideBehavior() throws Exception {
+        Path configured = directory.resolve("preventions.xml");
+        java.nio.file.Files.writeString(configured, "<preventions><item name='Local booster' healthCanadaType='Tdap' layout='injection'/>"
+                + "<item name='OtherA' healthCanadaType='' layout='injection'/></preventions>");
+        var mappings = mock(io.github.carlos_emr.carlos.commn.dao.CVCMappingDao.class);
+        var vaccines = mock(io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao.class);
+        var source = normalization.immunization(CdsClinicalFixture.record(directory, "Immunizations",
+                Map.of("ImmunizationName", "Independent source brand", "ImmunizationType", "Tdap", "RefusedFlag/ynIndicatorsimple", "N")));
+        var writer = new CdsImmunizationPersister(mock(PreventionDao.class), mock(PreventionExtDao.class), dates,
+                normalization, "America/Toronto", configured.toString(), mappings, vaccines);
+        assertThat(writer.candidate(42, "999998", source).getPreventionType()).isEqualTo("Local booster");
+        var override = new io.github.carlos_emr.carlos.commn.model.CVCMapping();
+        override.setPreferCVC(true);
+        when(mappings.findByOscarName("Local booster")).thenReturn(override);
+        writer = new CdsImmunizationPersister(mock(PreventionDao.class), mock(PreventionExtDao.class), dates,
+                normalization, "America/Toronto", configured.toString(), mappings, vaccines);
+        assertThat(writer.candidate(42, "999998", source).getPreventionType()).isEqualTo("OtherA");
+        var generic = new io.github.carlos_emr.carlos.commn.model.CVCImmunization();
+        generic.setPicklistName("Tdap");
+        when(vaccines.findAllGeneric()).thenReturn(java.util.List.of(generic));
+        writer = new CdsImmunizationPersister(mock(PreventionDao.class), mock(PreventionExtDao.class), dates,
+                normalization, "America/Toronto", configured.toString(), mappings, vaccines);
+        assertThat(writer.candidate(42, "999998", source).getPreventionType()).isEqualTo("Tdap");
+    }
+
+    @Test
     void shouldRetainUndatedAdministrationAndNativeManufacturer_whenSourceDateIsAbsent() throws Exception {
         var source = normalization.immunization(CdsClinicalFixture.record(directory,
                 "Immunizations", Map.of("ImmunizationName", "Synthetic vaccine",

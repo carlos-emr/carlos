@@ -35,6 +35,7 @@ import java.time.ZoneId;
 import java.util.Map;
 import java.util.Objects;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,15 +48,39 @@ public class CdsImmunizationPersister {
     private final PartialDateDao dates;
     private final CdsClinicalNormalizationService normalization;
     private final ZoneId clinicZone;
+    private final String preventionItems;
+    private final io.github.carlos_emr.carlos.commn.dao.CVCMappingDao cvcMappings;
+    private final io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao cvcImmunizations;
+    private volatile Map<String, String> preventionTypes;
 
     public CdsImmunizationPersister(PreventionDao preventions, PreventionExtDao extensions,
             PartialDateDao dates, CdsClinicalNormalizationService normalization,
-            @Value("${cds.import.clinicalZone:}") String clinicZone) {
+            String clinicZone) {
+        this(preventions, extensions, dates, normalization, clinicZone,
+                "classpath:oscar/prevention/PreventionItems.xml");
+    }
+
+    public CdsImmunizationPersister(PreventionDao preventions, PreventionExtDao extensions,
+            PartialDateDao dates, CdsClinicalNormalizationService normalization,
+            String clinicZone, String preventionItems) {
+        this(preventions, extensions, dates, normalization, clinicZone, preventionItems, null, null);
+    }
+
+    @Autowired
+    public CdsImmunizationPersister(PreventionDao preventions, PreventionExtDao extensions,
+            PartialDateDao dates, CdsClinicalNormalizationService normalization,
+            @Value("${cds.import.clinicalZone:}") String clinicZone,
+            @Value("${PREVENTION_ITEMS:classpath:oscar/prevention/PreventionItems.xml}") String preventionItems,
+            io.github.carlos_emr.carlos.commn.dao.CVCMappingDao cvcMappings,
+            io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao cvcImmunizations) {
         this.preventions = preventions;
         this.extensions = extensions;
         this.dates = dates;
         this.normalization = normalization;
         this.clinicZone = clinicZone == null || clinicZone.isBlank() ? null : ZoneId.of(clinicZone);
+        this.preventionItems = Objects.requireNonNull(preventionItems);
+        this.cvcMappings = cvcMappings;
+        this.cvcImmunizations = cvcImmunizations;
     }
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
@@ -86,6 +111,7 @@ public class CdsImmunizationPersister {
         extra(prevention.getId(), "cdsCode", source.code());
         extra(prevention.getId(), "cdsCodeSystem", source.codeSystem());
         extra(prevention.getId(), "cdsType", source.type());
+        extra(prevention.getId(), "cdsName", source.name());
         return Map.of("preventions", String.valueOf(prevention.getId()));
     }
 
@@ -95,14 +121,66 @@ public class CdsImmunizationPersister {
         prevention.setDemographicId(demographicNo);
         prevention.setProviderNo(""); // Import does not identify an administering clinician.
         prevention.setCreatorProviderNo(auditProviderNo);
-        prevention.setPreventionType(source.name());
+        prevention.setPreventionType(preventionType(source.type()));
         prevention.setRefused(source.refused());
         prevention.setPreventionDate(nativeDate(source));
         return prevention;
     }
 
-    /** The same pure storage check runs during complete preflight, before any native unit writes. */
-    public void validate(CdsImmunizationDto source) { nativeDate(source); }
+    /** Validate storage and warm the configured type mapping during preflight, before native unit writes. */
+    public void validate(CdsImmunizationDto source) {
+        nativeDate(source);
+        preventionType(source.type());
+    }
+
+    /** Same injection/healthCanadaType mapping as the retired importer, loaded before native writes. */
+    private String preventionType(String type) {
+        Map<String, String> configured = preventionTypes;
+        if (configured == null) configured = loadPreventionTypes();
+        return configured.getOrDefault(type == null ? "" : type, "OtherA");
+    }
+
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
+            justification = "PREVENTION_ITEMS is trusted server configuration, resolved by PathValidationUtils")
+    private synchronized Map<String, String> loadPreventionTypes() {
+        if (preventionTypes != null) return preventionTypes;
+        try (var input = preventionItems.startsWith("classpath:")
+                ? getClass().getClassLoader().getResourceAsStream(preventionItems.substring(10))
+                : java.nio.file.Files.newInputStream(io.github.carlos_emr.carlos.utility.PathValidationUtils
+                        .resolveTrustedPath(new java.io.File(preventionItems)).toPath())) {
+            if (input == null) throw new IOException("Prevention configuration unavailable");
+            byte[] bytes = input.readNBytes(1048577);
+            if (bytes.length > 1048576) throw new IOException("Prevention configuration exceeds its bound");
+            var document = io.github.carlos_emr.carlos.utility.XmlUtils.createSecureSAXBuilder()
+                    .build(new java.io.ByteArrayInputStream(bytes));
+            Map<String, String> mapped = new java.util.LinkedHashMap<>();
+            var addedSnomeds = new java.util.HashSet<String>();
+            boolean fallback = false;
+            for (var item : document.getRootElement().getChildren("item")) {
+                String name = item.getAttributeValue("name"), type = item.getAttributeValue("healthCanadaType");
+                var cvc = cvcMappings == null ? null : cvcMappings.findByOscarName(name);
+                if (cvc != null) {
+                    if (Boolean.TRUE.equals(cvc.getPreferCVC())) continue;
+                    if (cvcImmunizations.findBySnomedConceptId(cvc.getCvcSnomedId()) != null)
+                        addedSnomeds.add(cvc.getCvcSnomedId());
+                }
+                if ("OtherA".equals(name)) fallback = true;
+                if (name != null && type != null && !type.isBlank()
+                        && "injection".equals(item.getAttributeValue("layout"))) mapped.put(type, name);
+            }
+            if (cvcImmunizations != null) {
+                for (var vaccine : cvcImmunizations.findAllGeneric()) {
+                    String name = vaccine.getPicklistName();
+                    if (name != null && !addedSnomeds.contains(vaccine.getSnomedConceptId())) mapped.put(name, name);
+                }
+            }
+            if (!fallback) throw new IOException("Prevention fallback unavailable");
+            preventionTypes = Map.copyOf(mapped);
+            return preventionTypes;
+        } catch (IOException | org.jdom2.JDOMException invalid) {
+            throw new CdsImportException("IMMUNIZATION_PREVENTION_CONFIG_UNAVAILABLE");
+        }
+    }
 
     private java.util.Date nativeDate(CdsImmunizationDto source) {
         if (source.date().precision()

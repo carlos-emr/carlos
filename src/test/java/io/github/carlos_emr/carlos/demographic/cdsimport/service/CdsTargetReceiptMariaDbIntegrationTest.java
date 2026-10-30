@@ -34,6 +34,45 @@ import static org.assertj.core.api.Assertions.*;
 /** Actual Connector/J row proofs over connection-local temporary native-table shapes. */
 @Tag("integration")
 class CdsTargetReceiptMariaDbIntegrationTest {
+    @Test void shouldDetectChangedNoteDatePrecision_inTheActualNativeReceipt() throws Exception {
+        try (Connection connection = connection()) {
+            connection.setAutoCommit(false);
+            String extensionId = null;
+            try {
+                long note;
+                try (var insert = connection.prepareStatement("INSERT INTO casemgmt_note"
+                        + " (demographic_no,uuid,observation_date,update_date,provider_no,signing_provider_no,note,history,locked,archived)"
+                        + " VALUES ('974234',?,'2026-02-03 00:00:00',NOW(),'','','Synthetic precision receipt','',0,0)",
+                        java.sql.Statement.RETURN_GENERATED_KEYS)) {
+                    insert.setString(1, java.util.UUID.randomUUID().toString());
+                    assertThat(insert.executeUpdate()).isEqualTo(1);
+                    try (var keys = insert.getGeneratedKeys()) { assertThat(keys.next()).isTrue(); note = keys.getLong(1); }
+                }
+                try (var insert = connection.prepareStatement("INSERT INTO casemgmt_note_ext (note_id,key_val,`value`) VALUES (?,?,?)",
+                        java.sql.Statement.RETURN_GENERATED_KEYS)) {
+                    insert.setLong(1, note); insert.setString(2, "cdsDatePrecision"); insert.setString(3, "FULL_DATE");
+                    assertThat(insert.executeUpdate()).isEqualTo(1);
+                    try (var keys = insert.getGeneratedKeys()) { assertThat(keys.next()).isTrue(); extensionId = keys.getString(1); }
+                }
+                var entityManager = org.mockito.Mockito.mock(jakarta.persistence.EntityManager.class);
+                var session = org.mockito.Mockito.mock(org.hibernate.Session.class);
+                org.mockito.Mockito.when(entityManager.unwrap(org.hibernate.Session.class)).thenReturn(session);
+                org.mockito.Mockito.when(session.doReturningWork(org.mockito.ArgumentMatchers.any()))
+                        .thenAnswer(call -> ((org.hibernate.jdbc.ReturningWork<?>) call.getArgument(0)).execute(connection));
+                var service = new CdsTargetReceiptService();
+                org.springframework.test.util.ReflectionTestUtils.setField(service, "entityManager", entityManager);
+                var receipt = service.capture(java.util.Map.of("casemgmt_note_ext", extensionId));
+                assertThat(service.verify(receipt)).isTrue();
+                try (var update = connection.prepareStatement("UPDATE casemgmt_note_ext SET `value`=? WHERE id=?")) {
+                    update.setString(1, "YEAR"); update.setString(2, extensionId);
+                    assertThat(update.executeUpdate()).isEqualTo(1);
+                }
+                assertThat(service.verify(receipt)).isFalse();
+            } finally { connection.rollback(); }
+            if (extensionId != null) assertThat(CdsTargetReceiptService.rowDigest(connection, "casemgmt_note_ext", extensionId)).isNull();
+        }
+    }
+
     @Test void shouldHashNativeNumbersDatesUnicodeAndBinary_withoutDriverCharacterCoercion() throws Exception {
         try (Connection connection = connection(); var statement = connection.createStatement()) {
             statement.execute("CREATE TEMPORARY TABLE demographic (demographic_no INT PRIMARY KEY, n INT, amount DECIMAL(10,3), event_time DATETIME(6), content MEDIUMTEXT CHARACTER SET utf8mb4, bytes MEDIUMBLOB, absent VARCHAR(10))");

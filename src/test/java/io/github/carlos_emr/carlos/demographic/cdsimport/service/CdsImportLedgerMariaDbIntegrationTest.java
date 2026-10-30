@@ -223,7 +223,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
  }
 
  static void verifyDeadOwnerResume(Properties jdbc) throws Exception {
-  Properties policy=new Properties();policy.setProperty("cds.import.enabled","true");policy.setProperty("cds.import.maintenanceMode","true");
+  Properties policy=new Properties();policy.setProperty("cds.import.enabled","true"); policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());policy.setProperty("cds.import.maintenanceMode","true");
   var config=new CdsImportConfigurationService(policy);
   var actor=new CdsImportActorDto("fixture","999998","999998",null,null,null);
   var command=new io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand(Path.of("/opaque/recovery.xml"),UUID.randomUUID().toString(),"999998",null,null,"fixture","omd-5.2",false,false,true,0,null,false);
@@ -451,7 +451,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
   var physical=new io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource();physical.setDriverClassName("com.mysql.cj.jdbc.Driver");
   physical.setUrl(jdbc.getProperty("jdbcUrl").replace("jdbc:mariadb:","jdbc:mysql:"));physical.setUsername(jdbc.getProperty("jdbcUser"));physical.setPassword(jdbc.getProperty("jdbcPassword"));physical.setDefaultAutoCommit(true);
   new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionInitializer(physical,true,"validate").initialize();
-  Properties policy=new Properties();policy.setProperty("cds.import.enabled","true");policy.setProperty("cds.import.maintenanceMode","true");var config=new CdsImportConfigurationService(policy);
+  Properties policy=new Properties();policy.setProperty("cds.import.enabled","true"); policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());policy.setProperty("cds.import.maintenanceMode","true");var config=new CdsImportConfigurationService(policy);
   var coordinators=new CdsImportCoordinatorService(physical);var maintenance=new CdsImportMaintenanceService(physical,config);
   try(physical;var coordinator=coordinators.acquire();var window=maintenance.acquire()) {
    new CdsImportTargetSafetyService(config).verify(window);return ledger.claimPreparation(id,coordinator,window,true);

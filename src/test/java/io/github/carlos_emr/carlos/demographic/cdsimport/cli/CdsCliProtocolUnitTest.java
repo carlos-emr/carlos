@@ -478,7 +478,8 @@ class CdsCliProtocolUnitTest {
     @ParameterizedTest
     @ValueSource(strings = {"IMPORT_BUSY", "IMPORT_ALREADY_RUNNING", "IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE",
             "MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION", "CDS_INPUT_DISK_RESERVE", "CDS_SOURCE_SNAPSHOT_FAILED",
-            "PREACCEPT_INDEX_TIMEOUT", "PREACCEPT_INDEX_CANCELLED"})
+            "PREACCEPT_INDEX_TIMEOUT", "PREACCEPT_INDEX_CANCELLED", "IMPORT_CLINICAL_ZONE_REQUIRED",
+            "IMMUNIZATION_PREVENTION_CONFIG_UNAVAILABLE"})
     void shouldExposeFiniteSafeReason_whenSharedEngineRefusesControl(String reason) {
         int code = CdsImportCli.runAuthorized(new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
                 CdsCliArguments.parse(new String[]{"--operation", "resume", "--provider", "999998", "--run", NONCE}),

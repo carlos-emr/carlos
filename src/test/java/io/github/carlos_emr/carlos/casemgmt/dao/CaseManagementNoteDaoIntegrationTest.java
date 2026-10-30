@@ -1345,6 +1345,21 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
 
         @Test
         @Tag("query")
+        void shouldSortKnownAndUnknownObservationDates_withoutDroppingNotes() {
+            var first = createNoteWithIssue(String.valueOf(DEMO_NO), "Native first", createDate(2024, 7, 1), cmi1);
+            var last = createNoteWithIssue(String.valueOf(DEMO_NO), "Native last", createDate(2024, 7, 2), cmi1);
+            var unknown = createNoteWithIssue(String.valueOf(DEMO_NO), "Unknown observation", createDate(2024, 7, 3), cmi1);
+            unknown.setObservation_date(null);
+            caseManagementNoteDAO.updateNote(unknown);
+            hibernateTemplate.flush();
+            entityManager.clear();
+            assertThat(caseManagementNoteDAO.getNote(unknown.getId()).getObservation_date()).isNull();
+            assertThat(caseManagementNoteDAO.findNotesByDemographicAndIssueCode(DEMO_NO, new String[]{"FNDIC001"}))
+                    .extracting(CaseManagementNote::getId).containsExactly(first.getId(), last.getId(), unknown.getId());
+        }
+
+        @Test
+        @Tag("query")
         @DisplayName("should return empty when demographic does not match")
         void shouldReturnEmpty_whenDemographicDoesNotMatch() {
             // Given - note for different demographic

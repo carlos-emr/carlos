@@ -56,6 +56,7 @@ public class CdsImportConfigurationService {
         if (!enabled()) throw new CdsImportException("IMPORT_ADMISSION_DISABLED");
         java.time.ZoneId runtimeZone = io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsCalendarZone.requireCurrentCalendarRules();
         String clinicalZone = value("cds.import.clinicalZone", "");
+        if (clinicalZone.isEmpty()) throw new CdsImportException("IMPORT_CLINICAL_ZONE_REQUIRED");
         if (!clinicalZone.isEmpty()) {
             final java.time.ZoneId selected;
             try { selected = java.time.ZoneId.of(clinicalZone); }

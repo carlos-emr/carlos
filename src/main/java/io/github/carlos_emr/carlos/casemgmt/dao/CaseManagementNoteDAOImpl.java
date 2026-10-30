@@ -38,13 +38,11 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 
 import java.util.Arrays;
@@ -458,12 +456,8 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
 
         // Observation dates are sort keys, not note identities: distinct UUIDs can share one date.
         List<CaseManagementNote> sortedResults = new ArrayList<>(uniqueForUuid.size());
-        for (CaseManagementNote note : uniqueForUuid.values()) {
-            Objects.requireNonNull(note.getObservation_date(), "Missing note observation date");
-            sortedResults.add(note);
-        }
-        sortedResults.sort(Comparator.comparing(CaseManagementNote::getObservation_date)
-                .thenComparing(CaseManagementNote::getId));
+        sortedResults.addAll(uniqueForUuid.values());
+        sortedResults.sort(CaseManagementNote.observationDateComparator(true));
 
         return sortedResults;
     }

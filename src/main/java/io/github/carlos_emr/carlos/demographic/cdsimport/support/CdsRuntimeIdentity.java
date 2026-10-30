@@ -51,6 +51,7 @@ final class CdsRuntimeIdentity {
         return new Class<?>[] {
             org.apache.xerces.jaxp.SAXParserFactoryImpl.class,
             org.apache.xerces.jaxp.validation.XMLSchemaFactory.class,
+            org.jdom2.input.SAXBuilder.class,
             com.fasterxml.jackson.core.JsonFactory.class,
             com.fasterxml.jackson.databind.ObjectMapper.class,
             com.fasterxml.jackson.annotation.JsonCreator.class,

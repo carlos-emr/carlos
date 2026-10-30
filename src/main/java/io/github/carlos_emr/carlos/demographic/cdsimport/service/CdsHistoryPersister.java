@@ -23,9 +23,11 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
+import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteExt;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsClinicalDiagnosticDto;
@@ -91,6 +93,7 @@ public class CdsHistoryPersister {
     private final CaseManagementNoteDAO notes;
     private final CaseManagementIssueDAO patientIssues;
     private final IssueDAO issues;
+    private final CaseManagementNoteExtDAO extensions;
 
     public CdsHistoryPersister(
             CdsFieldParser fields,
@@ -100,7 +103,8 @@ public class CdsHistoryPersister {
             CdsNativePreparationService preparation,
             @Qualifier("CaseManagementNoteDAO") CaseManagementNoteDAO notes,
             @Qualifier("CaseManagementIssueDAO") CaseManagementIssueDAO patientIssues,
-            @Qualifier("IssueDAO") IssueDAO issues) {
+            @Qualifier("IssueDAO") IssueDAO issues,
+            @Qualifier("CaseManagementNoteExtDAO") CaseManagementNoteExtDAO extensions) {
         this.fields = fields;
         this.normalization = normalization;
         this.configuration = configuration;
@@ -109,6 +113,7 @@ public class CdsHistoryPersister {
         this.notes = Objects.requireNonNull(notes);
         this.patientIssues = Objects.requireNonNull(patientIssues);
         this.issues = Objects.requireNonNull(issues);
+        this.extensions = Objects.requireNonNull(extensions);
     }
 
     public void validate(CdsRecordDto record, CdsImportCommand command) {
@@ -188,13 +193,11 @@ public class CdsHistoryPersister {
         }
         Long observation = null, created = null;
         String author = null;
+        String observationField = observationField(record, command);
+        CdsTemporalDto observationDate = observationField == null ? null
+                : normalization.date(record, observationField, command);
+        if (observationDate != null) observation = timestamp(observationDate, observationField, notice, true);
         if (record.section().equals("ClinicalNotes")) {
-            observation =
-                    timestamp(
-                            normalization.date(record, "EventDateTime", command),
-                            "EventDateTime",
-                            notice,
-                            true);
             if (repeated[0])
                 notice.accept(
                         new CdsClinicalDiagnosticDto(
@@ -240,6 +243,8 @@ public class CdsHistoryPersister {
                         observation,
                         created,
                         author,
+                        observationDate,
+                        observationField,
                         List.copyOf(warnings.values())));
     }
 
@@ -300,7 +305,37 @@ public class CdsHistoryPersister {
         if (note.getId() == null || note.getId() < 1)
             throw new CdsImportException("HISTORY_NATIVE_NOTE_ID_MISSING");
         references.put("casemgmt_note", note.getId().toString());
+        if (source.observationDate() != null) {
+            noteExtension(note.getId(), "cdsDatePrecision", source.observationDate().precision().name(), references);
+            noteExtension(note.getId(), "cdsDateOriginal", source.observationDate().original(), references);
+            noteExtension(note.getId(), "cdsDateField", source.observationField(), references);
+        }
         return references;
+    }
+
+    private void noteExtension(Long note, String key, String value, Map<String, String> references) {
+        if (value == null) return;
+        var extension = new CaseManagementNoteExt();
+        extension.setNoteId(note);
+        extension.setKeyVal(key);
+        extension.setValue(value);
+        extensions.save(extension);
+        if (extension.getId() == null || extension.getId() < 1)
+            throw new CdsImportException("HISTORY_NATIVE_EXTENSION_ID_MISSING");
+        references.put("casemgmt_note_ext#" + key, extension.getId().toString());
+    }
+
+    /** Prefer the section's onset/event date; an independent end/resolution date stays in source fields. */
+    private String observationField(CdsRecordDto record, CdsImportCommand command) throws IOException {
+        return switch (record.section()) {
+            case "ClinicalNotes" -> "EventDateTime";
+            case "FamilyHistory", "RiskFactors" -> "StartDate";
+            case "ProblemList" -> "OnsetDate";
+            case "AlertsAndSpecialNeeds" -> "DateActive";
+            case "PastHealth" -> normalization.date(record, "OnsetOrEventDate", command).precision()
+                    == CdsTemporalDto.Precision.UNKNOWN ? "ProcedureDate" : "OnsetOrEventDate";
+            default -> null;
+        };
     }
 
     private Issue requireIssue(String code) {
@@ -324,7 +359,7 @@ public class CdsHistoryPersister {
         }
         if (value.precision() == CdsTemporalDto.Precision.FULL_DATE) {
             notice.accept(new CdsClinicalDiagnosticDto("CDS_NOTE_DATE_ONLY_SOURCE_VIEW", path));
-            return null;
+            if (!nativeObservation) return null;
         }
         if (!value.exactCalendarDate()) {
             notice.accept(
@@ -352,7 +387,7 @@ public class CdsHistoryPersister {
                 int nanos =
                         value.offsetDateTime() != null
                                 ? value.offsetDateTime().getNano()
-                                : value.localDateTime().getNano();
+                                : value.localDateTime() == null ? 0 : value.localDateTime().getNano();
                 if (nanos != 0)
                     notice.accept(
                             new CdsClinicalDiagnosticDto(

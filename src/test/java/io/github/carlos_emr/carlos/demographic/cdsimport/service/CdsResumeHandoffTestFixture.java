@@ -51,7 +51,7 @@ final class CdsResumeHandoffTestFixture {
             throw new IllegalArgumentException("Dedicated disposable ledger schema required");
         }
         Properties policy = new Properties();
-        policy.setProperty("cds.import.enabled", "true");
+        policy.setProperty("cds.import.enabled", "true"); policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
         policy.setProperty("cds.import.maintenanceMode", "true");
         var config = new CdsImportConfigurationService(policy);
         var physical = new OscarTrackingBasicDataSource();

@@ -54,6 +54,7 @@ public class CdsTargetReceiptService {
             Map.entry("preventionsExt", "id"), Map.entry("partial_date", "id"),
             Map.entry("appointment", "appointment_no"), Map.entry("document", "document_no"),
             Map.entry("casemgmt_note", "note_id"), Map.entry("casemgmt_issue", "id"),
+            Map.entry("casemgmt_note_ext", "id"),
             Map.entry("measurements", "id"), Map.entry("measurementsExt", "id"),
             Map.entry("hl7TextMessage", "lab_id"), Map.entry("hl7TextInfo", "id"),
             Map.entry("patientLabRouting", "id"), Map.entry("providerLabRouting", "id"),

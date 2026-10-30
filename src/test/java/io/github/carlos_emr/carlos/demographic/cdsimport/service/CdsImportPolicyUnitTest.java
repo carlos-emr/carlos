@@ -73,5 +73,14 @@ class CdsImportPolicyUnitTest {
                 .isInstanceOf(CdsImportException.class).hasMessageContaining("IMPORT_CLINICAL_ZONE_INVALID");
     }
 
+    @Test void shouldRequireExplicitClinicalZone_whenImportAdmissionIsEnabled() {
+        Properties properties = new Properties(); properties.setProperty("cds.import.enabled", "true");
+        for (String zone : new String[] {"", "   "}) {
+            properties.setProperty("cds.import.clinicalZone", zone);
+            assertThatThrownBy(() -> config(properties).requireEnabled())
+                    .isInstanceOf(CdsImportException.class).hasMessage("IMPORT_CLINICAL_ZONE_REQUIRED");
+        }
+    }
+
     private static CdsImportConfigurationService config(Properties properties) { return new CdsImportConfigurationService(properties); }
 }

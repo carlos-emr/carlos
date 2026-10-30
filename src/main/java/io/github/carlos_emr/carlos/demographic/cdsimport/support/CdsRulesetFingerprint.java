@@ -103,6 +103,9 @@ public record CdsRulesetFingerprint(String sha256) {
         "casemgmt/model/CaseManagementIssue",
         "casemgmt/dao/CaseManagementIssueDAO",
         "casemgmt/dao/CaseManagementIssueDAOImpl",
+        "casemgmt/model/CaseManagementNoteExt",
+        "casemgmt/dao/CaseManagementNoteExtDAO",
+        "casemgmt/dao/CaseManagementNoteExtDAOImpl",
         "casemgmt/dao/IssueDAO",
         "casemgmt/dao/IssueDAOImpl",
         "PMmodule/dao/ProviderDao",
@@ -125,6 +128,7 @@ public record CdsRulesetFingerprint(String sha256) {
         "lab/ca/all/parsers/CMLHandler",
         "lab/ca/all/parsers/Factory",
         "utility/PathValidationUtils",
+        "utility/XmlUtils",
         "commn/dao/AbstractDaoImpl",
         "dao/AbstractJpaDao",
         "commn/dao/DrugDaoImpl",
@@ -135,6 +139,12 @@ public record CdsRulesetFingerprint(String sha256) {
         "commn/dao/PreventionMergedDemographicDaoImpl",
         "commn/dao/PartialDateDaoImpl",
         "commn/dao/PreventionExtDaoImpl",
+        "commn/dao/CVCMappingDao",
+        "commn/dao/CVCMappingDaoImpl",
+        "commn/dao/CVCImmunizationDao",
+        "commn/dao/CVCImmunizationDaoImpl",
+        "commn/model/CVCMapping",
+        "commn/model/CVCImmunization",
         "commn/dao/ContactDaoImpl",
         "commn/dao/DemographicContactDaoImpl",
         "commn/dao/MeasurementDaoImpl",
@@ -245,6 +255,7 @@ public record CdsRulesetFingerprint(String sha256) {
                         "cds-import/schema/EMR_Data_Migration_Schema.xsd",
                         "cds-import/schema/EMR_Data_Migration_Schema_DT.xsd",
                         "spoken_languages_codes.properties",
+                        "oscar/prevention/PreventionItems.xml",
                         BASE + "lab/ca/all/parsers/message_config.xml"
                     }) {
                 URL resource = loader.getResource(name);

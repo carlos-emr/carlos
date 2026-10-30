@@ -148,7 +148,7 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
             assertThat(controlled.getNetworkTimeout()).isEqualTo(60000);
         }
         Properties policy = new Properties();
-        policy.setProperty("cds.import.enabled", "true");
+        policy.setProperty("cds.import.enabled", "true"); policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
         policy.setProperty("cds.import.maintenanceMode", "true");
         policy.setProperty("cds.import.drainTimeoutSeconds", "3");
         var configuration = new CdsImportConfigurationService(policy);

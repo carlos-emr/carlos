@@ -133,7 +133,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         histories =
                 new CdsHistoryPersister(
                         fields, normalization, configuration, providers, preparation,
-                        notesDao, patientIssuesDao, issuesDao);
+                        notesDao, patientIssuesDao, issuesDao, mock(io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO.class));
         appointments =
                 new CdsAppointmentPersister(
                         fields, normalization, configuration, providers, preparation, appointmentsDao);
@@ -546,7 +546,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldKeepDateOnlyNote_withoutInventedMidnightTimestamp() throws Exception {
+    void shouldAnchorDateOnlyNote_inTheConfiguredClinicalZone() throws Exception {
         var record =
                 section(
                         "ClinicalNotes",
@@ -554,10 +554,22 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                             + " note</MyClinicalNotesContent><EventDateTime><cdsd:FullDate>2026-02-03</cdsd:FullDate></EventDateTime>");
         histories.prepare("run", 1, "unit", record, command);
         var dto = captured(CdsHistoryNativeDto.class);
-        assertThat(dto.observationMillis()).isNull();
+        assertThat(dto.observationMillis()).isEqualTo(java.time.Instant.parse("2026-02-03T05:00:00Z").toEpochMilli());
         assertThat(dto.diagnostics())
                 .extracting(CdsClinicalDiagnosticDto::code)
                 .contains("CDS_NOTE_DATE_ONLY_SOURCE_VIEW");
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "FamilyHistory,StartDate", "PastHealth,OnsetOrEventDate", "PastHealth,ProcedureDate",
+        "ProblemList,OnsetDate", "RiskFactors,StartDate", "AlertsAndSpecialNeeds,DateActive"
+    })
+    void shouldAnchorKnownCppDates_inTheConfiguredClinicalZone(String category, String dateField) throws Exception {
+        var record = section(category, "<" + dateField + "><cdsd:FullDate>2026-02-03</cdsd:FullDate></" + dateField + ">");
+        histories.prepare("run", 1, "unit", record, command);
+        assertThat(captured(CdsHistoryNativeDto.class).observationMillis())
+                .isEqualTo(java.time.Instant.parse("2026-02-03T05:00:00Z").toEpochMilli());
     }
 
     @Test
@@ -871,7 +883,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
             throws Exception {
         var dto =
                 new CdsHistoryNativeDto(
-                        "Complete source note", null, null, 636561630125L, "77", List.of());
+                        "Complete source note", null, null, 636561630125L, "77", null, null, List.of());
         var record =
                 section(
                         "ClinicalNotes",
@@ -1068,7 +1080,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
             doThrow(failure).when(em).flush();
             var configuration = new CdsImportConfigurationService(new Properties());
             var writer = new CdsHistoryPersister(fields, new CdsClinicalNormalizationService(fields),
-                    configuration, providers, preparation, dao, patientIssuesDao, issuesDao);
+                    configuration, providers, preparation, dao, patientIssuesDao, issuesDao, mock(io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO.class));
             var record = preparedHistory(null);
 
             assertThatThrownBy(() -> writer.write("run", 1, "unit", 42, record, command, n -> {}))
@@ -1092,7 +1104,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         private CdsRecordDto preparedHistory(String issue) throws Exception {
             var record = section("ClinicalNotes", "<MyClinicalNotesContent>Complete source note</MyClinicalNotesContent>");
             when(preparation.load("run", 1, "unit", record.effectiveSha256(), command, CdsHistoryNativeDto.class))
-                    .thenReturn(new CdsHistoryNativeDto("Complete source note", issue, 1700000000000L, null, "77", List.of()));
+                    .thenReturn(new CdsHistoryNativeDto("Complete source note", issue, 1700000000000L, null, "77", null, null, List.of()));
             Files.delete(record.fieldsFile()); Files.delete(record.valuesFile());
             return record;
         }

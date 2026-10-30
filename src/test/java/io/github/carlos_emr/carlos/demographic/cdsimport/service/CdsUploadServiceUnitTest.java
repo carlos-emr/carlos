@@ -81,7 +81,7 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
         PlatformTransactionManager manager = mock(PlatformTransactionManager.class);
         when(manager.getTransaction(any())).thenAnswer(call -> new SimpleTransactionStatus());
         Properties properties = new Properties();
-        properties.setProperty("cds.import.enabled", "true");
+        properties.setProperty("cds.import.enabled", "true"); properties.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
         properties.setProperty("cds.import.uploadRoot", temporary.resolve("uploads").toString());
         properties.setProperty("cds.import.upload.maxChunkBytes", Integer.toString(CHUNK));
         properties.setProperty("cds.import.upload.maxFileBytes", Long.toString(4L << 20));
