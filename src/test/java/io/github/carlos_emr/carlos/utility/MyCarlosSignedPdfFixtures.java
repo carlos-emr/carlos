@@ -27,6 +27,11 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.FileVisitResult;
+import java.nio.file.LinkOption;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -103,11 +108,82 @@ final class MyCarlosSignedPdfFixtures {
     }
 
     public static void main(String[] args) throws Exception {
+        if (args.length > 1 || (args.length == 1 && args[0].isBlank())) {
+            throw new IllegalArgumentException("Expected at most one nonblank fixture output path");
+        }
         Path out = Path.of(args.length > 0 ? args[0] : FIXTURE_PATH);
-        Path work = Files.createTempDirectory("mycarlos-fixtures");
-        Files.createDirectories(out.toAbsolutePath().getParent());
-        Files.writeString(out, render(work), StandardCharsets.UTF_8);
+        generate(out, MyCarlosSignedPdfFixtures::render);
         System.out.println("wrote " + out);
+    }
+
+    @FunctionalInterface
+    interface Renderer {
+        String render(Path work) throws Exception;
+    }
+
+    @FunctionalInterface
+    interface AtomicReplacement {
+        void replace(Path complete, Path destination) throws IOException;
+    }
+
+    static void generate(Path requested, Renderer renderer) throws Exception {
+        generate(requested, renderer, (complete, destination) -> Files.move(complete, destination,
+                StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING));
+    }
+
+    /**
+     * An explicit local operator path, not a request/upload path or a containment boundary.
+     * Keep the selected location (including absolute paths) while using the shared trusted-path
+     * resolver. No application directory is an appropriate sandbox for this developer CLI.
+     */
+    static Path outputPath(Path requested) {
+        Path out = PathValidationUtils.resolveTrustedPath(requested.toFile(), "fixture output").toPath();
+        if (out.getFileName() == null || out.getParent() == null || Files.isDirectory(out)) {
+            throw new IllegalArgumentException("Fixture output must name a file");
+        }
+        return out;
+    }
+
+    static void generate(Path requested, Renderer renderer, AtomicReplacement replacement) throws Exception {
+        Path out = outputPath(requested);
+        Files.createDirectories(out.getParent());
+        String json;
+        try (OwnedPath work = new OwnedPath(Files.createTempDirectory("mycarlos-fixtures"))) {
+            json = renderer.render(work.path());
+        }
+        // Clean the keys and work files before publication too: cleanup failure must leave the
+        // previous fixture intact. The staging path is on the destination filesystem.
+        try (OwnedPath complete = new OwnedPath(Files.createTempFile(out.getParent(), ".mycarlos-fixtures-", ".json"))) {
+            Files.writeString(complete.path(), json, StandardCharsets.UTF_8);
+            // Unsupported atomic moves fail; never truncate as a fallback.
+            replacement.replace(complete.path(), out);
+        }
+    }
+
+    /** Owns only a newly created temporary path; never follows links while removing its tree. */
+    private record OwnedPath(Path path) implements AutoCloseable {
+        @Override
+        public void close() throws IOException {
+            if (Files.notExists(path, LinkOption.NOFOLLOW_LINKS)) {
+                return; // Published staging file was moved to its final destination.
+            }
+            Files.walkFileTree(path, new SimpleFileVisitor<>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
+                    Files.delete(file);
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult postVisitDirectory(Path directory, IOException failure) throws IOException {
+                    if (failure != null) {
+                        throw failure;
+                    }
+                    Files.delete(directory);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        }
     }
 
     static String render(Path work) throws Exception {
@@ -119,81 +195,82 @@ final class MyCarlosSignedPdfFixtures {
         X509Certificate rsaCertificate = certificate(rsa, "SHA256withRSA", "CN=FAKE RSA signer,O=FAKE Demo Clinic");
         PDFSigningConfig rsaSigner = PdfSigningTestSupport.enabledConfig(work.resolve("rsa.p12"), rsa.getPrivate(), rsaCertificate);
         Path blank = PdfSigningTestSupport.writeSinglePagePdf(work.resolve("blank.pdf"));
-        Path encrypted = PDFEncryptionUtil.encryptPDF(blank, PASSWORD);
+        try (OwnedPath encrypted = new OwnedPath(PDFEncryptionUtil.encryptPDF(blank, PASSWORD))) {
 
-        String clinicBKid = kidFromSeed(CLINIC_B_SEED);
-        List<Document> documents = new ArrayList<>();
-        Signed send = sign(blank, signer, null, kid -> manifest(RECIPIENT_ID).toCanonicalJson(kid));
-        documents.add(new Document("signed-send-to-mycarlos.pdf", "verified", send.pdf(), send.manifest(), null,
-                "A Send to myCarlos copy: unencrypted, PAdES B-B, manifest in the signature's update."));
-        Signed email = sign(encrypted, signer, PASSWORD, kid -> manifest(RECIPIENT_ID).toCanonicalJson(kid));
-        documents.add(new Document("signed-email-encrypted.pdf", "verified", email.pdf(), email.manifest(), PASSWORD,
-                "The email path: AES-256 password-protected, then signed; the manifest is encrypted too."));
-        Signed noManifest = sign(blank, signer, null, null);
-        documents.add(new Document("signed-no-manifest.pdf", "signed_not_matched", noManifest.pdf(), null, null,
-                "Signed by the clinic, but there is no manifest to match a person."));
-        Signed noRecipient = sign(blank, signer, null, kid -> manifest(null).toCanonicalJson(kid));
-        documents.add(new Document("signed-no-recipient.pdf", "signed_not_matched", noRecipient.pdf(), noRecipient.manifest(), null,
-                "recipient_id is null: the patient had no portal link."));
-        documents.add(new Document("refuse-byte-flipped.pdf", "bad_signature", flipCommentByte(send.pdf()), send.manifest(), null,
-                "One byte inside the signed range changed (in the header comment, so the PDF still opens)."));
-        documents.add(new Document("refuse-extra-update.pdf", "extra_update", appendUpdate(send.pdf()), send.manifest(), null,
-                "A later incremental update changes the document information after the signature."));
-        documents.add(new Document("refuse-incomplete-range.pdf", "incomplete_range",
-                concat(send.pdf(), "\n% FAKE bytes after the signed range\n".getBytes(StandardCharsets.US_ASCII)),
-                send.manifest(), null, "Bytes follow the signed range, but no update."));
-        Signed kidMismatch = sign(blank, signer, null, kid -> manifest(RECIPIENT_ID).toCanonicalJson(clinicBKid));
-        documents.add(new Document("refuse-kid-mismatch.pdf", "kid_mismatch", kidMismatch.pdf(), kidMismatch.manifest(), null,
-                "Signed with clinic-a's key, but the manifest names clinic-b's key."));
-        Signed rsaSigned = sign(blank, rsaSigner, null, kid -> manifest(RECIPIENT_ID).toCanonicalJson(kid));
-        documents.add(new Document("refuse-rsa-signer.pdf", "not_p256", rsaSigned.pdf(), rsaSigned.manifest(), null,
-                "Signed with an RSA key; the manifest's kid is that key's own ID."));
-        Path sendFile = Files.write(work.resolve("send.pdf"), send.pdf());
-        Signed twice = sign(sendFile, signer, null, null);
-        documents.add(new Document("refuse-two-signatures.pdf", "two_signatures", twice.pdf(), send.manifest(), null,
-                "The Send to myCarlos copy, signed a second time."));
-        Signed duplicate = sign(blank, signer, null,
-                kid -> withText(manifest(RECIPIENT_ID).toCanonicalJson(kid), "\"v\":1,", "\"v\":1,\"v\":1,"));
-        documents.add(new Document("refuse-duplicate-member.pdf", "bad_manifest", duplicate.pdf(), duplicate.manifest(), null,
-                "The manifest repeats the member \"v\"."));
-        Signed extraClaim = sign(blank, signer, null,
-                kid -> withText(manifest(RECIPIENT_ID).toCanonicalJson(kid), "\"version\":1}", "\"version\":1,\"zz_extra\":\"FAKE\"}"));
-        documents.add(new Document("refuse-extra-claim.pdf", "bad_manifest", extraClaim.pdf(), extraClaim.manifest(), null,
-                "The manifest has one claim too many."));
+            String clinicBKid = kidFromSeed(CLINIC_B_SEED);
+            List<Document> documents = new ArrayList<>();
+            Signed send = sign(blank, signer, null, kid -> manifest(RECIPIENT_ID).toCanonicalJson(kid));
+            documents.add(new Document("signed-send-to-mycarlos.pdf", "verified", send.pdf(), send.manifest(), null,
+                    "A Send to myCarlos copy: unencrypted, PAdES B-B, manifest in the signature's update."));
+            Signed email = sign(encrypted.path(), signer, PASSWORD, kid -> manifest(RECIPIENT_ID).toCanonicalJson(kid));
+            documents.add(new Document("signed-email-encrypted.pdf", "verified", email.pdf(), email.manifest(), PASSWORD,
+                    "The email path: AES-256 password-protected, then signed; the manifest is encrypted too."));
+            Signed noManifest = sign(blank, signer, null, null);
+            documents.add(new Document("signed-no-manifest.pdf", "signed_not_matched", noManifest.pdf(), null, null,
+                    "Signed by the clinic, but there is no manifest to match a person."));
+            Signed noRecipient = sign(blank, signer, null, kid -> manifest(null).toCanonicalJson(kid));
+            documents.add(new Document("signed-no-recipient.pdf", "signed_not_matched", noRecipient.pdf(), noRecipient.manifest(), null,
+                    "recipient_id is null: the patient had no portal link."));
+            documents.add(new Document("refuse-byte-flipped.pdf", "bad_signature", flipCommentByte(send.pdf()), send.manifest(), null,
+                    "One byte inside the signed range changed (in the header comment, so the PDF still opens)."));
+            documents.add(new Document("refuse-extra-update.pdf", "extra_update", appendUpdate(send.pdf()), send.manifest(), null,
+                    "A later incremental update changes the document information after the signature."));
+            documents.add(new Document("refuse-incomplete-range.pdf", "incomplete_range",
+                    concat(send.pdf(), "\n% FAKE bytes after the signed range\n".getBytes(StandardCharsets.US_ASCII)),
+                    send.manifest(), null, "Bytes follow the signed range, but no update."));
+            Signed kidMismatch = sign(blank, signer, null, kid -> manifest(RECIPIENT_ID).toCanonicalJson(clinicBKid));
+            documents.add(new Document("refuse-kid-mismatch.pdf", "kid_mismatch", kidMismatch.pdf(), kidMismatch.manifest(), null,
+                    "Signed with clinic-a's key, but the manifest names clinic-b's key."));
+            Signed rsaSigned = sign(blank, rsaSigner, null, kid -> manifest(RECIPIENT_ID).toCanonicalJson(kid));
+            documents.add(new Document("refuse-rsa-signer.pdf", "not_p256", rsaSigned.pdf(), rsaSigned.manifest(), null,
+                    "Signed with an RSA key; the manifest's kid is that key's own ID."));
+            Path sendFile = Files.write(work.resolve("send.pdf"), send.pdf());
+            Signed twice = sign(sendFile, signer, null, null);
+            documents.add(new Document("refuse-two-signatures.pdf", "two_signatures", twice.pdf(), send.manifest(), null,
+                    "The Send to myCarlos copy, signed a second time."));
+            Signed duplicate = sign(blank, signer, null,
+                    kid -> withText(manifest(RECIPIENT_ID).toCanonicalJson(kid), "\"v\":1,", "\"v\":1,\"v\":1,"));
+            documents.add(new Document("refuse-duplicate-member.pdf", "bad_manifest", duplicate.pdf(), duplicate.manifest(), null,
+                    "The manifest repeats the member \"v\"."));
+            Signed extraClaim = sign(blank, signer, null,
+                    kid -> withText(manifest(RECIPIENT_ID).toCanonicalJson(kid), "\"version\":1}", "\"version\":1,\"zz_extra\":\"FAKE\"}"));
+            documents.add(new Document("refuse-extra-claim.pdf", "bad_manifest", extraClaim.pdf(), extraClaim.manifest(), null,
+                    "The manifest has one claim too many."));
 
-        Map<String, Object> root = new LinkedHashMap<>();
-        root.put("v", 1);
-        root.put("description", "FAKE signed PDFs for myCarlos's PDF verifier (carlos-emr/mycarlos#55), made by CARLOS's"
-                + " MyCarlosSignedPdfFixtures. Every key is FAKE. Fields ending _b64 are standard base64.");
-        root.put("link", Map.of("clinic_id", CLINIC_ID, "recipient_id", RECIPIENT_ID, "signer_kid", kidFromSeed(CLINIC_A_SEED)));
-        Map<String, Object> keys = new LinkedHashMap<>();
-        keys.put("derivation", DERIVATION);
-        keys.put("signer", ordered("clinic_id", CLINIC_ID, "seed_text", CLINIC_A_SEED,
-                "kid", PDFSigningUtil.keyId(clinicACertificate),
-                "spki_der_b64", b64(clinicA.getPublic().getEncoded()),
-                "cert_der_b64", b64(clinicACertificate.getEncoded())));
-        keys.put("other_clinic", ordered("clinic_id", "clinic-b", "seed_text", CLINIC_B_SEED, "kid", kidFromSeed(CLINIC_B_SEED)));
-        keys.put("rsa_signer", ordered("seed_text", RSA_SEED, "kid", PDFSigningUtil.keyId(rsaCertificate),
-                "cert_der_b64", b64(rsaCertificate.getEncoded()),
-                "note", "RSA-2048, used only by refuse-rsa-signer.pdf: generated by the JDK from SHA1PRNG seeded"
-                        + " with SHA-256(seed_text), so it needs no stored key."));
-        root.put("keys", keys);
-        List<Map<String, Object>> entries = new ArrayList<>();
-        for (Document document : documents) {
-            Map<String, Object> entry = new LinkedHashMap<>();
-            entry.put("name", document.name());
-            entry.put("expect", document.expect());
-            entry.put("note", document.note());
-            if (document.password() != null) {
-                entry.put("password", document.password());
+            Map<String, Object> root = new LinkedHashMap<>();
+            root.put("v", 1);
+            root.put("description", "FAKE signed PDFs for myCarlos's PDF verifier (carlos-emr/mycarlos#55), made by CARLOS's"
+                    + " MyCarlosSignedPdfFixtures. Every key is FAKE. Fields ending _b64 are standard base64.");
+            root.put("link", Map.of("clinic_id", CLINIC_ID, "recipient_id", RECIPIENT_ID, "signer_kid", kidFromSeed(CLINIC_A_SEED)));
+            Map<String, Object> keys = new LinkedHashMap<>();
+            keys.put("derivation", DERIVATION);
+            keys.put("signer", ordered("clinic_id", CLINIC_ID, "seed_text", CLINIC_A_SEED,
+                    "kid", PDFSigningUtil.keyId(clinicACertificate),
+                    "spki_der_b64", b64(clinicA.getPublic().getEncoded()),
+                    "cert_der_b64", b64(clinicACertificate.getEncoded())));
+            keys.put("other_clinic", ordered("clinic_id", "clinic-b", "seed_text", CLINIC_B_SEED, "kid", kidFromSeed(CLINIC_B_SEED)));
+            keys.put("rsa_signer", ordered("seed_text", RSA_SEED, "kid", PDFSigningUtil.keyId(rsaCertificate),
+                    "cert_der_b64", b64(rsaCertificate.getEncoded()),
+                    "note", "RSA-2048, used only by refuse-rsa-signer.pdf: generated by the JDK from SHA1PRNG seeded"
+                            + " with SHA-256(seed_text), so it needs no stored key."));
+            root.put("keys", keys);
+            List<Map<String, Object>> entries = new ArrayList<>();
+            for (Document document : documents) {
+                Map<String, Object> entry = new LinkedHashMap<>();
+                entry.put("name", document.name());
+                entry.put("expect", document.expect());
+                entry.put("note", document.note());
+                if (document.password() != null) {
+                    entry.put("password", document.password());
+                }
+                entry.put("byte_ranges", byteRanges(document.pdf(), document.password()));
+                entry.put("manifest_bytes_b64", document.manifest() == null ? null : b64(document.manifest()));
+                entry.put("pdf_b64", b64(document.pdf()));
+                entries.add(entry);
             }
-            entry.put("byte_ranges", byteRanges(document.pdf(), document.password()));
-            entry.put("manifest_bytes_b64", document.manifest() == null ? null : b64(document.manifest()));
-            entry.put("pdf_b64", b64(document.pdf()));
-            entries.add(entry);
+            root.put("documents", entries);
+            return new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT).writeValueAsString(root) + "\n";
         }
-        root.put("documents", entries);
-        return new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT).writeValueAsString(root) + "\n";
     }
 
     /** A signed PDF and the exact manifest bytes embedded in it, if any. */

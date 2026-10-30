@@ -73,6 +73,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @DisplayName("myCarlos signed PDF fixtures")
 class MyCarlosSignedPdfFixturesUnitTest {
 
+    // Independent known answers copied from carlos-emr/carlos-portal
+    // tests/fixtures/delivery-contract.json, keys.clinic_a, commit 1705edb7d02cfd94b9101f8c37d2fae8b8210cf5.
+    // Public FAKE test material: these expectations must not be derived from local seed constants.
+    private static final String PORTAL_CLINIC_A_SEED = "FAKE delivery contract test key: clinic-a signing key 1";
+    private static final String PORTAL_CLINIC_A_KID = "opVXT3byX9TTRh_4R8FJ3TxeWzT0itR6IbwRyRrhlCY";
+    private static final String PORTAL_CLINIC_A_SPKI = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0se2VJ+mUufNkzHWmIxlfy34aetQ7EqS87BaW0pwslyf6BBnvI1NcgPBxIhJc4DRl8CZDFB8P2uv5kDQDa6g/w==";
+
     private static JsonNode fixture;
 
     @BeforeAll
@@ -96,10 +103,13 @@ class MyCarlosSignedPdfFixturesUnitTest {
         JsonNode signer = fixture.get("keys").get("signer");
         byte[] spki = MyCarlosSignedPdfFixtures.p256FromSeed(signer.get("seed_text").asText()).getPublic().getEncoded();
 
-        assertThat(signer.get("seed_text").asText()).isEqualTo(MyCarlosSignedPdfFixtures.CLINIC_A_SEED);
-        assertThat(Base64.getDecoder().decode(signer.get("spki_der_b64").asText())).isEqualTo(spki);
-        // The same seed text as carlos-portal's delivery-contract.json, so the same key and kid.
-        assertThat(signer.get("kid").asText()).isEqualTo(kid(spki));
+        byte[] portalSpki = Base64.getDecoder().decode(PORTAL_CLINIC_A_SPKI);
+        assertThat(MyCarlosSignedPdfFixtures.CLINIC_A_SEED).isEqualTo(PORTAL_CLINIC_A_SEED);
+        assertThat(signer.get("seed_text").asText()).isEqualTo(PORTAL_CLINIC_A_SEED);
+        assertThat(spki).isEqualTo(portalSpki);
+        assertThat(Base64.getDecoder().decode(signer.get("spki_der_b64").asText())).isEqualTo(portalSpki);
+        assertThat(signer.get("kid").asText()).isEqualTo(PORTAL_CLINIC_A_KID);
+        assertThat(kid(spki)).isEqualTo(PORTAL_CLINIC_A_KID);
         assertThat(certificateSpki(signer.get("cert_der_b64").asText())).isEqualTo(spki);
         assertThat(kid(MyCarlosSignedPdfFixtures.p256FromSeed(MyCarlosSignedPdfFixtures.CLINIC_B_SEED).getPublic().getEncoded()))
                 .isEqualTo(fixture.get("keys").get("other_clinic").get("kid").asText());
