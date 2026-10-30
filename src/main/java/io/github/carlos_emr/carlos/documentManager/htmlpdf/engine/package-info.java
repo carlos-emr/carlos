@@ -30,7 +30,8 @@
  * <ul>
  *   <li>{@link ImageHeader}: the format and declared size of an image, read from its header;</li>
  *   <li>{@link ImageDecoding}: header reads that never decode a pixel, the subsampling arithmetic,
- *       streamed subsampled reads and EXIF orientation.</li>
+ *       streamed subsampled reads and EXIF orientation, for a short list of vetted formats only (PNG,
+ *       JPEG, GIF, BMP, WBMP and TIFF; any other ImageIO reader is refused).</li>
  * </ul>
  *
  * <h2>Allowed dependencies</h2>

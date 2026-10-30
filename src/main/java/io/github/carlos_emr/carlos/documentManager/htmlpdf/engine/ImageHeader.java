@@ -36,7 +36,7 @@ import java.util.Objects;
  * {@link ImageDecoding#MAX_SOURCE_PIXELS} before they decode anything.</p>
  *
  * @param formatName the name the matching ImageIO reader reports, such as {@code "png"},
- *        {@code "JPEG"}, {@code "gif"}, {@code "bmp"}, {@code "tiff"} or {@code "webp"}; its case
+ *        {@code "JPEG"}, {@code "gif"}, {@code "bmp"}, {@code "wbmp"} or {@code "tiff"}; its case
  *        and spelling depend on the reader (TIFF may be {@code "tif"} or {@code "tiff"}), so test
  *        for JPEG with {@link #isJpeg()} and do not compare the string case-sensitively
  * @param width the declared width in pixels, at least 1

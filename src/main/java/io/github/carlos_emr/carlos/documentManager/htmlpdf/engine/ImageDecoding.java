@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
@@ -49,10 +50,10 @@ import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 
 /**
- * Static helpers that read images through ImageIO without holding more memory than the caller
- * budgeted for: header reads that never decode, the subsampling arithmetic, streamed subsampled
- * decodes and EXIF orientation. They are shared by the Flying Saucer user agent (images that
- * arrive during layout) and the image planning in {@code service} (images checked before layout).
+ * Static helpers that read images through ImageIO and keep what they hold small and predictable:
+ * header reads that never decode, the subsampling arithmetic, streamed subsampled decodes and EXIF
+ * orientation. They are shared by the Flying Saucer user agent (images that arrive during layout)
+ * and the image planning in {@code service} (images checked before layout).
  *
  * <p>Three rules hold for every method:</p>
  *
@@ -62,17 +63,28 @@ import javax.imageio.stream.MemoryCacheImageInputStream;
  *       nothing else. A 20 000 x 20 000 PNG whose header is 25 bytes therefore costs no more than a
  *       thumbnail, which is what lets callers refuse a decompression bomb
  *       ({@link #MAX_SOURCE_PIXELS}) before anything is decoded.</li>
- *   <li><b>A decode reads only what it keeps, for most formats.</b>
- *       {@link #readSubsampled(Path, int)} reads every n-th pixel in each direction straight from a
- *       random-access stream on the file, so the file is never loaded whole and the one large
- *       allocation is the already reduced result. A WebP is the exception: the library decodes it at
- *       full size whatever the subsampling, so it is capped at {@link #WEBP_MAX_SOURCE_PIXELS}
- *       instead.</li>
+ *   <li><b>A decode reads only what it keeps.</b> {@link #readSubsampled(Path, int)} reads every
+ *       n-th pixel in each direction straight from a random-access stream on the file, so the file
+ *       is never loaded whole and the heap holds the already reduced result and the reader's
+ *       buffers. (The one cost that subsampling does not reduce is native memory: see that
+ *       method.)</li>
  *   <li><b>Content problems do not escape as unchecked exceptions.</b> Header and EXIF reads
  *       return empty or {@code 1} for any input they cannot use. A decode throws
  *       {@link IOException}. Only a null argument or an out-of-range subsampling (programming
  *       errors) throws anything else.</li>
  * </ul>
+ *
+ * <p><b>Only vetted formats are read.</b> A header is reported, and a decode attempted, only when
+ * the first ImageIO reader that claims the input is for PNG, JPEG, GIF, BMP, WBMP or TIFF (the
+ * JDK's readers and the TwelveMonkeys TIFF reader). For any other reader the input is treated as
+ * one that no reader recognises: {@link #readHeader(Path)} is empty, {@link #readSubsampled(Path, int)}
+ * throws {@link IOException}, and the reader is never given the stream. ImageIO registers every
+ * reader it finds on the classpath, so a decoder that turns up later, as a transitive dependency
+ * of another library for example, would otherwise start decoding untrusted bytes without anyone
+ * noticing. Adding a format here is a conscious change, made once its reader has been tried on
+ * corrupt, hostile and oversized input. The TwelveMonkeys WebP reader, tried that way, looped for
+ * minutes on a 36-byte file, ignored the subsampling and allocated from sizes it read out of the
+ * data; that is why WebP is not on the list and its plugin is not a dependency.</p>
  *
  * <p>The usual sequence, for a file that may be hostile:</p>
  *
@@ -103,19 +115,17 @@ public final class ImageDecoding {
     public static final long MAX_SOURCE_PIXELS = 250_000_000L;
 
     /**
-     * The largest declared size, in pixels, of a WebP that {@link #readSubsampled(Path, int)}
-     * decodes. A larger one is refused with an {@code IOException} before the library is asked to
-     * decode it, and callers treat it as unusable, as they do a header above
-     * {@link #MAX_SOURCE_PIXELS}. The cap is far lower than that limit because the library decodes a
-     * WebP at full size: it ignores the subsampling for a lossless one and for the alpha plane of a
-     * lossy one, so the declared size, not the subsampling, bounds the allocation.
-     * {@link #readHeader(Path)} still reports such a WebP's size.
+     * The formats this class reads, by the lower-case name their ImageIO reader reports (see the
+     * class summary). The JDK reports {@code "png"}, {@code "JPEG"}, {@code "gif"}, {@code "bmp"},
+     * {@code "wbmp"} and, for TIFF, {@code "tif"}; the TwelveMonkeys TIFF reader says {@code "tiff"}.
      */
-    // measured: a full-size raster is about 4 bytes per source pixel; a lossless WebP at this cap allocated 67 MB and decoded in -Xmx96m, inside one render slot's 256 MB share; lossless and alpha WebP ignore subsampling in the library (36 MP lossless: 112 MB, OutOfMemoryError at -Xmx96m)
-    public static final long WEBP_MAX_SOURCE_PIXELS = 16_777_216L;
+    private static final Set<String> LISTED_FORMATS = Set.of("png", "jpeg", "gif", "bmp", "wbmp", "tiff", "tif");
 
-    /** The message of the refusal above. It is fixed, so it names no file and no content. */
-    static final String WEBP_TOO_LARGE_MESSAGE = "the WebP image is larger than the supported size";
+    /**
+     * The message when the input is no image in a listed format, whether no reader claims it or the
+     * reader that does is not for a listed format. It is fixed, so it names no file and no content.
+     */
+    static final String UNSUPPORTED_FORMAT_MESSAGE = "the input is not an image in a supported format";
 
     /** EXIF/TIFF tag number of Orientation. */
     private static final int TAG_ORIENTATION = 0x0112;
@@ -134,14 +144,6 @@ public final class ImageDecoding {
      */
     // measured: a 65 MB JPEG made of Exif segments made the unbounded scan allocate 67 MB
     private static final long MAX_EXIF_SCAN_BYTES = 1L << 20;
-
-    /**
-     * How many times a WebP reader may read past the end of the data before the decode is cut off
-     * (see {@link EofBudgetImageInputStream}). Package-private so that the tests can check how much
-     * room the valid files leave below it.
-     */
-    // measured: valid WebPs read past the end at most 828 times (14 588 files, tiny flat images); hostile 36-byte ones ran for minutes unguarded and fail in 273 ms at most at 65 536 (margin 79x)
-    static final int WEBP_MAX_READS_PAST_END = 65_536;
 
     private static final int ORIENTATION_UPRIGHT = 1;
     private static final int MAX_ORIENTATION = 8;
@@ -162,9 +164,9 @@ public final class ImageDecoding {
      *
      * @param file the image file; nothing past its header is read
      * @return the header, or empty when no reader recognises the file (HEIC, PDF, text), when the
-     *         header is corrupt or declares a size below 1 pixel, when the file is missing, a
-     *         directory or unreadable, or when the reader fails in any other way; never throws
-     *         because of the file's content
+     *         reader that does is not for a listed format, when the header is corrupt or declares a
+     *         size below 1 pixel, when the file is missing, a directory or unreadable, or when the
+     *         reader fails in any other way; never throws because of the file's content
      * @throws NullPointerException if {@code file} is {@code null}
      */
     public static Optional<ImageHeader> readHeader(Path file) {
@@ -183,8 +185,12 @@ public final class ImageDecoding {
      * <p>The bytes are read through a stream over the array itself, which copies nothing, never
      * touches the disk and reports its length. They are never given to ImageIO's default
      * stream-input cache, which is a temporary file on disk: the bytes are a patient's document
-     * and must not be copied there. The length matters to the WebP reader, whose limit on how much
-     * an input may expand needs it.</p>
+     * and must not be copied there. Reporting the length matters because a reader's own checks
+     * depend on it: the TwelveMonkeys TIFF reader refuses an input that would expand to more than
+     * 512 times its length (a blank 1728 x 2200 CCITT fax page of under 800 bytes does), a check
+     * that is skipped for a stream of unknown length, so a byte payload would be decoded where the
+     * same file is refused. Which TIFF reader claims an input depends on the order of the classpath
+     * (the JAI ImageIO and JDK readers have no such check), so the check is not guaranteed.</p>
      *
      * @param data the image bytes, for example a decoded {@code data:} URI payload; not modified
      * @return the header, or empty in the cases listed for {@link #readHeader(Path)}
@@ -269,12 +275,17 @@ public final class ImageDecoding {
     /**
      * Decodes an image file keeping only every {@code subsampling}-th pixel in each direction.
      *
-     * <p>For most formats the reader pulls the pixels it keeps straight from a random-access
-     * stream on the file; the file is never read into memory whole, and the cost is the reduced
-     * result, about {@code pixels / subsampling^2} times the bytes per pixel. Measured: a
-     * 67-megapixel, 67 MB PNG was reduced to 2048 x 2048 in a 64 MB heap, where reading the file
-     * into memory first ran out of it. <b>A WebP is the exception</b>, described below. The result
-     * is {@code ceil(width / s) x ceil(height / s)} in whatever type the reader produces (indexed,
+     * <p>The reader pulls the pixels it keeps straight from a random-access stream on the file; the
+     * file is never read into memory whole, and the heap holds the reduced result, about
+     * {@code pixels / subsampling^2} times the bytes per pixel, and the reader's working buffers.
+     * Measured with 24-megapixel images and a subsampling of 8, PNG, baseline JPEG, GIF, BMP and
+     * TIFF all decode in a 96 MB heap, and a 67-megapixel, 67 MB PNG was reduced to 2048 x 2048 in
+     * a 64 MB heap, where reading the file into memory first ran out of it. One cost is not
+     * reduced, and is not on the heap: the JDK's JPEG reader keeps the coefficients of a
+     * <em>progressive</em> JPEG in native memory, about four bytes per source pixel whatever the
+     * subsampling (92 MB more process memory for 24 megapixels), which {@code -Xmx} does not limit,
+     * so callers budget a progressive JPEG by its source size. The result is
+     * {@code ceil(width / s) x ceil(height / s)} in whatever type the reader produces (indexed,
      * gray, 16-bit, ...), and callers convert it if they need another.</p>
      *
      * <p>This method does not check the declared size: callers refuse a header above
@@ -282,28 +293,12 @@ public final class ImageDecoding {
      * {@link #subsamplingToFit(ImageHeader, long)}, because a result that does not fit the heap
      * fails with {@link OutOfMemoryError}.</p>
      *
-     * <p><b>A WebP is decoded at full size, whatever the subsampling.</b> The library ignores the
-     * subsampling for a lossless WebP and for the alpha plane of a lossy one, and allocates a
-     * raster of about four bytes per source pixel before it reduces anything: a 6000 x 6000
-     * lossless WebP of 283 KB allocated 112 MB for a 500 x 500 result, and ran out of memory in a
-     * 96 MB heap. So a WebP that declares more than {@link #WEBP_MAX_SOURCE_PIXELS} pixels is
-     * refused with an {@code IOException} before the library decodes it, and callers must treat it
-     * as unusable. The library also refuses a WebP that would decode into more than 2048 times its
-     * own length, which a large flat canvas can (a 212-byte flat 2000 x 2000 image does), and it
-     * does so for a byte array as for a file. {@link #readHeader(Path)} still reports the declared
-     * size of any of them.</p>
-     *
-     * <p>A WebP is also read through a view that fails once the reader has read past the end of
-     * the data more than 65 536 times (see {@link EofBudgetImageInputStream}). Valid files stay
-     * about eighty times below that, and a corrupt lossless one, which the library alone would
-     * spend 15 s or more on, fails with an {@code IOException} within a fraction of a second. No
-     * other format is affected by the cap or the view.</p>
-     *
      * @param file the image file
      * @param subsampling how many source pixels to step over, at least 1 (1 decodes in full)
      * @return the decoded, reduced image
-     * @throws IOException if the file cannot be opened, no reader recognises it, or the reader
-     *         fails to decode it; the message names neither the file nor its content
+     * @throws IOException if the file cannot be opened, no reader recognises it, the reader that
+     *         does is not for a listed format, or the reader fails to decode it; the message names
+     *         neither the file nor its content
      * @throws IllegalArgumentException if {@code subsampling} is below 1
      * @throws NullPointerException if {@code file} is {@code null}
      */
@@ -317,14 +312,16 @@ public final class ImageDecoding {
 
     /**
      * Decodes an image held in memory keeping only every {@code subsampling}-th pixel in each
-     * direction. The same rules and results as {@link #readSubsampled(Path, int)}, the WebP cap and
-     * the library's 2048:1 expansion limit included: the array is read through a stream that
-     * reports its length, so the limit applies to it as to a file.
+     * direction. The same rules and results as {@link #readSubsampled(Path, int)}, a reader's
+     * expansion limit included: the array is read through a stream that reports its length, so a
+     * check that depends on it (the TIFF reader's 512:1 limit, for one) applies to the array as to
+     * a file.
      *
      * @param data the image bytes, for example a decoded {@code data:} URI payload; not modified
      * @param subsampling how many source pixels to step over, at least 1
      * @return the decoded, reduced image
-     * @throws IOException if no reader recognises the data or the reader fails to decode it
+     * @throws IOException if no reader recognises the data, the reader that does is not for a
+     *         listed format, or the reader fails to decode it
      * @throws IllegalArgumentException if {@code subsampling} is below 1
      * @throws NullPointerException if {@code data} is {@code null}
      */
@@ -344,27 +341,14 @@ public final class ImageDecoding {
         try {
             reader = firstReader(stream);
             if (reader == null) {
-                throw new IOException("no image reader recognises the input");
+                throw new IOException(UNSUPPORTED_FORMAT_MESSAGE);
             }
             // Not forward-only: a TIFF may store its strips out of order, and a random-access
             // stream on a file costs nothing extra.
-            if (isWebp(reader)) {
-                // The one reader found to loop for 15 s or more on corrupt data instead of failing. The
-                // other readers get the stream as it is, so their handling of truncated files
-                // (the JDK's JPEG reader returns what it has) does not change.
-                try (ImageInputStream bounded = new EofBudgetImageInputStream(stream, WEBP_MAX_READS_PAST_END)) {
-                    reader.setInput(bounded, false, true);
-                    // It is also the one reader that decodes at full size whatever the subsampling
-                    // asks, so the declared size is checked, from the header alone, before the
-                    // library allocates a raster for it.
-                    if ((long) reader.getWidth(0) * reader.getHeight(0) > WEBP_MAX_SOURCE_PIXELS) {
-                        throw new IOException(WEBP_TOO_LARGE_MESSAGE);
-                    }
-                    return read(reader, subsampling);
-                }
-            }
             reader.setInput(stream, false, true);
-            return read(reader, subsampling);
+            ImageReadParam param = reader.getDefaultReadParam();
+            param.setSourceSubsampling(subsampling, subsampling, 0, 0);
+            return reader.read(0, param);
         } catch (RuntimeException e) {
             // Corrupt data surfaces from the readers as all sorts of runtime exceptions; callers
             // handle one type. The message carries the class name only, never the reader's text.
@@ -376,18 +360,6 @@ public final class ImageDecoding {
         }
     }
 
-    private static BufferedImage read(ImageReader reader, int subsampling) throws IOException {
-        ImageReadParam param = reader.getDefaultReadParam();
-        param.setSourceSubsampling(subsampling, subsampling, 0, 0);
-        return reader.read(0, param);
-    }
-
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an ImageIO reader's format name (an internal ASCII identifier such as "webp", never user input); not a security or authorization decision
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an ImageIO reader's format name (an internal ASCII identifier such as webp, never user input); not a security or authorization decision")
-    private static boolean isWebp(ImageReader reader) throws IOException {
-        return "webp".equals(reader.getFormatName().toLowerCase(Locale.ROOT));
-    }
-
     private static void requireSubsampling(int subsampling) {
         if (subsampling < 1) {
             throw new IllegalArgumentException("subsampling must be at least 1");
@@ -395,13 +367,30 @@ public final class ImageDecoding {
     }
 
     /**
-     * The reader both the header and the decode use, so that they agree on what the image is.
+     * The reader both the header and the decode use, so that they agree on what the image is, and
+     * the one place that decides which formats are read (see the class summary): the first reader
+     * that claims the stream, provided it is for a listed format.
      *
-     * @return the first reader that claims the stream, or {@code null} if none does
+     * @return that reader, or {@code null} if none claims the stream or the first one is for a
+     *         format that is not listed; that reader is disposed without ever being given the stream
      */
-    private static ImageReader firstReader(ImageInputStream stream) {
+    private static ImageReader firstReader(ImageInputStream stream) throws IOException {
         Iterator<ImageReader> readers = ImageIO.getImageReaders(stream);
-        return readers.hasNext() ? readers.next() : null;
+        if (!readers.hasNext()) {
+            return null;
+        }
+        ImageReader reader = readers.next();
+        if (!isListed(reader)) {
+            reader.dispose();
+            return null;
+        }
+        return reader;
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an ImageIO reader's format name (an internal ASCII identifier such as "png", never user input); not a security or authorization decision
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an ImageIO reader's format name (an internal ASCII identifier such as png, never user input); not a security or authorization decision")
+    private static boolean isListed(ImageReader reader) throws IOException {
+        return LISTED_FORMATS.contains(reader.getFormatName().toLowerCase(Locale.ROOT));
     }
 
     // ---- EXIF orientation -------------------------------------------------------------------

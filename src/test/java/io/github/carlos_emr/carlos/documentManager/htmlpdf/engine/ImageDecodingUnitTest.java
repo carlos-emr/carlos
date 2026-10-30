@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.documentManager.htmlpdf.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.awt.Transparency;
@@ -34,7 +33,6 @@ import java.awt.image.DataBuffer;
 import java.awt.image.IndexColorModel;
 import java.awt.image.Raster;
 import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
@@ -46,9 +44,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.Arrays;
-import java.util.HexFormat;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -60,7 +56,6 @@ import java.util.stream.Stream;
 import java.util.zip.CRC32;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
-import javax.imageio.IIOException;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
@@ -89,8 +84,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  * the subsampling arithmetic, streamed subsampled reads, and EXIF orientation.
  *
  * <p>Fixtures live in {@code src/test/resources/htmlpdf/images/} and were generated once with
- * Pillow (the WebP reader is read-only and CI has no Pillow, so no test creates them at run time).
- * Everything else is generated in memory or in a temporary directory, from synthetic pixels only.</p>
+ * Pillow (CI has no Pillow, so no test creates them at run time). Everything else is generated in
+ * memory or in a temporary directory, from synthetic pixels only.</p>
  *
  * @since 2026-10-29
  */
@@ -165,20 +160,6 @@ class ImageDecodingUnitTest {
         assertThat(ImageDecoding.readHeader(tempDir)).isEmpty();
     }
 
-    @Test
-    void shouldRecogniseWebp_forHeader() throws IOException {
-        for (String name : List.of("opaque-4x4.webp", "alpha-4x4.webp")) {
-            assertThat(ImageDecoding.readHeader(fixtureBytes(name))).as("bytes: " + name).hasValueSatisfying(header -> {
-                assertThat(header.formatName()).isEqualTo("webp");
-                assertThat(header.width()).isEqualTo(4);
-                assertThat(header.height()).isEqualTo(4);
-                assertThat(header.isJpeg()).isFalse();
-            });
-            assertThat(ImageDecoding.readHeader(fixture(name))).as("file: " + name)
-                    .hasValueSatisfying(header -> assertThat(header.formatName()).isEqualTo("webp"));
-        }
-    }
-
     @ParameterizedTest(name = "{0}")
     @CsvSource({"png,png", "jpeg,jpeg", "gif,gif", "bmp,bmp", "tiff,tif"})
     void shouldReadHeader_forEachCommonFormat(String writerFormat, String formatNamePrefix) throws IOException {
@@ -219,7 +200,7 @@ class ImageDecodingUnitTest {
 
     @ParameterizedTest
     @CsvSource({"JPEG,true", "jpeg,true", "Jpeg,true", "jpg,true", "JPG,true",
-            "png,false", "gif,false", "webp,false", "tiff,false", "jpeg2000,false", "j,false"})
+            "png,false", "gif,false", "wbmp,false", "tiff,false", "jpeg2000,false", "j,false"})
     void shouldRecogniseJpeg_regardlessOfCase(String formatName, boolean expected) {
         assertThat(new ImageHeader(formatName, 1, 1).isJpeg()).isEqualTo(expected);
     }
@@ -336,243 +317,77 @@ class ImageDecodingUnitTest {
         assertThat(ImageDecoding.readSubsampled(file, 3).getHeight()).isEqualTo(2);
     }
 
-    @Test
-    void shouldReadWebpFixtures_atFullSizeAndSubsampled() throws IOException {
-        for (String name : List.of("opaque-4x4.webp", "alpha-4x4.webp")) {
-            BufferedImage full = ImageDecoding.readSubsampled(fixtureBytes(name), 1);
-            assertThat(full.getWidth()).as(name).isEqualTo(4);
-            assertThat(full.getHeight()).as(name).isEqualTo(4);
-            assertThat(ImageDecoding.readSubsampled(fixture(name), 2).getWidth()).as(name).isEqualTo(2);
-        }
-        // The alpha fixture is lossless RGBA (255, 0, 0, 128): the transparency survives decoding.
-        BufferedImage alpha = ImageDecoding.readSubsampled(fixtureBytes("alpha-4x4.webp"), 1);
-        assertThat(alpha.getColorModel().hasAlpha()).isTrue();
-        assertThat(alpha.getRGB(1, 1) >>> 24).isEqualTo(128);
-        assertThat(ImageDecoding.readSubsampled(fixtureBytes("opaque-4x4.webp"), 1).getColorModel().hasAlpha()).isFalse();
-    }
+    // ---- the list of formats ----------------------------------------------------------------
 
-    // ---- WebP decodes that read past the end of the data ------------------------------------
-
-    /**
-     * Three 36-byte files made by corrupting a few bytes of the lossless fixture alpha-4x4.webp.
-     * TwelveMonkeys' lossless decoder treats the end of the data as endless zero bits, so a corrupt
-     * count in the header sent it round its Huffman loops for 15 to 16 s of CPU on each, where
-     * every other format finished a corrupt input in 31 ms or less.
-     */
-    private static final String[] SPINNING_WEBPS = {
-            "524946461c000000574542505650384c0f0000002f5cc0a8100710fd8f02069da27c0100",
-            "524946461c000000574542505650384c0f0000002f03c000100755fd8f020622a2ff0100",
-            "524946461c00006d574542505650384c0f0000002f8ec000100710fd8f690622a2ff0100"};
-
-    @ParameterizedTest(name = "reproducer {index}")
-    @ValueSource(ints = {0, 1, 2})
-    void shouldFailWithinSeconds_forCorruptLosslessWebp(int reproducer) {
-        byte[] webp = HexFormat.of().parseHex(SPINNING_WEBPS[reproducer]);
-
-        // Preemptive: without the guard the decode cannot be interrupted, so the test gives up
-        // after five seconds instead of waiting for the library.
-        assertTimeoutPreemptively(Duration.ofSeconds(5), () ->
-                assertThatThrownBy(() -> ImageDecoding.readSubsampled(webp, 1)).isInstanceOf(IOException.class));
-    }
-
-    @ParameterizedTest(name = "reproducer {index} as a file")
-    @ValueSource(ints = {0, 1, 2})
-    void shouldFailWithinSeconds_forCorruptLosslessWebpFile(int reproducer) throws IOException {
-        // The hazard is not particular to the in-memory stream: reproducers 2 and 3 spin through a
-        // file stream as well (reproducer 1 happens to fail fast there, and spins in memory).
-        Path file = Files.write(tempDir.resolve("spinning.webp"), HexFormat.of().parseHex(SPINNING_WEBPS[reproducer]));
-
-        assertTimeoutPreemptively(Duration.ofSeconds(5), () ->
-                assertThatThrownBy(() -> ImageDecoding.readSubsampled(file, 1)).isInstanceOf(IOException.class));
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @ValueSource(strings = {"opaque-4x4.webp", "alpha-4x4.webp", "lossy-halves-37x23.webp",
-            "lossless-pattern-37x23.webp", "animated-8x8.webp", "flat-49x28.webp"})
-    void shouldDecodeValidWebp_exactlyAsTheReaderAloneDoes(String name) throws IOException {
-        byte[] webp = fixtureBytes(name);
-        // The control: the same reader through ImageIO's plain entry point, with nothing around it.
-        BufferedImage expected = ImageIO.read(new ByteArrayInputStream(webp));
-        int width = expected.getWidth();
-        int height = expected.getHeight();
-
-        for (BufferedImage actual : List.of(ImageDecoding.readSubsampled(webp, 1), ImageDecoding.readSubsampled(fixture(name), 1))) {
-            assertThat(actual.getWidth()).as(name).isEqualTo(width);
-            assertThat(actual.getHeight()).as(name).isEqualTo(height);
-            assertThat(actual.getRGB(0, 0, width, height, null, 0, width)).as(name)
-                    .isEqualTo(expected.getRGB(0, 0, width, height, null, 0, width));
-        }
-    }
-
-    @Test
-    void shouldDecodeLosslessWebpBitExactly_forKnownPattern() throws IOException {
-        // Pixel (x, y) was written as (7x, 11y, xy) modulo 256 by Pillow's lossless encoder.
-        BufferedImage image = ImageDecoding.readSubsampled(fixtureBytes("lossless-pattern-37x23.webp"), 1);
-
-        assertThat(image.getWidth()).isEqualTo(37);
-        assertThat(image.getHeight()).isEqualTo(23);
-        for (int y = 0; y < 23; y++) {
-            for (int x = 0; x < 37; x++) {
-                int expected = (((x * 7) & 255) << 16) | (((y * 11) & 255) << 8) | ((x * y) & 255);
-                assertThat(image.getRGB(x, y) & 0xFFFFFF).as("pixel %d,%d", x, y).isEqualTo(expected);
-            }
-        }
-    }
-
-    @Test
-    void shouldDecodeFirstFrame_forAnimatedWebp() throws IOException {
-        // Three lossless frames, red then green then blue; a still print shows the first.
-        BufferedImage image = ImageDecoding.readSubsampled(fixtureBytes("animated-8x8.webp"), 1);
-
-        assertThat(image.getWidth()).isEqualTo(8);
-        assertThat(image.getHeight()).isEqualTo(8);
-        assertThat(image.getRGB(3, 3)).isEqualTo(0xFFFF0000);
+    @ParameterizedTest(name = "reader named {0}")
+    @ValueSource(strings = {"png", "PNG", "jpeg", "JPEG", "gif", "bmp", "wbmp", "WBMP", "tiff", "TIFF", "tif"})
+    void shouldConsultReader_forEveryListedFormatName(String formatName) throws IOException {
+        // The double fails whenever it is asked anything, so a header is empty and a decode throws
+        // whether or not it was consulted. What tells the two apart is that a consulted reader is
+        // given the stream, and the message of the decode.
+        withDoubleNamed(formatName, (data, file) -> {
+            assertThat(ImageDecoding.readHeader(data)).isEmpty();
+            assertThat(ExplodingReader.lastInput).as("header read of bytes").isNotNull();
+            ExplodingReader.lastInput = null;
+            assertThat(ImageDecoding.readHeader(file)).isEmpty();
+            assertThat(ExplodingReader.lastInput).as("header read of a file").isNotNull();
+            ExplodingReader.lastInput = null;
+            assertThatThrownBy(() -> ImageDecoding.readSubsampled(data, 1))
+                    .isInstanceOf(IOException.class).hasMessageContaining("IllegalStateException");
+            assertThat(ExplodingReader.lastInput).as("decode of bytes").isNotNull();
+            ExplodingReader.lastInput = null;
+            assertThatThrownBy(() -> ImageDecoding.readSubsampled(file, 1))
+                    .isInstanceOf(IOException.class).hasMessageContaining("IllegalStateException");
+            assertThat(ExplodingReader.lastInput).as("decode of a file").isNotNull();
+        });
     }
 
     @ParameterizedTest(name = "reader named {0}")
-    @ValueSource(strings = {"webp", "WebP", "WEBP"})
-    void shouldBoundTheStream_forAReaderNamedWebp(String formatName) throws IOException {
-        // A synthetic reader stands in for the real one, so that what is checked is the routing
-        // and not what the library happens to do. The name is compared without regard to case.
-        byte[] data = Arrays.copyOf(EXPLODING_MAGIC, EXPLODING_MAGIC.length + 16);
-        Path file = Files.write(tempDir.resolve("named.img"), data);
-        IIORegistry registry = IIORegistry.getDefaultInstance();
-        ExplodingReaderSpi spi = new ExplodingReaderSpi(formatName);
-        registry.registerServiceProvider(spi);
-        try {
-            ExplodingReader.lastInput = null;
-            assertThatThrownBy(() -> ImageDecoding.readSubsampled(data, 1)).isInstanceOf(IOException.class);
-            assertThat(ExplodingReader.lastInput).as("stream for a decode of bytes").isEqualTo(EofBudgetImageInputStream.class);
-
-            ExplodingReader.lastInput = null;
-            assertThatThrownBy(() -> ImageDecoding.readSubsampled(file, 1)).isInstanceOf(IOException.class);
-            assertThat(ExplodingReader.lastInput).as("stream for a decode of a file").isEqualTo(EofBudgetImageInputStream.class);
-
-            // A header read decodes nothing, so it needs no bound and gets the plain stream.
-            ExplodingReader.lastInput = null;
-            ImageDecoding.readHeader(data);
-            assertThat(ExplodingReader.lastInput).as("stream for a header read").isEqualTo(ByteArrayImageInputStream.class);
-        } finally {
-            registry.deregisterServiceProvider(spi);
-            ExplodingReader.lastInput = null;
-        }
-    }
-
-    @Test
-    void shouldLeaveRoomBelowTheBudget_forEveryValidWebpFixture() throws IOException {
-        // flat-49x28.webp is the valid lossless WebP that read past the end of its data most often
-        // among 14 600 swept (828 times; tiny flat images do, because libwebp codes their pixels one
-        // by one, while a 2048 x 2048 flat one does it 14 times). Lowering the budget towards it, or
-        // a library update that makes valid files read past the end more, must fail here and not in
-        // front of a patient's image.
-        int worst = 0;
-        for (String name : List.of("opaque-4x4.webp", "alpha-4x4.webp", "lossy-halves-37x23.webp",
-                "lossless-pattern-37x23.webp", "animated-8x8.webp", "flat-49x28.webp")) {
-            int reads = endReadsOf(fixtureBytes(name));
-            assertThat(reads * 4L).as("reads past the end by %s, times four", name)
-                    .isLessThanOrEqualTo(ImageDecoding.WEBP_MAX_READS_PAST_END);
-            worst = Math.max(worst, reads);
-        }
-        assertThat(worst).as("the worst fixture still stresses the budget").isGreaterThan(500);
-    }
-
-    // ---- WebP size cap and the length of byte payloads ---------------------------------------
-
-    @ParameterizedTest(name = "as {0}")
-    @ValueSource(strings = {"bytes", "file"})
-    void shouldRefuseWebpAboveTheCap_withoutAllocatingForIt(String kind) throws IOException {
-        com.sun.management.ThreadMXBean threads = allocationCounter();
-        // 5000 x 5000 is 25 MP, over the cap. The library would decode it into a 100 MB raster
-        // whatever the subsampling, and it accepts this file: the padding keeps it inside its own
-        // 2048:1 expansion limit, so only the cap stands between this input and the allocation.
-        byte[] webp = WebpHeaders.declaring(5000, 5000, 65_536);
-        Path file = Files.write(tempDir.resolve("above-cap.webp"), webp);
-        ImageDecoding.readSubsampled(fixtureBytes("opaque-4x4.webp"), 1); // warm up
-        long[] allocated = new long[1];
-
-        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
-            long before = threads.getCurrentThreadAllocatedBytes();
-            assertThatThrownBy(() -> decodeAs(kind, webp, file, 12))
-                    .isExactlyInstanceOf(IOException.class)
-                    .hasMessage(ImageDecoding.WEBP_TOO_LARGE_MESSAGE);
-            allocated[0] = threads.getCurrentThreadAllocatedBytes() - before;
+    @ValueSource(strings = {"webp", "WebP", "pcx"})
+    void shouldRefuseReader_whoseFormatIsNotListed(String formatName) throws IOException {
+        // A reader that is not for a listed format is treated as no reader at all, whatever it would
+        // have done, and is never given the stream. "webp" is the name that matters: it is what a
+        // WebP plugin put back on the classpath would report.
+        withDoubleNamed(formatName, (data, file) -> {
+            assertThat(ImageDecoding.readHeader(data)).isEmpty();
+            assertThat(ImageDecoding.readHeader(file)).isEmpty();
+            assertThatThrownBy(() -> ImageDecoding.readSubsampled(data, 1))
+                    .isExactlyInstanceOf(IOException.class).hasMessage(ImageDecoding.UNSUPPORTED_FORMAT_MESSAGE);
+            assertThatThrownBy(() -> ImageDecoding.readSubsampled(file, 1))
+                    .isExactlyInstanceOf(IOException.class).hasMessage(ImageDecoding.UNSUPPORTED_FORMAT_MESSAGE);
+            assertThat(ExplodingReader.lastInput).as("the reader was never given a stream").isNull();
         });
-
-        // Unrefused, the same call allocated 76 MB for a 417 x 417 result.
-        assertThat(allocated[0]).as("bytes allocated by the refused decode").isLessThan(1_000_000L);
-    }
-
-    @ParameterizedTest(name = "as {0}")
-    @ValueSource(strings = {"bytes", "file"})
-    void shouldRefuseWebp_onlyAboveTheCap(String kind) throws IOException {
-        assertThat(ImageDecoding.WEBP_MAX_SOURCE_PIXELS).isEqualTo(4096L * 4096L);
-        // 4096 x 4096 is exactly the cap, so the cap has nothing to say about it. This 64-byte
-        // file is far too small to expand into 67 MB, so the library's own limit refuses it, and
-        // the message tells the two refusals apart. One column more is over the cap.
-        byte[] atCap = WebpHeaders.declaring(4096, 4096, 64);
-        byte[] justOver = WebpHeaders.declaring(4097, 4096, 64);
-        Path atCapFile = Files.write(tempDir.resolve("at-cap.webp"), atCap);
-        Path justOverFile = Files.write(tempDir.resolve("just-over.webp"), justOver);
-
-        assertThatThrownBy(() -> decodeAs(kind, justOver, justOverFile, 12))
-                .isInstanceOf(IOException.class).hasMessage(ImageDecoding.WEBP_TOO_LARGE_MESSAGE);
-        assertThatThrownBy(() -> decodeAs(kind, atCap, atCapFile, 12))
-                .isInstanceOf(IOException.class).hasMessageNotContaining(ImageDecoding.WEBP_TOO_LARGE_MESSAGE);
-    }
-
-    @ParameterizedTest(name = "as {0}")
-    @ValueSource(strings = {"bytes", "file"})
-    void shouldReportDeclaredSize_forWebpAboveTheCap(String kind) throws IOException {
-        // Headers are never refused: callers need the declared size to decide what to do.
-        byte[] webp = WebpHeaders.declaring(5000, 5000, 64);
-        Path file = Files.write(tempDir.resolve("declared.webp"), webp);
-
-        assertThat(kind.equals("bytes") ? ImageDecoding.readHeader(webp) : ImageDecoding.readHeader(file))
-                .hasValueSatisfying(header -> {
-                    assertThat(header.formatName()).isEqualTo("webp");
-                    assertThat(header.width()).isEqualTo(5000);
-                    assertThat(header.height()).isEqualTo(5000);
-                    assertThat(header.pixels()).isGreaterThan(ImageDecoding.WEBP_MAX_SOURCE_PIXELS);
-                });
     }
 
     @Test
-    void shouldDecodeOtherFormats_aboveTheWebpCap() throws IOException {
-        // 4200 x 4200 is 17.6 MP, over the WebP cap. A PNG of that size is reduced as ever: the
-        // library honours subsampling for it, so the cap is for WebP alone.
-        assertThat(4200L * 4200L).isGreaterThan(ImageDecoding.WEBP_MAX_SOURCE_PIXELS);
-        Path png = tempDir.resolve("wide.png");
-        assertThat(ImageIO.write(new BufferedImage(4200, 4200, BufferedImage.TYPE_BYTE_GRAY), "png", png.toFile())).isTrue();
+    void shouldNotDecodeWebp_withoutAnyDecoderOnTheClasspath() throws IOException {
+        // The real file. The WebP plugin is no longer a dependency, so no reader claims it; one put
+        // back would be refused all the same (the test above).
+        byte[] webp = fixtureBytes("opaque-4x4.webp");
+        Path file = fixture("opaque-4x4.webp");
 
-        assertThat(ImageDecoding.readSubsampled(png, 10).getWidth()).isEqualTo(420);
-        assertThat(ImageDecoding.readSubsampled(Files.readAllBytes(png), 10).getHeight()).isEqualTo(420);
+        assertThat(ImageDecoding.readHeader(webp)).isEmpty();
+        assertThat(ImageDecoding.readHeader(file)).isEmpty();
+        assertThatThrownBy(() -> ImageDecoding.readSubsampled(webp, 1))
+                .isExactlyInstanceOf(IOException.class).hasMessage(ImageDecoding.UNSUPPORTED_FORMAT_MESSAGE);
+        assertThatThrownBy(() -> ImageDecoding.readSubsampled(file, 1))
+                .isExactlyInstanceOf(IOException.class).hasMessage(ImageDecoding.UNSUPPORTED_FORMAT_MESSAGE);
     }
 
-    @ParameterizedTest(name = "as {0}")
-    @ValueSource(strings = {"bytes", "file"})
-    void shouldRefuseFlatWebp_thatExpandsMoreThan2048Times(String kind) throws IOException {
-        // 212 bytes that would decode into 12 MB (a flat 2000 x 2000 canvas): under the cap, over
-        // the library's 2048:1 limit. As a file it was always refused; as bytes it used to decode,
-        // because a stream over a byte array reported no length and the limit fell back to a
-        // far looser one.
-        byte[] webp = fixtureBytes("flat-2000x2000.webp");
-        Path file = fixture("flat-2000x2000.webp");
+    @Test
+    void shouldReadHeaderAndDecode_forWbmp() throws IOException {
+        // The one listed format the other tests do not write.
+        byte[] wbmp = encode(new BufferedImage(7, 5, BufferedImage.TYPE_BYTE_BINARY), "wbmp");
 
-        assertThatThrownBy(() -> decodeAs(kind, webp, file, 4))
-                .isInstanceOf(IOException.class).hasMessageContaining("expansion ratio");
+        assertThat(ImageDecoding.readHeader(wbmp)).hasValueSatisfying(header -> {
+            assertThat(header.formatName()).isEqualToIgnoringCase("wbmp");
+            assertThat(header.width()).isEqualTo(7);
+            assertThat(header.height()).isEqualTo(5);
+        });
+        assertThat(ImageDecoding.readSubsampled(wbmp, 2).getWidth()).isEqualTo(4);
     }
 
-    @ParameterizedTest(name = "as {0}")
-    @ValueSource(strings = {"bytes", "file"})
-    void shouldRefuseFlatWebp_aboveTheCap(String kind) throws IOException {
-        // The 1,434-byte flat 6000 x 6000 canvas from the review: 36 MP, so the cap refuses it
-        // before the library is asked, the same way for bytes as for a file.
-        byte[] webp = fixtureBytes("flat-6000x6000.webp");
-        Path file = fixture("flat-6000x6000.webp");
-
-        assertThatThrownBy(() -> decodeAs(kind, webp, file, 12))
-                .isExactlyInstanceOf(IOException.class).hasMessage(ImageDecoding.WEBP_TOO_LARGE_MESSAGE);
-    }
+    // ---- byte payloads ----------------------------------------------------------------------
 
     @Test
     void shouldNotCopyTheBytes_whenDecodingFromMemory() throws IOException {
@@ -611,131 +426,6 @@ class ImageDecodingUnitTest {
 
         assertThat(orientation).isEqualTo(6);
         assertThat(allocated).as("bytes allocated scanning %d bytes of header", jpeg.length).isLessThan(512_000L);
-    }
-
-    // ---- EofBudgetImageInputStream ----------------------------------------------------------
-
-    @Test
-    void shouldPassReadsAndSeeksThrough_whileInsideTheData() throws IOException {
-        byte[] data = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
-        try (ImageInputStream raw = new MemoryCacheImageInputStream(new ByteArrayInputStream(data));
-                EofBudgetImageInputStream bounded = new EofBudgetImageInputStream(raw, 2)) {
-            assertThat(bounded.read()).isEqualTo(10);
-            assertThat(bounded.getStreamPosition()).isEqualTo(1);
-
-            byte[] buffer = new byte[4];
-            assertThat(bounded.read(buffer, 0, 4)).isEqualTo(4);
-            assertThat(buffer).containsExactly(11, 12, 13, 14);
-
-            bounded.seek(7);
-            assertThat(bounded.readUnsignedByte()).isEqualTo(17);
-            bounded.seek(2);
-            assertThat(bounded.readInt()).isEqualTo(0x0C0D0E0F); // big-endian until a reader says otherwise
-            bounded.seek(0);
-            bounded.setByteOrder(ByteOrder.LITTLE_ENDIAN);
-            assertThat(bounded.readShort()).isEqualTo((short) 0x0B0A);
-
-            // A short read at the very end returned bytes, so it is not a read past the end.
-            bounded.seek(8);
-            assertThat(bounded.read(buffer, 0, 4)).isEqualTo(2);
-            assertThat(bounded.endReads()).isZero();
-            // The wrapped stream was followed along: both stand at the end.
-            assertThat(raw.getStreamPosition()).isEqualTo(10);
-            assertThat(bounded.getStreamPosition()).isEqualTo(10);
-        }
-    }
-
-    @Test
-    void shouldStartAtThePositionOfTheWrappedStream_whenCreated() throws IOException {
-        byte[] data = {1, 2, 3, 4, 5};
-        try (ImageInputStream raw = new MemoryCacheImageInputStream(new ByteArrayInputStream(data))) {
-            raw.seek(2);
-            try (EofBudgetImageInputStream bounded = new EofBudgetImageInputStream(raw, 1)) {
-                assertThat(bounded.getStreamPosition()).isEqualTo(2);
-                assertThat(bounded.read()).isEqualTo(3);
-            }
-        }
-    }
-
-    @Test
-    void shouldReportTheLengthOfTheWrappedStream_whenItKnowsIt() throws IOException {
-        Path file = Files.write(tempDir.resolve("four.bin"), new byte[] {1, 2, 3, 4});
-        try (ImageInputStream raw = new javax.imageio.stream.FileImageInputStream(file.toFile());
-                EofBudgetImageInputStream bounded = new EofBudgetImageInputStream(raw, 1)) {
-            assertThat(bounded.length()).isEqualTo(4);
-        }
-    }
-
-    @Test
-    void shouldThrowEofExceptionThenIioException_forEndReadsBeyondTheBudget() throws IOException {
-        byte[] data = {1, 2, 3, 4};
-        try (ImageInputStream raw = new MemoryCacheImageInputStream(new ByteArrayInputStream(data));
-                EofBudgetImageInputStream bounded = new EofBudgetImageInputStream(raw, 3)) {
-            bounded.seek(4); // exactly at the end of the data
-
-            // Three end-of-data reads are tolerated, whichever way they are made: the caller sees
-            // -1 (or an EOFException from readByte), exactly as without the view.
-            assertThat(bounded.read()).isEqualTo(-1);
-            assertThat(bounded.read(new byte[2], 0, 2)).isEqualTo(-1);
-            assertThatThrownBy(bounded::readByte).isExactlyInstanceOf(EOFException.class);
-            assertThat(bounded.endReads()).isEqualTo(3);
-
-            // The fourth and every later one fail with an IIOException. It is not an EOFException,
-            // so a reader that swallows EOFException while prefetching does not swallow this.
-            assertThatThrownBy(bounded::read).isExactlyInstanceOf(IIOException.class);
-            assertThatThrownBy(() -> bounded.read(new byte[1], 0, 1)).isExactlyInstanceOf(IIOException.class);
-            assertThatThrownBy(bounded::readByte).isExactlyInstanceOf(IIOException.class)
-                    .hasMessageNotContaining(tempDir.toString());
-            assertThat(bounded.endReads()).as("the count stops at the budget").isEqualTo(3);
-        }
-    }
-
-    @Test
-    void shouldCountEndReadsAcrossSeeks_notOnlyConsecutiveOnes() throws IOException {
-        // The library seeks back after each end-of-data read, so the budget cannot be reset by a
-        // normal read in between.
-        byte[] data = {1, 2, 3, 4};
-        try (ImageInputStream raw = new MemoryCacheImageInputStream(new ByteArrayInputStream(data));
-                EofBudgetImageInputStream bounded = new EofBudgetImageInputStream(raw, 2)) {
-            bounded.seek(4);
-            assertThat(bounded.read()).isEqualTo(-1);
-            bounded.seek(0);
-            assertThat(bounded.read()).isEqualTo(1);
-            bounded.seek(4);
-            assertThat(bounded.read()).isEqualTo(-1);
-            bounded.seek(1);
-            assertThat(bounded.read()).isEqualTo(2);
-            bounded.seek(4);
-            assertThatThrownBy(bounded::read).isExactlyInstanceOf(IIOException.class);
-        }
-    }
-
-    @Test
-    void shouldFailOnTheFirstEndRead_forZeroBudget() throws IOException {
-        try (ImageInputStream raw = new MemoryCacheImageInputStream(new ByteArrayInputStream(new byte[] {1}));
-                EofBudgetImageInputStream bounded = new EofBudgetImageInputStream(raw, 0)) {
-            assertThat(bounded.read()).isEqualTo(1); // data is still read freely
-            assertThatThrownBy(bounded::read).isExactlyInstanceOf(IIOException.class);
-        }
-    }
-
-    @Test
-    void shouldLeaveTheWrappedStreamOpen_whenClosed() throws IOException {
-        try (ImageInputStream raw = new MemoryCacheImageInputStream(new ByteArrayInputStream(new byte[] {7, 8}))) {
-            EofBudgetImageInputStream bounded = new EofBudgetImageInputStream(raw, 1);
-            bounded.close();
-
-            assertThatThrownBy(bounded::read).isInstanceOf(IOException.class);
-            assertThat(raw.read()).as("the wrapped stream is still usable").isEqualTo(7);
-        }
-    }
-
-    @Test
-    void shouldRejectInvalidArguments_forEofBudgetStream() throws IOException {
-        try (ImageInputStream raw = new MemoryCacheImageInputStream(new ByteArrayInputStream(new byte[0]))) {
-            assertThatThrownBy(() -> new EofBudgetImageInputStream(null, 1)).isInstanceOf(NullPointerException.class);
-            assertThatThrownBy(() -> new EofBudgetImageInputStream(raw, -1)).isInstanceOf(IllegalArgumentException.class);
-        }
     }
 
     @Test
@@ -808,8 +498,10 @@ class ImageDecodingUnitTest {
         // Bytes are a patient's document: ImageIO's default stream for an InputStream is a cache
         // file in the temporary directory (when caching is on, as it is by default), so byte
         // arrays go through a stream over the array itself instead: no copy, no disk, and a
-        // length, which the WebP reader's 2048:1 expansion limit needs (a memory cache stream
-        // reports none, and the limit then falls back to a far looser one). A file is read in
+        // length, which a reader's own checks need (a memory cache stream reports -1, and a check
+        // such as the TwelveMonkeys TIFF reader's 512:1 expansion limit is then skipped). The
+        // length is asserted here, not through a real TIFF, because which of the three TIFF
+        // readers on the classpath claims an input depends on the classpath order. A file is read in
         // place, never copied into memory first. The synthetic reader records the stream it is given.
         byte[] data = Arrays.copyOf(EXPLODING_MAGIC, EXPLODING_MAGIC.length + 16);
         Path file = Files.write(tempDir.resolve("recording.img"), data);
@@ -820,10 +512,12 @@ class ImageDecodingUnitTest {
             ExplodingReader.lastInput = null;
             ImageDecoding.readHeader(data);
             assertThat(ExplodingReader.lastInput).as("stream for a header read of bytes").isEqualTo(ByteArrayImageInputStream.class);
+            assertThat(ExplodingReader.lastInputLength).as("length the reader sees, header read of bytes").isEqualTo(data.length);
 
             ExplodingReader.lastInput = null;
             assertThatThrownBy(() -> ImageDecoding.readSubsampled(data, 1)).isInstanceOf(IOException.class);
             assertThat(ExplodingReader.lastInput).as("stream for a decode of bytes").isEqualTo(ByteArrayImageInputStream.class);
+            assertThat(ExplodingReader.lastInputLength).as("length the reader sees, decode of bytes").isEqualTo(data.length);
 
             ExplodingReader.lastInput = null;
             ImageDecoding.readHeader(file);
@@ -1232,8 +926,9 @@ class ImageDecodingUnitTest {
 
     /** Registers a reader for {@link #EXPLODING_MAGIC} data; its reader fails with an unchecked exception. */
     private static final class ExplodingReaderSpi extends ImageReaderSpi {
+        /** Named like a listed format, so that {@link ImageDecoding} consults the double. */
         ExplodingReaderSpi() {
-            this("carlos-test-exploding");
+            this("bmp");
         }
 
         ExplodingReaderSpi(String formatName) {
@@ -1273,6 +968,9 @@ class ImageDecodingUnitTest {
         /** The class of the stream most recently given to a reader of this kind. */
         static volatile Class<?> lastInput;
 
+        /** The length that stream reported when it was given: -1 if it did not know it. */
+        static volatile long lastInputLength;
+
         ExplodingReader(ImageReaderSpi spi) {
             super(spi);
         }
@@ -1281,6 +979,15 @@ class ImageDecodingUnitTest {
         public void setInput(Object input, boolean seekForwardOnly, boolean ignoreMetadata) {
             super.setInput(input, seekForwardOnly, ignoreMetadata);
             lastInput = input == null ? null : input.getClass();
+            lastInputLength = lengthOf(input);
+        }
+
+        private static long lengthOf(Object input) {
+            try {
+                return input instanceof ImageInputStream stream ? stream.length() : Long.MIN_VALUE;
+            } catch (IOException e) {
+                return Long.MIN_VALUE;
+            }
         }
 
         private static IllegalStateException failure() {
@@ -1323,24 +1030,30 @@ class ImageDecodingUnitTest {
         }
     }
 
-    /** How many times the reader reads past the end of this WebP's data when it decodes it, unbounded. */
-    private static int endReadsOf(byte[] webp) throws IOException {
-        try (ImageInputStream raw = new ByteArrayImageInputStream(webp);
-                EofBudgetImageInputStream counting = new EofBudgetImageInputStream(raw, Integer.MAX_VALUE)) {
-            ImageReader reader = ImageIO.getImageReaders(raw).next();
-            try {
-                reader.setInput(counting, false, true);
-                reader.read(0);
-            } finally {
-                reader.dispose();
-            }
-            return counting.endReads();
+    /** Decodes through the byte-array overload or, as {@code kind} says, through the file overload. */
+    private static BufferedImage decodeAs(String kind, byte[] data, Path file, int subsampling) throws IOException {
+        return kind.equals("bytes") ? ImageDecoding.readSubsampled(data, subsampling) : ImageDecoding.readSubsampled(file, subsampling);
+    }
+
+    /** Runs {@code body} with the synthetic reader registered under {@code formatName}, on bytes and on a file holding them. */
+    private void withDoubleNamed(String formatName, DoubleBody body) throws IOException {
+        byte[] data = Arrays.copyOf(EXPLODING_MAGIC, EXPLODING_MAGIC.length + 16);
+        Path file = Files.write(tempDir.resolve("named.img"), data);
+        IIORegistry registry = IIORegistry.getDefaultInstance();
+        ExplodingReaderSpi spi = new ExplodingReaderSpi(formatName);
+        registry.registerServiceProvider(spi);
+        try {
+            ExplodingReader.lastInput = null;
+            body.run(data, file);
+        } finally {
+            registry.deregisterServiceProvider(spi);
+            ExplodingReader.lastInput = null;
         }
     }
 
-    /** Decodes {@code webp} through the byte-array overload or, as {@code kind} says, through the file overload. */
-    private static BufferedImage decodeAs(String kind, byte[] webp, Path file, int subsampling) throws IOException {
-        return kind.equals("bytes") ? ImageDecoding.readSubsampled(webp, subsampling) : ImageDecoding.readSubsampled(file, subsampling);
+    @FunctionalInterface
+    private interface DoubleBody {
+        void run(byte[] data, Path file) throws IOException;
     }
 
     private static BufferedImage gradient(int width, int height) {
