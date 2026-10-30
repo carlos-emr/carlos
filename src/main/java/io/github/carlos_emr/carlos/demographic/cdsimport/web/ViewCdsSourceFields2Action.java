@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.assembler.CdsSourceFieldsViewModelAssembler;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.Set;
@@ -39,7 +38,9 @@ public class ViewCdsSourceFields2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsSourceFieldsViewModelAssembler assembler;
     private int demographicNo; private String category, after="", reviewAfter="";
-    public ViewCdsSourceFields2Action(CdsSourceFieldsViewModelAssembler assembler, SecurityInfoManager securityInfoManager){
+    private final transient CdsWebService web;
+    public ViewCdsSourceFields2Action(CdsWebService web, CdsSourceFieldsViewModelAssembler assembler, SecurityInfoManager securityInfoManager){
+        this.web = web;
         this.securityInfoManager = securityInfoManager; this.assembler=assembler; }
     @Override public String execute() throws Exception {
         var request=ServletActionContext.getRequest(); var response=ServletActionContext.getResponse();
@@ -50,11 +51,11 @@ public class ViewCdsSourceFields2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
         try {
-            var actor=CdsWeb.authenticated(request); CdsWeb.readOnlyParameters(request, Set.of("demographicNo", "category", "after", "reviewAfter"));
+            var actor=web.authenticated(request); web.readOnlyParameters(request, Set.of("demographicNo", "category", "after", "reviewAfter"));
             request.setAttribute("model", assembler.assemble(actor, demographicNo, category, after, reviewAfter));
             response.setHeader("Cache-Control", "no-store"); response.setHeader("X-Content-Type-Options", "nosniff"); return SUCCESS;
         } catch (SecurityException failure) { throw failure;
-        } catch (Exception failure){CdsWeb.failure(response, failure); return NONE; }
+        } catch (Exception failure){web.failure(response, failure); return NONE; }
     }
     @StrutsParameter public void setDemographicNo(int value){demographicNo=value; }
     @StrutsParameter public void setCategory(String value){category=value; }

@@ -54,17 +54,17 @@ public class CdsImportReviewDao extends AbstractDaoImpl<CdsImportReview> {
         var rows=entityManager.createQuery("select r from CdsImportReview r where r.runId=:run order by r.reviewVersion desc", CdsImportReview.class).setParameter("run", run).setMaxResults(1).getResultList(); return rows.isEmpty()?null:rows.get(0);
     }
     /** Latest review, bounded pending count and inactive-draft count share one statement snapshot. */
-    public io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewSummaryDto summary(String run) {
-        var rows=entityManager.createQuery("select new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewSummaryDto("
+    public io.github.carlos_emr.carlos.commn.dto.CdsImportReviewSummaryDto summary(String run) {
+        var rows=entityManager.createQuery("select new io.github.carlos_emr.carlos.commn.dto.CdsImportReviewSummaryDto("
                 + "r.id,r.state,r.safeErrorCode,"
                 + "(select count(bounded.id) from (select p.id as id from CdsImportReview p where p.runId=:run "
                 + "and p.state in ('REQUESTED','VALIDATING','OVERLAY_PUBLISHED','PATIENT_DECLINED','REVISION_PUBLISHED') order by p.reviewVersion limit 2) bounded),"
                 + "(select count(d) from CdsImportReview d where d.runId=:run and d.state='DRAFT_REQUIRES_CORRECTION' "
                 + "and not exists(select a.id from CdsImportReview a where a.runId=d.runId and a.sourceKey=d.sourceKey "
                 + "and a.reviewVersion>d.reviewVersion and a.state in ('OVERLAY_PUBLISHED','OVERLAY_READY','REVALIDATED')))) "
-                + "from CdsImportReview r where r.runId=:run order by r.reviewVersion desc", io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewSummaryDto.class)
+                + "from CdsImportReview r where r.runId=:run order by r.reviewVersion desc", io.github.carlos_emr.carlos.commn.dto.CdsImportReviewSummaryDto.class)
                 .setParameter("run", run).setMaxResults(1).getResultList();
-        return rows.isEmpty() ? new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewSummaryDto(null, "IDLE", null, 0, 0)
+        return rows.isEmpty() ? new io.github.carlos_emr.carlos.commn.dto.CdsImportReviewSummaryDto(null, "IDLE", null, 0, 0)
                 : rows.getFirst();
     }
 
@@ -75,12 +75,12 @@ public class CdsImportReviewDao extends AbstractDaoImpl<CdsImportReview> {
         return entityManager.createQuery("select count(r) from CdsImportReview r where r.runId=:run and r.state='DRAFT_REQUIRES_CORRECTION' and not exists(select a.id from CdsImportReview a where a.runId=r.runId and a.sourceKey=r.sourceKey and a.reviewVersion>r.reviewVersion and a.state in ('OVERLAY_PUBLISHED','OVERLAY_READY','REVALIDATED'))", Long.class)
                 .setParameter("run", run).getSingleResult();
     }
-    public List<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewOriginDto> origins(String run, java.util.Collection<String> ids) {
+    public List<io.github.carlos_emr.carlos.commn.dto.CdsImportReviewOriginDto> origins(String run, java.util.Collection<String> ids) {
         if (ids.isEmpty()) return List.of(); if (ids.size()>128) throw new IllegalArgumentException("REVIEW_ORIGIN_CAPACITY_EXCEEDED");
-        return entityManager.createQuery("select new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewOriginDto(r.id,r.operator,r.securityNo,r.sourceKey,r.reviewedSourceXPath,r.state,r.reviewVersion) from CdsImportReview r where r.runId=:run and r.id in :ids", io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewOriginDto.class).setParameter("run", run).setParameter("ids", ids).getResultList();
+        return entityManager.createQuery("select new io.github.carlos_emr.carlos.commn.dto.CdsImportReviewOriginDto(r.id,r.operator,r.securityNo,r.sourceKey,r.reviewedSourceXPath,r.state,r.reviewVersion) from CdsImportReview r where r.runId=:run and r.id in :ids", io.github.carlos_emr.carlos.commn.dto.CdsImportReviewOriginDto.class).setParameter("run", run).setParameter("ids", ids).getResultList();
     }
-    public List<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewProvenanceDto> provenance(int demographic, String category, String after, int limit) {
-        return entityManager.createQuery("select new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewProvenanceDto(r.id,r.operator,r.appliedAt,r.kind,r.state,r.reviewReason,r.reviewVersion,r.reviewedSourceXPath) from CdsImportReview r where r.id>:after and r.state in ('OVERLAY_READY','DECLINE_READY','REVALIDATED','REVISION_READY','REVISION_REVALIDATED') and (r.category=:category or r.kind in ('DECLINE_PATIENT','APPROVE_UNWRITTEN_REVISION')) and exists(select p.id from CdsImportPatient p where p.targetDemographicNo=:target and p.runId=r.runId and p.sourcePatientId=r.sourcePatientId and (r.patientKey is null or r.patientKey=p.patientKey)) order by r.id", io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReviewProvenanceDto.class)
+    public List<io.github.carlos_emr.carlos.commn.dto.CdsImportReviewProvenanceDto> provenance(int demographic, String category, String after, int limit) {
+        return entityManager.createQuery("select new io.github.carlos_emr.carlos.commn.dto.CdsImportReviewProvenanceDto(r.id,r.operator,r.appliedAt,r.kind,r.state,r.reviewReason,r.reviewVersion,r.reviewedSourceXPath) from CdsImportReview r where r.id>:after and r.state in ('OVERLAY_READY','DECLINE_READY','REVALIDATED','REVISION_READY','REVISION_REVALIDATED') and (r.category=:category or r.kind in ('DECLINE_PATIENT','APPROVE_UNWRITTEN_REVISION')) and exists(select p.id from CdsImportPatient p where p.targetDemographicNo=:target and p.runId=r.runId and p.sourcePatientId=r.sourcePatientId and (r.patientKey is null or r.patientKey=p.patientKey)) order by r.id", io.github.carlos_emr.carlos.commn.dto.CdsImportReviewProvenanceDto.class)
                 .setParameter("after", after).setParameter("category", category).setParameter("target", demographic).setMaxResults(limit).getResultList();
     }
 }

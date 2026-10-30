@@ -209,7 +209,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                 for (String version : java.util.List.of("1.0.59.8", "1.0.59.10")) {
                     assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(dao, "representationTableAvailable",
                             "cds_absent_projection_contract_test", version))
-                            .isInstanceOf(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException.class);
+                            .isInstanceOf(io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException.class);
                 }
             } finally { transaction.rollback(); }
         }
@@ -602,10 +602,10 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                             "CDS_LOCAL_TIME_REQUIRES_REVIEW"})) {
                 var source = immunizationDate(choice[0], choice[1]);
                 assertThatThrownBy(() -> writer.validate(source))
-                        .isInstanceOf(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException.class)
+                        .isInstanceOf(io.github.carlos_emr.carlos.commn.model.CdsClinicalException.class)
                         .hasMessage(choice[2] + " (Date)");
                 assertThatThrownBy(() -> writer.write(42, "T099", source))
-                        .isInstanceOf(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException.class)
+                        .isInstanceOf(io.github.carlos_emr.carlos.commn.model.CdsClinicalException.class)
                         .hasMessage(choice[2] + " (Date)");
                 assertThat(source.date().original()).isEqualTo(choice[1]);
                 session.flush();

@@ -21,10 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
 import java.util.Map;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -36,9 +34,9 @@ import org.springframework.stereotype.Component;
 @Component("legacyCdsImportLog2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class LegacyCdsImportLog2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
-    private final transient CdsImportAccessService access;
-    public LegacyCdsImportLog2Action(CdsImportAccessService access, SecurityInfoManager securityInfoManager) {
-        this.securityInfoManager = securityInfoManager; this.access = access; }
+    private final transient CdsWebService web;
+    public LegacyCdsImportLog2Action(CdsWebService web, SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager; this.web = web; }
     @Override public String execute() throws Exception {
         var request = ServletActionContext.getRequest(); var response = ServletActionContext.getResponse();
         LoggedInInfo loggedInInfo = request.getSession(false) == null ? null
@@ -50,8 +48,8 @@ public class LegacyCdsImportLog2Action extends ActionSupport {
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_cds_import", "w", (String) null)) {
             throw new SecurityException("missing required sec object (_cds_import)");
         }
-        CdsWeb.authorize(request, access);
-        CdsWeb.json(response, 410, Map.of("ok", false, "code", "IMPORT_LEGACY_LOG_LINK_EXPIRED",
+        web.authorize(request);
+        web.json(response, 410, Map.of("ok", false, "code", "IMPORT_LEGACY_LOG_LINK_EXPIRED",
                 "message", "This temporary import-log link has expired. Open the durable run and download its protected reports."));
         return NONE;
     }

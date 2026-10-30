@@ -47,9 +47,9 @@ public class CdsImportDiagnosticDao extends AbstractDaoImpl<CdsImportDiagnostic>
         return query.getSingleResult();
     }
     /** Current scalar counts and indexed existence checks never load protected diagnostic payloads. */
-    public io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticSummaryDto summary(String runId,
+    public io.github.carlos_emr.carlos.commn.dto.CdsImportDiagnosticSummaryDto summary(String runId,
             String releaseFailure, String releaseDeferred, String releasePending) {
-        return entityManager.createQuery("select new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticSummaryDto("
+        return entityManager.createQuery("select new io.github.carlos_emr.carlos.commn.dto.CdsImportDiagnosticSummaryDto("
                 + "(select count(d) from CdsImportDiagnostic d where d.runId=:run and d.blocking=true and d.resolved=false),"
                 + "case when exists(select f.id from CdsImportDiagnostic f where f.runId=:run and f.blocking=false "
                 + "and f.patientKey is null and f.resolved=false and f.code=:failed) then 1L else 0L end,"
@@ -57,7 +57,7 @@ public class CdsImportDiagnosticDao extends AbstractDaoImpl<CdsImportDiagnostic>
                 + "and d.patientKey is null and d.resolved=false and d.code=:deferred) then 1L else 0L end,"
                 + "case when exists(select p.id from CdsImportDiagnostic p where p.runId=:run and p.blocking=false "
                 + "and p.patientKey is null and p.resolved=false and p.code=:pending) then 1L else 0L end)",
-                io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticSummaryDto.class)
+                io.github.carlos_emr.carlos.commn.dto.CdsImportDiagnosticSummaryDto.class)
                 .setParameter("run", runId).setParameter("failed", releaseFailure).setParameter("deferred", releaseDeferred)
                 .setParameter("pending", releasePending).getSingleResult();
     }

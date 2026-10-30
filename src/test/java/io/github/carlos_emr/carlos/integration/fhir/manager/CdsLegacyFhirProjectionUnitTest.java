@@ -23,7 +23,7 @@ package io.github.carlos_emr.carlos.integration.fhir.manager;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException;
+import io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.List;

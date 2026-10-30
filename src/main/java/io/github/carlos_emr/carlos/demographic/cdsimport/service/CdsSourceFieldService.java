@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReceiptDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
 import java.io.IOException;

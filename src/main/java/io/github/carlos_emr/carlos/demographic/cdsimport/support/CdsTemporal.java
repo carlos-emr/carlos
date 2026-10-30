@@ -21,14 +21,14 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.support;
 
+import io.github.carlos_emr.carlos.commn.model.CdsClinicalException;
+
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto.Precision;
 import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.Year;
-import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.ResolverStyle;
 
@@ -45,28 +45,9 @@ public final class CdsTemporal {
         String lexical = supplied.get(0);
         if (lexical.isBlank()) throw new CdsClinicalException("CDS_DATE_EMPTY", field);
         try {
-            if (year != null) {
-                String value = calendarLexical(year, 4, field);
-                Year parsed = Year.parse(value, DateTimeFormatter.ofPattern("uuuu")
-                        .withResolverStyle(ResolverStyle.STRICT));
-                requireClinicalYear(parsed.getValue(), field);
-                return new CdsTemporalDto(Precision.YEAR, lexical, parsed.atDay(1),
-                        parsed.atMonth(12).atEndOfMonth(), null, null);
-            }
-            if (month != null) {
-                String value = calendarLexical(month, 7, field);
-                YearMonth parsed = YearMonth.parse(value,
-                        DateTimeFormatter.ofPattern("uuuu-MM").withResolverStyle(ResolverStyle.STRICT));
-                requireClinicalYear(parsed.getYear(), field);
-                return new CdsTemporalDto(Precision.MONTH, lexical, parsed.atDay(1),
-                        parsed.atEndOfMonth(), null, null);
-            }
-            if (date != null) {
-                LocalDate parsed = LocalDate.parse(calendarLexical(date, 10, field),
-                        DateTimeFormatter.ISO_LOCAL_DATE.withResolverStyle(ResolverStyle.STRICT));
-                requireClinicalYear(parsed.getYear(), field);
-                return new CdsTemporalDto(Precision.FULL_DATE, lexical, parsed, parsed, null, null);
-            }
+            if (year != null) return CdsTemporalDto.calendar(Precision.YEAR, year, field);
+            if (month != null) return CdsTemporalDto.calendar(Precision.MONTH, month, field);
+            if (date != null) return CdsTemporalDto.calendar(Precision.FULL_DATE, date, field);
             String interpretedTime = endOfDay(dateTime);
             if (interpretedTime.endsWith("Z") || interpretedTime.matches(".*[+-]\\d{2}:\\d{2}$")) {
                 OffsetDateTime parsed = OffsetDateTime.parse(interpretedTime,
@@ -126,18 +107,4 @@ public final class CdsTemporal {
         return next + "T00:00:00" + (match.group(2) == null ? "" : match.group(2));
     }
 
-    private static String calendarLexical(String lexical, int length, String field) {
-        if (lexical.length() < length) throw new CdsClinicalException("CDS_DATE_INVALID", field);
-        String suffix = lexical.substring(length);
-        if (!suffix.isEmpty() && !suffix.equals("Z")) {
-            if (!suffix.matches("[+-]\\d{2}:\\d{2}")) {
-                throw new CdsClinicalException("CDS_DATE_INVALID", field);
-            }
-            var offset = java.time.ZoneOffset.of(suffix);
-            if (Math.abs(offset.getTotalSeconds()) > 14 * 3600) {
-                throw new CdsClinicalException("CDS_DATE_INVALID", field);
-            }
-        }
-        return lexical.substring(0, length);
-    }
 }

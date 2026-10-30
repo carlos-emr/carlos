@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -28,7 +30,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.github.carlos_emr.carlos.commn.dao.CdsImportPreparationDao;
 import io.github.carlos_emr.carlos.commn.model.CdsImportPreparation;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

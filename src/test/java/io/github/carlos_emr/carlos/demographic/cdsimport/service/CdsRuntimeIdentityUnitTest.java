@@ -19,11 +19,18 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.demographic.cdsimport.support;
+package io.github.carlos_emr.carlos.demographic.cdsimport.service;
+
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsCalendarZone;
+
+
+
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 
 import static org.assertj.core.api.Assertions.*;
 
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportException;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;

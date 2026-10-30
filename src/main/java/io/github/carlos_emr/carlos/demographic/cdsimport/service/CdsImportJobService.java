@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
@@ -33,7 +35,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsSnapshotDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsSnapshotFileDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsUploadDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPaths;
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -452,7 +454,7 @@ public class CdsImportJobService {
     public static String rulesetDigest(CdsImportCommand command, CdsImportConfigurationService configuration) {
         return CdsImportKeys.hash(CdsImportConfigurationService.RULESET, command.sourceProfile(),
                 CdsSchemaValidator.MAIN_SHA256, CdsSchemaValidator.DATATYPE_SHA256,
-                io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsRulesetFingerprint.current().sha256(),
+                io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsRulesetFingerprint.current().sha256(),
                 configuration.normalizationPolicyDigest(command));
     }
 

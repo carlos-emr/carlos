@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.commn.dao.CdsLegacyProjectionDao;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException;
+import io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException;
 import jakarta.ws.rs.WebApplicationException;
 import java.util.Set;
 import org.junit.jupiter.api.Tag;

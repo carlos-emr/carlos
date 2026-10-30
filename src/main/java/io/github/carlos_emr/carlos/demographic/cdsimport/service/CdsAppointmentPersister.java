@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAppointmentNativeDto;
@@ -218,7 +220,7 @@ public class CdsAppointmentPersister {
         }
         if (representable) {
             try { io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto.dateStorageAnchor(date); }
-            catch (io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException unavailable) {
+            catch (io.github.carlos_emr.carlos.commn.model.CdsClinicalException unavailable) {
                 representable = false;
                 notice.accept(new CdsClinicalDiagnosticDto("CDS_APPOINTMENT_NATIVE_CALENDAR_SOURCE_ONLY", "AppointmentDate"));
             }

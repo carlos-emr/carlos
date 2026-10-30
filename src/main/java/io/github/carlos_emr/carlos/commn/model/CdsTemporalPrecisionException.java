@@ -19,15 +19,13 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.demographic.cdsimport.support;
+package io.github.carlos_emr.carlos.commn.model;
 
-/** Opt-in actual classloader probe for compiled classes and exploded WAR parity; emits no paths or secrets. */
-public final class CdsRulesetFingerprintProbe {
-    private CdsRulesetFingerprintProbe() {}
-
-    public static void main(String[] args) {
-        if (args.length != 0)
-            throw new IllegalArgumentException("No source or configuration arguments are accepted");
-        System.out.println(CdsRulesetFingerprint.current().sha256());
+/** A Date-only consumer cannot assert the exact day represented by a storage anchor. */
+public final class CdsTemporalPrecisionException extends IllegalStateException {
+    private static final long serialVersionUID = 1L;
+    public static final String CODE = "CDS_CLINICAL_DATE_PRECISION_REVIEW_REQUIRED";
+    public CdsTemporalPrecisionException() {
+        super(CODE + "; use a precision-aware clinical representation");
     }
 }

@@ -21,9 +21,11 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.commn.model.CdsImportRun;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;

@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.cli;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

@@ -19,11 +19,11 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.demographic.cdsimport.support;
+package io.github.carlos_emr.carlos.demographic.cdsimport.service;
+
 
 import static org.assertj.core.api.Assertions.*;
 
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportJobService;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -46,7 +46,19 @@ class CdsRulesetFingerprintMappingUnitTest {
                         "PMmodule/model/ProgramProvider",
                         "commn/model/ProviderDefaultProgram",
                         "model/security/Secrole",
-                        "commn/model/Facility"));
+                        "commn/model/Facility",
+                        "utility/CdsImportKeys",
+                        "utility/CdsJdbcConnectionTimeouts",
+                        "commn/dto/CdsProgramContextDto",
+                        "commn/dto/CdsProgramMembershipDto",
+                        "commn/dto/CdsImportControlDto",
+                        "commn/dto/CdsImportPatientOutcomeDto",
+                        "commn/dto/CdsImportDiagnosticSummaryDto",
+                        "commn/dto/CdsImportReviewSummaryDto",
+                        "commn/dto/CdsImportReviewOriginDto",
+                        "commn/dto/CdsImportReviewProvenanceDto",
+                        "commn/dto/CdsImportJobBindingDto",
+                        "commn/dto/CdsImportReportEntryDto"));
     }
 
     @Test

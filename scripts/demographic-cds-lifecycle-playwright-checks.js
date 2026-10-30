@@ -295,7 +295,7 @@ function assertCompletion(value, expected) {
 }
 
 function assertAcceptance(response,expected,durableOwner) {
-  // CdsWeb.job deliberately omits operator/provider fields. Ownership is proven by
+  // CdsWebService.job deliberately omits operator/provider fields. Ownership is proven by
   // the actual owner-only endpoint plus an independent exact durable scalar query.
   h.assert(response.status===200 && response.body?.apiVersion===2 && response.body.job?.id===expected.runId
     && response.body.job.sourceNamespace===expected.options.sourceNamespace

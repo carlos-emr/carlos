@@ -21,11 +21,13 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReceiptDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.nio.charset.StandardCharsets;

@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;
 import java.util.Properties;
 import org.junit.jupiter.api.Tag;

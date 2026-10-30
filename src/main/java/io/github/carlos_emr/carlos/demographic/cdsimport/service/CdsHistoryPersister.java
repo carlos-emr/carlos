@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO;
@@ -397,7 +399,7 @@ public class CdsHistoryPersister {
             }
             return instant.toEpochMilli();
         } catch (IllegalArgumentException ambiguous) {
-            String code = ambiguous instanceof io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException clinical
+            String code = ambiguous instanceof io.github.carlos_emr.carlos.commn.model.CdsClinicalException clinical
                     && clinical.code().startsWith("CDS_NATIVE_")
                     ? "CDS_NOTE_NATIVE_TIMESTAMP_SOURCE_ONLY" : "CDS_NOTE_LOCAL_TIMESTAMP_SOURCE_ONLY";
             notice.accept(

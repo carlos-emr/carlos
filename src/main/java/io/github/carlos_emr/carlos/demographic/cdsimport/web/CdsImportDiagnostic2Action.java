@@ -21,10 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsUploadException;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -43,14 +41,14 @@ import java.util.Set;
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsImportDiagnostic2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
-    private final transient CdsImportAccessService access;
+    private final transient CdsWebService web;
     private final transient CdsImportService imports;
     private String runId;
     private long diagnosticId;
 
-    public CdsImportDiagnostic2Action(CdsImportAccessService access, CdsImportService imports, SecurityInfoManager securityInfoManager) {
+    public CdsImportDiagnostic2Action(CdsWebService web, CdsImportService imports, SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
-        this.access = access;
+        this.web = web;
         this.imports = imports;
     }
 
@@ -73,24 +71,24 @@ public class CdsImportDiagnostic2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_cds_import)");
         }
         try {
-            var actor = CdsWeb.authorize(request, access);
-            CdsWeb.parameters(request, Set.of("runId", "diagnosticId"));
+            var actor = web.authorize(request);
+            web.parameters(request, Set.of("runId", "diagnosticId"));
             if (runId == null
                     || !runId.matches(
                             "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
                     || diagnosticId < 1)
                 throw new CdsUploadException("IMPORT_DIAGNOSTIC_INVALID", 400);
-            var evidence = CdsWeb.summary(imports.diagnosticEvidence(actor, runId, diagnosticId));
+            var evidence = web.summary(imports.diagnosticEvidence(actor, runId, diagnosticId));
             if ("HEAD".equals(request.getMethod())) {
                 response.setStatus(200);
                 response.setContentType("application/json");
                 response.setCharacterEncoding("UTF-8");
                 response.setHeader("Cache-Control", "no-store");
                 response.setHeader("X-Content-Type-Options", "nosniff");
-                response.setHeader(CdsWeb.API_VERSION_HEADER, Integer.toString(CdsWeb.API_VERSION));
-            } else CdsWeb.json(response, 200, Map.of("ok", true, "evidence", evidence));
+                response.setHeader(CdsWebService.API_VERSION_HEADER, Integer.toString(CdsWebService.API_VERSION));
+            } else web.json(response, 200, Map.of("ok", true, "evidence", evidence));
         } catch (Exception failure) {
-            CdsWeb.failure(response, failure);
+            web.failure(response, failure);
         }
         return NONE;
     }

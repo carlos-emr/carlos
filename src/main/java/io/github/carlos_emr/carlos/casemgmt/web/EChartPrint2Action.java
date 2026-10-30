@@ -137,7 +137,7 @@ public class EChartPrint2Action extends ActionSupport {
         try {
             SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class)
                     .requireWholeChartSupported(Integer.parseInt(demographicNo));
-        } catch (io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException unsupported) {
+        } catch (io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException unsupported) {
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             response.setContentType("text/plain;charset=UTF-8");
             response.setHeader("Cache-Control", "no-store");

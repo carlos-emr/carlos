@@ -49,8 +49,8 @@ public class CdsImportPatientDao extends AbstractDaoImpl<CdsImportPatient> {
                 .setParameter("run", runId).setMaxResults(limit).getResultList();
     }
     /** A single current statement supplies bounded groups and the global distinct-source scalar. */
-    public List<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientOutcomeDto> summaryOutcomes(String runId, int limit) {
-        return entityManager.createQuery("select new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientOutcomeDto(p.state,count(p),(select count(distinct q.sourcePatientId) from CdsImportPatient q where q.runId=:run)) from CdsImportPatient p where p.runId=:run group by p.state order by p.state", io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientOutcomeDto.class)
+    public List<io.github.carlos_emr.carlos.commn.dto.CdsImportPatientOutcomeDto> summaryOutcomes(String runId, int limit) {
+        return entityManager.createQuery("select new io.github.carlos_emr.carlos.commn.dto.CdsImportPatientOutcomeDto(p.state,count(p),(select count(distinct q.sourcePatientId) from CdsImportPatient q where q.runId=:run)) from CdsImportPatient p where p.runId=:run group by p.state order by p.state", io.github.carlos_emr.carlos.commn.dto.CdsImportPatientOutcomeDto.class)
                 .setParameter("run", runId).setMaxResults(limit).getResultList();
     }
 

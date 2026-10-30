@@ -22,10 +22,8 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.assembler.CdsImportViewModelAssembler;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
@@ -39,11 +37,11 @@ import org.springframework.stereotype.Component;
 @Component("viewCdsImport2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class ViewCdsImport2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
-    private final transient CdsImportAccessService access;
+    private final transient CdsWebService web;
     private final transient CdsImportViewModelAssembler assembler;
-    public ViewCdsImport2Action(CdsImportAccessService access, CdsImportViewModelAssembler assembler, SecurityInfoManager securityInfoManager) {
+    public ViewCdsImport2Action(CdsWebService web, CdsImportViewModelAssembler assembler, SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
-        this.access = access; this.assembler = assembler;
+        this.web = web; this.assembler = assembler;
     }
     @Override public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -57,9 +55,9 @@ public class ViewCdsImport2Action extends ActionSupport {
                 && !securityInfoManager.hasPrivilege(loggedInInfo, "_cds_import", "w", (String) null)) {
             throw new SecurityException("missing required sec object (_cds_import)");
         }
-        var actor = CdsWeb.authorize(request, access);
+        var actor = web.authorize(request);
         if (!("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))) {
-            CdsWeb.json(response, 409, Map.of("ok", false, "code", "IMPORT_CLIENT_REFRESH_REQUIRED",
+            web.json(response, 409, Map.of("ok", false, "code", "IMPORT_CLIENT_REFRESH_REQUIRED",
                     "message", "Reload Demographic Import before uploading. The previous synchronous upload protocol is no longer accepted."));
             return NONE;
         }

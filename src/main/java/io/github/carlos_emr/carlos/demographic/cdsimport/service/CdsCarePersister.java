@@ -28,7 +28,7 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsCareElementDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException;
+import io.github.carlos_emr.carlos.commn.model.CdsClinicalException;
 import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.util.ArrayList;

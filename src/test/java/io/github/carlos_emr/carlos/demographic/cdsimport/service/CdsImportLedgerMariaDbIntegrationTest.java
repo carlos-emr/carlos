@@ -21,12 +21,14 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportJobCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.*;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import jakarta.persistence.EntityManagerFactory;
 import java.sql.Statement;
 import java.util.*;

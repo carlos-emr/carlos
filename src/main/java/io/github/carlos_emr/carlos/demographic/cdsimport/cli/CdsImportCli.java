@@ -28,7 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 
 /** Process protocol and operator output only. Clinical meaning and completion remain authoritative in the shared engine. */

@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState.Lease;
 import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;
@@ -96,7 +98,7 @@ public class CdsImportMaintenanceService {
         boolean locked = false;
         try {
             connection = dataSource.openUnpooledCdsMaintenanceConnection();
-            io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcConnectionTimeouts
+            io.github.carlos_emr.carlos.utility.CdsJdbcConnectionTimeouts
                     .retainOwnerForDuration(connection, configuration.limits().maxDurationMillis());
             // Keep transaction-duration DDL pins without a run-long consistent data read view.
             connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);

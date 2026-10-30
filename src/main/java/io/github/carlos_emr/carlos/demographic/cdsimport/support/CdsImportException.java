@@ -21,10 +21,22 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.support;
 
-/** A Date-only consumer cannot assert the exact day represented by a storage anchor. */
-public final class CdsTemporalPrecisionException extends IllegalStateException {
-    public static final String CODE = "CDS_CLINICAL_DATE_PRECISION_REVIEW_REQUIRED";
-    public CdsTemporalPrecisionException() {
-        super(CODE + "; use a precision-aware clinical representation");
+/** Stable safe code plus durable-outcome certainty; details belong in protected diagnostics. */
+public class CdsImportException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+    private final String code;
+    private final boolean outcomeUnknown;
+    private final String unitKey;
+
+    public CdsImportException(String code) { this(code, false, null); }
+    public CdsImportException(String code, boolean outcomeUnknown, Throwable cause) { this(code, outcomeUnknown, cause, null); }
+    public CdsImportException(String code, boolean outcomeUnknown, Throwable cause, String unitKey) {
+        super(code, cause);
+        this.code = code;
+        this.outcomeUnknown = outcomeUnknown;
+        this.unitKey = unitKey;
     }
+    public String getCode() { return code; }
+    public String getUnitKey() { return unitKey; }
+    public boolean isOutcomeUnknown() { return outcomeUnknown; }
 }

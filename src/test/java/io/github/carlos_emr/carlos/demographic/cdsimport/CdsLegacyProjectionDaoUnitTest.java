@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport;
 
 import io.github.carlos_emr.carlos.commn.dao.CdsLegacyProjectionDao;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException;
+import io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import java.util.HashMap;

@@ -51,7 +51,7 @@ public class CdsTemporalReadService {
     public CdsTemporalNativeDateDto medicationStart(Integer drugId, Date stored, boolean incomplete) {
         CdsTemporalNativeDateDto value = date(stored, PartialDate.DRUGS, drugId, PartialDate.DRUGS_STARTDATE);
         if (incomplete && value.isExact())
-            throw new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporalPrecisionException();
+            throw new io.github.carlos_emr.carlos.commn.model.CdsTemporalPrecisionException();
         return value;
     }
     public CdsTemporalNativeDateDto allergyStart(Allergy allergy) {

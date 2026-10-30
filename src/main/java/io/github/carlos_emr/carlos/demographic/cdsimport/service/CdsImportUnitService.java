@@ -21,6 +21,10 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportUnitContext;
+
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.commn.dao.CdsImportCheckpointDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsImportDependencyDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsImportPatientDao;
@@ -30,7 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.CdsImportPatient;
 import io.github.carlos_emr.carlos.commn.model.CdsImportRun;
 import io.github.carlos_emr.carlos.commn.model.CdsImportUnit;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReceiptDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,7 +42,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionSystemException;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /** Owns one bounded READ_COMMITTED transaction, including native writes, provenance and strict audit. */
 @Service
@@ -46,20 +49,10 @@ public class CdsImportUnitService {
     @FunctionalInterface public interface Work { CdsImportReceiptDto write() throws Exception; }
     @FunctionalInterface public interface Verifier { boolean verify(CdsImportReceiptDto previous) throws Exception; }
 
-    private record ActiveUnit(String runId, long epoch, String unitKey) { }
     static String requireActive(String runId, long epoch, String unitKey) {
-        Object resource=TransactionSynchronizationManager.getResource(CdsImportUnitService.class);
-        if (!(resource instanceof ActiveUnit active) || !active.runId().equals(runId) || active.epoch()!=epoch
-                || (unitKey!=null && !active.unitKey().equals(unitKey)) || !TransactionSynchronizationManager.isActualTransactionActive()) {
-            throw new CdsImportException("PARTICIPATING_UNIT_REQUIRED");
-        }
-        return active.unitKey();
+        return CdsImportUnitContext.requireActive(runId, epoch, unitKey);
     }
-
-    public static boolean isActiveForMaintenance() {
-        return TransactionSynchronizationManager.getResource(CdsImportUnitService.class) instanceof ActiveUnit
-                && TransactionSynchronizationManager.isActualTransactionActive();
-    }
+    public static boolean isActiveForMaintenance() { return CdsImportUnitContext.isActiveForMaintenance(); }
 
     private final CdsImportLedgerService ledger;
     private final CdsImportUnitDao units;
@@ -96,7 +89,7 @@ public class CdsImportUnitService {
                 if ((CdsImportLedgerService.FINAL_PATIENT.contains(patient.getState()) && !java.util.Set.of("PARTIAL_COMMITTED", "RECONCILIATION_REQUIRED").contains(patient.getState())) || "FINALIZING".equals(patient.getState())) throw new CdsImportException("PATIENT_NOT_EXECUTABLE");
                 if (dependencies.incomplete(runId, unitKey)>0) throw new CdsImportException("DEPENDENCY_INCOMPLETE");
                 CdsImportCheckpoint checkpoint=checkpoints.lock(unitKey);
-                TransactionSynchronizationManager.bindResource(CdsImportUnitService.class, new ActiveUnit(runId, epoch, unitKey));
+                CdsImportUnitContext.bind(runId, epoch, unitKey);
                 try {
                     CdsImportReceiptDto result;
                     if (checkpoint!=null) {
@@ -127,9 +120,9 @@ public class CdsImportUnitService {
                     return result;
                 } catch (CdsImportException failure) { throw failure; }
                 catch (io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException failure) { throw new CdsImportException(failure.code(), false, failure); }
-                catch (io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException failure) { throw new CdsImportException(failure.code(), false, failure); }
+                catch (io.github.carlos_emr.carlos.commn.model.CdsClinicalException failure) { throw new CdsImportException(failure.code(), false, failure); }
                 catch (Exception failure) { throw new CdsImportException("UNIT_WRITE_FAILED", false, failure); }
-                finally { TransactionSynchronizationManager.unbindResource(CdsImportUnitService.class); }
+                finally { CdsImportUnitContext.unbind(); }
             });
         } catch (RuntimeException failure) {
             if (callbackFinished.get() || transactionEntered.get() && failure instanceof TransactionSystemException) {

@@ -347,14 +347,14 @@ class CdsClinicalPersisterUnitTest {
                         "ImmunizationName", "Synthetic vaccine", "RefusedFlag/ynIndicatorsimple", "N",
                         "Date/" + source[0], source[1]));
                 var error = catchThrowableOfType(() -> service.validate(record, null),
-                        io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException.class);
+                        io.github.carlos_emr.carlos.commn.model.CdsClinicalException.class);
                 assertThat(error.code()).isEqualTo(source[2]);
                 assertThat(error.field()).isEqualTo("Date");
                 assertThat(normalization.immunization(record).date().original()).isEqualTo(source[1]);
             }
             var medication = medication(Map.of("PrescriptionWrittenDate/FullDate", "1582-10-10"));
             var error = catchThrowableOfType(() -> service.validate(medication, null),
-                    io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException.class);
+                    io.github.carlos_emr.carlos.commn.model.CdsClinicalException.class);
             assertThat(error.code()).isEqualTo("CDS_NATIVE_DATE_REQUIRES_REVIEW");
             assertThat(error.field()).isEqualTo("PrescriptionWrittenDate");
             verifyNoInteractions(drugs, dates, preventions, extensions);

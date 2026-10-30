@@ -334,7 +334,7 @@ public final class DocumentTransfer {
     private static void requireLegacyProjection(Document document) {
         if (document != null && document.getCdsContentPrecision()!=null) {
             throw new org.apache.cxf.binding.soap.SoapFault(
-                    new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException().getMessage(),
+                    new io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException().getMessage(),
                     org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_CLIENT);
         }
     }

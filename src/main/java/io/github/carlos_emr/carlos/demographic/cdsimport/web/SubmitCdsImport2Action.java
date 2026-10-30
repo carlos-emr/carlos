@@ -23,10 +23,8 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsUploadImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadSubmissionService;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
@@ -42,16 +40,16 @@ import org.springframework.stereotype.Component;
 @Component("submitCdsImport2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class SubmitCdsImport2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
-    private final transient CdsImportAccessService access;
+    private final transient CdsWebService web;
     private final transient CdsUploadSubmissionService submissions;
     private String uploadId, providerNo, sourceNamespace, sourceProfile;
     private Integer programId, facilityId, courseId;
     private boolean mergeExisting, dryRun, synthetic;
     private boolean matchProviderNames = true;
     private int timeshiftInDays;
-    public SubmitCdsImport2Action(CdsImportAccessService access, CdsUploadSubmissionService submissions, SecurityInfoManager securityInfoManager) {
+    public SubmitCdsImport2Action(CdsWebService web, CdsUploadSubmissionService submissions, SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
-        this.access = access; this.submissions = submissions;
+        this.web = web; this.submissions = submissions;
     }
     @Override public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -69,14 +67,14 @@ public class SubmitCdsImport2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_cds_import)");
         }
         try {
-            var actor = CdsWeb.authorize(request, access);
-            CdsWeb.parameters(request, Set.of("uploadId", "providerNo", "programId", "facilityId", "sourceNamespace", "sourceProfile",
+            var actor = web.authorize(request);
+            web.parameters(request, Set.of("uploadId", "providerNo", "programId", "facilityId", "sourceNamespace", "sourceProfile",
                     "mergeExisting", "dryRun", "matchProviderNames", "timeshiftInDays", "courseId", "synthetic"));
             var command = new CdsUploadImportCommand(uploadId, providerNo, programId, facilityId,
                     sourceNamespace, sourceProfile, mergeExisting, dryRun, matchProviderNames, timeshiftInDays, courseId, synthetic);
             var job = submissions.submit(actor, command);
-            CdsWeb.json(response, 202, Map.of("ok", true, "accepted", true, "job", CdsWeb.job(job)));
-        } catch (Exception failure) { CdsWeb.failure(response, failure); }
+            web.json(response, 202, Map.of("ok", true, "accepted", true, "job", web.job(job)));
+        } catch (Exception failure) { web.failure(response, failure); }
         return NONE;
     }
     @StrutsParameter public void setUploadId(String value) { uploadId = value; }

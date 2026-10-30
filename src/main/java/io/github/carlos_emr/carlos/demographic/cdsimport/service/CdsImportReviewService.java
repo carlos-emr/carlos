@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -32,7 +34,7 @@ import io.github.carlos_emr.carlos.commn.model.CdsImportReview;
 import io.github.carlos_emr.carlos.commn.model.CdsImportRun;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportReviewCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPaths;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.persistence.EntityManager;
@@ -181,7 +183,7 @@ public class CdsImportReviewService {
     }
 
     private Map<String, Object> summaryProjection(String runId) {
-        var summary=reviews.summary(runId);
+        var summary=CdsImportProjections.toDto(reviews.summary(runId));
         Map<String, Object> value=new LinkedHashMap<>(); value.put("pendingReviewCount", Math.toIntExact(summary.pending()));
         value.put("inactiveDraftCount", summary.inactiveDrafts()); value.put("reviewState", summary.state());
         value.put("reviewId", summary.id()); value.put("reviewErrorCode", summary.errorCode());
@@ -474,7 +476,7 @@ public class CdsImportReviewService {
             if (!id.matches("[0-9a-f-]{36}")) throw new CdsImportException("REVIEW_PROVENANCE_MISSING");
             if (!review.id().equals(id)) prior.put(id, entry);
         }
-        var origins=transaction.execute(status -> reviews.origins(review.run(), prior.keySet()));
+        var origins=transaction.execute(status -> reviews.origins(review.run(), prior.keySet()).stream().map(CdsImportProjections::toDto).toList());
         if (origins.size()!=prior.size()) throw new CdsImportException("REVIEW_PROVENANCE_MISSING");
         boolean unapproved=false; List<String> approved=new ArrayList<>();
         for (var origin:origins) {

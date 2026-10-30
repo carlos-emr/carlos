@@ -19,10 +19,11 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.demographic.cdsimport.support;
+package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportException;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportJobService;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
+
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
 
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
@@ -41,6 +42,19 @@ public record CdsRulesetFingerprint(String sha256) {
     private static final String ANCHOR =
             BASE + "demographic/cdsimport/service/CdsImportJobService.class";
     private static final String[] NATIVE = {
+        "commn/dto/CdsProgramContextDto",
+        "commn/dto/CdsProgramMembershipDto",
+        "commn/dto/CdsImportControlDto",
+        "commn/dto/CdsImportPatientOutcomeDto",
+        "commn/dto/CdsImportDiagnosticSummaryDto",
+        "commn/dto/CdsImportReviewSummaryDto",
+        "commn/dto/CdsImportReviewOriginDto",
+        "commn/dto/CdsImportReviewProvenanceDto",
+        "commn/dto/CdsImportJobBindingDto",
+        "commn/dto/CdsImportReportEntryDto",
+
+        "utility/CdsImportKeys",
+        "utility/CdsJdbcConnectionTimeouts",
         "commn/model/Drug",
         "commn/model/Allergy",
         "commn/model/Prevention",

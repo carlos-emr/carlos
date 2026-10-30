@@ -25,7 +25,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsContactDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsClinicalDiagnosticDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsFieldDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException;
+import io.github.carlos_emr.carlos.commn.model.CdsClinicalException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPhoneComponents;
 import java.io.IOException;

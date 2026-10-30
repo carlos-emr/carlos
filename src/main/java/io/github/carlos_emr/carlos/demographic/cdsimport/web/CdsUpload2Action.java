@@ -23,10 +23,8 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsUploadException;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
@@ -42,13 +40,13 @@ import org.springframework.stereotype.Component;
 @Component("cdsUpload2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsUpload2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
-    private final transient CdsImportAccessService access;
+    private final transient CdsWebService web;
     private final transient CdsUploadService uploads;
     private String operation, uploadId, fileName, sha256;
     private long expectedBytes, offset;
     private int bytes;
-    public CdsUpload2Action(CdsImportAccessService access, CdsUploadService uploads, SecurityInfoManager securityInfoManager) {
-        this.securityInfoManager = securityInfoManager; this.access = access; this.uploads = uploads; }
+    public CdsUpload2Action(CdsWebService web, CdsUploadService uploads, SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager; this.web = web; this.uploads = uploads; }
 
     @Override public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -66,8 +64,8 @@ public class CdsUpload2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_cds_import)");
         }
         try {
-            String operator = CdsWeb.operator(CdsWeb.authorize(request, access));
-            CdsWeb.parameters(request, Set.of("operation", "uploadId", "fileName", "expectedBytes", "offset", "bytes", "sha256"));
+            String operator = web.operator(web.authorize(request));
+            web.parameters(request, Set.of("operation", "uploadId", "fileName", "expectedBytes", "offset", "bytes", "sha256"));
             Object receipt;
             if ("begin".equals(operation)) receipt = uploads.begin(operator, fileName, expectedBytes);
             else if ("chunk".equals(operation)) {
@@ -80,8 +78,8 @@ public class CdsUpload2Action extends ActionSupport {
             } else if ("finish".equals(operation)) receipt = uploads.finish(operator, uploadId);
             else if ("abandon".equals(operation)) receipt = uploads.abandon(operator, uploadId);
             else throw new CdsUploadException("UPLOAD_OPERATION_INVALID", 400);
-            CdsWeb.json(response, 200, Map.of("ok", true, "upload", receipt));
-        } catch (Exception failure) { CdsWeb.failure(response, failure); }
+            web.json(response, 200, Map.of("ok", true, "upload", receipt));
+        } catch (Exception failure) { web.failure(response, failure); }
         return NONE;
     }
     @StrutsParameter public void setOperation(String value) { operation = value; }

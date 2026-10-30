@@ -22,8 +22,8 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.NativeSql;
-import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportControlDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
+import io.github.carlos_emr.carlos.commn.dto.CdsImportControlDto;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -109,7 +109,7 @@ public class CdsImportCoordinatorDao {
 
         public void retainForDuration(long maximumMillis) throws SQLException {
             requireOpen();
-            io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcConnectionTimeouts
+            io.github.carlos_emr.carlos.utility.CdsJdbcConnectionTimeouts
                     .retainOwnerForDuration(connection, maximumMillis);
         }
 

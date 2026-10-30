@@ -27,7 +27,7 @@ import io.github.carlos_emr.carlos.commn.dao.CdsImportReviewDao;
 import io.github.carlos_emr.carlos.commn.model.CdsImportDiagnostic;
 import io.github.carlos_emr.carlos.commn.model.CdsImportPatient;
 import io.github.carlos_emr.carlos.commn.model.CdsImportReview;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
 import java.util.List;

@@ -23,10 +23,8 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsUploadException;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.nio.file.Files;
@@ -43,11 +41,11 @@ import org.springframework.stereotype.Component;
 @Component("cdsImportReport2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsImportReport2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
-    private final transient CdsImportAccessService access;
+    private final transient CdsWebService web;
     private final transient CdsImportService imports;
     private String runId, type;
-    public CdsImportReport2Action(CdsImportAccessService access, CdsImportService imports, SecurityInfoManager securityInfoManager) {
-        this.securityInfoManager = securityInfoManager; this.access = access; this.imports = imports; }
+    public CdsImportReport2Action(CdsWebService web, CdsImportService imports, SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager; this.web = web; this.imports = imports; }
     @Override public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
@@ -64,8 +62,8 @@ public class CdsImportReport2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_cds_import)");
         }
         try {
-            var actor = CdsWeb.authorize(request, access);
-            CdsWeb.readOnlyParameters(request, Set.of("runId", "type"));
+            var actor = web.authorize(request);
+            web.readOnlyParameters(request, Set.of("runId", "type"));
             if (runId == null || !runId.matches("[0-9a-f-]{36}") || type == null || !Set.of("event", "error", "receipt", "units").contains(type)) throw new CdsUploadException("IMPORT_REPORT_INVALID", 400);
             var path = imports.report(actor, runId, type);
             response.setContentType("application/octet-stream"); response.setHeader("Cache-Control", "no-store");
@@ -77,7 +75,7 @@ public class CdsImportReport2Action extends ActionSupport {
                     input.transferTo(response.getOutputStream());
                 }
             }
-        } catch (Exception failure) { CdsWeb.failure(response, failure); }
+        } catch (Exception failure) { web.failure(response, failure); }
         return NONE;
     }
     @StrutsParameter public void setRunId(String value) { runId = value; }

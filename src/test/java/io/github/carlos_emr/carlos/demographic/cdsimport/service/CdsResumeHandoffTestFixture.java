@@ -26,7 +26,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportJobCom
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportActorDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDocumentDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsSnapshotDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionInitializer;
 import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;
 import java.nio.file.Path;

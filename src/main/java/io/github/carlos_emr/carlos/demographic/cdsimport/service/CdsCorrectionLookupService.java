@@ -21,12 +21,14 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.commn.dao.CdsImportDiagnosticDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsImportReviewDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsImportRunDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsImportPatientDao;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsCorrectionSetDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPaths;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -112,7 +114,7 @@ public class CdsCorrectionLookupService {
             int demographic, String category, String afterId, int limit) {
         if (demographic<1 || limit<1 || limit>50 || category==null || category.length()>64
                 || (afterId!=null && !afterId.isEmpty() && !afterId.matches("[0-9a-f-]{36}"))) throw new IllegalArgumentException("REVIEW_PAGE_INVALID");
-        return transaction.execute(status -> reviews.provenance(demographic, category, afterId==null?"":afterId, limit));
+        return transaction.execute(status -> reviews.provenance(demographic, category, afterId==null?"":afterId, limit).stream().map(CdsImportProjections::toDto).toList());
     }
 
     /**

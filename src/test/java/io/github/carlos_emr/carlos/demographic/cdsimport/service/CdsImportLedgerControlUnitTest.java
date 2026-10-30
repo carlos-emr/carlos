@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import java.time.Instant;
@@ -54,7 +56,7 @@ class CdsImportLedgerControlUnitTest {
         run=row("run","RUNNING");run.setOwnerEpoch(7);run.setCancelRequested(true);
         when(runs.lock("run")).thenReturn(run);when(runs.get("run")).thenReturn(run);
         when(events.pendingResumeEvent("run")).thenReturn(12L);
-        when(diagnosticRows.summary(eq("run"),anyString(),anyString(),anyString())).thenReturn(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticSummaryDto(0,0,0,0));
+        when(diagnosticRows.summary(eq("run"),anyString(),anyString(),anyString())).thenReturn(new io.github.carlos_emr.carlos.commn.dto.CdsImportDiagnosticSummaryDto(0,0,0,0));
     }
     @ParameterizedTest
     @ValueSource(strings={"ACCEPTED","CLI_ACCEPTED","RUNNING","FINALIZING","DISCOVERING","VALIDATING","PREFLIGHT","PREFLIGHTING","SEALING","PLANNING","READY","REPORTING","RECONCILING","PAUSED"})
@@ -133,7 +135,7 @@ class CdsImportLedgerControlUnitTest {
     }
     @Test void shouldRetainExactPendingUnknownInventoryAndHelperAccounting_inSummary() {
         run.setDiscoveredFiles(-1);run.setPatientXmlFiles(-1);run.setSourceBytes(-1);
-        when(patients.summaryOutcomes("run",17)).thenReturn(List.of(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientOutcomeDto("PLANNED",2,2),new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientOutcomeDto("REFUSED",1,2)));
+        when(patients.summaryOutcomes("run",17)).thenReturn(List.of(new io.github.carlos_emr.carlos.commn.dto.CdsImportPatientOutcomeDto("PLANNED",2,2),new io.github.carlos_emr.carlos.commn.dto.CdsImportPatientOutcomeDto("REFUSED",1,2)));
         when(unitRows.summaryCategories("run",129)).thenReturn(List.of(
                 new Object[]{"ClinicalNotes",4L,1L,1L,1L},new Object[]{"ClinicalNotes_FIELDS",2L,1L,0L,1L}));
         var summary=ledger.summary("run");
@@ -158,7 +160,7 @@ class CdsImportLedgerControlUnitTest {
     @ValueSource(ints={17,129})
     void shouldFailClosed_onUnexpectedAggregateCardinality(int count) {
         if(count==17) when(patients.summaryOutcomes("run",17)).thenReturn(java.util.stream.IntStream.range(0,17)
-                .mapToObj(i->new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientOutcomeDto("OUTCOME"+i,1,1)).toList());
+                .mapToObj(i->new io.github.carlos_emr.carlos.commn.dto.CdsImportPatientOutcomeDto("OUTCOME"+i,1,1)).toList());
         else when(unitRows.summaryCategories("run",129)).thenReturn(java.util.stream.IntStream.range(0,129)
                 .mapToObj(i->new Object[]{"CATEGORY"+i,1L,0L,0L,1L}).toList());
         assertThatThrownBy(()->ledger.summary("run")).hasMessage(count==17?"UNEXPECTED_OUTCOME_CARDINALITY":"UNEXPECTED_CATEGORY_CARDINALITY");
@@ -195,7 +197,7 @@ class CdsImportLedgerControlUnitTest {
         var expected=new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto(
                 CdsImportLedgerService.dto(run),run.getSnapshotLocation());
         when(runs.readJobBinding("run")).thenAnswer(call->{
-            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();return expected;
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();return bindingRow(run);
         });
         assertThat(ledger.jobBinding("run")).isEqualTo(expected);
         assertThat(expected.toString()).doesNotContain("private-job-document");
@@ -224,8 +226,7 @@ class CdsImportLedgerControlUnitTest {
         run.setReportLocation("/opaque/report-manifest");run.setReportDigest("e".repeat(64));
         when(runs.readJobBinding("run")).thenAnswer(call-> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-            return new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto(
-                    CdsImportLedgerService.dto(run),run.getSnapshotLocation());
+            return bindingRow(run);
         });
         var first=ledger.status("run");
         assertThat(first).isEqualTo(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto(
@@ -266,7 +267,8 @@ class CdsImportLedgerControlUnitTest {
         var expected=new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto(
                 true, false, true, false, "/opaque/private-job-document");
         when(runs.readReportEntry("run")).thenAnswer(call-> {
-            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse(); return expected;
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            return new io.github.carlos_emr.carlos.commn.dto.CdsImportReportEntryDto("DELIVERED", false, true, false, expected.documentLocation());
         });
         assertThat(ledger.reportEntry("run")).isEqualTo(expected);
         assertThat(expected.toString()).isEqualTo("CdsImportReportEntryDto[protected]");
@@ -315,7 +317,7 @@ class CdsImportLedgerControlUnitTest {
                 actual.getTransaction().begin();actual.persist(persisted);actual.getTransaction().commit();actual.clear();
                 factory.getStatistics().clear();
                 var binding=dao.readJobBinding(persisted.getId());
-                assertThat(binding.job()).isEqualTo(CdsImportLedgerService.dto(persisted));
+                assertThat(CdsImportProjections.toDto(binding).job()).isEqualTo(CdsImportLedgerService.dto(persisted));
                 assertThat(binding.documentLocation()).isEqualTo(persisted.getSnapshotLocation());
                 assertThat(binding.toString()).isEqualTo("CdsImportJobBindingDto[protected]");
                 assertThat(actual.getTransaction().isActive()).isFalse();
@@ -323,7 +325,7 @@ class CdsImportLedgerControlUnitTest {
                 assertThat(factory.getStatistics().getEntityLoadCount()).isZero();
                 factory.getStatistics().clear();
                 var entry=dao.readReportEntry(persisted.getId());
-                assertThat(entry).isEqualTo(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto(
+                assertThat(CdsImportProjections.toDto(entry)).isEqualTo(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto(
                         sealed, sealed, sealed, sealed, persisted.getSnapshotLocation()));
                 assertThat(entry.toString()).isEqualTo("CdsImportReportEntryDto[protected]");
                 assertThat(actual.getTransaction().isActive()).isFalse();
@@ -334,7 +336,7 @@ class CdsImportLedgerControlUnitTest {
                     actual.createQuery("update CdsImportRun r set r.reportState=:state where r.id=:id")
                             .setParameter("state", reportState).setParameter("id", persisted.getId()).executeUpdate();
                     actual.getTransaction().commit(); actual.clear();
-                    assertThat(dao.readReportEntry(persisted.getId()).reportsDelivered())
+                    assertThat(CdsImportProjections.toDto(dao.readReportEntry(persisted.getId())).reportsDelivered())
                             .as("Fresh scalar delivery check for %s", reportState).isEqualTo("DELIVERED".equals(reportState));
                 }
             }
@@ -344,12 +346,12 @@ class CdsImportLedgerControlUnitTest {
     }
     @ParameterizedTest @ValueSource(ints={0,1,199,200,201,400})
     void shouldRetainEveryUnitDigestKey_whenFrozenPagesReachTheirBoundary(int size) {
-        var source=new java.util.ArrayList<CdsImportUnit>(); var expected=io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys.digest();
+        var source=new java.util.ArrayList<CdsImportUnit>(); var expected=io.github.carlos_emr.carlos.utility.CdsImportKeys.digest();
         for (int i=0;i<size;i++) {
             var unit=new CdsImportUnit(); unit.setUnitKey(String.format("%064x",i)); unit.setLineageKey("lineage");
             unit.setSourceDigest("a".repeat(64)); unit.setCategory("ClinicalNotes"); unit.setOrdinal(i); unit.setSpoolLocation("/private/"+i); source.add(unit);
             for (String value:List.of(unit.getUnitKey(),unit.getLineageKey(),unit.getSourceDigest(),unit.getCategory(),Long.toString(unit.getOrdinal()),unit.getSpoolLocation(),"END_UNIT"))
-                io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys.add(expected,value);
+                io.github.carlos_emr.carlos.utility.CdsImportKeys.add(expected,value);
         }
         when(unitRows.page(eq("run"),eq("patient"),anyString(),eq(200))).thenAnswer(call->source.stream()
                 .filter(unit->unit.getUnitKey().compareTo(call.getArgument(2))>0).limit(200).toList());
@@ -359,12 +361,12 @@ class CdsImportLedgerControlUnitTest {
     }
     @ParameterizedTest @ValueSource(ints={0,1,199,200,201,400})
     void shouldRetainEveryPatientDigest_whenSealedPagesReachTheirBoundary(int size) {
-        var source=new java.util.ArrayList<CdsImportPatient>(); var expected=io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys.digest();
+        var source=new java.util.ArrayList<CdsImportPatient>(); var expected=io.github.carlos_emr.carlos.utility.CdsImportKeys.digest();
         for (int i=0;i<size;i++) {
             var patient=new CdsImportPatient(); patient.setId("id"+i); patient.setPatientKey(String.format("%064x",i));
             patient.setLineageKey("lineage"); patient.setSourceDigest("a".repeat(64)); patient.setExecutionDigest("b".repeat(64)); patient.setExpectedUnits(i); source.add(patient);
             for (String value:List.of(patient.getPatientKey(),patient.getLineageKey(),patient.getSourceDigest(),patient.getExecutionDigest(),Long.toString(patient.getExpectedUnits())))
-                io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys.add(expected,value);
+                io.github.carlos_emr.carlos.utility.CdsImportKeys.add(expected,value);
         }
         when(patients.page(eq("run"),anyString(),eq(200))).thenAnswer(call->source.stream()
                 .filter(patient->patient.getPatientKey().compareTo(call.getArgument(1))>0).limit(200).toList());
@@ -389,10 +391,10 @@ class CdsImportLedgerControlUnitTest {
     @ParameterizedTest @ValueSource(strings={"COMPLETE","DRY_RUN_COMPLETE","RUNNING"})
     void shouldPreserveReleasePrecedence_whenCurrentDiagnosticFlagsChange(String state) {
         run.setState(state);
-        var values=List.of(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticSummaryDto(7,1,1,1),
-                new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticSummaryDto(6,0,1,1),
-                new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticSummaryDto(5,0,0,1),
-                new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticSummaryDto(4,0,0,0));
+        var values=List.of(new io.github.carlos_emr.carlos.commn.dto.CdsImportDiagnosticSummaryDto(7,1,1,1),
+                new io.github.carlos_emr.carlos.commn.dto.CdsImportDiagnosticSummaryDto(6,0,1,1),
+                new io.github.carlos_emr.carlos.commn.dto.CdsImportDiagnosticSummaryDto(5,0,0,1),
+                new io.github.carlos_emr.carlos.commn.dto.CdsImportDiagnosticSummaryDto(4,0,0,0));
         var expected=List.of("REQUIRES_RECONCILIATION","RELEASE_DEFERRED","RELEASE_PENDING","RELEASED");
         for (int i=0;i<values.size();i++) {
             when(diagnosticRows.summary(eq("run"),anyString(),anyString(),anyString())).thenReturn(values.get(i));
@@ -406,5 +408,14 @@ class CdsImportLedgerControlUnitTest {
 
     private static CdsImportRun row(String id,String state) {
         var row=new CdsImportRun();row.setId(id);row.setState(state);row.setOperator("fixture");row.setProviderNo("999998");row.setUpdatedAt(Instant.EPOCH);row.setCreatedAt(Instant.EPOCH);row.setReportState("DELIVERED");row.setCleanupState("COMPLETE");return row;
+    }
+
+    private static io.github.carlos_emr.carlos.commn.dto.CdsImportJobBindingDto bindingRow(CdsImportRun run) {
+        var job = CdsImportLedgerService.dto(run);
+        return new io.github.carlos_emr.carlos.commn.dto.CdsImportJobBindingDto(job.id(), job.operator(),
+                job.providerNo(), job.sourceNamespace(), job.profile(), job.state(), job.sourceDigest(),
+                job.optionsDigest(), job.rulesetDigest(), job.manifestDigest(), job.expectedPatients(),
+                job.expectedUnits(), job.ownerEpoch(), job.cancelRequested(), job.createdAt(), job.updatedAt(),
+                job.reportGeneration(), job.reportLocation(), job.reportDigest(), run.getSnapshotLocation());
     }
 }

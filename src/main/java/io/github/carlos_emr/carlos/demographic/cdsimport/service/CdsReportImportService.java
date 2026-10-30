@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.commn.dao.CtlDocumentDao;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
@@ -465,7 +467,7 @@ public class CdsReportImportService implements CdsCategoryImportService {
     private Date calendarDate(CdsTemporalDto temporal, String run, long epoch, String unit, String path) {
         if (!temporal.exactCalendarDate()) return null;
         try { return temporal.dateStorageAnchor(); }
-        catch (io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException unavailable) {
+        catch (io.github.carlos_emr.carlos.commn.model.CdsClinicalException unavailable) {
             notice(run, epoch, unit, "CDS_REPORT_NATIVE_DATE_SOURCE_ONLY", path);
             return null;
         }

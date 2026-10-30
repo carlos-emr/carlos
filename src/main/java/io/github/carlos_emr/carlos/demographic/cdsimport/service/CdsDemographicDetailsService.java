@@ -24,7 +24,7 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 import com.google.common.base.Ascii;
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException;
+import io.github.carlos_emr.carlos.commn.model.CdsClinicalException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPaths;
 import io.github.carlos_emr.carlos.demographic.pageUtil.SpokenLangProperties;

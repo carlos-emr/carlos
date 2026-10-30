@@ -41,7 +41,7 @@ import org.springframework.stereotype.Component;
 import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationCompatibilityException;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException;
+import io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;

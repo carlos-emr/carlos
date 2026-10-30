@@ -21,10 +21,12 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.commn.dao.CdsImportIdentityDao;
 import io.github.carlos_emr.carlos.commn.model.CdsImportIdentity;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsPatientIdentityDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsHealthCardAuthority;
 import java.util.Objects;
 import org.springframework.stereotype.Service;

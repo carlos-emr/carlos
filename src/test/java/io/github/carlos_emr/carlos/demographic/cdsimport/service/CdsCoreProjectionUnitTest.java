@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -1267,8 +1269,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
             var source = parse("", content);
             assertThatThrownBy(() -> demographics.prepare("run", 1, "unit", source, command))
                     .isInstanceOf(
-                            io.github.carlos_emr.carlos.demographic.cdsimport.support
-                                    .CdsClinicalException.class);
+                            io.github.carlos_emr.carlos.commn.model.CdsClinicalException.class);
         }
         verifyNoInteractions(preparation);
     }
@@ -1383,7 +1384,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     @Test void shouldRequirePreflightReviewForUnrepresentableDemographicDates_beforePreparingAnyWrite() throws Exception {
         var record = parse("", "", "", "<PersonStatusDate>1582-10-10</PersonStatusDate>");
         var error = catchThrowableOfType(() -> demographics.validate(record, command),
-                io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException.class);
+                io.github.carlos_emr.carlos.commn.model.CdsClinicalException.class);
         assertThat(error.code()).isEqualTo("CDS_NATIVE_DATE_REQUIRES_REVIEW");
         assertThat(error.field()).isEqualTo("PersonStatusDate");
         verifyNoInteractions(preparation);

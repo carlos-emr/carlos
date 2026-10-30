@@ -27,7 +27,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccess
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportJobService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportSubmissionService;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.io.InputStream;
 import java.nio.file.Files;

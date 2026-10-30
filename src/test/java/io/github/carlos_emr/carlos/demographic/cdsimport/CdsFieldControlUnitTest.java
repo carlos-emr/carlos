@@ -24,7 +24,7 @@ package io.github.carlos_emr.carlos.demographic.cdsimport;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsFieldParser;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsXmlParser;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import java.nio.file.Files;

@@ -22,8 +22,8 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.ProviderDefaultProgram;
-import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsProgramContextDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsProgramMembershipDto;
+import io.github.carlos_emr.carlos.commn.dto.CdsProgramContextDto;
+import io.github.carlos_emr.carlos.commn.dto.CdsProgramMembershipDto;
 import java.util.List;
 import org.springframework.stereotype.Repository;
 

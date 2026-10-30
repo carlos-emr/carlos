@@ -23,7 +23,7 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsMedicationDto.Currentness;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto.Precision;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException;
+import io.github.carlos_emr.carlos.commn.model.CdsClinicalException;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;

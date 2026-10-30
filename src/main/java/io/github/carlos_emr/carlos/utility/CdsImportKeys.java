@@ -19,7 +19,7 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.demographic.cdsimport.support;
+package io.github.carlos_emr.carlos.utility;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

@@ -22,8 +22,8 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
 
 import io.github.carlos_emr.carlos.commn.model.PartialDate;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporal;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporalPrecisionException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto.Precision;
+import io.github.carlos_emr.carlos.commn.model.CdsTemporalPrecisionException;
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -52,10 +52,10 @@ public final class CdsTemporalNativeDateDto implements Serializable {
         String day = stored instanceof java.sql.Date sqlDate ? sqlDate.toLocalDate().toString()
                 : new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(stored);
         CdsTemporalDto date = PartialDate.YEARONLY.equals(format)
-                ? CdsTemporal.parse(day.substring(0, 4), null, null, null, "nativeDate")
+                ? CdsTemporalDto.calendar(Precision.YEAR, day.substring(0, 4), "nativeDate")
                 : PartialDate.YEARMONTH.equals(format)
-                    ? CdsTemporal.parse(null, day.substring(0, 7), null, null, "nativeDate")
-                    : CdsTemporal.parse(null, null, day, null, "nativeDate");
+                    ? CdsTemporalDto.calendar(Precision.MONTH, day.substring(0, 7), "nativeDate")
+                    : CdsTemporalDto.calendar(Precision.FULL_DATE, day, "nativeDate");
         return new CdsTemporalNativeDateDto(date);
     }
 
@@ -67,9 +67,9 @@ public final class CdsTemporalNativeDateDto implements Serializable {
             @com.fasterxml.jackson.annotation.JsonProperty("intervalEnd") String end) {
         CdsTemporalDto parsed = switch (precision == null ? "" : precision) {
             case "UNKNOWN" -> CdsTemporalDto.unknown();
-            case "YEAR" -> CdsTemporal.parse(value, null, null, null, "nativeDate");
-            case "MONTH" -> CdsTemporal.parse(null, value, null, null, "nativeDate");
-            case "FULL_DATE" -> CdsTemporal.parse(null, null, value, null, "nativeDate");
+            case "YEAR" -> CdsTemporalDto.calendar(Precision.YEAR, value, "nativeDate");
+            case "MONTH" -> CdsTemporalDto.calendar(Precision.MONTH, value, "nativeDate");
+            case "FULL_DATE" -> CdsTemporalDto.calendar(Precision.FULL_DATE, value, "nativeDate");
             default -> throw new CdsTemporalPrecisionException();
         };
         CdsTemporalNativeDateDto result = new CdsTemporalNativeDateDto(parsed);

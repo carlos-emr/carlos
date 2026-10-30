@@ -26,7 +26,7 @@ import static org.mockito.Mockito.*;
 
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException;
+import io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationCompatibilityException;
 import io.github.carlos_emr.carlos.managers.PrescriptionManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;

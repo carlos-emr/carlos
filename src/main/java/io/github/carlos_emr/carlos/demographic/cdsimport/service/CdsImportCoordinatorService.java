@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDao;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportControlDto;
 import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;
@@ -88,7 +90,7 @@ public class CdsImportCoordinatorService {
         public CdsImportControlDto control(String runId) {
             requireOpen();
             try {
-                return lease.control(runId);
+                return CdsImportProjections.toDto(lease.control(runId));
             } catch (SQLException failure) {
                 // A malformed/unavailable control observation on a healthy
                 // physical owner is an operational failure that needs a report.

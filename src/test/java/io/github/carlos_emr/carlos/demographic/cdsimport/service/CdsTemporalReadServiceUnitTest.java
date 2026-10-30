@@ -27,7 +27,7 @@ import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalNativeDateDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporalPrecisionException;
+import io.github.carlos_emr.carlos.commn.model.CdsTemporalPrecisionException;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;

@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImmunizationDto;
@@ -410,8 +412,8 @@ public class CdsImportNativeService {
 
     private static void validateNativeDate(CdsTemporalDto value, String field) {
         try { value.dateStorageAnchor(); }
-        catch (io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException invalid) {
-            throw new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException(invalid.code(), field);
+        catch (io.github.carlos_emr.carlos.commn.model.CdsClinicalException invalid) {
+            throw new io.github.carlos_emr.carlos.commn.model.CdsClinicalException(invalid.code(), field);
         }
     }
 

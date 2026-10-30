@@ -119,7 +119,7 @@ class ChartPrintReadAccessUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRefusePdfBeforeWritingBytes_whenStructuredChartCannotBeProjected() throws Exception {
-        org.mockito.Mockito.doThrow(new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException())
+        org.mockito.Mockito.doThrow(new io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException())
                 .when(projections).requireWholeChartSupported(101);
         fullChart.print();
         assertThat(response.getStatus()).isEqualTo(409);

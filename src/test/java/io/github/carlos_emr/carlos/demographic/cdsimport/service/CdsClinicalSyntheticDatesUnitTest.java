@@ -23,7 +23,7 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException;
+import io.github.carlos_emr.carlos.commn.model.CdsClinicalException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporal;
 import java.nio.file.Path;
 import java.time.LocalDate;

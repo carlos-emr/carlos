@@ -21,7 +21,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.util;
 
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporalPrecisionException;
+import io.github.carlos_emr.carlos.commn.model.CdsTemporalPrecisionException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;

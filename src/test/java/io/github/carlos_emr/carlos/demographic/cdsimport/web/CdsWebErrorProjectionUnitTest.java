@@ -21,9 +21,10 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
+
 import static org.assertj.core.api.Assertions.*;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportException;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
 import java.util.Map;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -31,28 +32,29 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 @Tag("unit")
 class CdsWebErrorProjectionUnitTest {
+    private final CdsWebService web = new CdsWebService(org.mockito.Mockito.mock(CdsImportAccessService.class));
     @Test void shouldRecognizeTypedSubclasses_withoutSerializingProtectedCauses() throws Exception {
         var response=new MockHttpServletResponse();
-        CdsWeb.failure(response,new CdsImportException("OWNER_FENCED",false,new IllegalStateException("/private/source.xml")) { });
+        web.failure(response,new CdsImportException("OWNER_FENCED",false,new IllegalStateException("/private/source.xml")) { });
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.getContentAsString()).contains("OWNER_FENCED").doesNotContain("/private","IllegalStateException");
     }
     @Test void shouldRejectForeignSameNamedException_insteadOfTrustingItsSimpleClassName() throws Exception {
-        var response=new MockHttpServletResponse();CdsWeb.failure(response,new Foreign.CdsImportException("SECRET_SOURCE_VALUE"));
+        var response=new MockHttpServletResponse();web.failure(response,new Foreign.CdsImportException("SECRET_SOURCE_VALUE"));
         assertThat(response.getStatus()).isEqualTo(503);
         assertThat(response.getContentAsString()).contains("IMPORT_REQUEST_UNAVAILABLE").doesNotContain("SECRET_SOURCE_VALUE");
     }
     @Test void shouldKeepUnclassifiedWrapperDetailsPrivate_whenProjectingFailure() throws Exception {
-        var response=new MockHttpServletResponse();CdsWeb.failure(response,new RuntimeException("/private/path",new CdsImportException("OWNER_FENCED")));
+        var response=new MockHttpServletResponse();web.failure(response,new RuntimeException("/private/path",new CdsImportException("OWNER_FENCED")));
         assertThat(response.getStatus()).isEqualTo(503);
         assertThat(response.getContentAsString()).doesNotContain("/private","OWNER_FENCED");
     }
     @Test void shouldRefuseEverySensitiveSummaryKeyCase_withLinearSubstringChecks() {
         for(String key:new String[]{"reportLocation","DIRECTORY","sourcePassword","aSeCrEtValue","sourceXPath"}) {
-            assertThatThrownBy(()->CdsWeb.summary(Map.of("outer",Map.of(key,"private"))))
+            assertThatThrownBy(()->web.summary(Map.of("outer",Map.of(key,"private"))))
                     .hasMessage("IMPORT_SUMMARY_INVALID");
         }
-        assertThat(CdsWeb.summary(Map.of("lastCheckpoint","2026-01-01","pendingUnits",2)))
+        assertThat(web.summary(Map.of("lastCheckpoint","2026-01-01","pendingUnits",2)))
                 .isEqualTo(Map.of("lastCheckpoint","2026-01-01","pendingUnits",2));
     }
     private static final class Foreign {

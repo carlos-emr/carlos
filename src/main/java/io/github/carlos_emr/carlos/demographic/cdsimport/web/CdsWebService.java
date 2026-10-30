@@ -19,14 +19,17 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.demographic.cdsimport.support;
+package io.github.carlos_emr.carlos.demographic.cdsimport.web;
+
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsUploadException;
+import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -39,20 +42,23 @@ import java.util.Collection;
 import java.time.temporal.TemporalAccessor;
 
 /** HTTP-only safe projection. Physical storage paths and protected exception chains never enter JSON. */
-public final class CdsWeb {
+@Service
+public class CdsWebService {
     public static final int API_VERSION = 2;
     public static final String API_VERSION_PARAMETER = "apiVersion";
     public static final String API_VERSION_HEADER = "X-CARLOS-CDS-API-Version";
     private static final ObjectMapper JSON = new ObjectMapper();
-    private CdsWeb() { }
+    private final CdsImportAccessService access;
 
-    public static LoggedInInfo authorize(HttpServletRequest request, CdsImportAccessService access) {
+    public CdsWebService(CdsImportAccessService access) { this.access = access; }
+
+    public LoggedInInfo authorize(HttpServletRequest request) {
         LoggedInInfo actor = authenticated(request);
         access.requireOperatorSession(actor);
         return actor;
     }
 
-    public static LoggedInInfo authenticated(HttpServletRequest request) {
+    public LoggedInInfo authenticated(HttpServletRequest request) {
         if (request.getSession(false) == null) throw new CdsUploadException("AUTHENTICATION_REQUIRED", 401);
         LoggedInInfo actor = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (actor == null || actor.getLoggedInSecurity() == null || actor.getLoggedInSecurity().getId() == null
@@ -60,15 +66,15 @@ public final class CdsWeb {
         return actor;
     }
 
-    public static String operator(LoggedInInfo actor) { return "web-" + actor.getLoggedInSecurity().getId(); }
+    public String operator(LoggedInInfo actor) { return "web-" + actor.getLoggedInSecurity().getId(); }
 
-    public static void parameters(HttpServletRequest request, Set<String> accepted) {
+    public void parameters(HttpServletRequest request, Set<String> accepted) {
         requireApiVersion(request, false);
         acceptedParameters(request, accepted);
     }
 
     /** Only explicitly selected read-only HTML/binary callers preserve durable versionless links. */
-    public static void readOnlyParameters(HttpServletRequest request, Set<String> accepted) {
+    public void readOnlyParameters(HttpServletRequest request, Set<String> accepted) {
         if (!Set.of("GET", "HEAD").contains(request.getMethod())) {
             throw new CdsUploadException("IMPORT_PARAMETERS_INVALID", 405);
         }
@@ -76,7 +82,7 @@ public final class CdsWeb {
         acceptedParameters(request, accepted);
     }
 
-    private static void requireApiVersion(HttpServletRequest request, boolean versionlessReadOnly) {
+    private void requireApiVersion(HttpServletRequest request, boolean versionlessReadOnly) {
         String[] versions = request.getParameterValues(API_VERSION_PARAMETER);
         if (versionlessReadOnly && versions == null) return;
         if (versions == null || versions.length != 1 || !Integer.toString(API_VERSION).equals(versions[0])) {
@@ -84,7 +90,7 @@ public final class CdsWeb {
         }
     }
 
-    private static void acceptedParameters(HttpServletRequest request, Set<String> accepted) {
+    private void acceptedParameters(HttpServletRequest request, Set<String> accepted) {
         request.getParameterMap().forEach((key, values) -> {
             if (!(accepted.contains(key) || "CSRF-TOKEN".equals(key) || API_VERSION_PARAMETER.equals(key))
                     || values == null || values.length != 1) {
@@ -93,7 +99,7 @@ public final class CdsWeb {
         });
     }
 
-    public static void json(HttpServletResponse response, int status, Object data) throws IOException {
+    public void json(HttpServletResponse response, int status, Object data) throws IOException {
         if (!(data instanceof Map<?, ?> fields)) throw new IllegalArgumentException("IMPORT_JSON_ENVELOPE_INVALID");
         Map<String, Object> envelope = new LinkedHashMap<>();
         for (var entry : fields.entrySet()) {
@@ -108,7 +114,7 @@ public final class CdsWeb {
         JSON.writeValue(response.getWriter(), envelope);
     }
 
-    public static void failure(HttpServletResponse response, Exception failure) throws IOException {
+    public void failure(HttpServletResponse response, Exception failure) throws IOException {
         if (response.isCommitted()) return;
         int status = 503; String code = "IMPORT_REQUEST_UNAVAILABLE";
         if (failure instanceof CdsUploadException upload) { status = upload.status(); code = upload.code(); }
@@ -123,7 +129,7 @@ public final class CdsWeb {
                 "message", "The request did not complete. Check the durable upload/run status before retrying. No success is implied."));
     }
 
-    public static Map<String, Object> job(CdsImportJobDto row) {
+    public Map<String, Object> job(CdsImportJobDto row) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("id", row.id()); result.put("state", row.state()); result.put("sourceNamespace", row.sourceNamespace());
         result.put("profile", row.profile()); result.put("expectedPatients", row.expectedPatients());
@@ -136,7 +142,7 @@ public final class CdsWeb {
         return result;
     }
 
-    public static Map<String, Object> patient(CdsImportPatientDto row) {
+    public Map<String, Object> patient(CdsImportPatientDto row) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("patientKey", row.patientKey()); result.put("sourcePatientId", row.sourcePatientId());
         result.put("copyKey", row.copyKey()); result.put("targetDemographicNo", row.targetDemographicNo());
@@ -144,7 +150,7 @@ public final class CdsWeb {
         return result;
     }
 
-    public static Map<String, Object> diagnostic(CdsImportDiagnosticDto row) {
+    public Map<String, Object> diagnostic(CdsImportDiagnosticDto row) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("id", row.id()); result.put("patientKey", row.patientKey()); result.put("unitKey", row.unitKey());
         result.put("severity", row.severity()); result.put("code", row.code()); result.put("stage", row.stage());
@@ -157,16 +163,16 @@ public final class CdsWeb {
         return result;
     }
 
-    private static boolean sensitiveSummaryKey(String key) {
+    private boolean sensitiveSummaryKey(String key) {
         String lower = key.toLowerCase(java.util.Locale.ROOT);
         return lower.contains("location") || lower.contains("directory") || lower.contains("password")
                 || lower.contains("secret") || lower.contains("path");
     }
 
     /** Bounded scalar/count projection also removes Java-time serializer dependence from JSON. */
-    public static Object summary(Object value) { return summary(value, 0); }
+    public Object summary(Object value) { return summary(value, 0); }
 
-    private static Object summary(Object value, int depth) {
+    private Object summary(Object value, int depth) {
         if (depth > 6) throw new CdsUploadException("IMPORT_SUMMARY_INVALID", 503);
         if (value == null || value instanceof Number || value instanceof Boolean) return value;
         if (value instanceof TemporalAccessor) return value.toString();

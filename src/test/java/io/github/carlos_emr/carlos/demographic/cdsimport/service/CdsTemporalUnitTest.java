@@ -22,7 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto.Precision;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException;
+import io.github.carlos_emr.carlos.commn.model.CdsClinicalException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporal;
 import java.time.LocalDate;
 import java.time.ZoneId;

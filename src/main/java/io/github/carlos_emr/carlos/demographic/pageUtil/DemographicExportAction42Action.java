@@ -438,7 +438,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         try {
             var projection = SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class);
             for (String patient : list) projection.requireWholeChartSupported(Integer.parseInt(patient));
-        } catch (io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException unsupported) {
+        } catch (io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException unsupported) {
             writeExportAuditLog(loggedInInfo, list.size(), "unsupported_structured_projection", "<unavailable>", null);
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             response.setContentType("text/plain;charset=UTF-8");

@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.commn.dao.CdsImportAdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsImportCheckpointDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsImportDependencyDao;
@@ -47,7 +49,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBinding
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportUnitDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.HexFormat;
@@ -745,7 +747,7 @@ public class CdsImportLedgerService {
     public CdsImportJobBindingDto jobBinding(String runId) {
         requireNoTransaction();
         CdsImportKeys.required(runId, "run id", 36);
-        CdsImportJobBindingDto binding=runs.readJobBinding(runId);
+        CdsImportJobBindingDto binding=CdsImportProjections.toDto(runs.readJobBinding(runId));
         if (binding==null) throw new CdsImportException("RUN_NOT_FOUND");
         return binding;
     }
@@ -754,7 +756,7 @@ public class CdsImportLedgerService {
     CdsImportReportEntryDto reportEntry(String runId) {
         requireNoTransaction();
         CdsImportKeys.required(runId, "run id", 36);
-        CdsImportReportEntryDto entry=runs.readReportEntry(runId);
+        CdsImportReportEntryDto entry=CdsImportProjections.toDto(runs.readReportEntry(runId));
         if (entry==null) throw new CdsImportException("RUN_NOT_FOUND");
         return entry;
     }
@@ -782,7 +784,7 @@ public class CdsImportLedgerService {
     private Map<String, Object> summaryProjection(String runId) {
         CdsImportRun run=requiredRun(runId, false);
         Map<String, Long> outcomes=new LinkedHashMap<>();
-        var outcomeRows=patients.summaryOutcomes(runId, 17);
+        var outcomeRows=patients.summaryOutcomes(runId, 17).stream().map(CdsImportProjections::toDto).toList();
         if (outcomeRows.size()>16) throw new CdsImportException("UNEXPECTED_OUTCOME_CARDINALITY");
         long copyCount=0;
         for (var row:outcomeRows) {
@@ -838,7 +840,7 @@ public class CdsImportLedgerService {
             categories.add(Map.copyOf(row));
         }
         value.put("categories", List.copyOf(categories)); value.put("committedClinicalOccurrences", committedOccurrences); value.put("alreadyCompleteClinicalOccurrences", priorOccurrences);
-        var diagnosticSummary=diagnostics.summary(runId, MAINTENANCE_RELEASE_CODE, MAINTENANCE_DEFERRED_CODE, MAINTENANCE_PENDING_CODE);
+        var diagnosticSummary=CdsImportProjections.toDto(diagnostics.summary(runId, MAINTENANCE_RELEASE_CODE, MAINTENANCE_DEFERRED_CODE, MAINTENANCE_PENDING_CODE));
         value.put("unresolvedReviewItems", diagnosticSummary.unresolved());
         value.put("cancelRequested", run.isCancelRequested()); value.put("lastCheckpoint", run.getUpdatedAt().toString());
         boolean delivered="DELIVERED".equals(run.getReportState());

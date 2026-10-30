@@ -21,7 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.support;
 
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportException;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
+
 
 import java.time.ZoneId;
 import java.util.SimpleTimeZone;

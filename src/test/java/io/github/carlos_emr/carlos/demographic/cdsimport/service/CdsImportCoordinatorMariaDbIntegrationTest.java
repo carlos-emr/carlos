@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.commn.dao.CdsImportAdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsImportCheckpointDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsImportDependencyDao;
@@ -35,7 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.CdsImportRun;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import io.github.carlos_emr.carlos.demographic.cdsimport.cli.CdsCliSpringConfiguration;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;

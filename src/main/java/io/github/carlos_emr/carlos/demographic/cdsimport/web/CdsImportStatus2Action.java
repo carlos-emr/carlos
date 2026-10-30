@@ -24,10 +24,8 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsUploadException;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.LinkedHashMap;
@@ -44,15 +42,15 @@ import org.springframework.stereotype.Component;
 @Component("cdsImportStatus2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsImportStatus2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
-    private final transient CdsImportAccessService access;
+    private final transient CdsWebService web;
     private final transient CdsImportService imports;
     private final transient CdsUploadService uploads;
     private String section = "job", runId, uploadId, afterKey = "";
     private long afterId;
     private int limit = 50;
-    public CdsImportStatus2Action(CdsImportAccessService access, CdsImportService imports, CdsUploadService uploads, SecurityInfoManager securityInfoManager) {
+    public CdsImportStatus2Action(CdsWebService web, CdsImportService imports, CdsUploadService uploads, SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
-        this.access = access; this.imports = imports; this.uploads = uploads;
+        this.web = web; this.imports = imports; this.uploads = uploads;
     }
     @Override public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
@@ -70,8 +68,8 @@ public class CdsImportStatus2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_cds_import)");
         }
         try {
-            var actor = CdsWeb.authorize(request, access);
-            CdsWeb.parameters(request, Set.of("section", "runId", "uploadId", "afterKey", "afterId", "limit", "autoRefresh"));
+            var actor = web.authorize(request);
+            web.parameters(request, Set.of("section", "runId", "uploadId", "afterKey", "afterId", "limit", "autoRefresh"));
             String background = request.getParameter("autoRefresh");
             if (background != null && !Set.of("true", "false").contains(background)) {
                 throw new CdsUploadException("IMPORT_PARAMETERS_INVALID", 400);
@@ -81,28 +79,28 @@ public class CdsImportStatus2Action extends ActionSupport {
             switch (section) {
                 case "job" -> {
                     var observed = imports.observe(actor, runId);
-                    result.put("job", CdsWeb.job(observed.job()));
-                    result.put("summary", CdsWeb.summary(observed.summary()));
+                    result.put("job", web.job(observed.job()));
+                    result.put("summary", web.summary(observed.summary()));
                 }
                 case "patients" -> {
                     var rows = imports.patients(actor, runId, afterKey, limit);
-                    result.put("rows", rows.stream().map(CdsWeb::patient).toList());
+                    result.put("rows", rows.stream().map(web::patient).toList());
                     result.put("nextCursor", rows.isEmpty() ? null : rows.get(rows.size() - 1).patientKey());
                     result.put("pageLimit", limit);
                 }
                 case "diagnostics" -> {
                     var rows = imports.diagnostics(actor, runId, afterId, limit);
-                    result.put("rows", rows.stream().map(CdsWeb::diagnostic).toList());
+                    result.put("rows", rows.stream().map(web::diagnostic).toList());
                     result.put("nextCursor", rows.isEmpty() ? null : rows.get(rows.size() - 1).id());
                     result.put("pageLimit", limit);
                 }
-                case "uploads" -> result.put("rows", uploads.pending(CdsWeb.operator(actor), afterKey, limit));
-                case "upload" -> result.put("upload", uploads.status(CdsWeb.operator(actor), uploadId));
-                case "chunks" -> result.put("rows", uploads.chunks(CdsWeb.operator(actor), uploadId, afterId, limit));
+                case "uploads" -> result.put("rows", uploads.pending(web.operator(actor), afterKey, limit));
+                case "upload" -> result.put("upload", uploads.status(web.operator(actor), uploadId));
+                case "chunks" -> result.put("rows", uploads.chunks(web.operator(actor), uploadId, afterId, limit));
                 default -> throw new CdsUploadException("IMPORT_SECTION_INVALID", 400);
             }
-            CdsWeb.json(response, 200, result);
-        } catch (Exception failure) { CdsWeb.failure(response, failure); }
+            web.json(response, 200, result);
+        } catch (Exception failure) { web.failure(response, failure); }
         return NONE;
     }
     @StrutsParameter public void setSection(String value) { section = value; }

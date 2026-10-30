@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.support;
 
 import com.google.common.base.Ascii;
 import com.google.common.base.CharMatcher;
-import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportUnitService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState.Lease;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
@@ -89,12 +88,12 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
     }
 
     public static Connection wrap(Connection raw, CdsJdbcAdmissionState state) {
-        return wrap(raw, state, CdsImportUnitService::isActiveForMaintenance);
+        return wrap(raw, state, CdsImportUnitContext::isActiveForMaintenance);
     }
 
     /** Only new CDS metadata mutations are scoped when clinical maintenance admission is off. */
     public static Connection wrapMetadataOnly(Connection raw) {
-        return wrap(raw, null, CdsImportUnitService::isActiveForMaintenance);
+        return wrap(raw, null, CdsImportUnitContext::isActiveForMaintenance);
     }
 
     /** Explicit capability supplier is used by real-database race tests, never by request binding. */

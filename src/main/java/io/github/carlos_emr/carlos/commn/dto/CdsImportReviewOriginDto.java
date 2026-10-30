@@ -19,19 +19,10 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.demographic.cdsimport.support;
+package io.github.carlos_emr.carlos.commn.dto;
 
-/** Safe diagnostic identity; original clinical values belong in protected source evidence. */
-public final class CdsClinicalException extends IllegalArgumentException {
-    private final String code;
-    private final String field;
-
-    public CdsClinicalException(String code, String field) {
-        super(code + " (" + field + ")");
-        this.code = code;
-        this.field = field;
-    }
-
-    public String code() { return code; }
-    public String field() { return field; }
+/** Bounded audit identity projection; no replacement payload or filesystem location crosses the query. */
+public record CdsImportReviewOriginDto(String reviewId, String operator, Integer securityNo,
+        String sourceKey, String sourceXPath, String state, long version) {
+    @Override public String toString(){return "CdsImportReviewOriginDto[protected]"; }
 }

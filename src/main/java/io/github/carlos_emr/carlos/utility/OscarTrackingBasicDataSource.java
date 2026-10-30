@@ -79,12 +79,12 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
     @Override protected org.apache.commons.dbcp2.ConnectionFactory createConnectionFactory() throws SQLException {
         var configured=super.createConnectionFactory();
         return boundedCdsConnections
-                ? io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcConnectionTimeouts.bounded(configured)
+                ? io.github.carlos_emr.carlos.utility.CdsJdbcConnectionTimeouts.bounded(configured)
                 : configured;
     }
 
     private org.apache.commons.dbcp2.ConnectionFactory controlledConnectionFactory() throws SQLException {
-        return io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcConnectionTimeouts.bounded(super.createConnectionFactory());
+        return io.github.carlos_emr.carlos.utility.CdsJdbcConnectionTimeouts.bounded(super.createConnectionFactory());
     }
 
     /** New CDS metadata stays lossless before maintenance activation; ordinary SQL is unchanged. */

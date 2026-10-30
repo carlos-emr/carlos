@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
 import java.nio.file.Files;
@@ -134,7 +136,7 @@ class CdsImportReportBudgetUnitTest {
             });
             when(f.ledger.units(eq(f.run), anyString(), anyString(), eq(100))).thenAnswer(call-> {
                 String patient=call.getArgument(1), after=call.getArgument(2);
-                return after.isEmpty()?List.of(new CdsImportUnitDto(patient, io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys.hash(patient),
+                return after.isEmpty()?List.of(new CdsImportUnitDto(patient, io.github.carlos_emr.carlos.utility.CdsImportKeys.hash(patient),
                         "ClinicalNotes", 1, "a".repeat(64), "/private/spool", "COMMITTED", null, "b".repeat(64))):List.of();
             });
             f.results.generate(f.run, 1);

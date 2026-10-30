@@ -32,7 +32,6 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccess
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadSubmissionService;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.ServletInputStream;
@@ -49,6 +48,7 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 class CdsWebContractUnitTest extends CarlosUnitTestBase {
+    private final CdsWebService web = new CdsWebService(org.mockito.Mockito.mock(CdsImportAccessService.class));
     private final io.github.carlos_emr.carlos.managers.SecurityInfoManager securityInfoManager = allowedPrivileges();
     private static io.github.carlos_emr.carlos.managers.SecurityInfoManager allowedPrivileges() {
         var privileges = mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
@@ -85,18 +85,18 @@ class CdsWebContractUnitTest extends CarlosUnitTestBase {
             };
             request.setMethod("POST"); request.setContentType("application/octet-stream");
             request.getSession().setAttribute(LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY", actor);
-            if (versions != null) request.addParameter(CdsWeb.API_VERSION_PARAMETER, versions);
+            if (versions != null) request.addParameter(CdsWebService.API_VERSION_PARAMETER, versions);
             var response = new MockHttpServletResponse();
             ActionContext.of().withServletRequest(request).withServletResponse(response).bind();
             if ("submit".equals(operation)) {
-                new SubmitCdsImport2Action(access, submissions, securityInfoManager).execute();
+                new SubmitCdsImport2Action(new CdsWebService(access), submissions, securityInfoManager).execute();
             } else if (Set.of("resume", "cancel", "review").contains(operation)) {
-                var action = new CdsImportControl2Action(access, imports, securityInfoManager); action.setOperation(operation); action.execute();
+                var action = new CdsImportControl2Action(new CdsWebService(access), imports, securityInfoManager); action.setOperation(operation); action.execute();
             } else {
-                var action = new CdsUpload2Action(access, uploads, securityInfoManager); action.setOperation(operation); action.execute();
+                var action = new CdsUpload2Action(new CdsWebService(access), uploads, securityInfoManager); action.setOperation(operation); action.execute();
             }
             assertThat(response.getStatus()).as(operation).isEqualTo(409);
-            assertThat(response.getHeader(CdsWeb.API_VERSION_HEADER)).isEqualTo("2");
+            assertThat(response.getHeader(CdsWebService.API_VERSION_HEADER)).isEqualTo("2");
             assertThat(response.getContentAsString()).contains("IMPORT_CLIENT_REFRESH_REQUIRED", "\"apiVersion\":2");
             verifyNoInteractions(uploads, imports, submissions);
         }
@@ -105,24 +105,24 @@ class CdsWebContractUnitTest extends CarlosUnitTestBase {
     @Test void shouldKeepSupportedJsonParametersStrict_withoutOverridingResponseContract() throws Exception {
         var request = new MockHttpServletRequest(); request.setMethod("POST");
         request.addParameter("apiVersion", "2"); request.addParameter("operation", "begin");
-        CdsWeb.parameters(request, Set.of("operation"));
+        web.parameters(request, Set.of("operation"));
         request.addParameter("path", "/private/source");
-        assertThatThrownBy(() -> CdsWeb.parameters(request, Set.of("operation")))
+        assertThatThrownBy(() -> web.parameters(request, Set.of("operation")))
                 .hasMessage("IMPORT_PARAMETERS_INVALID");
         var response = new MockHttpServletResponse();
-        CdsWeb.json(response, 200, Map.of("ok", true, "apiVersion", 1));
-        assertThat(response.getHeader(CdsWeb.API_VERSION_HEADER)).isEqualTo("2");
+        web.json(response, 200, Map.of("ok", true, "apiVersion", 1));
+        assertThat(response.getHeader(CdsWebService.API_VERSION_HEADER)).isEqualTo("2");
         assertThat(response.getContentAsString()).contains("\"ok\":true", "\"apiVersion\":2")
                 .doesNotContain("\"apiVersion\":1");
     }
 
     @Test void shouldKeepVersionlessLinksForExplicitReadOnlyCallersOnly_withoutAdmittingPost() {
         var request = new MockHttpServletRequest(); request.setMethod("GET"); request.addParameter("type", "event");
-        CdsWeb.readOnlyParameters(request, Set.of("type"));
-        assertThatThrownBy(() -> CdsWeb.parameters(request, Set.of("type")))
+        web.readOnlyParameters(request, Set.of("type"));
+        assertThatThrownBy(() -> web.parameters(request, Set.of("type")))
                 .hasMessage("IMPORT_CLIENT_REFRESH_REQUIRED");
         request.setMethod("POST"); request.addParameter("apiVersion", "2");
-        assertThatThrownBy(() -> CdsWeb.readOnlyParameters(request, Set.of("type")))
+        assertThatThrownBy(() -> web.readOnlyParameters(request, Set.of("type")))
                 .hasMessage("IMPORT_PARAMETERS_INVALID");
     }
 
@@ -131,7 +131,7 @@ class CdsWebContractUnitTest extends CarlosUnitTestBase {
         request.addParameter("apiVersion", "2"); request.addParameter("operation", "begin");
         var response = new MockHttpServletResponse();
         var uploads = mock(CdsUploadService.class);
-        var action = org.mockito.Mockito.spy(new CdsUpload2Action(mock(CdsImportAccessService.class), uploads, securityInfoManager));
+        var action = org.mockito.Mockito.spy(new CdsUpload2Action(new CdsWebService(mock(CdsImportAccessService.class)), uploads, securityInfoManager));
         var previous = ActionContext.getContext();
         var previousDispatcher = org.apache.struts2.dispatcher.Dispatcher.getInstance();
         var dispatcher = new org.apache.struts2.dispatcher.Dispatcher(request.getServletContext(),
@@ -157,7 +157,7 @@ class CdsWebContractUnitTest extends CarlosUnitTestBase {
             finally { interceptor.destroy(); }
             org.mockito.Mockito.verify(action).setOperation("begin");
             assertThat(action.hasErrors()).isFalse();
-            CdsWeb.parameters(request, Set.of("operation"));
+            web.parameters(request, Set.of("operation"));
             verifyNoInteractions(uploads);
         } finally {
             dispatcher.getContainer().getInstance(org.apache.struts2.ognl.ThreadAllowlist.class).clearAllowlist();

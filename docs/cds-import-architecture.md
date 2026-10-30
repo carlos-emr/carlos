@@ -34,6 +34,7 @@ The module lives under `io.github.carlos_emr.carlos.demographic.cdsimport`.
 | Package or component | Responsibility | Boundary |
 | --- | --- | --- |
 | `web/*2Action` | Method/version/parameter gates, native authorization, typed binding and HTTP result formatting | Prototype instances; no source parsing or clinical transaction ownership |
+| `web/CdsWebService` | Injected HTTP authentication/version gate and safe response projection | API 2 parameter, headers, JSON envelopes and status behavior; independent action privilege checks run first |
 | `assembler/*ViewModelAssembler` | Read-only composition for one JSP | Bounded immutable output; no durable state changes |
 | `viewmodel/*ViewModel` | Explicit render data | No managed clinical graph or physical file locator |
 | `command/*Command` | Typed use-case input | Opaque IDs and reviewed options; no caller-selected server paths |
@@ -56,6 +57,10 @@ The module lives under `io.github.carlos_emr.carlos.demographic.cdsimport`.
 | `CdsImportCleanupService` | Reconcile ownership and retire eligible private artifacts | Accepted, uncertain, shared and resumable evidence remains retained |
 | `CdsImportAccessService` | Current actor, category, patient and execution scope | Database rights are rechecked; a captured actor is not a durable permission grant |
 | `CdsImportMaintenanceService` and JDBC support | Drain ordinary writers and hold physical ownership | Dedicated connection lifetime, guard participation and explicit release |
+
+Shared support has no dependency on application services. `CdsImportUnitContext` carries only the transaction-local unit identity used by the writer and JDBC admission guard. The fingerprint and runtime identity belong to the service layer. Shared key and physical timeout primitives live in `utility`; clinical/precision refusal types belong to the common model.
+
+Common DAOs return scalar records in `commn.dto`, including HQL constructor projections. `CdsImportProjections` constructs the existing application DTOs in services; report delivery retains its exact Java `DELIVERED` comparison. Transfer types do not call support services. Calendar lexical construction is self-contained in the temporal value type, so native date serialization does not depend on the XML parser.
 
 Existing clinical entities and DAOs remain in their established persistence packages. See the [per-category data-access contract](cds-clinical-import-contract.md#data-access-and-framework-integration) for the concrete DAO list and the reasons some ordinary UI operations are unsuitable for migration.
 

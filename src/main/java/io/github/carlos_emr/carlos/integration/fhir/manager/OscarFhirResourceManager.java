@@ -125,7 +125,7 @@ public class OscarFhirResourceManager {
         try {
             SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class)
                     .requireSupported(demographicNo, java.util.Set.of(category));
-        } catch (io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException unsupported) {
+        } catch (io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException unsupported) {
             throw new ca.uhn.fhir.rest.server.exceptions.UnprocessableEntityException(unsupported.getMessage());
         }
     }

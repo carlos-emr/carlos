@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionInitializer;
 import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;
@@ -440,8 +442,8 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
             try (Connection connection=nodeOne.getConnection()) {
                 assertThat(sessionValue(connection,"sql_mode")).isEmpty();
                 physical=Long.parseLong(sessionValue(connection,"connection_id"));
-                try (var marker=org.mockito.Mockito.mockStatic(CdsImportUnitService.class)) {
-                    marker.when(CdsImportUnitService::isActiveForMaintenance).thenReturn(true);
+                try (var marker=org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportUnitContext.class)) {
+                    marker.when(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportUnitContext::isActiveForMaintenance).thenReturn(true);
                     connection.setAutoCommit(false);
                     update(connection,unicode);
                     assertThat(sessionValue(connection,"sql_mode")).contains("STRICT_ALL_TABLES");
@@ -463,8 +465,8 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
         nodeOne.setConnectionProperties("sessionVariables=sql_mode='';jdbcCompliantTruncation=false");
         try (var owner=own(first); Connection connection=nodeOne.getConnection()) {
             assertThat(sessionValue(connection,"sql_mode")).isEmpty();
-            try (var marker=org.mockito.Mockito.mockStatic(CdsImportUnitService.class)) {
-                marker.when(CdsImportUnitService::isActiveForMaintenance).thenReturn(true);
+            try (var marker=org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportUnitContext.class)) {
+                marker.when(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportUnitContext::isActiveForMaintenance).thenReturn(true);
                 connection.setAutoCommit(false);
                 assertThatThrownBy(()->update(connection,"\uD83D\uDE00".repeat(41))).isInstanceOf(SQLException.class);
                 connection.rollback();
@@ -480,8 +482,8 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
         configureLossyConnection(nodeOne);
         try (var owner=own(first); Connection connection=nodeOne.getConnection()) {
             assertThat(sessionValue(connection,"character_set_client")).isEqualTo("latin1");
-            try (var marker=org.mockito.Mockito.mockStatic(CdsImportUnitService.class)) {
-                marker.when(CdsImportUnitService::isActiveForMaintenance).thenReturn(true);
+            try (var marker=org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportUnitContext.class)) {
+                marker.when(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportUnitContext::isActiveForMaintenance).thenReturn(true);
                 connection.setAutoCommit(false);
                 assertThatThrownBy(()->update(connection,"\uD83D\uDE00"))
                         .isInstanceOf(SQLException.class).hasMessageContaining("utf8mb4");
@@ -501,8 +503,8 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
         nodeOne.setConnectionInitSqls(java.util.List.of("SET NAMES utf8mb4"));
         try (var owner=own(first); Connection connection=nodeOne.getConnection()) {
             assertThat(sessionValue(connection,"character_set_client")).isEqualTo("utf8mb4");
-            try (var marker=org.mockito.Mockito.mockStatic(CdsImportUnitService.class)) {
-                marker.when(CdsImportUnitService::isActiveForMaintenance).thenReturn(true);
+            try (var marker=org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportUnitContext.class)) {
+                marker.when(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportUnitContext::isActiveForMaintenance).thenReturn(true);
                 connection.setAutoCommit(false);
                 assertThatThrownBy(()->update(connection,"\uD83D\uDE00"))
                         .isInstanceOf(SQLException.class).hasMessageContaining("encoder");

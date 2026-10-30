@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReceiptDto;
@@ -286,7 +288,7 @@ public class CdsImportExecutionService {
     private void recordFailure(String runId, long epoch, String affectedPatient, String affectedUnit, Exception failure) {
         String code=failure instanceof CdsImportException known?known.getCode():
                 failure instanceof io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException input?input.code():
-                failure instanceof io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException clinical?clinical.code():"IMPORT_EXECUTION_FAILED";
+                failure instanceof io.github.carlos_emr.carlos.commn.model.CdsClinicalException clinical?clinical.code():"IMPORT_EXECUTION_FAILED";
         if (affectedUnit==null && failure instanceof CdsImportException known) affectedUnit=known.getUnitKey();
         String sourcePath=failureSourcePath(runId, affectedUnit, failure);
         String evidence=failureEvidence.write(runId, epoch, failure);
@@ -324,7 +326,7 @@ public class CdsImportExecutionService {
     private String failureSourcePath(String runId, String unit, Exception failure) {
         String path=null;
         if (failure instanceof io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException input) path=input.sourceXPath();
-        else if (failure instanceof io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException clinical) path=clinical.field();
+        else if (failure instanceof io.github.carlos_emr.carlos.commn.model.CdsClinicalException clinical) path=clinical.field();
         if ((path==null || path.isBlank()) && unit!=null) {
             try { path=planning.work(runId, ledger.unitStatus(runId, unit)).record().sourceXPath(); }
             catch (IOException | RuntimeException unavailable) { /* Exact unit key remains in durable diagnostics if a source locator cannot be read. */ }

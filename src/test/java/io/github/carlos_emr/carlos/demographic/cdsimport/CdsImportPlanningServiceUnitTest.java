@@ -21,11 +21,13 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.*;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
+import io.github.carlos_emr.carlos.commn.model.CdsClinicalException;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;

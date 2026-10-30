@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
+
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -30,7 +32,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.carlos.commn.model.Security;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -48,6 +49,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 /** Action gates must remain effective when the finer application-service gate is mocked. */
 class CdsImportActionPrivilegesUnitTest extends CarlosUnitTestBase {
+    private final CdsWebService web = new CdsWebService(org.mockito.Mockito.mock(CdsImportAccessService.class));
     static Stream<Arguments> actions() {
         return Stream.of(
                 Arguments.of(CdsUpload2Action.class, "POST", true),
@@ -120,7 +122,7 @@ class CdsImportActionPrivilegesUnitTest extends CarlosUnitTestBase {
     private ActionSupport action(Class<? extends ActionSupport> type, String method,
             SecurityInfoManager security, List<Object> services) throws Exception {
         var request = new MockHttpServletRequest(); request.setMethod(method);
-        request.addParameter(CdsWeb.API_VERSION_PARAMETER, Integer.toString(CdsWeb.API_VERSION));
+        request.addParameter(CdsWebService.API_VERSION_PARAMETER, Integer.toString(CdsWebService.API_VERSION));
         var actor = mock(LoggedInInfo.class);
         var login = new Security(); login.setSecurityNo(42);
         when(actor.getLoggedInSecurity()).thenReturn(login);
@@ -131,7 +133,11 @@ class CdsImportActionPrivilegesUnitTest extends CarlosUnitTestBase {
         List<Object> arguments = new ArrayList<>();
         for (Class<?> dependency : constructor.getParameterTypes()) {
             if (dependency == SecurityInfoManager.class) arguments.add(security);
-            else { Object service = mock(dependency); services.add(service); arguments.add(service); }
+            else if (dependency == CdsWebService.class) {
+                var access = mock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService.class);
+                var webService = org.mockito.Mockito.spy(new CdsWebService(access));
+                services.add(access); services.add(webService); arguments.add(webService);
+            } else { Object service = mock(dependency); services.add(service); arguments.add(service); }
         }
         return (ActionSupport) constructor.newInstance(arguments.toArray());
     }

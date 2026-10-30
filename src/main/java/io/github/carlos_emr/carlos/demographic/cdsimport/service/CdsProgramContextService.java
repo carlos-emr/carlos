@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.commn.dao.CdsImportProgramDao;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsProgramContextDto;
 import org.springframework.stereotype.Service;
@@ -33,19 +35,19 @@ public class CdsProgramContextService {
     private final CdsImportProgramDao programs;
     public CdsProgramContextService(CdsImportProgramDao programs) { this.programs = programs; }
 
-    public CdsProgramContextDto metadata(int id) { return programs.metadata(id); }
+    public CdsProgramContextDto metadata(int id) { return CdsImportProjections.toDto(programs.metadata(id)); }
     public boolean member(String provider, int program) { return programs.member(provider, program); }
 
     /** Preserves EctProgram's active-member default, with a stable oldest-membership fallback. */
     public Integer defaultProgramId(String provider) {
         Integer preferred = programs.preferred(provider);
         if (preferred != null && preferred > 0) {
-            var context = programs.metadata(preferred);
+            var context = CdsImportProjections.toDto(programs.metadata(preferred));
             if (context != null && "active".equals(context.status()) && programs.member(provider, preferred)) return preferred;
         }
         long after = 0;
         while (true) {
-            var page = programs.memberships(provider, after);
+            var page = programs.memberships(provider, after).stream().map(CdsImportProjections::toDto).toList();
             if (page.size() > 100) throw new CdsImportException("PROGRAM_CONTEXT_PAGE_INVALID");
             if (page.isEmpty()) return null;
             for (var membership : page) {

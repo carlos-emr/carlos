@@ -19,24 +19,20 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.demographic.cdsimport.service;
+package io.github.carlos_emr.carlos.commn.model;
 
-/** Stable safe code plus durable-outcome certainty; details belong in protected diagnostics. */
-public class CdsImportException extends RuntimeException {
+/** Safe diagnostic identity; original clinical values belong in protected source evidence. */
+public final class CdsClinicalException extends IllegalArgumentException {
     private static final long serialVersionUID = 1L;
     private final String code;
-    private final boolean outcomeUnknown;
-    private final String unitKey;
+    private final String field;
 
-    public CdsImportException(String code) { this(code, false, null); }
-    public CdsImportException(String code, boolean outcomeUnknown, Throwable cause) { this(code, outcomeUnknown, cause, null); }
-    public CdsImportException(String code, boolean outcomeUnknown, Throwable cause, String unitKey) {
-        super(code, cause);
+    public CdsClinicalException(String code, String field) {
+        super(code + " (" + field + ")");
         this.code = code;
-        this.outcomeUnknown = outcomeUnknown;
-        this.unitKey = unitKey;
+        this.field = field;
     }
-    public String getCode() { return code; }
-    public String getUnitKey() { return unitKey; }
-    public boolean isOutcomeUnknown() { return outcomeUnknown; }
+
+    public String code() { return code; }
+    public String field() { return field; }
 }

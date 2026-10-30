@@ -3721,7 +3721,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             try {
                 SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class)
                         .requireSupported(demographicNo, projectedCategories);
-            } catch (io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException unsupported) {
+            } catch (io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException unsupported) {
                 response.setHeader("Content-Disposition", null);
                 response.setStatus(HttpServletResponse.SC_CONFLICT);
                 response.setContentType("text/plain;charset=UTF-8");

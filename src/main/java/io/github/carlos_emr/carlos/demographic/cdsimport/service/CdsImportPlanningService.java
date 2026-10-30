@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,8 +38,8 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsSnapshotDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsSnapshotFileDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsCorrectionSetDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportKeys;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
+import io.github.carlos_emr.carlos.commn.model.CdsClinicalException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsPaths;
 import io.github.carlos_emr.carlos.demographic.cdsimport.validator.CdsSourceFieldCapacityValidator;

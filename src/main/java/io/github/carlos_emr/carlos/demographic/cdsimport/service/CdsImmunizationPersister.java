@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
@@ -195,7 +197,7 @@ public class CdsImmunizationPersister {
 
     private ZoneId requireClinicZone(CdsImmunizationDto source) {
         if (source.date().offsetDateTime() != null) return ZoneId.systemDefault();
-        if (clinicZone == null) throw new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException("CDS_CLINICAL_ZONE_REQUIRED", "Date");
+        if (clinicZone == null) throw new io.github.carlos_emr.carlos.commn.model.CdsClinicalException("CDS_CLINICAL_ZONE_REQUIRED", "Date");
         return clinicZone;
     }
 

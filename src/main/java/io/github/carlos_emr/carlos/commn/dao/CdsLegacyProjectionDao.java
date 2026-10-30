@@ -61,7 +61,7 @@ public class CdsLegacyProjectionDao extends AbstractDaoImpl<CdsImportField> {
         if (tableExists("flyway_schema_history") && !entityManager.createNativeQuery(
                 "SELECT installed_rank FROM flyway_schema_history WHERE version=:version AND success=TRUE")
                 .setParameter("version", migration).setMaxResults(1).getResultList().isEmpty()) {
-            throw new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsLegacyProjectionException();
+            throw new io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException();
         }
         return false;
     }

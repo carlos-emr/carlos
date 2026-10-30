@@ -19,11 +19,16 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.demographic.cdsimport.support;
+package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
-/** Safe disclosure refusal; contains no patient identifier, category or source value. */
-public final class CdsLegacyProjectionException extends RuntimeException {
-    public CdsLegacyProjectionException() {
-        super("This legacy export cannot represent the imported structured record completely. Use the authorized clinical source view; disclosure requires review.");
+
+/** Opt-in actual classloader probe for compiled classes and exploded WAR parity; emits no paths or secrets. */
+public final class CdsRulesetFingerprintProbe {
+    private CdsRulesetFingerprintProbe() {}
+
+    public static void main(String[] args) {
+        if (args.length != 0)
+            throw new IllegalArgumentException("No source or configuration arguments are accepted");
+        System.out.println(CdsRulesetFingerprint.current().sha256());
     }
 }

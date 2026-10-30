@@ -22,8 +22,8 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.CdsImportRun;
-import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto;
+import io.github.carlos_emr.carlos.commn.dto.CdsImportJobBindingDto;
+import io.github.carlos_emr.carlos.commn.dto.CdsImportReportEntryDto;
 import jakarta.persistence.LockModeType;
 import java.util.List;
 import org.springframework.stereotype.Repository;
@@ -40,7 +40,7 @@ public class CdsImportRunDao extends AbstractDaoImpl<CdsImportRun> {
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
     public CdsImportJobBindingDto readJobBinding(String runId) {
         var rows=entityManager.createQuery("""
-                select new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto(
+                select new io.github.carlos_emr.carlos.commn.dto.CdsImportJobBindingDto(
                     r.id,r.operator,r.providerNo,r.sourceNamespace,r.profile,r.state,
                     r.sourceDigest,r.optionsDigest,r.rulesetDigest,r.manifestDigest,
                     r.expectedPatients,r.expectedUnits,r.ownerEpoch,r.cancelRequested,
@@ -55,7 +55,7 @@ public class CdsImportRunDao extends AbstractDaoImpl<CdsImportRun> {
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
     public CdsImportReportEntryDto readReportEntry(String runId) {
         var rows=entityManager.createQuery("""
-                select new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto(
+                select new io.github.carlos_emr.carlos.commn.dto.CdsImportReportEntryDto(
                     r.reportState,r.discoveryComplete,r.dryRun,r.executionDigest is not null,r.snapshotLocation)
                 from CdsImportRun r where r.id=:run
                 """, CdsImportReportEntryDto.class)

@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsClinicalSourceService;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.Set;
@@ -39,7 +38,9 @@ public class CdsSourceFieldContent2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsClinicalSourceService source;
     private int demographicNo; private String category, fieldId;
-    public CdsSourceFieldContent2Action(CdsClinicalSourceService source, SecurityInfoManager securityInfoManager){
+    private final transient CdsWebService web;
+    public CdsSourceFieldContent2Action(CdsWebService web, CdsClinicalSourceService source, SecurityInfoManager securityInfoManager){
+        this.web = web;
         this.securityInfoManager = securityInfoManager; this.source=source; }
     @Override public String execute() throws Exception {
         var request=ServletActionContext.getRequest(); var response=ServletActionContext.getResponse();
@@ -50,14 +51,14 @@ public class CdsSourceFieldContent2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
         try {
-            var actor=CdsWeb.authenticated(request); CdsWeb.readOnlyParameters(request, Set.of("demographicNo", "category", "fieldId"));
+            var actor=web.authenticated(request); web.readOnlyParameters(request, Set.of("demographicNo", "category", "fieldId"));
             var field=source.original(actor, demographicNo, category, fieldId);
             response.setHeader("Cache-Control", "no-store"); response.setHeader("X-Content-Type-Options", "nosniff");
             response.setHeader("Content-Security-Policy", "sandbox"); response.setContentType("application/octet-stream");
             response.setHeader("Content-Disposition", "attachment; filename=\"cds-source-field-"+field.id()+".bin\"");
             response.setContentLengthLong(source.contentLength(field));
             if (!"HEAD".equals(request.getMethod()))source.writeOriginal(field, response.getOutputStream());
-        }catch (Exception failure){CdsWeb.failure(response, failure); }
+        }catch (Exception failure){web.failure(response, failure); }
         return NONE;
     }
     @StrutsParameter public void setDemographicNo(int value){demographicNo=value; }

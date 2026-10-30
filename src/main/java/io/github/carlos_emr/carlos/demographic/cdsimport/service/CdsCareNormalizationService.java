@@ -27,7 +27,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsClinicalDiagnost
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsFieldDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException;
+import io.github.carlos_emr.carlos.commn.model.CdsClinicalException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import java.io.IOException;
 import java.math.BigDecimal;
