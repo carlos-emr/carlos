@@ -1,5 +1,27 @@
 #!/usr/bin/env node
-/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+/*
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 /*
  * Issue #5278, the transport half: a consultation faxed from a chosen sender reaches the relay as that sender, with
  * the referral's PDF, and a relay failure is reported on the job without falling back to another sender.
@@ -145,14 +167,22 @@ async function workflow(s) {
     await faxes.click();
     const configure = admin.locator('a.xlink[rel$="/admin/ViewConfigureFax"]').first();
     await configure.waitFor({ state: 'visible', timeout: TIMEOUT });
+    // The page asks the scheduler for its state once it loads, and Restart stays disabled until that answer says the
+    // scheduler is stopped. Read the answer itself: a fixed pause misses a slow one and would skip a needed restart.
+    const status = admin.waitForResponse(response => response.request().method() === 'POST'
+      && new URL(response.url()).pathname.endsWith('/admin/ManageFax')
+      && /(^|&)method=getFaxSchedularStatus(&|$)/.test(response.request().postData() || ''), { timeout: TIMEOUT });
     await configure.click();
     await admin.locator('#dynamic-content iframe#myFrame').waitFor({ state: 'attached', timeout: TIMEOUT });
     const frame = admin.frameLocator('#myFrame');
     const restart = frame.locator('#restartFaxSchedulerBtn');
     await restart.waitFor({ state: 'attached', timeout: TIMEOUT });
-    // The page asks the scheduler for its state and enables Restart only while it is stopped.
-    await admin.waitForTimeout(3000);
-    if (await restart.isEnabled()) {
+    const answer = await status;
+    h.assert(answer.ok(), `Configure Fax could not read the scheduler state (HTTP ${answer.status()})`);
+    const { isRunning } = await answer.json();
+    h.assert(typeof isRunning === 'boolean', 'Configure Fax answered the scheduler state without isRunning');
+    if (!isRunning) {
+      await frame.locator('#restartFaxSchedulerBtn:enabled').waitFor({ state: 'attached', timeout: TIMEOUT });
       await restart.click();
       await frame.locator('#restartFaxSchedulerBtn:disabled').waitFor({ state: 'attached', timeout: TIMEOUT });
     }

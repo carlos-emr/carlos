@@ -85,7 +85,7 @@ enough that the build was retried until its cache was complete. Results:
   same install stored `2026-02-30` as 2026-03-02 and moved a referral saved at SB to the first site on a
   notes-only Update. `consultation-appointment-instructions`, `consultation-letterhead-title` and
   `consultation-status-transitions` pass there.
-- On the fixed packages all seven core checks **PASS** (`consultation-multisite-site` 6/6 with
+- On the fixed packages all seven core checks **PASS** (`consultation-multisite-site` 7/7 with
   `multisites=on`, SKIP with it off), and `consultation-fax-account-transport` **PASS**es 2/2 with the
   middleware allowlist set: the stub relay received exactly sender A's call with the job's PDF byte for
   byte, and B's refused send stayed in ERROR without a call as A.
@@ -98,6 +98,10 @@ enough that the build was retried until its cache was complete. Results:
   catalogued "Forms" link; that check fails the same way with the unfixed `carlos-emr` package
   reinstalled, so neither failure comes from this change. The audit's `property` and `quickListUser`
   rows came from other checks: the new checks run alone under `--residue-audit` report no residue.
+- After review, `consultation-multisite-site` gained its seventh step (a referral saved at a site the
+  login is not linked to keeps that site) and `consultation-fax-account-transport` reads the scheduler
+  state Configure Fax reports instead of pausing for it. Both were rerun on the fixed packages with
+  `--residue-audit`: 7/7 and 2/2, no residue.
 
 `allergy-injected-form-csrf-playwright-checks.js` (issues #3355 and #3488) was
 added on 2026-10-08. It was run against 2026.09.0~snapshot26 packages built from the

@@ -1,5 +1,27 @@
 #!/usr/bin/env node
-/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+/*
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ *
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
 /*
  * Issue #5274: the referral's Site selector on a multisite install (multisites=on).
  * User paths: Schedule (the day view) ▸ E on the owned patient's visit at site SB (the E-Chart) ▸ Consultations "+" ▸
@@ -13,7 +35,10 @@
  *   5. two windows open at once on the two patients' referrals (the first from its patient's E-Chart, the second from
  *      the clinic list, which opens every referral in one shared window) keep their own sites: SC chosen in the second
  *      and saved after the first window's Update leaves the first referral at SB and the second at SC;
- *   6. Update And Print Preview prints the referral's letterhead, not the site's address: the site is not a letterhead.
+ *   6. Update And Print Preview prints the referral's letterhead, not the site's address: the site is not a letterhead;
+ *   7. a referral saved at SD, a site the login is not linked to (another login's site, or one unlinked since), reopens
+ *      from the patient's E-Chart with SD selected, and an Update of its notes alone keeps SD: the login cannot pick SD,
+ *      so the form keeps the saved site as an extra option rather than moving the referral to one it can pick.
  * A site logo (the only site-dependent part of the letter) prints only with the operator's faxLogoInConsultation
  * property and a site logo document; that is not configured by this check and is reported as a NOTE.
  * Skips when multisites is off (the day sheet has no clinic selector).
@@ -44,6 +69,7 @@ const STEP = {
   unrelated: 'an Update of another field keeps the saved site',
   windows: 'two open referral windows keep their own sites',
   printed: 'the printed letter carries the letterhead, not the site\'s address',
+  unlinked: 'a saved site the login is not linked to stays selected through an unrelated Update',
 };
 
 function key(value, what) {
@@ -209,6 +235,29 @@ async function workflow(s) {
     h.assert(site(requestId) === sites.SB.name, 'Update And Print Preview changed the saved site');
     console.log('  NOTE consultation-multisite-site: a site logo prints only with the operator\'s faxLogoInConsultation property '
       + 'and a site logo document; neither is configured by this check, so the logo is not exercised.');
+  });
+
+  await s.step(STEP.unlinked, async () => {
+    // The clinic list shows a login only the referrals at its own sites, so this one is opened from the patient's chart.
+    const unlinkedReason = `${marker} unlinked site referral`;
+    const unlinkedId = referrals.seed({ reason: unlinkedReason, site_name: sites.SD.name });
+    const edit = await openFromChart(s, unlinkedId, unlinkedReason, 'site-unlinked');
+    const select = edit.locator('select#siteName');
+    const offered = await select.locator('option').evaluateAll(options => options.map(o => o.value));
+    h.assert(await select.inputValue() === sites.SD.name,
+      `The referral saved at SD reopened on ${JSON.stringify(await select.inputValue())}`);
+    h.assert(offered.filter(value => value === sites.SD.name).length === 1
+      && ['SA', 'SB', 'SC'].every(label => offered.includes(sites[label].name)),
+    `The Site list should offer the login's sites and keep SD once: ${JSON.stringify(offered)}`);
+    const notes = `${marker} unlinked notes changed alone`;
+    await edit.locator('textarea[name="appointmentNotes"]').fill(notes);
+    await save(edit, 'update', UPDATED);
+    await edit.close();
+    h.assert(referrals.field(unlinkedId, 'statusText') === notes, 'The notes were not saved');
+    h.assert(site(unlinkedId) === sites.SD.name,
+      `An Update of the notes alone moved the referral from SD to ${JSON.stringify(site(unlinkedId))}`);
+    h.assert(JSON.stringify(referrals.archived(unlinkedId, ['site_name'])) === JSON.stringify([[sites.SD.name]]),
+      'The update did not archive the referral at SD');
   });
 }
 
