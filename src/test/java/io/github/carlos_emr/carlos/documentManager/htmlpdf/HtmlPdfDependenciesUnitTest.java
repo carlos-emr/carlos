@@ -34,12 +34,12 @@ import javax.imageio.ImageIO;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Smoke test for the three libraries the HTML-to-PDF pipeline builds on: Flying Saucer 10.7.0,
- * ICU4J and the TwelveMonkeys WebP reader.
+ * Smoke test for what the HTML-to-PDF pipeline builds on: Flying Saucer 10.7.0 and ICU4J must be
+ * on the classpath, and no WebP decoder may be.
  *
- * <p>These checks fail with a plain assertion if a dependency cleanup, a downgrade or a forward
- * merge drops one of them, instead of surfacing later as a {@link NoSuchMethodError} or a
- * silently missing image deep inside a render.</p>
+ * <p>The first two checks fail with a plain assertion if a dependency cleanup, a downgrade or a
+ * forward merge drops one of the libraries, instead of surfacing later as a
+ * {@link NoSuchMethodError} deep inside a render. The third pins an absence on purpose.</p>
  *
  * @since 2026-10-29
  */
@@ -48,8 +48,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class HtmlPdfDependenciesUnitTest {
 
     @Test
-    void shouldFindWebpReader_onClasspath() {
-        assertThat(ImageIO.getImageReadersByFormatName("webp").hasNext()).isTrue();
+    void shouldHaveNoWebpReader_onClasspath() {
+        // WebP is deliberately not decoded (ruling R21): the TwelveMonkeys reader could not be
+        // bounded from outside (it looped for minutes on corrupt input, ignored subsampling, and
+        // allocated from sizes it read out of the data), and WebP never printed before. Putting
+        // a decoder back on the classpath, directly or through another library, must be a
+        // conscious decision that comes with its own tests, so this fails until it is made.
+        assertThat(ImageIO.getImageReadersByFormatName("webp").hasNext()).isFalse();
     }
 
     @Test

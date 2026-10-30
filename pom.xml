@@ -855,14 +855,6 @@
             <artifactId>imageio-tiff</artifactId>
             <version>${twelvemonkeys.version}</version>
         </dependency>
-        <!-- TwelveMonkeys ImageIO WebP plugin - read-only WebP decoding for HTML-to-PDF images
-             (OpenPDF cannot embed WebP, so the HTML-to-PDF pipeline decodes it and converts it).
-             BSD 3-clause licensed, pure Java. -->
-        <dependency>
-            <groupId>com.twelvemonkeys.imageio</groupId>
-            <artifactId>imageio-webp</artifactId>
-            <version>${twelvemonkeys.version}</version>
-        </dependency>
 
         <!-- Glassfish JSTL 3.0.1 implementation (Jakarta EE 10 - jakarta.tags namespace) -->
         <dependency>

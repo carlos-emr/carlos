@@ -641,14 +641,6 @@
     "optional" : false,
     "integrity" : "sha512:rDccMEYjqfu5S9MOTop+ovqjAbjdfAlxpaExxibGChTjORGqNP5HfN67u3CmDS9PkOZy+NY9q4CsCnFbDT3ugQ=="
   }, {
-    "groupId" : "com.twelvemonkeys.imageio",
-    "artifactId" : "imageio-webp",
-    "version" : "3.15.3",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:mGvAkVIaLi7LwQs5yHvdcb26XCW+4UMlUIuzY2S9wTou7666wUWw2u0qyK6sD0j8wwasnJN/Vv9R1puxJoqZBw=="
-  }, {
     "groupId" : "com.zaxxer",
     "artifactId" : "SparseBitSet",
     "version" : "1.3",
