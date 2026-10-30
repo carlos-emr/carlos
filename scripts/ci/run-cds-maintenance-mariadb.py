@@ -85,8 +85,8 @@ def main():
     print('Logs and XML reports: ' + str(output))
     if tested.returncode:
         return tested.returncode
-    if totals != dict(tests=20, skipped=0, errors=0, failures=0):
-        print('The complete explicit 20-test database tier must execute without skips.')
+    if totals != dict(tests=24, skipped=0, errors=0, failures=0):
+        print('The complete explicit 24-test database tier must execute without skips.')
         return 1
     return 0
 

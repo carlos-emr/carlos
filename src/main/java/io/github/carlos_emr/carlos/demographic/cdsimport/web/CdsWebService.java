@@ -111,11 +111,17 @@ public class CdsWebService {
         response.setContentType("application/json"); response.setHeader("Cache-Control", "no-store");
         response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader(API_VERSION_HEADER, Integer.toString(API_VERSION));
-        JSON.writeValue(response.getWriter(), envelope);
+        JSON.writeValue(response.getOutputStream(), envelope);
     }
 
     public void failure(HttpServletResponse response, Exception failure) throws IOException {
-        if (response.isCommitted()) return;
+        if (response.isCommitted()) {
+            throw new IOException("CDS response failed after commitment", failure);
+        }
+        // Discard a buffered download while preserving the filter's security headers.
+        response.resetBuffer();
+        response.setContentLengthLong(-1);
+        response.setHeader("Content-Disposition", null);
         int status = 503; String code = "IMPORT_REQUEST_UNAVAILABLE";
         if (failure instanceof CdsUploadException upload) { status = upload.status(); code = upload.code(); }
         else if (failure instanceof SecurityException) { status = 403; code = "IMPORT_ACCESS_DENIED"; }

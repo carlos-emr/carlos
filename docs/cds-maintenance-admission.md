@@ -141,7 +141,7 @@ python3 scripts/ci/run-cds-maintenance-mariadb.py \
   --output /tmp/cds-maintenance-check
 ```
 
-The runner compiles the current guard sources into a separate directory and requires all twenty
+The runner compiles the current guard sources into a separate directory and requires all twenty-four
 physical tests to execute without skips, recording logs and XML reports. The tier uses the complete real schema,
 two independent datasource/node instances, ordinary JDBC and actual Hibernate transactions,
 autocommit result lifetime, advisory-connection loss and successor drain, bounded coordinator
