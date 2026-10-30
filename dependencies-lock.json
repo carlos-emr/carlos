@@ -50,51 +50,51 @@
   }, {
     "groupId" : "ca.uhn.hapi",
     "artifactId" : "hapi-base",
-    "version" : "1.0.1",
+    "version" : "2.6.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:52LSZKam5t5rMnXtXw8fN3i/ngUQp6vz1Wve+KNgYxHDh4nYcW9uX0lf8UeHvoZoWfGpeBGNXYeV+DP3Bj122A=="
+    "integrity" : "sha512:nPnAl98Vk2TpSv1cEXNblpvySdyDUURp1FDfC8ztqIF60EV5BKpEUb4p3GHzrePpZw2PnrtzbH4iG1AgXLGaVA=="
   }, {
     "groupId" : "ca.uhn.hapi",
     "artifactId" : "hapi-structures-v22",
-    "version" : "1.0.1",
+    "version" : "2.6.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:Cu+P4/qVeaQgNzt2KPSQTgrSTTdGy1FrIC5XCJ9a2CEO8u6XPo7wesNs5IkIZ/1f5ElZlHonqkyJ0MRBypq0fQ=="
+    "integrity" : "sha512:+et5eK/n6oL4BDHNlJaxj19yUdbO5khqPL9cmwt9tfvebAkNq3df1ZcZLsL6ol6tGANAGI7KI9+EVVftHPZEkQ=="
   }, {
     "groupId" : "ca.uhn.hapi",
     "artifactId" : "hapi-structures-v231",
-    "version" : "1.0.1",
+    "version" : "2.6.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:dM/aJw0rVHllTkmT++OeDrl6ZyJWwqoWfBRgv0mmpk1pvD+iAdew8cOOxllbJKJ5lNYQBtt7L4AIdt6U3l/2RQ=="
+    "integrity" : "sha512:AWjI6O7AtVvo07/mthVfExBDLntNATyFKZkVfzsMizOnJ5vq1+10jPhcM2Orm49Io+QI3Eq/kjNknI2Uinoh6g=="
   }, {
     "groupId" : "ca.uhn.hapi",
     "artifactId" : "hapi-structures-v23",
-    "version" : "1.0.1",
+    "version" : "2.6.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:ZB+6VTphE8XInCdGchvAuZaW+9r7et3pt9VUM4aIvd0HMrKUXbzS5Rbk6+8623Z/3TP3TncXz06bzF9gSQmrqg=="
+    "integrity" : "sha512:I3kD7y8yaO974SDN2v4LZ0qbG1i/n69aLkg+DImeEaRmE9Kxl45cJnu5kgqx9tQevRXtY2k4x/8y0JPsIjB5vA=="
   }, {
     "groupId" : "ca.uhn.hapi",
     "artifactId" : "hapi-structures-v25",
-    "version" : "1.0.1",
+    "version" : "2.6.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:wh2/iX5dUp0gGonkaaR+RHIK1WLGi9qUw+yQXm0K07K+ruH85PhN3NMlZHh6IgUiYjOEyrVrkfsAEtzH+/pKXA=="
+    "integrity" : "sha512:hoZr22NhfvxuhQycY+zd2DmO6CIbHei17hXFbiqbmQ3C17KanCv92Lma5QXUgX2ld/Qjvx4DKKJw6winimWK0g=="
   }, {
     "groupId" : "ca.uhn.hapi",
     "artifactId" : "hapi-structures-v26",
-    "version" : "1.0.1",
+    "version" : "2.6.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:kljShqyjhOiIw33z0nRrNniQSppzRkw8kC8SzYyjHDl1YGSpsmiSgYBc/JPOMMWw98H6j6e165uJlPa4DtHzdg=="
+    "integrity" : "sha512:dNMufg/4s03Fb1ErWCx2S2Sw5Fbmgl9trvN6aIHGvY63kppjGFkxkELOGi+HsLzyCNhFj/dNOo/bTzhK1pwUNQ=="
   }, {
     "groupId" : "cds",
     "artifactId" : "cds",
@@ -657,14 +657,6 @@
     "optional" : false,
     "integrity" : "sha512:Q0hnBXlgG8EVHeLydBRjXE6gtLUwYdEWwJujGeLE+OkdDLBxOpZGaL1RiRBaweK2WQiBhQiAv1/yPMZAnycEIA=="
   }, {
-    "groupId" : "commons-cli",
-    "artifactId" : "commons-cli",
-    "version" : "1.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:zg39atifzCzWgZAGf+Lv/5F9gd1kELYIBXKV79vFJEtiPH4QAA2RPv9eDIy/FWtWoRN3MT2/rYwzO5v67q62PA=="
-  }, {
     "groupId" : "commons-codec",
     "artifactId" : "commons-codec",
     "version" : "1.23.0",
@@ -974,18 +966,18 @@
     "groupId" : "jakarta.annotation",
     "artifactId" : "jakarta.annotation-api",
     "version" : "3.0.0",
-    "scope" : "compile",
+    "scope" : "provided",
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:K9WhZoTE6BRIl7ptxGdijRuKhTJiNSQOTCAQG23zaB0jruvDDKmeOV7ISPM8tSRAhQMbKg+850bI7ecUil58HQ=="
   }, {
     "groupId" : "jakarta.el",
     "artifactId" : "jakarta.el-api",
-    "version" : "5.0.1",
-    "scope" : "compile",
+    "version" : "6.0.1",
+    "scope" : "provided",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:MkaRfNk7XRFaSvesyBX2RWcKv3DgjS0XkP65g+2ES654A1Fo7FeMPPwb7UY2lduFOe0ugoj/9K72T7BCliRiDA=="
+    "integrity" : "sha512:+6t73xjpv7MWtRmow7PR8udp4/MYty5GzzNiHylCuE7t6bl5cP9G/im1T41hyw355YTTcfEOVr8AUNdyfrDuIw=="
   }, {
     "groupId" : "jakarta.inject",
     "artifactId" : "jakarta.inject-api",
@@ -3749,14 +3741,6 @@
     "optional" : false,
     "integrity" : "sha512:VID3izwPdi3AJZRFfUUUA4Z4Hxs9UzhFdAT4WKgK4gmI2/xDafGoN/ZohCStX488kQ/6sE/b9wuY46WOH/tzLg=="
   }, {
-    "groupId" : "xerces",
-    "artifactId" : "xercesImpl",
-    "version" : "2.12.2",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:v9IfI1C/C7VGpo0zA/KMahXO4eYwE4wWk0TD9l/jmhXmHG/05SOfOPLx+eSI7/TVVlpKB3QmMGSrajCqn8qu0w=="
-  }, {
     "groupId" : "xml-apis",
     "artifactId" : "xml-apis-ext",
     "version" : "1.3.04",
@@ -3764,14 +3748,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:rAiWuaP+pxZEMw2u9OzLMwBbW3rB4dHXPu0rKh9LIoIFfzwPNpi4meHHaxnAnGm/TNDuVIQnubzGdreR21w2vA=="
-  }, {
-    "groupId" : "xml-apis",
-    "artifactId" : "xml-apis",
-    "version" : "1.4.01",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:jbAoO2hAzWQHlX0pa4AuPt+QZT4nIvjin4bBwLYJlsS0Pp4GXmhk2ribITjdsBdNm0/dpKk/lO64hHg9uC8yaA=="
   }, {
     "groupId" : "xml-resolver",
     "artifactId" : "xml-resolver",

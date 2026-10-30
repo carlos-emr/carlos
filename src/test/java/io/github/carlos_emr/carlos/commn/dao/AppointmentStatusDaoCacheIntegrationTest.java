@@ -38,18 +38,25 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Cache invalidation regression tests for {@link AppointmentStatusDao}.
+ * Cache invalidation and isolation regression tests for {@link AppointmentStatusDao}.
  *
  * <p>Verifies that write paths (persist/merge/remove/saveEntity/modifyStatus/changeStatus)
  * correctly evict the {@code appointmentStatuses} cache after commit. A refactor that
  * dropped one of these {@code @CacheEvict} annotations would otherwise ship silently.</p>
+ *
+ * <p>Also verifies that every read returns its own detached copies (issue #5304): changing a
+ * returned status must not reach another reader, the cached snapshot or the database.</p>
  */
-@DisplayName("AppointmentStatusDao cache invalidation")
+@DisplayName("AppointmentStatusDao cache invalidation and isolation")
 @Tag("integration")
 @Tag("dao")
 @Tag("cache")
@@ -238,12 +245,126 @@ class AppointmentStatusDaoCacheIntegrationTest extends CarlosTestBase {
                 .isZero();
     }
 
+    @Test
+    @DisplayName("should return independent copies when findAll is served from the cache")
+    void shouldReturnIndependentCopies_whenFindAllServedFromCache() {
+        AppointmentStatus seeded = persistSeed("Q", "isolation-original");
+
+        List<AppointmentStatus> first = transactionTemplate.execute(status -> appointmentStatusDao.findAll());
+        List<AppointmentStatus> second = transactionTemplate.execute(status -> appointmentStatusDao.findAll());
+
+        assertThat(cacheEntryCount()).isEqualTo(1);
+        assertThat(second).isNotSameAs(first);
+        assertThat(findById(second, seeded.getId()))
+                .as("each read must get its own instance of the status, not the cached one")
+                .isNotSameAs(findById(first, seeded.getId()));
+        assertNoSharedInstances(second, cachedList("all"));
+
+        findById(first, seeded.getId()).setDescription("mutated-copy");
+        findById(first, seeded.getId()).setColor("#000000");
+
+        List<AppointmentStatus> third = transactionTemplate.execute(status -> appointmentStatusDao.findAll());
+        assertThat(findById(third, seeded.getId()).getDescription())
+                .as("changing one returned status must not change what the next reader sees")
+                .isEqualTo("isolation-original");
+        assertThat(findById(third, seeded.getId()).getColor()).isEqualTo("#ffffff");
+        assertThat(findById(cachedList("all"), seeded.getId()).getDescription())
+                .as("changing one returned status must not change the cached snapshot")
+                .isEqualTo("isolation-original");
+    }
+
+    @Test
+    @DisplayName("should return unmodifiable independent lists when findActive is served from the cache")
+    void shouldReturnUnmodifiableIndependentLists_whenFindActiveServedFromCache() {
+        AppointmentStatus seeded = persistSeed("Q", "isolation-active");
+
+        List<AppointmentStatus> first = transactionTemplate.execute(status -> appointmentStatusDao.findActive());
+        List<AppointmentStatus> second = transactionTemplate.execute(status -> appointmentStatusDao.findActive());
+
+        assertThatThrownBy(() -> first.add(buildStatus("V", "added")))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(first::clear).isInstanceOf(UnsupportedOperationException.class);
+        assertThat(second).isNotSameAs(first);
+        assertNoSharedInstances(second, cachedList("active"));
+
+        findById(first, seeded.getId()).setActive(0);
+        List<AppointmentStatus> third = transactionTemplate.execute(status -> appointmentStatusDao.findActive());
+        assertThat(findById(third, seeded.getId()).getActive())
+                .as("changing one returned active status must not change the next read")
+                .isEqualTo(1);
+        assertThat(third).hasSameSizeAs(second);
+    }
+
+    @Test
+    @DisplayName("should neither write nor cache a change made to a cache-miss result inside a transaction")
+    void shouldNotWriteOrCacheChange_whenCacheMissResultChangedInsideTransaction() {
+        AppointmentStatus seeded = persistSeed("Q", "isolation-miss");
+
+        // Before #5304 a cache miss returned managed entities: this change was flushed to the
+        // database when the transaction committed, and the same instance became the cached value.
+        transactionTemplate.executeWithoutResult(status -> {
+            List<AppointmentStatus> loaded = appointmentStatusDao.findAll();
+            findById(loaded, seeded.getId()).setDescription("changed-in-tx");
+        });
+
+        AppointmentStatus stored = transactionTemplate.execute(status -> appointmentStatusDao.find(seeded.getId()));
+        assertThat(stored.getDescription())
+                .as("a returned status is a detached copy: changing it must not write to the database")
+                .isEqualTo("isolation-miss");
+        assertThat(findById(cachedList("all"), seeded.getId()).getDescription())
+                .as("the cached snapshot must hold what was read, not the caller's later change")
+                .isEqualTo("isolation-miss");
+        List<AppointmentStatus> fromCache = transactionTemplate.execute(status -> appointmentStatusDao.findAll());
+        assertThat(findById(fromCache, seeded.getId()).getDescription()).isEqualTo("isolation-miss");
+    }
+
+    @Test
+    @DisplayName("should return independent copies when findByStatus is served from the cache")
+    void shouldReturnIndependentCopies_whenFindByStatusServedFromCache() {
+        persistSeed("Q", "isolation-by-code");
+
+        AppointmentStatus first = transactionTemplate.execute(status -> appointmentStatusDao.findByStatus("Q"));
+        assertThat(first).isNotNull();
+        String storedDescription = transactionTemplate.execute(
+                status -> appointmentStatusDao.find(first.getId()).getDescription());
+        first.setDescription("mutated-copy");
+
+        AppointmentStatus second = transactionTemplate.execute(status -> appointmentStatusDao.findByStatus("Q"));
+        AppointmentStatus third = transactionTemplate.execute(status -> appointmentStatusDao.findByStatus("Q"));
+
+        assertThat(cachedValue("status:Q")).isNotNull();
+        assertThat(second).isNotSameAs(first).isNotSameAs(third).isNotSameAs(cachedValue("status:Q"));
+        assertThat(second.getId()).isEqualTo(first.getId());
+        assertThat(second.getDescription())
+                .as("changing the status one caller got must not change what the next caller gets")
+                .isEqualTo(storedDescription);
+        assertThat(((AppointmentStatus) cachedValue("status:Q")).getDescription()).isEqualTo(storedDescription);
+    }
+
+    @Test
+    @DisplayName("should not populate the cache when the reading transaction rolls back")
+    void shouldNotPopulateCache_whenReadingTransactionRollsBack() {
+        persistSeed("Q", "isolation-rollback");
+
+        transactionTemplate.executeWithoutResult(status -> {
+            appointmentStatusDao.findAll();
+            appointmentStatusDao.findActive();
+            appointmentStatusDao.findByStatus("Q");
+            status.setRollbackOnly();
+        });
+
+        assertThat(cacheEntryCount())
+                .as("cache puts are transaction-aware: a rolled-back read must leave the cache empty")
+                .isZero();
+    }
+
     private AppointmentStatus persistSeed(String statusCode, String description) {
         AppointmentStatus seeded = new AppointmentStatus();
         transactionTemplate.executeWithoutResult(status -> {
             seeded.setStatus(statusCode);
             seeded.setDescription(description);
             seeded.setColor("#ffffff");
+            seeded.setIcon("5.gif");
             seeded.setActive(1);
             seeded.setEditable(1);
             appointmentStatusDao.persist(seeded);
@@ -260,6 +381,39 @@ class AppointmentStatusDaoCacheIntegrationTest extends CarlosTestBase {
         entity.setActive(1);
         entity.setEditable(1);
         return entity;
+    }
+
+    private AppointmentStatus findById(List<AppointmentStatus> statuses, Integer id) {
+        for (AppointmentStatus status : statuses) {
+            if (id.equals(status.getId())) {
+                return status;
+            }
+        }
+        throw new AssertionError("Expected appointment status id " + id + " in result list");
+    }
+
+    private Object cachedValue(String key) {
+        org.springframework.cache.Cache cache = cacheManager.getCache(CACHE_NAME);
+        assertThat(cache).isNotNull();
+        org.springframework.cache.Cache.ValueWrapper wrapper = cache.get(key);
+        return wrapper == null ? null : wrapper.get();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<AppointmentStatus> cachedList(String key) {
+        Object value = cachedValue(key);
+        assertThat(value).as("cache entry %s should be populated", key).isInstanceOf(List.class);
+        return (List<AppointmentStatus>) value;
+    }
+
+    private void assertNoSharedInstances(List<AppointmentStatus> returned, List<AppointmentStatus> cached) {
+        Set<AppointmentStatus> cachedInstances = Collections.newSetFromMap(new IdentityHashMap<>());
+        cachedInstances.addAll(cached);
+        for (AppointmentStatus returnedStatus : returned) {
+            assertThat(cachedInstances.contains(returnedStatus))
+                    .as("returned status %s must not be the cached instance", returnedStatus.getId())
+                    .isFalse();
+        }
     }
 
     private void clearCache() {
