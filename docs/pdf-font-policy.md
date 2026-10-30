@@ -4,12 +4,15 @@ Tracking: [#5046](https://github.com/carlos-emr/carlos/issues/5046) (application
 which absorbed [#4907](https://github.com/carlos-emr/carlos/issues/4907)). The Rourke 2020
 renderer's stricter contract is described in [rourke2020-pdf-fonts.md](rourke2020-pdf-fonts.md).
 
-CARLOS prints clinical and billing documents through two engines: JasperReports templates
+CARLOS prints clinical and billing documents through three engines: JasperReports templates
 (labels, billing reports, day sheets, year-end statements, Rourke and BCAR forms, patient
-letters) and handwritten OpenPDF code (consultations, prescriptions, labs, HRM, chart and
-encounter prints, fax cover pages, form and eForm overlays). Both silently dropped text: the
-PDF was valid and printed, but a patient name, a date or a total was missing. This page states
-the rules that stop that, the mechanisms behind them, and how they are tested.
+letters), handwritten OpenPDF code (consultations, prescriptions, labs, HRM, chart and
+encounter prints, fax cover pages, form and eForm overlays) and Flying Saucer for HTML without
+scripts of its own (a form saved as a document or faxed, an HTML HRM report, an encrypted
+email, a Messenger attachment; see [html-pdf-rendering.md](html-pdf-rendering.md)). The first
+two silently dropped text: the PDF was valid and printed, but a patient name, a date or a total
+was missing. This page states the rules that stop that, the mechanisms behind them, and how they
+are tested.
 
 ## Rules
 
@@ -34,6 +37,12 @@ the rules that stop that, the mechanisms behind them, and how they are tested.
    Do not use `new Phrase(text, font)`, `Phrase.add(String)`, font-less `new Chunk(text)`,
    `PdfPTable.addCell(String)` or `PdfContentByte.showText*` for such text, and never OpenPDF's
    default font (`new Font()`, `new Paragraph(text)`): it is non-embedded Helvetica/Cp1252.
+5. **HTML to PDF:** non-scripted HTML goes through `HtmlPdfRenderService`; never build an
+   `ITextRenderer` of your own. Every CSS font family resolves to the bundled DejaVu Sans (and
+   its bold), whatever the document names, so a host font or an author's `@font-face` cannot
+   decide what prints. A character DejaVu lacks is wrapped in a span that names WenQuanYi
+   Micro Hei or Symbola (`FallbackFontRuns`), and one that no bundled face can draw prints as a
+   visible U+FFFD, never as nothing.
 
 ## Mechanisms
 
@@ -76,6 +85,26 @@ scenario most likely still measured with the cached host mapping. The pom now ha
 `test.jvmArgs` property that reaches the forks, and the matrix gives every scenario its own
 `user.home` and checks what the JDK actually sees.
 
+**HTML engine (Flying Saucer).** Before the module existed, `Doc2PDF` and the `ConvertToEdoc`
+fallback used Flying Saucer's defaults, so the base-14 fonts and whatever the JVM found on the host
+decided the text, and wkhtmltopdf (the primary engine) took its fonts from the host's fontconfig:
+production had `fonts-dejavu-core` only, so CJK printed as boxes. `BundledFontResolver` replaces
+the whole family list of every element with one registered family, so Flying Saucer's base-14 fonts
+are never chosen and a name it does not know is not looked up on the host; bold selects DejaVu Sans
+Bold. No oblique face is registered: italic text uses the regular or bold face, which Flying Saucer
+slants synthetically at the same widths (the DejaVu Sans Oblique files differ in width for 120 of
+2536 characters and would move line breaks). `FallbackFontRuns` wraps each run of characters that
+DejaVu Sans lacks in `<span style="font-family:'CARLOS CJK'">` or `'CARLOS Symbol'`
+(`BundledFontSet.canDraw` asks OpenPDF whether the face has the character), and replaces what no
+face draws with U+FFFD, which DejaVu Sans draws, so the gap shows. DejaVu Sans covers accented
+Latin, Greek, Cyrillic, Hebrew, Arabic presentation forms, maths, arrows and the form marks
+(☐ ☒ ◉ ○ •); WenQuanYi covers Han, kana, Hangul and CJK punctuation; Symbola most other symbols.
+Scripts none of them shape (Devanagari, Gurmukhi, Tamil, Thai) print as U+FFFD, as wkhtmltopdf's
+boxes did. The font files are extracted once into
+`<java.io.tmpdir>/carlos-pdf-fonts-<hash>` (owner-only, verified before every render) because
+Flying Saucer registers a face from a file path. OpenPDF caches the parsed fonts by path for the
+life of the JVM, so a test must not extract a directory of its own (`TestFonts.sharedDirectory()`).
+
 ## Tests
 
 | Test | What it pins |
@@ -87,6 +116,9 @@ scenario most likely still measured with the cached host mapping. The pom now ha
 | `PatientEndYearStatementIntegrationTest`, `Rourke2020PdfReportIntegrationTest` | Existing end-to-end report checks |
 | `*Unicode*Test`, `LabPDFCreatorObrCommentUnitTest`, `FrmCustomedPDFServletUnitTest#shouldPrintCjkRecordText_inEveryRxSection` | Each OpenPDF printer below prints synthetic CJK and accented Latin record text with only embedded fonts |
 | `PdfFontsUnitTest` | The fallback and the `phrase`/`paragraph`/`showTextAligned` helpers |
+| `BundledFontResolverUnitTest`, `BundledFontSetUnitTest`, `BundledFontFileServiceUnitTest` | Every family resolves to a bundled face, bold selects the bold face, the files are verified and restored, a foreign-owned directory is not used |
+| `FallbackFontRunsUnitTest` | CJK and symbol runs get the right face and are read back from a real render; a character no face draws becomes U+FFFD; the same input gives the same spans |
+| `HtmlPdfFixturesUnitTest#shouldPrintScripts` | Accents, symbols, Chinese, Japanese, Korean, Hebrew, Arabic and Vietnamese print and only the four bundled fonts are embedded; Hindi, Punjabi, Tamil and Thai print as U+FFFD |
 
 Removing the Jasper policy files makes the policy, rendering and clinical-form tests fail on an
 ordinary host (mangled non-Cp1252 text) and under a tall host face (fields at zero height).
@@ -99,7 +131,9 @@ bash scripts/check-report-fonts.sh        # extra arguments go to Maven, e.g. -o
 ```
 
 `scripts/check-rourke-fonts.sh`, which CI runs, now calls it. Each scenario runs the report
-tests in a new JVM with its own `user.home`:
+tests (`REPORT_FONT_TESTS`; they include `HtmlPdfFixturesUnitTest`, `HtmlPdfFormsUnitTest` and
+`PrintLayoutServiceUnitTest`, so the HTML engine is checked under the same host fonts) in a new JVM
+with its own `user.home`:
 
 | Scenario | Host fonts | Check before running |
 | --- | --- | --- |

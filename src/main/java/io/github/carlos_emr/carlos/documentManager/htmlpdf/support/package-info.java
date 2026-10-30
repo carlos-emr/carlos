@@ -38,7 +38,13 @@
  *   <li>{@code LegacyBodyMargins}: the body's {@code leftmargin} and {@code topmargin} attributes,
  *       which WebKit read and Flying Saucer ignores, as a rule for that style sheet;</li>
  *   <li>{@code PrintMessages}: the document notes and the box label printed into a document, read
- *       from the {@code oscarResources} bundle.</li>
+ *       from the {@code oscarResources} bundle;</li>
+ *   <li>{@code SystemColors}: the CSS2 system colours Word writes ({@code windowtext}), which Flying
+ *       Saucer drops a whole declaration for, become the colours of the default Windows theme;</li>
+ *   <li>{@code SafeModeMarkup} and {@code PlainTextDocument}: what safe mode (no author styles, no
+ *       inline graphics) and text-only mode (the text in reading order) make of a document;</li>
+ *   <li>{@code ImageBox} and {@code SvgReferences}: the "[image unavailable]" box, and the removal of
+ *       the outside references of an SVG.</li>
  * </ul>
  *
  * <p>Two package-private classes serve them: {@code InlineStyle} (a scanner for the inline

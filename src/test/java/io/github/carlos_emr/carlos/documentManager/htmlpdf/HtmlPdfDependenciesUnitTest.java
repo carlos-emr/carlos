@@ -34,12 +34,14 @@ import javax.imageio.ImageIO;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Smoke test for what the HTML-to-PDF pipeline builds on: Flying Saucer 10.7.0 and ICU4J must be
- * on the classpath, and no WebP decoder may be.
+ * Smoke test for what the HTML-to-PDF pipeline builds on: the Flying Saucer API it calls and ICU4J
+ * must be on the classpath, and no WebP decoder may be.
  *
- * <p>The first two checks fail with a plain assertion if a dependency cleanup, a downgrade or a
- * forward merge drops one of the libraries, instead of surfacing later as a
- * {@link NoSuchMethodError} deep inside a render. The third pins an absence on purpose.</p>
+ * <p>The Flying Saucer and ICU4J checks fail with a plain assertion if a dependency cleanup, a
+ * downgrade or a forward merge drops the API, instead of surfacing later as a
+ * {@link NoSuchMethodError} deep inside a render. They pin the API the pipeline calls, not the
+ * version: the same methods exist in Flying Saucer 10.0.6. The WebP check pins an absence on
+ * purpose.</p>
  *
  * @since 2026-10-29
  */
