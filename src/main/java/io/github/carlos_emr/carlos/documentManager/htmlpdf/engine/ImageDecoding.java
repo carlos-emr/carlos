@@ -121,8 +121,8 @@ public final class ImageDecoding {
      * (see {@link EofBudgetImageInputStream}). Package-private so that the tests can check how much
      * room the valid files leave below it.
      */
-    // measured: valid WebPs read past the end at most 828 times (14 600 swept); corrupt 36-byte lossless ones ran for 15 s and, in one case, over 4 min
-    static final int WEBP_MAX_READS_PAST_END = 4096;
+    // measured: valid WebPs read past the end at most 828 times (14 588 files, tiny flat images); hostile 36-byte ones ran for minutes unguarded and fail in 273 ms at most at 65 536 (margin 79x)
+    static final int WEBP_MAX_READS_PAST_END = 65_536;
 
     private static final int ORIENTATION_UPRIGHT = 1;
     private static final int MAX_ORIENTATION = 8;
@@ -261,9 +261,9 @@ public final class ImageDecoding {
      * fails with {@link OutOfMemoryError}.</p>
      *
      * <p>A WebP is read through a view that fails once the reader has read past the end of the
-     * data more than a few thousand times (see {@link EofBudgetImageInputStream}). Valid files
-     * stay several times below that, and a corrupt lossless one, which the library alone would
-     * spend 15 s or more on, fails with an {@code IOException} within milliseconds. No other format
+     * data more than 65 536 times (see {@link EofBudgetImageInputStream}). Valid files stay about
+     * eighty times below that, and a corrupt lossless one, which the library alone would spend 15 s
+     * or more on, fails with an {@code IOException} within a fraction of a second. No other format
      * is affected.</p>
      *
      * @param file the image file
