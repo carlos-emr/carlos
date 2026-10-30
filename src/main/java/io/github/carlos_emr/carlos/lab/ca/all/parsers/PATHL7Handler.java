@@ -41,6 +41,7 @@ package io.github.carlos_emr.carlos.lab.ca.all.parsers;
 
 
 import ca.uhn.hl7v2.HL7Exception;
+import io.github.carlos_emr.carlos.lab.ca.all.util.Hl7Utils;
 import ca.uhn.hl7v2.model.Type;
 import ca.uhn.hl7v2.model.Varies;
 import ca.uhn.hl7v2.model.v23.datatype.ED;
@@ -116,15 +117,15 @@ public class PATHL7Handler implements MessageHandler {
     }
 
     public String getFirstName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getGivenName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getGivenName().getValue()));
     }
 
     public String getMiddleName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getXpn3_MiddleInitialOrName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getXpn3_MiddleInitialOrName().getValue()));
     }
 
     public String getLastName() {
-        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName().getFamilyName().getValue()));
+        return (getString(msg.getRESPONSE().getPATIENT().getPID().getPatientName(0).getFamilyName().getValue()));
     }
 
     public String getDOB() {
@@ -524,7 +525,8 @@ public class PATHL7Handler implements MessageHandler {
                 return "A";
             }
             return ed.getEncoding().getValue();
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            Hl7Utils.rethrowUnlessHl7AccessFailure(e);
             logger.warn("Cannot read embedded lab document encoding; using document fallback");
             return null;
         }
@@ -570,7 +572,8 @@ public class PATHL7Handler implements MessageHandler {
                         }
                     }
                 }
-            } catch (HL7Exception e) {
+            } catch (RuntimeException e) {
+                Hl7Utils.rethrowUnlessHl7AccessFailure(e);
                 logger.error("Error", e);
                 return false;
             }
@@ -626,7 +629,8 @@ public class PATHL7Handler implements MessageHandler {
             return values != null && values.length > 0 && values[0] != null
                     && values[0].getData() instanceof ED ed
                     && !StringUtils.isEmpty(ed.getEd1_SourceApplication().getHd1_NamespaceID().getValue());
-        } catch (HL7Exception e) {
+        } catch (RuntimeException e) {
+            Hl7Utils.rethrowUnlessHl7AccessFailure(e);
             return false;
         }
     }

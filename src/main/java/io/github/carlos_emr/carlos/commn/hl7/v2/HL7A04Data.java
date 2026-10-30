@@ -275,9 +275,9 @@ public class HL7A04Data {
 
         pid.getPatientIDInternalID(0).getID().setValue("R_" + demoData[0]);
 
-        pid.getPatientName().getFamilyName().setValue(demoData[1]);
-        pid.getPatientName().getGivenName().setValue(demoData[2]);
-        pid.getPatientName().getMiddleInitialOrName().setValue(" ");
+        pid.getPatientName(0).getFamilyName().setValue(demoData[1]);
+        pid.getPatientName(0).getGivenName().setValue(demoData[2]);
+        pid.getPatientName(0).getMiddleInitialOrName().setValue(" ");
         pid.getDateOfBirth().getTimeOfAnEvent().setValue(demoData[3]);
         pid.getSex().setValue(demoData[4]);
 

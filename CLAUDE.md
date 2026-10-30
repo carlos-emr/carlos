@@ -118,6 +118,20 @@
   (the built WAR, run by `debian/rules`) enforce this from
   `scripts/fixtures/tomcat-container-packages.json`. The `jspc` profile compiles with Tomcat 11's
   Jasper (`${tomcat.version}`), not the plugin's default 10.1. See `docs/container-provided-apis.md`.
+## HAPI HL7 v2 Parsing
+
+- `ca.uhn.hapi` (HL7 v2, 2.6.0; not the `ca.uhn.hapi.fhir` line) reads lab and PHS/STAR messages
+  (#5414). Keep `hapi-base` and the five `hapi-structures-vNN` modules on the one
+  `hapi-hl7.version` property, and never reintroduce a vendored copy under `local_repo/`.
+- Text from outside CARLOS that may be HL7 v2 XML goes through `Hl7XmlMessageValidator` before
+  `GenericParser` / `DefaultXMLParser.parse`: HAPI 2.x no longer loads external entities or DTDs
+  but still expands internal ones. `PipeParser` never reads XML. Tests that need hostile XML use
+  `HostileHl7Xml` (loopback observer, synthetic marker file); never contact a public service.
+- Typed HAPI accessors report a missing repetition as a `RuntimeException` caused by an
+  `HL7Exception`. Where a handler answers such a miss with an empty value, catch `RuntimeException`
+  and call `Hl7Utils.rethrowUnlessHl7AccessFailure`; do not rely on `catch (HL7Exception)`.
+- Do not look repetitions of a generic message up by HAPI's segment names (`"OBR" + n`); use
+  `GenericSegmentNames`. See `docs/hapi-hl7v2-xml-hardening.md`.
 
 ## Debian Packaging and carlos-ctl
 
@@ -648,7 +662,7 @@ or per-site `@SuppressFBWarnings`; Semgrep uses CARLOS sanitizer-aware rules in 
 rule-specific `nosemgrep` comments only when the code is already encoded/sanitized and the rule
 cannot model that sanitizer. Semgrep CI filters suppressed SARIF results before GitHub Code Scanning
 upload, so `nosemgrep` suppressions must remain specific and justified; do not blanket-disable
-Semgrep Pro or broad rule groups to clear PR noise. The `IMPROPER_UNICODE` detector is
+Semgrep Pro or broad rule groups to clear PR noise. SonarCloud path-traversal false positives (`javasecurity:S2083`/`S6549`/`S6096`) are excluded in `pom.xml` one file at a time, never by package, each with a source-and-helper comment; `SonarPathTraversalExclusionPolicyUnitTest` enforces this (issue #5316, see `docs/static-analysis-workflows.md`). The `IMPROPER_UNICODE` detector is
 *informational* — it flags `equalsIgnoreCase`/`toLowerCase`/`Normalizer` case folding **regardless
 of `Locale`** (so it cannot be cleared by adding `Locale.ROOT`), and almost all hits are intended
 case-insensitive domain comparisons. It is suppressed **per-site** with
