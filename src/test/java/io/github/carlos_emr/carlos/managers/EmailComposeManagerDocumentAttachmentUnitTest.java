@@ -42,6 +42,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -70,8 +71,13 @@ import static org.mockito.Mockito.when;
 @DisplayName("EmailComposeManager document attachments")
 class EmailComposeManagerDocumentAttachmentUnitTest {
 
+    /** The email's patient; the document below belongs to it. */
+    private static final int PATIENT = 7101;
+
     @Mock
     private SecurityInfoManager securityInfoManager;
+    @Mock
+    private AttachmentOwnershipService attachmentOwnershipService;
 
     @Mock
     private DocumentAttachmentManager documentAttachmentManager;
@@ -93,6 +99,7 @@ class EmailComposeManagerDocumentAttachmentUnitTest {
         emailComposeManager = new EmailComposeManager(securityInfoManager);
         ReflectionTestUtils.setField(emailComposeManager, "documentAttachmentManager", documentAttachmentManager);
         ReflectionTestUtils.setField(emailComposeManager, "nioFileManager", nioFileManager);
+        ReflectionTestUtils.setField(emailComposeManager, "attachmentOwnershipService", attachmentOwnershipService);
     }
 
     @AfterEach
@@ -110,8 +117,9 @@ class EmailComposeManagerDocumentAttachmentUnitTest {
                 "%PDF-1.4 FAKE stored letter".getBytes(StandardCharsets.US_ASCII));
         when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), anyString(), nullable(String.class))).thenReturn(true);
         when(documentAttachmentManager.renderDocument(any(), eq(DocumentType.DOC), eq(9401))).thenReturn(stored);
+        when(attachmentOwnershipService.allBelongToDemographic(DocumentType.DOC, PATIENT, List.of(9401))).thenReturn(true);
 
-        List<EmailAttachment> attachments = emailComposeManager.prepareEDocAttachments(null, new String[]{"9401"});
+        List<EmailAttachment> attachments = emailComposeManager.prepareEDocAttachments(null, new String[]{"9401"}, PATIENT);
 
         assertThat(attachments).hasSize(1);
         created = Path.of(attachments.get(0).getFilePath());
