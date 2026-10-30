@@ -449,6 +449,32 @@ for a rate-limited egress, `login_lock=true`, the extra directory exports) and p
 results are in
 [release-2026.08-workflow-coverage-expansion.md](release-2026.08-workflow-coverage-expansion.md).
 
+`reference-data-cache-playwright-checks.js` (issue #5304) was added on 2026-10-29. That change
+moved the appointment-status, measurement-type and lookup-list caches onto copy-on-read. The check
+was run against 2026.09.0~snapshot27 packages built in an Ubuntu 26.04 container from the
+`release/2026.08` fix branch (prebuilt WAR through `CARLOS_WAR`, DrugRef from its pinned ref,
+carlos-ctl 1.2.1 from its tag). Two DrugRef dependencies that Maven could not fetch through the
+egress proxy were seeded into `debian/build/m2` before a `dpkg-buildpackage -nc` rebuild. The
+packages were installed fresh with `scripts/deb-docker-validation.sh up` and the demo dataset
+(`carlos-ctl check` clean, `:443`). Results:
+
+- The check **PASS**es 6/6. A status label, colour and Disable/Enable saved in the status editor,
+  and a reasonCode item added and removed through Manage Lookup Lists, each reach the
+  add-appointment form on its next load. Repeated loads agree with each other and with the
+  database.
+- Two mutations of the new copy factories, swapped into the installed webapp, make it **FAIL**.
+  A lookup-list copy that drops its items fails at the first step (the form offers no reason
+  codes). A status copy that drops its colour fails at the status-editor step.
+- `appointment-status-editing`, `schedule-admin-settings`, `measurement-type-group-admin` (with
+  `MEASUREMENT_CSS_UPLOAD_DIR` set to the server's styles directory), `measurement-group-entry`,
+  `measurement-history`, `measurement-validation`, `cdm-measurement-report`, `flowsheet-admin`,
+  `demographic-edit-update`, `consultation-appointment-time` and the smoke tier also pass.
+  `tickler-crud` passed on a re-run after one aborted list request.
+- `admin-lookup-lists` still fails only at its pinned last step (GET reaches the mutator), and
+  `gap-provider-schedule-reason-privacy` only at the tooltip disclosure (finding L329). The
+  residue audit was clean. The server-log audit's one unexplained signature is Tomcat's own
+  record of the `flowsheet-admin` missing-flowsheet NPE it already lists as known.
+
 ## Scope
 
 This validation answers one question:
@@ -3703,6 +3729,29 @@ page put back byte for byte:
   ended the attribute, and `<` or `&` did not come back as typed (CodeRabbit).
 - A configured PRI default billed privately even when the PRI form was not installed and another form was chosen in
   its place (CodeRabbit). The private billing type now follows the chosen form.
+
+### Messenger Inbox locator after #5250 (2026-10-29, issue #5349)
+
+`messenger-demographic-link` failed at its last step with a bare 20 s `page.waitForResponse` timeout and nothing
+recorded. The step starts on the Archived box, after Unarchive, and goes back to the Inbox. #5250 changed the box
+page's Inbox tab from a bare `DisplayMessages` href to `DisplayMessages?boxType=0` with the box's search and sort, and
+the check's locator excluded every link carrying `boxType` or `orderby`, so it clicked nothing. The checks now share
+one `INBOX_LINK` locator, and `clickAndLoad` names a locator that matches nothing instead of timing out.
+`scripts/messenger-inbox-link.test.js` pins the locator to the mailbox JSPs offline.
+
+Packages: `release/2026.08` at `e2517398` and the fix branch (`88f4892e`), each built as `2026.09.0~snapshot27` with
+`dpkg-buildpackage -us -uc -b` in an `ubuntu:26.04` container (DrugRef from `debian/drugref.pin`, carlos-ctl 1.2.1
+from its release), installed fresh with `CARLOS_PROVINCE=on scripts/deb-docker-validation.sh up`; `carlos-ctl check`
+passed both times.
+
+| Run | Result |
+|---|---|
+| `messenger-demographic-link`, unfixed check | **FAIL** at its last step: `page.waitForResponse: Timeout 20000ms exceeded`, no request, console issue or dialog recorded (as #5349 reported) |
+| The same with only the new `clickAndLoad` guard | **FAIL** naming the locator: `No visible control to open /messenger/DisplayMessages` |
+| `messenger-demographic-link`, fixed | **PASS**, 8 of 8, five runs across both installs, four with `--residue-audit`. Search Patient lists and picks the patient and Link to Patient writes the `msgDemoMap` row: the defects its manifest note named are fixed (#4149, #4130) |
+| `messenger-attachments` | **PASS**, 11 of 11 through the front door, before and after the change (its Inbox hops start from pages with the Inbox button) |
+| `--tier smoke` (fix-branch packages) | **PASS**, 12 of 12 |
+| The 17 messenger checks, `--residue-audit` (fix-branch packages) | 13 **PASS**. `double-submit-messenger`, `search-sort-messenger-inbox` and `messenger-reply-send-archive` fail at the same steps with the unfixed scripts. `messenger-group-admin` is intermittent on both script trees ("Clicking the checkbox did not change its state": 4 of 6 runs of the unfixed tree failed). The audit reported one `messengerMembershipLock` row: the permanent lock key `GroupMembersDaoImpl.lockMembershipChanges()` inserts on the first membership change after install |
 
 ### Shared date formatters (2026-10-29, issue #5301)
 
