@@ -547,6 +547,13 @@
         <context:exclude-filter type="assignable" expression="io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDao"/>
     </context:component-scan>
 
+    <!--
+        The HTML-to-PDF module (HtmlPdfRenderService and the beans it is built from). It needs no other
+        bean and does no I/O when it is created, so scanning its whole package is safe; the production
+        context finds it through its broad scan.
+    -->
+    <context:component-scan base-package="io.github.carlos_emr.carlos.documentManager.htmlpdf"/>
+
     <!-- ===================================================================== -->
     <!-- Non-@Repository DAOs (require manual bean definitions)                -->
     <!-- ===================================================================== -->

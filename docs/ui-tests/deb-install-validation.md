@@ -64,6 +64,45 @@ pages (the admin preview shows the catalog description as the subject) and
 with only the new-form page reverted (a new form is pre-filled with that
 description).
 
+The referral-form checks for issues #5272-#5278 were added on 2026-10-29:
+`consultation-followup-date`, `consultation-appointment-instructions`,
+`consultation-multisite-site`, `consultation-letterhead-title`,
+`consultation-status-transitions`, `consultation-referral-journey`,
+`consultation-fax-account` and the manual `consultation-fax-account-transport`. They were run
+against 2026.09.0~snapshot27 packages built with `dpkg-buildpackage` inside an Ubuntu 26.04
+container, first from `release/2026.08` at `e2517398` and then from the fix branch (DrugRef from
+its pinned ref, carlos-ctl 1.2.1 from its release), installed with
+`scripts/deb-docker-validation.sh up` and the Ontario demo dataset (`carlos-ctl check` clean,
+`EXPECT_FRONT_DOOR=true`, `:443`). The egress proxy reset reused connections, so apt ran with
+`Pipeline-Depth "0"` from the image passed as `BASE_IMAGE`, and Maven Central answered 429 often
+enough that the build was retried until its cache was complete. Results:
+
+- On the unfixed packages `consultation-followup-date` FAILS at clearing the date (the old date stays,
+  finding 324), `consultation-referral-journey` at the refused completion (an unreadable follow-up date
+  was posted empty and the referral completed, finding 325), `consultation-fax-account` at Submit And Fax
+  (the cover page selected another sender, finding 327) and, with `multisites=on`,
+  `consultation-multisite-site` at the new referral's default site (finding 326). An ad-hoc probe on the
+  same install stored `2026-02-30` as 2026-03-02 and moved a referral saved at SB to the first site on a
+  notes-only Update. `consultation-appointment-instructions`, `consultation-letterhead-title` and
+  `consultation-status-transitions` pass there.
+- On the fixed packages all seven core checks **PASS** (`consultation-multisite-site` 7/7 with
+  `multisites=on`, SKIP with it off), and `consultation-fax-account-transport` **PASS**es 2/2 with the
+  middleware allowlist set: the stub relay received exactly sender A's call with the job's PDF byte for
+  byte, and B's refused send stayed in ERROR without a call as A.
+- Consultation responses have no clinician page in this release (finding 328): the journey check
+  receives the specialist's reply as a chart document attached to the referral and says so in a NOTE.
+- Regression pass on the fixed packages with `--residue-audit`: every other consultation check (and
+  `surface-audit:consultations-surface`), `document-viewer-fax`, `eform-toolbar-fax-recipient`,
+  `fax-configure` and `admin-lookup-lists`, 56 passed. `admin-lookup-lists` failed at its GET-mutator step,
+  as its manifest note says it does on `release/2026.08`, and `echart-navbar-modules` failed on its
+  catalogued "Forms" link; that check fails the same way with the unfixed `carlos-emr` package
+  reinstalled, so neither failure comes from this change. The audit's `property` and `quickListUser`
+  rows came from other checks: the new checks run alone under `--residue-audit` report no residue.
+- After review, `consultation-multisite-site` gained its seventh step (a referral saved at a site the
+  login is not linked to keeps that site) and `consultation-fax-account-transport` reads the scheduler
+  state Configure Fax reports instead of pausing for it. Both were rerun on the fixed packages with
+  `--residue-audit`: 7/7 and 2/2, no residue.
+
 `allergy-injected-form-csrf-playwright-checks.js` (issues #3355 and #3488) was
 added on 2026-10-08. It was run against 2026.09.0~snapshot26 packages built from the
 `release/2026.08` fix branch (DrugRef from its pinned ref, carlos-ctl 1.1.1 from its tag)
@@ -864,6 +903,8 @@ checks that failed on a fresh install instead; they now behave as follows.
 | `patient-list-by-appointment-export` | The demo dataset, and either `MYSQL_*` (it inserts and removes its own three appointments, marked per run) or fixture d plus `PATIENT_LIST_FIXTURE_PROFILE`. | Runs, self-seeding. SKIPs when it has neither route, when the database is not the demo dataset, or when its date windows (2026-08-07..10, 2026-09-01..02) already hold appointments. |
 | `rx-fax-record-binding` | `rx_fax_enabled=true`, the provider stamp (fixture b), `RX_FAX_DOCUMENT_DIR` readable by the run (root), Poppler. | Runs. The `[login] pageerror: Error` #4412 reported was the check's own stub, fixed in #4407; a finding now carries the throwing frame (`... at fn (/carlos/path.jsp:line:col)`: no message, query string or session id, record-id path segments shown as `:id`), so a bare `Error` is no longer the whole diagnosis. SKIPs only without Poppler. |
 | `o19-migrated-smoke` (tier `extended`) | A database produced by `carlos-ctl import-o19`, and its break-glass credentials at `O19_STATE_DIR/admin-credentials.txt`. | SKIP naming the credentials file. To run it, import an OSCAR 19 dump into a rehearsal copy and drive `scripts/migration/o19/rehearsal/ui-smoke.sh`; never point it at a post-go-live database (it resets passwords and restores them). |
+| `consultation-multisite-site` | `multisites=on` in `/etc/carlos-emr/carlos.properties`, then `carlos-ctl restart` (and back afterwards). Run the other consultation checks with it off: with it on, the clinic Consultations list shows the installer's administrator (who holds `_site_access_privacy`) only the referrals at its own sites, and those checks seed referrals without a site. | SKIP naming `multisites`. |
+| `consultation-fax-account-transport` (manual) | `-Dcarlos.fax.middleware.allowedHosts=127.0.0.1` in `CARLOS_JAVA_OPTS` (`/etc/carlos-emr/carlos-emr.env`), `carlos-ctl restart`, `FAX_TRANSPORT_STUB=on`, no other active fax sender account, Poppler and a readable document store (`CONSULT_FAX_DOCUMENT_STORE`). The check runs its own relay stub on 127.0.0.1:18096. Remove the option and restart afterwards. | Runs only when named with `--only`; SKIP without `FAX_TRANSPORT_STUB=on`. |
 
 Validated on 2026-10-08 against `release/2026.08` at `9784de27`: 2026.09.0~snapshot26
 debs (`dpkg-buildpackage` in `ubuntu:26.04`, carlos-ctl 1.1.2 built from the pin's

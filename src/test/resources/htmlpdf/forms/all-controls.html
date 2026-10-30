@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>FAKE-Forms control page</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 11px }
+  table.grid td { border: 1px solid #888; padding: 3px; vertical-align: top }
+  .right { text-align: right }
+</style>
+</head>
+<body>
+<form action="form/save" method="post">
+<input type="hidden" name="demographic_no" value="HIDDEN-4711">
+<input type="hidden" name="provider_no" value="HIDDEN-999998">
+<input type="hidden" name="form_class" value="HIDDEN-FormClass">
+<input type="hidden" name="formCreated" value="HIDDEN-2026-10-29">
+<h1>FAKE-Forms control page</h1>
+<table class="grid" width="100%">
+  <tr><td width="22%">Name</td><td><input type="text" name="name" value="FAKE-Patient Name" size="30"></td></tr>
+  <tr><td>Name (CJK)</td><td><input type="text" name="nameCjk" value="张伟 FAKE-中文" size="30"></td></tr>
+  <tr><td>Name (Hebrew)</td><td><input type="text" name="nameHeb" value="שלום FAKE-עברית" size="30"></td></tr>
+  <tr><td>Accents</td><td><input type="text" name="accents" value="évaluation à la façon de Zürich ≥ 5" size="30"></td></tr>
+  <tr><td>Long value</td><td class="right"><input type="text" name="long" value="FAKE-long-value-long-value-long-value-long-value-long-value-long-value-long-value-long-value-long-value-long-value-long-value-long-value-" size="20"></td></tr>
+  <tr><td>Date</td><td><input type="date" name="when" value="2026-10-29"></td></tr>
+  <tr><td>Number</td><td><input type="number" name="count" value="42" size="5"></td></tr>
+  <tr><td>Email</td><td><input type="email" name="mail" value="fake.patient@example.invalid" size="30"></td></tr>
+  <tr><td>Password</td><td><input type="password" name="pw" value="FAKE-secret123"></td></tr>
+  <tr><td>Read only</td><td><input type="text" name="ro" value="FAKE-readonly value" readonly></td></tr>
+  <tr><td>Disabled</td><td><input type="text" name="dis" value="FAKE-disabled value" disabled></td></tr>
+  <tr><td>Checkboxes</td><td>
+      <input type="checkbox" name="c1" checked> checked one
+      <input type="checkbox" name="c2"> unchecked two
+      <input type="checkbox" name="c3" checked="checked"> checked three
+      <input type="checkbox" name="c4" value="x"> unchecked four</td></tr>
+  <tr><td>Radios</td><td>
+      <input type="radio" name="r" value="a"> option A
+      <input type="radio" name="r" value="b" checked> option B
+      <input type="radio" name="r" value="c"> option C</td></tr>
+  <tr><td>Select</td><td>
+      <select name="s1"><option value="1">FAKE-first</option><option value="2" selected>FAKE-second selected</option><option value="3">FAKE-third</option></select></td></tr>
+  <tr><td>Select with groups</td><td>
+      <select name="s2"><optgroup label="FAKE-Group One"><option>one-a</option><option selected>one-b chosen</option></optgroup>
+      <optgroup label="FAKE-Group Two"><option>two-a</option></optgroup></select></td></tr>
+  <tr><td>Multi select</td><td>
+      <select name="s3" multiple size="4"><option selected>FAKE-red</option><option>FAKE-green</option><option selected>FAKE-blue</option><option>FAKE-grey</option></select></td></tr>
+  <tr><td>Select, none chosen</td><td>
+      <select name="s4"><option>FAKE-default one</option><option>FAKE-other two</option></select></td></tr>
+  <tr><td>Text area</td><td>
+      <textarea name="ta" rows="3" cols="40">FAKE-line one of the note
+FAKE-line two of the note</textarea></td></tr>
+  <tr><td>Progress</td><td><progress value="30" max="100">30%</progress> <progress>unknown</progress></td></tr>
+  <tr><td>Meter</td><td><meter value="0.6" min="0" max="1">60%</meter></td></tr>
+  <tr><td>Buttons</td><td><input type="submit" value="FAKE-Submit"> <input type="button" value="FAKE-Button"> <input type="reset" value="FAKE-Reset"> <button type="button">FAKE-Button element</button> <input type="image" src="missing-button.png" alt="FAKE-image button"></td></tr>
+</table>
+</form>
+</body>
+</html>

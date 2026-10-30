@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate BDD-style test method names in the billing migration and CDS import scopes."""
+"""Validate BDD-style test method names in billing, CDS import and HTML-to-PDF scopes."""
 
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ DEFAULT_ROOTS = (
     "src/test/java/io/github/carlos_emr/carlos/commn/model",
     # The CDS import feature (#5347) was written under the same rule from the start.
     "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport",
+    "src/test/java/io/github/carlos_emr/carlos/documentManager/htmlpdf",
 )
 
 SHARED_BILLING_TESTS = {
@@ -49,13 +50,13 @@ SHARED_BILLING_TESTS = {
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Fail if scoped billing tests do not use should<Action>_<context><Condition> names."
+        description="Fail if scoped tests (billing migration, HTML-to-PDF module) do not use should<Action>_<context><Condition> names."
     )
     parser.add_argument(
         "roots",
         nargs="*",
         default=DEFAULT_ROOTS,
-        help="Root directories or Java files to scan. Defaults to the billing migration test scope.",
+        help="Root directories or Java files to scan. Defaults to the billing migration and HTML-to-PDF test scope.",
     )
     args = parser.parse_args()
 

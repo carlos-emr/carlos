@@ -27,6 +27,8 @@ package io.github.carlos_emr.carlos.documentManager;
 
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.service.HtmlPdfRenderService;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.service.HtmlPdfTestServices;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -89,6 +91,8 @@ class ConvertToEdocIntegrationTest {
                              doThrow(new IOException("Native renderer unavailable in fixture"))
                                      .when(converter).convert(anyString(), any()))) {
             spring.when(() -> SpringUtils.getBean(NioFileManager.class)).thenReturn(fileManager);
+            // The fallback is the real HTML-to-PDF service, resolved at call time as in production.
+            spring.when(() -> SpringUtils.getBean(HtmlPdfRenderService.class)).thenReturn(HtmlPdfTestServices.newService());
             EDoc result = ConvertToEdoc.from(eform);
             String expectedDescription = subject == null || subject.isBlank() ? "Test Form" : subject;
             assertThat(result).isNotNull();
