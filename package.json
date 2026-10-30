@@ -636,6 +636,7 @@
     "test:double-submit-consultation-playwright": "node scripts/double-submit-consultation-playwright-checks.js",
     "test:double-submit-rx-playwright": "node scripts/double-submit-rx-playwright-checks.js",
     "test:double-submit-eform-playwright": "node scripts/double-submit-eform-playwright-checks.js",
+    "test:eform-pdf-template-path-playwright": "node scripts/eform-pdf-template-path-playwright-checks.js",
     "test:double-submit-lab-manual-playwright": "node scripts/double-submit-lab-manual-playwright-checks.js",
     "test:double-submit-admin-adds-playwright": "node scripts/double-submit-admin-adds-playwright-checks.js",
     "test:double-submit-intentional-adds-playwright": "node scripts/double-submit-intentional-adds-playwright-checks.js",

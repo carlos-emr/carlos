@@ -652,7 +652,7 @@ or per-site `@SuppressFBWarnings`; Semgrep uses CARLOS sanitizer-aware rules in 
 rule-specific `nosemgrep` comments only when the code is already encoded/sanitized and the rule
 cannot model that sanitizer. Semgrep CI filters suppressed SARIF results before GitHub Code Scanning
 upload, so `nosemgrep` suppressions must remain specific and justified; do not blanket-disable
-Semgrep Pro or broad rule groups to clear PR noise. The `IMPROPER_UNICODE` detector is
+Semgrep Pro or broad rule groups to clear PR noise. SonarCloud path-traversal false positives (`javasecurity:S2083`/`S6549`/`S6096`) are excluded in `pom.xml` one file at a time, never by package, each with a source-and-helper comment; `SonarPathTraversalExclusionPolicyUnitTest` enforces this (issue #5316, see `docs/static-analysis-workflows.md`). The `IMPROPER_UNICODE` detector is
 *informational* — it flags `equalsIgnoreCase`/`toLowerCase`/`Normalizer` case folding **regardless
 of `Locale`** (so it cannot be cleared by adding `Locale.ROOT`), and almost all hits are intended
 case-insensitive domain comparisons. It is suppressed **per-site** with

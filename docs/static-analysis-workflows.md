@@ -412,6 +412,86 @@ to Java.
 
 ---
 
+## SonarCloud path-traversal exclusions
+
+SonarCloud's taint rules for file paths (`javasecurity:S2083`, plus `S6549` and `S6096`) cannot be
+told that the `PathValidationUtils` helpers sanitize: custom sanitizer configuration is a SonarQube
+Server Enterprise feature, and `@SuppressWarnings` is not honoured for these rules. The remaining
+false positives are therefore excluded in `pom.xml` (`sonar.issue.ignore.multicriteria`), and only
+**one file at a time** (issue #5316).
+
+Until #5316 the POM excluded S2083 from ten whole packages (`eform`, `documentManager`, `lab`,
+`integration`, `form`, `fax`, `encounter`, `dxresearch`, `demographic`, `billings`), so any new
+unvalidated file operation in roughly 1,300 files was hidden too. One was:
+`EFormPDFServlet` built a `PdfReader` path from the `__template` request parameter with no
+validation, and is now fixed.
+
+### What the list contains
+
+The list was rebuilt by reading each file in those packages that performs a file operation. A file
+is listed when a value from a request parameter, an upload, a web-service call or a remote
+billing/fax/lab message reaches a file operation in that file, and every such operation goes
+through a containment helper first. Files whose file operations only see configuration, generated
+names or database-stored paths are not listed: Sonar has no taint source to report there. The
+comment above each entry names the source and the helper.
+
+| Reviewed in the excluded packages | Files |
+|---|---:|
+| Perform a file operation and were reviewed | 124 |
+| Listed: request/upload/message path, guarded by `PathValidationUtils` | 57 |
+| Not listed: no untrusted path reaches a file operation | 62 |
+| Not listed: made safe without `PathValidationUtils` (fixed allowlist, session-issued key, own containment check) | 3 |
+| Fixed in #5316 and left under the rule (`EFormPDFServlet`) | 1 |
+| Not listed: weak but not exploitable, left visible for follow-up (`EDocUtil.getPDFPageCount` checks that a raw absolute path exists before validating it; the result is a page count of 0 either way) | 1 |
+
+Every other file, including every new file in those packages, stays under the rules.
+
+### Guard test
+
+`SonarPathTraversalExclusionPolicyUnitTest` reads the POM and evaluates each criterion the way the
+scanner does (Sonar wildcards against the project-relative path). It fails the build when a
+path-rule entry:
+
+- uses a package or name wildcard, or matches anything other than exactly one main-source file;
+- names a file that no longer calls `PathValidationUtils` or no longer performs a file operation;
+- has no justification comment on the line above it.
+
+It also keeps a controlled unsafe fixture for each formerly excluded package (a new file the retired
+package glob would have hidden) unmatched, and keeps known `PathValidationUtils`-guarded files
+matched.
+
+### Adding or dropping an entry
+
+1. Fix the flow first. Most new reports are fixed by passing the request value through the right
+   helper (see [`path-validation-utils.md`](path-validation-utils.md)) and using its return value
+   at the file operation.
+2. Add an entry only for a report SonarCloud actually raised, on a file whose untrusted path is
+   already validated by a containment helper. Name the file by its full package path with a leading
+   `**/` (for example
+   `**/io/github/carlos_emr/carlos/eform/actions/DisplayImage2Action.java`). Put a one-line comment
+   above it stating the source and the helper, and add its id to the list.
+3. Use SonarCloud's "False positive" status instead when only one issue in a file is a false
+   positive and the file has other file operations worth keeping under the rule.
+4. Drop an entry when its file is deleted or stops using untrusted paths. The guard test reports a
+   file that no longer calls `PathValidationUtils`.
+
+### Measuring the effect
+
+SonarCloud only reports issues on changed lines in a pull request, so narrowing the exclusions
+shows no new issues on the PR itself. The first analysis of the target branch after merge is the
+real measurement. It re-analyses the 1,249 now-uncovered files in those packages and reports any
+S2083 they raise. The project's quality gate fails on any open vulnerability (`security_rating`),
+so such a report is triaged straight away. Fix it, or exclude it as described above if it is a
+false positive.
+
+For reference, before this change SonarCloud reported no `S2083`, `S6549` or `S6096` issue anywhere
+in the project. That includes 17 files outside the excluded packages that pass request parameters
+through `PathValidationUtils` to file reads (for example `GenericDownload`, `OscarDownload`,
+`DocumentUploadServlet`), which suggests the scanner already accepts the canonical-path checks in
+`validatePath`.
+
+---
+
 ## Relationship to Other Analysis Tools
 
 | Tool | Type | Scope | Primary Strength |
