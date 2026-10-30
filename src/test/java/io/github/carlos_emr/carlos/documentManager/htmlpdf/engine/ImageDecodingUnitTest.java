@@ -72,6 +72,8 @@ import javax.imageio.stream.FileCacheImageInputStream;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 
+import com.twelvemonkeys.imageio.stream.ByteArrayImageInputStream;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -449,7 +451,7 @@ class ImageDecodingUnitTest {
             // A header read decodes nothing, so it needs no bound and gets the plain stream.
             ExplodingReader.lastInput = null;
             ImageDecoding.readHeader(data);
-            assertThat(ExplodingReader.lastInput).as("stream for a header read").isEqualTo(MemoryCacheImageInputStream.class);
+            assertThat(ExplodingReader.lastInput).as("stream for a header read").isEqualTo(ByteArrayImageInputStream.class);
         } finally {
             registry.deregisterServiceProvider(spi);
             ExplodingReader.lastInput = null;
@@ -472,6 +474,143 @@ class ImageDecodingUnitTest {
             worst = Math.max(worst, reads);
         }
         assertThat(worst).as("the worst fixture still stresses the budget").isGreaterThan(500);
+    }
+
+    // ---- WebP size cap and the length of byte payloads ---------------------------------------
+
+    @ParameterizedTest(name = "as {0}")
+    @ValueSource(strings = {"bytes", "file"})
+    void shouldRefuseWebpAboveTheCap_withoutAllocatingForIt(String kind) throws IOException {
+        com.sun.management.ThreadMXBean threads = allocationCounter();
+        // 5000 x 5000 is 25 MP, over the cap. The library would decode it into a 100 MB raster
+        // whatever the subsampling, and it accepts this file: the padding keeps it inside its own
+        // 2048:1 expansion limit, so only the cap stands between this input and the allocation.
+        byte[] webp = WebpHeaders.declaring(5000, 5000, 65_536);
+        Path file = Files.write(tempDir.resolve("above-cap.webp"), webp);
+        ImageDecoding.readSubsampled(fixtureBytes("opaque-4x4.webp"), 1); // warm up
+        long[] allocated = new long[1];
+
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+            long before = threads.getCurrentThreadAllocatedBytes();
+            assertThatThrownBy(() -> decodeAs(kind, webp, file, 12))
+                    .isExactlyInstanceOf(IOException.class)
+                    .hasMessage(ImageDecoding.WEBP_TOO_LARGE_MESSAGE);
+            allocated[0] = threads.getCurrentThreadAllocatedBytes() - before;
+        });
+
+        // Unrefused, the same call allocated 76 MB for a 417 x 417 result.
+        assertThat(allocated[0]).as("bytes allocated by the refused decode").isLessThan(1_000_000L);
+    }
+
+    @ParameterizedTest(name = "as {0}")
+    @ValueSource(strings = {"bytes", "file"})
+    void shouldRefuseWebp_onlyAboveTheCap(String kind) throws IOException {
+        assertThat(ImageDecoding.WEBP_MAX_SOURCE_PIXELS).isEqualTo(4096L * 4096L);
+        // 4096 x 4096 is exactly the cap, so the cap has nothing to say about it. This 64-byte
+        // file is far too small to expand into 67 MB, so the library's own limit refuses it, and
+        // the message tells the two refusals apart. One column more is over the cap.
+        byte[] atCap = WebpHeaders.declaring(4096, 4096, 64);
+        byte[] justOver = WebpHeaders.declaring(4097, 4096, 64);
+        Path atCapFile = Files.write(tempDir.resolve("at-cap.webp"), atCap);
+        Path justOverFile = Files.write(tempDir.resolve("just-over.webp"), justOver);
+
+        assertThatThrownBy(() -> decodeAs(kind, justOver, justOverFile, 12))
+                .isInstanceOf(IOException.class).hasMessage(ImageDecoding.WEBP_TOO_LARGE_MESSAGE);
+        assertThatThrownBy(() -> decodeAs(kind, atCap, atCapFile, 12))
+                .isInstanceOf(IOException.class).hasMessageNotContaining(ImageDecoding.WEBP_TOO_LARGE_MESSAGE);
+    }
+
+    @ParameterizedTest(name = "as {0}")
+    @ValueSource(strings = {"bytes", "file"})
+    void shouldReportDeclaredSize_forWebpAboveTheCap(String kind) throws IOException {
+        // Headers are never refused: callers need the declared size to decide what to do.
+        byte[] webp = WebpHeaders.declaring(5000, 5000, 64);
+        Path file = Files.write(tempDir.resolve("declared.webp"), webp);
+
+        assertThat(kind.equals("bytes") ? ImageDecoding.readHeader(webp) : ImageDecoding.readHeader(file))
+                .hasValueSatisfying(header -> {
+                    assertThat(header.formatName()).isEqualTo("webp");
+                    assertThat(header.width()).isEqualTo(5000);
+                    assertThat(header.height()).isEqualTo(5000);
+                    assertThat(header.pixels()).isGreaterThan(ImageDecoding.WEBP_MAX_SOURCE_PIXELS);
+                });
+    }
+
+    @Test
+    void shouldDecodeOtherFormats_aboveTheWebpCap() throws IOException {
+        // 4200 x 4200 is 17.6 MP, over the WebP cap. A PNG of that size is reduced as ever: the
+        // library honours subsampling for it, so the cap is for WebP alone.
+        assertThat(4200L * 4200L).isGreaterThan(ImageDecoding.WEBP_MAX_SOURCE_PIXELS);
+        Path png = tempDir.resolve("wide.png");
+        assertThat(ImageIO.write(new BufferedImage(4200, 4200, BufferedImage.TYPE_BYTE_GRAY), "png", png.toFile())).isTrue();
+
+        assertThat(ImageDecoding.readSubsampled(png, 10).getWidth()).isEqualTo(420);
+        assertThat(ImageDecoding.readSubsampled(Files.readAllBytes(png), 10).getHeight()).isEqualTo(420);
+    }
+
+    @ParameterizedTest(name = "as {0}")
+    @ValueSource(strings = {"bytes", "file"})
+    void shouldRefuseFlatWebp_thatExpandsMoreThan2048Times(String kind) throws IOException {
+        // 212 bytes that would decode into 12 MB (a flat 2000 x 2000 canvas): under the cap, over
+        // the library's 2048:1 limit. As a file it was always refused; as bytes it used to decode,
+        // because a stream over a byte array reported no length and the limit fell back to a
+        // far looser one.
+        byte[] webp = fixtureBytes("flat-2000x2000.webp");
+        Path file = fixture("flat-2000x2000.webp");
+
+        assertThatThrownBy(() -> decodeAs(kind, webp, file, 4))
+                .isInstanceOf(IOException.class).hasMessageContaining("expansion ratio");
+    }
+
+    @ParameterizedTest(name = "as {0}")
+    @ValueSource(strings = {"bytes", "file"})
+    void shouldRefuseFlatWebp_aboveTheCap(String kind) throws IOException {
+        // The 1,434-byte flat 6000 x 6000 canvas from the review: 36 MP, so the cap refuses it
+        // before the library is asked, the same way for bytes as for a file.
+        byte[] webp = fixtureBytes("flat-6000x6000.webp");
+        Path file = fixture("flat-6000x6000.webp");
+
+        assertThatThrownBy(() -> decodeAs(kind, webp, file, 12))
+                .isExactlyInstanceOf(IOException.class).hasMessage(ImageDecoding.WEBP_TOO_LARGE_MESSAGE);
+    }
+
+    @Test
+    void shouldNotCopyTheBytes_whenDecodingFromMemory() throws IOException {
+        com.sun.management.ThreadMXBean threads = allocationCounter();
+        Path big = writeStoredGrayPng(tempDir.resolve("big-bytes.png"), 6000, 4000);
+        byte[] png = Files.readAllBytes(big);
+        ImageDecoding.readSubsampled(writeStoredGrayPng(tempDir.resolve("tiny-bytes.png"), 8, 8), 1); // warm up
+
+        long before = threads.getCurrentThreadAllocatedBytes();
+        BufferedImage image = ImageDecoding.readSubsampled(png, 8);
+        long allocated = threads.getCurrentThreadAllocatedBytes() - before;
+
+        // A memory cache stream copied the 24 MB payload as it read it (about 24 MB more, 48 MB
+        // in all with the array); a stream over the array itself allocates the 375 KB result and
+        // the reader's buffers.
+        assertThat(image.getWidth()).isEqualTo(750);
+        assertThat(allocated).as("bytes allocated decoding a %d byte payload", png.length).isLessThan(png.length / 4L);
+    }
+
+    @Test
+    void shouldNotCopyTheBytes_whenReadingExifFromMemory() {
+        com.sun.management.ThreadMXBean threads = allocationCounter();
+        // An Exif segment first, then 20 comment segments of 64 KB (1.3 MB): the scan stops at its
+        // first mebibyte, and a memory cache stream would have copied all of it on the way.
+        byte[] exif = exifSegment(tiffWithOrientation(ByteOrder.LITTLE_ENDIAN, 6));
+        byte[] comment = segment(0xFE, new byte[65_533]);
+        byte[][] segments = new byte[21][];
+        segments[0] = exif;
+        Arrays.fill(segments, 1, 21, comment);
+        byte[] jpeg = jpegOf(segments);
+        ImageDecoding.exifOrientation(jpegOf(exif)); // warm up
+
+        long before = threads.getCurrentThreadAllocatedBytes();
+        int orientation = ImageDecoding.exifOrientation(jpeg);
+        long allocated = threads.getCurrentThreadAllocatedBytes() - before;
+
+        assertThat(orientation).isEqualTo(6);
+        assertThat(allocated).as("bytes allocated scanning %d bytes of header", jpeg.length).isLessThan(512_000L);
     }
 
     // ---- EofBudgetImageInputStream ----------------------------------------------------------
@@ -668,8 +807,10 @@ class ImageDecodingUnitTest {
     void shouldReadBytesFromMemory_andFilesThroughTheFile() throws IOException {
         // Bytes are a patient's document: ImageIO's default stream for an InputStream is a cache
         // file in the temporary directory (when caching is on, as it is by default), so byte
-        // arrays go through an in-memory stream instead. A file is read in place, never copied
-        // into memory first. The synthetic reader records the stream it is given.
+        // arrays go through a stream over the array itself instead: no copy, no disk, and a
+        // length, which the WebP reader's 2048:1 expansion limit needs (a memory cache stream
+        // reports none, and the limit then falls back to a far looser one). A file is read in
+        // place, never copied into memory first. The synthetic reader records the stream it is given.
         byte[] data = Arrays.copyOf(EXPLODING_MAGIC, EXPLODING_MAGIC.length + 16);
         Path file = Files.write(tempDir.resolve("recording.img"), data);
         IIORegistry registry = IIORegistry.getDefaultInstance();
@@ -678,21 +819,23 @@ class ImageDecodingUnitTest {
         try {
             ExplodingReader.lastInput = null;
             ImageDecoding.readHeader(data);
-            assertThat(ExplodingReader.lastInput).as("stream for a header read of bytes").isEqualTo(MemoryCacheImageInputStream.class);
+            assertThat(ExplodingReader.lastInput).as("stream for a header read of bytes").isEqualTo(ByteArrayImageInputStream.class);
 
             ExplodingReader.lastInput = null;
             assertThatThrownBy(() -> ImageDecoding.readSubsampled(data, 1)).isInstanceOf(IOException.class);
-            assertThat(ExplodingReader.lastInput).as("stream for a decode of bytes").isEqualTo(MemoryCacheImageInputStream.class);
+            assertThat(ExplodingReader.lastInput).as("stream for a decode of bytes").isEqualTo(ByteArrayImageInputStream.class);
 
             ExplodingReader.lastInput = null;
             ImageDecoding.readHeader(file);
             assertThat(ExplodingReader.lastInput).as("stream for a header read of a file")
-                    .isNotNull().isNotEqualTo(MemoryCacheImageInputStream.class).isNotEqualTo(FileCacheImageInputStream.class);
+                    .isNotNull().isNotEqualTo(ByteArrayImageInputStream.class).isNotEqualTo(MemoryCacheImageInputStream.class)
+                    .isNotEqualTo(FileCacheImageInputStream.class);
 
             ExplodingReader.lastInput = null;
             assertThatThrownBy(() -> ImageDecoding.readSubsampled(file, 1)).isInstanceOf(IOException.class);
             assertThat(ExplodingReader.lastInput).as("stream for a decode of a file")
-                    .isNotNull().isNotEqualTo(MemoryCacheImageInputStream.class).isNotEqualTo(FileCacheImageInputStream.class);
+                    .isNotNull().isNotEqualTo(ByteArrayImageInputStream.class).isNotEqualTo(MemoryCacheImageInputStream.class)
+                    .isNotEqualTo(FileCacheImageInputStream.class);
         } finally {
             registry.deregisterServiceProvider(spi);
             ExplodingReader.lastInput = null;
@@ -1182,7 +1325,7 @@ class ImageDecodingUnitTest {
 
     /** How many times the reader reads past the end of this WebP's data when it decodes it, unbounded. */
     private static int endReadsOf(byte[] webp) throws IOException {
-        try (ImageInputStream raw = new MemoryCacheImageInputStream(new ByteArrayInputStream(webp));
+        try (ImageInputStream raw = new ByteArrayImageInputStream(webp);
                 EofBudgetImageInputStream counting = new EofBudgetImageInputStream(raw, Integer.MAX_VALUE)) {
             ImageReader reader = ImageIO.getImageReaders(raw).next();
             try {
@@ -1193,6 +1336,11 @@ class ImageDecodingUnitTest {
             }
             return counting.endReads();
         }
+    }
+
+    /** Decodes {@code webp} through the byte-array overload or, as {@code kind} says, through the file overload. */
+    private static BufferedImage decodeAs(String kind, byte[] webp, Path file, int subsampling) throws IOException {
+        return kind.equals("bytes") ? ImageDecoding.readSubsampled(webp, subsampling) : ImageDecoding.readSubsampled(file, subsampling);
     }
 
     private static BufferedImage gradient(int width, int height) {

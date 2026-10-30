@@ -26,6 +26,7 @@ import com.twelvemonkeys.imageio.metadata.Entry;
 import com.twelvemonkeys.imageio.metadata.jpeg.JPEGSegment;
 import com.twelvemonkeys.imageio.metadata.jpeg.JPEGSegmentUtil;
 import com.twelvemonkeys.imageio.metadata.tiff.TIFFReader;
+import com.twelvemonkeys.imageio.stream.ByteArrayImageInputStream;
 import com.twelvemonkeys.imageio.stream.SubImageInputStream;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -61,9 +62,12 @@ import javax.imageio.stream.MemoryCacheImageInputStream;
  *       nothing else. A 20 000 x 20 000 PNG whose header is 25 bytes therefore costs no more than a
  *       thumbnail, which is what lets callers refuse a decompression bomb
  *       ({@link #MAX_SOURCE_PIXELS}) before anything is decoded.</li>
- *   <li><b>A decode reads only what it keeps.</b> {@link #readSubsampled(Path, int)} reads every
- *       n-th pixel in each direction straight from a random-access stream on the file, so the file
- *       is never loaded whole and the one large allocation is the already reduced result.</li>
+ *   <li><b>A decode reads only what it keeps, for most formats.</b>
+ *       {@link #readSubsampled(Path, int)} reads every n-th pixel in each direction straight from a
+ *       random-access stream on the file, so the file is never loaded whole and the one large
+ *       allocation is the already reduced result. A WebP is the exception: the library decodes it at
+ *       full size whatever the subsampling, so it is capped at {@link #WEBP_MAX_SOURCE_PIXELS}
+ *       instead.</li>
  *   <li><b>Content problems do not escape as unchecked exceptions.</b> Header and EXIF reads
  *       return empty or {@code 1} for any input they cannot use. A decode throws
  *       {@link IOException}. Only a null argument or an out-of-range subsampling (programming
@@ -97,6 +101,21 @@ public final class ImageDecoding {
      */
     // about 15 800 × 15 800; sharp refuses above 268 MP, Debian ImageMagick caps area at 256 MP (spec §Images)
     public static final long MAX_SOURCE_PIXELS = 250_000_000L;
+
+    /**
+     * The largest declared size, in pixels, of a WebP that {@link #readSubsampled(Path, int)}
+     * decodes. A larger one is refused with an {@code IOException} before the library is asked to
+     * decode it, and callers treat it as unusable, as they do a header above
+     * {@link #MAX_SOURCE_PIXELS}. The cap is far lower than that limit because the library decodes a
+     * WebP at full size: it ignores the subsampling for a lossless one and for the alpha plane of a
+     * lossy one, so the declared size, not the subsampling, bounds the allocation.
+     * {@link #readHeader(Path)} still reports such a WebP's size.
+     */
+    // measured: a full-size raster is about 4 bytes per source pixel; a lossless WebP at this cap allocated 67 MB and decoded in -Xmx96m, inside one render slot's 256 MB share; lossless and alpha WebP ignore subsampling in the library (36 MP lossless: 112 MB, OutOfMemoryError at -Xmx96m)
+    public static final long WEBP_MAX_SOURCE_PIXELS = 16_777_216L;
+
+    /** The message of the refusal above. It is fixed, so it names no file and no content. */
+    static final String WEBP_TOO_LARGE_MESSAGE = "the WebP image is larger than the supported size";
 
     /** EXIF/TIFF tag number of Orientation. */
     private static final int TAG_ORIENTATION = 0x0112;
@@ -161,9 +180,11 @@ public final class ImageDecoding {
      * Reads the format and declared size of an image held in memory from its header, without
      * decoding it. The same rules and results as {@link #readHeader(Path)}.
      *
-     * <p>The bytes are wrapped in an in-memory cache stream and never in ImageIO's default
-     * stream-input cache, which is a temporary file on disk: the bytes are a patient's document and
-     * must not be copied there.</p>
+     * <p>The bytes are read through a stream over the array itself, which copies nothing, never
+     * touches the disk and reports its length. They are never given to ImageIO's default
+     * stream-input cache, which is a temporary file on disk: the bytes are a patient's document
+     * and must not be copied there. The length matters to the WebP reader, whose limit on how much
+     * an input may expand needs it.</p>
      *
      * @param data the image bytes, for example a decoded {@code data:} URI payload; not modified
      * @return the header, or empty in the cases listed for {@link #readHeader(Path)}
@@ -171,7 +192,7 @@ public final class ImageDecoding {
      */
     public static Optional<ImageHeader> readHeader(byte[] data) {
         Objects.requireNonNull(data, "data");
-        try (ImageInputStream stream = new MemoryCacheImageInputStream(new ByteArrayInputStream(data))) {
+        try (ImageInputStream stream = new ByteArrayImageInputStream(data)) {
             return headerOf(stream);
         } catch (IOException | RuntimeException e) {
             return Optional.empty();
@@ -248,23 +269,35 @@ public final class ImageDecoding {
     /**
      * Decodes an image file keeping only every {@code subsampling}-th pixel in each direction.
      *
-     * <p>The reader pulls the pixels it keeps straight from a random-access stream on the file; the
-     * file is never read into memory whole, and the cost is the reduced result, about
-     * {@code pixels / subsampling^2} times the bytes per pixel. Measured: a 67-megapixel, 67 MB PNG
-     * was reduced to 2048 x 2048 in a 64 MB heap, where reading the file into memory first ran out
-     * of it. The result is {@code ceil(width / s) x ceil(height / s)} in whatever type the reader
-     * produces (indexed, gray, 16-bit, ...), and callers convert it if they need another.</p>
+     * <p>For most formats the reader pulls the pixels it keeps straight from a random-access
+     * stream on the file; the file is never read into memory whole, and the cost is the reduced
+     * result, about {@code pixels / subsampling^2} times the bytes per pixel. Measured: a
+     * 67-megapixel, 67 MB PNG was reduced to 2048 x 2048 in a 64 MB heap, where reading the file
+     * into memory first ran out of it. <b>A WebP is the exception</b>, described below. The result
+     * is {@code ceil(width / s) x ceil(height / s)} in whatever type the reader produces (indexed,
+     * gray, 16-bit, ...), and callers convert it if they need another.</p>
      *
      * <p>This method does not check the declared size: callers refuse a header above
      * {@link #MAX_SOURCE_PIXELS} first, and choose {@code subsampling} with
      * {@link #subsamplingToFit(ImageHeader, long)}, because a result that does not fit the heap
      * fails with {@link OutOfMemoryError}.</p>
      *
-     * <p>A WebP is read through a view that fails once the reader has read past the end of the
-     * data more than 65 536 times (see {@link EofBudgetImageInputStream}). Valid files stay about
-     * eighty times below that, and a corrupt lossless one, which the library alone would spend 15 s
-     * or more on, fails with an {@code IOException} within a fraction of a second. No other format
-     * is affected.</p>
+     * <p><b>A WebP is decoded at full size, whatever the subsampling.</b> The library ignores the
+     * subsampling for a lossless WebP and for the alpha plane of a lossy one, and allocates a
+     * raster of about four bytes per source pixel before it reduces anything: a 6000 x 6000
+     * lossless WebP of 283 KB allocated 112 MB for a 500 x 500 result, and ran out of memory in a
+     * 96 MB heap. So a WebP that declares more than {@link #WEBP_MAX_SOURCE_PIXELS} pixels is
+     * refused with an {@code IOException} before the library decodes it, and callers must treat it
+     * as unusable. The library also refuses a WebP that would decode into more than 2048 times its
+     * own length, which a large flat canvas can (a 212-byte flat 2000 x 2000 image does), and it
+     * does so for a byte array as for a file. {@link #readHeader(Path)} still reports the declared
+     * size of any of them.</p>
+     *
+     * <p>A WebP is also read through a view that fails once the reader has read past the end of
+     * the data more than 65 536 times (see {@link EofBudgetImageInputStream}). Valid files stay
+     * about eighty times below that, and a corrupt lossless one, which the library alone would
+     * spend 15 s or more on, fails with an {@code IOException} within a fraction of a second. No
+     * other format is affected by the cap or the view.</p>
      *
      * @param file the image file
      * @param subsampling how many source pixels to step over, at least 1 (1 decodes in full)
@@ -284,7 +317,9 @@ public final class ImageDecoding {
 
     /**
      * Decodes an image held in memory keeping only every {@code subsampling}-th pixel in each
-     * direction. The same rules and results as {@link #readSubsampled(Path, int)}.
+     * direction. The same rules and results as {@link #readSubsampled(Path, int)}, the WebP cap and
+     * the library's 2048:1 expansion limit included: the array is read through a stream that
+     * reports its length, so the limit applies to it as to a file.
      *
      * @param data the image bytes, for example a decoded {@code data:} URI payload; not modified
      * @param subsampling how many source pixels to step over, at least 1
@@ -296,7 +331,7 @@ public final class ImageDecoding {
     public static BufferedImage readSubsampled(byte[] data, int subsampling) throws IOException {
         Objects.requireNonNull(data, "data");
         requireSubsampling(subsampling);
-        try (ImageInputStream stream = new MemoryCacheImageInputStream(new ByteArrayInputStream(data))) {
+        try (ImageInputStream stream = new ByteArrayImageInputStream(data)) {
             return decode(stream, subsampling);
         }
     }
@@ -311,15 +346,25 @@ public final class ImageDecoding {
             if (reader == null) {
                 throw new IOException("no image reader recognises the input");
             }
+            // Not forward-only: a TIFF may store its strips out of order, and a random-access
+            // stream on a file costs nothing extra.
             if (isWebp(reader)) {
                 // The one reader found to loop for 15 s or more on corrupt data instead of failing. The
                 // other readers get the stream as it is, so their handling of truncated files
                 // (the JDK's JPEG reader returns what it has) does not change.
                 try (ImageInputStream bounded = new EofBudgetImageInputStream(stream, WEBP_MAX_READS_PAST_END)) {
-                    return read(reader, bounded, subsampling);
+                    reader.setInput(bounded, false, true);
+                    // It is also the one reader that decodes at full size whatever the subsampling
+                    // asks, so the declared size is checked, from the header alone, before the
+                    // library allocates a raster for it.
+                    if ((long) reader.getWidth(0) * reader.getHeight(0) > WEBP_MAX_SOURCE_PIXELS) {
+                        throw new IOException(WEBP_TOO_LARGE_MESSAGE);
+                    }
+                    return read(reader, subsampling);
                 }
             }
-            return read(reader, stream, subsampling);
+            reader.setInput(stream, false, true);
+            return read(reader, subsampling);
         } catch (RuntimeException e) {
             // Corrupt data surfaces from the readers as all sorts of runtime exceptions; callers
             // handle one type. The message carries the class name only, never the reader's text.
@@ -331,10 +376,7 @@ public final class ImageDecoding {
         }
     }
 
-    private static BufferedImage read(ImageReader reader, ImageInputStream input, int subsampling) throws IOException {
-        // Not forward-only: a TIFF may store its strips out of order, and a random-access
-        // stream on a file costs nothing extra.
-        reader.setInput(input, false, true);
+    private static BufferedImage read(ImageReader reader, int subsampling) throws IOException {
         ImageReadParam param = reader.getDefaultReadParam();
         param.setSourceSubsampling(subsampling, subsampling, 0, 0);
         return reader.read(0, param);
@@ -398,7 +440,7 @@ public final class ImageDecoding {
      */
     public static int exifOrientation(byte[] data) {
         Objects.requireNonNull(data, "data");
-        try (ImageInputStream stream = new MemoryCacheImageInputStream(new ByteArrayInputStream(data))) {
+        try (ImageInputStream stream = new ByteArrayImageInputStream(data)) {
             return orientationOf(stream);
         } catch (IOException | RuntimeException e) {
             return ORIENTATION_UPRIGHT;
