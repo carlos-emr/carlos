@@ -43,6 +43,8 @@ import static org.assertj.core.api.Assertions.within;
  * page: the picture must come out the way a viewer shows it for each of the eight EXIF orientations, at the proportions
  * of what is shown, however large the file is. A solid colour cannot show a wrong turn, so the pictures here have four
  * quarters of four colours, or a scene with an obvious way up.
+ *
+ * @since 2026-10-30
  */
 @Tag("unit")
 @Tag("htmlpdf")

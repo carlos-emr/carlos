@@ -328,8 +328,10 @@ checks parity); the French, Spanish, Polish and Brazilian Portuguese values carr
   length; a `<select>` prints the chosen option's text, a multi-select the chosen options joined by
   commas; `<progress>` and `<meter>` print as bars, a grey track filled to the value (a progress is
   10em wide and blue, a meter 5em and green, amber or red by its `low`, `high` and `optimum`, as in
-  Chromium; a progress with no value is the track alone; a bar has no text, so the plain-text last
-  resort leaves it out as it leaves out an image); a `<textarea>` keeps its line breaks.
+  Chromium; a progress with no value is the track alone; a bar has no number or other text beside or
+  in it, as wkhtmltopdf's had none (the text between the tags is for browsers that cannot draw them),
+  so the plain-text last resort leaves it out as it leaves out an image); a `<textarea>` keeps its
+  line breaks.
   Replacements grow to fit, so a value is never clipped.
 - **Logs carry class names, counts and mode names.** No path, URL, file name, HTML or exception
   message from the engine is logged. `HtmlPdfRenderRequest.toString()` prints the source, the HTML's

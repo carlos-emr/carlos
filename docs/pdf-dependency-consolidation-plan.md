@@ -164,7 +164,6 @@ for `new ITextRenderer()`. It wires up the restricted user agent with the same d
 | File | Method | Previously |
 |------|--------|------------|
 | `util/Doc2PDF.java` | `renderWithFlyingSaucer()` | `new ITextRenderer()` |
-| `documentManager/ConvertToEdoc.java` | `fallbackRender()` | `new ITextRenderer()` |
 
 ConvertToEdoc's existing DOM-level stripping in `translatePaths()` remains as defense-in-depth
 (belt and suspenders). `LocalOnlyUserAgent` provides transport-layer protection that covers
@@ -172,8 +171,9 @@ all resource types regardless of what's in the HTML.
 
 #### What This Does NOT Break
 
-- **ConvertToEdoc image loading**: `ReplacedElementFactoryImpl` loads images via `FileInputStream`
-  (local filesystem) — this bypasses the UserAgent entirely
+- **HTML-to-PDF image processing**: `PrintImageService` (`documentManager/htmlpdf`) plans and applies the
+  outcome for each `<img>` and outermost `<svg>`: embedding, conversion, SVG cleaning, or an `ImageBox`
+  placeholder for an image that is unavailable
 - **ConvertToEdoc CSS loading**: `translatePaths()` already translates `<link href>` to local
   filesystem paths and strips `http://` URLs from the DOM; local paths still work
 - **Inline CSS**: CSS embedded directly in `<style>` tags (not via `@import`) doesn't require
@@ -452,7 +452,7 @@ Color.LIGHT_GRAY  // or new Color(192, 192, 192) for exact match
 - SSRF hardened via `LocalOnlyUserAgent.createRestrictedRenderer()` (blocks external resource fetching)
 
 **ConvertToEdoc SSRF hardening** (completed):
-- `documentManager/ConvertToEdoc.java` — `fallbackRender()` uses `LocalOnlyUserAgent` to close CSS `@import`/`url()` SSRF gap
+- `documentManager/ConvertToEdoc.java` — renders through `HtmlPdfRenderService`, whose `LocalOnlyUserAgent` closes the CSS `@import`/`url()` SSRF gap
 - DOM-level stripping retained as defense-in-depth
 
 **PdfWriterFactory cleanup:**
