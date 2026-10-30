@@ -56,6 +56,19 @@
 - SRFax duplicate prevention policy is unread/read flag based (unread-only pull + mark-as-read), not remote delete.
 - See `docs/fax-provider-configuration-and-ux.md` for implementation and operational details.
 
+## CDS Import Context (AI + Dev)
+
+- Start at `docs/cds-import.md`; server defaults and delegation are in
+  `docs/cds-import-configuration.md`. Admission defaults off. Enabling imports requires the
+  installed qualification and maintenance prerequisites in the operator guide.
+- Browser and trusted CLI imports share `demographic/cdsimport`. Resume intent is a durable
+  audited event. Preserve physical ownership, epochs, receipt verification, patient holds and
+  separate report/cleanup outcomes when changing recovery.
+- Preserve source values and partial-date precision alongside native projections. Read the
+  clinical and legacy-reader contracts before changing persisters or downstream readers.
+- Generate crosswalks and physical schema contracts with their tools. Qualify native changes
+  with the fresh ON/BC MariaDB tier and the actual packaged WAR.
+
 ## eForm Chrome Styling
 
 - eForm pages must not receive a global stylesheet: the renderers (`efmshowform_data.jsp`,

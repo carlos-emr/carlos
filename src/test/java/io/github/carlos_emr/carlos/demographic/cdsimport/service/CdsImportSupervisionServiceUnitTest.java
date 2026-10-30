@@ -85,7 +85,7 @@ class CdsImportSupervisionServiceUnitTest {
             Object started=dispatcher.get(service);
             service.start();
             assertThat(started).isNotNull().isSameAs(dispatcher.get(service));
-            verify(execution,timeout(3000)).execute("recovered",false);
+            verify(execution,timeout(3000)).execute("recovered");
         }
         service.start();
         assertThat(worker.isShutdown()).isTrue();
@@ -143,23 +143,22 @@ class CdsImportSupervisionServiceUnitTest {
         var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
         when(job.state()).thenReturn(state); when(ledger.hasPendingReport("run")).thenReturn(true);
         when(ledger.status("run")).thenReturn(job); when(reviews.hasPending("run")).thenReturn(true);
-        call("schedule", new Class<?>[]{String.class, boolean.class}, "run", true); barrier();
+        call("schedule", new Class<?>[]{String.class}, "run"); barrier();
         verify(execution).reportOnly("run");
-        verify(execution, never()).execute("run", false);
-        verify(execution, never()).execute("run", true);
+        verify(execution, never()).execute("run");
     }
     @Test void shouldKeepBlockingClinicalResume_duringPendingReview() throws Exception {
         var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
         when(job.state()).thenReturn("RESUME_REQUESTED"); when(ledger.hasPendingReport("run")).thenReturn(true);
         when(ledger.status("run")).thenReturn(job); when(reviews.hasPending("run")).thenReturn(true);
-        call("schedule", new Class<?>[]{String.class, boolean.class}, "run", true); barrier();
+        call("schedule", new Class<?>[]{String.class}, "run"); barrier();
         verifyNoInteractions(execution);
     }
     @Test void shouldNotRedispatchAlreadyStoppedReport_duringPendingReview() throws Exception {
         var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
         when(job.state()).thenReturn("REVIEW_REQUIRED"); when(ledger.hasPendingReport("run")).thenReturn(false);
         when(ledger.status("run")).thenReturn(job); when(reviews.hasPending("run")).thenReturn(true);
-        call("schedule", new Class<?>[]{String.class, boolean.class}, "run", true); barrier();
+        call("schedule", new Class<?>[]{String.class}, "run"); barrier();
         verifyNoInteractions(execution);
     }
     @ParameterizedTest
@@ -177,7 +176,7 @@ class CdsImportSupervisionServiceUnitTest {
         doAnswer(call->{delivered.set(true);return null;}).when(execution).reportOnly("run");
         // This reproduces the durable review -> dispatcher report -> review-enqueue window.
         // The actual bounded facade worker delivers the report before any review is scheduled.
-        call("schedule", new Class<?>[]{String.class, boolean.class}, "run", false); barrier();
+        call("schedule", new Class<?>[]{String.class}, "run"); barrier();
         assertThat(ledger.summary("run").get("operationTerminal")).isEqualTo(true);
         var summary=(Map<?, ?>)operatorSummary();
         assertThat(summary.get("reportsDelivered")).isEqualTo(true);
@@ -186,8 +185,7 @@ class CdsImportSupervisionServiceUnitTest {
         assertThat(summary.get("operationTerminal")).isEqualTo(false);
         assertThat(summary.get("cleanComplete")).isEqualTo(false);
         verify(execution).reportOnly("run");
-        verify(execution, never()).execute("run", false);
-        verify(execution, never()).execute("run", true);
+        verify(execution, never()).execute("run");
         verify(reviews, never()).process(anyString());
     }
     @Test void shouldKeepStoppedTerminalOutcomeAndExplicitRecoveryCode_forSupervisedFatalReview() throws Exception {

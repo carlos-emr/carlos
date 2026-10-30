@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsUploadException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -39,18 +41,29 @@ import org.springframework.stereotype.Component;
 /** CSRF-protected POST ingress; raw chunks bypass the multipart replay buffer, not security filters. */
 @Component("cdsUpload2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsUpload2Action extends ActionSupport {
+    private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsImportAccessService access;
     private final transient CdsUploadService uploads;
     private String operation, uploadId, fileName, sha256;
     private long expectedBytes, offset;
     private int bytes;
-    public CdsUpload2Action(CdsImportAccessService access, CdsUploadService uploads) { this.access = access; this.uploads = uploads; }
+    public CdsUpload2Action(CdsImportAccessService access, CdsUploadService uploads, SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager; this.access = access; this.uploads = uploads; }
 
     @Override public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST"); response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED); return NONE;
+        }
+        LoggedInInfo loggedInInfo = request.getSession(false) == null ? null
+                : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", (String) null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", (String) null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_cds_import", "w", (String) null)) {
+            throw new SecurityException("missing required sec object (_cds_import)");
         }
         try {
             String operator = CdsWeb.operator(CdsWeb.authorize(request, access));

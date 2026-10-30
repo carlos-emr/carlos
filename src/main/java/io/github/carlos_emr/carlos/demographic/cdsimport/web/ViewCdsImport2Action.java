@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.assembler.CdsImportViewModelAssembler;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -36,14 +38,25 @@ import org.springframework.stereotype.Component;
 /** Preserves the existing bookmark/menu route; stale synchronous clients never reach the old writer. */
 @Component("viewCdsImport2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class ViewCdsImport2Action extends ActionSupport {
+    private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsImportAccessService access;
     private final transient CdsImportViewModelAssembler assembler;
-    public ViewCdsImport2Action(CdsImportAccessService access, CdsImportViewModelAssembler assembler) {
+    public ViewCdsImport2Action(CdsImportAccessService access, CdsImportViewModelAssembler assembler, SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
         this.access = access; this.assembler = assembler;
     }
     @Override public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
+        LoggedInInfo loggedInInfo = request.getSession(false) == null ? null
+                : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", (String) null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", (String) null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_cds_import", "w", (String) null)) {
+            throw new SecurityException("missing required sec object (_cds_import)");
+        }
         var actor = CdsWeb.authorize(request, access);
         if (!("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))) {
             CdsWeb.json(response, 409, Map.of("ok", false, "code", "IMPORT_CLIENT_REFRESH_REQUIRED",

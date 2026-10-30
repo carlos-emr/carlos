@@ -25,6 +25,8 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportServic
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsUploadException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -41,13 +43,15 @@ import org.springframework.stereotype.Component;
 /** Bounded owner-authorized reads; DTO projections deliberately exclude physical report/detail locations. */
 @Component("cdsImportStatus2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsImportStatus2Action extends ActionSupport {
+    private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsImportAccessService access;
     private final transient CdsImportService imports;
     private final transient CdsUploadService uploads;
     private String section = "job", runId, uploadId, afterKey = "";
     private long afterId;
     private int limit = 50;
-    public CdsImportStatus2Action(CdsImportAccessService access, CdsImportService imports, CdsUploadService uploads) {
+    public CdsImportStatus2Action(CdsImportAccessService access, CdsImportService imports, CdsUploadService uploads, SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
         this.access = access; this.imports = imports; this.uploads = uploads;
     }
     @Override public String execute() throws Exception {
@@ -55,6 +59,15 @@ public class CdsImportStatus2Action extends ActionSupport {
         HttpServletResponse response = ServletActionContext.getResponse();
         if (!("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))) {
             response.setHeader("Allow", "GET, HEAD"); response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED); return NONE;
+        }
+        LoggedInInfo loggedInInfo = request.getSession(false) == null ? null
+                : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", (String) null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", (String) null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_cds_import", "w", (String) null)) {
+            throw new SecurityException("missing required sec object (_cds_import)");
         }
         try {
             var actor = CdsWeb.authorize(request, access);

@@ -48,7 +48,7 @@ class CdsImportAttemptBudgetUnitTest {
             verify(f.window,never()).allowReopen();assertEquals("EXPECTED",f.units.get(2).state());
             // A long stopped/review interval is not charged to the next explicit active attempt.
             f.clock.addAndGet(TimeUnit.DAYS.toNanos(2));when(f.ledger.pendingResumeEvent("run")).thenReturn(1L);
-            f.engine.execute("run",true);
+            f.engine.execute("run");
             assertEquals(3,f.committed());assertEquals("COMPLETE",f.state.get());
             for(int index=0;index<f.units.size();index++)verify(f.records,times(index==2?2:1)).write(eq("run"),anyLong(),eq(f.units.get(index)),any(),any(),any(),any(),any());
             verify(f.window,times(1)).allowReopen();verify(f.jobs,times(2)).loadContext("run");

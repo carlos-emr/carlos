@@ -68,13 +68,8 @@ public class CdsImportExecutionService {
         this.failureEvidence=failureEvidence; this.fields=fields; this.nanoTime=nanoTime;
     }
 
-    public CdsImportJobDto execute(String runId) { return execute(runId, false); }
-
-    /** Explicit resume never reapplies a published patient; it reconciles its own known atomic ledger. */
-    public CdsImportJobDto execute(String runId, boolean resume) {
-        // This legacy queue hint cannot replace the durable, audited resume event.
-        return executeCoordinated(runId, false);
-    }
+    /** Clinical continuation is determined by the durable, audited resume event. */
+    public CdsImportJobDto execute(String runId) { return executeCoordinated(runId, false); }
     /** A pending review may deliver stopped reports without consuming any clinical recovery intent. */
     public CdsImportJobDto reportOnly(String runId) { return executeCoordinated(runId, true); }
     private CdsImportJobDto executeCoordinated(String runId, boolean reportOnly) {

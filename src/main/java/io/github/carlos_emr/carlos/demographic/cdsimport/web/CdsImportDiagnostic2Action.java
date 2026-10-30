@@ -25,6 +25,8 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccess
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsUploadException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -40,12 +42,14 @@ import java.util.Set;
 @Component("cdsImportDiagnostic2Action")
 @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsImportDiagnostic2Action extends ActionSupport {
+    private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsImportAccessService access;
     private final transient CdsImportService imports;
     private String runId;
     private long diagnosticId;
 
-    public CdsImportDiagnostic2Action(CdsImportAccessService access, CdsImportService imports) {
+    public CdsImportDiagnostic2Action(CdsImportAccessService access, CdsImportService imports, SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
         this.access = access;
         this.imports = imports;
     }
@@ -58,6 +62,15 @@ public class CdsImportDiagnostic2Action extends ActionSupport {
             response.setHeader("Allow", "GET, HEAD");
             response.sendError(405);
             return NONE;
+        }
+        LoggedInInfo loggedInInfo = request.getSession(false) == null ? null
+                : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", (String) null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", (String) null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_cds_import", "w", (String) null)) {
+            throw new SecurityException("missing required sec object (_cds_import)");
         }
         try {
             var actor = CdsWeb.authorize(request, access);

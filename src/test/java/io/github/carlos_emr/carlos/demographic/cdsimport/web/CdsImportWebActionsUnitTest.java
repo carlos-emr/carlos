@@ -56,6 +56,14 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
+    private final io.github.carlos_emr.carlos.managers.SecurityInfoManager securityInfoManager = allowedPrivileges();
+    private static io.github.carlos_emr.carlos.managers.SecurityInfoManager allowedPrivileges() {
+        var privileges = mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        when(privileges.hasPrivilege(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.nullable(String.class))).thenReturn(true);
+        return privileges;
+    }
+
     @TempDir Path directory;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
@@ -77,18 +85,67 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
     @AfterEach void clear() { ActionContext.clear(); }
 
     @ParameterizedTest @ValueSource(strings = {"GET", "HEAD"})
+    void shouldRenderSourceFields_withPatientAndCategoryAuthorization(String method) throws Exception {
+        request.setMethod(method);
+        var assembler = mock(io.github.carlos_emr.carlos.demographic.cdsimport.assembler.CdsSourceFieldsViewModelAssembler.class);
+        var model = new io.github.carlos_emr.carlos.demographic.cdsimport.viewmodel.CdsSourceFieldsViewModel(
+                17, "Immunizations", java.util.List.of(), null, java.util.List.of(), null, "", "");
+        when(assembler.assemble(actor, 17, "Immunizations", "", "")).thenReturn(model);
+        var action = new ViewCdsSourceFields2Action(assembler, securityInfoManager);
+        action.setDemographicNo(17); action.setCategory("Immunizations");
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("model")).isSameAs(model);
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+        org.mockito.Mockito.verify(assembler).assemble(actor, 17, "Immunizations", "", "");
+    }
+
+    @Test void shouldPropagateChartSecurityDenial_fromTheSourcePage() {
+        var assembler = mock(io.github.carlos_emr.carlos.demographic.cdsimport.assembler.CdsSourceFieldsViewModelAssembler.class);
+        when(assembler.assemble(actor, 17, "Immunizations", "", "")).thenThrow(new SecurityException("chart denied"));
+        var action = new ViewCdsSourceFields2Action(assembler, securityInfoManager);
+        action.setDemographicNo(17); action.setCategory("Immunizations");
+        org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                .isInstanceOf(SecurityException.class).hasMessage("chart denied");
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"GET", "HEAD"})
+    void shouldDownloadAuthorizedOriginalSource_withHeadersAndHeadSemantics(String method) throws Exception {
+        request.setMethod(method);
+        var source = mock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsClinicalSourceService.class);
+        var field = mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportFieldDto.class);
+        String id = "a".repeat(64); byte[] original = "évidence".getBytes(StandardCharsets.UTF_8);
+        when(field.id()).thenReturn(id);
+        when(source.original(actor, 17, "Immunizations", id)).thenReturn(field);
+        when(source.contentLength(field)).thenReturn((long) original.length);
+        org.mockito.Mockito.doAnswer(call -> {
+            ((java.io.OutputStream) call.getArgument(1)).write(original); return null;
+        }).when(source).writeOriginal(org.mockito.ArgumentMatchers.same(field), org.mockito.ArgumentMatchers.any());
+        var action = new CdsSourceFieldContent2Action(source, securityInfoManager);
+        action.setDemographicNo(17); action.setCategory("Immunizations"); action.setFieldId(id);
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getHeader("Content-Disposition")).contains(id + ".bin");
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+        assertThat(response.getContentLength()).isEqualTo(original.length);
+        assertThat(response.getContentAsByteArray()).isEqualTo("HEAD".equals(method) ? new byte[0] : original);
+        org.mockito.Mockito.verify(source).original(actor, 17, "Immunizations", id);
+        org.mockito.Mockito.verify(source, org.mockito.Mockito.times("HEAD".equals(method) ? 0 : 1))
+                .writeOriginal(org.mockito.ArgumentMatchers.same(field), org.mockito.ArgumentMatchers.any());
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"GET", "HEAD"})
     void shouldRejectUnsafeMethods_withoutAnyMutationDependency(String method) throws Exception {
         request.setMethod(method);
-        var upload = new CdsUpload2Action(access, uploads);
+        var upload = new CdsUpload2Action(access, uploads, securityInfoManager);
         assertThat(upload.execute()).isEqualTo(ActionSupport.NONE); assertThat(response.getStatus()).isEqualTo(405);
         verifyNoInteractions(uploads, imports);
         response = new MockHttpServletResponse(); ActionContext.getContext().withServletResponse(response);
-        var control = new CdsImportControl2Action(access, imports);
+        var control = new CdsImportControl2Action(access, imports, securityInfoManager);
         assertThat(control.execute()).isEqualTo(ActionSupport.NONE); assertThat(response.getStatus()).isEqualTo(405);
         verifyNoInteractions(uploads, imports);
         response = new MockHttpServletResponse(); ActionContext.getContext().withServletResponse(response);
         var submissions = mock(CdsUploadSubmissionService.class);
-        var submit = new SubmitCdsImport2Action(access, submissions);
+        var submit = new SubmitCdsImport2Action(access, submissions, securityInfoManager);
         assertThat(submit.execute()).isEqualTo(ActionSupport.NONE); assertThat(response.getStatus()).isEqualTo(405);
         verifyNoInteractions(submissions);
     }
@@ -100,7 +157,7 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
                 "CLI_ACCEPTED", "a".repeat(64), "b".repeat(64), "c".repeat(64), null, 0, 0, 0, false,
                 Instant.now(), Instant.now(), 0, null, null);
         when(submissions.submit(org.mockito.ArgumentMatchers.same(actor), org.mockito.ArgumentMatchers.any())).thenReturn(job);
-        var action = new SubmitCdsImport2Action(access, submissions);
+        var action = new SubmitCdsImport2Action(access, submissions, securityInfoManager);
         action.setUploadId("22222222-2222-4222-8222-222222222222");
         action.setSourceNamespace("clinic"); action.setSourceProfile("omd-5.2"); action.setDryRun(true);
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
@@ -116,14 +173,14 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
     @Test void shouldRejectUnknownSubmissionParameters_beforeCallingTheApplicationService() throws Exception {
         request.setMethod("POST"); request.addParameter("path", "/private/source.xml");
         var submissions = mock(CdsUploadSubmissionService.class);
-        new SubmitCdsImport2Action(access, submissions).execute();
+        new SubmitCdsImport2Action(access, submissions, securityInfoManager).execute();
         assertThat(response.getStatus()).isEqualTo(400);
         verifyNoInteractions(submissions);
     }
 
     @Test void shouldRefuseLegacyPostBeforeAcceptance_whenAnOldTabSubmits() throws Exception {
         request.setMethod("POST"); var assembler = mock(CdsImportViewModelAssembler.class);
-        assertThat(new ViewCdsImport2Action(access, assembler).execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(new ViewCdsImport2Action(access, assembler, securityInfoManager).execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.getContentAsString()).contains("IMPORT_CLIENT_REFRESH_REQUIRED");
         verifyNoInteractions(assembler, imports, uploads);
@@ -133,7 +190,7 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
         var assembler = mock(CdsImportViewModelAssembler.class);
         var model = mock(io.github.carlos_emr.carlos.demographic.cdsimport.viewmodel.CdsImportViewModel.class);
         when(assembler.assemble(actor)).thenReturn(model);
-        assertThat(new ViewCdsImport2Action(access, assembler).execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(new ViewCdsImport2Action(access, assembler, securityInfoManager).execute()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(request.getAttribute("model")).isSameAs(model);
         org.mockito.Mockito.verify(assembler).assemble(actor);
         verifyNoInteractions(imports, uploads);
@@ -141,7 +198,7 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
 
     @Test void shouldRefuseDuplicateAndUnknownParameters_withoutUploadWrites() throws Exception {
         request.setMethod("POST"); request.addParameter("operation", "begin", "finish");
-        var action = new CdsUpload2Action(access, uploads); action.setOperation("begin");
+        var action = new CdsUpload2Action(access, uploads, securityInfoManager); action.setOperation("begin");
         action.execute(); assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(uploads);
     }
 
@@ -171,7 +228,7 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
         // An adapter that splits these calls can combine an older generation with a terminal summary.
         when(imports.status(actor, run)).thenThrow(new AssertionError("separate status snapshot"));
         when(imports.summary(actor, run)).thenThrow(new AssertionError("separate summary snapshot"));
-        var action=new CdsImportStatus2Action(access, imports, uploads); action.setRunId(run);
+        var action=new CdsImportStatus2Action(access, imports, uploads, securityInfoManager); action.setRunId(run);
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentAsString()).contains("\"apiVersion\":2", "\"reportGeneration\":2",
@@ -184,27 +241,27 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest @ValueSource(strings={"TRUE","1","invalid",""})
     void shouldRejectMalformedBackgroundFlags_beforeReadingJobData(String flag) throws Exception {
         request.addParameter("autoRefresh",flag);
-        var action=new CdsImportStatus2Action(access,imports,uploads);
+        var action=new CdsImportStatus2Action(access,imports,uploads, securityInfoManager);
         action.setRunId("11111111-1111-4111-8111-111111111111");action.execute();
         assertThat(response.getStatus()).isEqualTo(400);verifyNoInteractions(imports,uploads);
     }
 
     @Test void shouldRejectRepeatedBackgroundFlags_beforeReadingJobData() throws Exception {
         request.addParameter("autoRefresh","true","false");
-        new CdsImportStatus2Action(access,imports,uploads).execute();
+        new CdsImportStatus2Action(access,imports,uploads, securityInfoManager).execute();
         assertThat(response.getStatus()).isEqualTo(400);verifyNoInteractions(imports,uploads);
     }
 
     @Test void shouldReturnUnauthorizedWithoutRawExceptionDetails_whenSessionIsAbsent() throws Exception {
         request.setMethod("POST"); request.getSession().invalidate(); request.setSession(null);
-        new CdsUpload2Action(access, uploads).execute();
+        new CdsUpload2Action(access, uploads, securityInfoManager).execute();
         assertThat(response.getStatus()).isEqualTo(401); verifyNoInteractions(uploads);
         assertThat(response.getContentAsString()).doesNotContain("Exception", "java.");
     }
 
     @Test void shouldReturnRequiredReportError_withoutAcceptingAPathParameter() throws Exception {
         request.addParameter("path", "/private/secret");
-        var report = new CdsImportReport2Action(access, imports); report.setRunId("11111111-1111-4111-8111-111111111111"); report.setType("event");
+        var report = new CdsImportReport2Action(access, imports, securityInfoManager); report.setRunId("11111111-1111-4111-8111-111111111111"); report.setType("event");
         report.execute(); assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(imports);
         assertThat(response.getContentAsString()).doesNotContain("/private");
     }
@@ -217,7 +274,7 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
         request.setMethod(method); request.removeParameter(CdsWeb.API_VERSION_PARAMETER);
         request.addParameter("runId", run); request.addParameter("type", "units");
         when(imports.report(actor, run, "units")).thenReturn(file);
-        var report=new CdsImportReport2Action(access, imports); report.setRunId(run); report.setType("units");
+        var report=new CdsImportReport2Action(access, imports, securityInfoManager); report.setRunId(run); report.setType("units");
         report.execute();
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentType()).isEqualTo("application/octet-stream");
@@ -238,7 +295,7 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
         else if ("nonoperator".equals(principal)) org.mockito.Mockito.doThrow(new SecurityException("private access detail"))
                 .when(access).requireOperatorSession(actor);
         else when(imports.report(actor, run, "units")).thenThrow(new SecurityException("private ownership detail"));
-        var report=new CdsImportReport2Action(access, imports); report.setRunId(run); report.setType("units"); report.execute();
+        var report=new CdsImportReport2Action(access, imports, securityInfoManager); report.setRunId(run); report.setType("units"); report.execute();
         assertThat(response.getStatus()).isEqualTo("anonymous".equals(principal)?401:403);
         assertThat(response.getHeader("Content-Disposition")).isNull();
         assertThat(response.getContentAsString()).doesNotContain("private", "unitKey", "Exception");
@@ -249,7 +306,7 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
         String run="11111111-1111-4111-8111-111111111111";
         when(imports.diagnosticEvidence(actor, run, 7L)).thenReturn(Map.of("version", 1, "ownerEpoch", 2,
                 "causes", java.util.List.of(Map.of("type", "java.sql.SQLException", "sqlState", "45000", "frames", java.util.List.of("Known#method:12")))));
-        var action=new CdsImportDiagnostic2Action(access, imports); action.setRunId(run); action.setDiagnosticId(7L);
+        var action=new CdsImportDiagnostic2Action(access, imports, securityInfoManager); action.setRunId(run); action.setDiagnosticId(7L);
         action.execute();
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentAsString()).contains("45000", "Known#method:12").doesNotContain("protectedDetailLocation", "/private");
@@ -259,7 +316,7 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
 
     @Test void shouldRefuseEvidencePathInjection_andUnsafeMethodBeforeEvidenceReads() throws Exception {
         request.addParameter("path", "/private/secret");
-        var action=new CdsImportDiagnostic2Action(access, imports); action.setRunId("11111111-1111-4111-8111-111111111111"); action.setDiagnosticId(7L);
+        var action=new CdsImportDiagnostic2Action(access, imports, securityInfoManager); action.setRunId("11111111-1111-4111-8111-111111111111"); action.setDiagnosticId(7L);
         action.execute(); assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(imports);
         request.setMethod("POST"); response=new MockHttpServletResponse(); ActionContext.getContext().withServletResponse(response);
         action.execute(); assertThat(response.getStatus()).isEqualTo(405); verifyNoInteractions(imports);

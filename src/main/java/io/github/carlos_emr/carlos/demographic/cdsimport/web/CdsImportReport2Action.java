@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsUploadException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAccessService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -40,15 +42,26 @@ import org.springframework.stereotype.Component;
 /** Authorized durable run-ID download; no temporary basename or caller-controlled path is accepted. */
 @Component("cdsImportReport2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsImportReport2Action extends ActionSupport {
+    private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsImportAccessService access;
     private final transient CdsImportService imports;
     private String runId, type;
-    public CdsImportReport2Action(CdsImportAccessService access, CdsImportService imports) { this.access = access; this.imports = imports; }
+    public CdsImportReport2Action(CdsImportAccessService access, CdsImportService imports, SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager; this.access = access; this.imports = imports; }
     @Override public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         if (!("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))) {
             response.setHeader("Allow", "GET, HEAD"); response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED); return NONE;
+        }
+        LoggedInInfo loggedInInfo = request.getSession(false) == null ? null
+                : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", (String) null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", (String) null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_cds_import", "w", (String) null)) {
+            throw new SecurityException("missing required sec object (_cds_import)");
         }
         try {
             var actor = CdsWeb.authorize(request, access);

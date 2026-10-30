@@ -124,8 +124,6 @@ class UploadActionBindingSecurityUnitTest {
     private static Stream<BindingMethod> uploadBindingMethods() {
         return Stream.of(
                 binding("io.github.carlos_emr.carlos.admin.web.ManageFlowsheetsUpload2Action", "withUploadedFiles", List.class),
-                binding("io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action", "setImportFile", File.class),
-                binding("io.github.carlos_emr.carlos.demographic.pageUtil.ImportDemographicDataAction42Action", "setImportFileFileName", String.class),
                 binding("io.github.carlos_emr.carlos.eform.upload.HtmlUpload2Action", "setFormHtml", File.class),
                 binding("io.github.carlos_emr.carlos.eform.upload.HtmlUpload2Action", "setFormHtmlContentType", String.class),
                 binding("io.github.carlos_emr.carlos.eform.upload.HtmlUpload2Action", "setFormHtmlFileName", String.class),

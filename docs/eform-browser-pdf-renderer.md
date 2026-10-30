@@ -664,8 +664,7 @@ preview flows. Each cycle sweeps two locations:
   `PathValidationUtils.APPLICATION_TEMP_ROOT_NAME`) — every direct child (file or directory,
   regardless of name) older than the max age is removed. This root is exclusively CARLOS-owned
   (`NioFileManagerImpl.saveTempFile`'s `tempPDF*` subdirectories and `createTempFile`'s
-  `tempDirectory*` subdirectories, the latter used by `ImportDemographicDataAction42Action` to
-  stage multi-patient demographic import files), so there is no name-prefix gate — any old-enough
+  `tempDirectory*` subdirectories for generated working files), so there is no name-prefix gate — any old-enough
   direct child is a purgeable orphan.
 - **Document preview cache** (`document_cache`, see
   `NioFileManagerImpl.resolveDocumentCacheDirectory()`) — stale `*.png` files older than the max

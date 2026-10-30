@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.web;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsClinicalSourceService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsWeb;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.Set;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -34,12 +36,19 @@ import org.springframework.stereotype.Component;
 /** Original logical value download uses exact patient/category/opaque field ownership and bounded streaming. */
 @Component("cdsSourceFieldContent2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsSourceFieldContent2Action extends ActionSupport {
+    private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsClinicalSourceService source;
     private int demographicNo; private String category, fieldId;
-    public CdsSourceFieldContent2Action(CdsClinicalSourceService source){this.source=source; }
+    public CdsSourceFieldContent2Action(CdsClinicalSourceService source, SecurityInfoManager securityInfoManager){
+        this.securityInfoManager = securityInfoManager; this.source=source; }
     @Override public String execute() throws Exception {
         var request=ServletActionContext.getRequest(); var response=ServletActionContext.getResponse();
         if (!("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))){response.setHeader("Allow", "GET, HEAD"); response.sendError(405); return NONE; }
+        LoggedInInfo loggedInInfo = request.getSession(false) == null ? null
+                : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", (String) null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
         try {
             var actor=CdsWeb.authenticated(request); CdsWeb.readOnlyParameters(request, Set.of("demographicNo", "category", "fieldId"));
             var field=source.original(actor, demographicNo, category, fieldId);

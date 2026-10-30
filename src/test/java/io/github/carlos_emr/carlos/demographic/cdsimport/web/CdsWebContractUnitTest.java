@@ -49,6 +49,14 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 class CdsWebContractUnitTest extends CarlosUnitTestBase {
+    private final io.github.carlos_emr.carlos.managers.SecurityInfoManager securityInfoManager = allowedPrivileges();
+    private static io.github.carlos_emr.carlos.managers.SecurityInfoManager allowedPrivileges() {
+        var privileges = mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        when(privileges.hasPrivilege(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.nullable(String.class))).thenReturn(true);
+        return privileges;
+    }
+
     static Stream<Arguments> unsupportedVersions() {
         return Stream.of(
                 Arguments.of((Object) null), Arguments.of((Object) new String[0]),
@@ -81,11 +89,11 @@ class CdsWebContractUnitTest extends CarlosUnitTestBase {
             var response = new MockHttpServletResponse();
             ActionContext.of().withServletRequest(request).withServletResponse(response).bind();
             if ("submit".equals(operation)) {
-                new SubmitCdsImport2Action(access, submissions).execute();
+                new SubmitCdsImport2Action(access, submissions, securityInfoManager).execute();
             } else if (Set.of("resume", "cancel", "review").contains(operation)) {
-                var action = new CdsImportControl2Action(access, imports); action.setOperation(operation); action.execute();
+                var action = new CdsImportControl2Action(access, imports, securityInfoManager); action.setOperation(operation); action.execute();
             } else {
-                var action = new CdsUpload2Action(access, uploads); action.setOperation(operation); action.execute();
+                var action = new CdsUpload2Action(access, uploads, securityInfoManager); action.setOperation(operation); action.execute();
             }
             assertThat(response.getStatus()).as(operation).isEqualTo(409);
             assertThat(response.getHeader(CdsWeb.API_VERSION_HEADER)).isEqualTo("2");
@@ -123,7 +131,7 @@ class CdsWebContractUnitTest extends CarlosUnitTestBase {
         request.addParameter("apiVersion", "2"); request.addParameter("operation", "begin");
         var response = new MockHttpServletResponse();
         var uploads = mock(CdsUploadService.class);
-        var action = org.mockito.Mockito.spy(new CdsUpload2Action(mock(CdsImportAccessService.class), uploads));
+        var action = org.mockito.Mockito.spy(new CdsUpload2Action(mock(CdsImportAccessService.class), uploads, securityInfoManager));
         var previous = ActionContext.getContext();
         var previousDispatcher = org.apache.struts2.dispatcher.Dispatcher.getInstance();
         var dispatcher = new org.apache.struts2.dispatcher.Dispatcher(request.getServletContext(),

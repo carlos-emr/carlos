@@ -372,9 +372,7 @@ public class CdsImportLedgerService {
     }
 
     /** Claim preflight without allowing clinical units; all native writes still require the final seal. */
-    public long claimPlanning(String runId) { return claimPlanning(runId, false); }
-
-    public long claimPlanning(String runId, boolean resume) { return claimPlanningOwner(runId, false); }
+    public long claimPlanning(String runId) { return claimPlanningOwner(runId, false); }
     /** Finish an already accepted administrative review without erasing a later cancellation. */
     public long claimReviewPlanning(String runId) { return claimPlanningOwner(runId, true); }
     private long claimPlanningOwner(String runId, boolean reviewAdministrative) {

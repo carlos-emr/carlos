@@ -267,7 +267,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
    engine.execute(id);check(ledger.status(id).ownerEpoch()==originalEpoch,"live coordinator prevents takeover");org.mockito.Mockito.verifyNoInteractions(jobs,nativeRecords);
    liveCoordinator.close();engine.execute(id);check(ledger.status(id).ownerEpoch()==originalEpoch && ledger.ownsAdmission(id,originalEpoch),"lost coordinator with a live maintenance owner cannot fence/release its unit owner");
    ledger.cancel(id);check(ledger.pendingResumeEvent(id)==0 && !Boolean.TRUE.equals(ledger.summary(id).get("resumeRequested")),"later Cancel retires the queued Resume");
-   liveWindow.close();engine.execute(id,true);
+   liveWindow.close();engine.execute(id);
    check(ledger.status(id).cancelRequested() && ledger.status(id).ownerEpoch()==originalEpoch && countNative()==before+1 && ledger.isHeld(job.target),"later Cancel wins after actual dead-owner acquisition without replaying unknown commit");
    org.mockito.Mockito.verify(nativeRecords,org.mockito.Mockito.never()).write(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyLong(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.anyString());
    ledger.control(id,actor,"RESUME_REQUESTED",()->ledger.requestResumeParticipating(id));
@@ -464,13 +464,13 @@ class CdsImportLedgerMariaDbIntegrationTest {
   check("FAILED_BEFORE_WRITE".equals(ledger.status(id).state()),"authorization loss durable before writes");
   check("NOT_STARTED".equals(ledger.patientStatus(id,"patient").state()),"authorization stop accounts untouched patient");
   ledger.requestResume(id);ledger.cancel(id);
-  expect("IMPORT_CANCELLED",()->ledger.claimPlanning(id,true));
+  expect("IMPORT_CANCELLED",()->ledger.claimPlanning(id));
   check(ledger.status(id).ownerEpoch()==epoch,"queued preflight resume cannot erase later cancellation");
   ledger.requestResume(id);
-  long resumed=ledger.claimPlanning(id,true);ledger.resolveReauthorizedAccess(id,resumed);ledger.preparePreflightResume(id,resumed);
+  long resumed=ledger.claimPlanning(id);ledger.resolveReauthorizedAccess(id,resumed);ledger.preparePreflightResume(id,resumed);
   check("PLANNED".equals(ledger.patientStatus(id,"patient").state()),"fresh authorization reopens only administrative preflight");
   ledger.endPreflight(id,resumed,"FAILED_BEFORE_WRITE","SYNTHETIC_IO_STOP");ledger.release(id,resumed);
-  long retry=ledger.claimPlanning(id,true);ledger.preparePreflightResume(id,retry);
+  long retry=ledger.claimPlanning(id);ledger.preparePreflightResume(id,retry);
   expect("PREFLIGHT_REVALIDATION_REQUIRED",()->ledger.resolveRevalidatedPreflightStops(id,retry,C));
   ledger.discovery(id,retry,1,1,1);ledger.resolveRevalidatedPreflightStops(id,retry,C);
   check(((Number)ledger.summary(id).get("unresolvedReviewItems")).longValue()==0,"only live-auth and complete revalidation proofs retire supervision stops");ledger.release(id,retry);
@@ -571,7 +571,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
   catch(IllegalStateException expected) { check(A.equals(ledger.unwrittenRevision(next,epoch,source,copy,B).oldSourceDigest()),"strict audit failure rolls back canonical revision"); }
   CdsImportLedgerService.template(commitFault).executeWithoutResult(status->ledger.approveUnwrittenRevision(next,epoch,1,source,copy,A,B,C,B));
   check("PLANNED".equals(ledger.planPatient(next,epoch,patient,source,copy,B).state()),"approved conflict row becomes an eligible administrative plan only after canonical CAS");ledger.release(next,epoch);
-  String unit=CdsImportKeys.hash(source,"old-unit");long obsolete=ledger.claimPlanning(old,true);ledger.planUnit(old,obsolete,patient,unit,"Demographics",1,A,"/opaque/old-unit");ledger.seal(old,obsolete,C,1,1);
+  String unit=CdsImportKeys.hash(source,"old-unit");long obsolete=ledger.claimPlanning(old);ledger.planUnit(old,obsolete,patient,unit,"Demographics",1,A,"/opaque/old-unit");ledger.seal(old,obsolete,C,1,1);
   long execution=ledger.acquire(old);
   expect("SOURCE_REVISION_REVIEW_REQUIRED",()->units.execute(old,execution,unit,()->{throw new AssertionError("Superseded source clinical write");},CdsImportLedgerMariaDbIntegrationTest::verify));
   check(sql.queryForObject("select count(*) from cds_import_checkpoint where lineage_key=?",Long.class,patient)==0,"superseded zero-write plan cannot create clinical checkpoint");ledger.release(old,execution);

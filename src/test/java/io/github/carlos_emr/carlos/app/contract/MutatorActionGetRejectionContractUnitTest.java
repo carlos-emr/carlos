@@ -664,6 +664,14 @@ class MutatorActionGetRejectionContractUnitTest {
      * {@link #CONDITIONAL_MUTATORS} entry instead.
      */
     private static final Set<String> NON_MUTATOR_GATES = Set.of(
+        // CDS reads retain GET/HEAD; only the three upload/control/submission actions mutate.
+        "io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsImportReport2Action",
+        "io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsImportDiagnostic2Action",
+        "io.github.carlos_emr.carlos.demographic.cdsimport.web.ViewCdsImport2Action",
+        "io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsImportStatus2Action",
+        "io.github.carlos_emr.carlos.demographic.cdsimport.web.LegacyCdsImportLog2Action",
+        "io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsSourceFieldContent2Action",
+        "io.github.carlos_emr.carlos.demographic.cdsimport.web.ViewCdsSourceFields2Action",
         "io.github.carlos_emr.carlos.encounter.pageUtil.FormExists2Action",
         // Read-scope gates — permit GET, only 405 truly unsupported methods.
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action",
