@@ -950,7 +950,7 @@
         <%
             String signatureRequestId = "";
             String imageUrl = "";
-            signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
+            signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(session);
             imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + signatureRequestId;
 
             // Faxing persists a FaxJob, so FrmCustomedPDFServlet requires _rx WRITE for the script's
@@ -1576,7 +1576,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                         <% //vecAddress=null;
                                             if (vecAddress != null) { %>
                                         <tr>
-                                            <td align="left" colspan=2><label for="addressSel"><fmt:message key="ViewScript.msgAddress"/></label>
+                                            <td style="text-align:left;" colspan=2><label for="addressSel"><fmt:message key="ViewScript.msgAddress"/></label>
                                                 <select name="addressSel" id="addressSel" onChange="addressSelect(true)"
                                                         style="width:200px;">
                                                     <% String rxAddr = appointmentAddressIndex != null

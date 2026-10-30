@@ -27,7 +27,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,8 +41,10 @@ import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import org.springframework.mock.web.MockHttpSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -52,9 +56,10 @@ import static org.mockito.Mockito.when;
  * array persisted trailing padding) and a payload larger than that array (which would have been
  * truncated). The image is PHI, so an exact copy matters clinically and legally.</p>
  *
- * <p>The temp file is written to the real {@code java.io.tmpdir} under a unique request id (and
- * deleted afterward) because {@link DigitalSignatureUtils#getTempFilePath} derives the path from
- * that system property; the persisting DAO is mocked via {@link CarlosUnitTestBase}.</p>
+ * <p>The temp file is written to the real {@code java.io.tmpdir} under a request id issued to the
+ * test's session (and deleted afterward) because {@link DigitalSignatureUtils#getTempFilePath}
+ * derives the path from that system property; the persisting DAO is mocked via
+ * {@link CarlosUnitTestBase}. Also covers how request ids are issued to a session and checked.</p>
  *
  * @since 2026-06-01
  */
@@ -64,6 +69,7 @@ class DigitalSignatureUtilsUnitTest extends CarlosUnitTestBase {
     private static final int DEMOGRAPHIC_ID = 1373;
 
     private LoggedInInfo loggedInInfo;
+    private MockHttpSession session;
     private final List<Path> writtenFiles = new ArrayList<>();
 
     @BeforeEach
@@ -72,9 +78,11 @@ class DigitalSignatureUtilsUnitTest extends CarlosUnitTestBase {
         when(facility.isEnableDigitalSignatures()).thenReturn(true);
         when(facility.getId()).thenReturn(1);
 
+        session = new MockHttpSession();
         loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getCurrentFacility()).thenReturn(facility);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        when(loggedInInfo.getSession()).thenReturn(session);
 
         // storeDigitalSignatureFromTempFileToDB persists via SpringUtils.getBean(DigitalSignatureDao.class).
         createAndRegisterMock(DigitalSignatureDao.class);
@@ -88,17 +96,67 @@ class DigitalSignatureUtilsUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should start generated request ID with provider number")
-    void shouldStartGeneratedRequestId_withProviderNumber() {
-        String result = DigitalSignatureUtils.generateSignatureRequestId("999998");
-        assertThat(result).startsWith("999998");
+    @DisplayName("should issue random 32-character hex request IDs")
+    void shouldIssueRandomHexRequestIds_forEachCall() {
+        Set<String> ids = new HashSet<>();
+        for (int i = 0; i < 50; i++) {
+            ids.add(DigitalSignatureUtils.generateSignatureRequestId(session));
+        }
+
+        assertThat(ids)
+                .hasSize(50)
+                .allMatch(id -> id.matches("[0-9a-f]{32}"))
+                .noneMatch(id -> id.startsWith("999998"));
     }
 
     @Test
-    @DisplayName("should include timestamp component in generated request ID")
-    void shouldIncludeTimestampComponent_inGeneratedRequestId() {
-        String result = DigitalSignatureUtils.generateSignatureRequestId("111");
-        assertThat(result.length()).isGreaterThan(3);
+    @DisplayName("should accept a request ID only in the session it was issued to")
+    void shouldAcceptRequestId_onlyInItsOwnSession() {
+        String issued = DigitalSignatureUtils.generateSignatureRequestId(session);
+
+        assertThat(DigitalSignatureUtils.isIssued(session, issued)).isTrue();
+        assertThat(DigitalSignatureUtils.isIssued(new MockHttpSession(), issued)).isFalse();
+        assertThat(DigitalSignatureUtils.isIssued(null, issued)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should refuse request IDs that were never issued")
+    void shouldRefuseRequestIds_whenNeverIssued() {
+        DigitalSignatureUtils.generateSignatureRequestId(session);
+
+        assertThat(DigitalSignatureUtils.isIssued(session, "00000000000000000000000000000000")).isFalse();
+        assertThat(DigitalSignatureUtils.isIssued(session, "9999981700000000000")).isFalse();
+        assertThat(DigitalSignatureUtils.isIssued(session, "")).isFalse();
+        assertThat(DigitalSignatureUtils.isIssued(session, null)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should refuse any request ID in a session never issued one, and store nothing in it")
+    void shouldRefuseRequestId_whenSessionWasNeverIssuedOne() {
+        MockHttpSession fresh = new MockHttpSession();
+
+        assertThat(DigitalSignatureUtils.isIssued(fresh, "0123456789abcdef".repeat(2))).isFalse();
+        assertThat(fresh.getAttribute(DigitalSignatureUtils.ISSUED_REQUEST_IDS_ATTRIBUTE)).isNull();
+    }
+
+    @Test
+    @DisplayName("should keep only the most recent request IDs in a session")
+    void shouldKeepOnlyRecentRequestIds_whenManyAreIssued() {
+        String first = DigitalSignatureUtils.generateSignatureRequestId(session);
+        String last = first;
+        for (int i = 0; i < DigitalSignatureUtils.MAX_ISSUED_REQUEST_IDS; i++) {
+            last = DigitalSignatureUtils.generateSignatureRequestId(session);
+        }
+
+        assertThat(DigitalSignatureUtils.isIssued(session, first)).isFalse();
+        assertThat(DigitalSignatureUtils.isIssued(session, last)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should refuse to issue a request ID without a session")
+    void shouldRefuseToIssueRequestId_withoutSession() {
+        assertThatThrownBy(() -> DigitalSignatureUtils.generateSignatureRequestId(null))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -126,7 +184,7 @@ class DigitalSignatureUtilsUnitTest extends CarlosUnitTestBase {
     void shouldPersistExactBytes_forSmallPayload() throws IOException {
         byte[] expected = "small-signature-bytes".getBytes(StandardCharsets.UTF_8);
 
-        DigitalSignature result = storeSignature("small", expected);
+        DigitalSignature result = storeSignature(expected);
 
         assertThat(result).isNotNull();
         assertThat(result.getSignatureImage()).isEqualTo(expected);
@@ -141,19 +199,32 @@ class DigitalSignatureUtilsUnitTest extends CarlosUnitTestBase {
             expected[i] = (byte) (i % 256);
         }
 
-        DigitalSignature result = storeSignature("large", expected);
+        DigitalSignature result = storeSignature(expected);
 
         assertThat(result).isNotNull();
         assertThat(result.getSignatureImage()).hasSameSizeAs(expected);
         assertThat(result.getSignatureImage()).isEqualTo(expected);
     }
 
+    @Test
+    @DisplayName("should store nothing for a request ID not issued to the session")
+    void shouldStoreNothing_whenRequestIdWasNotIssued() throws IOException {
+        String foreign = DigitalSignatureUtils.generateSignatureRequestId(new MockHttpSession());
+        Path file = Paths.get(DigitalSignatureUtils.getTempFilePath(foreign));
+        writtenFiles.add(file);
+        Files.write(file, "foreign-signature".getBytes(StandardCharsets.UTF_8));
+
+        assertThat(DigitalSignatureUtils.storeDigitalSignatureFromTempFileToDB(loggedInInfo, foreign, DEMOGRAPHIC_ID))
+                .isNull();
+    }
+
     /**
      * Writes {@code bytes} to the temp path the production code will read, then runs the store method.
-     * Uses a unique request id so concurrent tests do not collide on the shared temp directory.
+     * Uses a fresh request id issued to the test session, so concurrent tests do not collide on the
+     * shared temp directory.
      */
-    private DigitalSignature storeSignature(String idPrefix, byte[] bytes) throws IOException {
-        String signatureRequestId = "junit" + idPrefix + System.nanoTime();
+    private DigitalSignature storeSignature(byte[] bytes) throws IOException {
+        String signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(session);
         Path file = Paths.get(DigitalSignatureUtils.getTempFilePath(signatureRequestId));
         writtenFiles.add(file);
         Files.write(file, bytes);

@@ -68,6 +68,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>405 — non-POST method</li>
  *   <li>400 — missing/non-alphanumeric {@code signatureKey}, or malformed
  *       {@code demographicNo} when {@code saveToDB=true}</li>
+ *   <li>403 — {@code signatureKey} was not issued to this session by the page
+ *       that opened the pad ({@link DigitalSignatureUtils#isIssued})</li>
  *   <li>400 — malformed {@code data:} URI or non-Base64 {@code signatureImage}
  *       on the IPAD branch</li>
  *   <li>413 — raw-stream upload exceeds {@value #MAX_UPLOAD_BYTES} bytes</li>
@@ -131,6 +133,14 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             return NONE;
         }
 
+        // Only a key this session was given by the page that opened the pad is accepted, so a
+        // capture is written for, and read back by, that page alone.
+        if (!DigitalSignatureUtils.isIssued(request.getSession(false), signatureKey)) {
+            MiscUtils.getLogger().warn("Refused a signature upload whose key was not issued to this session");
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Unknown signature request");
+            return NONE;
+        }
+
         String filename = DigitalSignatureUtils.getTempFilePath(signatureKey);
 
         // Defence-in-depth: confirm the resolved path is within the temp directory,
@@ -165,7 +175,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
             try {
                 imageData = new Base64().decode(encoded.getBytes(StandardCharsets.US_ASCII));
             } catch (IllegalArgumentException e) {
-                MiscUtils.getLogger().warn("Invalid Base64 signatureImage for key {}", LogSafe.sanitize(signatureKey)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                MiscUtils.getLogger().warn("Invalid Base64 signatureImage in a signature upload");
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid image data");
                 return NONE;
             }
@@ -245,8 +255,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 // Manager documents null-return on expected failures; any propagated
                 // RuntimeException is an unexpected failure mode (e.g. encryption,
                 // DB connectivity). Delete the orphan temp file before surfacing 500.
-                MiscUtils.getLogger().error("Digital signature persist failed for key {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-                        LogSafe.sanitize(signatureKey), e);
+                MiscUtils.getLogger().error("Digital signature persist failed for a signature upload", e);
                 deleteQuietly(safeTarget);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Save failed");
                 return NONE;
@@ -257,8 +266,7 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
                 // exception. The file upload succeeded but persistence did not —
                 // surface 500 rather than returning an empty signatureId that the
                 // caller has no way to distinguish from a successful save.
-                MiscUtils.getLogger().warn("Digital signature persist returned null for key {}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-                        LogSafe.sanitize(signatureKey));
+                MiscUtils.getLogger().warn("Digital signature persist returned null for a signature upload");
                 deleteQuietly(safeTarget);
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Save failed");
                 return NONE;
