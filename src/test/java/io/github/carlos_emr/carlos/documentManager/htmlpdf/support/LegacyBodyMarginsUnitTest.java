@@ -30,7 +30,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.time.Duration;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 /**
  * Unit tests for {@link LegacyBodyMargins}: the {@code <body leftmargin="0" topmargin="0">} attributes of the
@@ -132,5 +135,15 @@ class LegacyBodyMarginsUnitTest {
         LegacyBodyMargins.rule(document);
 
         assertThat(document.outerHtml()).isEqualTo(before);
+    }
+
+    @Test
+    @DisplayName("should reject a number followed by a very long run of white space and a letter in linear time")
+    void shouldRejectLongWhitespaceRun_inLinearTime() {
+        // With the quantifiers that gave back what they took, 60,000 spaces cost seconds (the square of their number).
+        String hostile = "1" + " ".repeat(60_000) + "x";
+
+        assertTimeoutPreemptively(Duration.ofSeconds(2), () ->
+                assertThat(LegacyBodyMargins.rule(page("leftmargin=\"" + hostile + "\""))).isEmpty());
     }
 }

@@ -546,9 +546,9 @@ class PrintImageService {
         // -- converted -----------------------------------------------------------------------
 
         private Optional<Written> convertOnce(PlannedImage image, int subsampling) throws IOException {
-            Optional<Written> existing = written.get(image.key());
-            if (existing != null) {
-                return existing;
+            // A failed conversion is remembered too (as an empty Optional), so a source is tried once.
+            if (written.containsKey(image.key())) {
+                return written.get(image.key());
             }
             Optional<Written> result = convert(image, subsampling);
             written.put(image.key(), result);
@@ -595,8 +595,10 @@ class PrintImageService {
                 SvgViewBox.sizeFromViewBox(image.element());
                 return;
             }
-            Optional<Written> result = written.get(image.key());
-            if (result == null) {
+            Optional<Written> result;
+            if (written.containsKey(image.key())) {
+                result = written.get(image.key());
+            } else {
                 result = writeCleanedSvg(image);
                 written.put(image.key(), result);
             }
@@ -728,7 +730,7 @@ class PrintImageService {
      */
     static byte[] readAtMost(Path file, long limit) {
         try (InputStream in = Files.newInputStream(file)) {
-            byte[] bytes = in.readNBytes((int) Math.min(limit + 1, Integer.MAX_VALUE - 8));
+            byte[] bytes = in.readNBytes((int) Math.min(limit + 1, Integer.MAX_VALUE - 8L));
             return bytes.length > limit ? null : bytes;
         } catch (IOException | RuntimeException e) {
             return null;

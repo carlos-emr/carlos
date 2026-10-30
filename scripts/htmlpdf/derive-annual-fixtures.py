@@ -81,6 +81,49 @@ TEXTAREA_VALUES = {
 }
 
 
+ASCII_LOWER = str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz")
+
+# What ends a tag's name in HTML: white space, a slash or the end of the tag.
+TAG_NAME_END = " \t\r\n\f/>"
+
+
+def find_tag(lowered, name, start):
+    """The index of the next tag called `name` (`<script` or `</script`) from `start` on, or -1.
+
+    `lowered` is the text with its ASCII letters in lower case. The name ends where an HTML tokenizer ends it,
+    so `<scripts>` is another tag.
+    """
+    index = lowered.find(name, start)
+    while index >= 0:
+        end = index + len(name)
+        if end == len(lowered) or lowered[end] in TAG_NAME_END:
+            return index
+        index = lowered.find(name, index + 1)
+    return -1
+
+
+def remove_script_elements(text):
+    """Removes every `<script>` element with its content.
+
+    The tags are found as a browser finds them, not with a pattern over the markup: in any letter case, with
+    attributes in the start tag and white space or attributes in the end tag (`</SCRIPT >`).
+    """
+    lowered = text.translate(ASCII_LOWER)
+    kept, position = [], 0
+    while True:
+        start = find_tag(lowered, "<script", position)
+        if start < 0:
+            break
+        end = find_tag(lowered, "</script", start + len("<script"))
+        close = lowered.find(">", end) if end >= 0 else -1
+        if close < 0:
+            raise SystemExit("an unterminated <script> element")
+        kept.append(text[position:start])
+        position = close + 1
+    kept.append(text[position:])
+    return "".join(kept)
+
+
 def load_messages():
     messages = {}
     for line in BUNDLE.read_text(encoding="utf-8").splitlines():
@@ -163,8 +206,7 @@ def derive(kind, messages):
         raise SystemExit(f"formannual{kind}.jsp: unevaluated JSP left: {leftovers[:3]}")
 
     # A scripted page: keep a trimmed script block so the render's script removal is exercised.
-    text = re.sub(r"<script\b[^>]*src=[^>]*></script>", "", text)
-    text = re.sub(r"<script\b.*?</script>", "", text, flags=re.S)
+    text = remove_script_elements(text)
     text = text.replace("</head>", '<script type="text/javascript">function onPrint() { window.print(); }</script>\n</head>', 1)
     # The icon and the absolute base link are not part of a printed page's resources.
     text = re.sub(r"<link rel=\"icon\"[^>]*>", "", text)

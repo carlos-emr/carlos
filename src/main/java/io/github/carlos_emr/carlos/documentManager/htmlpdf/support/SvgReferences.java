@@ -49,6 +49,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -144,6 +145,24 @@ public final class SvgReferences {
         public byte[] svg() {
             return svg.clone();
         }
+
+        /** Equal when the documents hold the same bytes (a record would compare the array's identity). */
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof Cleaned that && removedReferences == that.removedReferences
+                    && Arrays.equals(svg, that.svg);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * Boolean.hashCode(removedReferences) + Arrays.hashCode(svg);
+        }
+
+        /** The size, never the document: it is a patient's record. */
+        @Override
+        public String toString() {
+            return "Cleaned[svgBytes=" + svg.length + ", removedReferences=" + removedReferences + "]";
+        }
     }
 
     // ---- standalone SVG ---------------------------------------------------------------------
@@ -184,6 +203,7 @@ public final class SvgReferences {
         // written back without its document type; external ones are never loaded.
         factory.setExpandEntityReferences(true);
         DocumentBuilder builder = factory.newDocumentBuilder();
+        // nosemgrep: java.lang.security.audit.xml-custom-entityresolver.xml-custom-entityresolver -- this resolver is a protection, not a loader: it answers every external entity and DTD with an empty document, so nothing is ever fetched
         builder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
         builder.setErrorHandler(new ErrorHandler() {
             @Override

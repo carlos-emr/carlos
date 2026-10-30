@@ -25,6 +25,8 @@ import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.ImageHeader;
 import org.jsoup.nodes.Element;
 
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Objects;
 
 /**
  * The decision for one element of the document, made without writing anything.
@@ -49,4 +51,36 @@ import java.nio.file.Path;
  */
 record PlannedImage(Element element, ImageOutcome outcome, Path file, byte[] data, ImageHeader header,
         int subsampling, int orientation, long charge, String reason, String key) {
+
+    /** Component-wise equality, with the payload compared by content (a record would compare the array's identity). */
+    @Override
+    public boolean equals(Object other) {
+        return other instanceof PlannedImage that
+                && Objects.equals(element, that.element)
+                && outcome == that.outcome
+                && Objects.equals(file, that.file)
+                && Arrays.equals(data, that.data)
+                && Objects.equals(header, that.header)
+                && subsampling == that.subsampling
+                && orientation == that.orientation
+                && charge == that.charge
+                && Objects.equals(reason, that.reason)
+                && Objects.equals(key, that.key);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * Objects.hash(element, outcome, file, header, subsampling, orientation, charge, reason, key)
+                + Arrays.hashCode(data);
+    }
+
+    /**
+     * Names the decision and its size. It never prints the element's markup, a path, the key or the payload: the
+     * document is a patient's record, and a plan can end up in a log.
+     */
+    @Override
+    public String toString() {
+        return "PlannedImage[outcome=" + outcome + ", subsampling=" + subsampling + ", orientation=" + orientation
+                + ", charge=" + charge + ", reason=" + reason + ", dataBytes=" + (data == null ? 0 : data.length) + "]";
+    }
 }

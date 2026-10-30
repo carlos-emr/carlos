@@ -53,7 +53,8 @@ class HtmlPdfArchitectureUnitTest {
     private static final List<String> SUB_PACKAGES = List.of("dto", "engine", "service", "support");
 
     private static final Pattern IMPORT = Pattern.compile("^\\s*import\\s+(static\\s+)?([\\w.]+(?:\\.\\*)?)\\s*;.*$");
-    private static final Pattern PUBLIC_TYPE = Pattern.compile("^public\\s+(?:(?:final|abstract|sealed|non-sealed)\\s+)*(?:class|interface|enum|record)\\s+\\w+.*$");
+    // Possessive quantifiers: a line that is not a public type fails at once instead of backtracking.
+    private static final Pattern PUBLIC_TYPE = Pattern.compile("^public\\s++(?:(?:final|abstract|sealed|non-sealed)\\s++)*+(?:class|interface|enum|record)\\s++\\w++.*+$");
 
     private record SourceLine(Path file, int number, String text) {
         @Override
@@ -84,6 +85,16 @@ class HtmlPdfArchitectureUnitTest {
             }
         }
         return lines;
+    }
+
+    /** Whether the module may not import the type: the web layer, the data layer, the managers and the legacy facades. */
+    private static boolean isForbiddenImport(String imported) {
+        return imported.startsWith("jakarta.servlet.") || imported.startsWith("javax.servlet.")
+                || imported.startsWith("org.apache.struts2.") || imported.startsWith("com.opensymphony.")
+                || imported.contains(".dao.") || imported.contains(".commn.dao.")
+                || imported.endsWith("Dao") || imported.endsWith("Manager") || imported.endsWith("ManagerImpl")
+                || imported.endsWith(".ConvertToEdoc") || imported.endsWith(".Doc2PDF")
+                || imported.endsWith(".SpringUtils") || imported.endsWith(".LoggedInInfo");
     }
 
     /** The imported name of an {@code import} line, or {@code null} for any other line. */
@@ -131,13 +142,10 @@ class HtmlPdfArchitectureUnitTest {
     @Test
     @DisplayName("should import no servlet, Struts, DAO, manager or legacy facade type")
     void shouldImportNoServletStrutsDaoOrFacade_inModule() throws IOException {
-        Pattern forbidden = Pattern.compile("^(jakarta\\.servlet\\..*|javax\\.servlet\\..*|org\\.apache\\.struts2\\..*|com\\.opensymphony\\..*"
-                + "|.*\\.dao\\..*|.*\\.commn\\.dao\\..*|.*Dao|.*Manager|.*ManagerImpl|.*\\.ConvertToEdoc|.*\\.Doc2PDF"
-                + "|.*\\.SpringUtils|.*\\.LoggedInInfo|.*\\.SecurityInfoManager)$");
         List<String> violations = new ArrayList<>();
         for (SourceLine line : lines(allJavaFiles())) {
             String imported = importedName(line);
-            if (imported != null && forbidden.matcher(imported).matches()) {
+            if (imported != null && isForbiddenImport(imported)) {
                 violations.add(line.toString());
             }
         }

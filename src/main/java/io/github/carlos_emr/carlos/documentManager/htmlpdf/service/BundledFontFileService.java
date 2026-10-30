@@ -50,6 +50,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -82,8 +83,8 @@ import java.util.concurrent.locks.ReentrantLock;
  *       altered without changing its size is caught at the next first use, that is, at restart.</li>
  * </ul>
  *
- * <p>The verified state is published as one immutable {@link BundledFontSet} in a {@code volatile}
- * field, so a render always sees one complete, consistent set. The constructor does no I/O.</p>
+ * <p>The verified state is published as one immutable {@link BundledFontSet} in an {@link AtomicReference},
+ * so a render always sees one complete, consistent set. The constructor does no I/O.</p>
  *
  * <p>Logs carry counts and a font's role, never a path.</p>
  *
@@ -123,7 +124,7 @@ class BundledFontFileService {
     private final ClassLoader resources;
 
     /** The last complete, verified state; replaced as a whole. */
-    private volatile Verified verified;
+    private final AtomicReference<Verified> verified = new AtomicReference<>();
 
     /** The user this process runs as, learned from a file it creates; guarded by {@link #EXTRACTION_LOCK}. */
     private UserPrincipal processUser;
@@ -154,18 +155,18 @@ class BundledFontFileService {
      *         files cannot be written; the message names no path, and the next call tries again
      */
     BundledFontSet fontSet() throws PDFGenerationException {
-        Verified current = verified;
+        Verified current = verified.get();
         if (current != null && current.isIntact()) {
             return current.set();
         }
         EXTRACTION_LOCK.lock();
         try {
-            current = verified;
+            current = verified.get();
             if (current != null && current.isIntact()) {
                 return current.set();
             }
             Verified rebuilt = extract(current);
-            verified = rebuilt;
+            verified.set(rebuilt);
             return rebuilt.set();
         } finally {
             EXTRACTION_LOCK.unlock();

@@ -95,9 +95,13 @@ import java.util.regex.Pattern;
  * cap the image planning applies, not a lower one: a lower cap would quietly shrink images the
  * planning has already approved. SVG is passed to Flying Saucer as it is, but for its size, which is
  * taken in pixels like a raster image's (see {@link #getImageResource}); the planning cleans the
- * SVG files it places in {@code <img>}, and an SVG referenced from a stylesheet is not cleaned
- * (a known limitation). The bitmap that Flying Saucer makes of an SVG it cannot draw as vectors is
- * made once and bounded by the renderer's {@link BoundedOutputDevice}.</p>
+ * SVG files it places in {@code <img>}. An SVG referenced from a stylesheet is not cleaned, and cannot
+ * be used to reach a file: Flying Saucer gives Batik the bytes of an SVG image with no document URL, so
+ * Batik refuses every resource the SVG names except a {@code data:} URI, and a {@code data:} document
+ * inside it can load nothing but {@code data:} URIs. That is the libraries' behaviour, not this agent's;
+ * {@code HtmlPdfSsrfUnitTest} pins it, so an upgrade that loses it fails the build. The bitmap that
+ * Flying Saucer makes of an SVG it cannot draw as vectors is made once and bounded by the renderer's
+ * {@link BoundedOutputDevice}.</p>
  *
  * <p>Usage: create renderers with {@link #createRestrictedRenderer(List, FontResolver)} instead of
  * {@code new ITextRenderer()}.</p>
