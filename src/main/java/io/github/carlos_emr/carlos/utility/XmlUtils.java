@@ -558,7 +558,7 @@ public final class XmlUtils {
     }
 
     public static Document toDocument(String s) throws IOException, SAXException, ParserConfigurationException {
-        if (s == null) throw new IllegalArgumentException("XML document text is required");
+        if (s == null) throw new SAXException("XML document text is required");
         return toDocument(s.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 

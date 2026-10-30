@@ -21,6 +21,32 @@ MAX_ISSUES = 10000
 MAX_PAGE_BYTES = 8 * 1024 * 1024
 MAX_REPORT_BYTES = 32 * 1024 * 1024
 MAX_NOTICE_BYTES = 3000
+MAX_RELATED_LOCATIONS = 128
+
+
+def related_locations(issue):
+    """Retain only bounded source coordinates, never flow messages or source values."""
+    flows = issue.get("flows", [])
+    if not isinstance(flows, list) or len(flows) > 32:
+        raise ValueError("Invalid Sonar issue flows")
+    result = []
+    for index, flow in enumerate(flows):
+        if not isinstance(flow, dict):
+            raise ValueError("Invalid Sonar issue flow")
+        locations = flow.get("locations", [])
+        if not isinstance(locations, list) or len(result) + len(locations) > MAX_RELATED_LOCATIONS:
+            raise ValueError("Sonar related location capacity exceeded")
+        for location in locations:
+            if not isinstance(location, dict) or not isinstance(location.get("textRange", {}), dict):
+                raise ValueError("Invalid Sonar related location")
+            component = location.get("component")
+            line = location.get("textRange", {}).get("startLine")
+            if component is not None and (not isinstance(component, str) or len(component) > 65536):
+                raise ValueError("Invalid Sonar related component")
+            if line is not None and (type(line) is not int or line < 1 or line > 2147483647):
+                raise ValueError("Invalid Sonar related line")
+            result.append({"flow": index, "component": component, "line": line})
+    return result
 
 
 def collect_issues(fetch_page, pull_request):
@@ -59,11 +85,14 @@ def collect_issues(fetch_page, pull_request):
                 raise ValueError("Invalid Sonar issue impacts")
             if issue.get("type") in {"BUG", "VULNERABILITY"} or any(
                     impact.get("softwareQuality") in {"RELIABILITY", "SECURITY"} for impact in impacts):
-                # Drop arbitrary API metadata, source flows and authentication-related fields immediately.
+                # Drop arbitrary metadata, flow messages/source values and authentication fields.
                 selected = {field: issue.get(field) for field in (
                     "key", "rule", "component", "line", "type", "severity", "message")}
                 selected["impacts"] = [{"softwareQuality": x.get("softwareQuality"),
                                         "severity": x.get("severity")} for x in impacts]
+                locations = related_locations(issue)
+                if locations:
+                    selected["relatedLocations"] = locations
                 report_bytes += len(json.dumps(selected, ensure_ascii=True).encode("ascii"))
                 if report_bytes > MAX_REPORT_BYTES:
                     raise ValueError("Sonar report capacity exceeded")
@@ -103,6 +132,10 @@ def report(issues, credentials=()):
                          "impacts": [{"softwareQuality": text(x.get("softwareQuality")),
                                       "severity": text(x.get("severity"))} for x in issue.get("impacts", [])],
                          "message": text(issue.get("message"))})
+        if issue.get("relatedLocations"):
+            findings[-1]["relatedLocations"] = [
+                {"flow": location["flow"], "file": text(location["component"]), "line": location["line"]}
+                for location in issue["relatedLocations"]]
     return findings
 
 

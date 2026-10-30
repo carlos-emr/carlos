@@ -71,7 +71,7 @@ class XmlUtilsUnitTest {
     @Test
     void shouldRejectMissingXmlText_beforeAttemptingDocumentParsing() {
         assertThatThrownBy(() -> XmlUtils.toDocument((String) null))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(SAXException.class);
     }
 
     private Document createTestDocument() throws Exception {

@@ -39783,7 +39783,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described.",
-    "sha256": "4c0d8a6278426fcc213187e71dff3a9834fd7264f7471ad7a4f8c213714d1edd"
+    "sha256": "fb66de85348b4a0df4fce8d5ac3946db492d4a3bdf58fd968eabd5bf96d1a129"
   },
   "root": "cds:OmdCds",
   "schemas": [

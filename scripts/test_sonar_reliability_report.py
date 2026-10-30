@@ -15,6 +15,23 @@ import sonar_reliability_report as sonar
 
 
 class SonarReliabilityReportTest(unittest.TestCase):
+    def test_preserves_bounded_flow_locations_without_source_values_or_messages(self):
+        issue = {"key": "bug", "type": "BUG", "flows": [{"locations": [
+            {"component": "project:caller.java", "textRange": {"startLine": 17},
+             "msg": "synthetic-secret source value", "source": "never export"}]}]}
+        selected, _ = sonar.collect_issues(lambda _: {"issues": [issue], "total": 1}, 5347)
+        finding = sonar.report(selected, credentials=("synthetic-secret",))[0]
+        self.assertEqual([{"flow": 0, "file": "project:caller.java", "line": 17}], finding["relatedLocations"])
+        self.assertNotIn("synthetic-secret", json.dumps(finding))
+        self.assertNotIn("never export", json.dumps(finding))
+
+    def test_invalid_or_excessive_flow_locations_fail_closed(self):
+        for locations in ([{"textRange": {"startLine": True}}],
+                          [{"textRange": {"startLine": 1}}] * 129):
+            issue = {"key": "bug", "type": "BUG", "flows": [{"locations": locations}]}
+            with self.subTest(count=len(locations)), self.assertRaises(ValueError):
+                sonar.collect_issues(lambda _: {"issues": [issue], "total": 1}, 5347)
+
     def test_reads_every_page_and_includes_classic_and_quality_impact_findings(self):
         calls = []
 

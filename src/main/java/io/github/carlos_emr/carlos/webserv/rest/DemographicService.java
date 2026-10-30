@@ -198,7 +198,7 @@ public class DemographicService extends AbstractServiceImpl {
     @Autowired
     private SecurityInfoManager securityInfoManager;
 
-    private CdsLegacyProjectionService projections;
+    private final CdsLegacyProjectionService projections;
 
     @Autowired
     public DemographicService(CdsLegacyProjectionService projections) {

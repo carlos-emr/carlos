@@ -115,13 +115,18 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         loggedInInfo = new LoggedInInfo();
-        service = new DemographicService(mock(CdsLegacyProjectionService.class)) {
+        service = serviceWithProjections(mock(CdsLegacyProjectionService.class));
+    }
+
+    private DemographicService serviceWithProjections(CdsLegacyProjectionService projections) {
+        var result = new DemographicService(projections) {
             @Override
             protected LoggedInInfo getLoggedInInfo() {
                 return loggedInInfo;
             }
         };
-        injectDependency(service, "securityInfoManager", securityInfoManager);
+        injectDependency(result, "securityInfoManager", securityInfoManager);
+        return result;
     }
 
     // The mock returns false for every hasPrivilege call by default, so the
@@ -207,7 +212,11 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
             allergies = mock(AllergyManager.class);
             notes = mock(NoteManager.class);
             medications = mock(RxManager.class);
-            injectDependency(service, "projections", new CdsLegacyProjectionService(records));
+            bindProjectionServices();
+        }
+
+        private void bindProjectionServices() {
+            service = serviceWithProjections(new CdsLegacyProjectionService(records));
             injectDependency(service, "demographicManager", demographics);
             injectDependency(service, "measurementManager", measurements);
             injectDependency(service, "allergyManager", allergies);
@@ -386,7 +395,7 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
             records = mock(CdsLegacyProjectionDao.class, invocation ->
                     "hasSourceFields".equals(invocation.getMethod().getName())
                             ? imported : RETURNS_DEFAULTS.answer(invocation));
-            injectDependency(service, "projections", new CdsLegacyProjectionService(records));
+            bindProjectionServices();
         }
 
         private void assertClinicalAuthorizationDenied(List<String> includes) {
