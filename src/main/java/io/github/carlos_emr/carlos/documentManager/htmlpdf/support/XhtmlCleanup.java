@@ -35,7 +35,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Pattern;
 
 /**
  * The rules that turn an HTML document into valid, printable XHTML for Flying Saucer (steps a, b,
@@ -67,13 +66,6 @@ public final class XhtmlCleanup {
      * {@code -XX:+ExitOnOutOfMemoryError} restarts the whole application.
      */
     static final int MAX_COLSPAN = 1000;
-
-    /** {@code position: fixed} in an inline style, but not {@code background-position} or the like. */
-    private static final Pattern FIXED_POSITION =
-            Pattern.compile("(?i)((?<![\\w-])position\\s*:\\s*)fixed(?![\\w-])");
-
-    /** An inline {@code list-style-type} or {@code list-style}, either of which wins over {@code <ol type>}. */
-    private static final Pattern LIST_STYLE = Pattern.compile("(?i)(?<![\\w-])list-style(-type)?\\s*:");
 
     /** The {@code type} values of {@code <ol>} (case-sensitive, as in HTML) and their CSS equivalents. */
     private static final Map<String, String> LIST_STYLE_TYPES = Map.of(
@@ -218,7 +210,7 @@ public final class XhtmlCleanup {
         Objects.requireNonNull(document, "document");
         for (Element element : document.select("[style]")) {
             String style = element.attr("style");
-            String rewritten = FIXED_POSITION.matcher(style).replaceAll("$1absolute");
+            String rewritten = InlineStyle.withFixedPositionAbsolute(style);
             if (!rewritten.equals(style)) {
                 element.attr("style", rewritten);
             }
@@ -244,16 +236,10 @@ public final class XhtmlCleanup {
                 continue;
             }
             String style = list.attr("style");
-            if (LIST_STYLE.matcher(style).find()) {
+            if (InlineStyle.setsListStyle(style)) {
                 continue;
             }
-            String trimmed = style.strip();
-            while (trimmed.endsWith(";")) {
-                trimmed = trimmed.substring(0, trimmed.length() - 1).stripTrailing();
-            }
-            list.attr("style", trimmed.isEmpty()
-                    ? "list-style-type: " + listStyleType
-                    : trimmed + "; list-style-type: " + listStyleType);
+            list.attr("style", InlineStyle.append(style, "list-style-type: " + listStyleType));
         }
     }
 
@@ -279,7 +265,7 @@ public final class XhtmlCleanup {
                         if (!cell.hasAttr("rowspan")) {
                             continue;
                         }
-                        long span = leadingNumber(cell.attr("rowspan"));
+                        long span = HtmlAttributeNumbers.leadingNumber(cell.attr("rowspan"));
                         if (span == 0 || span > remaining) {
                             cell.attr("rowspan", Integer.toString(remaining));
                         }
@@ -300,40 +286,10 @@ public final class XhtmlCleanup {
     public static void clampColspans(Document document) {
         Objects.requireNonNull(document, "document");
         for (Element cell : document.select("td[colspan], th[colspan]")) {
-            if (leadingNumber(cell.attr("colspan")) > MAX_COLSPAN) {
+            if (HtmlAttributeNumbers.leadingNumber(cell.attr("colspan")) > MAX_COLSPAN) {
                 cell.attr("colspan", Integer.toString(MAX_COLSPAN));
             }
         }
-    }
-
-    /**
-     * The value of an HTML non-negative integer attribute as a browser reads it: optional leading
-     * white space and plus sign, then digits, anything after them ignored. It saturates instead of
-     * overflowing.
-     *
-     * @return the number, {@link Long#MAX_VALUE} when it does not fit, or {@code -1} when there is none
-     */
-    private static long leadingNumber(String value) {
-        int i = 0;
-        int length = value.length();
-        while (i < length && isAsciiWhitespace(value.charAt(i))) {
-            i++;
-        }
-        if (i < length && value.charAt(i) == '+') {
-            i++;
-        }
-        if (i >= length || value.charAt(i) < '0' || value.charAt(i) > '9') {
-            return -1;
-        }
-        long number = 0;
-        for (; i < length && value.charAt(i) >= '0' && value.charAt(i) <= '9'; i++) {
-            number = number > (Long.MAX_VALUE - 9) / 10 ? Long.MAX_VALUE : number * 10 + (value.charAt(i) - '0');
-        }
-        return number;
-    }
-
-    private static boolean isAsciiWhitespace(char c) {
-        return c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r';
     }
 
     // ---- g. paginated tables ----------------------------------------------------------------
@@ -371,7 +327,7 @@ public final class XhtmlCleanup {
         if (!cell.hasAttr("rowspan")) {
             return false;
         }
-        long span = leadingNumber(cell.attr("rowspan"));
+        long span = HtmlAttributeNumbers.leadingNumber(cell.attr("rowspan"));
         return span >= 0 && span != 1;
     }
 
