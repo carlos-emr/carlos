@@ -21,13 +21,21 @@
  */
 package io.github.carlos_emr.carlos.documentManager.htmlpdf.support;
 
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.TestFonts;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Element;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import java.awt.Font;
+import java.awt.font.FontRenderContext;
+import java.io.InputStream;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
@@ -39,6 +47,13 @@ import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 @Tag("htmlpdf")
 @DisplayName("ImageBox Unit Tests")
 class ImageBoxUnitTest {
+
+    /** The width and height declarations of a box's style, without those that fit its label to it. */
+    private static String size(Element box) {
+        return Arrays.stream(box.attr("style").split("; "))
+                .filter(declaration -> declaration.startsWith("width:") || declaration.startsWith("height:"))
+                .collect(Collectors.joining("; "));
+    }
 
     private static Element img(String attributes) {
         return Jsoup.parse("<html><body><img " + attributes + "></body></html>").selectFirst("img");
@@ -57,11 +72,79 @@ class ImageBoxUnitTest {
     }
 
     @Test
+    @DisplayName("should let the label wrap and set it smaller when the box is too narrow for it at its usual size")
+    void shouldWrapAndShrinkLabel_forNarrowBox() {
+        Element box = ImageBox.replacing(img("src=\"x.png\" width=\"60\" height=\"30\""));
+
+        // 54 pixels of room; the longest word, "unavailable]", is 12 characters: 54 / (12 x 0.6) = 7.5 pixels.
+        assertThat(box.attr("style")).isEqualTo("width: 60px; height: 30px; font-size: 7.5px; white-space: normal");
+    }
+
+    @Test
+    @DisplayName("should only wrap the label when its longest word fits at the usual size")
+    void shouldOnlyWrapLabel_whenLongestWordFits() {
+        Element box = ImageBox.replacing(img("src=\"x.png\" width=\"100\""));
+
+        assertThat(box.attr("style")).isEqualTo("width: 100px; white-space: normal");
+    }
+
+    @Test
+    @DisplayName("should keep one line, smaller, in a box too short for two")
+    void shouldKeepOneLine_inBoxTooShortForTwo() {
+        Element box = ImageBox.replacing(img("src=\"x.png\" width=\"60\" height=\"20\""));
+
+        // 54 / (19 x 0.6) = 4.7 pixels, which is under the smallest worth printing (5.33): that is used.
+        assertThat(box.attr("style")).isEqualTo("width: 60px; height: 20px; font-size: 5.3px");
+    }
+
+    @Test
+    @DisplayName("should leave the label alone when the box is wide enough, or its width is a percentage or not known")
+    void shouldLeaveLabelAlone_whenItFitsOrTheWidthIsUnknown() {
+        assertThat(ImageBox.replacing(img("src=\"x.png\" width=\"200\" height=\"100\"")).attr("style"))
+                .isEqualTo("width: 200px; height: 100px");
+        assertThat(ImageBox.replacing(img("src=\"x.png\" width=\"50%\" height=\"30\"")).attr("style"))
+                .isEqualTo("width: 50%; height: 30px");
+        assertThat(ImageBox.replacing(img("src=\"x.png\" height=\"30\"")).attr("style")).isEqualTo("height: 30px");
+    }
+
+    @ParameterizedTest(name = "[{index}] a box {0} x {1} pixels")
+    @CsvSource({"44, 30", "50, 30", "60, 30", "60, 20", "80, 24", "90, 40", "100, 30", "120, 20", "150, 20", "300, 60"})
+    @DisplayName("should fit the label in the box, by the widths of the bundled font, down to the smallest size")
+    void shouldFitLabelInBox_byTheWidthsOfTheBundledFont(int width, int height) throws Exception {
+        Element box = ImageBox.replacing(img("src=\"x.png\" width=\"" + width + "\" height=\"" + height + "\""));
+        String style = box.attr("style");
+        double size = style.contains("font-size")
+                ? Double.parseDouble(style.replaceAll(".*font-size: ([0-9.]+)px.*", "$1")) : ImageBox.LABEL_PIXELS;
+        boolean wrapped = style.contains("white-space: normal");
+        Font font;
+        try (InputStream in = TestFonts.class.getClassLoader().getResourceAsStream(TestFonts.SANS_REGULAR)) {
+            font = Font.createFont(Font.TRUETYPE_FONT, in).deriveFont((float) size);
+        }
+        FontRenderContext metrics = new FontRenderContext(null, true, true);
+
+        // The widest line is the whole label, or its longest word when the label wraps between its words.
+        double widest = 0;
+        for (String line : wrapped ? box.text().split(" ") : new String[]{box.text()}) {
+            widest = Math.max(widest, font.getStringBounds(line, metrics).getWidth());
+        }
+
+        // A box too small for even the smallest label clips it, as it always has; in any other the label fits.
+        if (size > ImageBox.SMALLEST_LABEL_PIXELS + 0.05) {
+            assertThat(widest).as("the widest line of the label at %.1f pixels", size)
+                    .isLessThanOrEqualTo(width - ImageBox.FRAME_PIXELS);
+        }
+        if (wrapped) {
+            assertThat(2 * size * ImageBox.LINE_HEIGHT).as("two lines at %.1f pixels", size)
+                    .isLessThanOrEqualTo(height - ImageBox.FRAME_PIXELS);
+        }
+    }
+
+    @Test
     @DisplayName("should take its size from the width and height attributes")
     void shouldTakeSize_fromAttributes() {
-        assertThat(ImageBox.replacing(img("width=\"120\" height=\"80\"")).attr("style")).isEqualTo("width: 120px; height: 80px");
-        assertThat(ImageBox.replacing(img("width=\"120px\"")).attr("style")).isEqualTo("width: 120px");
-        assertThat(ImageBox.replacing(img("height=\"50%\"")).attr("style")).isEqualTo("height: 50%");
+        assertThat(size(ImageBox.replacing(img("width=\"120\" height=\"80\"")))).isEqualTo("width: 120px; height: 80px");
+        assertThat(size(ImageBox.replacing(img("width=\"120px\"")))).isEqualTo("width: 120px");
+        assertThat(size(ImageBox.replacing(img("height=\"50%\"")))).isEqualTo("height: 50%");
     }
 
     @Test
@@ -75,9 +158,9 @@ class ImageBoxUnitTest {
     @Test
     @DisplayName("should convert absolute and relative units to pixels")
     void shouldConvertUnits_toPixels() {
-        assertThat(ImageBox.replacing(img("style=\"width: 30pt; height: 1in\"")).attr("style")).isEqualTo("width: 40px; height: 96px");
-        assertThat(ImageBox.replacing(img("style=\"width: 2.54cm; height: 25.4mm\"")).attr("style")).isEqualTo("width: 96px; height: 96px");
-        assertThat(ImageBox.replacing(img("style=\"width: 2rem; height: 1.5em\"")).attr("style")).isEqualTo("width: 32px; height: 24px");
+        assertThat(size(ImageBox.replacing(img("style=\"width: 30pt; height: 1in\"")))).isEqualTo("width: 40px; height: 96px");
+        assertThat(size(ImageBox.replacing(img("style=\"width: 2.54cm; height: 25.4mm\"")))).isEqualTo("width: 96px; height: 96px");
+        assertThat(size(ImageBox.replacing(img("style=\"width: 2rem; height: 1.5em\"")))).isEqualTo("width: 32px; height: 24px");
     }
 
     @Test
@@ -91,8 +174,8 @@ class ImageBoxUnitTest {
     @Test
     @DisplayName("should accept padding around a length and upper-case units, as HTML and CSS do")
     void shouldAcceptPaddingAndUpperCase_asHtmlAndCssDo() {
-        assertThat(ImageBox.replacing(img("width=\" 40 \" height=\"20PX\"")).attr("style")).isEqualTo("width: 40px; height: 20px");
-        assertThat(ImageBox.replacing(img("style=\"width: 1IN; height: 50Pt\"")).attr("style")).isEqualTo("width: 96px; height: 67px");
+        assertThat(size(ImageBox.replacing(img("width=\" 40 \" height=\"20PX\"")))).isEqualTo("width: 40px; height: 20px");
+        assertThat(size(ImageBox.replacing(img("style=\"width: 1IN; height: 50Pt\"")))).isEqualTo("width: 96px; height: 67px");
     }
 
     @ParameterizedTest
