@@ -929,6 +929,8 @@
     "test:chart-message-followups-playwright": "node scripts/chart-message-followups-playwright-checks.js",
     "test:chart-context-request-guards-playwright": "node scripts/chart-context-request-guards-playwright-checks.js",
     "test:consultation-specialist-details-playwright": "node scripts/consultation-specialist-details-playwright-checks.js",
+    "test:echart-left-modules-list-owned-rows-playwright": "node scripts/echart-left-modules-list-owned-rows-playwright-checks.js",
+    "test:echart-right-modules-list-owned-rows-playwright": "node scripts/echart-right-modules-list-owned-rows-playwright-checks.js",
     "test:group-note-selection-playwright": "node scripts/group-note-selection-playwright-checks.js"
   },
   "dependencies": {
