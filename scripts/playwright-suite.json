@@ -16710,6 +16710,24 @@
       "env": [],
       "fixtures": "Owned FAKE-PW patient with one message (messagetbl/messagelisttbl/msgDemoMap), one document (document/ctl_document, no file) and one HL7 lab (hl7TextMessage/hl7TextInfo/routing), and a second FAKE-PW patient; all removed by their own keys.",
       "notes": "The eChart's Messages, Documents and Labs modules list the patient's rows with title, full title, the labs' unread state and count; the message and lab rows open their item, the document row links to its viewer; a second patient's chart lists none of them. Assumes the inbox manager off (the document row's URL form)."
+    },
+    {
+      "name": "dao-findall-paging",
+      "script": "scripts/dao-findall-paging-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "mutates": [
+        "pharmacyInfo"
+      ],
+      "fixtures": "Seven pharmacies named after the run marker are in the clinic-wide pharmacy list while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Issue #5308: AbstractDaoImpl.findAll orders every page by the entity identifier. The session REST pharmacy list pages through it: a maximum-size first page holds exactly the first database rows in id order, small pages concatenate to the whole directory with no repeat or gap (a directory larger than one 5000-row page included), a re-read page is identical, an offset past the end is empty and a limit above the 5000-row maximum is refused."
     }
   ]
 }
