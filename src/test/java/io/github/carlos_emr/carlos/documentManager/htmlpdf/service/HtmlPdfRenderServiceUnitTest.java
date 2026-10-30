@@ -459,7 +459,7 @@ class HtmlPdfRenderServiceUnitTest {
 
         HtmlPdfRenderResult result = limited.render(request(html));
 
-        assertThat(result.degradations()).doesNotContain(HtmlPdfRenderDegradation.TEXT_ONLY, HtmlPdfRenderDegradation.SAFE_MODE);
+        assertThat(result.degradations()).isEmpty();
         verify(layout, times(1)).render(eq(PrintMode.NORMAL), any(), any(), any(), any(), any());
     }
 

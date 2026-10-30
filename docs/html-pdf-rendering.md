@@ -424,8 +424,10 @@ every cell, so assert on phrases and glyph positions (`TestPdfs.glyphs`), not on
   `position: fixed` element and an empty block keep theirs, a few points at most.
 - **Layout time is quadratic in the number of rows**, and the size limit is in characters (section 5).
 - **CSS background images** that fail to load are omitted with a WARN; they cannot show the box.
-  An SVG named by a style sheet is not cleaned of outside references (the bitmap bound and Batik's own
-  handling apply).
+  An SVG named by a style sheet is not cleaned of outside references and cannot reach a file with them:
+  Flying Saucer gives Batik an SVG image with no document URL, so Batik refuses everything the SVG names
+  except a `data:` URI (`HtmlPdfSsrfUnitTest` pins this for a background, and fails the build if a library
+  upgrade loses it).
 - **Safe and text-only mode print what a style sheet class hid** (section 4); in normal mode Flying Saucer
   applies the print rules. The `hidden` attribute is not honoured in normal mode (Flying Saucer's default
   style sheet has no `[hidden]` rule, and the form-control replacements drop the attribute), as in the

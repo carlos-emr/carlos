@@ -13,7 +13,8 @@
  *
  * NOT RUN BY ITS AUTHOR: it follows the flow of scripts/clinical-forms-save-reopen-playwright-checks.js
  * (the Annual Health Review is opened as ../form/formannual.jsp, the Save button asks for a confirmation,
- * and Save redisplays the saved form), but no running application was available to try it against.
+ * and Save redisplays the saved form), but no running application was available to try it against; only the
+ * page clean-up (`relativise`) was exercised, in headless Chromium on a sample page.
  * Adjust the selectors below if the form changes.
  *
  * It refuses to write a page that does not name a FAKE- patient, and it never writes a page with a
@@ -50,14 +51,29 @@ function requiredEnv(name) {
   return value;
 }
 
-/** Makes the stylesheet and form links relative to the webapp root and drops the absolute base. */
-function relativise(html, appPath) {
+/**
+ * Takes what is not part of a printed form out of the page, and returns the page's markup. It works on the
+ * browser's DOM, not with patterns over the markup: the absolute base, the icon and the external scripts are
+ * removed, and a stylesheet, form or image link that starts with the application path becomes relative to the
+ * webapp root.
+ */
+async function relativise(page, appPath) {
   const root = appPath.replace(/\/$/, '');
-  return html
-    .replace(/<base\b[^>]*>/gi, '')
-    .replace(/<link rel="icon"[^>]*>/gi, '')
-    .replace(new RegExp(`(href|src|action)="${root}/`, 'g'), '$1="')
-    .replace(/<script\b[^>]*src=[^>]*><\/script>/gi, '');
+  await page.evaluate((applicationRoot) => {
+    for (const node of document.querySelectorAll('base, link[rel="icon"], script[src]')) {
+      node.remove();
+    }
+    const prefix = `${applicationRoot}/`;
+    for (const attribute of ['href', 'src', 'action']) {
+      for (const element of document.querySelectorAll(`[${attribute}]`)) {
+        const value = element.getAttribute(attribute);
+        if (value.startsWith(prefix)) {
+          element.setAttribute(attribute, value.slice(prefix.length));
+        }
+      }
+    }
+  }, root);
+  return page.content();
 }
 
 async function capture(page, config, demographicNo, kind) {
@@ -90,12 +106,13 @@ async function capture(page, config, demographicNo, kind) {
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
-  const html = relativise(await page.content(), new URL(config.baseUrl).pathname);
+  const html = await relativise(page, new URL(config.baseUrl).pathname);
   const remaining = [...html.matchAll(/<input[^>]*type="text"[^>]*value="([^"]*)"/gi)].map(m => m[1]).filter(Boolean);
   if (remaining.some(value => /^[A-Z][a-z]+,\s*[A-Z][a-z]+$/.test(value) && !/FAKE-/.test(value))) {
     throw new Error(`the captured ${kind} page holds a name that is not FAKE-; refusing to write it`);
   }
   fs.mkdirSync(outputDirectory, { recursive: true });
+  // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- kind is the literal 'female' or 'male' that main() passes; outputDirectory is the developer's own OUTPUT_DIR
   const file = path.join(outputDirectory, `${kind}.html`);
   fs.writeFileSync(file, `<!DOCTYPE html>\n${html.replace(/^<!DOCTYPE[^>]*>\s*/i, '')}\n`, 'utf8');
   console.log(`${file}: ${html.length} characters`);
@@ -117,7 +134,11 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error.message || error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error.message || error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { relativise };

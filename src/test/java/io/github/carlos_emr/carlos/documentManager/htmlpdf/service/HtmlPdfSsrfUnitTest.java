@@ -35,6 +35,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
@@ -247,6 +248,92 @@ class HtmlPdfSsrfUnitTest {
         // The drawing is cleaned, not given up on: no step down the ladder, and the rest of the page prints.
         assertThat(result.degradations()).doesNotContain(HtmlPdfRenderDegradation.SAFE_MODE, HtmlPdfRenderDegradation.TEXT_ONLY);
         assertThat(String.join("\n", TestPdfs.pageTexts(result.pdf()))).contains("FAKE-visible text");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"nested-svg-file-uri", "nested-svg-file-uri-one-slash", "nested-svg-file-uri-localhost",
+            "nested-svg-absolute-path", "absolute-file", "relative-path", "use-of-external-svg"})
+    @DisplayName("should draw nothing from outside the allowed directories through an SVG that a style sheet names")
+    void shouldNotDrawOutsideFile_throughSvgBackground(String reference) throws Exception {
+        // A background is not planned like an <img>, so its SVG reaches the user agent as the file it is; Batik
+        // loads whatever the SVG names without asking the user agent, unless the agent hands it a cleaned copy.
+        Path webRoot = Files.createDirectories(directory.resolve("web"));
+        Path secretDirectory = Files.createDirectories(directory.resolve("secret"));
+        Path secretImage = TestImages.write(secretDirectory, "secret.png", TestImages.png(20, 20));
+        Files.writeString(secretDirectory.resolve("secret.svg"), "<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30'>"
+                + "<g id='a'><rect width='30' height='30' fill='#00cc00'/></g></svg>", StandardCharsets.UTF_8);
+        String path = secretImage.toAbsolutePath().toString();
+        // An SVG in a data: URI inside the SVG, which names the picture in the spelling under test, used and as an image.
+        String drawing = switch (reference) {
+            case "nested-svg-file-uri" -> nestedSvgUses(secretImage.toUri().toString());
+            case "nested-svg-file-uri-one-slash" -> nestedSvgUses("file:" + path);
+            case "nested-svg-file-uri-localhost" -> nestedSvgUses("file://localhost" + path);
+            case "nested-svg-absolute-path" -> nestedSvgUses(path);
+            case "absolute-file" -> "<image xlink:href='" + secretImage.toUri() + "' width='30' height='30'/>";
+            case "relative-path" -> "<image xlink:href='../secret/secret.png' width='30' height='30'/>";
+            default -> "<use xlink:href='../secret/secret.svg#a'/>";
+        };
+        Files.writeString(webRoot.resolve("bg.svg"), "<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink'"
+                + " width='40' height='40'>" + drawing + "</svg>", StandardCharsets.UTF_8);
+
+        HtmlPdfRenderResult result = service(PrintModeLimits.NO_LIMIT).render(backgroundPage(webRoot));
+
+        assertThat(TestPdfs.imageDraws(result.pdf())).as("images drawn").isZero();
+        assertThat(hasColour(TestPdfs.image(result.pdf(), 1), 0x00cc00)).as("the rectangle of the SVG outside the web root").isFalse();
+        assertThat(String.join("\n", TestPdfs.pageTexts(result.pdf()))).contains("FAKE-visible text");
+    }
+
+    @Test
+    @DisplayName("should still draw an SVG that a style sheet names when it refers to nothing outside itself")
+    void shouldDrawSvgBackground_whenItReferencesNothing() throws Exception {
+        Path webRoot = Files.createDirectories(directory.resolve("web"));
+        Files.writeString(webRoot.resolve("bg.svg"), "<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'>"
+                + "<rect width='40' height='40' fill='#cc0000'/></svg>", StandardCharsets.UTF_8);
+
+        HtmlPdfRenderResult result = service(PrintModeLimits.NO_LIMIT).render(backgroundPage(webRoot));
+
+        assertThat(hasColour(TestPdfs.image(result.pdf(), 1), 0xcc0000)).as("the rectangle of the SVG background").isTrue();
+        assertThat(result.degradations()).doesNotContain(HtmlPdfRenderDegradation.SAFE_MODE, HtmlPdfRenderDegradation.TEXT_ONLY);
+    }
+
+    @Test
+    @DisplayName("should draw a picture in a data: URI nested in an SVG that a style sheet names, which is what makes the tests above able to fail")
+    void shouldDrawRasterDataUri_nestedInSvgBackground() throws Exception {
+        Path webRoot = Files.createDirectories(directory.resolve("web"));
+        String picture = "data:image/png;base64," + Base64.getEncoder().encodeToString(TestImages.png(20, 20));
+        Files.writeString(webRoot.resolve("bg.svg"), "<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink'"
+                + " width='40' height='40'>" + nestedSvgUses(picture) + "</svg>", StandardCharsets.UTF_8);
+
+        HtmlPdfRenderResult result = service(PrintModeLimits.NO_LIMIT).render(backgroundPage(webRoot));
+
+        assertThat(TestPdfs.imageDraws(result.pdf())).as("images drawn").isPositive();
+    }
+
+    /** The SVG of {@link #nestedSvgUri} used as a fragment and drawn as an image, in one SVG. */
+    private static String nestedSvgUses(String secretImageUri) {
+        String nestedUri = nestedSvgUri(secretImageUri);
+        return "<use xlink:href='" + nestedUri + "#a'/><image xlink:href='" + nestedUri + "' width='30' height='30'/>";
+    }
+
+    /** A page with a 40 by 40 pixel box whose background is {@code bg.svg} of the web root. */
+    private static HtmlPdfRenderRequest backgroundPage(Path webRoot) {
+        return new HtmlPdfRenderRequest("<html><head><style>.bg { width: 40px; height: 40px; background: url(bg.svg) no-repeat }</style></head>"
+                + "<body><p>FAKE-visible text</p><div class=\"bg\"></div></body></html>", webRoot, List.of(webRoot), HtmlPdfRenderSource.FORM);
+    }
+
+    /** Whether a rendered page has a pixel within a small distance of the colour. */
+    private static boolean hasColour(BufferedImage image, int rgb) {
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                int pixel = image.getRGB(x, y);
+                if (Math.abs(((pixel >> 16) & 0xFF) - ((rgb >> 16) & 0xFF)) < 40
+                        && Math.abs(((pixel >> 8) & 0xFF) - ((rgb >> 8) & 0xFF)) < 40
+                        && Math.abs((pixel & 0xFF) - (rgb & 0xFF)) < 40) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Test

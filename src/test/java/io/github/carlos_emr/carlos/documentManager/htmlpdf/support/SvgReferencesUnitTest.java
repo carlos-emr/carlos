@@ -759,4 +759,19 @@ class SvgReferencesUnitTest {
         assertThatNullPointerException().isThrownBy(() -> SvgReferences.clean((byte[]) null));
         assertThatNullPointerException().isThrownBy(() -> SvgReferences.clean((Element) null));
     }
+
+    @Test
+    @DisplayName("should compare cleaned SVGs by the bytes they hold, and print their size, never their content")
+    void shouldCompareCleanedSvgByContent_andPrintNoContent() {
+        byte[] bytes = "<svg>FAKE-patient-drawing</svg>".getBytes(StandardCharsets.UTF_8);
+        SvgReferences.Cleaned first = new SvgReferences.Cleaned(bytes, true);
+        SvgReferences.Cleaned same = new SvgReferences.Cleaned(bytes.clone(), true);
+        SvgReferences.Cleaned otherBytes = new SvgReferences.Cleaned("<svg/>".getBytes(StandardCharsets.UTF_8), true);
+        SvgReferences.Cleaned otherFlag = new SvgReferences.Cleaned(bytes, false);
+
+        assertThat(first).isEqualTo(same).hasSameHashCodeAs(same).isNotEqualTo(otherBytes).isNotEqualTo(otherFlag);
+        assertThat(first.equals(null)).isFalse();
+        assertThat(first.toString()).isEqualTo("Cleaned[svgBytes=" + bytes.length + ", removedReferences=true]")
+                .doesNotContain("FAKE-patient-drawing");
+    }
 }

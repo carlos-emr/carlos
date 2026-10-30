@@ -168,7 +168,7 @@ class PrintDocumentComposer {
         style.appendChild(new DataNode(LegacyBodyMargins.rule(document)
                 .map(rule -> PrintStylesheet.css() + rule + "\n")
                 .orElseGet(PrintStylesheet::css)));
-        headOf(document).prependChild(style);
+        document.head().prependChild(style);
     }
 
     private static void insertNote(Document document, Set<HtmlPdfRenderDegradation> degradations) {
@@ -187,29 +187,6 @@ class PrintDocumentComposer {
         for (String sentence : sentences) {
             note.appendElement("div").appendText(sentence);
         }
-        bodyOf(document).prependChild(note);
-    }
-
-    private static Element headOf(Document document) {
-        Element head = document.head();
-        if (head == null) {
-            head = new Element("head");
-            htmlOf(document).prependChild(head);
-        }
-        return head;
-    }
-
-    private static Element bodyOf(Document document) {
-        Element body = document.body();
-        if (body == null) {
-            body = new Element("body");
-            htmlOf(document).appendChild(body);
-        }
-        return body;
-    }
-
-    private static Element htmlOf(Document document) {
-        Element html = document.firstElementChild();
-        return html != null && html.normalName().equals("html") ? html : document.appendElement("html");
+        document.body().prependChild(note);
     }
 }

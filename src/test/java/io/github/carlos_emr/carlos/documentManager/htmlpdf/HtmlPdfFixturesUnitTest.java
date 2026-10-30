@@ -297,9 +297,8 @@ class HtmlPdfFixturesUnitTest {
     void shouldKeepWordsWhole_inATableBesideALongRun() throws Exception {
         HtmlPdfRenderResult result = render("geometry/long-run-beside-table.html");
 
-        List<String> words = List.of("Smoking", "history", "Alcohol", "consumption", "Medications", "taken");
         String lines = String.join(" ", TestPdfs.pageTexts(result.pdf()));
-        assertThat(words).allSatisfy(word -> assertThat(lines).contains(word));
+        assertThat(lines).contains("Smoking", "history", "Alcohol", "consumption", "Medications", "taken");
         assertThat(result.degradations()).isEmpty();
     }
 

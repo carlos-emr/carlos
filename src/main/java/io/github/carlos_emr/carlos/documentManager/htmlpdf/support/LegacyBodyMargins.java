@@ -47,8 +47,11 @@ import java.util.regex.Pattern;
  */
 public final class LegacyBodyMargins {
 
-    /** A margin in pixels, as WebKit read it: digits, an optional fraction and an optional {@code px}. */
-    private static final Pattern PIXELS = Pattern.compile("(?i)\\s*\\+?(\\d+)(?:\\.\\d*)?\\s*(?:px)?\\s*");
+    /**
+     * A margin in pixels, as WebKit read it: digits, an optional fraction and an optional {@code px}. Every
+     * quantifier is possessive: no part can give back what it took, so the match cannot take longer than the text.
+     */
+    private static final Pattern PIXELS = Pattern.compile("(?i)\\s*+\\+?+(\\d++)(?:\\.\\d*+)?+\\s*+(?:px)?+\\s*+");
 
     /** A margin wider than this is not a margin any more; it would leave no room for the page. */
     static final long MAX_PIXELS = 1_000;
