@@ -130,7 +130,7 @@ public final class ConvertToEdoc {
      * @return EDoc the document object referencing the PDF
      * @throws PDFGenerationException if the PDF file at the given path is not readable
      */
-    public synchronized static EDoc from(EFormData eForm, Path eFormPDFPath) throws PDFGenerationException {
+    public static synchronized EDoc from(EFormData eForm, Path eFormPDFPath) throws PDFGenerationException {
         String demographicNo = eForm.getDemographicId() + "";
         String filename = buildFilename(eForm.getFormName(), demographicNo);
         String eDocDescription = (eForm.getSubject() == null || eForm.getSubject().trim().isEmpty()) ? eForm.getFormName() : eForm.getSubject();
@@ -158,7 +158,7 @@ public final class ConvertToEdoc {
      * @param eform EFormData the electronic form data to convert
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
-    public synchronized static Path saveAsTempPDF(EFormData eform) {
+    public static synchronized Path saveAsTempPDF(EFormData eform) {
         String eformString = eform.getFormData();
         String filename = buildFilename(eform.getFormName(), eform.getDemographicId() + "");
         return execute(eformString, filename, HtmlPdfRenderSource.HRM);
@@ -171,7 +171,7 @@ public final class ConvertToEdoc {
      * @param formTransportContainer FormTransportContainer containing form HTML, metadata, and real path
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
-    public synchronized static Path saveAsTempPDF(FormTransportContainer formTransportContainer) {
+    public static synchronized Path saveAsTempPDF(FormTransportContainer formTransportContainer) {
         String htmlString = formTransportContainer.getHTML();
         ConvertToEdoc.realPath = formTransportContainer.getRealPath();
         String filename = buildFilename(formTransportContainer.getFormName(), formTransportContainer.getDemographicNo());
@@ -185,7 +185,7 @@ public final class ConvertToEdoc {
      * @param emailData EmailData containing the encrypted/HTML email message body
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
-    public synchronized static Path saveAsTempPDF(EmailData emailData) {
+    public static synchronized Path saveAsTempPDF(EmailData emailData) {
         String htmlString = emailData.getEncryptedMessage();
         String filename = buildFilename("emailbody_", "");
         return execute(htmlString, filename, HtmlPdfRenderSource.EMAIL);
@@ -357,13 +357,9 @@ public final class ConvertToEdoc {
         try {
             Path path = Path.of(text).toAbsolutePath().normalize();
             return path.getParent() == null ? null : path;
-        } catch (InvalidPathException e) {
+        } catch (InvalidPathException _) {
             return null;
         }
-    }
-
-    private static Path usablePath(Path path) {
-        return path == null ? null : usablePath(path.toString());
     }
 
     /**

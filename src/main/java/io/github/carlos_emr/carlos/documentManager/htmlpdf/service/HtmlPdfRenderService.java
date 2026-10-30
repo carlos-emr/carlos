@@ -323,7 +323,7 @@ public class HtmlPdfRenderService {
     private boolean takeSlot() throws PDFGenerationException {
         try {
             return slots.tryAcquire(slotWait.toNanos(), TimeUnit.NANOSECONDS);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
             // Nothing has started, so the caller may try again; rendering on with the flag set would only
             // fail every file read that follows.
