@@ -64,7 +64,7 @@ import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 class BundledFontResolverUnitTest {
 
     /**
-     * U+1F600: drawn by Symbola, not by DejaVu Sans, and with an advance width. (U+1D11E, the G clef,
+     * U+1F600: drawn by Symbola (and by DejaVu Sans), and with an advance width. (U+1D11E, the G clef,
      * has no advance in Symbola, and a line of nothing but zero-width text is not drawn at all.)
      */
     private static final String EMOJI = new String(Character.toChars(0x1F600));
