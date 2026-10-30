@@ -142,12 +142,22 @@ class MessageUploaderMergedPatientMatchIntegrationTest extends CarlosTestBase {
                 "");
     }
 
-    /** Routes one synthetic lab for the HIN and returns the demographic numbers it was routed to. */
+    /**
+     * Routes one synthetic lab for the HIN and returns the demographic numbers that lab was routed to.
+     *
+     * <p>Reads only the routing rows of the lab stored for {@code fileId}: the H2 database is shared by every
+     * test class in the fork, and HL7 routing rows other classes leave behind must not count here.</p>
+     */
     private List<Integer> routedDemographics(String hin, int fileId) throws Exception {
         MessageUploader.routeReport(AuthUtils.initLoginContext(), "synthetic", null, lab(hin, "ACC" + fileId), fileId);
         em.flush();
-        List<PatientLabRouting> routes = em.createQuery("select r from PatientLabRouting r where r.labType = 'HL7'",
-                PatientLabRouting.class).getResultList();
+        List<Integer> labNos = em.createQuery("select m.id from Hl7TextMessage m where m.fileUploadCheckId = :fileId",
+                Integer.class).setParameter("fileId", fileId).getResultList();
+        // Without its stored message an empty routing list would pass the "stays unrouted" tests vacuously.
+        assertThat(labNos).as("lab stored for file %d", fileId).hasSize(1);
+        List<PatientLabRouting> routes = em.createQuery(
+                "select r from PatientLabRouting r where r.labType = 'HL7' and r.labNo = :labNo",
+                PatientLabRouting.class).setParameter("labNo", labNos.getFirst()).getResultList();
         return routes.stream().map(PatientLabRouting::getDemographicNo).toList();
     }
 
