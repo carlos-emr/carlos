@@ -30,7 +30,7 @@ import org.springframework.stereotype.Repository;
 public class CdsLegacyProjectionDao extends AbstractDaoImpl<CdsImportField> {
     // These values are Flyway versions bound to a version column, never network addresses.
     @SuppressWarnings("java:S1313")
-    private static final String SOURCE_FIELD_MIGRATION_VERSION = "1.0.59.8";
+    private static final String SOURCE_FIELD_MIGRATION_VERSION = "1.0.59.8.1";
     @SuppressWarnings("java:S1313")
     private static final String LABORATORY_MIGRATION_VERSION = "1.0.59.10";
 

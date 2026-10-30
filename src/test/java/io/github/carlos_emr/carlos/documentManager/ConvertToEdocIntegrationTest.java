@@ -39,11 +39,9 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -53,9 +51,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 /**
- * Exercises real HTML-to-PDF fallback rendering, temporary storage and EDoc metadata.
- * Only the native converter and storage destination are replaced: this test does not
- * depend on native wkhtmltox availability or write into the configured document store.
+ * Exercises the real HTML-to-PDF service through {@link ConvertToEdoc}, with temporary storage and EDoc
+ * metadata. Only the storage destination is replaced: this test does not write into the configured
+ * document store.
  */
 @Tag("integration")
 @Tag("document")
@@ -68,7 +66,7 @@ class ConvertToEdocIntegrationTest {
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"   ", "Referral letter"})
-    @DisplayName("should render readable PDF and preserve metadata for optional eForm subjects")
+    @DisplayName("should render a readable PDF and preserve metadata for optional eForm subjects")
     void shouldRenderPdf_whenSubjectIsOptional(String subject) throws Exception {
         EFormData eform = new EFormData();
         eform.setFormId(100);
@@ -85,30 +83,24 @@ class ConvertToEdocIntegrationTest {
                     return destination;
                 });
 
-        try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class);
-             MockedConstruction<InternalEDocConverter> nativeConverter = mockConstruction(
-                     InternalEDocConverter.class, (converter, context) ->
-                             doThrow(new IOException("Native renderer unavailable in fixture"))
-                                     .when(converter).convert(anyString(), any()))) {
+        try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class)) {
             spring.when(() -> SpringUtils.getBean(NioFileManager.class)).thenReturn(fileManager);
-            // The fallback is the real HTML-to-PDF service, resolved at call time as in production.
+            // The real HTML-to-PDF service, resolved at call time as in production.
             spring.when(() -> SpringUtils.getBean(HtmlPdfRenderService.class)).thenReturn(HtmlPdfTestServices.newService());
-            EDoc result = ConvertToEdoc.from(eform);
-            String expectedDescription = subject == null || subject.isBlank() ? "Test Form" : subject;
-            assertThat(result).isNotNull();
-            assertThat(result.getDescription()).isEqualTo(expectedDescription);
-            assertThat(result.getModuleId()).isEqualTo("17");
-            assertThat(result.getNumberOfPages()).isEqualTo(1);
-            Path pdfPath = Path.of(result.getFilePath()).resolve(result.getFileName());
+            Path pdfPath = ConvertToEdoc.saveAsTempPDF(eform);
             assertThat(pdfPath).isRegularFile();
             try (PDDocument pdf = Loader.loadPDF(pdfPath.toFile())) {
                 assertThat(pdf.getNumberOfPages()).isEqualTo(1);
                 assertThat(new PDFTextStripper().getText(pdf)).contains("Referral integration fixture");
             }
-            // The pre-rendered overload must apply the same optional-subject fallback.
-            EDoc fromExistingPdf = ConvertToEdoc.from(eform, pdfPath);
-            assertThat(fromExistingPdf.getDescription()).isEqualTo(expectedDescription);
-            assertThat(fromExistingPdf.getNumberOfPages()).isEqualTo(1);
+            // The metadata of the document made from that PDF applies the optional-subject fallback.
+            String expectedDescription = subject == null || subject.isBlank() ? "Test Form" : subject;
+            EDoc result = ConvertToEdoc.from(eform, pdfPath);
+            assertThat(result).isNotNull();
+            assertThat(result.getDescription()).isEqualTo(expectedDescription);
+            assertThat(result.getModuleId()).isEqualTo("17");
+            assertThat(result.getNumberOfPages()).isEqualTo(1);
+            assertThat(Path.of(result.getFilePath()).resolve(result.getFileName())).isEqualTo(pdfPath);
             verify(fileManager).saveTempFile(anyString(), any(ByteArrayOutputStream.class));
         }
     }

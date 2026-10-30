@@ -937,6 +937,14 @@ clinic's sign-off.
   expression, so the assessment does not ask and reports
   `charset-b8-unmeasured` instead — a `go` there is silent about that one
   class, never a clearance of it.
+  The scoped ISO-8859-1 `drugs.special` extension is implemented in
+  [carlos-ctl #18](https://github.com/carlos-emr/carlos-ctl/pull/18), pending a
+  published CLI release and the CARLOS dependency/pin update. With that fixed
+  version, the two reviewed en-dash / less-than-or-equal sequences use the
+  existing `--accept charset-repair`; remaining corruption still blocks.
+  `charset-exact-unmeasured` explicitly discloses source engines that cannot
+  evaluate the full guarded candidate. Preflight stays read-only. Regenerate
+  its standalone file after upgrading and rerun assessment before exporting.
 - *the dump uses collation(s) unavailable on this server* — the OSCAR 19
   server had collations this MariaDB lacks. Re-take the dump on a server
   whose collations match, or install them.

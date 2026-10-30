@@ -40,12 +40,12 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class CdsLegacyProjectionDaoUnitTest {
     @Test void shouldRefuseMissingSourceRepresentation_afterItsActualReleaseMigration() {
-        var dao = dao(Set.of("1.0.59.8"));
+        var dao = dao(Set.of("1.0.59.8.1"));
         assertThrows(CdsLegacyProjectionException.class, () -> dao.hasSourceFields(42, Set.of()));
         assertThrows(CdsLegacyProjectionException.class, () -> dao.hasSourceFields(42, Set.of("CareElements")));
     }
     @Test void shouldRefuseMissingUnscopedRepresentation_afterItsActualReleaseMigration() {
-        var dao = dao(Set.of("1.0.59.8"));
+        var dao = dao(Set.of("1.0.59.8.1"));
         assertThrows(CdsLegacyProjectionException.class, () -> dao.hasAnySourceFields(Set.of("CareElements")));
     }
     @Test void shouldRefuseMissingLaboratoryRepresentation_afterItsActualReleaseMigration() {
@@ -54,6 +54,12 @@ class CdsLegacyProjectionDaoUnitTest {
     }
     @Test void shouldKeepOptionalRepresentationInactive_beforeItsMigrationWasApplied() {
         var dao = dao(Set.of());
+        assertFalse(dao.hasSourceFields(42, Set.of()));
+        assertFalse(dao.hasAnySourceFields(Set.of("CareElements")));
+        assertFalse(dao.hasTypedLaboratoryResults(42));
+    }
+    @Test void shouldKeepLegacyExportsAvailable_whenOnlyTheMessengerMigrationIsInstalled() {
+        var dao = dao(Set.of("1.0.59.8"));
         assertFalse(dao.hasSourceFields(42, Set.of()));
         assertFalse(dao.hasAnySourceFields(Set.of("CareElements")));
         assertFalse(dao.hasTypedLaboratoryResults(42));

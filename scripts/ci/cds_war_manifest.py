@@ -21,7 +21,7 @@ REQUIRED_CLASSES = frozenset({
     "WEB-INF/classes/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportJobService.class",
     "WEB-INF/classes/io/github/carlos_emr/carlos/demographic/cdsimport/cli/CdsImportCli.class",
 })
-REQUIRED_MIGRATION = "WEB-INF/classes/db/migration/common/V1.0.59.8__cds_import_ledger.sql"
+REQUIRED_MIGRATION = "WEB-INF/classes/db/migration/common/V1.0.59.8.1__cds_import_ledger.sql"
 BUILD_METADATA = frozenset({"META-INF/MANIFEST.MF", "WEB-INF/classes/git.properties",
     "WEB-INF/classes/build-info.properties", "WEB-INF/classes/META-INF/build-info.properties"})
 FAILURE_CODES = frozenset({

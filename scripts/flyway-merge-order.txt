@@ -65,7 +65,8 @@ bc/V1.0.59.4__offer_current_bc_antenatal_record.sql
 common/V1.0.59.5__preserve_full_appointment_names.sql
 common/V1.0.59.6__align_clinical_text_and_status_collations.sql
 common/V1.0.59.7__reconcile_managed_performance_indexes.sql
-common/V1.0.59.8__cds_import_ledger.sql
+common/V1.0.59.8__widen_messagetbl_pdfattachment.sql
+common/V1.0.59.8.1__cds_import_ledger.sql
 common/V1.0.59.9__cds_upload_sessions.sql
 common/V1.0.59.10__cds_laboratory_results.sql
 common/V1.0.59.11__cds_contact_care_capacity.sql

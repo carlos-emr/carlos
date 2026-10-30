@@ -67,6 +67,25 @@ test('insertId reads LAST_INSERT_ID in the same call and refuses a missing id', 
   }
 });
 
+test('bound insertId reads its generated key from the INSERT connection without interpolating values', () => {
+  const calls = [];
+  const runner = createSqlRunner({ host: '127.0.0.1', password: 'secret' }, {
+    exec: (_file, args) => { calls.push(args.at(-1)); return '42\n'; }, env: {},
+  });
+  try {
+    const query = 'INSERT INTO synthetic_only(label) VALUES(?)';
+    const label = "FAKE O'Brien; -- 雪";
+    assert.equal(harness.insertId(runner, query, 'row', [label]), '42');
+    assert.equal(calls.length, 1, 'the generated key must use the same CLI connection');
+    assert.match(calls[0], /EXECUTE carlos_pw_statement USING @carlos_pw_arg_0; DEALLOCATE PREPARE carlos_pw_statement; SELECT LAST_INSERT_ID\(\)$/);
+    assert.doesNotMatch(calls[0], /O'Brien|雪/);
+    const encoded = [...calls[0].matchAll(/CONVERT\(X'([a-f0-9]*)' USING utf8mb4\)/g)]
+      .map(match => Buffer.from(match[1], 'hex').toString('utf8'));
+    assert.deepEqual(encoded, [query, label]);
+  } finally { runner.dispose(); }
+  assert.throws(() => harness.insertId({ insertId: () => '0' }, 'INSERT INTO t VALUES(?)', 'row', ['x']), /not created/);
+});
+
 test('TLS verification is only waived for a demonstrably local target (issue #3598)', () => {
   for (const host of ['localhost', '127.0.0.1', '::1', '10.1.2.3', '192.168.0.9', '172.16.0.1']) {
     assert.equal(isLocalTlsTarget(host), true, `${host} should count as local`);

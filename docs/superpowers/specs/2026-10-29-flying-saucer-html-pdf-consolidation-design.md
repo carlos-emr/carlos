@@ -266,7 +266,9 @@ Flying Saucer 10.7.0 was checked before choosing it:
   3.0.5, and every OpenPDF member it uses exists in 3.0.3, see "Decisions").
 - Tagged PDF, PDF/UA or PDF/A output. Flying Saucer 10.5+ can tag, but placing pages on
   Letter discards the structure, and wkhtmltopdf's output had none either.
-- Widening `ConvertToEdoc`'s `FileType` extension list.
+- Widening `ConvertToEdoc`'s `FileType` extension list. (Done afterwards, when the comparison plate showed boxes for a
+  BMP, a WBMP and an SVG that the service itself draws: the list now passes every picture type the service draws,
+  so only WebP and HEIC, which it does not decode, are left out.)
 - Full right-to-left layout (line breaking in right-to-left order; see "Follow-ups").
 - Changing the OSCAR 19 import map: carlos-ctl's own test suite, which CI runs against this
   tree (`debian-python-tests.yml`, `CARLOS_SRC`), asserts `WKHTMLTOPDF_COMMAND` is
@@ -785,8 +787,8 @@ text, so right-to-left shaping and the fallback-font step apply to it.
 | `<button>` | removed |
 | `<select>` | `<span>` (kind `select`) with the text of the `<option>` that has `selected`; for `multiple`, all selected options joined with ", "; if none is selected, the first option (single) or nothing (multiple); options inside `<optgroup>` count |
 | `<textarea>` | `<div>` (kind `textarea`) containing the text, newlines preserved |
-| `<progress>` | `<span>` (kind `text`) containing `value/max` (`max` defaults to 1); nothing when `value` is absent (indeterminate) |
-| `<meter>` | `<span>` (kind `text`) containing `value` |
+| `<progress>` | `<span>` (kind `progress`) holding a bar: a track filled to `value/max` of its width (`max` defaults to 1), the track alone when `value` is absent (indeterminate); first built as `value/max` text |
+| `<meter>` | `<span>` (kind `meter`) holding a bar filled to `(value - min) / (max - min)`, green, amber or red by `low`, `high` and `optimum` as Chromium does; first built as the `value` text |
 
 `checked` and `selected` follow HTML boolean-attribute rules: present means on, whatever
 the value (so `checked="false"` is checked, as in browsers and wkhtmltopdf).
@@ -944,8 +946,10 @@ so this matters mainly for HRM and email HTML.
 
 Measured through `Doc2PDF`'s path: CMYK and progressive JPEG, 16-bit and alpha PNG, GIF
 (first frame), BMP and TIFF load; corrupt and zero-byte files show the box. WebP and HEIC
-are not decoded and show the box. In `ConvertToEdoc`, only `jpeg`, `jpg`, `png` and `gif`
-files pass `FileType`; other image files show the box (today they silently disappear).
+are not decoded and show the box. In `ConvertToEdoc`, `FileType` passed only `jpeg`, `jpg`, `png`
+and `gif`, so a BMP, WBMP, TIFF or SVG named by path showed the box (before this work it silently
+disappeared). A follow-up added `bmp`, `wbmp`, `tif`, `tiff` and `svg`, the types the service draws,
+so they print.
 
 ### Right-to-left text (`RtlTextShaping`)
 
@@ -1380,7 +1384,7 @@ List these in PR 1:
   - long values wrap instead of being clipped; long unbroken words and URLs in body text
     wrap;
   - passwords print as eight bullets; multi-selects print the chosen options as text;
-    textareas lose their scrollbars; `<progress>`/`<meter>` print as text instead of bars;
+    textareas lose their scrollbars;
   - checkbox and radio marks are DejaVu glyphs (about 7.8 pt) rather than drawn 10 pt
     boxes;
   - author CSS that targets `input`/`select`/`textarea` element types (for example
@@ -1422,8 +1426,9 @@ List these in PR 1:
   others) print each character as a visible U+FFFD. Production wkhtmltopdf with only
   `fonts-dejavu-core` prints boxes, so both lose this text visibly. Punjabi is common in
   British Columbia.
-- **`ConvertToEdoc` image types:** only `jpeg`, `jpg`, `png` and `gif` pass its `FileType`
-  list; other image files show the box (today they disappear).
+- **`ConvertToEdoc` image types:** a picture named by path passes by extension (`jpeg`, `jpg`, `png`,
+  `gif`, `bmp`, `wbmp`, `tif`, `tiff`, `svg`); any other extension shows the box (before this work it
+  disappeared).
 - **HRM files in Windows-1252** decode to U+FFFD in both engines (`HRMPDFCreator` decodes
   as UTF-8); pre-existing.
 - **CSS background images** that fail to load are omitted with a WARN; they cannot show the

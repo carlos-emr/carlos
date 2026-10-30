@@ -303,11 +303,11 @@ each matched to an explicit `MODIFY COLUMN` in the listed forward migration:
 
 | Existing table | Changed columns | Migration suffix after `V1.0.59.` |
 | --- | --- | --- |
-| `drugs` | 17 capacity/nullability changes; outside provider name (1) | `8`; `16` |
-| `demographic` | first/last name, city/residential city, status, chart number (6) | `8` |
+| `drugs` | 17 capacity/nullability changes; outside provider name (1) | `8.1`; `16` |
+| `demographic` | first/last name, city/residential city, status, chart number (6) | `8.1` |
 | `demographicArchive` | matching six archive capacities | `15` |
 | `Contact` | combined name and two telephone capacities (3) | `11` |
-| `allergies`, `preventionsExt` | description and source comments (2) | `8` |
+| `allergies`, `preventionsExt` | description and source comments (2) | `8.1` |
 | `measurements` | source measurement value capacity (1) | `11` |
 | `hl7TextInfo` | first/last name (2); health identifier (1) | `10`; `14` |
 | `appointment`, `appointmentArchive` | imported status and notes (4) | `10`; `15` |

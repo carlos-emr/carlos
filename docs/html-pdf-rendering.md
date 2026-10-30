@@ -157,10 +157,11 @@ copy a value and before right-to-left text is reordered; form controls are repla
 reordering, so a Hebrew value is reordered like any text; spans are clamped before tables are marked;
 fallback fonts come last, because their spans would split the runs that shaping reorders.
 
-**Geometry.** wkhtmltopdf's output is the reference: US Letter, 10 mm margins on all sides, 1 CSS px =
-0.6 pt, `line-height: normal` about 1.164 for DejaVu Sans, a repeated `<thead>`, no top margin at the
-start of a page, content wider than 925 px shrunk uniformly to fit. `PrintStylesheet` and
-`PageZoomCalculator` reproduce it; the author's `@page` is ignored (`!important` on ours).
+**Geometry.** The output of wkhtmltopdf, the engine this module replaced, is the reference: US Letter,
+10 mm margins on all sides, 1 CSS px = 0.6 pt, `line-height: normal` about 1.164 for DejaVu Sans, a
+repeated `<thead>`, no top margin at the start of a page, content wider than 925 px shrunk uniformly to
+fit. `PrintStylesheet` and `PageZoomCalculator` reproduce it; the author's `@page` is ignored
+(`!important` on ours).
 
 ## 5 — Time and memory bounds
 
@@ -173,7 +174,7 @@ it out.
 | Wait for a slot | 10 s, once per render | The only wait in the module; a fax with several attachments queued behind `ConvertToEdoc`'s lock stays far inside the proxy's 300 s read timeout |
 | Image memory | a quarter of the heap, shared equally by the slots (256 MB per slot at the 2 GB default) | How a document's images are reduced depends only on the document and the heap size, never on load, so output is deterministic |
 | Decoded image | 25 megapixels; a header declaring more than 250 is a box; a file used as is up to 32 MB; a file read by the user agent up to 128 MB | Measured; see `ImageDecoding`, `PrintImageService`, `LocalOnlyUserAgent` |
-| HTML size | 1,000,000 characters, not counting `data:` payloads, then straight to `TEXT_ONLY` | Measured in PR 1 (below) |
+| HTML size | 1,000,000 characters, not counting `data:` payloads, then straight to `TEXT_ONLY` | Measured when the module was added (below) |
 | SVG bitmap | One per SVG, at most `clamp(maxMemory / 256, 1, 8)` million pixels (1.05 million at a 256 MB heap, 8 million from 2 GB), kept in proportion and stretched to the box | Flying Saucer rasterises an SVG with a gradient, pattern, filter, mask or translucency at its box in device dots (20 to a CSS pixel): 400 times the pixels of the CSS box, again at every draw. A 500 x 500 px chart is 400 MB |
 | Picture inside an SVG | A base64 PNG, JPEG or GIF whose header declares at most 4 million pixels | Batik decodes it in full; a 100 KB PNG can declare 900 million pixels |
 | Spans | `rowspan`/`colspan` clamped; `-fs-table-cell-*` properties removed; form control sizes capped (200 columns, 100 rows) | A span of 99,999,999,999 exhausts a 512 MB heap |
@@ -183,11 +184,11 @@ four-column table of 77 characters a row): a normal-mode layout takes 0.6 s at 1
 (2000 rows, the reference fixture), 7.9 s at 1.0 million, 15.6 s at 1.55 million, 26.9 s at 2.0
 million, 31.7 s at 2.17 million and 66 s at 3.1 million. Text-only mode takes 0.8 s at 1.0 million.
 The limit is where the worst case of the ladder (10 s wait + normal + safe + text-only) stays under
-60 s: 27 s at 1 million, 66 s at 2 million. To repeat the measurement:
-
-```sh
-bash scripts/htmlpdf/compare-with-wkhtmltopdf.sh size-limit 500,5000,13000,26000
-```
+60 s: 27 s at 1 million, 66 s at 2 million. To repeat the measurement, build `HtmlPdfRenderService` with
+the constructor that takes the limit (raise it above the size under test) and time `render` on a
+generated table of four-column rows. The tool that did this, `HtmlPdfComparisonMain size-limit`, went
+with wkhtmltopdf; `git log --diff-filter=A -- '*HtmlPdfComparisonMain.java'` finds the commit that
+added it.
 
 The time is **quadratic in the number of rows** (Flying Saucer walks the siblings of a block while it
 collapses margins; found by profiling), so characters are only a proxy: a document of very short
@@ -200,7 +201,7 @@ Each row is tried in order; an error reaches the caller only from the last colum
 
 | Failure point | Mitigations, in order | Last resort |
 |---|---|---|
-| A JPEG photo | None: embedded as it is, never decoded (a JPEG with an EXIF orientation is decoded and turned) | |
+| A JPEG photo | None: embedded as it is, never decoded (a JPEG with an EXIF orientation is decoded and turned upright, by the Orientation of its first EXIF block alone; a thumbnail's own is ignored) | |
 | Another image over the per-image cap, or over 32 MB | Read as a stream, subsampled to fit (`IMAGE_DOWNSCALED`), printed size kept | The box |
 | An image format OpenPDF cannot draw but a vetted reader can (BMP, WBMP, TIFF) | Converted to PNG or JPEG (`IMAGE_CONVERTED`) | The box |
 | A valid header with corrupt data | Decoded by the tolerant reader and re-encoded (`IMAGE_CONVERTED`) | The box |
@@ -325,8 +326,13 @@ checks parity); the French, Spanish, Polish and Brazilian Portuguese values carr
 - **Form controls print what a person typed, never what the page hid.** Hidden inputs, submit and
   image buttons, `<button>` and file inputs are removed; a password prints eight bullets whatever its
   length; a `<select>` prints the chosen option's text, a multi-select the chosen options joined by
-  commas; `<progress>` and `<meter>` print as `30/100` and `0.6`; a `<textarea>` keeps its line
-  breaks. Replacements grow to fit, so a value is never clipped.
+  commas; `<progress>` and `<meter>` print as bars, a grey track filled to the value (a progress is
+  10em wide and blue, a meter 5em and green, amber or red by its `low`, `high` and `optimum`, as in
+  Chromium; a progress with no value is the track alone; a bar has no number or other text beside or
+  in it, as wkhtmltopdf's had none (the text between the tags is for browsers that cannot draw them),
+  so the plain-text last resort leaves it out as it leaves out an image); a `<textarea>` keeps its
+  line breaks.
+  Replacements grow to fit, so a value is never clipped.
 - **Logs carry class names, counts and mode names.** No path, URL, file name, HTML or exception
   message from the engine is logged. `HtmlPdfRenderRequest.toString()` prints the source, the HTML's
   length and the number of allowed directories, and `HtmlPdfRenderResult.toString()` the size and the
@@ -340,20 +346,21 @@ checks parity); the French, Spanish, Polish and Brazilian Portuguese values carr
 | `ConvertToEdoc.saveAsTempPDF(FormTransportContainer)` | `FORM` | A `Path` to the PDF in the temporary directory, or `null` (it logs why) |
 | `ConvertToEdoc.saveAsTempPDF(EFormData)` | `HRM` | The same; its only production caller is `HRMPDFCreator` |
 | `ConvertToEdoc.saveAsTempPDF(EmailData)` | `EMAIL` | The same |
-| `ConvertToEdoc.from(FormTransportContainer)` and `from(EFormData)` | `FORM`, `HRM` | An `EDoc` that wraps the saved PDF, or `null` |
+| `ConvertToEdoc.from(EFormData, Path)` | none | An `EDoc` that wraps a PDF rendered elsewhere (the headless-browser eForm path); no HTML is rendered; throws `PDFGenerationException` if the PDF is unreadable |
 | `Doc2PDF.parseString2PDF`, `parseString2Bin` and the string entry points | `MESSENGER` | Their existing failure paths; null or blank text is a failure, not a blank page |
 
 `ConvertToEdoc` does the legacy translation before it asks the service to render: it settles one
 webapp root, rewrites each element's resource paths (every occurrence of a repeated `src` is
 translated and validated) into encoded `file:` URIs, and gives an `<img>` that is remote, outside the
-root, missing or of an unlisted type (its `FileType` list is `jpeg`, `jpg`, `png`, `gif`, `css`,
-`js`, `pdf`) a `data-carlos-image-unavailable` marker so it prints as the box. It then builds one
-request: the webapp root as the base directory; the root, the eForm image directory, the temporary
-directory and Catalina's work directory as the allowed ones.
+root, missing or of an unlisted type a `data-carlos-image-unavailable` marker so it prints as the box.
+The `FileType` list holds the picture types the service draws (`jpeg`, `jpg`, `png`, `gif`, `bmp`,
+`wbmp`, `tif`, `tiff`, `svg`) and the `css`, `js` and `pdf` a document may link; it is only the front
+door, as the service judges a file by its content, not its extension (a `.png` that is a PDF is still a
+box). It then builds one request: the webapp root as the base directory; the root, the eForm image
+directory, the temporary directory and Catalina's work directory as the allowed ones.
 
-**Until the follow-up change that removes wkhtmltopdf lands,** `ConvertToEdoc` renders with
-wkhtmltopdf first and hands the document to the service only when that fails (the output stream is
-reset before the second attempt, so one PDF is saved). Doc2PDF has always used Flying Saucer.
+`ConvertToEdoc` has one engine: the service. It renders the document once; a document the service
+cannot print at all is a failure of the facade (a logged `null`), not a reason to try another engine.
 
 What callers do with a failure:
 
@@ -396,6 +403,7 @@ Run the module's tests with the `htmlpdf` tag (`mvn -q test -Dgroups=htmlpdf`) o
 | `HtmlPdfSpringWiringUnitTest` | The module's package scan alone wires the six beans, all singletons, and renders |
 | `HtmlPdfFixturesUnitTest`, `HtmlPdfFormsUnitTest` | The Annual forms, an every-control page, HRM reports (demo, table-heavy, Word-style, images), email, Messenger, 14 geometry pages, scripts and edge markup, through the production beans. The central assertion: **a real document renders with no WARN- or ERROR-level degradation** |
 | `HtmlPdfSsrfUnitTest` | No network request and no read outside the allowed directories, whichever way the document asks, in every mode |
+| `HtmlPdfImageOrientationUnitTest` | A picture of four colours stored with each of the eight EXIF orientations prints as a viewer shows it; a 12-megapixel phone photo, stored sideways, prints upright in portrait proportions; the images grid's scene has the sun at the top right |
 | `HtmlPdfConcurrencyUnitTest`, `HtmlPdfMemoryUnitTest` | Concurrent renders give identical bytes; the image memory share holds under a 256 MB heap in a child JVM |
 | `HtmlPdfLibraryLoggingUnitTest` | The library's logger stays at WARN, its SVG logger at ERROR, and a document's values never reach either |
 | `HtmlPdfSvgSizeUnitTest`, `HtmlPdfSvgTextUnitTest`, `BoundedOutputDeviceUnitTest` | An SVG prints at the size a browser gives it however it is sized; Hebrew in an inline SVG keeps its order; huge gradient SVGs, tiled backgrounds and SVGs that cannot be drawn render within bounds. `HtmlPdfMemoryUnitTest` renders them in a 256 MB child JVM |
@@ -410,20 +418,32 @@ directory per test exhausts a test JVM's heap), `TestImages`.
 Fixtures are in `src/test/resources/htmlpdf` (its README says how each was made). The two Annual form
 pages were derived from the JSPs by `scripts/htmlpdf/derive-annual-fixtures.py` because they were made
 where no server runs; **`scripts/htmlpdf/capture-annual-fixtures.js` captures them from a running
-devcontainer instead (it has not been run)**. Fonts under other hosts: `bash scripts/check-report-fonts.sh`.
+devcontainer or a packaged install instead (run once, in an Ubuntu 26.04 container)**. Fonts under other hosts: `bash scripts/check-report-fonts.sh`.
 Text read back from a PDF: PDFBox returns right-to-left text in logical order and splits a line at
 every cell, so assert on phrases and glyph positions (`TestPdfs.glyphs`), not on whole lines.
 
 ## 13 — Known limitations
 
 - **WebP and HEIC images** are not decoded and print as the box.
-- **`ConvertToEdoc` image types:** only `jpeg`, `jpg`, `png` and `gif` pass its `FileType` list; other
-  files named by path (BMP, TIFF, SVG) show the box. The same formats inside a `data:` URI are drawn.
+- **`ConvertToEdoc` image types:** a picture named by path passes by its extension (`jpeg`, `jpg`, `png`,
+  `gif`, `bmp`, `wbmp`, `tif`, `tiff`, `svg`, in any case); any other extension (`.webp`, `.heic`,
+  `.jfif`) shows the box. The same formats inside a `data:` URI are drawn.
 - **Indic and Thai scripts** (Devanagari, Gurmukhi, Tamil, Thai) have no bundled glyphs or shaping and
   print as U+FFFD (wkhtmltopdf printed boxes). Some Persian and Urdu letter forms are missing from
   DejaVu Sans. Copying or searching shaped Arabic out of the PDF yields presentation forms in visual
   order; the printed page is right.
 - **Long right-to-left passages** that wrap print their lines in reverse order (the note says so).
+- **Progress and meter bars** fill from the left even in right-to-left text, where a browser fills from the right;
+  the filled share is right.
+- **The label of a very small placeholder box** (an image under about 45 pixels wide) is clipped even at the smallest
+  size (4 pt); a wider box wraps it between its words and sets it smaller to fit. The box still marks where the
+  image was.
+- **Messenger holds the chart PDFs of a message in a `MEDIUMBLOB`.** `messagetbl.pdfattachment` is 16,777,215 bytes
+  (`MessageTbl.PDF_ATTACHMENT_MAX_BYTES`) since migration `V1.0.59.8`; it was a 65,535-byte `BLOB`, which held one
+  chart PDF (with its fonts embedded a PDF is about 40 KB, 55 KB as base64) and cut a second off in the middle. The
+  application still refuses what does not fit (a 413 when attaching, the compose page again when sending) instead of
+  letting MariaDB cut the text off, judging it as it is stored (`MsgMessageData.pdfAttachmentFits`: the send doubles
+  each backslash of a title). The migration copies `messagetbl` once, so it takes as long as the table is large.
 - **Stylesheet-defined `position: fixed`** still repeats on every page; an inline one is rewritten.
 - **A table with both `<thead>` and row spans** prints its header once.
 - **Top margins at the start of a page** are dropped only for the body and its direct first child (as
@@ -442,7 +462,7 @@ every cell, so assert on phrases and glyph positions (`TestPdfs.glyphs`), not on
   is one bitmap.
 - **Decoded `data:` payloads are bounded together** by the slot's image-memory share during planning
   (and individually by 128 MB). The original HTML string remains in memory.
-- **HRM files in Windows-1252** decode to U+FFFD in both engines; `HRMPDFCreator` decodes UTF-8.
+- **HRM files in Windows-1252** decode to U+FFFD, as they did with wkhtmltopdf; `HRMPDFCreator` decodes UTF-8.
 - **Form controls are replaced by their text:** author CSS that targets `input`/`select`/`textarea`
   element types no longer sizes them.
 
@@ -486,12 +506,13 @@ every cell, so assert on phrases and glyph positions (`TestPdfs.glyphs`), not on
 
 ## 15 — Rollback
 
-If printed, faxed or emailed documents regress after release, revert the follow-up change that made
-the service `ConvertToEdoc`'s only engine: it restores wkhtmltopdf as the primary engine with this
-module as its fallback (and brings back the vendored jar, the JNA pin, `libxrender1` and the settings;
-regenerate `dependencies-lock.json` with `make lock`). Triage reports as GitHub issues with a
-FAKE-data reproduction (the form, values with FAKE- names, and the `htmlpdf-render` log line), never
-a patient's PDF.
+If printed, faxed or emailed documents regress after release, revert the change that made the service
+`ConvertToEdoc`'s only engine (`feat(documents): switch to Flying Saucer and remove wkhtmltopdf (2/2)`):
+it restores wkhtmltopdf as the primary engine with this module as its fallback, and brings back the
+vendored jar, the JNA pin, `libxrender1`, the settings and the comparison tool (regenerate
+`dependencies-lock.json` with `make lock`). Triage reports as GitHub issues with a FAKE-data
+reproduction (the form, values with FAKE- names, and the `htmlpdf-render` log line), never a patient's
+PDF.
 
 ## 16 — Cross-references
 
@@ -500,5 +521,3 @@ a patient's PDF.
   the layering and naming conventions this module follows.
 - [superpowers/specs/2026-10-29-flying-saucer-html-pdf-consolidation-design.md](superpowers/specs/2026-10-29-flying-saucer-html-pdf-consolidation-design.md):
   the decisions, the measurements and the full resilience table.
-- `scripts/htmlpdf/compare-with-wkhtmltopdf.sh`: the side-by-side comparison with wkhtmltopdf and the
-  size-limit measurement (PR 1 only; it goes with wkhtmltopdf).

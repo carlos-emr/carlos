@@ -112,7 +112,7 @@ def verify_admission_seeds(repository, client, run, log):
     """Replay exact guards on an owned scratch clone, then remove it before contract export."""
     statements = []
     pattern = re.compile(r"^[ \t]*INSERT\s+INTO\s+cds_import_admission\b[^;]*;", re.IGNORECASE | re.MULTILINE)
-    for suffix in ('8__cds_import_ledger', '9__cds_upload_sessions'):
+    for suffix in ('8.1__cds_import_ledger', '9__cds_upload_sessions'):
         text = (repository / 'database/mysql/migration/common' / ('V1.0.59.' + suffix + '.sql')).read_text()
         statements.extend(pattern.findall(text))
     if len(statements) != 3 or any('WHERE NOT EXISTS' not in sql.upper() for sql in statements):

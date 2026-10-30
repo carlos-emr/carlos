@@ -213,7 +213,7 @@ public class EmailCompose2Action extends ActionSupport {
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#getEmailConsentStatus(LoggedInInfo, Integer)
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#getRecipients(LoggedInInfo, Integer)
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#createEmailPDFPassword(LoggedInInfo, Integer)
-     * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#prepareEFormAttachments(LoggedInInfo, String, String[])
+     * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#prepareEFormAttachments(LoggedInInfo, String, String[], Integer)
      * @see io.github.carlos_emr.carlos.managers.EmailComposeManager#sanitizeAttachments(List)
      * @see #cleanupEmailSessionAttributes(HttpServletRequest)
      * @see #emailComposeError(HttpServletRequest, String)
@@ -284,10 +284,12 @@ public class EmailCompose2Action extends ActionSupport {
                 emailPDFPasswordClue = "To protect your privacy, the PDF attachments in this email have been encrypted with a 18 digit password - your date of birth in the format YYYYMMDD followed by the 10 digits of your health insurance number.";
             }
 
-            emailAttachmentList.addAll(emailComposeManager.prepareEFormAttachments(loggedInInfo, fdid, attachedEForms));
-            emailAttachmentList.addAll(emailComposeManager.prepareEDocAttachments(loggedInInfo, attachedDocuments));
-            emailAttachmentList.addAll(emailComposeManager.prepareLabAttachments(loggedInInfo, attachedLabs));
-            emailAttachmentList.addAll(emailComposeManager.prepareHRMAttachments(loggedInInfo, attachedHRMDocuments));
+            // Email attachments must belong to the email's patient: each prepare call refuses a record
+            // of another patient the way it refuses one it cannot find.
+            emailAttachmentList.addAll(emailComposeManager.prepareEFormAttachments(loggedInInfo, fdid, attachedEForms, demographicNo));
+            emailAttachmentList.addAll(emailComposeManager.prepareEDocAttachments(loggedInInfo, attachedDocuments, demographicNo));
+            emailAttachmentList.addAll(emailComposeManager.prepareLabAttachments(loggedInInfo, attachedLabs, demographicNo));
+            emailAttachmentList.addAll(emailComposeManager.prepareHRMAttachments(loggedInInfo, attachedHRMDocuments, demographicNo));
             emailAttachmentList.addAll(emailComposeManager.prepareFormAttachments(request, response, attachedForms, demographicNo));
             emailComposeManager.sanitizeAttachments(emailAttachmentList);
             for (EmailAttachment attachment : emailAttachmentList) {

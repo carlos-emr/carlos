@@ -257,14 +257,6 @@
     "integrity" : "sha512:YLJ1qDvLVOE0hRuDwPgQLT4mPEZjZnlObat+LOk5vNLw0dEZOkWdT+c6wYgSvyXpRPw7+iO2YK0XgVcYWESegA=="
   }, {
     "groupId" : "com.github.librepdf.openpdf",
-    "artifactId" : "openpdf-html",
-    "version" : "3.0.3",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:vh2lpsB1xCOsvw+I/UoTGVlVDRYBZSUROYVWukXjxn5SfkDw8i4hukBcFYOTf7lYUHc/v5nx7b3vmmIymDnypg=="
-  }, {
-    "groupId" : "com.github.librepdf.openpdf",
     "artifactId" : "openpdf",
     "version" : "3.0.3",
     "scope" : "compile",
@@ -287,14 +279,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:YbtgqmcRqHPES4trwwZCF9O2h5VuYbTfhGEMG9gruFIqwQXabrzm8HH29vhrtOQMoX/oGN1/anSwlJ/scSNzZw=="
-  }, {
-    "groupId" : "com.github.openosp",
-    "artifactId" : "ultrabuk-htmltopdf-java",
-    "version" : "1.0.11",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:19I1LHAibtEyxj+PoIlGp+CC5wulN5ZajJ3+Y+rN2i4raBXE8FpI6gd2MMKPbkpsNV+F71bZF2niRH7bpeGBZg=="
   }, {
     "groupId" : "com.github.spotbugs",
     "artifactId" : "spotbugs-annotations",
@@ -1130,14 +1114,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:JS9X7gqZ+BpnlUhORxKWbenwtyKaO/joGM8gqP895rN0X5GtaoVCFpahTm1Sj20l+isFUON1AMWQe+N4HGUE4g=="
-  }, {
-    "groupId" : "net.java.dev.jna",
-    "artifactId" : "jna",
-    "version" : "5.19.1",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:DmqWCs/W+sd0htp7bRjrnZjgogW994GJVImX+29gk+cT5XDpgp7MbX3sgTJ26vXTr1bTDGJ/67OgsyT6kDXojw=="
   }, {
     "groupId" : "net.sf.jasperreports",
     "artifactId" : "jasperreports-data-adapters",
@@ -2963,14 +2939,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:sLtIXhEMIXPKkZjJ0oak3QXMqFEMZzTm26hLbG+BBljpA/yeukETH8X2+3ksOS/6IlZV+Ss7hMYwXUEH6XTCqA=="
-  }, {
-    "groupId" : "org.htmlunit",
-    "artifactId" : "neko-htmlunit",
-    "version" : "4.21.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:0CxrDZjSoecf5DyEAkw0p5qhgGiR1QjJh/TVj8coHNzKbXqCw9cD4EC5/aHi38UPUHeyxJFqOMkwQjhFeVKZfg=="
   }, {
     "groupId" : "org.jacorb",
     "artifactId" : "jacorb-omgapi",

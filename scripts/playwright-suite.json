@@ -14119,7 +14119,7 @@
         "CAISI_REPORT"
       ],
       "fixtures": "One FAKE Service program named with the run marker (inserted with SQL: the CAISI Program editor needs _pmm_management, which no role holds on a fresh install) and one admission of the runWorkflow FAKE patient to it, so the report's current population is not 0; both are deleted by their captured ids. The program shows in the facility's lists while the run lasts, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The report keeps its figures for an hour in static fields, so it can count the deleted admission for up to an hour after the run.",
-      "notes": "Administration > Reports > Population Report; see admin-caisi-activity-report for the shared script. Skips on the packaged default (caisi=off); needs caisi=on with ModuleNames including Caisi. Opening the report from the legacy Administration page (admin/ViewAdmin) renders every section (render only: the report caches its figures for an hour in static fields shared by every user). It then fails at its menu step: the current shell's Population Report entry has a page attribute and no href, so clicking it does nothing (pending finding 403). With nobody counted in the population the report itself answers 500 (pending finding 405); the check seeds one admission so that does not mask the menu result. No expectedFailure pin until the findings are in the log."
+      "notes": "Administration > Reports > Population Report; see admin-caisi-activity-report for the shared script. Skips on the packaged default (caisi=off); needs caisi=on with ModuleNames including Caisi. Opening the report from the legacy Administration page (admin/ViewAdmin) renders every section (render only: the report caches its figures for an hour in static fields shared by every user). Sixteen concurrent requests then all show the same dd/MM/yyyy date and short Canadian time, within the hour before MariaDB's NOW() (the JVM and MariaDB share the clinic zone): the report formatted these with request-shared formatters (#5301). It then fails at its menu step: the current shell's Population Report entry has a page attribute and no href, so clicking it does nothing (pending finding 403). With nobody counted in the population the report itself answers 500 (pending finding 405); the check seeds one admission so that does not mask the menu result. No expectedFailure pin until the findings are in the log."
     },
     {
       "name": "admin-cds-report",
@@ -16926,6 +16926,94 @@
       ],
       "fixtures": "No patient and no lab rows: four synthetic HL7 v2 XML messages (external entity, parameter entity, external DTD, exponential entity expansion) uploaded as lab type PHS, and a loopback HTTP listener the script starts. The file-upload bookkeeping rows and archived copies of the uploads are removed by their stamped file names.",
       "notes": "Issue #5414: a deployed server must not fetch what a hostile HL7 v2 XML DOCTYPE points at. Each upload is refused, the listener sees no request, and the application still answers."
+    },
+    {
+      "name": "billing-on-bill-form-code-typeahead",
+      "script": "scripts/billing-on-bill-form-code-typeahead-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient and appointment, one owned Ontario service code and one owned diagnosis code; all removed by their own keys. These rows are in shared lists, so this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "The Ontario bill form's service-code and diagnosis type-aheads (ViewBillingCodeSearchAjax, ViewBillingDigSearchAjax): the answer to a typed term, picking fills the code, a picked diagnosis shows its description, an unpicked diagnosis term longer than five characters is cleared.",
+      "mutates": [
+        "billingservice",
+        "diagnosticcode"
+      ]
+    },
+    {
+      "name": "billing-on-bill-form-referral-typeahead",
+      "script": "scripts/billing-on-bill-form-referral-typeahead-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient and appointment, two owned specialists (one deleted); all removed by their own keys. These rows are in shared lists, so this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "The Ontario bill form's referring-doctor type-ahead (ViewSearchRefDocAjax): a name and a referral number both find the owned specialist, never the deleted one, and picking fills the number and the name.",
+      "mutates": [
+        "professionalSpecialists"
+      ]
+    },
+    {
+      "name": "consultation-specialist-details",
+      "script": "scripts/consultation-specialist-details-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient, eForm, consultation service and two specialists (one with an annotation and the eForm); all removed by their own keys. These rows are in shared lists, so this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Picking a consultant on the consultation form posts to getProfessionalSpecialist: the annotation is shown, the eForm button appears only with an eForm and opens it for the patient; a consultant without either clears both. Skips when the form renders the health-care-team specialist select instead of the legacy picker.",
+      "mutates": [
+        "professionalSpecialists",
+        "consultationServices",
+        "serviceSpecialists",
+        "eform"
+      ]
+    },
+    {
+      "name": "echart-right-modules-list-owned-rows",
+      "script": "scripts/echart-right-modules-list-owned-rows-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient with one dxresearch, allergies and drugs row each, and a second FAKE-PW patient; all removed by their own keys.",
+      "notes": "The eChart's Dx Registry, Allergies and Medications modules list the patient's rows with title, full title and count; a second patient's chart lists none of them."
+    },
+    {
+      "name": "echart-left-modules-list-owned-rows",
+      "script": "scripts/echart-left-modules-list-owned-rows-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient with one message (messagetbl/messagelisttbl/msgDemoMap), one document (document/ctl_document, no file) and one HL7 lab (hl7TextMessage/hl7TextInfo/routing), and a second FAKE-PW patient; all removed by their own keys.",
+      "notes": "The eChart's Messages, Documents and Labs modules list the patient's rows with title, full title, the labs' unread state and count; the message and lab rows open their item, the document row links to its viewer; a second patient's chart lists none of them. Assumes the inbox manager off (the document row's URL form)."
     },
     {
       "name": "dao-findall-paging",

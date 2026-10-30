@@ -206,7 +206,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                 ReflectionTestUtils.setField(dao, "entityManager", session);
                 // The test table does not exist; the two real shipped Flyway versions do.
                 // No existing table is renamed or dropped to exercise this recovery contract.
-                for (String version : java.util.List.of("1.0.59.8", "1.0.59.10")) {
+                for (String version : java.util.List.of("1.0.59.8.1", "1.0.59.10")) {
                     assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(dao, "representationTableAvailable",
                             "cds_absent_projection_contract_test", version))
                             .isInstanceOf(io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException.class);

@@ -87,7 +87,7 @@ scenario most likely still measured with the cached host mapping. The pom now ha
 
 **HTML engine (Flying Saucer).** Before the module existed, `Doc2PDF` and the `ConvertToEdoc`
 fallback used Flying Saucer's defaults, so the base-14 fonts and whatever the JVM found on the host
-decided the text, and wkhtmltopdf (the primary engine) took its fonts from the host's fontconfig:
+decided the text, and wkhtmltopdf (then the primary engine) took its fonts from the host's fontconfig:
 production had `fonts-dejavu-core` only, so CJK printed as boxes. `BundledFontResolver` replaces
 the whole family list of every element with one registered family, so Flying Saucer's base-14 fonts
 are never chosen and a name it does not know is not looked up on the host; bold selects DejaVu Sans

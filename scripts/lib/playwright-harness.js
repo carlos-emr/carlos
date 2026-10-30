@@ -335,7 +335,7 @@ function createSqlRunner(mysqlConfig, options = {}) {
   const quoted = String(password).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   (options.writeFile || fs.writeFileSync)(optionFile, `[client]\npassword="${quoted}"\n`, { mode: 0o600 });
 
-  function run(query, parameters) {
+  function run(query, parameters, returnInsertId = false) {
     let statement = query;
     if (parameters !== undefined) {
       assert(typeof query === 'string' && Array.isArray(parameters), 'Bound SQL requires a query string and a parameter array');
@@ -359,6 +359,7 @@ function createSqlRunner(mysqlConfig, options = {}) {
         'DEALLOCATE PREPARE carlos_pw_statement',
       ].join('; ');
     }
+    if (returnInsertId) statement += '; SELECT LAST_INSERT_ID()';
     try {
       return exec('mysql', [
         `--defaults-extra-file=${optionFile}`,
@@ -402,6 +403,11 @@ function createSqlRunner(mysqlConfig, options = {}) {
     execute(query, parameters) {
       run(query, parameters);
     },
+    /** Generated key from a bound INSERT, read in the INSERT's own connection. */
+    insertId(query, parameters) {
+      const rows = parseMysqlBatchOutput(run(query, parameters, true));
+      return rows.length ? rows.at(-1)[0] : '';
+    },
     dispose() {
       (options.rm || fs.rmSync)(directory, { recursive: true, force: true, maxRetries: 2, retryDelay: 50 });
     },
@@ -418,8 +424,10 @@ function sqlString(value) {
  * session. Throws unless the id is a positive integer, so a check never builds
  * later SQL or cleanup from an empty or malformed id.
  */
-function insertId(sql, statement, what) {
-  const id = sql.value(`${statement}; SELECT LAST_INSERT_ID()`);
+function insertId(sql, statement, what, parameters) {
+  const id = parameters === undefined
+    ? sql.value(`${statement}; SELECT LAST_INSERT_ID()`)
+    : sql.insertId(statement, parameters);
   assert(/^[1-9]\d*$/.test(String(id)), `The owned ${what} fixture was not created`);
   return String(id);
 }

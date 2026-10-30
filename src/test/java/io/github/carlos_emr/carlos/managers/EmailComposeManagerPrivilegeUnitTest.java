@@ -61,11 +61,11 @@ class EmailComposeManagerPrivilegeUnitTest {
     void shouldRefuseAsAccessDenial_whenReadPrivilegeMissing() {
         when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), nullable(String.class))).thenReturn(false);
 
-        assertThatThrownBy(() -> emailComposeManager.prepareEFormAttachments(null, "1", new String[0]))
+        assertThatThrownBy(() -> emailComposeManager.prepareEFormAttachments(null, "1", new String[0], 1))
                 .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_eform)");
-        assertThatThrownBy(() -> emailComposeManager.prepareEDocAttachments(null, new String[0]))
+        assertThatThrownBy(() -> emailComposeManager.prepareEDocAttachments(null, new String[0], 1))
                 .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_edoc)");
-        assertThatThrownBy(() -> emailComposeManager.prepareLabAttachments(null, new String[0]))
+        assertThatThrownBy(() -> emailComposeManager.prepareLabAttachments(null, new String[0], 1))
                 .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_lab)");
         assertThatThrownBy(() -> emailComposeManager.prepareFormAttachments(
                 new MockHttpServletRequest(), new MockHttpServletResponse(), new String[0], 1))
