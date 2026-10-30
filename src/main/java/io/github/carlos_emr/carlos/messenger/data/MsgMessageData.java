@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.messenger.data;
 
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -330,7 +331,7 @@ public class MsgMessageData {
         mt.setType(type);
         mt.setType_link(typeLink);
         if (pdfAttach != null) {
-            mt.setPdfAttachment(pdfAttach.getBytes());
+            mt.setPdfAttachment(pdfAttachmentBytes(pdfAttach));
         }
         messageTblDao.persist(mt);
 
@@ -350,6 +351,22 @@ public class MsgMessageData {
 
         return messageid;
 
+    }
+
+    /**
+     * The chart PDF records as they are stored: UTF-8, as the viewers read them. The column holds
+     * {@link MessageTbl#PDF_ATTACHMENT_MAX_BYTES} bytes and cuts a longer text off without a word, which leaves the last PDF
+     * in two, so a text that does not fit is refused here for whoever did not check it first.
+     *
+     * @throws IllegalArgumentException if the records are longer than the column holds
+     */
+    private static byte[] pdfAttachmentBytes(String pdfRecords) {
+        byte[] bytes = pdfRecords.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > MessageTbl.PDF_ATTACHMENT_MAX_BYTES) {
+            throw new IllegalArgumentException("The PDF attachments of a message are longer than a message holds ("
+                    + bytes.length + " bytes)");
+        }
+        return bytes;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -378,7 +395,7 @@ public class MsgMessageData {
         mt.setAttachment(attach);
         mt.setType(type);
         if (pdfAttach != null) {
-            mt.setPdfAttachment(pdfAttach.getBytes());
+            mt.setPdfAttachment(pdfAttachmentBytes(pdfAttach));
         }
         messageTblDao.persist(mt);
 

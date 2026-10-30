@@ -55,6 +55,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 import io.github.carlos_emr.carlos.commn.dao.EChartDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -115,6 +116,10 @@ public class MsgAttachPDF2Action extends ActionSupport {
     }
 
     private static final Logger logger = MiscUtils.getLogger();
+
+    /** Why the chart documents were refused: what a message holds is fixed by the column that stores it. */
+    static final String PDFS_TOO_LARGE = "The chosen chart documents are too large to send in one message."
+            + " Attach fewer of them to each message.";
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -297,8 +302,16 @@ public class MsgAttachPDF2Action extends ActionSupport {
             records.setAppendPDFAttachment(entry[0] == null ? "" : entry[0], entry[1]);
             records.setCurrentAttachmentCount(records.getCurrentAttachmentCount() + 1);
         }
-        MsgAttachmentStaging.stagePdfs(request.getSession(), attachmentKey, demographicNo,
-                records.getPDFAttachment());
+        String stored = records.getPDFAttachment();
+        if (!MessageTbl.pdfAttachmentFits(stored)) {
+            // The column cuts a longer text off without a word and the second PDF would arrive in two. Nothing is
+            // staged, so what was attached before stays; only sizes are logged.
+            logger.warn("Refused chart PDFs of {} bytes: a message holds {}", stored.length(),
+                    MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
+            response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, PDFS_TOO_LARGE);
+            return NONE;
+        }
+        MsgAttachmentStaging.stagePdfs(request.getSession(), attachmentKey, demographicNo, stored);
         return SUCCESS;
     }
 

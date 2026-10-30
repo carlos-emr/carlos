@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.commn.model;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 import jakarta.persistence.Column;
@@ -42,6 +43,26 @@ import jakarta.persistence.TemporalType;
 @Entity
 @Table(name = "messagetbl")
 public class MessageTbl extends AbstractModel<Integer> {
+
+    /**
+     * The most bytes the {@code pdfattachment} column holds: it is a {@code BLOB}, 65,535 bytes, and MariaDB cuts
+     * anything longer off without a word when {@code sql_mode} is not strict, which it is not on a packaged install.
+     * The text of the chart PDFs of a message (the {@code <PDF>} records, which hold each PDF as base64) is held to it
+     * where it is attached and where it is stored, so that a message never goes out with a PDF cut in two. A PDF
+     * with its fonts embedded is some 40 KB, 55 KB as base64: one fits, two do not. Raise it only with the column.
+     */
+    public static final int PDF_ATTACHMENT_MAX_BYTES = 65_535;
+
+    /**
+     * Whether the chart PDF records of a message fit the {@code pdfattachment} column, measured as they are stored
+     * (UTF-8).
+     *
+     * @param pdfRecords the records, or {@code null} when the message carries none
+     * @return {@code true} for no records, or records of at most {@link #PDF_ATTACHMENT_MAX_BYTES} bytes
+     */
+    public static boolean pdfAttachmentFits(String pdfRecords) {
+        return pdfRecords == null || pdfRecords.getBytes(StandardCharsets.UTF_8).length <= PDF_ATTACHMENT_MAX_BYTES;
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

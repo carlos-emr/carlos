@@ -45,6 +45,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import io.github.carlos_emr.carlos.commn.dao.EChartDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EChart;
+import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver;
@@ -102,6 +103,8 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
     /** HTML handed to the PDF converter, in order. */
     private final List<String> convertedHtml = new ArrayList<>();
     private boolean renderFails;
+    /** What the converter returns for every rendered item. */
+    private String base64Pdf = "JVBERi0xLjQ=";
 
     @BeforeEach
     void setUp() {
@@ -185,7 +188,7 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
             @Override
             public String toBase64Pdf(HttpServletRequest req, HttpServletResponse res, String html) {
                 convertedHtml.add(html);
-                return "JVBERi0xLjQ=";
+                return base64Pdf;
             }
         };
         MsgAttachPDF2Action action = new MsgAttachPDF2Action(securityInfoManager, demographicManager,
@@ -437,6 +440,35 @@ class MsgAttachPDF2ActionUnitTest extends CarlosUnitTestBase {
                     .contains("<FILE_ID>0</FILE_ID>", "<FILE_ID>1</FILE_ID>", "<FILE_ID>2</FILE_ID>");
             assertThat(bean.getPDFAttachment()).isNull();
             assertThat(bean.getAttachment()).isNull();
+        }
+
+        @Test
+        @DisplayName("should refuse chart PDFs that are larger than a message can hold, and keep what was attached before")
+        void shouldReturn413AndKeepExistingAttachments_whenPdfsAreTooLargeForAMessage() throws Exception {
+            givenEarlierAttachment();
+            // Two PDFs of about 40 KB, as the renderer makes them with their fonts, are 107 KB as base64.
+            base64Pdf = "A".repeat(53_000);
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic", "prescriptions"});
+
+            assertThat(action.execute()).isEqualTo("none");
+
+            assertThat(response.getStatus()).isEqualTo(413);
+            assertThat(response.getErrorMessage()).isEqualTo(MsgAttachPDF2Action.PDFS_TOO_LARGE);
+            assertThat(stagedPdfs()).contains("FAKE earlier attachment").doesNotContain("AAAA");
+        }
+
+        @Test
+        @DisplayName("should attach one PDF of about 40 KB, which fits a message, and stage it whole")
+        void shouldStageWhole_whenOnePdfFitsAMessage() throws Exception {
+            base64Pdf = "A".repeat(55_000);
+            MsgAttachPDF2Action action = newAction();
+            action.setItem(new String[]{"demographic"});
+
+            assertThat(action.execute()).isEqualTo("success");
+
+            assertThat(stagedPdfs()).contains("A".repeat(55_000));
+            assertThat(MessageTbl.pdfAttachmentFits(stagedPdfs())).isTrue();
         }
 
         @Test

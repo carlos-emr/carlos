@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
@@ -413,6 +414,38 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo("FAKE subject");
             assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE body");
             assertThat(getMockRequest().getAttribute("demographic_no")).isEqualTo("202");
+        }
+
+        @Test
+        @DisplayName("should refuse chart PDFs larger than a message can hold, which the database would cut in two, and keep everything")
+        void shouldRefuseChartPdfs_whenLargerThanAMessageCanHold() throws Exception {
+            String tooLarge = "<PDF>" + "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES) + "</PDF>";
+            MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, tooLarge);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            assertThat((String) getMockRequest().getAttribute("createMessageError"))
+                    .isEqualTo(MsgAttachPDF2Action.PDFS_TOO_LARGE);
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment()).isEqualTo(tooLarge);
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+        }
+
+        @Test
+        @DisplayName("should send chart PDFs that fill a message exactly")
+        void shouldSendChartPdfs_whenTheyFillAMessageExactly() throws Exception {
+            String exact = "<PDF>" + "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES - "<PDF></PDF>".length()) + "</PDF>";
+            assertThat(exact.length()).isEqualTo(MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
+            MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, exact);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(sentPdfs.get()).isEqualTo(exact);
         }
 
         @Test
