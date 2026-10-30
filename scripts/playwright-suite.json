@@ -5642,6 +5642,180 @@
       ]
     },
     {
+      "name": "consultation-followup-date",
+      "script": "scripts/consultation-followup-date-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "notes": "Issue #5272. Schedule ▸ Consultations ▸ the owned referral ▸ Last Follow Up Date ▸ Update ▸ reopen: a typed date is stored exactly and archives the previous version; a changed date updates the same request; clearing it stores NULL and reopens empty (release/2026.08 kept the old date, finding 324); 30 February typed into the control is refused by the form with an alert naming the field, and posted past the control (type switched to text) the server answers 400 before archiving or saving (release/2026.08 stored 2026-03-02, finding 325); closing the window over an unsaved edit changes nothing; a control referral of the same patient is unchanged throughout.",
+      "fixtures": "Owned FAKE patient, service, consultant (lib/consultation-referral-fixture.js) and service link seeded by SQL; the service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). A second (control) referral for the same patient. Cleanup deletes every owned referral with its archive, extension and attachment rows and the consultation signatures the saves record, then the owned service, consultant and patients, and asserts them gone.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists"
+      ]
+    },
+    {
+      "name": "consultation-appointment-instructions",
+      "script": "scripts/consultation-appointment-instructions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 480,
+      "env": [],
+      "notes": "Issue #5273. E-Chart ▸ Consultations + ▸ pickers ▸ Appointment Instructions ▸ Submit; Schedule ▸ Consultations ▸ the referral ▸ Update / Update And Print Preview: the form offers the owned active instructions by value and label and not the inactive one; Submit stores the chosen value and reopens it selected; Update stores the other one, archives the previous one and keeps the reason and clinical information; the PDF prints the chosen instruction as its reply heading; the blank option stores an empty instruction and reopens blank; closing the window over an unsaved selection changes nothing; a control referral is unchanged. Passes on release/2026.08. Skips without an active consultApptInst list or with CONSULTATION_APPOINTMENT_INSTRUCTIONS_LOOKUP off. Needs pdftotext.",
+      "fixtures": "Owned FAKE patient, service, consultant (lib/consultation-referral-fixture.js) and service link seeded by SQL; the service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Three marker-labelled LookupListItem rows on the clinic-wide consultApptInst list, added through Administration ▸ Customize Consult Appointment Instructions (the form reads the list through a 30-minute cache only the lookup list manager's writes evict), one removed again through Manage Lookup Lists to make it inactive; every login's consultation form offers them while the run lasts. At the end, or after a failure, the active ones are removed through Manage Lookup Lists; cleanup deletes the owned rows and asserts the list's other items unchanged. Cleanup deletes every owned referral with its archive, extension and attachment rows and the consultation signatures the saves record, then the owned service, consultant and patients, and asserts them gone.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists",
+        "LookupListItem"
+      ]
+    },
+    {
+      "name": "consultation-multisite-site",
+      "script": "scripts/consultation-multisite-site-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 480,
+      "env": [],
+      "notes": "Issue #5274, multisite. Schedule ▸ E on the owned patient's visit at SB ▸ Consultations + ▸ Site ▸ Submit; Schedule ▸ Consultations ▸ the referral ▸ Site ▸ Update / Update And Print Preview: the new referral offers the login's sites (SA, SB, SC, not SD) with the visit's site SB selected (release/2026.08 opened on the first site, finding 326); a chosen SC is stored and reopened; Update to SB archives SC and leaves the second patient's referral at SA; an Update of the notes alone keeps SB (release/2026.08 moved it to the first site); two windows open at once (one from the patient's E-Chart, one from the clinic list, which opens every referral in one shared window) keep their own sites; the PDF prints the letterhead, not the site's address (a site logo needs the operator's faxLogoInConsultation and a site logo document and is not exercised; the check prints a NOTE); a referral saved at SD, a site the login is not linked to, reopens from the patient's E-Chart with SD selected and keeps it through an Update of its notes alone. Reports SKIP when multisites is off. Needs pdftotext.",
+      "fixtures": "Operator prerequisite: multisites=on in /etc/carlos-emr/carlos.properties, then carlos-ctl restart; restore the property and restart afterwards. With multisites on, the clinic Consultations list shows a login holding _site_access_privacy (the installer's administrator) only the referrals at its own sites, so the other consultation checks, which seed referrals without a site, are run with it off. Owned FAKE patient, service, consultant (lib/consultation-referral-fixture.js) and service link seeded by SQL; the service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). A second owned patient with a referral at SA; four active sites named '<marker> SA/SB/SC/SD', SA-SC linked to the test provider through providersite, which every login's clinic lists show while the check runs; today's visit of the owned patient at SB. Cleanup removes the visit, the site links and the sites with every owned referral row, and asserts them gone.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists",
+        "site",
+        "providersite"
+      ]
+    },
+    {
+      "name": "consultation-letterhead-title",
+      "script": "scripts/consultation-letterhead-title-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 480,
+      "env": [],
+      "notes": "Issue #5275. Schedule ▸ Consultations ▸ the owned referral ▸ Letterhead ▸ Include Dr. with name ▸ Update / Update And Print Preview: the checkbox is rendered and starts unchecked; checking it stores the letterheadTitle=Dr extension and reopens checked; the PDF letterhead prints Dr. once before the provider's name; an Update of another field keeps it; the clinic letterhead prints the clinic name unchanged and the provider letterhead applies the title again; unchecking removes the extension and prints the plain name; closing the window over an unsaved toggle changes nothing. Passes on release/2026.08. Skips where the checkbox is not rendered (consultation fax disabled or no _fax right). Needs pdftotext.",
+      "fixtures": "Owned FAKE patient, service, consultant (lib/consultation-referral-fixture.js) and service link seeded by SQL; the service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The referral's letterhead is an existing active doctor other than the signed-in one; no provider record is changed. Cleanup deletes every owned referral with its archive, extension and attachment rows and the consultation signatures the saves record, then the owned service, consultant and patients, and asserts them gone.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists"
+      ]
+    },
+    {
+      "name": "consultation-status-transitions",
+      "script": "scripts/consultation-status-transitions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Issue #5276. Schedule ▸ Consultations ▸ the owned referral ▸ Status ▸ Update ▸ list ▸ reopen, through 1▸2▸3▸4▸2▸1: each status is stored, the previous version archived with its status, the reopened radio checked and the list row coded ND/SR/PR/DONE; Completed leaves the default list and shows with Include completed; the appointment date and time, notes, attached document and patient never change; Update again with the same status keeps it; closing over an unsaved status changes nothing; a control referral is unchanged. A native referral does not offer Booking Confirmed; a synthetic Ocean eReferral (ereferral_* extension rows) offers it, listed as BC, with no save control (Ocean sets that status; a NOTE says it was not driven). Passes on release/2026.08.",
+      "fixtures": "Owned FAKE patient, service, consultant (lib/consultation-referral-fixture.js) and service link seeded by SQL; the service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). A control referral, a synthetic eReferral (three ereferral_* consultationRequestExt rows) and a FAKE chart document attached to the first referral. Cleanup deletes every owned referral with its archive, extension and attachment rows and the consultation signatures the saves record, then the owned service, consultant and patients, and asserts them gone.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists"
+      ]
+    },
+    {
+      "name": "consultation-referral-journey",
+      "script": "scripts/consultation-referral-journey-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Issue #5277. One referral from request to reviewed completion: E-Chart ▸ Consultations + ▸ pickers ▸ Submit; Schedule ▸ Consultations ▸ appointment date, time, notes and Last Follow-up ▸ Update (stored, listed, reopened); the specialist's reply, a document in the patient's chart, attached through the referral's Manage Attachments window (the second patient's document is not offered) ▸ Update; the referral opened from the E-Chart shows the reply; a completion refused for an unreadable follow-up date and one abandoned by closing the window leave it open (release/2026.08 posted the unreadable date as empty and completed it, finding 325); Completed is stored, archived and moves it to the completed list. The second patient's referral is unchanged. Response blocker (finding 328, printed as a NOTE): no clinician page authors or reviews a consultation response; consultationResponse is reachable only through /ws/rs/consults/*Response, which consultation-response-attachments covers.",
+      "fixtures": "Owned FAKE patient, service, consultant (lib/consultation-referral-fixture.js) and service link seeded by SQL; the service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). A second owned patient with a referral and a FAKE document of their own; a FAKE reply document in the first patient's chart. Cleanup deletes every owned referral with its archive, extension and attachment rows and the consultation signatures the saves record, then the owned service, consultant and patients, and asserts them gone.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists"
+      ]
+    },
+    {
+      "name": "consultation-fax-account",
+      "script": "scripts/consultation-fax-account-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "CONSULT_FAX_DOCUMENT_STORE"
+      ],
+      "notes": "Issue #5278. Letterhead ▸ Fax Account with two owned active senders and one inactive: the selector offers the active ones by number and name; Submit And Fax with the non-default sender opens the cover page on that sender (release/2026.08 compared the posted number with the account id and fell back to another sender, finding 327) and saves one referral; Send queues one job from exactly that sender's line and user, to the consultant, for the owned patient, logged against the referral, with a PDF of this referral in the document store; Update And Fax with the other sender does the same without a second referral; Cancel queues nothing; a sender deactivated after it was chosen is not replaced (no account selected) and Send is refused with an alert; two windows at once (E-Chart and clinic list) keep their own senders and patients. The senders are MIDDLEWARE accounts on an unroutable loopback relay with no inbound polling, so nothing leaves the host (a running scheduler fails the job at the provider boundary); consultation-fax-account-transport drives the relay call. Skips without consultation fax or the _fax right, and where any other fax sender account is active. Needs pdftotext and read access to the document store (CONSULT_FAX_DOCUMENT_STORE, default the packaged path).",
+      "fixtures": "Owned FAKE patient, service, consultant (lib/consultation-referral-fixture.js) and service link seeded by SQL; the service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). A second owned patient with a referral; three owned fax_config rows (MIDDLEWARE, unroutable loopback relay, download off), which are clinic-wide while the run lasts. Cleanup removes the owned fax jobs with their FaxClientLog rows and PDFs, the accounts and every owned referral row, and asserts them gone.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists",
+        "fax_config",
+        "faxes"
+      ]
+    },
+    {
+      "name": "consultation-fax-account-transport",
+      "script": "scripts/consultation-fax-account-transport-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "manual": true,
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "CONSULT_FAX_DOCUMENT_STORE",
+        "FAX_TRANSPORT_STUB",
+        "FAX_TRANSPORT_STUB_PORT"
+      ],
+      "notes": "Issue #5278, transport. A local relay stub on 127.0.0.1 (FAX_TRANSPORT_STUB_PORT, default 18096) stands in for the fax provider: after Update And Fax ▸ Send from sender A, the fax scheduler (started from Configure Fax when stopped) calls the stub once, as A only (A's site credentials, fax user and fax password, the consultant as destination, A's fax line) with a document byte-identical to the PDF the job names, and the job is SENT with the stub's job id; a send from B, which the stub refuses with HTTP 500, leaves B's job in ERROR (Problem communicating with fax service) and is never retried through A. Manual: needs the operator prerequisite below; SKIPs without FAX_TRANSPORT_STUB=on. Needs pdftotext.",
+      "fixtures": "Operator prerequisite: add -Dcarlos.fax.middleware.allowedHosts=127.0.0.1 to CARLOS_JAVA_OPTS in /etc/carlos-emr/carlos-emr.env, carlos-ctl restart, export FAX_TRANSPORT_STUB=on; afterwards remove the option and restart again. Owned FAKE patient, service, consultant (lib/consultation-referral-fixture.js) and service link seeded by SQL; the service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Two owned MIDDLEWARE fax_config rows pointed at the stub (download off), clinic-wide while the run lasts. If the fax scheduler was stopped the check starts it, as an administrator would; once the accounts are removed its cycles have nothing to send. Cleanup removes the owned jobs with their FaxClientLog rows and PDFs, the accounts and every owned referral row, and asserts them gone.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists",
+        "fax_config",
+        "faxes"
+      ]
+    },
+    {
       "name": "dashboard-display",
       "script": "scripts/dashboard-display-playwright-checks.js",
       "tiers": [
