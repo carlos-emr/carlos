@@ -96,6 +96,10 @@ public class CdsImportMaintenanceService {
         boolean locked = false;
         try {
             connection = dataSource.openUnpooledCdsMaintenanceConnection();
+            io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcConnectionTimeouts
+                    .retainOwnerForDuration(connection, configuration.limits().maxDurationMillis());
+            // Keep transaction-duration DDL pins without a run-long consistent data read view.
+            connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
             if (scalar(connection, "SELECT GET_LOCK(?, 0)", state.lockName()) != 1) {
                 throw new CdsImportException("MAINTENANCE_OWNER_BUSY");
             }
@@ -197,6 +201,16 @@ public class CdsImportMaintenanceService {
         public long generation() { return lease.generation(); }
         /** Operational connection identifier, also used for controlled lost-owner fault injection. */
         public long connectionId() { return lease.connectionId(); }
+        /** Exercise the physical lease at the same bounded cadence as durable coordinator polling. */
+        public synchronized void heartbeat() {
+            if (closed) throw new CdsImportException("MAINTENANCE_OWNER_CLOSED");
+            try {
+                if (scalar(connection, "SELECT IS_USED_LOCK(?)", state.lockName()) != lease.connectionId())
+                    throw new CdsImportException("MAINTENANCE_OWNER_FENCED");
+            } catch (SQLException unavailable) {
+                throw new CdsImportException("MAINTENANCE_OWNER_FENCED", false, unavailable);
+            }
+        }
         /** True only after this owner closed and proved committed reopening under its advisory lock. */
         public synchronized boolean releaseVerified() { return closed && releaseVerified; }
 

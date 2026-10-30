@@ -48,6 +48,8 @@ class CdsDocumentPublicationServiceUnitTest {
             var result=service.publish("run",1,unit,"embedded","txt",sha(content),content.length,
                     ()->new ByteArrayInputStream(content));
             assertThat(Files.readAllBytes(Path.of(result.location()))).isEqualTo(content);
+            assertThat(Files.getPosixFilePermissions(Path.of(result.location())))
+                    .isEqualTo(java.nio.file.attribute.PosixFilePermissions.fromString("rw-r-----"));
             verify(files).publishedVerified("run",1,result.location(),sha(content),content.length);
             assertThat(result.filename()).doesNotContain("synthetic");
             try(var children=Files.walk(directory)) { assertThat(children.filter(Files::isRegularFile).count()).isEqualTo(1); }
@@ -83,7 +85,7 @@ class CdsDocumentPublicationServiceUnitTest {
         when(owner.control("run")).thenReturn(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportControlDto(true,true,1,false,true));
         Runnable budget=()->{if(clock.get()>=100_000_000)throw new CdsImportException("IMPORT_ATTEMPT_TIMEOUT");};
         try (MockedStatic<PathValidationUtils> paths=mockStatic(PathValidationUtils.class,CALLS_REAL_METHODS);
-                var control=new CdsImportExecutionControl("run",1,owner,"IMPORT_PREPARATION_TIMEOUT",10000,clock::get,budget,fields)) {
+                var control=new CdsImportExecutionControl("run",1,owner,"IMPORT_PREPARATION_TIMEOUT",10000,clock::get,budget,fields,mock(CdsImportMaintenanceService.Owner.class))) {
             paths.when(PathValidationUtils::getRequiredDocumentDirectory).thenReturn(directory.toFile());
             assertThatThrownBy(()->service(files,fields).publish("run",1,unit,"embedded","txt",sha(content),content.length,
                     ()->new java.io.FilterInputStream(new ByteArrayInputStream(content)) {
@@ -93,6 +95,8 @@ class CdsDocumentPublicationServiceUnitTest {
                                 try(var walk=Files.walk(directory)) {
                                     var partial=walk.filter(path->path.getFileName().toString().equals("payload.partial")).findFirst().orElseThrow();
                                     assertThat(Files.size(partial)).isEqualTo(65536);
+                                    assertThat(Files.getPosixFilePermissions(partial))
+                                            .isEqualTo(java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
                                 }
                                 clock.set(100_000_000);
                             }
@@ -177,6 +181,10 @@ class CdsDocumentPublicationServiceUnitTest {
                 Path pending=regular.stream().filter(path->path.getFileName().toString().equals("payload.partial")).findFirst().orElseThrow();
                 Path journal=regular.stream().filter(path->path.getFileName().toString().equals("owner.json")).findFirst().orElseThrow();
                 assertThat(Files.isSameFile(target,pending)).isTrue();
+                assertThat(Files.getPosixFilePermissions(target))
+                        .isEqualTo(java.nio.file.attribute.PosixFilePermissions.fromString("rw-r-----"));
+                assertThat(Files.getPosixFilePermissions(journal))
+                        .isEqualTo(java.nio.file.attribute.PosixFilePermissions.fromString("rw-------"));
                 var owner=new com.fasterxml.jackson.databind.ObjectMapper().readTree(Files.readString(journal));
                 assertThat(owner.path("runId").asText()).isEqualTo("run");
                 assertThat(owner.path("digest").asText()).isEqualTo(sha(content));

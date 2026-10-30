@@ -51,7 +51,8 @@ public class CdsImmunizationPersister {
     private final String preventionItems;
     private final io.github.carlos_emr.carlos.commn.dao.CVCMappingDao cvcMappings;
     private final io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao cvcImmunizations;
-    private volatile Map<String, String> preventionTypes;
+    private final java.util.concurrent.atomic.AtomicReference<Map<String, String>> preventionTypes =
+            new java.util.concurrent.atomic.AtomicReference<>();
 
     public CdsImmunizationPersister(PreventionDao preventions, PreventionExtDao extensions,
             PartialDateDao dates, CdsClinicalNormalizationService normalization,
@@ -135,7 +136,7 @@ public class CdsImmunizationPersister {
 
     /** Same injection/healthCanadaType mapping as the retired importer, loaded before native writes. */
     private String preventionType(String type) {
-        Map<String, String> configured = preventionTypes;
+        Map<String, String> configured = preventionTypes.get();
         if (configured == null) configured = loadPreventionTypes();
         return configured.getOrDefault(type == null ? "" : type, "OtherA");
     }
@@ -143,7 +144,7 @@ public class CdsImmunizationPersister {
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "PATH_TRAVERSAL_IN",
             justification = "PREVENTION_ITEMS is trusted server configuration, resolved by PathValidationUtils")
     private synchronized Map<String, String> loadPreventionTypes() {
-        if (preventionTypes != null) return preventionTypes;
+        if (preventionTypes.get() != null) return preventionTypes.get();
         try (var input = preventionItems.startsWith("classpath:")
                 ? getClass().getClassLoader().getResourceAsStream(preventionItems.substring(10))
                 : java.nio.file.Files.newInputStream(io.github.carlos_emr.carlos.utility.PathValidationUtils
@@ -175,8 +176,8 @@ public class CdsImmunizationPersister {
                 }
             }
             if (!fallback) throw new IOException("Prevention fallback unavailable");
-            preventionTypes = Map.copyOf(mapped);
-            return preventionTypes;
+            preventionTypes.set(Map.copyOf(mapped));
+            return preventionTypes.get();
         } catch (IOException | org.jdom2.JDOMException invalid) {
             throw new CdsImportException("IMMUNIZATION_PREVENTION_CONFIG_UNAVAILABLE");
         }

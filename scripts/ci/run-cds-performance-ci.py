@@ -137,7 +137,7 @@ def main() -> int:
                 "--innodb-page-size=32768", "--innodb-snapshot-isolation=ON", "--character-set-server=utf8mb4",
                 "--collation-server=utf8mb4_general_ci", "--innodb-strict-mode=OFF", "--innodb-default-row-format=dynamic",
                 "--max-allowed-packet=64M", "--innodb-buffer-pool-size=128M", "--performance-schema=ON",
-                "--performance-schema-digests-size=10000"]); created_database = True
+                "--performance-schema-digests-size=10000", "--wait-timeout=600"]); created_database = True
             mysql = docker + ["exec", database, "mariadb", "--defaults-extra-file=/run/cds-test/client.cnf"]
             deadline = time.monotonic()+90
             while execute(mysql+["-e", "SELECT 1"], check=False).returncode:

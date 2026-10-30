@@ -130,6 +130,7 @@ public record CdsRulesetFingerprint(String sha256) {
         "utility/PathValidationUtils",
         "utility/XmlUtils",
         "commn/dao/AbstractDaoImpl",
+        "commn/dao/EntityIdentifierPaths",
         "dao/AbstractJpaDao",
         "commn/dao/DrugDaoImpl",
         "commn/dao/DrugMergedDemographicDaoImpl",

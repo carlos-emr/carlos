@@ -889,7 +889,7 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
 
     private CdsImportExecutionControl scope(CdsImportCoordinatorService.Owner owner) {
         return new CdsImportExecutionControl(run, 7, owner, "IMPORT_FILE_VERIFICATION_TIMEOUT", 10000,
-                System::nanoTime, ()-> {}, new CdsFieldParser());
+                System::nanoTime, ()-> {}, new CdsFieldParser(), org.mockito.Mockito.mock(CdsImportMaintenanceService.Owner.class));
     }
     private void update(String statement, String... values) throws java.sql.SQLException {
         try (var query=observer.prepareStatement(statement)) {

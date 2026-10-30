@@ -53,6 +53,35 @@ import org.junit.jupiter.params.provider.ValueSource;
 @Tag("unit")
 class CdsJdbcConnectionTimeoutsUnitTest {
     private static final String URL="jdbc:mysql://db.invalid/synthetic";
+
+    @Test
+    void shouldRoundOwnerBudgetUpAndVerifyServerRetention_beforeTheLeaseCanBeUsed() throws Exception {
+        var connection = org.mockito.Mockito.mock(java.sql.Connection.class);
+        var change = org.mockito.Mockito.mock(java.sql.PreparedStatement.class);
+        var query = org.mockito.Mockito.mock(java.sql.PreparedStatement.class);
+        var rows = org.mockito.Mockito.mock(java.sql.ResultSet.class);
+        org.mockito.Mockito.when(connection.prepareStatement("SET SESSION wait_timeout=?")).thenReturn(change);
+        org.mockito.Mockito.when(connection.prepareStatement("SELECT @@SESSION.wait_timeout")).thenReturn(query);
+        org.mockito.Mockito.when(query.executeQuery()).thenReturn(rows);
+        org.mockito.Mockito.when(rows.next()).thenReturn(true, false);
+        org.mockito.Mockito.when(rows.getLong(1)).thenReturn(3600L);
+        CdsJdbcConnectionTimeouts.retainOwnerForDuration(connection, 3_000_001);
+        org.mockito.Mockito.verify(change).setLong(1, 3301L);
+        org.mockito.Mockito.verify(change).execute();
+        org.mockito.Mockito.when(rows.next()).thenReturn(true);
+        org.mockito.Mockito.when(rows.getLong(1)).thenReturn(3300L);
+        assertThatThrownBy(() -> CdsJdbcConnectionTimeouts.retainOwnerForDuration(connection, 3_000_001))
+                .isInstanceOf(SQLException.class).hasMessage("CDS_JDBC_TIMEOUT_CONFIGURATION_INVALID");
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0, -1, Long.MAX_VALUE})
+    void shouldRefuseUnsupportedOwnerDuration_beforeAnyConnectionMutation(long duration) {
+        var connection = org.mockito.Mockito.mock(java.sql.Connection.class);
+        assertThatThrownBy(() -> CdsJdbcConnectionTimeouts.retainOwnerForDuration(connection, duration))
+                .isInstanceOf(SQLException.class);
+        org.mockito.Mockito.verifyNoInteractions(connection);
+    }
     static class Inspectable extends OscarTrackingBasicDataSource {
         DriverConnectionFactory factory() throws SQLException { return (DriverConnectionFactory) createConnectionFactory(); }
     }

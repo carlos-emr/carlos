@@ -37,6 +37,22 @@ public final class CdsJdbcConnectionTimeouts {
 
     private CdsJdbcConnectionTimeouts() { }
 
+    /** A private advisory owner must survive its run budget plus a bounded network-unwind interval. */
+    public static void retainOwnerForDuration(java.sql.Connection connection, long maximumMillis) throws SQLException {
+        if (maximumMillis < 1) throw invalid();
+        long seconds = (maximumMillis - 1) / 1000 + 1 + MAX_SOCKET_MILLIS / 1000;
+        if (seconds > 31536000) throw invalid(); // MariaDB's maximum supported session idle interval.
+        try (var change = connection.prepareStatement("SET SESSION wait_timeout=?")) {
+            change.setQueryTimeout(3); change.setLong(1, seconds); change.execute();
+        }
+        try (var query = connection.prepareStatement("SELECT @@SESSION.wait_timeout")) {
+            query.setQueryTimeout(3);
+            try (var rows = query.executeQuery()) {
+                if (!rows.next() || rows.getLong(1) < seconds || rows.wasNull() || rows.next()) throw invalid();
+            }
+        }
+    }
+
     /** Clone the resolved driver, URL and credential properties; never mutate shared pool configuration. */
     public static ConnectionFactory bounded(ConnectionFactory factory) throws SQLException {
         if (!(factory instanceof DriverConnectionFactory configured)) throw invalid();

@@ -26,6 +26,12 @@ row lock and therefore waits for admitted JDBC, Hibernate and background transac
 or roll back. New ordinary clinical work refuses once the advisory owner is entering. Neither
 pool abandoned-connection reclamation nor a heartbeat controls ownership.
 
+Both the maintenance and coordinator physical sessions set and verify a `wait_timeout` that
+covers `cds.import.maxDurationMillis` plus the bounded network-unwind interval. Shared file-read
+polling checks the maintenance advisory lock at the same cadence as coordinator ownership.
+A changed owner connection or unavailable heartbeat fences the work; a failed observation
+never becomes a cached success or permission to take over.
+
 The active unit's first SQL also captures its actual physical session mode and requires an
 `utf8mb4` client/connection charset and unconverted or `utf8mb4` results. The shipped
 Connector/J parameter encoder must actually be UTF-8; changing only server variables cannot
@@ -60,8 +66,11 @@ Before units execute, `CdsImportTargetSafetyService.verify(owner)` resolves the 
 `CdsTargetReceiptService` writer tables, document/note links, audit log, native archives and all
 CDS metadata/typed laboratory tables. Missing base tables or a non-InnoDB engine refuse import.
 Zero-row reads on the dedicated owner connection pin metadata for the window; engines are
-re-read after pinning. A current locking hold query is used on close, so the long metadata
-transaction cannot reopen from an old patient snapshot. The physical SQL guard also requires
+re-read after pinning. The private maintenance connection uses `READ COMMITTED`, so consistent
+data reads release their read views after each statement while metadata locks remain held.
+Those pins stay in place until owner close: committing between phases would open a DDL race
+between catalogue verification and a clinical write. A current locking hold query is used on
+close. The physical SQL guard also requires
 this owner-specific verified catalogue before an active unit can execute SQL.
 
 Any trigger on those write targets requires an explicit server-owned approval manifest;

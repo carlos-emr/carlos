@@ -144,7 +144,7 @@ public class CdsImportExecutionService {
                 ledger.resolveReauthorizedAccess(runId, epoch);
                 if (preflightRecovery) ledger.preparePreflightResume(runId, epoch);
                 final long planningEpoch=epoch;
-                try (var control=ioControl(runId, planningEpoch, coordinator, "CDS_INPUT_DEADLINE", attemptBudget)) {
+                try (var control=ioControl(runId, planningEpoch, coordinator, owner, "CDS_INPUT_DEADLINE", attemptBudget)) {
                     var snapshot=jobs.snapshot(runId, planningEpoch, document, control);
                     attemptBudget.run();
                     ledger.inventoryDiscovered(runId, epoch, snapshot.files(), snapshot.patientXmlFiles(), snapshot.totalBytes());
@@ -167,7 +167,7 @@ public class CdsImportExecutionService {
             }
             boolean recovery=resume || Set.of("RUNNING", "FINALIZING", "RECONCILING").contains(job.state());
                 epoch=ledger.claimExecution(runId, coordinator, owner);
-                try (var control=ioControl(runId, epoch, coordinator, "IMPORT_FILE_VERIFICATION_TIMEOUT", attemptBudget)) {
+                try (var control=ioControl(runId, epoch, coordinator, owner, "IMPORT_FILE_VERIFICATION_TIMEOUT", attemptBudget)) {
                     fileVerification.verify(runId, epoch, control);
                 }
                 attemptBudget.run();
@@ -209,7 +209,7 @@ public class CdsImportExecutionService {
                         var work=planning.work(runId, unit, readContext);
                         owner.read(() -> access.context(work.actor(), work.command(), ledger.patientStatus(runId, unit.patientKey()).targetDemographicNo()));
                         final long preparationEpoch=epoch;
-                        try (var control=ioControl(runId, preparationEpoch, coordinator, "IMPORT_PREPARATION_TIMEOUT", attemptBudget)) {
+                        try (var control=ioControl(runId, preparationEpoch, coordinator, owner, "IMPORT_PREPARATION_TIMEOUT", attemptBudget)) {
                             planning.publishValues(runId, preparationEpoch, work, control, readContext);
                             owner.readIo(() -> {nativeRecords.prepare(runId, preparationEpoch, unit, work.record(), work.command(), work.snapshot(), work.xmlRelative()); return null; });
                         }
@@ -220,7 +220,7 @@ public class CdsImportExecutionService {
                     }
                 }
                 currentPatient=null; currentUnit=null;
-                try (var control=ioControl(runId, epoch, coordinator, "IMPORT_FILE_VERIFICATION_TIMEOUT", attemptBudget)) {
+                try (var control=ioControl(runId, epoch, coordinator, owner, "IMPORT_FILE_VERIFICATION_TIMEOUT", attemptBudget)) {
                     fileVerification.verify(runId, epoch, control);
                 }
                 attemptBudget.run();
@@ -358,9 +358,9 @@ public class CdsImportExecutionService {
 
     /** Physical owner polling applies only outside clinical unit transactions. */
     private CdsImportExecutionControl ioControl(String run, long epoch,
-            CdsImportCoordinatorService.Owner coordinator, String timeoutCode, Runnable attemptBudget) {
+            CdsImportCoordinatorService.Owner coordinator, CdsImportMaintenanceService.Owner owner, String timeoutCode, Runnable attemptBudget) {
         return new CdsImportExecutionControl(run, epoch, coordinator, timeoutCode,
-                configuration.limits().maxDurationMillis(), nanoTime, attemptBudget, fields);
+                configuration.limits().maxDurationMillis(), nanoTime, attemptBudget, fields, owner);
     }
     private Runnable attemptBudget() {
         long started=nanoTime.getAsLong(), maximumMillis=configuration.limits().maxDurationMillis();

@@ -107,6 +107,12 @@ public class CdsImportCoordinatorDao {
             this.name = name;
         }
 
+        public void retainForDuration(long maximumMillis) throws SQLException {
+            requireOpen();
+            io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcConnectionTimeouts
+                    .retainOwnerForDuration(connection, maximumMillis);
+        }
+
         @NativeSql
         public boolean physicalOwned() throws SQLException {
             requireOpen();

@@ -173,6 +173,12 @@ The durable scan registry uses indexed authority-aware identity keys and a bound
 
 The native report writer loads a bounded prepared DTO and creates separately receipted native documents for each supplied representation. The source category retains every original declaration and source field. Source physician first/last names may supply a bounded native external-author display; the importing actor never becomes the author, reviewer, or acknowledging clinician.
 
+Document publication promotes the fully verified inode to `0640` before installing its exclusive
+hard link, so the configured shared document-store group can read it. Original source files,
+unverified partials and ownership journals use `0600`; private publication directories use `0700`.
+A lost registration acknowledgement retains the exact published inode and its private journal.
+Installed qualification verifies both document hashes and the shared-group permission contract.
+
 Binary media sanity reads at most sixteen header bytes. It recognizes PDF, PNG, JPEG and TIFF without building a document/image tree. A known declaration with a conflicting header becomes an opaque native document with a visible review warning. A versioned or unknown declaration with a recognized header uses that header with an explicit warning. Unrecognized bytes remain intact and opaque. Header sanity does not establish that a full PDF or image is renderable; original bytes remain available for reconciliation.
 
 XML text has parser-established UTF8 encoding. External or decoded text is validated by an incremental strict UTF8 decoder, with bounded buffers and no conversion or whole-report materialization. A BOM or explicit UTF8 declaration supplies encoding evidence only after validation. Valid UTF8 with unspecified source encoding receives an explicit inference/review warning; invalid or unsupported encoding remains opaque with its complete original bytes. Contradictory format/media declarations are retained and warned about. I/O, changed-length, resource-close, cancellation, deadline and ownership failures propagate as failures rather than media warnings. External reads participate in the same durable bounded checkpoint control as the parser and publication stage.

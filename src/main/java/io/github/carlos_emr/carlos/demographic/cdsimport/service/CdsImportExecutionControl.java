@@ -30,6 +30,7 @@ final class CdsImportExecutionControl implements AutoCloseable {
     private final String run;
     private final long epoch;
     private final CdsImportCoordinatorService.Owner coordinator;
+    private final CdsImportMaintenanceService.Owner maintenance;
     private final String timeoutCode;
     private final long maximumMillis;
     private final LongSupplier nanoTime;
@@ -42,12 +43,13 @@ final class CdsImportExecutionControl implements AutoCloseable {
 
     CdsImportExecutionControl(String run, long epoch, CdsImportCoordinatorService.Owner coordinator,
             String timeoutCode, long maximumMillis, LongSupplier nanoTime, Runnable attemptBudget,
-            CdsFieldParser parser) {
+            CdsFieldParser parser, CdsImportMaintenanceService.Owner maintenance) {
         this.run = Objects.requireNonNull(run);
         if (run.isBlank() || epoch < 1 || maximumMillis < 1)
             throw new IllegalArgumentException("Invalid import I/O control binding");
         this.epoch = epoch;
         this.coordinator = Objects.requireNonNull(coordinator);
+        this.maintenance = Objects.requireNonNull(maintenance);
         this.timeoutCode = Objects.requireNonNull(timeoutCode);
         this.maximumMillis = maximumMillis;
         this.nanoTime = Objects.requireNonNull(nanoTime);
@@ -76,6 +78,7 @@ final class CdsImportExecutionControl implements AutoCloseable {
             if (!current.runPresent() || current.ownerEpoch() != epoch || !current.admissionOwned())
                 throw new CdsImportException("OWNER_FENCED");
             if (current.cancelRequested()) throw new CdsImportException("IMPORT_CANCELLED");
+            maintenance.heartbeat();
             localBudget();
             // Failure never advances this deadline or becomes a cached success.
             polls.succeeded(now);

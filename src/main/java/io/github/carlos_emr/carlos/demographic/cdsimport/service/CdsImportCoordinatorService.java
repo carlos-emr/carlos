@@ -32,10 +32,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class CdsImportCoordinatorService {
     private final CdsImportCoordinatorDao coordinator;
+    private final CdsImportConfigurationService configuration;
 
     @Autowired
-    public CdsImportCoordinatorService(CdsImportCoordinatorDao coordinator) {
+    public CdsImportCoordinatorService(CdsImportCoordinatorDao coordinator, CdsImportConfigurationService configuration) {
         this.coordinator = coordinator;
+        this.configuration = configuration;
+    }
+
+    public CdsImportCoordinatorService(CdsImportCoordinatorDao coordinator) {
+        this(coordinator, new CdsImportConfigurationService(new java.util.Properties()));
     }
 
     /** Compatibility for existing explicitly constructed runtimes; Spring injects the DAO. */
@@ -48,8 +54,10 @@ public class CdsImportCoordinatorService {
         try {
             var lease = coordinator.acquire();
             if (lease == null) throw new CdsImportException("IMPORT_COORDINATOR_BUSY");
-            try { return new Owner(lease); }
-            catch (RuntimeException | Error failure) {
+            try {
+                lease.retainForDuration(configuration.limits().maxDurationMillis());
+                return new Owner(lease);
+            } catch (SQLException | RuntimeException | Error failure) {
                 try { lease.close(); }
                 catch (SQLException | RuntimeException | Error cleanup) {
                     if (cleanup != failure) failure.addSuppressed(cleanup);

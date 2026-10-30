@@ -22,6 +22,7 @@ import re
 import math
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import time
@@ -177,6 +178,17 @@ def digest(path: Path) -> str:
         while block := source.read(65536):
             value.update(block)
     return value.hexdigest()
+
+
+def native_document_proof(path: Path, root: Path) -> tuple[int, str]:
+    """Verify the published bytes and shared-group read contract in the actual installed store."""
+    metadata, directory = path.lstat(), root.lstat()
+    if not stat.S_ISREG(metadata.st_mode) or not stat.S_ISDIR(directory.st_mode) \
+            or path.resolve().parent != root.resolve():
+        raise RuntimeError("native document escaped the owned fixture document store")
+    if stat.S_IMODE(metadata.st_mode) != 0o640 or metadata.st_gid != directory.st_gid:
+        raise RuntimeError("native document does not preserve the shared-group read contract")
+    return metadata.st_size, digest(path)
 
 
 def protected_file(path: Path, *, owner: int = 0) -> Path:
@@ -713,6 +725,11 @@ def main() -> None:
                 "('Questions','Com_select','Com_insert','Com_update','Com_delete','Threads_connected','Threads_running','Innodb_row_lock_time','Performance_schema_digest_lost')")}
         def statement_digests() -> dict:
             return statement_digest_snapshot(query(STATEMENT_DIGEST_SQL))
+        stage('PACKAGED_DATABASE_IDLE_POLICY')
+        idle_policy = query("SELECT @@GLOBAL.wait_timeout")
+        if idle_policy != [['600']]:
+            raise RuntimeError("installed qualification requires the packaged database idle timeout of 600 seconds")
+        result['databaseWaitTimeoutSeconds'] = int(idle_policy[0][0])
         stage('STATEMENT_DIGEST_INSTRUMENTATION')
         if query("SELECT @@performance_schema")[0]!=['1']:
             raise RuntimeError('the owned server must enable actual statement digest instrumentation before startup')
@@ -1042,12 +1059,11 @@ def main() -> None:
                 if filename in selected_filenames:
                     raise RuntimeError("distinct native source occurrences unexpectedly share one publication filename")
                 selected_filenames.add(filename)
-                if location.is_symlink() or not location.is_file() or location.resolve().parent != document_root.resolve():
-                    raise RuntimeError("native document escaped the owned fixture document store")
-                actual_documents[(location.stat().st_size, digest(location))] += 1
+                actual_documents[native_document_proof(location, document_root)] += 1
             if actual_documents != expected_documents:
                 raise RuntimeError("native document bytes do not reconcile the exact original payload multiset")
             case['nativeDocumentBytesVerified']=sum(size*count for (size,_),count in actual_documents.items())
+            case['nativeDocumentMode'] = '0640' if actual_documents else 'not-applicable'
             case['verifiedNativeDocumentHashMultiset']=[{'bytes':size,'sha256':sha256,'occurrences':count}
                 for (size,sha256),count in sorted(actual_documents.items())]
             private_json(proof,result)

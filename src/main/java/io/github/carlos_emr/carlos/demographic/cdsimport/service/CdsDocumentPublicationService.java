@@ -107,6 +107,10 @@ public class CdsDocumentPublicationService {
                     throw new CdsImportException("DOCUMENT_PUBLICATION_DIGEST_MISMATCH");
                 }
                 CdsPaths.forceFile(pending);
+                // Only the verified publication inode is promoted; the source and journal stay private.
+                Files.setAttribute(pending, "posix:permissions",
+                        java.nio.file.attribute.PosixFilePermissions.fromString("rw-r-----"), LinkOption.NOFOLLOW_LINKS);
+                CdsPaths.forceFile(pending);
                 // A hard link atomically installs exclusively. ATOMIC_MOVE may replace an existing
                 // destination on some providers, even without REPLACE_EXISTING.
                 try { Files.createLink(destination, pending); }

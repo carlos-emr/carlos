@@ -167,6 +167,69 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
     }
 
     @Test
+    void shouldKeepPhysicalMaintenanceOwnership_duringAnIdleUnitLongerThanTheServerDefault() throws Exception {
+        try (Connection administration = nodeOne.openUnpooledCdsMaintenanceConnection()) {
+            long original;
+            try (var query = administration.prepareStatement("SELECT @@GLOBAL.wait_timeout"); var rows = query.executeQuery()) {
+                assertThat(rows.next()).isTrue(); original = rows.getLong(1);
+            }
+            try (var change = administration.prepareStatement("SET GLOBAL wait_timeout=?")) {
+                change.setLong(1, 5); change.execute();
+                try {
+                    Properties policy = new Properties();
+                    policy.setProperty("cds.import.enabled", "true");
+                    policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
+                    policy.setProperty("cds.import.maintenanceMode", "true");
+                    policy.setProperty("cds.import.maxDurationMillis", "20000");
+                    var configuration = new CdsImportConfigurationService(policy);
+                    var service = new CdsImportMaintenanceService(nodeOne, configuration);
+                    var coordinators = new CdsImportCoordinatorService(
+                            new io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDao(nodeOne), configuration);
+                    try (var owner = acquireOnly(service); var coordinator = coordinators.acquire()) {
+                        verify(owner);
+                        for (int tick = 0; tick < 10; tick++) {
+                            Thread.sleep(1000);
+                            assertThat(owner.read(() -> "bounded unit work")).isEqualTo("bounded unit work");
+                        }
+                        coordinator.check();
+                        owner.requireVerifiedRecoveryOwner();
+                        owner.allowReopen();
+                    }
+                } finally {
+                    change.setLong(1, original); change.execute();
+                }
+            }
+        }
+    }
+
+    @Test
+    void shouldKeepDdlPins_withoutRetainingAnOldConsistentDataView() throws Exception {
+        var configuration = new CdsImportConfigurationService(new Properties());
+        var owner = acquireOnly(first);
+        new CdsImportTargetSafetyService(configuration, java.util.Set.of("cds_guard_probe")).verify(owner);
+        Connection pinned = (Connection) org.springframework.test.util.ReflectionTestUtils.getField(owner, "connection");
+        assertThat(pinned.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_READ_COMMITTED);
+        try (var query = pinned.prepareStatement("SELECT probe_value FROM cds_guard_probe WHERE id=?")) {
+            query.setInt(1, 1);
+            try (var rows = query.executeQuery()) { assertThat(rows.next()).isTrue(); assertThat(rows.getString(1)).isEqualTo("initial"); }
+            try (Connection imported = CdsJdbcAdmissionGuard.wrap(nodeOne.openUnpooledCdsMaintenanceConnection(),
+                    nodeOne.getCdsAdmissionState(), () -> true)) {
+                imported.setAutoCommit(false); update(imported, "new-committed-value"); imported.commit();
+            }
+            try (var rows = query.executeQuery()) { assertThat(rows.next()).isTrue(); assertThat(rows.getString(1)).isEqualTo("new-committed-value"); }
+        }
+        Future<?> ddl = worker.submit(() -> {
+            try (Connection connection = nodeTwo.openUnpooledCdsMaintenanceConnection(); var statement = connection.createStatement()) {
+                statement.setQueryTimeout(5);
+                statement.execute("ALTER TABLE cds_guard_probe ADD COLUMN idle_pin_fixture INT NULL");
+            } catch (SQLException failed) { throw new RuntimeException(failed); }
+        });
+        assertBlocked(ddl);
+        owner.allowReopen(); owner.close();
+        ddl.get(5, TimeUnit.SECONDS);
+    }
+
+    @Test
     void shouldDrainAWriterFromAnotherNode_beforeExclusiveAcquisitionReturns() throws Exception {
         try (Connection old = nodeTwo.getConnection()) {
             old.setAutoCommit(false);

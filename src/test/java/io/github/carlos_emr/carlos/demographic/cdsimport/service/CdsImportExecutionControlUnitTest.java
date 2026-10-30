@@ -44,6 +44,37 @@ import static org.mockito.Mockito.*;
 class CdsImportExecutionControlUnitTest {
     private static final CdsImportControlDto VALID = new CdsImportControlDto(true,true,7,false,true);
 
+    @Test void shouldHeartbeatBothPhysicalOwners_onlyWhenTheSharedPollIsDue() throws Exception {
+        var clock = new AtomicLong(); var fields = new CdsFieldParser(); var coordinator = owner();
+        var maintenance = mock(CdsImportMaintenanceService.Owner.class);
+        try (var control = new CdsImportExecutionControl("run", 7, coordinator, "IMPORT_PREPARATION_TIMEOUT",
+                10000, clock::get, () -> {}, fields, maintenance)) {
+            for (int i = 0; i < 100; i++) { fields.checkpoint(); control.check(false); }
+            verify(maintenance, times(1)).heartbeat();
+            clock.set(249_999_999); fields.checkpoint();
+            verify(maintenance, times(1)).heartbeat();
+            clock.incrementAndGet(); fields.checkpoint();
+            verify(maintenance, times(2)).heartbeat();
+            control.check(true);
+            verify(maintenance, times(3)).heartbeat();
+            verify(coordinator, times(3)).control("run");
+        }
+    }
+
+    @Test void shouldFenceLostMaintenanceOwnership_atTheNextPollWithoutCachingAFailedHeartbeat() throws Exception {
+        var clock = new AtomicLong(); var fields = new CdsFieldParser(); var coordinator = owner();
+        var maintenance = mock(CdsImportMaintenanceService.Owner.class);
+        try (var control = new CdsImportExecutionControl("run", 7, coordinator, "IMPORT_PREPARATION_TIMEOUT",
+                10000, clock::get, () -> {}, fields, maintenance)) {
+            doThrow(new CdsImportException("MAINTENANCE_OWNER_FENCED")).when(maintenance).heartbeat();
+            clock.set(249_999_999); fields.checkpoint();
+            clock.incrementAndGet();
+            assertThatThrownBy(fields::checkpoint).hasMessage("MAINTENANCE_OWNER_FENCED");
+            assertThatThrownBy(() -> control.check(false)).hasMessage("MAINTENANCE_OWNER_FENCED");
+            verify(maintenance, times(3)).heartbeat();
+        }
+    }
+
     @Test void shouldShareOnePollAcrossFieldAndFileReads_withForcedBoundariesAlwaysFresh() throws Exception {
         var clock=new AtomicLong();var fields=new CdsFieldParser();var owner=owner();
         try(var scope=scope(owner,fields,clock,10000,()->{})) {
@@ -273,7 +304,7 @@ class CdsImportExecutionControlUnitTest {
         verify(f.ledger,never()).status("run");
         byte[] value=Files.readAllBytes(work.record().valuesFile());value[0]^=1;Files.write(work.record().valuesFile(),value);
         when(owner.control("run")).thenReturn(new CdsImportControlDto(true,true,8,false,true));
-        try(var control=new CdsImportExecutionControl("run",8,owner,"IMPORT_PREPARATION_TIMEOUT",10000,clock::get,()->{},f.fields)) {
+        try(var control=new CdsImportExecutionControl("run",8,owner,"IMPORT_PREPARATION_TIMEOUT",10000,clock::get,()->{},f.fields,mock(CdsImportMaintenanceService.Owner.class))) {
             assertThatThrownBy(()->f.planner.publishValues("run",8,work,control)).hasMessage("VALUE_SPOOL_HASH_MISMATCH");
         }
         verify(f.files,never()).publishedVerified(eq("run"),eq(8L),anyString(),anyString(),anyLong());
@@ -439,6 +470,6 @@ class CdsImportExecutionControlUnitTest {
     }
     private static CdsImportExecutionControl scope(CdsImportCoordinatorService.Owner owner,CdsFieldParser fields,
             AtomicLong clock,long millis,Runnable budget) {
-        return new CdsImportExecutionControl("run",7,owner,"IMPORT_FILE_VERIFICATION_TIMEOUT",millis,clock::get,budget,fields);
+        return new CdsImportExecutionControl("run",7,owner,"IMPORT_FILE_VERIFICATION_TIMEOUT",millis,clock::get,budget,fields,mock(CdsImportMaintenanceService.Owner.class));
     }
 }

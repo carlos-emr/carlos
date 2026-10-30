@@ -40,6 +40,21 @@ class PerformanceEvidenceTest(unittest.TestCase):
             offset=int(row.split()[0]);self.assertTrue(data[offset:].startswith(str(index).encode()+b' 0 obj'))
         self.assertTrue(data.endswith(b'%%EOF\n'))
 
+    def test_native_publication_requires_group_read_without_other_access(self):
+        document = self.root / 'published.pdf'
+        document.write_bytes(b'owned synthetic document')
+        for mode in (0o600, 0o644, 0o660, 0o666):
+            document.chmod(mode)
+            with self.assertRaises(RuntimeError):
+                GATE.native_document_proof(document, self.root)
+        document.chmod(0o640)
+        self.assertEqual(GATE.native_document_proof(document, self.root),
+                         (document.stat().st_size, GATE.digest(document)))
+        link = self.root / 'linked.pdf'
+        link.symlink_to(document)
+        with self.assertRaises(RuntimeError):
+            GATE.native_document_proof(link, self.root)
+
     def test_wait4_preserves_a_short_allocation_peak_and_actual_process_cpu_after_exit(self):
         receipt=self.root/'resources.json'
         child='import subprocess,sys;subprocess.run([sys.executable,"-c","x=bytearray(64*1024*1024);x[0]=1;del x"],check=True)'
