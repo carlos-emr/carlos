@@ -22,16 +22,26 @@
 /**
  * The markup rules and printed text of the HTML-to-PDF module, as static utilities.
  *
- * <p>Each class is named for the thing it knows about (a domain noun, not a role) and has only
- * static methods and a private constructor:</p>
+ * <p>Each public class is named for the thing it knows about (a domain noun, not a role) and has
+ * only static methods and a private constructor:</p>
  *
  * <ul>
- *   <li>{@link io.github.carlos_emr.carlos.documentManager.htmlpdf.support.XhtmlCleanup}: the rules
- *       that make an HTML document valid, printable XHTML (scripts and comments, invisible
- *       characters, table spans, fixed positioning, image alternative text, serialisation);</li>
- *   <li>the form-control replacements, right-to-left shaping, the fallback-font runs, the injected
- *       stylesheet and the printed note and box texts, which later steps of the pipeline add.</li>
+ *   <li>{@code XhtmlCleanup}: the rules that make an HTML document valid, printable XHTML (scripts
+ *       and comments, invisible characters, table spans, fixed positioning, image alternative
+ *       text, serialisation);</li>
+ *   <li>{@code PrintFormControls}: form controls become static text and marks;</li>
+ *   <li>{@code RtlTextShaping}: best-effort shaping and reordering of right-to-left text;</li>
+ *   <li>{@code FallbackFontRuns}: spans that name a fallback font for the characters DejaVu Sans
+ *       lacks;</li>
+ *   <li>{@code PrintStylesheet}: the style sheet injected into every document, and the
+ *       {@code @page} rule of the second layout pass;</li>
+ *   <li>{@code PrintMessages}: the document notes and the box label printed into a document, read
+ *       from the {@code oscarResources} bundle.</li>
  * </ul>
+ *
+ * <p>Two package-private classes serve them: {@code InlineStyle} (a scanner for the inline
+ * {@code style} attribute) and {@code HtmlAttributeNumbers} (HTML integer attributes read as a
+ * browser reads them).</p>
  *
  * <h2>Allowed dependencies</h2>
  *
@@ -43,9 +53,10 @@
  * <h2>Rules</h2>
  *
  * <ul>
- *   <li>A utility changes the Jsoup {@code Document} it is given and nothing else: no file, network
- *       or clock access, no static state, so it is safe to call from concurrent renders on different
- *       documents.</li>
+ *   <li>A rule changes the Jsoup {@code Document} it is given and nothing else ({@code PrintStylesheet}
+ *       and {@code PrintMessages} return text). There is no file, network or clock access beyond
+ *       reading the English message bundle from the class path, and no mutable static state, so the
+ *       rules are safe to call from concurrent renders on different documents.</li>
  *   <li>The same document always gives the same result, whatever the server's locale, time zone or
  *       installed fonts.</li>
  *   <li>Nothing here logs document content. Counts are the most a log line may carry.</li>
