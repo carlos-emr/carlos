@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>FAKE-Table-heavy report</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 9pt }
+  table { border-collapse: collapse }
+  th, td { border: 1px solid #666; padding: 2px 4px }
+  th { background: #ddd }
+</style>
+</head>
+<body>
+<h1>FAKE-Table-heavy report</h1>
+<p>A results table that runs over several pages, a table with spans, and a table inside a table.</p>
+<table width="100%">
+  <thead><tr><th>#</th><th>Analyte</th><th>Result</th><th>Unit</th><th>Reference</th><th>Flag</th></tr></thead>
+  <tbody>
+  <tr><td>1</td><td>FAKE-analyte 1</td><td>11.1</td><td>unit/2</td><td>6 &ndash; 21</td><td></td></tr>
+  <tr><td>2</td><td>FAKE-analyte 2</td><td>12.2</td><td>unit/3</td><td>7 &ndash; 22</td><td></td></tr>
+  <tr><td>3</td><td>FAKE-analyte 3</td><td>13.3</td><td>unit/4</td><td>8 &ndash; 23</td><td></td></tr>
+  <tr><td>4</td><td>FAKE-analyte 4</td><td>14.4</td><td>unit/1</td><td>9 &ndash; 24</td><td></td></tr>
+  <tr><td>5</td><td>FAKE-analyte 5</td><td>15.5</td><td>unit/2</td><td>5 &ndash; 25</td><td></td></tr>
+  <tr><td>6</td><td>FAKE-analyte 6</td><td>16.6</td><td>unit/3</td><td>6 &ndash; 26</td><td></td></tr>
+  <tr><td>7</td><td>FAKE-analyte 7</td><td>17.7</td><td>unit/4</td><td>7 &ndash; 27</td><td>H</td></tr>
+  <tr><td>8</td><td>FAKE-analyte 8</td><td>18.8</td><td>unit/1</td><td>8 &ndash; 28</td><td></td></tr>
+  <tr><td>9</td><td>FAKE-analyte 9</td><td>19.9</td><td>unit/2</td><td>9 &ndash; 20</td><td></td></tr>
+  <tr><td>10</td><td>FAKE-analyte 10</td><td>20.0</td><td>unit/3</td><td>5 &ndash; 21</td><td></td></tr>
+  <tr><td>11</td><td>FAKE-analyte 11</td><td>21.1</td><td>unit/4</td><td>6 &ndash; 22</td><td>L</td></tr>
+  <tr><td>12</td><td>FAKE-analyte 12</td><td>22.2</td><td>unit/1</td><td>7 &ndash; 23</td><td></td></tr>
+  <tr><td>13</td><td>FAKE-analyte 13</td><td>23.3</td><td>unit/2</td><td>8 &ndash; 24</td><td></td></tr>
+  <tr><td>14</td><td>FAKE-analyte 14</td><td>24.4</td><td>unit/3</td><td>9 &ndash; 25</td><td>H</td></tr>
+  <tr><td>15</td><td>FAKE-analyte 15</td><td>25.5</td><td>unit/4</td><td>5 &ndash; 26</td><td></td></tr>
+  <tr><td>16</td><td>FAKE-analyte 16</td><td>26.6</td><td>unit/1</td><td>6 &ndash; 27</td><td></td></tr>
+  <tr><td>17</td><td>FAKE-analyte 17</td><td>27.7</td><td>unit/2</td><td>7 &ndash; 28</td><td></td></tr>
+  <tr><td>18</td><td>FAKE-analyte 18</td><td>28.8</td><td>unit/3</td><td>8 &ndash; 20</td><td></td></tr>
+  <tr><td>19</td><td>FAKE-analyte 19</td><td>29.9</td><td>unit/4</td><td>9 &ndash; 21</td><td></td></tr>
+  <tr><td>20</td><td>FAKE-analyte 20</td><td>30.0</td><td>unit/1</td><td>5 &ndash; 22</td><td></td></tr>
+  <tr><td>21</td><td>FAKE-analyte 21</td><td>31.1</td><td>unit/2</td><td>6 &ndash; 23</td><td>H</td></tr>
+  <tr><td>22</td><td>FAKE-analyte 22</td><td>32.2</td><td>unit/3</td><td>7 &ndash; 24</td><td>L</td></tr>
+  <tr><td>23</td><td>FAKE-analyte 23</td><td>33.3</td><td>unit/4</td><td>8 &ndash; 25</td><td></td></tr>
+  <tr><td>24</td><td>FAKE-analyte 24</td><td>34.4</td><td>unit/1</td><td>9 &ndash; 26</td><td></td></tr>
+  <tr><td>25</td><td>FAKE-analyte 25</td><td>35.5</td><td>unit/2</td><td>5 &ndash; 27</td><td></td></tr>
+  <tr><td>26</td><td>FAKE-analyte 26</td><td>36.6</td><td>unit/3</td><td>6 &ndash; 28</td><td></td></tr>
+  <tr><td>27</td><td>FAKE-analyte 27</td><td>37.7</td><td>unit/4</td><td>7 &ndash; 20</td><td></td></tr>
+  <tr><td>28</td><td>FAKE-analyte 28</td><td>38.8</td><td>unit/1</td><td>8 &ndash; 21</td><td>H</td></tr>
+  <tr><td>29</td><td>FAKE-analyte 29</td><td>39.9</td><td>unit/2</td><td>9 &ndash; 22</td><td></td></tr>
+  <tr><td>30</td><td>FAKE-analyte 30</td><td>40.0</td><td>unit/3</td><td>5 &ndash; 23</td><td></td></tr>
+  <tr><td>31</td><td>FAKE-analyte 31</td><td>41.1</td><td>unit/4</td><td>6 &ndash; 24</td><td></td></tr>
+  <tr><td>32</td><td>FAKE-analyte 32</td><td>42.2</td><td>unit/1</td><td>7 &ndash; 25</td><td></td></tr>
+  <tr><td>33</td><td>FAKE-analyte 33</td><td>43.3</td><td>unit/2</td><td>8 &ndash; 26</td><td>L</td></tr>
+  <tr><td>34</td><td>FAKE-analyte 34</td><td>44.4</td><td>unit/3</td><td>9 &ndash; 27</td><td></td></tr>
+  <tr><td>35</td><td>FAKE-analyte 35</td><td>45.5</td><td>unit/4</td><td>5 &ndash; 28</td><td>H</td></tr>
+  <tr><td>36</td><td>FAKE-analyte 36</td><td>46.6</td><td>unit/1</td><td>6 &ndash; 20</td><td></td></tr>
+  <tr><td>37</td><td>FAKE-analyte 37</td><td>47.7</td><td>unit/2</td><td>7 &ndash; 21</td><td></td></tr>
+  <tr><td>38</td><td>FAKE-analyte 38</td><td>48.8</td><td>unit/3</td><td>8 &ndash; 22</td><td></td></tr>
+  <tr><td>39</td><td>FAKE-analyte 39</td><td>49.9</td><td>unit/4</td><td>9 &ndash; 23</td><td></td></tr>
+  <tr><td>40</td><td>FAKE-analyte 40</td><td>50.0</td><td>unit/1</td><td>5 &ndash; 24</td><td></td></tr>
+  <tr><td>41</td><td>FAKE-analyte 41</td><td>51.1</td><td>unit/2</td><td>6 &ndash; 25</td><td></td></tr>
+  <tr><td>42</td><td>FAKE-analyte 42</td><td>52.2</td><td>unit/3</td><td>7 &ndash; 26</td><td>H</td></tr>
+  <tr><td>43</td><td>FAKE-analyte 43</td><td>53.3</td><td>unit/4</td><td>8 &ndash; 27</td><td></td></tr>
+  <tr><td>44</td><td>FAKE-analyte 44</td><td>54.4</td><td>unit/1</td><td>9 &ndash; 28</td><td>L</td></tr>
+  <tr><td>45</td><td>FAKE-analyte 45</td><td>55.5</td><td>unit/2</td><td>5 &ndash; 20</td><td></td></tr>
+  <tr><td>46</td><td>FAKE-analyte 46</td><td>56.6</td><td>unit/3</td><td>6 &ndash; 21</td><td></td></tr>
+  <tr><td>47</td><td>FAKE-analyte 47</td><td>57.7</td><td>unit/4</td><td>7 &ndash; 22</td><td></td></tr>
+  <tr><td>48</td><td>FAKE-analyte 48</td><td>58.8</td><td>unit/1</td><td>8 &ndash; 23</td><td></td></tr>
+  <tr><td>49</td><td>FAKE-analyte 49</td><td>59.9</td><td>unit/2</td><td>9 &ndash; 24</td><td>H</td></tr>
+  <tr><td>50</td><td>FAKE-analyte 50</td><td>60.0</td><td>unit/3</td><td>5 &ndash; 25</td><td></td></tr>
+  <tr><td>51</td><td>FAKE-analyte 51</td><td>61.1</td><td>unit/4</td><td>6 &ndash; 26</td><td></td></tr>
+  <tr><td>52</td><td>FAKE-analyte 52</td><td>62.2</td><td>unit/1</td><td>7 &ndash; 27</td><td></td></tr>
+  <tr><td>53</td><td>FAKE-analyte 53</td><td>63.3</td><td>unit/2</td><td>8 &ndash; 28</td><td></td></tr>
+  <tr><td>54</td><td>FAKE-analyte 54</td><td>64.4</td><td>unit/3</td><td>9 &ndash; 20</td><td></td></tr>
+  <tr><td>55</td><td>FAKE-analyte 55</td><td>65.5</td><td>unit/4</td><td>5 &ndash; 21</td><td>L</td></tr>
+  <tr><td>56</td><td>FAKE-analyte 56</td><td>66.6</td><td>unit/1</td><td>6 &ndash; 22</td><td>H</td></tr>
+  <tr><td>57</td><td>FAKE-analyte 57</td><td>67.7</td><td>unit/2</td><td>7 &ndash; 23</td><td></td></tr>
+  <tr><td>58</td><td>FAKE-analyte 58</td><td>68.8</td><td>unit/3</td><td>8 &ndash; 24</td><td></td></tr>
+  <tr><td>59</td><td>FAKE-analyte 59</td><td>69.9</td><td>unit/4</td><td>9 &ndash; 25</td><td></td></tr>
+  <tr><td>60</td><td>FAKE-analyte 60</td><td>70.0</td><td>unit/1</td><td>5 &ndash; 26</td><td></td></tr>
+  <tr><td>61</td><td>FAKE-analyte 61</td><td>71.1</td><td>unit/2</td><td>6 &ndash; 27</td><td></td></tr>
+  <tr><td>62</td><td>FAKE-analyte 62</td><td>72.2</td><td>unit/3</td><td>7 &ndash; 28</td><td></td></tr>
+  <tr><td>63</td><td>FAKE-analyte 63</td><td>73.3</td><td>unit/4</td><td>8 &ndash; 20</td><td>H</td></tr>
+  <tr><td>64</td><td>FAKE-analyte 64</td><td>74.4</td><td>unit/1</td><td>9 &ndash; 21</td><td></td></tr>
+  <tr><td>65</td><td>FAKE-analyte 65</td><td>75.5</td><td>unit/2</td><td>5 &ndash; 22</td><td></td></tr>
+  <tr><td>66</td><td>FAKE-analyte 66</td><td>76.6</td><td>unit/3</td><td>6 &ndash; 23</td><td>L</td></tr>
+  <tr><td>67</td><td>FAKE-analyte 67</td><td>77.7</td><td>unit/4</td><td>7 &ndash; 24</td><td></td></tr>
+  <tr><td>68</td><td>FAKE-analyte 68</td><td>78.8</td><td>unit/1</td><td>8 &ndash; 25</td><td></td></tr>
+  <tr><td>69</td><td>FAKE-analyte 69</td><td>79.9</td><td>unit/2</td><td>9 &ndash; 26</td><td></td></tr>
+  <tr><td>70</td><td>FAKE-analyte 70</td><td>80.0</td><td>unit/3</td><td>5 &ndash; 27</td><td>H</td></tr>
+  <tr><td>71</td><td>FAKE-analyte 71</td><td>81.1</td><td>unit/4</td><td>6 &ndash; 28</td><td></td></tr>
+  <tr><td>72</td><td>FAKE-analyte 72</td><td>82.2</td><td>unit/1</td><td>7 &ndash; 20</td><td></td></tr>
+  <tr><td>73</td><td>FAKE-analyte 73</td><td>83.3</td><td>unit/2</td><td>8 &ndash; 21</td><td></td></tr>
+  <tr><td>74</td><td>FAKE-analyte 74</td><td>84.4</td><td>unit/3</td><td>9 &ndash; 22</td><td></td></tr>
+  <tr><td>75</td><td>FAKE-analyte 75</td><td>85.5</td><td>unit/4</td><td>5 &ndash; 23</td><td></td></tr>
+  <tr><td>76</td><td>FAKE-analyte 76</td><td>86.6</td><td>unit/1</td><td>6 &ndash; 24</td><td></td></tr>
+  <tr><td>77</td><td>FAKE-analyte 77</td><td>87.7</td><td>unit/2</td><td>7 &ndash; 25</td><td>H</td></tr>
+  <tr><td>78</td><td>FAKE-analyte 78</td><td>88.8</td><td>unit/3</td><td>8 &ndash; 26</td><td></td></tr>
+  <tr><td>79</td><td>FAKE-analyte 79</td><td>89.9</td><td>unit/4</td><td>9 &ndash; 27</td><td></td></tr>
+  <tr><td>80</td><td>FAKE-analyte 80</td><td>90.0</td><td>unit/1</td><td>5 &ndash; 28</td><td></td></tr>
+  <tr><td>81</td><td>FAKE-analyte 81</td><td>91.1</td><td>unit/2</td><td>6 &ndash; 20</td><td></td></tr>
+  <tr><td>82</td><td>FAKE-analyte 82</td><td>92.2</td><td>unit/3</td><td>7 &ndash; 21</td><td></td></tr>
+  <tr><td>83</td><td>FAKE-analyte 83</td><td>93.3</td><td>unit/4</td><td>8 &ndash; 22</td><td></td></tr>
+  <tr><td>84</td><td>FAKE-analyte 84</td><td>94.4</td><td>unit/1</td><td>9 &ndash; 23</td><td>H</td></tr>
+  <tr><td>85</td><td>FAKE-analyte 85</td><td>95.5</td><td>unit/2</td><td>5 &ndash; 24</td><td></td></tr>
+  <tr><td>86</td><td>FAKE-analyte 86</td><td>96.6</td><td>unit/3</td><td>6 &ndash; 25</td><td></td></tr>
+  <tr><td>87</td><td>FAKE-analyte 87</td><td>97.7</td><td>unit/4</td><td>7 &ndash; 26</td><td></td></tr>
+  <tr><td>88</td><td>FAKE-analyte 88</td><td>98.8</td><td>unit/1</td><td>8 &ndash; 27</td><td>L</td></tr>
+  <tr><td>89</td><td>FAKE-analyte 89</td><td>99.9</td><td>unit/2</td><td>9 &ndash; 28</td><td></td></tr>
+  <tr><td>90</td><td>FAKE-analyte 90</td><td>100.0</td><td>unit/3</td><td>5 &ndash; 20</td><td></td></tr>
+  </tbody>
+</table>
+<h2>Summary with spans</h2>
+<table width="100%">
+  <tr><th colspan="4">FAKE-Panel summary</th></tr>
+  <tr><td rowspan="2">Chemistry</td><td>Sodium</td><td>138</td><td>normal</td></tr>
+  <tr><td>Potassium</td><td>4.1</td><td>normal</td></tr>
+  <tr><td rowspan="3">Hematology</td><td>Hemoglobin</td><td>128</td><td>normal</td></tr>
+  <tr><td>White cells</td><td>14.2</td><td>high</td></tr>
+  <tr><td>Platelets</td><td>251</td><td>normal</td></tr>
+</table>
+<h2>Nested table</h2>
+<table width="100%"><tr><td width="50%">Outer left
+  <table width="100%"><tr><td>inner A1</td><td>inner A2</td></tr><tr><td>inner B1</td><td>inner B2</td></tr></table></td>
+  <td>Outer right text that is long enough to wrap onto a second line inside the cell, which has to stay beside its neighbour.</td></tr></table>
+</body>
+</html>

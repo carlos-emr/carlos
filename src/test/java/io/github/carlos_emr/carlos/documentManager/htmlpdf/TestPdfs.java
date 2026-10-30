@@ -22,11 +22,20 @@
 package io.github.carlos_emr.carlos.documentManager.htmlpdf;
 
 import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.contentstream.PDFStreamEngine;
 import org.apache.pdfbox.contentstream.operator.Operator;
+import org.apache.pdfbox.contentstream.operator.OperatorProcessor;
+import org.apache.pdfbox.cos.COSBase;
+import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.cos.COSNumber;
 import org.apache.pdfbox.pdfparser.PDFStreamParser;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDResources;
+import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.graphics.PDXObject;
+import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -36,7 +45,10 @@ import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Test helper: reads geometry and text back out of a rendered PDF. A PDF page is 72 dots per inch, so
@@ -147,5 +159,76 @@ public final class TestPdfs {
             stripper.getText(document);
         }
         return positions;
+    }
+
+    /**
+     * The fonts the document uses, as {@code BaseFontName} (with the subset tag removed), followed by
+     * {@code " (not embedded)"} for a font that is not embedded. The pages the renderer places on Letter
+     * are form XObjects, so the search goes into them.
+     */
+    public static Set<String> fonts(byte[] pdf) throws IOException {
+        Set<String> fonts = new TreeSet<>();
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            Set<COSBase> seen = new HashSet<>();
+            for (PDPage page : document.getPages()) {
+                collectFonts(page.getResources(), fonts, seen);
+            }
+        }
+        return fonts;
+    }
+
+    private static void collectFonts(PDResources resources, Set<String> fonts, Set<COSBase> seen) throws IOException {
+        if (resources == null) {
+            return;
+        }
+        for (COSName name : resources.getFontNames()) {
+            PDFont font = resources.getFont(name);
+            String base = font.getName() == null ? "?" : font.getName().replaceFirst("^[A-Z]{6}\\+", "");
+            fonts.add(font.isEmbedded() ? base : base + " (not embedded)");
+        }
+        for (COSName name : resources.getXObjectNames()) {
+            PDXObject xobject = resources.getXObject(name);
+            if (xobject instanceof PDFormXObject form && seen.add(form.getCOSObject())) {
+                collectFonts(form.getResources(), fonts, seen);
+            }
+        }
+    }
+
+    /** How many times the document draws an image (a repeated image counts each time), into forms too. */
+    public static int imageDraws(byte[] pdf) throws IOException {
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            ImageCounter counter = new ImageCounter();
+            for (PDPage page : document.getPages()) {
+                counter.processPage(page);
+            }
+            return counter.draws;
+        }
+    }
+
+    /** Counts the {@code Do} operators that draw an image, following the forms the pages are placed in. */
+    private static final class ImageCounter extends PDFStreamEngine {
+        int draws;
+
+        ImageCounter() {
+            addOperator(new OperatorProcessor(this) {
+                @Override
+                public void process(Operator operator, List<COSBase> operands) throws IOException {
+                    if (operands.isEmpty() || !(operands.get(0) instanceof COSName name)) {
+                        return;
+                    }
+                    PDXObject xobject = ImageCounter.this.getResources().getXObject(name);
+                    if (xobject instanceof PDImageXObject) {
+                        draws++;
+                    } else if (xobject instanceof PDFormXObject form) {
+                        ImageCounter.this.showForm(form);
+                    }
+                }
+
+                @Override
+                public String getName() {
+                    return "Do";
+                }
+            });
+        }
     }
 }
