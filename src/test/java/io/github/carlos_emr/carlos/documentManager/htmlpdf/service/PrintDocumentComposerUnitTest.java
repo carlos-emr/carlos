@@ -270,6 +270,26 @@ class PrintDocumentComposerUnitTest {
     }
 
     @Test
+    @DisplayName("should keep the bars of a progress and a meter in safe mode, without the author's size, and leave them out of text-only mode")
+    void shouldKeepBarsInSafeMode_andLeaveThemOutOfTextOnlyMode() {
+        String html = "<html><head></head><body><progress value=\"30\" max=\"100\" style=\"width:300px\"></progress>"
+                + "<meter value=\"0.6\"></meter><p>FAKE-text</p></body></html>";
+
+        Document safe = composer.prepare(html, PrintMode.SAFE, degradations());
+        Document textOnly = composer.prepare(html, PrintMode.TEXT_ONLY, degradations());
+        composer.finish(safe, PrintMode.SAFE, fonts, degradations());
+
+        // The author's width goes with the author's styles; the width of the fill, which the rule adds, stays.
+        assertThat(safe.select("span.carlos-pdf-progress").attr("style")).isEmpty();
+        assertThat(safe.select("span.carlos-pdf-progress > span.carlos-pdf-gauge-fill").attr("style")).isEqualTo("width: 30%");
+        assertThat(safe.select("span.carlos-pdf-meter > span.carlos-pdf-gauge-fill").attr("style")).isEqualTo("width: 60%");
+        assertThat(safe.head().child(0).data()).contains(".carlos-pdf-gauge-fill {");
+        // A bar has no text, and text-only mode keeps only text.
+        assertThat(textOnly.body().text()).isEqualTo("FAKE-text");
+        assertThat(textOnly.select("[class], [style]")).isEmpty();
+    }
+
+    @Test
     @DisplayName("should keep what the markup hid hidden in safe and text-only modes, which drop the styles that hide it")
     void shouldRemoveHiddenElements_inSafeAndTextOnlyModes() {
         String html = "<html><head></head><body><p>FAKE-Shown</p><div style=\"display:none\">FAKE-Screen copy</div><p hidden>FAKE-Scratch</p>"

@@ -26,10 +26,12 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.OptionalDouble;
 
 /**
  * Replaces form controls with static text and marks for printing (step c of the render pipeline).
@@ -59,10 +61,22 @@ import java.util.Objects;
  *       selected options joined by ", " for {@code multiple}; none selected gives the first option
  *       (single) or nothing (multiple); options inside {@code <optgroup>} count</td></tr>
  *   <tr><td>{@code <textarea>}</td><td>{@code <div>} (kind {@code textarea}), newlines kept</td></tr>
- *   <tr><td>{@code <progress>}</td><td>{@code <span>} (kind {@code text}): {@code value/max}, with
- *       {@code max} defaulting to 1; nothing when there is no value</td></tr>
- *   <tr><td>{@code <meter>}</td><td>{@code <span>} (kind {@code text}): its {@code value}</td></tr>
+ *   <tr><td>{@code <progress>}</td><td>{@code <span>} (kind {@code progress}) holding a bar: the track is
+ *       filled to {@code value/max}, with {@code max} defaulting to 1; the track alone when there is no
+ *       value</td></tr>
+ *   <tr><td>{@code <meter>}</td><td>{@code <span>} (kind {@code meter}) holding a bar filled to
+ *       {@code (value - min) / (max - min)}, in the colour a browser gives it</td></tr>
  * </table>
+ *
+ * <p>The bar of a {@code <progress>} and of a {@code <meter>} is two nested spans, the track and the part
+ * of it that is filled ({@code carlos-pdf-gauge-fill}, with a percentage width in its style), so that
+ * the page shows what a browser shows. The {@code PrintStylesheet} draws the track 10em wide for a
+ * progress and 5em for a meter, as browsers do, and an inline {@code width} or {@code height} on the
+ * control, which the replacement keeps, sizes it. A meter's fill is {@code carlos-pdf-gauge-optimum},
+ * {@code carlos-pdf-gauge-suboptimal} or {@code carlos-pdf-gauge-poor} by where the value lies among the
+ * {@code low}, {@code high} and {@code optimum} points, by the rule Chromium applies. An attribute that
+ * is not a finite number is taken as absent, so {@code value="abc"} gives an indeterminate progress, and
+ * the content of the element (the text a browser without support would show) is not printed.</p>
  *
  * <p>Each replacement copies the original's {@code id}, {@code class}, {@code style}, {@code title},
  * {@code dir} and {@code lang}, adds the classes {@code carlos-pdf-control carlos-pdf-<kind>} and
@@ -93,6 +107,12 @@ public final class PrintFormControls {
     static final String UNSELECTED_RADIO = new String(Character.toChars(0x25CB));
     /** U+2022 BULLET, eight of which stand for a password of any length. */
     static final String PASSWORD_MASK = new String(Character.toChars(0x2022)).repeat(8);
+
+    /** The part of a progress or meter track that is filled; a meter's fill also carries one of the three colour classes. */
+    static final String GAUGE_FILL = "carlos-pdf-gauge-fill";
+    static final String GAUGE_OPTIMUM = "carlos-pdf-gauge-optimum";
+    static final String GAUGE_SUBOPTIMAL = "carlos-pdf-gauge-suboptimal";
+    static final String GAUGE_POOR = "carlos-pdf-gauge-poor";
 
     /** The attributes of the original that the replacement keeps. */
     private static final List<String> COPIED_ATTRIBUTES = List.of("id", "class", "style", "title", "dir", "lang");
@@ -179,8 +199,8 @@ public final class PrintFormControls {
                 case "button" -> control.remove();
                 case "select" -> replace(control, "span", "select", "select", selectedOptionsText(control), null);
                 case "textarea" -> replaceTextarea(control);
-                case "progress" -> replace(control, "span", "text", "progress", progressText(control), null);
-                case "meter" -> replace(control, "span", "text", "meter", meterText(control), null);
+                case "progress" -> replaceProgress(control);
+                case "meter" -> replaceMeter(control);
                 default -> { }
             }
         }
@@ -267,19 +287,91 @@ public final class PrintFormControls {
 
     // ---- progress and meter -----------------------------------------------------------------
 
-    private static String progressText(Element progress) {
-        String value = progress.attr("value").strip();
-        if (!isDecimalNumber(value)) {
-            return "";
+    /** A bar with no value, or with a value that is not a number, is an indeterminate progress: the track alone. */
+    private static void replaceProgress(Element progress) {
+        OptionalDouble value = number(progress, "value");
+        if (value.isEmpty()) {
+            replaceGauge(progress, "progress", null, null);
+            return;
         }
-        String max = progress.attr("max").strip();
-        boolean usableMax = isDecimalNumber(max) && Double.parseDouble(max) > 0;
-        return value + "/" + (usableMax ? max : "1");
+        double max = number(progress, "max").orElse(1);
+        // value / max is never NaN: both are finite and max is positive; it may be infinite, which clamps to 1.
+        replaceGauge(progress, "progress", clamp(value.getAsDouble() / (max > 0 ? max : 1), 0, 1), null);
     }
 
-    private static String meterText(Element meter) {
-        String value = meter.attr("value").strip();
-        return isDecimalNumber(value) ? value : "";
+    /**
+     * The HTML defaults and corrections for a meter ({@code min} 0, {@code max} 1 and not below {@code min}, the value
+     * and the points held within the range, {@code high} not below {@code low}, {@code optimum} in the middle).
+     */
+    private static void replaceMeter(Element meter) {
+        double min = number(meter, "min").orElse(0);
+        double max = Math.max(min, number(meter, "max").orElse(1));
+        double value = clamp(number(meter, "value").orElse(0), min, max);
+        double low = clamp(number(meter, "low").orElse(min), min, max);
+        double high = clamp(number(meter, "high").orElse(max), low, max);
+        double optimum = clamp(number(meter, "optimum").orElse(min + (max - min) / 2), min, max);
+        double span = max - min;
+        // A range wider than a double can hold, or none at all, has no position to show (as in Chromium).
+        double fraction = span > 0 && Double.isFinite(span) ? (value - min) / span : 0;
+        replaceGauge(meter, "meter", fraction, meterLevel(value, low, high, optimum));
+    }
+
+    /**
+     * Which part of a meter's range its value lies in, by the rule Chromium applies: the optimum lies under
+     * {@code low}, over {@code high}, or between them, and the value is as good as it is near that region.
+     */
+    private static String meterLevel(double value, double low, double high, double optimum) {
+        if (optimum < low) {
+            if (value <= low) {
+                return GAUGE_OPTIMUM;
+            }
+            return value <= high ? GAUGE_SUBOPTIMAL : GAUGE_POOR;
+        }
+        if (high < optimum) {
+            if (high <= value) {
+                return GAUGE_OPTIMUM;
+            }
+            return low <= value ? GAUGE_SUBOPTIMAL : GAUGE_POOR;
+        }
+        return low <= value && value <= high ? GAUGE_OPTIMUM : GAUGE_SUBOPTIMAL;
+    }
+
+    /** A numeric attribute; absent, not a number and too large for a double all read as absent. */
+    private static OptionalDouble number(Element element, String attribute) {
+        String text = element.attr(attribute).strip();
+        if (!isDecimalNumber(text)) {
+            return OptionalDouble.empty();
+        }
+        double number = Double.parseDouble(text);
+        return Double.isFinite(number) ? OptionalDouble.of(number) : OptionalDouble.empty();
+    }
+
+    private static double clamp(double value, double low, double high) {
+        return Math.max(low, Math.min(high, value));
+    }
+
+    /**
+     * The track of a bar, with its fill when there is a position to show.
+     *
+     * @param fraction how much of the track is filled, 0 to 1, or {@code null} for the track alone
+     * @param level the colour class of the fill, or {@code null} for the default one
+     */
+    private static void replaceGauge(Element control, String kind, Double fraction, String level) {
+        Element replacement = replacementFor(control, "span", kind, kind, null);
+        if (fraction != null) {
+            Element fill = replacement.appendElement("span").addClass(GAUGE_FILL);
+            if (level != null) {
+                fill.addClass(level);
+            }
+            fill.attr("style", "width: " + percent(fraction));
+        }
+        control.replaceWith(replacement);
+    }
+
+    /** A percentage to a tenth of a percent, written with a decimal point whatever the locale and never in exponent form. */
+    private static String percent(double fraction) {
+        return BigDecimal.valueOf(fraction * 100).setScale(1, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
+                + "%";
     }
 
     // ---- replacement ------------------------------------------------------------------------
@@ -294,6 +386,16 @@ public final class PrintFormControls {
      */
     private static void replace(Element control, String tag, String kind, String inputType, String text,
             String minimumSize) {
+        Element replacement = replacementFor(control, tag, kind, inputType, minimumSize);
+        if (!text.isEmpty()) {
+            replacement.appendText(text);
+        }
+        control.replaceWith(replacement);
+    }
+
+    /** The replacement element, with the original's copied attributes, its classes and its minimum size, not yet placed. */
+    private static Element replacementFor(Element control, String tag, String kind, String inputType,
+            String minimumSize) {
         Element replacement = new Element(tag);
         for (String name : COPIED_ATTRIBUTES) {
             if (control.hasAttr(name)) {
@@ -305,10 +407,7 @@ public final class PrintFormControls {
         if (minimumSize != null) {
             replacement.attr("style", InlineStyle.append(replacement.attr("style"), minimumSize));
         }
-        if (!text.isEmpty()) {
-            replacement.appendText(text);
-        }
-        control.replaceWith(replacement);
+        return replacement;
     }
 
     /** A positive integer attribute, or the default when it is absent, zero or not a number; never above the cap. */

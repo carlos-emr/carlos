@@ -52,7 +52,10 @@ import java.math.RoundingMode;
  *       of that table that holds a long word is marked itself and breaks it;</li>
  *   <li>{@code -fs-table-paginate} for the tables step g marks, which repeats their headers;</li>
  *   <li>the printed form controls ({@code carlos-pdf-control}, see {@code PrintFormControls}):
- *       bordered boxes that grow to fit their content, keep their line breaks and wrap long values;</li>
+ *       bordered boxes that grow to fit their content, keep their line breaks and wrap long values;
+ *       the bars of a progress (10em wide) and a meter (5em), the size browsers give them, drawn as a grey
+ *       track whose fill is blue for a progress and green, amber or red for a meter by how good its value
+ *       is;</li>
  *   <li>the placeholder box for an image that cannot be shown and the document note.</li>
  * </ul>
  *
@@ -82,6 +85,14 @@ public final class PrintStylesheet {
             .carlos-pdf-textarea { border: 1px solid #000; padding: 1px 2px; white-space: pre-wrap;
               word-wrap: break-word }
             .carlos-pdf-checkbox, .carlos-pdf-radio { font-size: 13px }
+            .carlos-pdf-progress, .carlos-pdf-meter { height: 1em; border: 1px solid #777;
+              background-color: #e8e8e8; vertical-align: -0.2em }
+            .carlos-pdf-progress { width: 10em }
+            .carlos-pdf-meter { width: 5em }
+            .carlos-pdf-gauge-fill { display: block; height: 100%; background-color: #2f6fbf }
+            .carlos-pdf-gauge-optimum { background-color: #3f9d3f }
+            .carlos-pdf-gauge-suboptimal { background-color: #e3b100 }
+            .carlos-pdf-gauge-poor { background-color: #c53030 }
             .carlos-pdf-image-unavailable { display: inline-block; border: 1px dashed #000;
               padding: 2px; font-size: 8pt; text-align: left; white-space: nowrap; overflow: hidden }
             .carlos-pdf-note { border: 1px solid #000; padding: 4px; margin: 0 0 6px 0; font-size: 8pt }
