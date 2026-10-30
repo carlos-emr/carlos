@@ -16635,6 +16635,24 @@
       ],
       "fixtures": "No patient and no lab rows: four synthetic HL7 v2 XML messages (external entity, parameter entity, external DTD, exponential entity expansion) uploaded as lab type PHS, and a loopback HTTP listener the script starts. The file-upload bookkeeping rows and archived copies of the uploads are removed by their stamped file names.",
       "notes": "Issue #5414: a deployed server must not fetch what a hostile HL7 v2 XML DOCTYPE points at. Each upload is refused, the listener sees no request, and the application still answers."
+    },
+    {
+      "name": "dao-findall-paging",
+      "script": "scripts/dao-findall-paging-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "mutates": [
+        "pharmacyInfo"
+      ],
+      "fixtures": "Seven pharmacies named after the run marker are in the clinic-wide pharmacy list while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Issue #5308: AbstractDaoImpl.findAll orders every page by the entity identifier. The session REST pharmacy list pages through it: a maximum-size first page holds exactly the first database rows in id order, small pages concatenate to the whole directory with no repeat or gap (a directory larger than one 5000-row page included), a re-read page is identical, an offset past the end is empty and a limit above the 5000-row maximum is refused."
     }
   ]
 }
