@@ -635,9 +635,9 @@ public class CdsImportReviewService {
         }
     }
     private final class Cancellation implements BooleanSupplier {
-        private final String run; private final CdsImportCoordinatorService.Owner owner; private long checked; private boolean cancelled;
+        private final String run; private final CdsImportCoordinatorService.Owner owner; private final CdsControlPollBackoff polls=new CdsControlPollBackoff(); private boolean cancelled;
         Cancellation(String run, CdsImportCoordinatorService.Owner owner){this.run=run; this.owner=owner; }
-        @Override public boolean getAsBoolean(){if (Thread.currentThread().isInterrupted()) return true; long now=System.nanoTime(); if (now-checked>250_000_000L){owner.check(); cancelled=ledger.status(run).cancelRequested(); checked=now; }return cancelled; }
+        @Override public boolean getAsBoolean(){if (Thread.currentThread().isInterrupted()) return true; long now=System.nanoTime(); if (polls.due(false, now)){polls.expire(); owner.check(); cancelled=ledger.status(run).cancelRequested(); polls.succeeded(now); }return cancelled; }
     }
     private record Request(CdsImportActorDto actor, CdsImportReviewCommand command){@Override public String toString(){return "ReviewRequest[protected]"; }}
     private record Snapshot(String id, String run, long version, long ownerEpoch, String kind, String state, long diagnostic, String patient, String payload, String payloadHash, String plan, String planHash, long planBytes){@Override public String toString(){return "ReviewSnapshot[protected]"; }}

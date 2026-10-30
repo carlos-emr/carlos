@@ -579,6 +579,19 @@ def statement_digest_delta(before: dict, after: dict) -> dict:
             'digests':selected}
 
 
+def budgeted_import_queries(global_queries: int, harness_queries: int) -> int:
+    """Server-wide Questions in a case window minus this harness's own statements in that window.
+
+    Each harness ``query()`` is one statement on the exclusive server, so a slow runner that keeps
+    sampling for longer must not charge its own monitoring to the import's per-unit budget. The
+    raw global count stays in the proof beside this value.
+    """
+    if type(global_queries) is not int or type(harness_queries) is not int \
+            or global_queries<0 or harness_queries<0 or harness_queries>global_queries:
+        raise RuntimeError('query counters reset or harness query accounting exceeds the global window')
+    return global_queries-harness_queries
+
+
 def verified_query_budget_status(actual: int, budget: int) -> str:
     """Called only after all engine/native/hash/report/release checks succeeded; no exception is caught to continue."""
     if type(actual) is not int or type(budget) is not int or actual<0 or budget<1:
@@ -791,6 +804,7 @@ def main() -> None:
             private_json(evidence / (label + "-source.json"), source, exclusive=True)
             case_digests_before=statement_digests()
             before = counters()
+            harness_queries_before = result['observerQueriesExecuted']
             case = {"label": label, "sourceBytes": source["sourceBytes"], "documentBytes": source["documentBytes"],
                     "expectedPatients": patients, "expectedNotes": source["notes"], "expectedLabs": source["labs"],
                     "expectedDocuments": source["documents"], "beforeCounters": before, "status": "RUNNING",
@@ -989,6 +1003,8 @@ def main() -> None:
             case['kernelResources']=kernel
             private_json(proof,result)
             case['enforcedPeakRssBytes']=enforce_rss_budget(peak,kernel,args.max_rss_mib*MIB)
+            # Harness statements strictly between the two samples; the closing sample itself stays counted.
+            harness_queries = result['observerQueriesExecuted'] - harness_queries_before
             after = counters()
             case['afterCounters']=after
             if 'statementDigests' not in case or after.get('Performance_schema_digest_lost')!=0:
@@ -1083,14 +1099,16 @@ def main() -> None:
                             if row.get("blocking") is True and row.get("resolved") is False:
                                 raise RuntimeError("clean benchmark receipt has unresolved blocking diagnostics")
             query_delta = after["Questions"] - before["Questions"]
+            budgeted_queries = budgeted_import_queries(query_delta, harness_queries)
             case.update(reports=report_proof,globalQueries=query_delta,
-                        queriesPerExpectedUnit=query_delta/max(1,native['expectedUnits']),
+                        harnessQueriesInCounterWindow=harness_queries,budgetedQueries=budgeted_queries,
+                        queriesPerExpectedUnit=budgeted_queries/max(1,native['expectedUnits']),
                         globalQueryBudget=args.max_queries_per_unit*max(1,native['expectedUnits']))
             private_json(proof,result)
             case['completedCgroupCounters']=cgroup_counters()
             private_json(proof,result)
             require_no_cgroup_oom(result['initialCgroupCounters'],case['completedCgroupCounters'])
-            budget_status=verified_query_budget_status(query_delta,case['globalQueryBudget'])
+            budget_status=verified_query_budget_status(budgeted_queries,case['globalQueryBudget'])
             case.update({"status": budget_status, "phase":"VERIFIED", "runId": completed["runId"], "importElapsedSeconds": import_elapsed,
                          "verificationElapsedSeconds":time.monotonic()-started-import_elapsed,
                          "sourceBytesPerImportSecond":source["sourceBytes"]/import_elapsed,
@@ -1099,7 +1117,7 @@ def main() -> None:
                          "nativeDocumentBytesVerified": sum(size * count for (size, _), count in actual_documents.items()),
                          "distinctDocumentDigests":len(expected_documents),
                          "reports": report_proof,
-                         "queriesPerExpectedUnit": query_delta/max(1, native["expectedUnits"]),
+                         "queriesPerExpectedUnit": budgeted_queries/max(1, native["expectedUnits"]),
                          "gc":gc_metrics,"kernelResources":kernel,"remainingDiskBytes": shutil.disk_usage(args.root).free})
             private_json(proof, result)
             print('PASS' if budget_status=='PASSED' else 'FAIL_QUERY_BUDGET', label, "run=" + completed["runId"], "sourceBytes=" + str(source["sourceBytes"]),

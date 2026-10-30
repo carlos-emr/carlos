@@ -639,7 +639,7 @@ public class CdsImportPlanningService {
     private void verifyArtifact(String runId, long epoch, Path location, String expected, long length, CdsImportExecutionControl shared) throws IOException {
         if (shared!=null) shared.requireBinding(runId, epoch);
         if (Files.size(location)!=length) throw new CdsImportException("VALUE_SPOOL_HASH_MISMATCH");
-        MessageDigest digest=CdsPaths.sha256(); long bytes=0, nextCancellation=0;
+        MessageDigest digest=CdsPaths.sha256(); long bytes=0; var polls=new CdsControlPollBackoff();
         long started=System.nanoTime(), deadline=configuration.limits().maxDurationMillis();
         try (InputStream input=Files.newInputStream(location, LinkOption.NOFOLLOW_LINKS)) {
             byte[] buffer=new byte[65536]; int n;
@@ -649,11 +649,12 @@ public class CdsImportPlanningService {
                 long now=System.nanoTime();
                 if ((now-started)/1_000_000>deadline) throw new CdsImportException("CDS_INPUT_DEADLINE");
                 if (shared!=null) shared.check(false);
-                else if (now>=nextCancellation) {
+                else if (polls.due(false, now)) {
+                    polls.expire();
                     var status=ledger.status(runId);
                     if (status.ownerEpoch()!=epoch) throw new CdsImportException("OWNER_FENCED");
                     if (status.cancelRequested()) throw new CdsImportException("IMPORT_CANCELLED");
-                    nextCancellation=now+250_000_000L;
+                    polls.succeeded(now);
                 }
                 bytes=Math.addExact(bytes, n);
                 if (bytes>length) throw new CdsImportException("VALUE_SPOOL_HASH_MISMATCH");
@@ -818,7 +819,7 @@ public class CdsImportPlanningService {
         final long started=System.nanoTime();
         final Runnable attemptProbe;
         final CdsImportExecutionControl shared;
-        long nextCancellationPoll;
+        final CdsControlPollBackoff cancellationPolls=new CdsControlPollBackoff();
         State(String runId, long epoch, CdsImportJobDocumentDto document, CdsSnapshotDto snapshot, Path workFile,
                 Runnable attemptProbe, CdsImportExecutionControl shared) throws IOException {
             this.runId = runId; this.epoch = epoch; this.document = document; this.snapshot = snapshot; this.workFile = workFile;
@@ -836,10 +837,13 @@ public class CdsImportPlanningService {
             long now=System.nanoTime();
             if ((now-started)/1_000_000>configuration.limits().maxDurationMillis()) throw new CdsImportException("CDS_INPUT_DEADLINE");
             if (shared!=null) return false; // The bound attemptProbe already checked cancellation and fencing.
-            if (now<nextCancellationPoll) return false; nextCancellationPoll=now+250_000_000L;
+            if (!cancellationPolls.due(false, now)) return false;
+            cancellationPolls.expire();
             var status=ledger.status(runId);
             if (status.ownerEpoch()!=epoch) throw new CdsImportException("OWNER_FENCED");
-            return status.cancelRequested();
+            if (status.cancelRequested()) return true;
+            cancellationPolls.succeeded(now);
+            return false;
         }
         void unit(String patient, String key, String category, long ordinal, CdsImportWorkDto work) throws IOException {
             cancelled(); byte[] bytes = JSON.writeValueAsBytes(work);

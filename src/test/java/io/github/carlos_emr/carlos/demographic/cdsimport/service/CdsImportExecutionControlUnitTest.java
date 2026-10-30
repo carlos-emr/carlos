@@ -59,6 +59,19 @@ class CdsImportExecutionControlUnitTest {
         }
     }
 
+    @Test void shouldBackOffUnchangedOwnerPolls_toOneEveryTwoSecondsDuringLongReads() throws Exception {
+        var clock=new AtomicLong();var fields=new CdsFieldParser();var owner=owner();
+        try(var scope=scope(owner,fields,clock,10000,()->{})) {
+            int expected=1;
+            for(long next:new long[]{250_000_000L,750_000_000L,1_750_000_000L,3_750_000_000L,5_750_000_000L}) {
+                clock.set(next-1);fields.checkpoint();verify(owner,times(expected)).control("run");
+                clock.set(next);fields.checkpoint();verify(owner,times(++expected)).control("run");
+            }
+            // Every forced boundary still reads durable state at once.
+            scope.check(true);verify(owner,times(++expected)).control("run");
+        }
+    }
+
     @Test void everyBoundedFieldReadChecksOverallBudget_evenBeforeNextSqlPoll() throws Exception {
         var clock=new AtomicLong();var fields=new CdsFieldParser();var owner=owner();
         var budgets=new AtomicInteger();

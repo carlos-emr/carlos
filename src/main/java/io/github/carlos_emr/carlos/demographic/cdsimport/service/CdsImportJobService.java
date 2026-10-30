@@ -260,17 +260,18 @@ public class CdsImportJobService {
             CdsImportJobDocumentDto document, java.util.function.BooleanSupplier reviewCancelled) throws IOException {
         CdsImportLedgerService.requireNoTransaction();
         if (reviewRunId.equals(historicalRunId)) throw new CdsImportException("HISTORICAL_PROVENANCE_RUN_INVALID");
-        long started = System.nanoTime(); long[] nextPoll = {0};
+        long started = System.nanoTime(); var polls = new CdsControlPollBackoff();
         long duration = configuration.limits().maxDurationMillis();
         java.util.function.BooleanSupplier control = () -> {
             if (Thread.currentThread().isInterrupted() || reviewCancelled.getAsBoolean()) return true;
             long now = System.nanoTime();
             if ((now - started) / 1_000_000 > duration) throw new CdsImportException("CDS_INPUT_DEADLINE");
-            if (now >= nextPoll[0]) {
-                nextPoll[0] = now + 250_000_000L;
+            if (polls.due(false, now)) {
+                polls.expire();
                 var current = ledger.status(reviewRunId);
                 if (current.ownerEpoch() != reviewEpoch) throw new CdsImportException("OWNER_FENCED");
                 if (current.cancelRequested()) return true;
+                polls.succeeded(now);
             }
             return false;
         };
@@ -302,7 +303,7 @@ public class CdsImportJobService {
             // Upload receipts and the snapshot manifest deliberately use different digest domains.
             verifyUpload(historicalRunId, document, upload, snapshot, control);
         }
-        nextPoll[0] = 0; checkSourceControl(control);
+        polls.expire(); checkSourceControl(control);
         return snapshot;
     }
 
@@ -327,17 +328,19 @@ public class CdsImportJobService {
         var current = ledger.status(runId);
         if (shared!=null && current.ownerEpoch()!=epoch) throw new CdsImportException("OWNER_FENCED");
         Runnable checkpoint=shared==null ? () -> {} : attemptProbe;
-        long started=System.nanoTime(); long[] nextPoll={0};
+        long started=System.nanoTime(); var polls=new CdsControlPollBackoff();
         java.util.function.BooleanSupplier cancelled=()-> {
             attemptProbe.run();
             long now=System.nanoTime();
             if ((now-started)/1_000_000>configuration.limits().maxDurationMillis()) throw new CdsImportException("CDS_INPUT_DEADLINE");
             if (shared!=null) return false; // attemptProbe already checked the same physical owner and epoch.
-            if (now<nextPoll[0]) return false;
-            nextPoll[0]=now+250_000_000L;
+            if (!polls.due(false, now)) return false;
+            polls.expire();
             var owner=ledger.status(runId);
             if (owner.ownerEpoch()!=current.ownerEpoch()) throw new CdsImportException("OWNER_FENCED");
-            return owner.cancelRequested();
+            if (owner.cancelRequested()) return true;
+            polls.succeeded(now);
+            return false;
         };
         try (FileChannel channel = lockChannel(document.jobRoot().resolve("source.lock")); FileLock ignored = lock(channel)) {
             if (document.snapshot() != null) {

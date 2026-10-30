@@ -245,6 +245,14 @@ class PerformanceEvidenceTest(unittest.TestCase):
             with self.subTest(actual=actual,budget=budget):
                 with self.assertRaises(RuntimeError):GATE.verified_query_budget_status(actual,budget)
 
+    def test_budget_charges_the_import_but_not_harness_statements_inside_the_counter_window(self):
+        self.assertEqual(GATE.budgeted_import_queries(2217,208),2009)
+        self.assertEqual(GATE.budgeted_import_queries(7,7),0)
+        self.assertEqual(GATE.budgeted_import_queries(0,0),0)
+        for total,harness in ((-1,0),(5,-1),(5,6),(None,0),(5,None),(True,0),(5,False),(5.0,1),('5',1)):
+            with self.subTest(total=total,harness=harness):
+                with self.assertRaises(RuntimeError):GATE.budgeted_import_queries(total,harness)
+
     def test_top_digest_projection_keeps_complete_totals_and_explicit_omitted_counts_within_artifact_bound(self):
         complete=GATE.statement_digest_snapshot([[f'{number:032x}','b'*64,'LEDGER_READ',str(number+1),'3']
             for number in range(70)])

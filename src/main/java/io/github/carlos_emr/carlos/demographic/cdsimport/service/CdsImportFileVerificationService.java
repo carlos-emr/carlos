@@ -147,7 +147,7 @@ public class CdsImportFileVerificationService {
         private final long epoch;
         private final long started = nanoTime.getAsLong();
         private final long maximumMillis = configuration.limits().maxDurationMillis();
-        private long nextPoll;
+        private final CdsControlPollBackoff polls = new CdsControlPollBackoff();
         private final CdsImportExecutionControl shared;
 
         VerificationControl(String run, long epoch, CdsImportExecutionControl shared) {
@@ -167,9 +167,10 @@ public class CdsImportFileVerificationService {
             long now = nanoTime.getAsLong();
             if (TimeUnit.NANOSECONDS.toMillis(now - started) >= maximumMillis)
                 throw new CdsImportException("IMPORT_FILE_VERIFICATION_TIMEOUT");
-            if (forceOwner || now >= nextPoll) {
+            if (polls.due(forceOwner, now)) {
+                polls.expire();
                 requireOwner(run, epoch);
-                nextPoll = now + 250_000_000L;
+                polls.succeeded(now);
             }
         }
     }

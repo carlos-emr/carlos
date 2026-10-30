@@ -58,6 +58,14 @@ class CdsCliProtocolUnitTest {
     private final PrintStream err = new PrintStream(stderr, true, StandardCharsets.UTF_8);
 
     @Test
+    void shouldSpaceProgressLines_fromFiveSecondsUpToAThirtySecondCap() {
+        long delay = 0;
+        List<Long> delays = new ArrayList<>();
+        for (int line = 0; line < 6; line++) delays.add(delay = CdsImportCli.nextProgressDelayMillis(delay));
+        assertThat(delays).containsExactly(5_000L, 10_000L, 20_000L, 30_000L, 30_000L, 30_000L);
+    }
+
+    @Test
     void shouldExcludeDedicatedCliConfiguration_whenOrdinaryWebProfileDiscoversIt() {
         try(var context=new org.springframework.context.annotation.AnnotationConfigApplicationContext()) {
             context.register(CdsCliSpringConfiguration.class);context.refresh();

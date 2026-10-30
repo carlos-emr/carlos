@@ -37,8 +37,7 @@ final class CdsImportExecutionControl implements AutoCloseable {
     private final long started;
     private final Thread owner = Thread.currentThread();
     private final CdsFieldParser.ControlScope fields;
-    private long lastPoll;
-    private boolean polled;
+    private final CdsControlPollBackoff polls = new CdsControlPollBackoff();
     private boolean closed;
 
     CdsImportExecutionControl(String run, long epoch, CdsImportCoordinatorService.Owner coordinator,
@@ -69,8 +68,8 @@ final class CdsImportExecutionControl implements AutoCloseable {
     void check(boolean force) {
         requireOpen();
         long now = localBudget();
-        if (force || !polled || now - lastPoll >= 250_000_000L) {
-            polled = false;
+        if (polls.due(force, now)) {
+            polls.expire();
             var current = coordinator.control(run);
             if (current == null || !current.coordinatorOwned())
                 throw new CdsImportException("IMPORT_COORDINATOR_LOST");
@@ -79,8 +78,7 @@ final class CdsImportExecutionControl implements AutoCloseable {
             if (current.cancelRequested()) throw new CdsImportException("IMPORT_CANCELLED");
             localBudget();
             // Failure never advances this deadline or becomes a cached success.
-            lastPoll = now;
-            polled = true;
+            polls.succeeded(now);
         }
     }
 

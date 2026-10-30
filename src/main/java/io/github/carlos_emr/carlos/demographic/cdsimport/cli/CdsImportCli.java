@@ -54,6 +54,11 @@ public final class CdsImportCli {
     private static final Set<String> PUBLIC_RELEASE_STATES = Set.of(
             "NOT_APPLICABLE", "RELEASE_PENDING", "RELEASE_DEFERRED", "REQUIRES_RECONCILIATION", "RELEASED");
 
+    /** The first PROGRESS line follows the start of an import by this long. */
+    static final long FIRST_PROGRESS_MILLIS = 5_000L;
+    /** Longest gap between PROGRESS lines on a long import. */
+    static final long MAXIMUM_PROGRESS_MILLIS = 30_000L;
+
     @FunctionalInterface
     public interface RuntimeFactory {
         CdsCliRuntime open(CdsCliConfiguration config, CdsCliArguments arguments,
@@ -182,9 +187,11 @@ public final class CdsImportCli {
             catch (Exception unavailable) { err.println("CDS_INTERRUPTED: cancellation requires durable reconciliation"); }
         }, "cds-cli-cancellation");
         Thread progress = new Thread(() -> {
+            long delay = 0;
             while (!finished.get()) {
                 try {
-                    Thread.sleep(5000);
+                    delay = nextProgressDelayMillis(delay);
+                    Thread.sleep(delay);
                     if (!finished.get()) line(out, consoleSummary(runtime.summary(run), resume ? "resume" : "import", "PROGRESS"));
                 } catch (InterruptedException stopped) {
                     Thread.currentThread().interrupt(); return;
@@ -203,6 +210,19 @@ public final class CdsImportCli {
             catch (IllegalStateException shuttingDown) { /* The signal supervisor is already retiring this process. */ }
             progress.join(2000);
         }
+    }
+
+    /**
+     * Spaces PROGRESS lines out as an import runs longer: 5s, 10s, 20s, then every 30s. Each line reads
+     * the durable run summary, so a slow import does not spend a growing share of its statements on
+     * reporting; the RESULT line and the durable run state stay authoritative either way.
+     *
+     * @param previousMillis the previous delay, or zero before the first line
+     * @return the delay before the next PROGRESS line
+     */
+    static long nextProgressDelayMillis(long previousMillis) {
+        if (previousMillis < FIRST_PROGRESS_MILLIS) return FIRST_PROGRESS_MILLIS;
+        return Math.min(MAXIMUM_PROGRESS_MILLIS, previousMillis * 2);
     }
 
     private static Map<String, Object> consoleSummary(Map<String, Object> summary, String operation, String event) {

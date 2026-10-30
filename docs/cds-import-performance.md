@@ -79,16 +79,29 @@ selected into the proof. Missing instrumentation, digest overflow/eviction or
 counter reset fails the gate. Complete class/count/time totals and a canonical
 hash cover every changed digest; each observation projects the top 64 shapes
 with explicit omitted shape/count/time totals to keep all nine cases within
-the existing bounded artifact contract. These counts include observers and are kept
-alongside their explicit invocation count; no automatic subtraction or increase
-of the 500-per-unit query budget occurs. Actual CLI progress-event counts make
-time-based operator reporting overhead visible.
+the existing bounded artifact contract. These digest counts include observers.
+The 500-per-unit budget is compared with `budgetedQueries`: the case's global
+`Questions` delta minus `harnessQueriesInCounterWindow`, the harness's own
+explicitly counted statements issued strictly between the opening and closing
+counter samples (each metric client invocation runs exactly one statement). The
+closing sample stays charged, the raw `globalQueries` delta remains in the proof
+beside both values, and the budget itself is unchanged, so a slower runner that
+samples for longer no longer charges its own monitoring to the import. Actual
+CLI progress-event counts make time-based operator reporting overhead visible.
+Each PROGRESS line reads the durable run summary, so the CLI spaces them out as
+an import runs longer: the first after 5s, then 10s and 20s, then one every 30s.
 Bounded file and field reads share one explicit run/epoch control scope. Each
-read checks interruption and active-attempt/stage budgets locally. At most every
-250ms, and at every forced boundary, one prepared SELECT on the already-owned
-unpooled coordinator checks its physical lock, run epoch, cancellation and global
-admission in a fresh autocommit snapshot. It does not borrow an ordinary pool
-connection or open a Hibernate transaction for each polling read. Clinical unit
+read checks interruption and active-attempt/stage budgets locally. At every
+forced boundary, and otherwise after a wait that starts at 250ms and doubles
+after each unchanged poll up to 2s (`CdsControlPollBackoff`), one prepared SELECT
+on the already-owned unpooled coordinator checks its physical lock, run epoch,
+cancellation and global admission in a fresh autocommit snapshot. A long file or
+a slow disk therefore costs at most one such statement every two seconds, and a
+cancellation or lost owner is still seen within about two seconds; a failed or
+refused poll is never remembered, so the next check polls again. It does not
+borrow an ordinary pool connection or open a Hibernate transaction for each
+polling read. The ledger-status polls of the review, historical-snapshot and
+standalone verification paths use the same pacing. Clinical unit
 transactions retain their independent locks, fencing and atomic checkpoints.
 Inside a clinical unit, a separate local-only scope checks the same active
 attempt budget for bounded source-field reads and before/after successful work

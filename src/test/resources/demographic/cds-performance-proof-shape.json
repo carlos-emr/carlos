@@ -143,8 +143,10 @@
         },
         "samples": 19
       },
+      "budgetedQueries": 2899,
       "globalQueries": 3054,
       "globalQueryBudget": 3000,
+      "harnessQueriesInCounterWindow": 155,
       "importElapsedSeconds": 19.40818140500005,
       "kernelResources": {
         "exitCode": 0,
@@ -328,7 +330,7 @@
       "outcomeRequiresReconciliation": true,
       "peakRssBytes": 499625984,
       "phase": "ACCEPTED",
-      "queriesPerExpectedUnit": 509.0,
+      "queriesPerExpectedUnit": 483.1666666666667,
       "reports": {
         "error": {
           "bytes": 1842,

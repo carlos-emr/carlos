@@ -32,8 +32,7 @@ final class CdsImportReportControl implements AutoCloseable {
     private final LongSupplier nanoTime;
     private final Runnable generationBudget;
     private final Thread owner=Thread.currentThread();
-    private long lastPoll;
-    private boolean polled;
+    private final CdsControlPollBackoff polls=new CdsControlPollBackoff();
     private boolean closed;
 
     CdsImportReportControl(String run, long epoch, CdsImportCoordinatorService.Owner coordinator,
@@ -59,13 +58,13 @@ final class CdsImportReportControl implements AutoCloseable {
     void check(boolean force) {
         CdsImportLedgerService.requireNoTransaction();
         checkBudget(); long now=nanoTime.getAsLong();
-        if (force || !polled || now-lastPoll>=250_000_000L) {
-            polled=false;
+        if (polls.due(force, now)) {
+            polls.expire();
             var current=coordinator.control(run);
             if (current==null || !current.coordinatorOwned()) throw new CdsImportException("IMPORT_COORDINATOR_LOST");
             if (!current.runPresent() || current.ownerEpoch()!=epoch) throw new CdsImportException("OWNER_FENCED");
             // Cancellation and released clinical admission must not prevent required failure receipts.
-            checkBudget(); lastPoll=now; polled=true;
+            checkBudget(); polls.succeeded(now);
         }
     }
 
