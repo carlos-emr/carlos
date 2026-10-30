@@ -22,7 +22,12 @@ https://github.com/carlos-emr/carlos
 
 # OSCAR 19 `drugs.special` encoding: investigation and repair plan
 
-Status: proposed implementation; this document does not change import behavior.
+Status: runtime implementation is under review in
+[carlos-ctl #18](https://github.com/carlos-emr/carlos-ctl/pull/18).
+The CARLOS-side fixture/oracle is included alongside this document. This is not
+yet a shipped release: the current CLI pin remains unchanged until a fixed
+package is published, after which both the pin and minimum CLI dependency must
+be updated as described below.
 Investigated 2026-10-30 for `release/2026.08`.
 
 ## Findings
@@ -213,8 +218,10 @@ not drop it. Enrich a copied entry rather than mutating shared ON/BC profile
 data. Never apply these rules to `drugs.comment`, `special_instruction`,
 an archived column, or another table's `special` merely because the name matches.
 
-Keep a deliberately duplicated registry/helper in the standalone assessment
-code OUTSIDE its generated manifest block. `load_manifest` and
+Keep the registry and shared SQL helpers in the standalone assessment code
+OUTSIDE its generated manifest block, and import those same helpers from the
+package. This provides one implementation without adding package imports to
+the standalone file. `load_manifest` and
 `write_standalone_preflight` must not erase or change it. The standalone script
 must remain one Python 3.4-compatible file with no package imports. Pin scope,
 rule bytes, branch selection, and classifier agreement with behavior tests in
@@ -235,6 +242,10 @@ in this scoped column after the candidate is built. Use byte-exact character
 searches or a validated Unicode-aware predicate. Do not strip those characters
 or infer their replacements. Do not introduce a blanket ban on C1 characters:
 an unrelated NEL separator, for example, is outside these repair rules.
+The adjacent `â`+C1 pattern is a suspicion marker, not proof of corruption:
+valid UTF-8 can intentionally contain that literal pair. It remains an
+explicit B8 manual-review case because its intended meaning cannot be inferred
+from the bytes. No automatic replacement or stripping applies to an unknown pair.
 Include the unmapped
 em-dash sequence `C3A2C280C294`, partial sequences, and newly exposed known
 sequences as required blocking fixtures under binary collation. Preserve the
@@ -358,3 +369,25 @@ state the exact scope. Until then, the current B8 stop remains in force. Any
 manual correction still needs review against the original medication
 instructions and a fresh assessment/export; the reconstructed updates alone
 do not establish the correctness of every character in a full clinical row.
+
+## Implementation evidence
+
+The runtime PR implements the mutually exclusive repair paths, exact matching,
+residual refusal, scope propagation through copy/P7, explicit old-source
+measurement gaps, checked query/warning results, and versioned ledger metadata.
+It bumps the ETL contract to 3 without changing the public acceptance flag.
+
+Validation of the implementation includes the full CLI unit suite on Python
+3.12 and the actual Debian build on Ubuntu 26.04 / Python 3.14 (1,863 tests in
+each suite, with optional environment-dependent skips), six live encoding test
+methods with subcases on each of MariaDB 10.11.19 and 11.8.9, and 34 installed
+package scope/encoding/existing-copy regressions on Python 3.14 and MariaDB.
+The installed-package CI job now includes the new encoding module.
+
+`fixtures/drug-special.sql` and the SQL semantics verifier here add a separate
+synthetic oracle for the stored bytes, hard B8 refusals, source preservation,
+and P7's detection of a deliberately altered repaired instruction. Until the
+fixed CLI is published, run that verifier with `CARLOS_CTL_SRC` selecting the
+reviewed implementation checkout; an older CLI fails explicitly instead of
+skipping the regression. Complete clinic cutover/rollback and release-upgrade
+rehearsals remain release gates, rather than claims established by these tests.

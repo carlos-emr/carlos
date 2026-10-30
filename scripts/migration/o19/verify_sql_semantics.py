@@ -75,7 +75,9 @@ Exit codes: 0 = every invariant held; 1 = at least one failed (printed);
 from __future__ import annotations
 
 import argparse
+import contextlib
 import decimal
+import io
 import re
 import shutil
 import subprocess
@@ -83,6 +85,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+from unittest.mock import patch
 
 #: Scratch schema names reach SQL as identifiers, and this script DROPs
 #: what it is given, so anything but a plain identifier is refused rather
@@ -478,6 +481,81 @@ def _charset_repair_on(client: Client, db: str, charset: str) -> List[str]:
         and "1267" in err else
         "accepted on this server (MariaDB 11.8 refuses it)"))
     return failures
+
+
+def check_exact_special_repair(client: Client, src: str, dst: str) -> List[str]:
+    """The reported C1 instructions through the shipped copy/P7 builders."""
+    if not hasattr(o19_preflight, "EXACT_CHARSET_VERSION"):
+        return ["the selected carlos-ctl lacks the scoped drugs.special repair; "
+                "use the fixed CLI release (or its reviewed checkout)"]
+    entry = {"class": "copy", "cols": ["drugid", "special", "comment"],
+             "charset_scan": ["special"]}
+
+    def query(sql):
+        rc, out, err = client.run(sql)
+        if rc:
+            raise RuntimeError(err)
+        return [line.split("\t") for line in out.splitlines() if line]
+
+    failures = []
+    try:
+        client.setup("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS "
+                     "`{1}`; CREATE DATABASE `{0}`; CREATE DATABASE `{1}`;"
+                     .format(src, dst))
+        fixture = Path(__file__).with_name("fixtures") / "drug-special.sql"
+        client.setup(fixture.read_text(encoding="utf-8"), src)
+        client.setup("CREATE TABLE `{0}`.drugs LIKE `{1}`.drugs".format(dst, src))
+        with patch.object(o19map_schema, "TABLES", {"drugs": entry}):
+            measured = o19_preflight.exact_charset_counts(
+                query, "`{0}`.drugs".format(src), "special")
+            if measured["bad"] != 4:
+                failures.append("the unknown/mixed/extra-layer/partial rows "
+                                "were not all classified as B8")
+            with contextlib.redirect_stderr(io.StringIO()):
+                try:
+                    o19etl.detect_repairs(query, src, ["charset-repair"])
+                except SystemExit:
+                    pass
+                else:
+                    failures.append("charset acknowledgement bypassed B8")
+            # These are disposable synthetic rows, removed to exercise the
+            # successful path independently after proving the hard refusal.
+            client.setup("DELETE d FROM drugs d JOIN expected_drug_special e "
+                         "USING(drugid) WHERE e.must_block", src)
+            before = client.rows("SELECT drugid, HEX(special), HEX(comment) "
+                                 "FROM drugs ORDER BY drugid", src)
+            audit: dict = {}
+            repairs = o19etl.detect_repairs(query, src, ["charset-repair"], audit=audit)
+            if repairs != {"drugs": {"special"}} or not audit:
+                failures.append("the exact-only rows were not recorded for repair")
+            sinfo = o19etl.introspect_columns(query, src)
+            dinfo = o19etl.introspect_columns(query, dst)
+            effective, _ = o19etl.effective_entry("drugs", entry, sinfo["drugs"], {"drugs"})
+            copied = client.rows(o19etl.copy_statement(
+                "drugs", effective, src, dst, dinfo["drugs"], repairs["drugs"])
+                + "; SHOW COUNT(*) WARNINGS", dst)
+            if copied != [["0"]]:
+                failures.append("copy emitted a conversion/truncation warning")
+            expected_bad = query("SELECT COUNT(*) FROM `{0}`.drugs d JOIN "
+                                 "`{1}`.expected_drug_special e USING(drugid) "
+                                 "WHERE NOT (BINARY HEX(d.special) <=> "
+                                 "BINARY e.expected_hex)".format(dst, src))
+            if expected_bad != [["0"]]:
+                failures.append("stored instruction bytes differ from the fixture oracle")
+            if client.rows("SELECT drugid,HEX(special),HEX(comment) FROM drugs "
+                           "ORDER BY drugid", src) != before:
+                failures.append("the source values changed during the copy")
+            if o19etl.copy_content_parity(query, src, dst, sinfo, dinfo, repairs=repairs)[1]:
+                failures.append("P7 rejected a faithful exact-repaired copy")
+            client.setup("UPDATE drugs SET special='altered' WHERE drugid=101", dst)
+            if not o19etl.copy_content_parity(query, src, dst, sinfo, dinfo, repairs=repairs)[1]:
+                failures.append("P7 missed an altered repaired instruction")
+        print("\n  exact drugs.special rules: {0}".format(
+            "FAILED" if failures else "stored bytes, B8, source preservation and P7 agree"))
+        return failures
+    finally:
+        client.run("DROP DATABASE IF EXISTS `{0}`; DROP DATABASE IF EXISTS "
+                   "`{1}`".format(src, dst))
 
 
 # --------------------------------------------------------------------------
@@ -2754,6 +2832,10 @@ def _run_checks(client: Client, args, failures: Dict[str, List[str]],
     charset = check_charset_repair(client, args.prefix + "_cs")
     if charset:
         failures["charset repair"] = charset
+    exact_charset = check_exact_special_repair(client, args.prefix + "_xs",
+                                                args.prefix + "_xd")
+    if exact_charset:
+        failures["exact drug instructions"] = exact_charset
     digest = check_content_digest(client, args.prefix + "_dgc",
                                   args.prefix + "_dgs")
     if digest:
