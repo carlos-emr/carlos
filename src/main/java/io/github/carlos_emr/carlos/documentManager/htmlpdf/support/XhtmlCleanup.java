@@ -521,7 +521,7 @@ public final class XhtmlCleanup {
                     case KEEP_XLINK -> usesXlink = true;
                     case DROP -> dropped.add(attribute);
                     case RENAME -> renamed.add(attribute);
-                    case KEEP -> { }
+                    default -> { } // KEEP: the attribute is a valid XML name as it is
                 }
             }
             for (Attribute attribute : dropped) {

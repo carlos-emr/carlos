@@ -184,7 +184,7 @@ class BundledFontFileService {
                 switch (place(file, font)) {
                     case CREATED -> created++;
                     case REPLACED -> replaced++;
-                    case VERIFIED -> { }
+                    default -> { } // VERIFIED: the file was already right, nothing to report
                 }
                 files.add(new FontFile(font.resource.face(), file, font.bytes.length));
             }

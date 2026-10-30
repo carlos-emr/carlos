@@ -414,6 +414,7 @@ class PrintImageService {
                             convert ? raster.subsampling : raster.fallbackSubsampling, raster.orientation, charge, null,
                             raster.source.key));
                 }
+                default -> throw new IllegalStateException("an image entry the planner cannot hold");
             }
         }
         return new ImagePlan(images, total);
@@ -500,6 +501,7 @@ class PrintImageService {
                 case AS_IS -> asIs(image);
                 case CONVERT -> use(image, convertOnce(image, image.subsampling()));
                 case CLEAN_SVG -> cleanSvg(image);
+                default -> throw new IllegalStateException("an image outcome the plan cannot hold");
             }
             if (element.ownerDocument() != null && element.hasAttr("srcset")) {
                 // Flying Saucer does not read srcset; it never reaches a request, but it has no use either.

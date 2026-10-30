@@ -24,7 +24,7 @@
 - Run a single test class with `mvn -q test -Dtest=<ClassName>`; the module suite with `mvn -q test -Dgroups=htmlpdf`. If Maven Central answers HTTP 429 from the sandbox, add a mirror in `~/.m2/settings.xml` for `central` pointing at `https://maven-central.storage-download.googleapis.com/maven2` (verified reachable).
 - Commits: Conventional Commits; end every message with the two lines below; never add `Signed-off-by` (a maintainer confirms DCO).
   ```
-  Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+  Co-Authored-By: <the attribution line the coding session specifies>
   Claude-Session: https://claude.ai/code/session_01MKkHNF5XmtMPsyT3pjmP2P
   ```
 - `.claude/settings.json` denies Claude writes under `.github/`. If a write there is denied, put the exact patch in the PR description for the maintainer; do not work around the rule.
