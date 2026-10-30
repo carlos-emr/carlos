@@ -380,6 +380,39 @@ class Doc2PDFIntegrationTest extends CarlosTestBase {
         assertThat(response.getContentAsByteArray()).isNotEmpty();
     }
 
+    @Test
+    @Tag("parse")
+    @Tag("binary")
+    @DisplayName("should return null when the render fails, here because there is nothing to print")
+    void shouldReturnNull_whenRenderFails() {
+        assertThat(Doc2PDF.parseString2Bin(request, response, "   \n  ")).isNull();
+        assertThat(Doc2PDF.GetPDFBin(response, "", null)).isNull();
+    }
+
+    @Test
+    @Tag("parse")
+    @Tag("binary")
+    @DisplayName("should load an image from the web root named by the file: base URL, and make no request for a remote one")
+    void shouldLoadImage_fromTheBaseUrlWebRoot(@org.junit.jupiter.api.io.TempDir java.nio.file.Path webRoot) throws Exception {
+        java.nio.file.Files.write(webRoot.resolve("stamp.png"), pngBytes());
+        String html = "<html><body><p>FAKE-Messenger item</p><img src=\"stamp.png\"><img src=\"http://127.0.0.1:1/remote.png\"></body></html>";
+
+        String result = Doc2PDF.GetPDFBin(response, html, "file://" + webRoot + "/");
+
+        assertThat(result).isNotNull();
+        byte[] pdf = java.util.Base64.getDecoder().decode(result);
+        // One picture is drawn; the remote one is replaced by the box, and nothing was fetched.
+        assertThat(io.github.carlos_emr.carlos.documentManager.htmlpdf.TestPdfs.imageDraws(pdf)).isEqualTo(1);
+        assertThat(String.join(" ", io.github.carlos_emr.carlos.documentManager.htmlpdf.TestPdfs.pageTexts(pdf))).contains("FAKE-Messenger item");
+    }
+
+    private static byte[] pngBytes() throws java.io.IOException {
+        java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(20, 20, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(image, "png", out);
+        return out.toByteArray();
+    }
+
     private static URI appendSessionId(String uri, String jsessionid) throws Exception {
         Method method = Doc2PDF.class.getDeclaredMethod("appendSessionId", URI.class, String.class);
         method.setAccessible(true);

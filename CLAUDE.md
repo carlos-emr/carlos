@@ -107,6 +107,8 @@
   font-less chunks, `addCell(String)`, `PdfContentByte.showText*` or OpenPDF's default font.
 - `bash scripts/check-report-fonts.sh` re-runs the report tests under other host fonts in fresh
   JVMs. See `docs/pdf-font-policy.md`.
+- Non-scripted HTML-to-PDF (forms, HRM reports, email, Messenger) goes through
+  `HtmlPdfRenderService`, never a new `ITextRenderer`; see `docs/html-pdf-rendering.md`.
 
 ## Container-Provided Jakarta APIs
 

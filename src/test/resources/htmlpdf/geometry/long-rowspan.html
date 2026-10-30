@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>FAKE-Row spans</title>
+</head>
+<body>
+<table border="1" cellspacing="0" width="60%">
+<tr><td rowspan="4">FAKE-span cell</td><td>row 1</td></tr>
+<tr><td>row 2</td></tr>
+<tr><td>row 3</td></tr>
+</table>
+<p>FAKE-text after the table that must not be overprinted.</p>
+<table border="1" cellspacing="0" width="60%">
+<thead><tr><th rowspan="2">FAKE-head span</th><th>head b</th></tr><tr><th>head c</th></tr></thead>
+<tbody><tr><td>body 1</td><td>body 2</td></tr></tbody>
+</table>
+<p>FAKE-text after the second table.</p>
+</body>
+</html>

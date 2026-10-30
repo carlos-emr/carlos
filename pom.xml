@@ -1034,6 +1034,20 @@
             <artifactId>imageio-tiff</artifactId>
             <version>${twelvemonkeys.version}</version>
         </dependency>
+        <!-- The HTML-to-PDF image helpers (documentManager.htmlpdf.engine.ImageDecoding) import these two
+             directly: com.twelvemonkeys.imageio.stream (ByteArrayImageInputStream, SubImageInputStream) from
+             imageio-core, and com.twelvemonkeys.imageio.metadata (the JPEG segment and TIFF readers behind the
+             EXIF orientation) from imageio-metadata. imageio-tiff brings both, at this version. -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-core</artifactId>
+            <version>${twelvemonkeys.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-metadata</artifactId>
+            <version>${twelvemonkeys.version}</version>
+        </dependency>
 
         <!-- Glassfish JSTL 3.0.1 implementation (Jakarta EE 10 - jakarta.tags namespace) -->
         <dependency>
@@ -1323,6 +1337,15 @@
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
             <version>1.23.2</version>
+        </dependency>
+
+        <!-- ICU4J - bidi reordering and Arabic shaping for HTML-to-PDF. It was already on the
+             classpath transitively (through HAPI FHIR) at this same locked version; declared
+             explicitly because CARLOS code now imports com.ibm.icu directly. -->
+        <dependency>
+            <groupId>com.ibm.icu</groupId>
+            <artifactId>icu4j</artifactId>
+            <version>78.1</version>
         </dependency>
 
         <dependency>
@@ -1686,7 +1709,7 @@
         <dependency>
             <groupId>org.xhtmlrenderer</groupId>
             <artifactId>flying-saucer-pdf</artifactId>
-            <version>10.0.6</version>
+            <version>10.7.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.github.librepdf</groupId>
