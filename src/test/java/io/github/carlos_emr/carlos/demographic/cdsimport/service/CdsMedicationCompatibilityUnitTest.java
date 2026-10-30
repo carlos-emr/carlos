@@ -45,7 +45,7 @@ import static org.mockito.Mockito.*;
 class CdsMedicationCompatibilityUnitTest {
     @ParameterizedTest
     @ValueSource(strings = {"CURRENT", "HISTORICAL", "NEW", "SUSPENDED", "UNKNOWN"})
-    void legacyProtocolsRefuseEveryImportedStateWithoutReturningAnchorsOrGuessedFlags(String status) {
+    void shouldRefuseEveryImportedStateInLegacyProtocols_withoutReturningAnchorsOrGuessedFlags(String status) {
         Drug source = medication(7);
         source.setCdsCurrentness(status);
         source.setCdsDoseText("1/2");
@@ -56,7 +56,7 @@ class CdsMedicationCompatibilityUnitTest {
     }
 
     @Test
-    void refusalIs409WithSafeActionableCode() {
+    void shouldAnswerRefusalWith409_andSafeActionableCode() {
         var response = new CdsMedicationCompatibilityExceptionMapper()
                 .toResponse(new CdsMedicationCompatibilityException());
         assertEquals(409, response.getStatus());
@@ -65,7 +65,7 @@ class CdsMedicationCompatibilityUnitTest {
     }
 
     @Test
-    void nativeNullableNoSubstitutionStillUsesEstablishedBooleanTransferShape() {
+    void shouldUseEstablishedBooleanTransferShape_forNativeNullableNoSubstitution() {
         Drug source = medication(7);
         source.setNoSubs((Boolean) null);
         var transfer = DrugTransfer.toTransfer(source);
@@ -74,7 +74,7 @@ class CdsMedicationCompatibilityUnitTest {
     }
 
     @Test
-    void updateCannotStripImportedMetadataThenArchiveSource() {
+    void shouldNotStripImportedMetadataThenArchiveSource_onUpdate() {
         Drug source = medication(7);
         source.setCdsCurrentness("CURRENT");
         Drug replacement = medication(7); // legacy DTO has no CDS metadata
@@ -89,7 +89,7 @@ class CdsMedicationCompatibilityUnitTest {
     }
 
     @Test
-    void mixedPrescribeBatchChecksEverySourceBeforeCreatingAnything() {
+    void shouldCheckEverySourceInMixedPrescribeBatch_beforeCreatingAnything() {
         Drug nativeSource = medication(6);
         Drug importedSource = medication(7);
         importedSource.setCdsCurrentness("CURRENT");

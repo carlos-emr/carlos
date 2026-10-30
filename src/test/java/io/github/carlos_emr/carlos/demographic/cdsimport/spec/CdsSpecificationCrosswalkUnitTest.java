@@ -67,7 +67,7 @@ class CdsSpecificationCrosswalkUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"choices-01.xml", "choices-02.xml", "choices-03.xml", "choices-04.xml"})
-    void shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser(String name)
+    void shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser(String name)
             throws Exception {
         JsonNode fixture = fixture(name);
         byte[] source = resource(name);
@@ -117,7 +117,7 @@ class CdsSpecificationCrosswalkUnitTest {
     }
 
     @Test
-    void shouldExerciseAllReviewedChoiceArmsWithExclusiveWireWitnesses() throws Exception {
+    void shouldExerciseAllReviewedChoiceArms_withExclusiveWireWitnesses() throws Exception {
         JsonNode manifest = manifest();
         assertEquals(4, manifest.path("fixtures").size());
         assertEquals(130, manifest.path("choices").size());
@@ -144,7 +144,7 @@ class CdsSpecificationCrosswalkUnitTest {
     }
 
     @Test
-    void shouldRefuseBothAddressChoiceBranchesWithoutPublishingAParseSeal() throws Exception {
+    void shouldRefuseBothAddressChoiceBranches_withoutPublishingParseSeal() throws Exception {
         String valid = new String(resource("choices-01.xml"), StandardCharsets.UTF_8);
         String first = "<dt:Formatted>SSSS</dt:Formatted>";
         assertTrue(valid.contains(first));

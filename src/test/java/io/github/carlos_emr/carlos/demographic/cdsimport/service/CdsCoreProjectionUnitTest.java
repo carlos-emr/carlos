@@ -451,7 +451,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNeverAssemblePhoneFromAnOverflowedOrMissingConstituent() throws Exception {
+    void shouldNeverAssemblePhone_fromOverflowedOrMissingConstituent() throws Exception {
         var record =
                 parse(
                         "",
@@ -498,7 +498,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldApplyAuditedLogicalNoteCorrectionWithoutMistakingLargeOriginalForEffectiveLength()
+    void shouldApplyAuditedLogicalNoteCorrection_withoutMistakingLargeOriginalForEffectiveLength()
             throws Exception {
         var raw =
                 section(
@@ -546,7 +546,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldKeepDateOnlyNoteWithoutAnInventedMidnightTimestamp() throws Exception {
+    void shouldKeepDateOnlyNote_withoutInventedMidnightTimestamp() throws Exception {
         var record =
                 section(
                         "ClinicalNotes",
@@ -573,7 +573,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldNeverWrapCrossMidnightIntoWrongDayCalendarSlot() throws Exception {
+    void shouldNeverWrapCrossMidnight_intoWrongDayCalendarSlot() throws Exception {
         var record = appointment("23:45:00", "30", "<cdsd:FullDate>2026-03-04</cdsd:FullDate>", "");
         appointments.prepare("run", 1, "unit", record, command);
         var dto = captured(CdsAppointmentNativeDto.class);
@@ -632,7 +632,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRequireConfiguredClinicZoneBeforeClaimingUnambiguousCalendarTiming()
+    void shouldRequireConfiguredClinicZone_beforeClaimingUnambiguousCalendarTiming()
             throws Exception {
         var unconfigured =
                 new CdsAppointmentPersister(
@@ -1262,7 +1262,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldPreserveLiteralPatientNoteFramingAndLegacyRawText() {
+    void shouldPreserveLiteralPatientNoteFraming_withLegacyRawText() {
         String text = "Literal </unotes> & <tag> café 🩺";
         assertThat(
                         io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(
@@ -1339,7 +1339,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                         "d".repeat(64)));
     }
 
-    @Test void unrepresentableExactNoteTimingRemainsInItsSourceCategory_withoutAnInventedInstant() throws Exception {
+    @Test void shouldKeepUnrepresentableExactNoteTimingInSourceCategory_withoutInventedInstant() throws Exception {
         java.util.TimeZone previous = java.util.TimeZone.getDefault();
         try {
             java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Toronto"));
@@ -1355,7 +1355,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         } finally { java.util.TimeZone.setDefault(previous); }
     }
 
-    @Test void aCutoverGapAppointmentRetainsItsTypedSource_withoutAWrongNativeCalendarDay() throws Exception {
+    @Test void shouldRetainTypedSourceForCutoverGapAppointment_withoutWrongNativeCalendarDay() throws Exception {
         java.util.TimeZone previous = java.util.TimeZone.getDefault();
         try {
             java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Toronto"));
@@ -1368,7 +1368,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         } finally { java.util.TimeZone.setDefault(previous); }
     }
 
-    @Test void unrepresentableDemographicNativeDatesRequirePreflightReview_beforePreparingAnyWrite() throws Exception {
+    @Test void shouldRequirePreflightReviewForUnrepresentableDemographicDates_beforePreparingAnyWrite() throws Exception {
         var record = parse("", "", "", "<PersonStatusDate>1582-10-10</PersonStatusDate>");
         var error = catchThrowableOfType(() -> demographics.validate(record, command),
                 io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalException.class);

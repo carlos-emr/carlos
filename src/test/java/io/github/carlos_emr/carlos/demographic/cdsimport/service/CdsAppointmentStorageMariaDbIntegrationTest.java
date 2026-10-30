@@ -45,7 +45,7 @@ import java.util.UUID;
 @Tag("integration")
 class CdsAppointmentStorageMariaDbIntegrationTest {
     @Test
-    void shouldPreserveCompleteUnicodeSourceNotesAndStatusThroughNativeArchiveStorage()
+    void shouldPreserveCompleteUnicodeSourceNotesAndStatus_throughNativeArchiveStorage()
             throws Exception {
         String selector = System.getProperty("cds.test.properties");
         Assumptions.assumeTrue(

@@ -47,7 +47,7 @@ import static org.mockito.Mockito.*;
 class CdsImportReportControlUnitTest {
     private static final CdsImportControlDto RELEASED_CANCELLED=new CdsImportControlDto(true,true,1,true,false);
 
-    @Test void everyReadChecksLocalBudget_butOnlyElapsedOrForcedBoundariesReadPhysicalControl() {
+    @Test void shouldCheckLocalBudgetOnEveryRead_withPhysicalControlOnlyAtElapsedOrForcedBoundaries() {
         var owner=owner();var clock=new AtomicLong();var budgets=new AtomicInteger();
         try(var control=control(owner,clock,budgets::incrementAndGet)) {
             for(int i=0;i<100;i++){control.checkBudget();control.check(false);}
@@ -58,7 +58,7 @@ class CdsImportReportControlUnitTest {
         }
     }
 
-    @Test void changedBindingClosedScopeAndForeignThreadsCannotUseTheCapability() throws Exception {
+    @Test void shouldRefuseCapability_forChangedBindingClosedScopeOrForeignThread() throws Exception {
         var owner=owner();var control=control(owner,new AtomicLong(),()->{});
         assertThatThrownBy(()->control.requireBinding("other",1)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(()->control.requireBinding("run",2)).isInstanceOf(IllegalArgumentException.class);
@@ -71,7 +71,7 @@ class CdsImportReportControlUnitTest {
         verify(owner,times(1)).control("run");
     }
 
-    @Test void aLocalGenerationDeadlineStopsBeforeTheNextSqlPoll() {
+    @Test void shouldStopOnLocalGenerationDeadline_beforeNextSqlPoll() {
         var owner=owner();var clock=new AtomicLong();
         try(var control=control(owner,clock,()->{
             if(clock.get()>=100_000_000L)throw new CdsImportException("IMPORT_REPORT_GENERATION_TIMEOUT");
@@ -82,7 +82,7 @@ class CdsImportReportControlUnitTest {
         }
     }
 
-    @Test void failedPhysicalRunOrEpochObservationsCannotBecomeCachedSuccess() {
+    @Test void shouldNeverCacheSuccess_fromFailedPhysicalRunOrEpochObservation() {
         var invalid=new CdsImportControlDto[]{new CdsImportControlDto(false,true,1,true,false),
                 new CdsImportControlDto(true,false,-1,true,false),new CdsImportControlDto(true,true,2,true,false)};
         for(var value:invalid) {
@@ -97,7 +97,7 @@ class CdsImportReportControlUnitTest {
         }
     }
 
-    @Test void interruptsAndAmbientClinicalTransactionsNeverPerformAnOwnerSqlRead() {
+    @Test void shouldNeverPerformOwnerSqlRead_onInterruptOrAmbientClinicalTransaction() {
         var owner=owner();
         try(var control=control(owner,new AtomicLong(),()->{})) {
             try {
@@ -112,7 +112,7 @@ class CdsImportReportControlUnitTest {
         }
     }
 
-    @Test void cancelledAndCompletedJobsAfterAdmissionReleaseStillPublishAllFourPhysicalReports(
+    @Test void shouldPublishAllFourPhysicalReports_forCancelledAndCompletedJobsAfterAdmissionRelease(
             @TempDir Path temp) throws Exception {
         for(boolean cancelled:new boolean[]{false,true}) {
             var f=fixture(Files.createDirectory(temp.resolve("case-"+cancelled)));var owner=owner(f.run);
@@ -133,7 +133,7 @@ class CdsImportReportControlUnitTest {
         }
     }
 
-    @Test void anAlreadyClosedCoordinatorUsesOnlyTheExistingFreshEpochReportingPath(
+    @Test void shouldUseOnlyExistingFreshEpochReportingPath_withAlreadyClosedCoordinator(
             @TempDir Path temp) throws Exception {
         var f=fixture(temp);var dao=mock(io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDao.class);
         var lease=mock(io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDao.Lease.class);when(dao.acquire()).thenReturn(lease);
@@ -145,7 +145,7 @@ class CdsImportReportControlUnitTest {
         verify(f.ledger,never()).finish(anyString(),anyLong());
     }
 
-    @Test void aFailureBeforeInitialPreparationCanDeliverItsEpochZeroReports(
+    @Test void shouldDeliverEpochZeroReports_forFailureBeforeInitialPreparation(
             @TempDir Path temp) throws Exception {
         var f=fixture(temp);var owner=owner(f.run);
         when(owner.control(f.run)).thenReturn(new CdsImportControlDto(true,true,0,true,false));
@@ -166,7 +166,7 @@ class CdsImportReportControlUnitTest {
         verify(f.ledger,never()).finish(anyString(),anyLong());
     }
 
-    @Test void physicalLossDuringGenerationCannotFallBackOrSelectAReportSet(
+    @Test void shouldNeitherFallBackNorSelectReportSet_onPhysicalLossDuringGeneration(
             @TempDir Path temp) throws Exception {
         var f=fixture(temp);var owner=owner(f.run);
         when(f.cleanup.reconcile(eq(f.run),eq(1L),any(),any(),any(CdsImportReportControl.class))).thenAnswer(call->{
@@ -179,7 +179,7 @@ class CdsImportReportControlUnitTest {
         verify(f.ledger).jobBinding(f.run);verify(f.ledger,never()).status(f.run); // No mid-generation legacy retry hides the lost owner.
     }
 
-    @Test void aHealthyButUnreadableControlRemainsAVisibleFailure_andPreservesPriorReportBytes(
+    @Test void shouldKeepHealthyButUnreadableControlAsVisibleFailure_whilePreservingPriorReportBytes(
             @TempDir Path temp) throws Exception {
         var f=fixture(temp);f.results.generate(f.run,1);Path old=f.selected.get();byte[] original=Files.readAllBytes(old);long generation=f.generation.get();
         var owner=owner(f.run);var cause=new java.sql.SQLException("private-control-detail","HY000",71);
@@ -190,7 +190,7 @@ class CdsImportReportControlUnitTest {
         assertThat(f.cleanupState.get()).isEqualTo("FAILED");
     }
 
-    @Test void reportBudgetIsCheckedAgainAfterASlowPhysicalControlObservation(
+    @Test void shouldRecheckReportBudget_afterSlowPhysicalControlObservation(
             @TempDir Path temp) throws Exception {
         var f=fixture(temp);var owner=owner(f.run);
         when(owner.control(f.run)).thenAnswer(call->{f.clock.addAndGet(100_000_000L);return RELEASED_CANCELLED;});
@@ -199,7 +199,7 @@ class CdsImportReportControlUnitTest {
         verify(f.selection,never()).select(anyString(),anyLong(),anyLong(),anyString(),anyString(),anyString());
     }
 
-    @Test void typedCleanupAndDiagnosticScanningRejectMismatchedBindingsBeforeFilesystemAccess() throws Exception {
+    @Test void shouldRejectMismatchedBindingsInTypedCleanupAndDiagnosticScanning_beforeFilesystemAccess() throws Exception {
         var ledger=mock(CdsImportLedgerService.class);var files=mock(CdsImportFileService.class);
         var configuration=mock(CdsImportConfigurationService.class);var jobs=mock(CdsImportJobService.class);
         var cleanup=new CdsImportCleanupService(ledger,files,configuration,mock(CdsUploadService.class),mock(CdsPreacceptService.class));
@@ -212,12 +212,12 @@ class CdsImportReportControlUnitTest {
         verifyNoInteractions(ledger,files,configuration,jobs);
     }
 
-    @Test void typedCleanupLosingItsEpochRetainsPrivateRecoveryPayloadAndJournal(
+    @Test void shouldRetainPrivateRecoveryPayloadAndJournal_whenTypedCleanupLosesItsEpoch(
             @TempDir Path temp) throws Exception {
         cleanupFence(temp,false);
     }
 
-    @Test void typedCleanupWithASameEpochLostCoordinatorCannotReconcileOrRemoveVerifiedBytes(
+    @Test void shouldNeitherReconcileNorRemoveVerifiedBytes_whenTypedCleanupLosesCoordinatorInSameEpoch(
             @TempDir Path temp) throws Exception {
         cleanupFence(temp,true);
     }

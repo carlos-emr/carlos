@@ -182,14 +182,14 @@ class CdsImportWebActionsUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest @ValueSource(strings={"TRUE","1","invalid",""})
-    void shouldRejectMalformedBackgroundFlagsBeforeReadingJobData(String flag) throws Exception {
+    void shouldRejectMalformedBackgroundFlags_beforeReadingJobData(String flag) throws Exception {
         request.addParameter("autoRefresh",flag);
         var action=new CdsImportStatus2Action(access,imports,uploads);
         action.setRunId("11111111-1111-4111-8111-111111111111");action.execute();
         assertThat(response.getStatus()).isEqualTo(400);verifyNoInteractions(imports,uploads);
     }
 
-    @Test void shouldRejectRepeatedBackgroundFlagsBeforeReadingJobData() throws Exception {
+    @Test void shouldRejectRepeatedBackgroundFlags_beforeReadingJobData() throws Exception {
         request.addParameter("autoRefresh","true","false");
         new CdsImportStatus2Action(access,imports,uploads).execute();
         assertThat(response.getStatus()).isEqualTo(400);verifyNoInteractions(imports,uploads);

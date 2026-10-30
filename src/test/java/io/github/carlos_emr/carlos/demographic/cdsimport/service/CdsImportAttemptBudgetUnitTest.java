@@ -39,7 +39,7 @@ import static org.mockito.Mockito.*;
 /** Actual execution entry points; the fixture models only durable unit acknowledgements, not clinical conformance. */
 @Tag("unit")
 class CdsImportAttemptBudgetUnitTest {
-    @Test void combinedUnitTimeStopsTheAttempt_andSameAcceptedResumeDoesNotReplayCommittedUnits() throws Exception {
+    @Test void shouldStopAttemptOnCombinedUnitTime_withSameAcceptedResumeNotReplayingCommittedUnits() throws Exception {
         Fixture f=new Fixture();
         try(var keys=f.keys()) {
             f.engine.execute("run");
@@ -55,7 +55,7 @@ class CdsImportAttemptBudgetUnitTest {
         }
     }
 
-    @Test void verificationProbeStopsBeforeAnyClinicalWrite() throws Exception {
+    @Test void shouldStopVerificationProbe_beforeAnyClinicalWrite() throws Exception {
         Fixture f=new Fixture();
         doAnswer(call->{f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(100));f.fields.checkpoint();return null;})
                 .when(f.verification).verify(eq("run"),eq(1L),any(CdsImportExecutionControl.class));
@@ -65,7 +65,7 @@ class CdsImportAttemptBudgetUnitTest {
         verify(f.window,never()).allowReopen();
     }
 
-    @Test void snapshotAndPlanningShareTheSameAttemptBudget() throws Exception {
+    @Test void shouldShareOneAttemptBudget_acrossSnapshotAndPlanning() throws Exception {
         Fixture f=new Fixture();when(f.ledger.isSealed("run")).thenReturn(false);
         when(f.jobs.snapshot(eq("run"),eq(1L),eq(f.document),any(CdsImportExecutionControl.class))).thenAnswer(call->{f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(60));call.<CdsImportExecutionControl>getArgument(3).check(false);return mock(CdsSnapshotDto.class);});
         doAnswer(call->{f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(50));call.<CdsImportExecutionControl>getArgument(4).check(false);return null;})
@@ -75,7 +75,7 @@ class CdsImportAttemptBudgetUnitTest {
         assertEquals(0,f.committed());verify(f.window,never()).allowReopen();
     }
 
-    @Test void expiredClockNeverReclassifiesAnUnknownCommitAsATimeout() throws Exception {
+    @Test void shouldNeverReclassifyUnknownCommitAsTimeout_whenClockExpires() throws Exception {
         Fixture f=new Fixture();
         when(f.records.write(anyString(),anyLong(),any(),any(),any(),any(),any(),any())).thenAnswer(call->{
             f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(200));throw new CdsImportException("UNIT_COMMIT_OUTCOME_UNKNOWN",true,null);
@@ -86,7 +86,7 @@ class CdsImportAttemptBudgetUnitTest {
         verify(f.window,never()).allowReopen();
     }
 
-    @Test void malformedControlAndAmbiguousSecondaryProbeProduceReportedNoncleanOutcomesWithProtectedCause(
+    @Test void shouldReportNoncleanOutcomeWithProtectedCause_forMalformedControlOrAmbiguousSecondaryProbe(
             @org.junit.jupiter.api.io.TempDir Path root) throws Exception {
         for(int scenario=0;scenario<3;scenario++) {
             boolean ambiguous=scenario==1;
@@ -121,7 +121,7 @@ class CdsImportAttemptBudgetUnitTest {
         }
     }
 
-    @Test void reportControlFailureRetainsItsProtectedCause_withoutChangingCommittedClinicalResults(
+    @Test void shouldRetainProtectedCauseOfReportControlFailure_withoutChangingCommittedClinicalResults(
             @org.junit.jupiter.api.io.TempDir Path root) throws Exception {
         Fixture f=new Fixture(root);
         when(f.records.write(anyString(),anyLong(),any(),any(),any(),any(),any(),any()))
@@ -140,7 +140,7 @@ class CdsImportAttemptBudgetUnitTest {
         verify(f.ledger,never()).markIncomplete(anyString(),anyLong(),any(),anyBoolean(),anyBoolean(),anyBoolean());
     }
 
-    @Test void unavailableReportingEvidenceAndDiagnosticsNeverReplaceTheOriginalClinicalOutcome() throws Exception {
+    @Test void shouldNeverReplaceOriginalClinicalOutcome_withUnavailableReportingEvidenceOrDiagnostics() throws Exception {
         Fixture f=new Fixture();
         when(f.records.write(anyString(),anyLong(),any(),any(),any(),any(),any(),any()))
                 .thenReturn(new CdsImportReceiptDto("{}","digest"));
@@ -156,7 +156,7 @@ class CdsImportAttemptBudgetUnitTest {
         verify(f.ledger,never()).markIncomplete(anyString(),anyLong(),any(),anyBoolean(),anyBoolean(),anyBoolean());
     }
 
-    @Test void fatalSupervisionAlsoRetainsTheSpecificLegacyReportFailure_withoutClinicalReplay() throws Exception {
+    @Test void shouldRetainSpecificLegacyReportFailureUnderFatalSupervision_withoutClinicalReplay() throws Exception {
         Fixture f=new Fixture();var failure=new CdsImportException("IMPORT_CONTROL_UNAVAILABLE");
         doThrow(failure).when(f.reports).generate("run",1L);
         when(f.evidence.write("run",1L,failure)).thenReturn("/opaque/protected-report-failure.json");
@@ -167,7 +167,7 @@ class CdsImportAttemptBudgetUnitTest {
         verify(f.coordinator,times(1)).acquire();
     }
 
-    @Test void aSavedEvidenceFileWithoutADurableDiagnosticStillLogsSafeRunCorrelation() throws Exception {
+    @Test void shouldLogSafeRunCorrelation_forSavedEvidenceFileWithoutDurableDiagnostic() throws Exception {
         Fixture f=new Fixture();
         when(f.records.write(anyString(),anyLong(),any(),any(),any(),any(),any(),any()))
                 .thenReturn(new CdsImportReceiptDto("{}","digest"));

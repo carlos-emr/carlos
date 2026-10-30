@@ -67,7 +67,7 @@ class CdsJdbcConnectionTimeoutsUnitTest {
     enum Boundary { MAINTENANCE, ORDINARY_LEASE, WEB_OPT_IN_POOL, CLI_POOL }
 
     @Test
-    void shouldLeaveOrdinaryDefaultOffPoolUnchangedAndBoundOptInBeforeFirstBorrow() throws Exception {
+    void shouldLeaveOrdinaryDefaultOffPoolUnchangedAndBoundOptIn_beforeFirstBorrow() throws Exception {
         try (var source=source(URL)) {
             assertThat(source.isBoundedCdsConnections()).isFalse();
             assertThat(effective(source.factory())).containsEntry("connectTimeout", "0").containsEntry("socketTimeout", "0");
@@ -78,7 +78,7 @@ class CdsJdbcConnectionTimeoutsUnitTest {
     }
 
     @Test
-    void shouldPreserveActualUrlOptionsAndHigherPrecedenceConnectionPropertiesWithoutMutatingThem() throws Exception {
+    void shouldPreserveUrlOptionsAndHigherPrecedenceProperties_withoutMutatingThem() throws Exception {
         Properties properties=new Properties();
         properties.setProperty("connectTimeout", "2345"); properties.setProperty("socketTimeout", "3456");
         var original=new DriverConnectionFactory(new Driver(), URL+"?connectTimeout=4567&socketTimeout=5678", properties);
@@ -92,7 +92,7 @@ class CdsJdbcConnectionTimeoutsUnitTest {
     }
 
     @Test
-    void shouldRetainTheFrameworkDefaultHostAndActualSingleHostDescriptorPrecedence() throws Exception {
+    void shouldRetainFrameworkDefaultHostAndSingleHostDescriptorPrecedence_whenBounded() throws Exception {
         var local=(DriverConnectionFactory) CdsJdbcConnectionTimeouts.bounded(
                 new DriverConnectionFactory(new Driver(), "jdbc:mysql:///synthetic", new Properties()));
         assertThat(effective(local)).containsEntry("connectTimeout", "5000").containsEntry("socketTimeout", "60000");
@@ -103,7 +103,7 @@ class CdsJdbcConnectionTimeoutsUnitTest {
 
     @ParameterizedTest
     @ValueSource(booleans={false, true})
-    void shouldScopeMissingNonpoolDefaultsEvenWhenTheOrdinaryPoolOptsOut(boolean ordinaryLease) throws Exception {
+    void shouldScopeMissingNonpoolDefaults_evenWhenOrdinaryPoolOptsOut(boolean ordinaryLease) throws Exception {
         try (var source=source(URL)) {
             var driver=new CapturingDriver(); source.setDriver(driver);
             assertThat(source.isBoundedCdsConnections()).isFalse();
@@ -117,7 +117,7 @@ class CdsJdbcConnectionTimeoutsUnitTest {
     @ParameterizedTest
     @ValueSource(strings={"connectTimeout=0", "socketTimeout=0", "connectTimeout=-1", "socketTimeout=-1",
             "connectTimeout=30001", "socketTimeout=300001", "socketTimeout=private-configuration-value"})
-    void shouldRejectUnboundedInvalidAndOverCeilingExplicitOptionsWithoutLeakingConfiguration(String option) throws Exception {
+    void shouldRejectUnboundedInvalidAndOverCeilingOptions_withoutLeakingConfiguration(String option) throws Exception {
         var configured=new DriverConnectionFactory(new Driver(), URL+"?"+option, new Properties());
         assertThatThrownBy(() -> CdsJdbcConnectionTimeouts.bounded(configured)).isInstanceOf(SQLException.class)
                 .hasMessage("CDS_JDBC_TIMEOUT_CONFIGURATION_INVALID").hasNoCause()
@@ -131,7 +131,7 @@ class CdsJdbcConnectionTimeoutsUnitTest {
             "jdbc:mysql://one.invalid,two.invalid/synthetic?connectTimeout=1000&socketTimeout=2000",
             "jdbc:mysql:loadbalance://one.invalid/synthetic", "jdbc:mysql:replication://one.invalid/synthetic",
             "jdbc:mysql+srv://unresolved.invalid/synthetic", "jdbc:mysql://unresolved.invalid/synthetic?dnsSrv=true"})
-    void shouldRefuseUnsupportedTopologyBeforeAnyDriverConnectionOrSrvLookup(String url) throws Exception {
+    void shouldRefuseUnsupportedTopology_beforeAnyDriverConnectionOrSrvLookup(String url) throws Exception {
         var driver=new CapturingDriver();
         var factory=new DriverConnectionFactory(driver, url, new Properties());
         assertThatThrownBy(() -> CdsJdbcConnectionTimeouts.bounded(factory)).isInstanceOf(SQLException.class)
@@ -141,7 +141,7 @@ class CdsJdbcConnectionTimeoutsUnitTest {
 
     @ParameterizedTest
     @EnumSource(Boundary.class)
-    void shouldTimeOutAnActualSilentHandshakeAtEveryControlledBoundary(Boundary boundary) throws Exception {
+    void shouldTimeOutSilentHandshake_atEveryControlledBoundary(Boundary boundary) throws Exception {
         CountDownLatch accepted=new CountDownLatch(1), release=new CountDownLatch(1);
         try (var server=new ServerSocket(0, 1, InetAddress.getLoopbackAddress()); var peer=Executors.newSingleThreadExecutor()) {
             server.setSoTimeout(3000);
@@ -180,7 +180,7 @@ class CdsJdbcConnectionTimeoutsUnitTest {
     }
 
     @Test
-    void shouldWireTheExistingGuardOptInBeforeFlywayAndKeepOrdinaryFalseDefault() throws Exception {
+    void shouldWireExistingGuardOptInBeforeFlyway_withOrdinaryFalseDefault() throws Exception {
         var factory=DocumentBuilderFactory.newDefaultInstance();
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, ""); factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");

@@ -364,7 +364,7 @@ class CdsSnapshotServiceUnitTest {
         assertEquals("CDS_XML_MARKUP_LIMIT",invalid.code());assertFalse(Files.exists(spool.resolve("parse.seal")));assertTrue(Files.exists(file));
     }
 
-    @Test void shouldDetectSupportedUnicodeXmlTransportsWithoutFilenameHints() throws Exception {
+    @Test void shouldDetectSupportedUnicodeXmlTransports_withoutFilenameHints() throws Exception {
         Path source=Files.createDirectory(temp.resolve("source"));
         String patient="<OmdCds xmlns='cds'><PatientRecord/></OmdCds>";
         String[] encodings={"UTF-8","UTF-16BE","UTF-16LE","UTF-32BE","UTF-32LE"};

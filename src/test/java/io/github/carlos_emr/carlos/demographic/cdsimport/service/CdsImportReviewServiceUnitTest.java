@@ -287,7 +287,7 @@ class CdsImportReviewServiceUnitTest {
     }
 
     @Test
-    void shouldEnableTheActualBrowserControlOnlyFromBackendProducedEligibility() throws Exception {
+    void shouldEnableActualBrowserControl_onlyFromBackendProducedEligibility() throws Exception {
         when(diagnostics.hasUnwrittenRevisionContext(RUN)).thenReturn(true);
         assertThat(browserRevisionEligibility(service.summary(RUN))).isTrue();
         when(touchedPatients.getResultList()).thenReturn(List.of("committed-target"));
@@ -495,7 +495,7 @@ class CdsImportReviewServiceUnitTest {
     }
 
     @Test
-    void reviewPatientBindingCannotExceedThePersistedKeyCapacity() throws Exception {
+    void shouldRefuseReviewPatientBinding_beyondPersistedKeyCapacity() throws Exception {
         int capacity=CdsImportReview.class.getDeclaredField("patientKey").getAnnotation(jakarta.persistence.Column.class).length();
         assertThat(capacity).isEqualTo(64);
         assertThat(new CdsImportReviewCommand("DECLINE_PATIENT", 1L, "a".repeat(capacity), null, 0, null, null,

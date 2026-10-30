@@ -199,7 +199,7 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
         if (source!=null)source.close();
     }
 
-    @Test void eachForcedControlIsOneActualSqlQuery_withoutPoolBorrowOrRetainedTransaction() throws Exception {
+    @Test void shouldIssueOneActualSqlQueryPerForcedControl_withoutPoolBorrowOrRetainedTransaction() throws Exception {
         try (var owner=coordinator.acquire()) {
             long connection=lockConnection();
             // Warm the one prepared statement before taking the measured window.
@@ -221,7 +221,7 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
         }
     }
 
-    @Test void cancellationEpochAdmissionAndMissingRunAreObservedFromFreshSnapshots() throws Exception {
+    @Test void shouldObserveCancellationEpochAdmissionAndMissingRun_fromFreshSnapshots() throws Exception {
         try (var owner=coordinator.acquire(); var scope=scope(owner)) {
             update("UPDATE cds_import_run SET cancel_requested=1 WHERE id=?", run);
             assertThatThrownBy(()-> scope.check(true)).hasMessage("IMPORT_CANCELLED");
@@ -239,7 +239,7 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
         }
     }
 
-    @Test void malformedNativeBooleanFailsClosed() throws Exception {
+    @Test void shouldFailClosed_onMalformedNativeBoolean() throws Exception {
         try (var owner=coordinator.acquire(); var scope=scope(owner)) {
             update("UPDATE cds_import_run SET cancel_requested=2 WHERE id=?", run);
             assertThatThrownBy(()-> scope.check(true)).hasMessage("IMPORT_CONTROL_UNAVAILABLE");
@@ -247,7 +247,7 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
         }
     }
 
-    @Test void killingTheActualOwnedPhysicalConnectionFencesItsScope_andAnotherNodeCanAcquire() throws Exception {
+    @Test void shouldFenceScopeWhenOwnedPhysicalConnectionIsKilled_withAnotherNodeAbleToAcquire() throws Exception {
         var owner=coordinator.acquire(); boolean killed=false;
         try (var scope=scope(owner)) {
             long connection=lockConnection();
@@ -263,7 +263,7 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
         }
     }
 
-    @Test void aCompetingNodeCannotAcquireUntilTheOriginalPhysicalOwnerRetires() throws Exception {
+    @Test void shouldBlockCompetingNode_untilOriginalPhysicalOwnerRetires() throws Exception {
         try (var owner=coordinator.acquire()) {
             assertThatThrownBy(()-> new CdsImportCoordinatorService(source).acquire()).hasMessage("IMPORT_COORDINATOR_BUSY");
             owner.check(); assertThat(owner.control(run).coordinatorOwned()).isTrue();
@@ -271,7 +271,7 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
         try (var next=coordinator.acquire()){next.check(); }
     }
 
-    @Test void configuredCliPoolObservesFreshCommittedRowsAndRestoresSpringTransactionState() throws Exception {
+    @Test void shouldObserveFreshCommittedRowsAndRestoreSpringTransactionState_withConfiguredCliPool() throws Exception {
         TransactionTemplate transaction=new TransactionTemplate(new DataSourceTransactionManager(source));
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         transaction.setReadOnly(true); transaction.setTimeout(10);
@@ -301,7 +301,7 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
         }
     }
 
-    @Test void configuredCliPoolRollsBackUncommittedWritesAndResetsIsolationOnReuse() throws Exception {
+    @Test void shouldRollBackUncommittedWritesAndResetIsolationOnReuse_withConfiguredCliPool() throws Exception {
         long physical;
         try (Connection connection=source.getConnection()) {
             physical=scalar(connection, "SELECT CONNECTION_ID()");
@@ -327,7 +327,7 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
         }
     }
 
-    @Test void configuredCliPoolValidationDiscardsItsKilledIdleConnectionBeforeReplacement() throws Exception {
+    @Test void shouldDiscardKilledIdleConnectionDuringPoolValidation_beforeReplacement() throws Exception {
         long killed;
         try (Connection connection=source.getConnection()) {killed=scalar(connection, "SELECT CONNECTION_ID()"); }
         try (var query=observer.prepareStatement("SELECT DB FROM information_schema.PROCESSLIST WHERE ID=?")) {

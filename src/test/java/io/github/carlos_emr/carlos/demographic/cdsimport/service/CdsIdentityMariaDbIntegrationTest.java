@@ -100,7 +100,7 @@ class CdsIdentityMariaDbIntegrationTest {
     }
 
     @Test
-    void sameNumericHinFromTwoKnownProvincesCreatesAndMatchesIndependentNativeCharts() {
+    void shouldCreateAndMatchIndependentNativeCharts_forSameNumericHinFromTwoKnownProvinces() {
         try (Session session = factory.openSession()) {
             var tx = session.beginTransaction();
             try {
@@ -147,7 +147,7 @@ class CdsIdentityMariaDbIntegrationTest {
     }
 
     @Test
-    void duplicateSameAuthorityCannotBeDisambiguatedByDobOrNameAndInvalidatesCanonicalReplay() {
+    void shouldKeepDuplicateSameAuthorityUnresolvedByDobOrName_andInvalidateCanonicalReplay() {
         try (Session session = factory.openSession()) {
             var tx = session.beginTransaction();
             try {
@@ -174,7 +174,7 @@ class CdsIdentityMariaDbIntegrationTest {
     }
 
     @Test
-    void unknownNativeAuthorityRemainsAConflictEvenWhenOneKnownProvinceAppearsUnique() {
+    void shouldKeepUnknownNativeAuthorityAsConflict_evenWhenOneKnownProvinceAppearsUnique() {
         try (Session session = factory.openSession()) {
             var tx = session.beginTransaction();
             try {
@@ -198,7 +198,7 @@ class CdsIdentityMariaDbIntegrationTest {
     }
 
     @Test
-    void unknownSourceAuthorityNeverAutomaticallyMergesAndExactReplayRequiresNoOtherHinClaim() {
+    void shouldNeverAutoMergeUnknownSourceAuthority_withExactReplayRequiringNoOtherHinClaim() {
         try (Session session = factory.openSession()) {
             var tx = session.beginTransaction();
             try {
@@ -226,7 +226,7 @@ class CdsIdentityMariaDbIntegrationTest {
     }
 
     @Test
-    void wrongDobAndMissingHinFallbackRemainReviewRatherThanAutomaticMerge() {
+    void shouldKeepWrongDobAndMissingHinFallbackInReview_insteadOfAutomaticMerge() {
         try (Session session = factory.openSession()) {
             var tx = session.beginTransaction();
             try {
@@ -248,7 +248,7 @@ class CdsIdentityMariaDbIntegrationTest {
     }
 
     @Test
-    void registryScopesKnownAuthoritiesAndCopyKeysButBlocksSameOrUnknownAuthorityClaims() {
+    void shouldScopeKnownAuthoritiesAndCopyKeys_whileBlockingSameOrUnknownAuthorityClaims() {
         try (Session session = factory.openSession()) {
             var tx = session.beginTransaction();
             try {
@@ -278,7 +278,7 @@ class CdsIdentityMariaDbIntegrationTest {
     }
 
     @Test
-    void generatedNativeAuthorityMatchesPinnedVocabularyAndNeverGuessesSentinels() {
+    void shouldMatchPinnedVocabularyForGeneratedNativeAuthority_withoutGuessingSentinels() {
         try (Session session = factory.openSession()) {
             var tx = session.beginTransaction();
             try {

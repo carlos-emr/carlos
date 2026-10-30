@@ -60,7 +60,7 @@ class CdsWebContractUnitTest extends CarlosUnitTestBase {
     @AfterEach void clearContext() { ActionContext.clear(); }
 
     @ParameterizedTest @MethodSource("unsupportedVersions")
-    void incompatibleClientsCannotReadChunkBodiesReserveQuotaAcceptOrControlRuns(String[] versions) throws Exception {
+    void shouldDenyChunkBodiesQuotaAcceptAndRunControl_forIncompatibleClients(String[] versions) throws Exception {
         var access = mock(CdsImportAccessService.class);
         var uploads = mock(CdsUploadService.class);
         var imports = mock(CdsImportService.class);
@@ -94,7 +94,7 @@ class CdsWebContractUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test void supportedJsonParametersRemainStrictAndCannotOverrideTheResponseContract() throws Exception {
+    @Test void shouldKeepSupportedJsonParametersStrict_withoutOverridingResponseContract() throws Exception {
         var request = new MockHttpServletRequest(); request.setMethod("POST");
         request.addParameter("apiVersion", "2"); request.addParameter("operation", "begin");
         CdsWeb.parameters(request, Set.of("operation"));
@@ -108,7 +108,7 @@ class CdsWebContractUnitTest extends CarlosUnitTestBase {
                 .doesNotContain("\"apiVersion\":1");
     }
 
-    @Test void onlyExplicitReadOnlyCallersKeepVersionlessLinksAndCannotAdmitPost() {
+    @Test void shouldKeepVersionlessLinksForExplicitReadOnlyCallersOnly_withoutAdmittingPost() {
         var request = new MockHttpServletRequest(); request.setMethod("GET"); request.addParameter("type", "event");
         CdsWeb.readOnlyParameters(request, Set.of("type"));
         assertThatThrownBy(() -> CdsWeb.parameters(request, Set.of("type")))
@@ -118,7 +118,7 @@ class CdsWebContractUnitTest extends CarlosUnitTestBase {
                 .hasMessage("IMPORT_PARAMETERS_INVALID");
     }
 
-    @Test void frameworkParameterBindingPreservesRequestContractWithoutAnActionPropertyOrWorkflowError() throws Exception {
+    @Test void shouldPreserveRequestContractUnderFrameworkBinding_withoutActionPropertyOrWorkflowError() throws Exception {
         var request = new MockHttpServletRequest(); request.setMethod("POST");
         request.addParameter("apiVersion", "2"); request.addParameter("operation", "begin");
         var response = new MockHttpServletResponse();

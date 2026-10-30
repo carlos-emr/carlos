@@ -46,7 +46,7 @@ import static org.mockito.Mockito.*;
 class CdsImportReportBudgetUnitTest {
     @TempDir Path temporary;
 
-    @Test void combinedRowsTimeOut_withoutSelectingOrChangingClinicalCompletion_andSameRunRetrySucceeds() throws Exception {
+    @Test void shouldTimeOutCombinedRowsWithoutChangingClinicalCompletion_andSucceedOnSameRunRetry() throws Exception {
         Fixture f=new Fixture(); Path old=Files.writeString(f.jobRoot.resolve("prior-report-proof"), "retained prior report");
         f.rowMillis.set(60);
         CdsImportException failure=assertThrows(CdsImportException.class, ()-> f.results.generate(f.run, 1));
@@ -66,7 +66,7 @@ class CdsImportReportBudgetUnitTest {
         verify(f.ledger, never()).finish(anyString(), anyLong());
     }
 
-    @Test void cleanupReceivesTheSameReportBudget_andTimeoutDoesNotPublishACompletion() throws Exception {
+    @Test void shouldGiveCleanupTheSameReportBudget_withTimeoutNotPublishingCompletion() throws Exception {
         Fixture f=new Fixture();
         when(f.cleanup.reconcile(eq(f.run), eq(1L), any(), any())).thenAnswer(call-> {
             f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(100)); call.<Runnable>getArgument(3).run(); return f.clean;
@@ -76,7 +76,7 @@ class CdsImportReportBudgetUnitTest {
         try (var paths=Files.walk(f.jobRoot)){assertFalse(paths.anyMatch(p-> p.getFileName().toString().equals("completion.json"))); }
     }
 
-    @Test void timeoutRetainsAnAlreadyDeliveredImmutableGeneration_untilExplicitSameRunRecovery() throws Exception {
+    @Test void shouldRetainDeliveredImmutableGenerationOnTimeout_untilExplicitSameRunRecovery() throws Exception {
         Fixture f=new Fixture(); f.results.generate(f.run, 1);
         Path previous=f.selected.get(); byte[] manifest=Files.readAllBytes(previous), receipt=Files.readAllBytes(previous.getParent().resolve("completion.json"));
         assertEquals(1, f.generation.get()); f.rowMillis.set(60);
@@ -90,7 +90,7 @@ class CdsImportReportBudgetUnitTest {
         verify(f.ledger, never()).finish(anyString(), anyLong()); verify(f.ledger, never()).finalizePatient(anyString(), anyLong(), anyString(), any());
     }
 
-    @Test void expiryInTheFirstGenerationProbeStillRetainsPriorDeliveryAcknowledgement() throws Exception {
+    @Test void shouldRetainPriorDeliveryAcknowledgement_whenFirstGenerationProbeExpires() throws Exception {
         Fixture f=new Fixture(); f.results.generate(f.run, 1);
         Path previous=f.selected.get(); byte[] manifest=Files.readAllBytes(previous), receipt=Files.readAllBytes(previous.getParent().resolve("completion.json"));
         when(f.ledger.status(f.run)).thenAnswer(call-> {f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(100)); return f.job; });
@@ -100,7 +100,7 @@ class CdsImportReportBudgetUnitTest {
         assertArrayEquals(manifest, Files.readAllBytes(previous)); assertArrayEquals(receipt, Files.readAllBytes(previous.getParent().resolve("completion.json")));
     }
 
-    @Test void budgetExpiryAfterReceiptCreationStillRefusesTheFinalSelection() throws Exception {
+    @Test void shouldRefuseFinalSelection_whenBudgetExpiresAfterReceiptCreation() throws Exception {
         Fixture f=new Fixture(); AtomicLong summaries=new AtomicLong();
         when(f.ledger.summary(f.run)).thenAnswer(call-> {if (summaries.incrementAndGet()==1)f.clock.addAndGet(TimeUnit.MILLISECONDS.toNanos(100)); return f.summary(); });
         assertTimeoutFailure(f);
@@ -108,7 +108,7 @@ class CdsImportReportBudgetUnitTest {
         try (var paths=Files.walk(f.jobRoot)){assertTrue(paths.anyMatch(p-> p.getFileName().toString().equals("completion.json")), "Unselected receipt is retained evidence, not delivery"); }
     }
 
-    @Test void validationScanProbesEvenXmlMembersWithNoDiagnosticRows() throws Exception {
+    @Test void shouldProbeXmlMembersInValidationScan_evenWithNoDiagnosticRows() throws Exception {
         Fixture f=new Fixture(); Path snapshotRoot=Files.createDirectory(f.jobRoot.resolve("snapshot"));
         var snapshot=new CdsSnapshotDto(snapshotRoot, snapshotRoot.resolve("files.jsonl"), "a".repeat(64), 3, 3, 3);
         var jobs=mock(CdsImportJobService.class); var snapshots=mock(CdsSnapshotService.class);

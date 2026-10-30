@@ -77,7 +77,7 @@ class CdsSchemaTypeCursorUnitTest {
     }
 
     @Test
-    void shouldPreserveImplicitSchemaInstanceAttributeTypes() throws Exception {
+    void shouldPreserveImplicitSchemaInstanceAttributeTypes_duringInvalidInputMetadataMatch() throws Exception {
         String value = "<Reports><Format>Binary</Format><Content><cdsd:Media"
                 + " xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' xmlns:xs='http://www.w3.org/2001/XMLSchema'"
                 + " xsi:type='xs:base64Binary' xsi:nil='false' xsi:schemaLocation='cds example.xsd'"

@@ -68,7 +68,7 @@ public class MeasurementTypeDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldRequireDedicatedUnconstrainedTextValidationForImportedSourceOnlyValues() {
+    void shouldRequireDedicatedUnconstrainedTextValidation_forImportedSourceOnlyValues() {
         for (MeasurementType existing : measurementTypeDao.findByType("CDS_CARE_VALUE")) measurementTypeDao.remove(existing.getId());
         measurementTypeDao.flush();
         var rule = new io.github.carlos_emr.carlos.commn.model.Validations();
@@ -85,7 +85,7 @@ public class MeasurementTypeDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldRequireCompatibleNativeUnitForFiniteCareMeasurements() {
+    void shouldRequireCompatibleNativeUnit_forFiniteCareMeasurements() {
         String unique = "T" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         createType(unique, "Synthetic measurement", "in kg");
         assertThat(measurementTypeDao.hasCdsImportType(unique, "in kg")).isTrue();

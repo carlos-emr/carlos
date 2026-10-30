@@ -194,7 +194,7 @@ class CdsHistoricalSnapshotUnitTest {
         assertEquals("HISTORICAL_SNAPSHOT_NOT_PUBLISHED", error.getCode()); assertEquals(before, tree(temporary));
     }
 
-    @Test void shouldBoundHistoricalVerificationByTheCurrentPolicyDeadline() throws Exception {
+    @Test void shouldBoundHistoricalVerification_byCurrentPolicyDeadline() throws Exception {
         acceptWeb(); cancelPrior(); var v = configuration.limits();
         doReturn(new CdsInputLimitsDto(v.maxSourceBytes(), v.maxExpandedBytes(), v.maxEntries(), v.maxXmlDepth(),
                 v.maxBoundedScalarCharacters(), v.maxBinaryBytes(), v.minimumFreeDiskBytes(), 1, v.maxPathCharacters()))

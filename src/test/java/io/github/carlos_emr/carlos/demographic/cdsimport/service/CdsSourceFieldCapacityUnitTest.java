@@ -32,13 +32,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("unit")
 class CdsSourceFieldCapacityUnitTest {
-    @Test void shouldAcceptExactNativeColumnCapacitiesInUnicodeCodePoints() {
+    @Test void shouldAcceptExactNativeColumnCapacities_inUnicodeCodePoints() {
         CdsRecordDto record=record("x".repeat(2047));
         assertDoesNotThrow(()->CdsSourceFieldCapacityValidator.validate(record, field("", "😀".repeat(250), "😀".repeat(4608))));
         assertDoesNotThrow(()->CdsSourceFieldCapacityValidator.validate(record("x".repeat(2048)), field("", "cds", "")));
     }
 
-    @Test void shouldRefuseOversizedPathNamespaceOrTypeBeforeAnyClinicalTransaction() {
+    @Test void shouldRefuseOversizedPathNamespaceOrType_beforeAnyClinicalTransaction() {
         assertCode("SOURCE_FIELD_PATH_CAPACITY_EXCEEDED",record("x".repeat(2048)),field("child", "cds", "type"));
         assertCode("SOURCE_FIELD_NAMESPACE_CAPACITY_EXCEEDED",record("/root"),field("leaf", "x".repeat(251), "type"));
         assertCode("SOURCE_FIELD_TYPE_CAPACITY_EXCEEDED",record("/root"),field("leaf", "cds", "x".repeat(4609)));

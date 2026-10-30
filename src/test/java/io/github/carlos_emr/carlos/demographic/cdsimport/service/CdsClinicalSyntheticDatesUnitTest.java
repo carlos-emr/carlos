@@ -38,7 +38,7 @@ class CdsClinicalSyntheticDatesUnitTest {
     @TempDir Path directory;
     private final CdsClinicalNormalizationService service = new CdsClinicalNormalizationService(new CdsFieldParser());
 
-    @Test void directWireDateAndDateTimeAreRecognizedWithoutInventingChoiceChildren() throws Exception {
+    @Test void shouldRecognizeDirectWireDateAndDateTime_withoutInventingChoiceChildren() throws Exception {
         var record = CdsClinicalFixture.record(directory, "Appointments",
                 Map.of("AppointmentDate", "2020-02-29", "DirectTime", "2020-02-29T10:15:00-05:00"));
         assertEquals(LocalDate.of(2020, 2, 29), service.date(record, "AppointmentDate").earliest());
@@ -48,7 +48,7 @@ class CdsClinicalSyntheticDatesUnitTest {
         assertEquals("2020-02-29", shifted.original());
         assertEquals(2, shifted.appliedShiftDays());
     }
-    @Test void medicationAllergyAndImmunizationDatesAllUseSyntheticCopyPolicy() throws Exception {
+    @Test void shouldUseSyntheticCopyPolicy_forMedicationAllergyAndImmunizationDates() throws Exception {
         var medication = CdsClinicalFixture.record(directory, "MedicationsAndTreatments", Map.of(
                 "DrugName", "Source drug", "StartDate/FullDate", "2020-02-28",
                 "PrescriptionWrittenDate/FullDateTime", "2020-02-28T15:30:00-05:00"));
@@ -71,30 +71,30 @@ class CdsClinicalSyntheticDatesUnitTest {
         assertFalse(vaccine.refused());
         assertEquals(2, vaccine.date().appliedShiftDays());
     }
-    @Test void nonTeachingDateCallsRemainUnshifted() throws Exception {
+    @Test void shouldLeaveDateCallsUnshifted_forNonTeachingSource() throws Exception {
         var record = CdsClinicalFixture.record(directory, "CareElements", Map.of("Date", "2020-01-01"));
         assertEquals(LocalDate.of(2020, 1, 1), service.date(record, "Date").earliest());
         assertEquals(0, service.date(record, "Date").appliedShiftDays());
     }
-    @Test void syntheticUnknownTimingRemainsUnknown() throws Exception {
+    @Test void shouldKeepSyntheticUnknownTiming_asUnknown() throws Exception {
         var record = CdsClinicalFixture.record(directory, "Immunizations", Map.of(
                 "ImmunizationName", "Td", "RefusedFlag/ynIndicatorsimple", "N"));
         var result = service.immunization(record, command(-365)).date();
         assertEquals(CdsTemporalDto.Precision.UNKNOWN, result.precision());
         assertNull(result.earliest()); assertEquals(0, result.appliedShiftDays());
     }
-    @Test void partialDateShiftRequiresReviewRatherThanRelabelingAnArbitraryIntervalAsAYear() throws Exception {
+    @Test void shouldRequireReviewForPartialDateShift_insteadOfRelabelingIntervalAsYear() throws Exception {
         var record = CdsClinicalFixture.record(directory, "Immunizations", Map.of("Date/YearOnly", "2020"));
         var failure = assertThrows(CdsClinicalException.class, () -> service.date(record, "Date", command(2)));
         assertEquals("CDS_SYNTHETIC_PARTIAL_DATE_SHIFT_REQUIRES_REVIEW", failure.code());
         assertEquals("YYYY", service.date(record, "Date", command(0)).legacyPartialFormat());
     }
-    @Test void conflictingDirectAndStructuredDateRequireReview() throws Exception {
+    @Test void shouldRequireReview_whenDirectAndStructuredDatesConflict() throws Exception {
         var record = CdsClinicalFixture.record(directory, "CareElements", Map.of(
                 "Date", "2020-01-01", "Date/FullDate", "2020-01-02"));
         assertThrows(CdsClinicalException.class, () -> service.date(record, "Date", command(1)));
     }
-    @Test void sourceCannotBeShiftedTwiceOrPastNativeCalendar() {
+    @Test void shouldRefuseSourceShift_whenAppliedTwiceOrPastNativeCalendar() {
         var date = CdsTemporal.parse(null, null, "2020-01-01", null, "Date");
         var shifted = CdsTemporal.shift(date, 2, "Date");
         assertThrows(CdsClinicalException.class, () -> CdsTemporal.shift(shifted, 2, "Date"));

@@ -98,7 +98,7 @@ class FaxSchedulerStartupUnitTest extends CarlosUnitTestBase {
         assertThat(timers).hasValue(1);
     }
 
-    @Test void shouldPreserveNormalStartupWithTheActualDisabledMaintenanceService() throws Exception {
+    @Test void shouldPreserveNormalStartup_withActualDisabledMaintenanceService() throws Exception {
         var pool = mock(OscarTrackingBasicDataSource.class);
         var maintenance = new CdsImportMaintenanceService(pool,
                 new CdsImportConfigurationService(new Properties()));
@@ -177,7 +177,7 @@ class FaxSchedulerStartupUnitTest extends CarlosUnitTestBase {
         job.startIfNotRunning(); assertThat(job.isRunning()).isTrue(); assertThat(timers).hasValue(2);
     }
 
-    @Test void shouldFenceTimerCreationAgainstShutdownRacingTheInitialRead() throws Exception {
+    @Test void shouldFenceTimerCreation_againstShutdownRacingInitialRead() throws Exception {
         blocked.set(false);
         var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
         when(configurations.findAll(null, null)).thenAnswer(call -> {

@@ -119,7 +119,7 @@ class CdsClinicalPersisterUnitTest {
     }
 
     @Test
-    void shouldRetainOversizedStrengthAsAnExplicitSourceReferenceAndBlockRenewal() throws Exception {
+    void shouldRetainOversizedStrengthAsExplicitSourceReference_withRenewalBlocked() throws Exception {
         Drug drug = candidate(Map.of("Strength/Amount", "X".repeat(100000), "Strength/UnitOfMeasure", "mg",
                 "Dosage", "1", "PrescriptionStatus", "Active", "SubstitutionNotAllowed", "N", "NonAuthoritativeIndicator", "N"));
         assertThat(drug.getCdsProjectionIncomplete()).isTrue();
@@ -133,7 +133,7 @@ class CdsClinicalPersisterUnitTest {
     }
 
     @Test
-    void shouldAllowRenewalOnlyForAnExplicitlyCompleteProjection() throws Exception {
+    void shouldAllowRenewal_onlyForExplicitlyCompleteProjection() throws Exception {
         LinkedHashMap<String, String> source = new LinkedHashMap<>();
         source.put("Strength/Amount", "10"); source.put("Strength/UnitOfMeasure", "mg");
         source.put("Dosage", "1"); source.put("DosageUnitOfMeasure", "tablet"); source.put("Route", "oral");
@@ -150,7 +150,7 @@ class CdsClinicalPersisterUnitTest {
     }
 
     @Test
-    void shouldProjectTwoRepresentableStrengthPartsWithoutAnArbitraryCombinedLimit() throws Exception {
+    void shouldProjectTwoRepresentableStrengthParts_withoutArbitraryCombinedLimit() throws Exception {
         Drug drug = candidate(Map.of("Strength/Amount", "A".repeat(32768), "Strength/UnitOfMeasure", "U".repeat(32768)));
         assertThat(drug.getDosage()).hasSize(65537);
     }
@@ -203,7 +203,7 @@ class CdsClinicalPersisterUnitTest {
     }
 
     @Test
-    void shouldUseOnlyAnExplicitResolvedSourceAuthorWithoutChangingSourceIdentityOrAuthority() throws Exception {
+    void shouldUseOnlyExplicitResolvedSourceAuthor_withoutChangingSourceIdentityOrAuthority() throws Exception {
         var source = normalization.medication(medication(Map.of("PrescribedBy/Name/FirstName", "Source",
                 "PrescribedBy/Name/LastName", "Author", "PrescribedBy/OHIPPhysicianId", "001234")));
         var match = new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsProviderMatchDto("T002",
@@ -219,7 +219,7 @@ class CdsClinicalPersisterUnitTest {
     }
 
     @Test
-    void shouldRetainBothMaximumSourceNamePartsAndTheirSeparator() throws Exception {
+    void shouldRetainBothMaximumSourceNameParts_withTheirSeparator() throws Exception {
         Drug source = candidate(Map.of("PrescribedBy/Name/FirstName", "F".repeat(50),
                 "PrescribedBy/Name/LastName", "L".repeat(50)));
         assertThat(source.getOutsideProviderName()).hasSize(101);
@@ -288,7 +288,7 @@ class CdsClinicalPersisterUnitTest {
         });
     }
 
-    @Test void completePreflightRefusesUnrepresentableNativeDates_beforeAnyClinicalDaoWrite() throws Exception {
+    @Test void shouldRefuseUnrepresentableNativeDatesInCompletePreflight_beforeAnyClinicalDaoWrite() throws Exception {
         withTemporalZone(() -> {
             var parser = new CdsFieldParser();
             var preventions = mock(PreventionDao.class);
@@ -324,7 +324,7 @@ class CdsClinicalPersisterUnitTest {
         });
     }
 
-    @Test void calendarOnlyHistoricalImmunizationRemainsADateWithTheCompleteOriginal() throws Exception {
+    @Test void shouldKeepCalendarOnlyHistoricalImmunizationAsDate_withCompleteOriginal() throws Exception {
         withTemporalZone(() -> {
             var preventions = mock(PreventionDao.class);
             var extensions = mock(PreventionExtDao.class);
@@ -342,7 +342,7 @@ class CdsClinicalPersisterUnitTest {
         });
     }
 
-    @Test void immunizationDatetimeZeroProjectionFloorsFractions_withoutMovingTheClinicalDay() throws Exception {
+    @Test void shouldFloorFractionsInImmunizationDatetimeZeroProjection_withoutMovingClinicalDay() throws Exception {
         withTemporalZone(() -> {
             var preventions = mock(PreventionDao.class);
             var extensions = mock(PreventionExtDao.class);
@@ -362,7 +362,7 @@ class CdsClinicalPersisterUnitTest {
         });
     }
 
-    @Test void theOwningUnitReportsAdjustedCalendarAnchorsAndProjectedSubseconds() throws Exception {
+    @Test void shouldReportAdjustedCalendarAnchorsAndProjectedSubseconds_fromOwningUnit() throws Exception {
         withTemporalZone(() -> {
             for (String[] choice : java.util.List.of(
                     new String[] {"FullDate", "1500-01-01", "CDS_CALENDAR_STORAGE_ANCHOR_NORMALIZED"},

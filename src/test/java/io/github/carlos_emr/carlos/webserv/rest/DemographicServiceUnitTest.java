@@ -253,21 +253,21 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void absentSessionCannotConsultImportProvenance() {
+        void shouldNotConsultImportProvenance_whenSessionIsAbsent() {
             loggedInInfo = null;
             assertThrowsWithStatus(() -> service.getDemographicData(42, List.of("measurements")), Response.Status.UNAUTHORIZED);
             verifyNoInteractions(records, demographics, measurements);
         }
 
         @Test
-        void deniedPatientReadCannotConsultImportProvenance() {
+        void shouldNotConsultImportProvenance_whenPatientReadIsDenied() {
             assertThrowsWithStatus(() -> service.getDemographicData(42, List.of("measurements")), Response.Status.FORBIDDEN);
             verifyRecordPrivilegeRequested("r", 42);
             verifyNoInteractions(records, demographics, measurements);
         }
 
         @Test
-        void missingPatientRetainsNotFoundBeforeImportProvenance() {
+        void shouldRetainNotFound_whenPatientIsMissingBeforeImportProvenance() {
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
             authorizeCategories("measurements");
             assertThrowsWithStatus(() -> service.getDemographicData(42, List.of("measurements")), Response.Status.NOT_FOUND);
@@ -275,7 +275,7 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void existingAllergyPermissionDenialStillPrecedesImportProvenance() {
+        void shouldDenyAllergyPermission_beforeConsultingImportProvenance() {
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
             assertThatThrownBy(() -> service.getDemographicData(42, List.of("allergies")))
                     .isInstanceOf(SecurityException.class).hasMessageContaining("_allergy");
@@ -284,25 +284,25 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void importedMeasurementsCannotEscapeThroughTheDemographicIncludeRoute() {
+        void shouldNotLeakImportedMeasurements_throughDemographicIncludeRoute() {
             authorizeRecord();
             assertConflictBeforeClinicalRead(List.of("measurements"), Set.of("CareElements"));
         }
 
         @Test
-        void importedAllergiesCannotEscapeThroughTheDemographicIncludeRoute() {
+        void shouldNotLeakImportedAllergies_throughDemographicIncludeRoute() {
             authorizeRecord();
             assertConflictBeforeClinicalRead(List.of("allergies"), Set.of("AllergiesAndAdverseReactions"));
         }
 
         @Test
-        void importedMedicationsCannotBecomeAnApparentlyCompleteNativeSummary() {
+        void shouldNotPresentImportedMedications_asApparentlyCompleteNativeSummary() {
             authorizeRecord();
             assertConflictBeforeClinicalRead(List.of("medications"), Set.of("MedicationsAndTreatments"));
         }
 
         @Test
-        void everySelectedCppSourceCategoryRequiresTheSameCompleteProjection() {
+        void shouldRequireSameCompleteProjection_forEverySelectedCppSourceCategory() {
             authorizeRecord();
             authorizeCategories("notes");
             for (String importedCategory : cppSourceCategories) {
@@ -316,7 +316,7 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void anUnrequestedImportedCategoryDoesNotBlockCppHistories() throws Exception {
+        void shouldNotBlockCppHistories_forUnrequestedImportedCategory() throws Exception {
             authorizeRecord();
             authorizeCategories("notes");
             Set<String> otherImportedCategories = Set.of("CareElements", "ClinicalNotes", "ProblemList");
@@ -330,7 +330,7 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void ordinaryNativeIncludesRetainTheirValuesAndNumericDateWire() throws Exception {
+        void shouldRetainValuesAndNumericDateWire_forOrdinaryNativeIncludes() throws Exception {
             authorizeRecord();
             authorizeCategories("allergies", "measurements", "notes", "medications");
             var observed = new Date(946684800000L);
@@ -382,7 +382,7 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void deniedMeasurementPermissionIsIndistinguishableForNativeAndImportedPatients() {
+        void shouldDenyMeasurementPermissionIndistinguishably_forNativeAndImportedPatients() {
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
             for (boolean imported : List.of(false, true)) {
                 configureUnqueriedProvenance(imported);
@@ -392,7 +392,7 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void deniedMedicationPermissionIsIndistinguishableForNativeAndImportedPatients() {
+        void shouldDenyMedicationPermissionIndistinguishably_forNativeAndImportedPatients() {
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
             for (boolean imported : List.of(false, true)) {
                 configureUnqueriedProvenance(imported);
@@ -402,7 +402,7 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void deniedCppPermissionIsIndistinguishableForNativeAndImportedPatients() {
+        void shouldDenyCppPermissionIndistinguishably_forNativeAndImportedPatients() {
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
             for (boolean imported : List.of(false, true)) {
                 configureUnqueriedProvenance(imported);
@@ -412,7 +412,7 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void patientRecordRestrictionPrecedesNativeAndImportedCategoryReads() {
+        void shouldApplyPatientRecordRestriction_beforeNativeAndImportedCategoryReads() {
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", "42")).thenReturn(true);
             for (boolean imported : List.of(false, true)) {
@@ -423,7 +423,7 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void everyRequestedCategoryMustBeAuthorizedBeforeAnyCombinedProvenanceRead() {
+        void shouldAuthorizeEveryRequestedCategory_beforeAnyCombinedProvenanceRead() {
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", 42)).thenReturn(true);
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", "42")).thenReturn(true);
             when(securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", "42")).thenReturn(true);
@@ -436,7 +436,7 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void emptyUnknownAndContactIncludesDoNotIntroduceABlanketImportBlock() throws Exception {
+        void shouldNotIntroduceBlanketImportBlock_forEmptyUnknownAndContactIncludes() throws Exception {
             authorizeRecord();
             for (List<String> includes : List.of(List.<String>of(), List.of("unrecognized"), List.of("contacts"))) {
                 assertThat(service.getDemographicData(42, includes).getDemographicNo()).isEqualTo(42);
@@ -445,7 +445,7 @@ class DemographicServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void basicContactRepresentationRetainsItsExistingScopeAndConsentPath() throws Exception {
+        void shouldRetainExistingScopeAndConsentPath_forBasicContactRepresentation() throws Exception {
             authorizeRecord();
             assertThat(service.getBasicDemographicData(42, List.of("contacts", "measurements", "medications"))
                     .getDemographicNo()).isEqualTo(42);

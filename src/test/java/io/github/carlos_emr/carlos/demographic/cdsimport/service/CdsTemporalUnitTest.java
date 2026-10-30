@@ -106,7 +106,7 @@ class CdsTemporalUnitTest {
     }
     @ParameterizedTest
     @ValueSource(strings = {"0001-01-01", "0999-12-31", "1000-01-01", "1500-01-01", "1582-10-15", "1800-01-01", "2020-02-29", "9999-12-31"})
-    void calendarOnlyAnchorsKeepTheActualLegacyReaderDay_withoutInventingAnInstant(String source) {
+    void shouldKeepActualLegacyReaderDayForCalendarOnlyAnchors_withoutInventingInstant(String source) {
         inZone("America/Toronto", () -> {
             var value = CdsTemporal.parse(null, null, source, null, "Date");
             var anchor = value.timestampStorageAnchor(ZoneId.systemDefault());
@@ -118,7 +118,7 @@ class CdsTemporalUnitTest {
         });
     }
 
-    @Test void earlyPartialDateAnchorsRetainIntervalsAndSourcePrecision() {
+    @Test void shouldRetainIntervalsAndSourcePrecision_forEarlyPartialDateAnchors() {
         inZone("America/Toronto", () -> {
             var year = CdsTemporal.parse("1500", null, null, null, "Date");
             var month = CdsTemporal.parse(null, "1500-02", null, null, "Date");
@@ -133,7 +133,7 @@ class CdsTemporalUnitTest {
         });
     }
 
-    @Test void anUnrepresentableCutoverDayRequiresReview_forBothDateAndTimestampStorage() {
+    @Test void shouldRequireReviewForUnrepresentableCutoverDay_inBothDateAndTimestampStorage() {
         inZone("America/Toronto", () -> {
             var value = CdsTemporal.parse(null, null, "1582-10-10", null, "Date");
             assertThat(catchThrowableOfType(value::dateStorageAnchor, CdsClinicalException.class).code())
@@ -144,7 +144,7 @@ class CdsTemporalUnitTest {
         });
     }
 
-    @Test void aCalendarDayWithAMidnightGapUsesItsFirstValidSameDayClock() {
+    @Test void shouldUseFirstValidSameDayClock_forCalendarDayWithMidnightGap() {
         inZone("America/Sao_Paulo", () -> {
             var value = CdsTemporal.parse(null, null, "2018-11-04", null, "Date");
             var anchor = value.timestampStorageAnchor(ZoneId.systemDefault());
@@ -156,7 +156,7 @@ class CdsTemporalUnitTest {
         });
     }
 
-    @Test void aWhollySkippedCivilDayCannotBeNormalizedIntoTheFollowingDay() {
+    @Test void shouldNotNormalizeWhollySkippedCivilDay_intoFollowingDay() {
         inZone("Pacific/Apia", () -> {
             var value = CdsTemporal.parse(null, null, "2011-12-30", null, "Date");
             assertThat(catchThrowableOfType(() -> value.timestampStorageAnchor(ZoneId.systemDefault()), CdsClinicalException.class).code())
@@ -165,7 +165,7 @@ class CdsTemporalUnitTest {
         });
     }
 
-    @Test void anExplicitOffsetMustSurviveTheReverseLegacyDatetimeFold() {
+    @Test void shouldPreserveExplicitOffset_throughReverseLegacyDatetimeFold() {
         inZone("America/Toronto", () -> {
             var early = CdsTemporal.parse(null, null, null, "2020-11-01T01:30:00-04:00", "Date");
             var late = CdsTemporal.parse(null, null, null, "2020-11-01T01:30:00-05:00", "Date");
@@ -178,7 +178,7 @@ class CdsTemporalUnitTest {
         });
     }
 
-    @Test void exactHistoricalTimestampsCannotBeRewrittenAsSyntheticCivilAnchors() {
+    @Test void shouldNotRewriteExactHistoricalTimestamps_asSyntheticCivilAnchors() {
         inZone("America/Toronto", () -> {
             var value = CdsTemporal.parse(null, null, null, "1500-01-01T00:00:00Z", "Date");
             assertThat(catchThrowableOfType(() -> value.timestampStorageAnchor(ZoneId.systemDefault()), CdsClinicalException.class).code())

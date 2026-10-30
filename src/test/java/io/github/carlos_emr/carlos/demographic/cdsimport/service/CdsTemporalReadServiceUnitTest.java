@@ -46,7 +46,7 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CdsTemporalReadServiceUnitTest {
-    @Test void prescriptionStartReadsStartMetadata_notTheIndependentWrittenDate() {
+    @Test void shouldReadPrescriptionStartFromStartMetadata_notFromIndependentWrittenDate() {
         var dao=mock(PartialDateDao.class);
         when(dao.getFormat(PartialDate.DRUGS,7,PartialDate.DRUGS_STARTDATE)).thenReturn(PartialDate.YEARONLY);
         when(dao.getFormat(PartialDate.DRUGS,7,PartialDate.DRUGS_WRITTENDATE)).thenReturn(PartialDate.YEARMONTH);
@@ -55,37 +55,37 @@ class CdsTemporalReadServiceUnitTest {
         verify(dao).getFormat(PartialDate.DRUGS,7,PartialDate.DRUGS_STARTDATE);
         verify(dao,never()).getFormat(PartialDate.DRUGS,7,PartialDate.DRUGS_WRITTENDATE);
     }
-    @Test void prescriptionUnknownAndActualJanuaryFirstRemainDifferent_withoutGuessing() {
+    @Test void shouldKeepPrescriptionUnknownDistinctFromActualJanuaryFirst_withoutGuessing() {
         var service=new CdsTemporalReadService(mock(PartialDateDao.class));
         assertEquals("Unknown",service.medicationStart(7,null,true).display());
         assertEquals("2024-01-01",service.medicationStart(8,Date.valueOf("2024-01-01"),false).display());
         assertThrows(CdsTemporalPrecisionException.class,
                 () -> service.medicationStart(9,Date.valueOf("2024-01-01"),true));
     }
-    @Test void exactJanuaryFirstIsNotGuessedPartial() {
+    @Test void shouldNotGuessExactJanuaryFirst_asPartial() {
         var value = CdsTemporalNativeDateDto.from(Date.valueOf("2020-01-01"), null);
         assertEquals("FULL_DATE", value.getPrecision());
         assertEquals("2020-01-01", value.getValue());
         assertDoesNotThrow(value::requireDateOnlySafe);
     }
-    @Test void explicitMonthRetainsLeapIntervalAndRefusesDateOnly() {
+    @Test void shouldRetainLeapIntervalForExplicitMonth_andRefuseDateOnly() {
         var value = CdsTemporalNativeDateDto.from(Date.valueOf("2020-02-01"), PartialDate.YEARMONTH);
         assertEquals("MONTH", value.getPrecision());
         assertEquals("2020-02", value.getValue());
         assertEquals("2020-02-29", value.getIntervalEnd());
         assertThrows(CdsTemporalPrecisionException.class, value::requireDateOnlySafe);
     }
-    @Test void unknownDateNeverBecomesTodayOrAFirstDay() {
+    @Test void shouldNeverTurnUnknownDate_intoTodayOrFirstDay() {
         var value = CdsTemporalNativeDateDto.from(null, null);
         assertEquals("UNKNOWN", value.getPrecision());
         assertNull(value.getValue()); assertNull(value.getIntervalStart()); assertNull(value.getIntervalEnd());
         assertEquals("Unknown", value.display());
     }
-    @Test void unrecognizedNativeTagRequiresReviewInsteadOfAssumingExact() {
+    @Test void shouldRequireReviewForUnrecognizedNativeTag_insteadOfAssumingExact() {
         assertThrows(CdsTemporalPrecisionException.class,
                 () -> CdsTemporalNativeDateDto.from(Date.valueOf("2020-01-01"), "UNKNOWN"));
     }
-    @Test void medicationLabelsPreserveExistingExactFormatAndPartialMeaning() {
+    @Test void shouldPreserveExistingExactFormatAndPartialMeaning_inMedicationLabels() {
         PartialDateDao dao = mock(PartialDateDao.class);
         when(dao.getFormat(PartialDate.DRUGS, 7, PartialDate.DRUGS_STARTDATE)).thenReturn(PartialDate.YEARONLY);
         var exact = new Drug(); exact.setId(6); exact.setRxDate(Date.valueOf("2020-01-01"));
@@ -96,7 +96,7 @@ class CdsTemporalReadServiceUnitTest {
         assertEquals("2020", labels.get(7));
         assertEquals("Unknown", labels.get(8));
     }
-    @Test void allergyPrecisionResponseRetainsEveryRecordAndRawSemanticsWithoutDateAnchors() throws Exception {
+    @Test void shouldRetainEveryRecordAndRawSemanticsInAllergyPrecisionResponse_withoutDateAnchors() throws Exception {
         PartialDateDao dao = mock(PartialDateDao.class);
         when(dao.getFormat(PartialDate.ALLERGIES, 7, PartialDate.ALLERGIES_STARTDATE)).thenReturn(PartialDate.YEARONLY);
         var partial = new Allergy(); partial.setId(7); partial.setDemographicNo(1); partial.setStartDate(Date.valueOf("2020-01-01"));
@@ -126,7 +126,7 @@ class CdsTemporalReadServiceUnitTest {
         assertEquals("2020", restored.getAllergies().getFirst().getStartDateInfo().getValue());
         verify(manager).getActiveAllergies(info, 1);
     }
-    @Test void legacyAllergyRestAndSoapRefusePartialButKeepExistingExactDateShape() {
+    @Test void shouldRefusePartialInLegacyAllergyRestAndSoap_whileKeepingExistingExactDateShape() {
         PartialDateDao dao = mock(PartialDateDao.class);
         when(dao.getFormat(PartialDate.ALLERGIES, 7, PartialDate.ALLERGIES_STARTDATE)).thenReturn(PartialDate.YEARMONTH);
         CdsTemporalReadService dates = new CdsTemporalReadService(dao);

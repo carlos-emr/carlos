@@ -36,7 +36,7 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class StaticScriptBeanClinicalSafetyUnitTest {
     @Test
-    void nullDatesSortDeterministicallyWithoutFabricatingTiming() {
+    void shouldSortNullDatesDeterministically_withoutFabricatingTiming() {
         var unknown = new StaticScriptBean.DrugDisplayData();
         unknown.localDrugId = 7;
         var exact = new StaticScriptBean.DrugDisplayData();
@@ -52,7 +52,7 @@ class StaticScriptBeanClinicalSafetyUnitTest {
     }
 
     @Test
-    void importedViewKeepsSourcePrescriberUnknownDatesAndUnknownAuthorityDistinct() {
+    void shouldKeepSourcePrescriberUnknownDatesAndUnknownAuthorityDistinct_forImportedView() {
         try (var spring = mockStatic(SpringUtils.class)) {
             spring.when(() -> SpringUtils.getBean(DrugDao.class)).thenReturn(mock(DrugDao.class));
             Drug source = new Drug();

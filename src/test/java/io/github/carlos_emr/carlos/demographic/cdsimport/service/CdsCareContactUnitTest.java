@@ -68,14 +68,14 @@ class CdsCareContactUnitTest {
             Arguments.of("SelfMonitoringBloodGlucose", Map.of("SelfMonitoring", "Y"), "SMBG", "Yes"));
     }
     @ParameterizedTest @MethodSource("careKinds")
-    void eachCoreCareKindHasAnExplicitTypedMapping(String section, Map<String, String> values,
+    void shouldMapEachCoreCareKind_toAnExplicitType(String section, Map<String, String> values,
             String expectedType, String expectedValue) throws Exception {
         var result = care.normalize(care(section, values), command(0));
         assertEquals(expectedType, result.measurementType()); assertEquals(expectedValue, result.value());
         assertEquals(LocalDate.of(2020, 1, 1), result.date().earliest());
         assertFalse(result.nativeOverflow()); assertFalse(result.uninterpreted());
     }
-    @Test void sourceTextDoesNotBecomeANumericValueOrNormalExamResult() throws Exception {
+    @Test void shouldKeepSourceTextUninterpreted_insteadOfNumericValueOrNormalExamResult() throws Exception {
         var result = care.normalize(care("Weight", Map.of("Weight", "Unable to stand", "WeightUnit", "kg")), command(0));
         assertEquals("CDS_CARE_VALUE", result.measurementType()); assertEquals("Unable to stand", result.value());
         assertTrue(result.uninterpreted());
@@ -84,7 +84,7 @@ class CdsCareContactUnitTest {
         assertEquals("CDS_EXAM", exam.measurementType()); assertEquals("Performed", exam.value());
         assertNotEquals("FTLS", exam.measurementType()); assertNotEquals("NRTF", exam.measurementType());
     }
-    @Test void importedSmokingAssertionWorksWithTheExistingNativeRecommendationConsumer() throws Exception {
+    @Test void shouldFeedImportedSmokingAssertion_toExistingNativeRecommendationConsumer() throws Exception {
         var consumer = mock(io.github.carlos_emr.carlos.encounter.oscarMeasurements.MeasurementInfo.class, CALLS_REAL_METHODS);
         for (String source : java.util.List.of("Y", "N")) {
             var normalized = care.normalize(care("SmokingStatus", Map.of("Status", source)), command(0));
@@ -95,16 +95,16 @@ class CdsCareContactUnitTest {
             assertTrue(normalized.diagnostics().stream().anyMatch(d -> d.code().equals("CDS_CARE_BOOLEAN_NORMALIZED")));
         }
     }
-    @Test void hugeNumericValueDoesNotEnterANativeGraphAsInfinity() throws Exception {
+    @Test void shouldKeepHugeNumericValueOutOfNativeGraph_insteadOfInfinity() throws Exception {
         var result = care.normalize(care("Height", Map.of("Height", "9".repeat(1024), "HeightUnit", "cm")), command(0));
         assertTrue(result.uninterpreted()); assertEquals("CDS_CARE_VALUE", result.measurementType());
     }
-    @Test void fullGoalsRemainTextEvenWhenEmptyAndNeverBecomeYesNo() throws Exception {
+    @Test void shouldKeepGoalsAsText_evenWhenEmptyAndNeverYesNo() throws Exception {
         var result = care.normalize(care("DiabetesSelfManagementCollaborative",
                 Map.of("CodeValue", "44943-9", "DocumentedGoals", "")), command(0));
         assertEquals("CDS_GOALS", result.measurementType()); assertEquals("", result.value());
     }
-    @Test void unboundedGoalsAreNotReadIntoMemoryOrShownAsAClippedClinicalStatement() throws Exception {
+    @Test void shouldNeitherReadUnboundedGoalsIntoMemory_norShowThemAsClippedClinicalStatement() throws Exception {
         var record = care("DiabetesSelfManagementCollaborative", Map.of("CodeValue", "44943-9",
                 "DocumentedGoals", "X".repeat(CdsCareNormalizationService.GOAL_NATIVE_BYTE_BUDGET + 1)));
         CdsFieldParser guarded = new CdsFieldParser() {
@@ -118,7 +118,7 @@ class CdsCareContactUnitTest {
         assertTrue(result.sourceValueDigest().matches("[0-9a-f]{64}"));
         assertEquals("CDS_CARE_COMPLETE_VALUE_IN_SOURCE", result.diagnostics().getFirst().code());
     }
-    @Test void anUnrepresentableNativeCareDateIsRefusedDuringPreflight_withoutAnyDaoWork() throws Exception {
+    @Test void shouldRefuseUnrepresentableNativeCareDateDuringPreflight_withoutAnyDaoWork() throws Exception {
         var record = CdsClinicalFixture.record(directory, "Weight", Map.of(
                 "Weight", "75", "WeightUnit", "kg", "Date", "1582-10-10"));
         var value = care.normalize(record, command(0));
@@ -134,14 +134,14 @@ class CdsCareContactUnitTest {
         verifyNoInteractions(measurements, extensions, types, ledger);
     }
 
-    @Test void requiredDateAndCoreUnitsNeverDefaultOrGuess() throws Exception {
+    @Test void shouldNeverDefaultOrGuess_forRequiredDateAndCoreUnits() throws Exception {
         var missing = CdsClinicalFixture.record(directory, "Weight", Map.of("Weight", "75", "WeightUnit", "kg"));
         assertThrows(CdsClinicalException.class, () -> care.normalize(missing, command(0)));
         assertThrows(CdsClinicalException.class,
                 () -> care.normalize(care("Weight", Map.of("Weight", "150", "WeightUnit", "lb")), command(0)));
         assertEquals(LocalDate.of(2020, 1, 3), care.normalize(care("Height", Map.of("Height", "170", "HeightUnit", "cm")), command(2)).date().earliest());
     }
-    @Test void reviewedGoalsUseTheAcceptedLogicalValueRatherThanOriginalBytesOrOriginalLength() throws Exception {
+    @Test void shouldUseAcceptedLogicalValueForReviewedGoals_insteadOfOriginalBytesOrLength() throws Exception {
         var original = care("DiabetesSelfManagementCollaborative", Map.of("CodeValue", "44943-9",
                 "DocumentedGoals", "X".repeat(100000)));
         var corrected = CdsClinicalFixture.corrected(original, "DocumentedGoals", "Reviewed goal");
@@ -151,7 +151,7 @@ class CdsCareContactUnitTest {
         var enlarged = CdsClinicalFixture.corrected(small, "DocumentedGoals", "X".repeat(100000));
         assertTrue(care.normalize(enlarged, command(0)).nativeOverflow());
     }
-    @Test void nativeCareUsesUnknownSourceAuthorAndExplicitConfiguredCalendarAnchor() throws Exception {
+    @Test void shouldUseUnknownSourceAuthorAndConfiguredCalendarAnchor_forNativeCare() throws Exception {
         var source = care.normalize(care("Weight", Map.of("Weight", "75", "WeightUnit", "kg")), command(0));
         var persister = new CdsCarePersister(mock(MeasurementDao.class), mock(MeasurementsExtDao.class),
                 mock(MeasurementTypeDao.class), mock(CdsImportLedgerService.class));
@@ -162,7 +162,7 @@ class CdsCareContactUnitTest {
         assertThrows(CdsImportException.class, () -> persister.write("run", 1, "unit", 42,
                 care("Weight", Map.of("Weight", "75", "WeightUnit", "kg")), source));
     }
-    @Test void contactNamesRolesPhonesAndUnknownConsentHaveSeparateMeaning() throws Exception {
+    @Test void shouldKeepSeparateMeaning_forContactNamesRolesPhonesAndUnknownConsent() throws Exception {
         LinkedHashMap<String, String> source = new LinkedHashMap<>();
         source.put("ContactPurpose[1]/PurposeAsEnum", "EC"); source.put("ContactPurpose[2]/PurposeAsEnum", "SDM");
         source.put("ContactPurpose[3]/PurposeAsEnum", "PA"); source.put("Name/FirstName", "F".repeat(50));
@@ -181,11 +181,11 @@ class CdsCareContactUnitTest {
         assertNull(link.getConsentToContact()); assertFalse(link.isConsentToContact());
         assertEquals(2, link.getType()); assertEquals("7", link.getContactId());
     }
-    @Test void plainTextPurposeDoesNotAssertACodedSubstituteDecisionMaker() throws Exception {
+    @Test void shouldNotAssertCodedSubstituteDecisionMaker_fromPlainTextPurpose() throws Exception {
         var value = contacts.normalize(CdsClinicalFixture.record(directory, "Contact", Map.of("ContactPurpose/PurposeAsPlainText", "SDM")));
         assertNull(value.substituteDecisionMaker()); assertEquals(java.util.List.of("SDM"), value.roles());
     }
-    @Test void repeatedDistinctPhonesRemainSourceOnlyRatherThanSelectingOrDiscardingOne() throws Exception {
+    @Test void shouldKeepRepeatedDistinctPhonesSourceOnly_insteadOfSelectingOrDiscardingOne() throws Exception {
         LinkedHashMap<String, String> source = new LinkedHashMap<>();
         source.put("PhoneNumber[1]/@phoneNumberType", "R"); source.put("PhoneNumber[1]/phoneNumber", "4165551111");
         source.put("PhoneNumber[2]/@phoneNumberType", "R"); source.put("PhoneNumber[2]/phoneNumber", "4165552222");
@@ -193,7 +193,7 @@ class CdsCareContactUnitTest {
         assertTrue(value.phones().isEmpty());
         assertTrue(value.diagnostics().stream().anyMatch(d -> d.code().equals("CDS_CONTACT_AMBIGUOUS_PHONE_SOURCE_VIEW")));
     }
-    @Test void arbitrarilyManyPurposesHaveBoundedNativeProjectionAndExplicitSourceReference() throws Exception {
+    @Test void shouldBoundNativeProjectionWithExplicitSourceReference_forArbitrarilyManyPurposes() throws Exception {
         LinkedHashMap<String, String> source = new LinkedHashMap<>();
         for (int i = 1; i <= 1000; i++) source.put("ContactPurpose[" + i + "]/PurposeAsPlainText", "Purpose " + i);
         source.put("ContactPurpose[1001]/PurposeAsEnum", "EC");
@@ -202,7 +202,7 @@ class CdsCareContactUnitTest {
         assertEquals(Boolean.TRUE, value.emergencyContact());
         assertEquals(2, value.diagnostics().size());
     }
-    @Test void incompleteOrOverflowedStructuredPhoneNeverBecomesAPartialPhone() throws Exception {
+    @Test void shouldNeverProjectPartialPhone_fromIncompleteOrOverflowedStructuredPhone() throws Exception {
         for (String exchange : java.util.List.of("999", "X".repeat(100000))) {
             var value = contacts.normalize(CdsClinicalFixture.record(directory, "Contact", Map.of(
                     "PhoneNumber/@phoneNumberType", "R", "PhoneNumber/areaCode", "416",
@@ -211,10 +211,10 @@ class CdsCareContactUnitTest {
             assertTrue(value.diagnostics().stream().anyMatch(d -> d.code().equals("CDS_CONTACT_PHONE_SOURCE_VIEW")));
         }
     }
-    @Test void unknownContactNameIsNotTheLiteralNull() {
+    @Test void shouldNotRenderUnknownContactName_asLiteralNull() {
         assertEquals("Unknown", new io.github.carlos_emr.carlos.commn.model.Contact().getFormattedName());
     }
-    @Test void preparedStrategiesDoNotRescanTheSourceInsideClinicalWrite() throws Exception {
+    @Test void shouldNotRescanSourceInsideClinicalWrite_withPreparedStrategies() throws Exception {
         var record = care("Weight", Map.of("Weight", "75", "WeightUnit", "kg"));
         var value = care.normalize(record, command(0));
         var normalization = mock(CdsCareNormalizationService.class);

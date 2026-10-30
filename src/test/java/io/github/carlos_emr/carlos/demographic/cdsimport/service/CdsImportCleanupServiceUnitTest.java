@@ -66,7 +66,7 @@ class CdsImportCleanupServiceUnitTest {
         cleanup=new CdsImportCleanupService(ledger,files,configuration,mock(CdsUploadService.class),mock(CdsPreacceptService.class));
     }
 
-    @Test void retainsAcceptedSourceAndUnreferencedResumablePublication() throws Exception {
+    @Test void shouldRetainAcceptedSourceAndUnreferencedResumablePublication_onCleanup() throws Exception {
         byte[] content="clinical report".getBytes(java.nio.charset.StandardCharsets.UTF_8);String hash=hash(content);
         Path nativeFile=document.resolve(filename(hash));Files.write(nativeFile,content);
         owned.set(List.of(new CdsImportFileOwnershipDto(file(nativeFile,hash,content.length),0)));
@@ -79,7 +79,7 @@ class CdsImportCleanupServiceUnitTest {
         }
     }
 
-    @Test void reconcilesLostRegistrationAndRemovesOnlyPrivateAliasAndJournal() throws Exception {
+    @Test void shouldReconcileLostRegistration_byRemovingOnlyPrivateAliasAndJournal() throws Exception {
         byte[] content="source representation".getBytes(java.nio.charset.StandardCharsets.UTF_8);String hash=hash(content);
         Path operation=operation(content,hash,run);Path payload=operation.resolve("payload.partial"),destination=document.resolve(filename(hash));Files.createLink(destination,payload);
         doAnswer(invocation -> {var file=file(destination,hash,content.length);owned.set(List.of(new CdsImportFileOwnershipDto(file,0)));return file;})
@@ -94,7 +94,7 @@ class CdsImportCleanupServiceUnitTest {
         }
     }
 
-    @Test void removesOwnedUnpublishedPartialButPreservesUnknownOwnership() throws Exception {
+    @Test void shouldRemoveOwnedUnpublishedPartial_whilePreservingUnknownOwnership() throws Exception {
         byte[] content={1,2,3};String hash=hash(content);Path known=operation(content,hash,run),unknown=operation(content,hash,UUID.randomUUID().toString());
         try(MockedStatic<PathValidationUtils> paths=mockStatic(PathValidationUtils.class,CALLS_REAL_METHODS)) {
             paths.when(PathValidationUtils::getRequiredDocumentDirectory).thenReturn(document.toFile());
@@ -106,7 +106,7 @@ class CdsImportCleanupServiceUnitTest {
         }
     }
 
-    @Test void retainsRecoveryPayloadIfRegisteredFinalFileIsMissing() throws Exception {
+    @Test void shouldRetainRecoveryPayload_whenRegisteredFinalFileIsMissing() throws Exception {
         byte[] content={4,5,6};String hash=hash(content);Path operation=operation(content,hash,run),destination=document.resolve(filename(hash));
         when(files.findLocation(destination.toString())).thenReturn(file(destination,hash,content.length));
         try(MockedStatic<PathValidationUtils> paths=mockStatic(PathValidationUtils.class,CALLS_REAL_METHODS)) {
@@ -117,7 +117,7 @@ class CdsImportCleanupServiceUnitTest {
         }
     }
 
-    @Test void changedFinalBytesNeverAdoptOrDeleteRecoveryEvidence() throws Exception {
+    @Test void shouldNeverAdoptOrDeleteRecoveryEvidence_whenFinalBytesChanged() throws Exception {
         byte[] content={7,8,9};String hash=hash(content);Path operation=operation(content,hash,run),destination=document.resolve(filename(hash));Files.write(destination,new byte[]{9,8,7});
         try(MockedStatic<PathValidationUtils> paths=mockStatic(PathValidationUtils.class,CALLS_REAL_METHODS)) {
             paths.when(PathValidationUtils::getRequiredDocumentDirectory).thenReturn(document.toFile());
@@ -127,7 +127,7 @@ class CdsImportCleanupServiceUnitTest {
         }
     }
 
-    @Test void countsRemovedZeroBytePayloadAsAnArtifact() throws Exception {
+    @Test void shouldCountRemovedZeroBytePayload_asArtifact() throws Exception {
         byte[] content={};Path operation=operation(content,hash(content),run);
         try(MockedStatic<PathValidationUtils> paths=mockStatic(PathValidationUtils.class,CALLS_REAL_METHODS)) {
             paths.when(PathValidationUtils::getRequiredDocumentDirectory).thenReturn(document.toFile());
@@ -138,7 +138,7 @@ class CdsImportCleanupServiceUnitTest {
         }
     }
 
-    @Test void reportBudgetExpiryRetainsPrivateRecoveryEvidence_beforeAnyDeletion() throws Exception {
+    @Test void shouldRetainPrivateRecoveryEvidenceOnReportBudgetExpiry_beforeAnyDeletion() throws Exception {
         byte[] content={3,4,5};String hash=hash(content);Path operation=operation(content,hash,run),destination=document.resolve(filename(hash));
         var elapsed=new java.util.concurrent.atomic.AtomicLong();
         when(files.findLocation(destination.toString())).thenAnswer(call->{elapsed.set(100);return null;});

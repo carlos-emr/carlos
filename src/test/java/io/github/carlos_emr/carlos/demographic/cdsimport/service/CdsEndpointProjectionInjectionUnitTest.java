@@ -69,7 +69,7 @@ class CdsEndpointProjectionInjectionUnitTest {
             }
         }
     }
-    @Test void shouldExcludeInfrastructureSettersFromActualSoapOperationModels() {
+    @Test void shouldExcludeInfrastructureSetters_fromActualSoapOperationModels() {
         for(Class<?> endpoint:List.of(AllergyWs.class,MeasurementWs.class)) {
             var bus=new org.apache.cxf.bus.extension.ExtensionManagerBus();
             try {

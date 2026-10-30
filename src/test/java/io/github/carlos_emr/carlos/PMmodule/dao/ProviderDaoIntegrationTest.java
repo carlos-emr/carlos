@@ -2023,14 +2023,14 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
     @Nested
     @DisplayName("CDS exact source-provider candidates")
     class CdsSourceProviderCandidates {
-        @Test void shouldMatchInactiveHistoricalProviderWithExactLeadingZeros() {
+        @Test void shouldMatchInactiveHistoricalProvider_withExactLeadingZeros() {
             Provider historical = providerDao.getProvider("T004");
             historical.setOhipNo("009901"); entityManager.flush();
             assertThat(providerDao.findCdsProviderNosByOhip("009901")).containsExactly("T004");
             assertThat(providerDao.findCdsProviderNosByOhip("9901")).isEmpty();
             assertThat(providerDao.findCdsProviderNosByOhip("009901 ")).isEmpty();
         }
-        @Test void shouldRequireTheCpsoIssuerRatherThanAnyPractitionerNumber() {
+        @Test void shouldRequireCpsoIssuer_ratherThanAnyPractitionerNumber() {
             Provider ontario = providerDao.getProvider("T001");
             ontario.setPractitionerNoType("CPSO"); ontario.setPractitionerNo("001234");
             Provider elsewhere = providerDao.getProvider("T002");
@@ -2043,12 +2043,12 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
             entityManager.clear();
             assertThat(providerDao.findCdsProviderNosByCpso("001234")).containsExactly("T001");
         }
-        @Test void shouldUseBinaryExactNamesWithoutWildcardOrCaseFoldMatching() {
+        @Test void shouldUseBinaryExactNames_withoutWildcardOrCaseFoldMatching() {
             assertThat(providerDao.findCdsProviderNosByExactName("John", "Smith")).containsExactly("T001");
             assertThat(providerDao.findCdsProviderNosByExactName("john", "Smith")).isEmpty();
             assertThat(providerDao.findCdsProviderNosByExactName("John%", "Smith")).isEmpty();
         }
-        @Test void shouldReturnOnlyTwoIdentifiersWhenDirectoryHasManyDuplicates() {
+        @Test void shouldReturnOnlyTwoIdentifiers_whenDirectoryHasManyDuplicates() {
             for (String id : List.of("T001", "T002", "T003")) providerDao.getProvider(id).setOhipNo("009902");
             entityManager.flush();
             assertThat(providerDao.findCdsProviderNosByOhip("009902")).containsExactly("T001", "T002");
@@ -2068,7 +2068,7 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
                     .setParameter("first", "Élodie").executeUpdate();
             assertThat(providerDao.findCdsProviderNosByExactName("Élodie", "Müller")).containsExactly("T001", "T002");
         }
-        @Test void shouldCompareUnicodeNamesExactlyWithoutTrimmingOrAccentFolding() {
+        @Test void shouldCompareUnicodeNamesExactly_withoutTrimmingOrAccentFolding() {
             Provider source = providerDao.getProvider("T001");
             source.setFirstName("Élodie"); source.setLastName("Müller"); entityManager.flush();
             assertThat(providerDao.findCdsProviderNosByExactName("Élodie", "Müller")).containsExactly("T001");

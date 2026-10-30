@@ -56,7 +56,7 @@ class CdsImportCoordinatorDaoUnitTest {
         when(acquisition.getLong(1)).thenReturn(1L);
     }
 
-    @Test void successfulAcquisitionTransfersConnectionUntilLeaseRetirement() throws Exception {
+    @Test void shouldTransferConnectionUntilLeaseRetirement_afterSuccessfulAcquisition() throws Exception {
         PreparedStatement releaseQuery = mock(PreparedStatement.class);
         ResultSet released = mock(ResultSet.class);
         when(connection.prepareStatement("SELECT RELEASE_LOCK(?)")).thenReturn(releaseQuery);
@@ -73,14 +73,14 @@ class CdsImportCoordinatorDaoUnitTest {
         verify(source, never()).getConnection();
     }
 
-    @Test void busyCoordinatorRetiresPhysicalConnectionExactlyOnce() throws Exception {
+    @Test void shouldRetirePhysicalConnectionExactlyOnce_whenCoordinatorIsBusy() throws Exception {
         when(acquisition.getLong(1)).thenReturn(0L);
         assertThat(dao.acquire()).isNull();
         verify(connection).close();
         verify(source, never()).getConnection();
     }
 
-    @Test void busyConnectionRetirementFailureCannotBecomeAnOrdinaryBusyResult() throws Exception {
+    @Test void shouldNotTurnRetirementFailureIntoOrdinaryBusyResult_whenCoordinatorIsBusy() throws Exception {
         when(acquisition.getLong(1)).thenReturn(0L);
         SQLException cleanup = new SQLException("synthetic cleanup", "08006");
         doThrow(cleanup).when(connection).close();
@@ -88,7 +88,7 @@ class CdsImportCoordinatorDaoUnitTest {
         verify(connection).close();
     }
 
-    @Test void acquisitionFailureKeepsOriginalSqlFailureAndSuppressedRetirementFailure() throws Exception {
+    @Test void shouldKeepOriginalSqlFailureAndSuppressRetirementFailure_whenAcquisitionFails() throws Exception {
         SQLException primary = new SQLException("synthetic acquisition", "42000");
         SQLException cleanup = new SQLException("synthetic cleanup", "08006");
         when(connection.prepareStatement("SELECT DATABASE()")).thenThrow(primary);
@@ -98,7 +98,7 @@ class CdsImportCoordinatorDaoUnitTest {
         verify(connection).close();
     }
 
-    @Test void runtimeAcquisitionFailureKeepsPrimaryEvenWhenRetirementThrowsAnError() throws Exception {
+    @Test void shouldKeepPrimaryRuntimeFailure_evenWhenRetirementThrowsError() throws Exception {
         IllegalStateException primary = new IllegalStateException("synthetic acquisition");
         AssertionError cleanup = new AssertionError("synthetic cleanup");
         when(connection.prepareStatement("SELECT DATABASE()")).thenThrow(primary);
@@ -108,7 +108,7 @@ class CdsImportCoordinatorDaoUnitTest {
         verify(connection).close();
     }
 
-    @Test void errorDuringAcquisitionRetiresConnectionWithoutSelfSuppression() throws Exception {
+    @Test void shouldRetireConnectionWithoutSelfSuppression_whenAcquisitionThrowsError() throws Exception {
         AssertionError primary = new AssertionError("synthetic acquisition");
         when(connection.prepareStatement("SELECT DATABASE()")).thenThrow(primary);
         doThrow(primary).when(connection).close();
@@ -117,7 +117,7 @@ class CdsImportCoordinatorDaoUnitTest {
         verify(connection).close();
     }
 
-    @Test void malformedAcquisitionResultFailsAndRetiresConnection() throws Exception {
+    @Test void shouldFailAndRetireConnection_whenAcquisitionResultIsMalformed() throws Exception {
         when(acquisition.getLong(1)).thenReturn(2L);
         assertThat(catchThrowable(dao::acquire)).isInstanceOf(SQLException.class)
                 .hasMessage("Invalid coordinator acquisition result");

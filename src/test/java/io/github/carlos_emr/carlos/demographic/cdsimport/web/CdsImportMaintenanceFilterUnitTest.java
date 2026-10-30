@@ -33,7 +33,7 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CdsImportMaintenanceFilterUnitTest {
-    @Test void shouldAllowOnlySessionHeartbeatReadsDuringMaintenance() throws Exception {
+    @Test void shouldAllowOnlySessionHeartbeatReads_duringMaintenance() throws Exception {
         var service=mock(CdsImportMaintenanceService.class);
         for(String method:new String[]{"GET","HEAD"}) {
             for(String suffix:new String[]{"",".do",".action"}) {

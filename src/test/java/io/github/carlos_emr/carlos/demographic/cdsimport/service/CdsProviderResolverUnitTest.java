@@ -33,7 +33,7 @@ import static org.mockito.Mockito.*;
 class CdsProviderResolverUnitTest {
     private final ProviderDao dao = mock(ProviderDao.class);
     private final CdsProviderResolver resolver = new CdsProviderResolver(dao);
-    @Test void uniqueIssuedOhipAndCpsoMustAgree() {
+    @Test void shouldRequireAgreement_betweenUniqueIssuedOhipAndCpso() {
         when(dao.findCdsProviderNosByOhip("001234")).thenReturn(List.of("T001"));
         when(dao.findCdsProviderNosByCpso("009901")).thenReturn(List.of("T001"));
         var result = resolver.resolve("001234", "009901", "Source", "Author", true);
@@ -41,37 +41,37 @@ class CdsProviderResolverUnitTest {
         assertEquals(Outcome.MATCHED_IDENTIFIERS, result.outcome());
         verify(dao, never()).findCdsProviderNosByExactName(anyString(), anyString());
     }
-    @Test void identifiersFromDifferentNamespacesNeverCrossMatchOrFallbackToNames() {
+    @Test void shouldNeverCrossMatchOrFallBackToNames_forIdentifiersFromDifferentNamespaces() {
         when(dao.findCdsProviderNosByOhip("001234")).thenReturn(List.of("T001"));
         when(dao.findCdsProviderNosByCpso("001234")).thenReturn(List.of("T002"));
         assertEquals(Outcome.CONFLICTING_IDENTIFIERS, resolver.resolve("001234", "001234", "Jane", "Smith", true).outcome());
         verify(dao, never()).findCdsProviderNosByExactName(anyString(), anyString());
     }
-    @Test void duplicateIdentifierRequiresReviewWithoutChoosingFirst() {
+    @Test void shouldRequireReviewForDuplicateIdentifier_withoutChoosingFirst() {
         when(dao.findCdsProviderNosByOhip("001234")).thenReturn(List.of("T001", "T002"));
         var result = resolver.resolve("001234", null, "Jane", "Smith", true);
         assertEquals(Outcome.AMBIGUOUS_IDENTIFIER, result.outcome()); assertNull(result.localProviderNo());
     }
-    @Test void unmatchedStrongIdentifierCannotBeLaunderedByANameMatch() {
+    @Test void shouldNotLaunderUnmatchedStrongIdentifier_byNameMatch() {
         when(dao.findCdsProviderNosByOhip("001234")).thenReturn(List.of());
         assertEquals(Outcome.UNMATCHED_IDENTIFIER, resolver.resolve("001234", null, "Jane", "Smith", true).outcome());
         verify(dao, never()).findCdsProviderNosByExactName(anyString(), anyString());
     }
-    @Test void bothSuppliedIdentifiersMustResolveNotJustOne() {
+    @Test void shouldRequireBothSuppliedIdentifiersToResolve_notJustOne() {
         when(dao.findCdsProviderNosByOhip("001234")).thenReturn(List.of("T001"));
         when(dao.findCdsProviderNosByCpso("009901")).thenReturn(List.of());
         assertFalse(resolver.resolve("001234", "009901", "Jane", "Smith", true).matched());
     }
-    @Test void exactNameMatchingRequiresTheExistingExplicitOption() {
+    @Test void shouldRequireExistingExplicitOption_forExactNameMatching() {
         assertEquals(Outcome.NAME_MATCH_DISABLED, resolver.resolve(null, null, "Jane", "Smith", false).outcome());
         verifyNoInteractions(dao);
     }
-    @Test void exactUniqueNameCanBindWithoutInventingSignatureOrAuthority() {
+    @Test void shouldBindExactUniqueName_withoutInventingSignatureOrAuthority() {
         when(dao.findCdsProviderNosByExactName("Jane", "Smith")).thenReturn(List.of("T001"));
         var result = resolver.resolve(null, null, "Jane", "Smith", true);
         assertEquals(Outcome.MATCHED_NAME, result.outcome()); assertTrue(result.matched());
     }
-    @Test void ambiguousOrMissingNameNeverUsesImportActor() {
+    @Test void shouldNeverUseImportActor_forAmbiguousOrMissingName() {
         when(dao.findCdsProviderNosByExactName("Jane", "Smith")).thenReturn(List.of("T001", "T002"));
         assertEquals(Outcome.AMBIGUOUS_NAME, resolver.resolve(null, null, "Jane", "Smith", true).outcome());
         assertEquals(Outcome.SOURCE_IDENTITY_ABSENT, resolver.resolve(null, null, "Jane", null, true).outcome());

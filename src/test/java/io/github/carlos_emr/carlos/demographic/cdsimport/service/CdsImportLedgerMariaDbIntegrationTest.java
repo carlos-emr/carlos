@@ -75,7 +75,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
  static int target=100_000_000+new java.security.SecureRandom().nextInt(100_000_000);
  static CommitFaultManager commitFault;
  record Job(String id,long epoch,String patient,String first,String second,int target) {}
- @Test void physicalTransactionsAndRecoveryRetainExactAccounting() throws Exception {
+ @Test void shouldRetainExactAccounting_acrossPhysicalTransactionsAndRecovery() throws Exception {
   Properties jdbc=new Properties();
   try(InputStream input=Files.newInputStream(Path.of(System.getProperty("cds.ledger.test.properties")))) { jdbc.load(input); }
   String url=jdbc.getProperty("jdbcUrl","").replace("jdbc:mariadb:","jdbc:mysql:");

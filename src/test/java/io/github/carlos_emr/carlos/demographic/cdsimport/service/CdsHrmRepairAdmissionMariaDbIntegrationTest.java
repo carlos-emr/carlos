@@ -359,7 +359,7 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldPublishAndMarkCompleteForAnExistingNestedTargetDirectory() throws Exception {
+    void shouldPublishAndMarkComplete_forExistingNestedTargetDirectory() throws Exception {
         String relative="nested/"+filename;
         Files.createDirectory(documents.resolve("nested"));
         try (Connection raw=ordinary.openUnpooledCdsMaintenanceConnection();
@@ -374,7 +374,7 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldNeverOverwriteATargetThatAppearsDuringPrivateCopy() throws Exception {
+    void shouldNeverOverwriteTarget_whenItAppearsDuringPrivateCopy() throws Exception {
         helper((file, target) -> {
             Files.copy(file.toPath(), target.toPath().resolve(file.getName()));
             Files.writeString(documents.resolve(filename), "independent target");

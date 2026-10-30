@@ -50,7 +50,7 @@ class CdsMedicationRenewalActionUnitTest {
     @ParameterizedTest
     @ValueSource(strings = {"represcribe", "represcribeMultiple", "repcbAllLongTerm",
             "saveReRxDrugIdToStash", "represcribe2"})
-    void allFormsRefuseClinicalUncertaintyWithoutChangingAnExistingDraft(String operation) throws Exception {
+    void shouldRefuseClinicalUncertaintyInAllForms_withoutChangingExistingDraft(String operation) throws Exception {
         var request = new MockHttpServletRequest();
         var response = new MockHttpServletResponse();
         request.setMethod("POST");

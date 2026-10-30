@@ -268,12 +268,12 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
         }
 
         @Test
-        void shouldDenyUnauthorizedNativeClinicalIncludesBeforePatientReads() {
+        void shouldDenyUnauthorizedNativeClinicalIncludes_beforePatientReads() {
             assertDeniedIncludes("measurements", "_measurement", false);
         }
 
         @Test
-        void shouldDenyUnauthorizedImportedClinicalIncludesWithoutDisclosingImportState() {
+        void shouldDenyUnauthorizedImportedClinicalIncludes_withoutDisclosingImportState() {
             assertDeniedIncludes("medications", "_rx", true);
         }
 

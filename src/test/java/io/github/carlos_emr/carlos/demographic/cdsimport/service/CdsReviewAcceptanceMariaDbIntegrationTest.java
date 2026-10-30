@@ -207,7 +207,7 @@ class CdsReviewAcceptanceMariaDbIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"CORRECT_VALUE", "DECLINE_PATIENT", REVISION})
-    void shouldAcceptEveryExactSupportedKindThroughRealServiceAndMigratedOrm(String kind) throws Exception {
+    void shouldAcceptEveryExactSupportedKind_throughRealServiceAndMigratedOrm(String kind) throws Exception {
         Fixture fixture = stopped();
         String reviewId = reviews.accept(viewer, fixture.run(), command(fixture, kind, 0));
         assertThat(sql.queryForObject("SELECT kind FROM cds_import_review WHERE id=?", String.class, reviewId)).isEqualTo(kind);
@@ -222,7 +222,7 @@ class CdsReviewAcceptanceMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRollBackFlushedKindVersionAndAuditTogetherWhenStrictAuditFails() throws Exception {
+    void shouldRollBackFlushedKindVersionAndAuditTogether_whenStrictAuditFails() throws Exception {
         Fixture fixture = stopped();
         audit.failNextAfterFlush();
         CdsImportReviewCommand request = command(fixture, REVISION, 0);
@@ -235,7 +235,7 @@ class CdsReviewAcceptanceMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRejectStaleVersionWithoutReplacingAlreadyAcceptedExactKind() throws Exception {
+    void shouldRejectStaleVersion_withoutReplacingAlreadyAcceptedExactKind() throws Exception {
         Fixture fixture = stopped();
         CdsImportReviewCommand request = command(fixture, REVISION, 0);
         String reviewId = reviews.accept(viewer, fixture.run(), request);
@@ -247,7 +247,7 @@ class CdsReviewAcceptanceMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldReportARealAcceptanceRollbackAsUnconfirmedWithoutChangingReviewFlags() throws Exception {
+    void shouldReportRealAcceptanceRollbackAsUnconfirmed_withoutChangingReviewFlags() throws Exception {
         Fixture fixture = stopped();
         var evidence = new CdsImportFailureEvidenceService(jobs, context.getBean(CdsImportFileService.class));
         try (var facade = facade(evidence)) {
@@ -266,7 +266,7 @@ class CdsReviewAcceptanceMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldPreserveAcceptedReviewWhenCommitAcknowledgementIsLostAndNeverResubmit() throws Exception {
+    void shouldPreserveAcceptedReviewWithoutResubmit_whenCommitAcknowledgementIsLost() throws Exception {
         Fixture fixture = stopped();
         var evidence = new CdsImportFailureEvidenceService(jobs, context.getBean(CdsImportFileService.class));
         try (var facade = facade(evidence)) {
@@ -286,7 +286,7 @@ class CdsReviewAcceptanceMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldPreservePrimaryFailureWhenEvidenceDeliveryAlsoFails() throws Exception {
+    void shouldPreservePrimaryFailure_whenEvidenceDeliveryAlsoFails() throws Exception {
         Fixture fixture = stopped();
         var evidence = mock(CdsImportFailureEvidenceService.class);
         var unavailable = new IllegalStateException("Synthetic private evidence failure");

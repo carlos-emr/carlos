@@ -132,7 +132,7 @@ class CdsImportObservationServiceUnitTest {
         assertFalse(TransactionSynchronizationManager.isCurrentTransactionReadOnly());
     }
 
-    @Test void authorizedSummarySharesOneReadOnlyScopeAndKeepsPrivateBindingOutOfResponse() throws Exception {
+    @Test void shouldShareOneReadOnlyScopeForAuthorizedSummary_withPrivateBindingOutOfResponse() throws Exception {
         Map<String, Object> result=facade.summary(actor, "run");
         assertEquals(List.of("current-binding", "authorize-actor", "clinical-projection", "review-projection"), order);
         assertEquals(1, transactions.begins);
@@ -152,7 +152,7 @@ class CdsImportObservationServiceUnitTest {
         verify(reviews, never()).summary(anyString());
     }
 
-    @Test void wrongActorOrProviderIsDeniedBeforeAnyPrivateFileCanBeRead() throws Exception {
+    @Test void shouldDenyWrongActorOrProvider_beforeAnyPrivateFileRead() throws Exception {
         Files.delete(metadata);
         for (CdsImportActorDto denied : java.util.Arrays.asList(null,
                 new CdsImportActorDto("another-operator", "1", null, null, null, null),
@@ -166,7 +166,7 @@ class CdsImportObservationServiceUnitTest {
         verify(ledger, never()).authorizationStopped(anyString(), anyLong());
     }
 
-    @Test void changedJobBytesAreRejectedBeforeAuthorizationOrProjection() throws Exception {
+    @Test void shouldRejectChangedJobBytes_beforeAuthorizationOrProjection() throws Exception {
         Files.writeString(metadata, "private altered request");
         var failure=assertThrows(CdsImportException.class, () -> facade.summary(actor, "run"));
         assertEquals("JOB_DOCUMENT_HASH_MISMATCH", failure.getCode());
@@ -175,7 +175,7 @@ class CdsImportObservationServiceUnitTest {
         verify(ledger, never()).summaryInReadTransaction(anyString());
     }
 
-    @Test void actorDelegationSelectorsMustMatchTheProtectedDocumentBeforeRightsAreConsulted() throws Exception {
+    @Test void shouldRequireActorDelegationSelectorsToMatchProtectedDocument_beforeConsultingRights() throws Exception {
         var forged=new CdsImportActorDto("operator", "1", "1", 12, null, null);
         assertThrows(SecurityException.class, () -> facade.summary(forged, "run"));
         assertEquals(0, transactions.begins);
@@ -183,7 +183,7 @@ class CdsImportObservationServiceUnitTest {
         verify(ledger, never()).authorizationStopped(anyString(), anyLong());
     }
 
-    @Test void aDifferentCurrentOwnerCannotBeReportedAsTheOriginalActorsRevocation() throws Exception {
+    @Test void shouldNotReportDifferentCurrentOwner_asOriginalActorsRevocation() throws Exception {
         var before=current.get().job();
         var other=new CdsImportJobDto(before.id(), "other-operator", before.providerNo(), before.sourceNamespace(),
                 before.profile(), before.state(), before.sourceDigest(), before.optionsDigest(), before.rulesetDigest(),
@@ -198,7 +198,7 @@ class CdsImportObservationServiceUnitTest {
         verify(ledger, never()).authorizationStopped(anyString(), anyLong());
     }
 
-    @Test void privateMetadataCapacityRemainsBoundedBeforeAuthorization() throws Exception {
+    @Test void shouldBoundPrivateMetadataCapacity_beforeAuthorization() throws Exception {
         writeDocument(new byte[65537]);
         var failure=assertThrows(CdsImportException.class, () -> facade.summary(actor, "run"));
         assertEquals("JOB_METADATA_CAPACITY_EXCEEDED", failure.getCode());
@@ -206,7 +206,7 @@ class CdsImportObservationServiceUnitTest {
         verifyNoInteractions(access, reviews);
     }
 
-    @Test void malformedButHashNamedJobIsRejectedBeforeReadScope() throws Exception {
+    @Test void shouldRejectMalformedHashNamedJob_beforeReadScope() throws Exception {
         writeDocument("{malformed".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         assertThrows(java.io.IOException.class, () -> facade.summary(actor, "run"));
         assertEquals(0, transactions.begins);
@@ -215,7 +215,7 @@ class CdsImportObservationServiceUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings={"operator", "provider", "namespace", "profile", "ruleset", "root"})
-    void validlyHashedDocumentMustMatchItsAcceptedBinding(String changed) throws Exception {
+    void shouldRequireValidlyHashedDocument_toMatchAcceptedBinding(String changed) throws Exception {
         var otherActor="operator".equals(changed)
                 ? new CdsImportActorDto("another-operator", "1", null, null, null, null) : actor;
         var otherCommand=new CdsImportCommand(command.input(), command.submissionKey(),
@@ -234,7 +234,7 @@ class CdsImportObservationServiceUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings={"run", "location", "source", "options", "ruleset", "namespace", "profile"})
-    void aCurrentImmutableBindingChangeCannotUseAnEarlierContext(String changed) throws Exception {
+    void shouldRefuseEarlierContext_afterCurrentImmutableBindingChange(String changed) throws Exception {
         var context=jobs.loadContext(prefetched.get());
         var before=prefetched.get().job();
         var altered=new CdsImportJobDto("run".equals(changed) ? "other-run" : before.id(), before.operator(), before.providerNo(),
@@ -254,7 +254,7 @@ class CdsImportObservationServiceUnitTest {
         verify(ledger, never()).summaryInReadTransaction(anyString());
     }
 
-    @Test void currentMutableRunStateAndEpochAreReadInsteadOfPrefetchedState() throws Exception {
+    @Test void shouldReadCurrentMutableRunStateAndEpoch_insteadOfPrefetchedState() throws Exception {
         current.set(new CdsImportJobBindingDto(job("COMPLETE", 8, true), metadata.toString()));
         projection.set(Map.of("state", "COMPLETE", "cancelRequested", true,
                 "operationTerminal", true, "cleanComplete", true));
@@ -266,7 +266,7 @@ class CdsImportObservationServiceUnitTest {
         verify(access).context(actor, command, null);
     }
 
-    @Test void validatedJobContextCannotRedirectAnotherRunsWorkOrValuePublication() throws Exception {
+    @Test void shouldNotRedirectAnotherRunsWorkOrValuePublication_fromValidatedJobContext() throws Exception {
         var context=jobs.loadContext(prefetched.get());
         var planning=mock(CdsImportPlanningService.class, CALLS_REAL_METHODS);
         var control=mock(CdsImportExecutionControl.class);
@@ -276,7 +276,7 @@ class CdsImportObservationServiceUnitTest {
         verify(control, never()).check(anyBoolean());
     }
 
-    @Test void everyRequestReauthorizesAndRevocationWritesOnlyAfterReadRollback() throws Exception {
+    @Test void shouldReauthorizeEveryRequest_withRevocationWrittenOnlyAfterReadRollback() throws Exception {
         facade.summary(actor, "run");
         SecurityException revoked=new SecurityException("private revoked detail");
         doThrow(revoked).when(access).context(actor, command, null);
@@ -301,7 +301,7 @@ class CdsImportObservationServiceUnitTest {
         assertEquals("durable-revocation", order.getLast());
     }
 
-    @Test void webDenialPrecedesAggregatesAndNeverReadsPrivateJobMetadata() throws Exception {
+    @Test void shouldDenyWebRequestBeforeAggregates_withoutReadingPrivateJobMetadata() throws Exception {
         Files.delete(metadata);
         LoggedInInfo viewer=mock(LoggedInInfo.class);
         SecurityException denied=new SecurityException("viewer denied");
@@ -315,7 +315,7 @@ class CdsImportObservationServiceUnitTest {
         assertEquals(1, transactions.rollbacks);
     }
 
-    @Test void authorizedWebSummaryNeedsNoPrivateJobFileAndUsesFreshRightsEachTime() throws Exception {
+    @Test void shouldServeAuthorizedWebSummaryWithoutPrivateJobFile_usingFreshRightsEachTime() throws Exception {
         Files.delete(metadata);
         LoggedInInfo viewer=mock(LoggedInInfo.class);
         assertEquals("READY", facade.summary(viewer, "run").get("state"));
@@ -326,7 +326,7 @@ class CdsImportObservationServiceUnitTest {
         assertEquals(2, transactions.commits);
     }
 
-    @Test void compositeStatusReturnsTheAuthorizedCurrentJobAndSummaryWithoutPrivateFileIo() throws Exception {
+    @Test void shouldReturnAuthorizedCurrentJobAndSummaryInCompositeStatus_withoutPrivateFileIo() throws Exception {
         Files.delete(metadata);
         transactions.expectedIsolation=TransactionDefinition.ISOLATION_REPEATABLE_READ;
         LoggedInInfo viewer=mock(LoggedInInfo.class);
@@ -353,7 +353,7 @@ class CdsImportObservationServiceUnitTest {
         verify(ledger, never()).summary(anyString());
     }
 
-    @Test void compositeStatusDenialPrecedesEveryAggregateAndReturnsNoJob() throws Exception {
+    @Test void shouldDenyCompositeStatusBeforeEveryAggregate_withNoJobReturned() throws Exception {
         Files.delete(metadata);
         transactions.expectedIsolation=TransactionDefinition.ISOLATION_REPEATABLE_READ;
         LoggedInInfo viewer=mock(LoggedInInfo.class);
@@ -366,7 +366,7 @@ class CdsImportObservationServiceUnitTest {
         assertEquals(1, transactions.rollbacks);
     }
 
-    @Test void observationRefusesAnAmbientTransactionBeforeAnyProtectedRead() {
+    @Test void shouldRefuseAmbientTransaction_beforeAnyProtectedRead() {
         TransactionSynchronizationManager.setActualTransactionActive(true);
         TransactionSynchronizationManager.setCurrentTransactionReadOnly(true);
         try {
@@ -382,7 +382,7 @@ class CdsImportObservationServiceUnitTest {
         }
     }
 
-    @Test void legacyFacadeUsesTheRealRequiredManagerAndMissingManagerCannotSilentlyFallBack() throws Exception {
+    @Test void shouldUseRealRequiredManagerInLegacyFacade_withoutSilentFallbackWhenMissing() throws Exception {
         when(ledger.observationTransactionManager()).thenReturn(transactions);
         CdsImportService legacy=new CdsImportService(ledger, jobs, mock(CdsImportExecutionService.class),
                 mock(CdsImportResultService.class), access, configuration, mock(CdsImportCleanupService.class), reviews,

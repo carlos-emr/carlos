@@ -44,7 +44,7 @@ import static org.mockito.Mockito.*;
 class CdsImportExecutionControlUnitTest {
     private static final CdsImportControlDto VALID = new CdsImportControlDto(true,true,7,false,true);
 
-    @Test void allFieldAndFileReadsShareOnePoll_andForcedBoundariesAreAlwaysFresh() throws Exception {
+    @Test void shouldShareOnePollAcrossFieldAndFileReads_withForcedBoundariesAlwaysFresh() throws Exception {
         var clock=new AtomicLong();var fields=new CdsFieldParser();var owner=owner();
         try(var scope=scope(owner,fields,clock,10000,()->{})) {
             for(int index=0;index<100;index++){fields.checkpoint();scope.check(false);}
@@ -72,7 +72,7 @@ class CdsImportExecutionControlUnitTest {
         }
     }
 
-    @Test void everyBoundedFieldReadChecksOverallBudget_evenBeforeNextSqlPoll() throws Exception {
+    @Test void shouldCheckOverallBudgetOnEveryBoundedFieldRead_evenBeforeNextSqlPoll() throws Exception {
         var clock=new AtomicLong();var fields=new CdsFieldParser();var owner=owner();
         var budgets=new AtomicInteger();
         try(var scope=scope(owner,fields,clock,10000,()->{
@@ -84,7 +84,7 @@ class CdsImportExecutionControlUnitTest {
         }
     }
 
-    @Test void everyBoundedFieldReadChecksStageBudget_andSqlCannotHideADeadline() throws Exception {
+    @Test void shouldCheckStageBudgetOnEveryBoundedFieldRead_withoutSqlHidingDeadline() throws Exception {
         var clock=new AtomicLong();var fields=new CdsFieldParser();var owner=owner();
         try(var scope=scope(owner,fields,clock,100,()->{})) {
             clock.set(100_000_000);
@@ -96,7 +96,7 @@ class CdsImportExecutionControlUnitTest {
         assertThatThrownBy(()->scope(owner,fields,clock,100,()->{})).hasMessage("IMPORT_FILE_VERIFICATION_TIMEOUT");
     }
 
-    @Test void failedConstructionPreservesThePreviousScope_andNeverRegistersABrokenOne() throws Exception {
+    @Test void shouldPreservePreviousScopeOnFailedConstruction_withoutRegisteringBrokenOne() throws Exception {
         var fields=new CdsFieldParser();var previous=new AtomicInteger();var owner=owner();
         when(owner.control("run")).thenReturn(null);
         try(var prior=fields.control(previous::incrementAndGet)) {
@@ -106,7 +106,7 @@ class CdsImportExecutionControlUnitTest {
         fields.checkpoint();assertThat(previous).hasValue(1);
     }
 
-    @Test void missingOrChangedOwnershipAndCancellationCannotBecomeACachedSuccess() throws Exception {
+    @Test void shouldNeverCacheSuccess_whenOwnershipChangesOrCancellationArrives() throws Exception {
         var values=new CdsImportControlDto[]{new CdsImportControlDto(false,true,7,false,true),
             new CdsImportControlDto(true,false,-1,false,false),new CdsImportControlDto(true,true,8,false,true),
             new CdsImportControlDto(true,true,7,false,false),new CdsImportControlDto(true,true,7,true,true)};
@@ -123,7 +123,7 @@ class CdsImportExecutionControlUnitTest {
         }
     }
 
-    @Test void interruptAndScopeLifetimeRefuseWorkWithoutAnotherSqlRead() throws Exception {
+    @Test void shouldRefuseWorkOnInterruptOrScopeEnd_withoutAnotherSqlRead() throws Exception {
         var owner=owner();var fields=new CdsFieldParser();
         var scope=scope(owner,fields,new AtomicLong(),10000,()->{});
         try {
@@ -134,7 +134,7 @@ class CdsImportExecutionControlUnitTest {
         verify(owner,times(1)).control("run");
     }
 
-    @Test void monotonicElapsedPollingWorksAcrossNegativeValuesAndNanoTimeWrap() throws Exception {
+    @Test void shouldPollMonotonicElapsed_acrossNegativeValuesAndNanoTimeWrap() throws Exception {
         for(long initial:new long[]{-1_000_000_000L,Long.MAX_VALUE-100_000_000L}) {
             var clock=new AtomicLong(initial);var owner=owner();var fields=new CdsFieldParser();
             try(var scope=scope(owner,fields,clock,10000,()->{})) {
@@ -144,7 +144,7 @@ class CdsImportExecutionControlUnitTest {
         }
     }
 
-    @Test void acceptedSnapshotAndPlanningShareOneBoundProbe_withoutFullStatusPolling(
+    @Test void shouldShareOneBoundProbeAcrossAcceptedSnapshotAndPlanning_withoutFullStatusPolling(
             @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
         var f=planning(temp,2L<<20);var clock=new AtomicLong();var owner=owner();var checks=new AtomicInteger();
         try(var control=scope(owner,f.fields,clock,10000,checks::incrementAndGet)) {
@@ -159,7 +159,7 @@ class CdsImportExecutionControlUnitTest {
         }
     }
 
-    @Test void snapshotPlanningAndPublicationRejectForeignOrClosedBindings_beforeAnyDataAccess(
+    @Test void shouldRejectForeignOrClosedBindingsInSnapshotPlanningAndPublication_beforeAnyDataAccess(
             @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
         var f=planning(temp,0);var control=scope(owner(),f.fields,new AtomicLong(),10000,()->{});
         clearInvocations(f.ledger,f.files);
@@ -178,7 +178,7 @@ class CdsImportExecutionControlUnitTest {
         assertThat(Files.exists(f.document.jobRoot().resolve("planning.lock"))).isFalse();
     }
 
-    @Test void aChangedDurableSnapshotEpochRemainsAnOwnerFence_insteadOfACallerBindingError(
+    @Test void shouldTreatChangedDurableSnapshotEpochAsOwnerFence_insteadOfCallerBindingError(
             @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
         var f=planning(temp,0);var previous=f.ledger.status("run");
         when(f.ledger.status("run")).thenReturn(new CdsImportJobDto(previous.id(),previous.operator(),previous.providerNo(),
@@ -190,7 +190,7 @@ class CdsImportExecutionControlUnitTest {
         verify(f.snapshots,never()).load(any(),anyBoolean(),any(),any());
     }
 
-    @Test void coordinatorFailuresDuringActualPlanningValidationRemainOperational_andCannotSealAsClinicalReview(
+    @Test void shouldTreatPlanningCoordinatorFailureAsOperational_insteadOfSealingClinicalReview(
             @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
         for(String code:new String[]{"IMPORT_COORDINATOR_LOST","IMPORT_CONTROL_UNAVAILABLE"}) {
             var f=planning(Files.createDirectory(temp.resolve(code)),0);var owner=owner();var clock=new AtomicLong();
@@ -205,7 +205,7 @@ class CdsImportExecutionControlUnitTest {
         }
     }
 
-    @Test void actualXmlReadsCheckTheOverallBudgetBeforeTheNextSqlPoll_andCannotPublishAParseSeal(
+    @Test void shouldCheckOverallBudgetOnActualXmlReadsBeforeNextSqlPoll_withoutPublishingParseSeal(
             @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
         var f=planning(temp,0);var owner=owner();var clock=new AtomicLong();var reads=new AtomicInteger();
         try(var control=scope(owner,f.fields,clock,10000,()->{
@@ -220,7 +220,7 @@ class CdsImportExecutionControlUnitTest {
         }
     }
 
-    @Test void actualSnapshotHashReadsCheckTheOverallBudgetBeforeTheNextSqlPoll(
+    @Test void shouldCheckOverallBudgetOnActualSnapshotHashReads_beforeNextSqlPoll(
             @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
         var f=planning(temp,8L<<20);var owner=owner();var clock=new AtomicLong();var checks=new AtomicInteger();
         try(var control=scope(owner,f.fields,clock,10000,()->{
@@ -233,7 +233,7 @@ class CdsImportExecutionControlUnitTest {
         assertThat(new CdsSnapshotService().load(f.snapshot.root())).isEqualTo(f.snapshot);
     }
 
-    @Test void actualSnapshotCopyDeadlineRetainsPartialBytes_withoutPublishingAnImmutableSnapshot(
+    @Test void shouldRetainPartialBytesOnSnapshotCopyDeadline_withoutPublishingImmutableSnapshot(
             @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
         var f=planning(temp,2L<<20);Path target=Files.createDirectory(temp.resolve("copy-job"));
         var owner=owner();var fields=new CdsFieldParser();var clock=new AtomicLong();
@@ -257,7 +257,7 @@ class CdsImportExecutionControlUnitTest {
         assertThat(Files.size(f.source.getParent().resolve("blob.bin"))).isEqualTo(2L<<20);
     }
 
-    @Test void publicationSharesTheBoundProbeAndSameEpochBlobProof_butRehashesAfterAnEpochChange(
+    @Test void shouldShareBoundProbeAndSameEpochBlobProofInPublication_butRehashAfterEpochChange(
             @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
         var f=planning(temp,0);var work=publication(f,temp);var owner=owner();var clock=new AtomicLong();
         Set<String> verified=new HashSet<>();
@@ -279,7 +279,7 @@ class CdsImportExecutionControlUnitTest {
         verify(f.files,never()).publishedVerified(eq("run"),eq(8L),anyString(),anyString(),anyLong());
     }
 
-    @Test void publicationCannotWriteADurableVerificationProof_afterALocalReadDeadline(
+    @Test void shouldRefuseDurableVerificationProofInPublication_afterLocalReadDeadline(
             @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
         var f=planning(temp,0);var work=publication(f,temp);var owner=owner();var clock=new AtomicLong();var checks=new AtomicInteger();
         try(var control=scope(owner,f.fields,clock,10000,()->{
@@ -292,7 +292,7 @@ class CdsImportExecutionControlUnitTest {
         verify(f.ledger,never()).status("run");
     }
 
-    @Test void missingLowLevelCallbacksAreRejectedBeforeAnyFilesystemAccess() {
+    @Test void shouldRejectMissingLowLevelCallbacks_beforeAnyFilesystemAccess() {
         var snapshots=new CdsSnapshotService();
         assertThatThrownBy(()->snapshots.load(null,true,()->false,null)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(()->snapshots.snapshot(null,null,null,"unused",CdsInputLimitsDto.defaults(),()->false,null))
@@ -301,21 +301,21 @@ class CdsImportExecutionControlUnitTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    @Test void sourceClassificationStopsWithinAValidCommentAndPiPrefix_beforeTheRootOrSnapshotSeal(
+    @Test void shouldStopSourceClassificationWithinValidCommentAndPiPrefix_beforeRootOrSnapshotSeal(
             @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
         for(boolean cancellation:new boolean[]{false,true}) {
             markupStop(Files.createDirectory(temp.resolve("prefix-"+cancellation)),true,cancellation);
         }
     }
 
-    @Test void attachmentDiscoveryStopsWithinAValidCommentAndPiSuffix_beforeEofAndSnapshotSeal(
+    @Test void shouldStopAttachmentDiscoveryWithinValidCommentAndPiSuffix_beforeEofAndSnapshotSeal(
             @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
         for(boolean cancellation:new boolean[]{false,true}) {
             markupStop(Files.createDirectory(temp.resolve("suffix-"+cancellation)),false,cancellation);
         }
     }
 
-    @Test void checkedCancellationDuringClassificationIsNotSwallowedAsAnXmlCandidate(
+    @Test void shouldNotSwallowCheckedCancellationAsXmlCandidate_duringClassification(
             @org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
         Path xml=markupSource(temp,true);Path durable=Files.createDirectory(temp.resolve("job"));
         Path pending=durable.resolve("stopped.pending");Path copied=pending.resolve("members/000000000001.bin");

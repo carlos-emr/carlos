@@ -58,11 +58,11 @@ class CdsClinicalReadAccessUnitTest extends CarlosUnitTestBase {
         when(security.isAllowedAccessToPatientRecord(any(),eq(123))).thenReturn(false);
         assertThatThrownBy(()->access.requireClinicalRead(actor,123,"MedicationsAndTreatments")).isInstanceOf(SecurityException.class);
     }
-    @Test void shouldRefuseCategoryWithoutItsDomainReadPrivilege(){
+    @Test void shouldRefuseCategory_withoutItsDomainReadPrivilege(){
         assertThatThrownBy(()->access.requireClinicalRead(actor,123,"LaboratoryResults")).isInstanceOf(SecurityException.class);
         assertThatThrownBy(()->access.requireClinicalRead(actor,123,"../../etc/passwd")).hasMessage("IMPORT_CATEGORY_INVALID");
     }
-    @Test void shouldRecheckCurrentAccountProviderAndExpiration(){
+    @Test void shouldRecheckProviderAndExpiration_forCurrentAccount(){
         when(actor.getLoggedInProviderNo()).thenReturn("999997");
         assertThatThrownBy(()->access.requireClinicalRead(actor,123,"MedicationsAndTreatments")).isInstanceOf(SecurityException.class);
         when(actor.getLoggedInProviderNo()).thenReturn("999998");account.setBExpireset(1);account.setDateExpiredate(new Date(0));

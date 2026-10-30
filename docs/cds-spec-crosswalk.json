@@ -8,7 +8,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:DateActive#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -22,7 +22,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:DateActive#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -36,7 +36,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:DateActive#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -60,7 +60,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:EndDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -74,7 +74,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:EndDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -88,7 +88,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:AlertsAndSpecialNeeds/cds:EndDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -112,7 +112,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:RecordedDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
@@ -129,7 +129,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:RecordedDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
@@ -146,7 +146,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:RecordedDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
@@ -163,7 +163,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:RecordedDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[4]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
@@ -190,7 +190,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:StartDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
@@ -207,7 +207,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:StartDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
@@ -224,7 +224,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:StartDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
@@ -251,7 +251,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Appointments/cds:AppointmentDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAppointmentStorageMariaDbIntegrationTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java"
@@ -267,7 +267,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Appointments/cds:AppointmentDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAppointmentStorageMariaDbIntegrationTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java"
@@ -283,7 +283,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Appointments/cds:AppointmentDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAppointmentStorageMariaDbIntegrationTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java"
@@ -309,7 +309,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ClinicalNotes/cds:EventDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryVisibilityMariaDbIntegrationTest.java"
@@ -325,7 +325,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ClinicalNotes/cds:EventDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryVisibilityMariaDbIntegrationTest.java"
@@ -341,7 +341,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ClinicalNotes/cds:EventDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryVisibilityMariaDbIntegrationTest.java"
@@ -357,7 +357,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ClinicalNotes/cds:EventDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[4]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryVisibilityMariaDbIntegrationTest.java"
@@ -383,7 +383,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ClinicalNotes/cds:NoteReviewer/cds:DateTimeNoteReviewed#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -397,7 +397,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ClinicalNotes/cds:NoteReviewer/cds:DateTimeNoteReviewed#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -411,7 +411,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ClinicalNotes/cds:NoteReviewer/cds:DateTimeNoteReviewed#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -425,7 +425,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ClinicalNotes/cds:NoteReviewer/cds:DateTimeNoteReviewed#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[4]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -449,7 +449,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ClinicalNotes/cds:ParticipatingProviders/cds:DateTimeNoteCreated#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -463,7 +463,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ClinicalNotes/cds:ParticipatingProviders/cds:DateTimeNoteCreated#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -477,7 +477,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ClinicalNotes/cds:ParticipatingProviders/cds:DateTimeNoteCreated#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -491,7 +491,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ClinicalNotes/cds:ParticipatingProviders/cds:DateTimeNoteCreated#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[4]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -515,7 +515,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:Address#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[1]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
@@ -531,7 +531,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:Address#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[1]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
@@ -559,7 +559,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:Address/dt:Structured/dt:PostalZipCode#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[15]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
@@ -575,7 +575,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:Address/dt:Structured/dt:PostalZipCode#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[15]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
@@ -601,7 +601,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:Contact/cds:ContactPurpose#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[13]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCareContactUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -617,7 +617,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:Contact/cds:ContactPurpose#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[13]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCareContactUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -643,7 +643,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:Contact/cds:PhoneNumber#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[14]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCareContactUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -659,7 +659,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:Contact/cds:PhoneNumber#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[14]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCareContactUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -685,7 +685,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:PersonStatusCode#EMR_Data_Migration_Schema.xsd/schema/element[3]/complexType[1]/sequence[1]/element[16]/complexType[1]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
@@ -701,7 +701,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:PersonStatusCode#EMR_Data_Migration_Schema.xsd/schema/element[3]/complexType[1]/sequence[1]/element[16]/complexType[1]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
@@ -727,7 +727,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:PhoneNumber#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[14]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
@@ -743,7 +743,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:PhoneNumber#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[14]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
@@ -769,7 +769,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:PreferredPharmacy/cds:Address#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[1]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
@@ -785,7 +785,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:PreferredPharmacy/cds:Address#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[1]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
@@ -813,7 +813,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:PreferredPharmacy/cds:Address/dt:Structured/dt:PostalZipCode#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[15]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
@@ -829,7 +829,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:PreferredPharmacy/cds:Address/dt:Structured/dt:PostalZipCode#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[15]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
@@ -855,7 +855,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:PreferredPharmacy/cds:FaxNumber#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[14]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
@@ -871,7 +871,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:PreferredPharmacy/cds:FaxNumber#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[14]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
@@ -897,7 +897,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:PreferredPharmacy/cds:PhoneNumber#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[14]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
@@ -913,7 +913,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Demographics/cds:PreferredPharmacy/cds:PhoneNumber#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[14]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java"
@@ -939,7 +939,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:StartDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -953,7 +953,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:StartDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -967,7 +967,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:FamilyHistory/cds:StartDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -991,7 +991,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Immunizations/cds:Date#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1007,7 +1007,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Immunizations/cds:Date#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1023,7 +1023,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Immunizations/cds:Date#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1039,7 +1039,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Immunizations/cds:Date#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[4]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1065,7 +1065,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Immunizations/cds:RefusedFlag#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[20]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1081,7 +1081,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Immunizations/cds:RefusedFlag#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[20]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1107,7 +1107,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:LaboratoryResults/cds:CollectionDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportServiceUnitTest.java"
@@ -1123,7 +1123,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:LaboratoryResults/cds:CollectionDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportServiceUnitTest.java"
@@ -1139,7 +1139,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:LaboratoryResults/cds:CollectionDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportServiceUnitTest.java"
@@ -1155,7 +1155,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:LaboratoryResults/cds:CollectionDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[4]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportServiceUnitTest.java"
@@ -1181,7 +1181,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:LaboratoryResults/cds:LabRequisitionDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportServiceUnitTest.java"
@@ -1197,7 +1197,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:LaboratoryResults/cds:LabRequisitionDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportServiceUnitTest.java"
@@ -1213,7 +1213,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:LaboratoryResults/cds:LabRequisitionDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportServiceUnitTest.java"
@@ -1229,7 +1229,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:LaboratoryResults/cds:LabRequisitionDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[4]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportServiceUnitTest.java"
@@ -1255,7 +1255,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:LaboratoryResults/cds:ReferenceRange#EMR_Data_Migration_Schema.xsd/schema/element[12]/complexType[1]/sequence[1]/element[7]/complexType[1]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportServiceUnitTest.java"
@@ -1271,7 +1271,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:LaboratoryResults/cds:ReferenceRange#EMR_Data_Migration_Schema.xsd/schema/element[12]/complexType[1]/sequence[1]/element[7]/complexType[1]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportServiceUnitTest.java"
@@ -1297,7 +1297,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:LaboratoryResults/cds:ResultNormalAbnormalFlag#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[17]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportServiceUnitTest.java"
@@ -1313,7 +1313,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:LaboratoryResults/cds:ResultNormalAbnormalFlag#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[17]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportServiceUnitTest.java"
@@ -1339,7 +1339,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:LaboratoryResults/cds:ResultReviewer/cds:DateTimeResultReviewed#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1353,7 +1353,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:LaboratoryResults/cds:ResultReviewer/cds:DateTimeResultReviewed#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1367,7 +1367,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:LaboratoryResults/cds:ResultReviewer/cds:DateTimeResultReviewed#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1381,7 +1381,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:LaboratoryResults/cds:ResultReviewer/cds:DateTimeResultReviewed#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[4]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1405,7 +1405,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:MedicationsAndTreatments/cds:LongTermMedication#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[20]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1421,7 +1421,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:MedicationsAndTreatments/cds:LongTermMedication#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[20]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1447,7 +1447,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:MedicationsAndTreatments/cds:PastMedications#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[20]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1463,7 +1463,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:MedicationsAndTreatments/cds:PastMedications#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[20]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1489,7 +1489,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:MedicationsAndTreatments/cds:PatientCompliance#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[20]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1505,7 +1505,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:MedicationsAndTreatments/cds:PatientCompliance#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[20]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1531,7 +1531,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:MedicationsAndTreatments/cds:PrescriptionWrittenDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1547,7 +1547,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:MedicationsAndTreatments/cds:PrescriptionWrittenDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1563,7 +1563,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:MedicationsAndTreatments/cds:PrescriptionWrittenDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1579,7 +1579,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:MedicationsAndTreatments/cds:PrescriptionWrittenDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[4]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1605,7 +1605,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:MedicationsAndTreatments/cds:StartDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1621,7 +1621,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:MedicationsAndTreatments/cds:StartDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1637,7 +1637,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:MedicationsAndTreatments/cds:StartDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java"
@@ -1663,7 +1663,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:OnsetOrEventDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1677,7 +1677,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:OnsetOrEventDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1691,7 +1691,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:OnsetOrEventDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1715,7 +1715,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ProcedureDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1729,7 +1729,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ProcedureDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1743,7 +1743,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ProcedureDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1767,7 +1767,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ResolvedDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1781,7 +1781,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ResolvedDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1795,7 +1795,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:PastHealth/cds:ResolvedDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1819,7 +1819,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:OnsetDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1833,7 +1833,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:OnsetDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1847,7 +1847,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:OnsetDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1871,7 +1871,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ResolutionDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1885,7 +1885,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ResolutionDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1899,7 +1899,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:ProblemList/cds:ResolutionDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -1923,7 +1923,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:Content#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[16]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDocumentPublicationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaUnitTest.java",
@@ -1940,7 +1940,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:Content#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[16]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDocumentPublicationServiceUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaUnitTest.java",
@@ -1967,7 +1967,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:EventDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportStorageMariaDbIntegrationTest.java"
@@ -1983,7 +1983,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:EventDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportStorageMariaDbIntegrationTest.java"
@@ -1999,7 +1999,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:EventDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportStorageMariaDbIntegrationTest.java"
@@ -2015,7 +2015,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:EventDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[4]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportStorageMariaDbIntegrationTest.java"
@@ -2041,7 +2041,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:OBRContent/cds:ObservationDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -2055,7 +2055,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:OBRContent/cds:ObservationDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -2069,7 +2069,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:OBRContent/cds:ObservationDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -2083,7 +2083,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:OBRContent/cds:ObservationDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[4]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -2107,7 +2107,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:ReceivedDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportStorageMariaDbIntegrationTest.java"
@@ -2123,7 +2123,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:ReceivedDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportStorageMariaDbIntegrationTest.java"
@@ -2139,7 +2139,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:ReceivedDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportStorageMariaDbIntegrationTest.java"
@@ -2155,7 +2155,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:ReceivedDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[4]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportStorageMariaDbIntegrationTest.java"
@@ -2181,7 +2181,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:ReportReviewed/cds:DateTimeReportReviewed#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -2195,7 +2195,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:ReportReviewed/cds:DateTimeReportReviewed#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -2209,7 +2209,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:ReportReviewed/cds:DateTimeReportReviewed#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -2233,7 +2233,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:SentDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportStorageMariaDbIntegrationTest.java"
@@ -2249,7 +2249,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:SentDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportStorageMariaDbIntegrationTest.java"
@@ -2265,7 +2265,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:SentDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportStorageMariaDbIntegrationTest.java"
@@ -2281,7 +2281,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:SentDateTime#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[6]/choice[1]/arm[4]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportStorageMariaDbIntegrationTest.java"
@@ -2307,7 +2307,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:SourceAuthorPhysician#EMR_Data_Migration_Schema.xsd/schema/element[15]/complexType[1]/sequence[1]/element[10]/complexType[1]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportStorageMariaDbIntegrationTest.java"
@@ -2323,7 +2323,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:Reports/cds:SourceAuthorPhysician#EMR_Data_Migration_Schema.xsd/schema/element[15]/complexType[1]/sequence[1]/element[10]/complexType[1]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaUnitTest.java",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportStorageMariaDbIntegrationTest.java"
@@ -2349,7 +2349,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:EndDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -2363,7 +2363,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:EndDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -2377,7 +2377,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:EndDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -2401,7 +2401,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:StartDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[1]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -2415,7 +2415,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:StartDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[2]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -2429,7 +2429,7 @@
           "id": "/cds:OmdCds/cds:PatientRecord/cds:RiskFactors/cds:StartDate#EMR_Data_Migration_Schema_DT.xsd/schema/complexType[5]/choice[1]/arm[3]",
           "review": {
             "evidence": [
-              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttributeThroughTheRealParser",
+              "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/spec/CdsSpecificationCrosswalkUnitTest.java#shouldValidateAndPreserveEveryFixtureLeafAndAttribute_throughRealParser",
               "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java"
             ],
             "evidenceScope": "The synthetic fixture is pinned-XSD valid and verifies every emitted original field/namespace/type-whitespace/hash through the real parser. Referenced component/native suites provide example semantic projection/refusal evidence for these groups, not a native assertion for every path or lexical value.",
@@ -38051,7 +38051,7 @@
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalReadServiceUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalUnitTest.java",
-          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalPersisterUnitTest.java#completePreflightRefusesUnrepresentableNativeDates_beforeAnyClinicalDaoWrite",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalPersisterUnitTest.java#shouldRefuseUnrepresentableNativeDatesInCompletePreflight_beforeAnyClinicalDaoWrite",
           "src/test/java/io/github/carlos_emr/carlos/webserv/rest/DemographicServiceUnitTest.java"
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
@@ -38779,8 +38779,8 @@
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java",
           "src/test/java/io/github/carlos_emr/carlos/prevention/PreventionPrecisionRulesUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalUnitTest.java",
-          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalPersisterUnitTest.java#completePreflightRefusesUnrepresentableNativeDates_beforeAnyClinicalDaoWrite",
-          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java#earlyCivilDatesAndTheirRecordedPrecisionSurviveTheNativeImmunizationWriter"
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalPersisterUnitTest.java#shouldRefuseUnrepresentableNativeDatesInCompletePreflight_beforeAnyClinicalDaoWrite",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java#shouldPreserveEarlyCivilDatesAndRecordedPrecision_throughNativeImmunizationWriter"
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
@@ -39232,7 +39232,7 @@
           "src/test/java/io/github/carlos_emr/carlos/form/pageUtil/FrmFormPatientIsolationUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayRx2ActionTitleUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalUnitTest.java",
-          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalPersisterUnitTest.java#completePreflightRefusesUnrepresentableNativeDates_beforeAnyClinicalDaoWrite",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalPersisterUnitTest.java#shouldRefuseUnrepresentableNativeDatesInCompletePreflight_beforeAnyClinicalDaoWrite",
           "src/test/java/io/github/carlos_emr/carlos/webserv/rest/DemographicServiceUnitTest.java"
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
@@ -39740,7 +39740,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described.",
-    "sha256": "ce87fc2d2664d8984ae2a1b8ed6ecb2210ed50264c2d72fe98c773c17614de74"
+    "sha256": "8fb19088186a09d622fbde775ded2d3be9cd9053dc90eb550f3b1949b91a0a1f"
   },
   "root": "cds:OmdCds",
   "schemas": [

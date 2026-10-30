@@ -134,7 +134,7 @@ class CdsPreacceptServiceUnitTest {
     }
 
     @Test @Timeout(value=10,threadMode=Timeout.ThreadMode.SEPARATE_THREAD)
-    void shouldTimeOutOnCrossProcessIndexLock_withoutChangingCommittedIndex_andRetrySameJournal() throws Exception {
+    void shouldTimeOutOnCrossProcessIndexLock_withoutChangingCommittedIndexAndRetrySameJournal() throws Exception {
         Fixture first=fixture("prior",200);create(first,1);Fixture next=sibling(first,"contended");
         Path index=first.staging.resolve(".preaccept-index.jsonl"),seal=first.staging.resolve(".preaccept-index.seal");
         byte[] indexBefore=Files.readAllBytes(index),sealBefore=Files.readAllBytes(seal);

@@ -42,7 +42,7 @@ class CdsWebErrorProjectionUnitTest {
         assertThat(response.getStatus()).isEqualTo(503);
         assertThat(response.getContentAsString()).contains("IMPORT_REQUEST_UNAVAILABLE").doesNotContain("SECRET_SOURCE_VALUE");
     }
-    @Test void shouldKeepUnclassifiedWrapperDetailsPrivate() throws Exception {
+    @Test void shouldKeepUnclassifiedWrapperDetailsPrivate_whenProjectingFailure() throws Exception {
         var response=new MockHttpServletResponse();CdsWeb.failure(response,new RuntimeException("/private/path",new CdsImportException("OWNER_FENCED")));
         assertThat(response.getStatus()).isEqualTo(503);
         assertThat(response.getContentAsString()).doesNotContain("/private","OWNER_FENCED");

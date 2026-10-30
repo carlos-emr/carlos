@@ -41,7 +41,7 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CdsCategoryProjectionBoundaryUnitTest {
-    @Test void rxAuthorizationPrecedesTheProtectedRepresentationQuery() {
+    @Test void shouldAuthorizeRx_beforeProtectedRepresentationQuery() {
         LoggedInInfo info = new LoggedInInfo();
         CdsLegacyProjectionDao records = mock(CdsLegacyProjectionDao.class);
         SecurityInfoManager security = mock(SecurityInfoManager.class);
@@ -53,7 +53,7 @@ class CdsCategoryProjectionBoundaryUnitTest {
         assertThrows(AccessDeniedException.class, () -> service.getAllDrugs(42));
         verifyNoInteractions(records, rx);
     }
-    @Test void authorizedRxProjectionRefusesBeforeReturningANativeSubset() {
+    @Test void shouldRefuseAuthorizedRxProjection_beforeReturningNativeSubset() {
         LoggedInInfo info = new LoggedInInfo();
         CdsLegacyProjectionDao records = mock(CdsLegacyProjectionDao.class);
         when(records.hasSourceFields(42, Set.of("MedicationsAndTreatments"))).thenReturn(true);
@@ -67,7 +67,7 @@ class CdsCategoryProjectionBoundaryUnitTest {
         var failure = assertThrows(WebApplicationException.class, () -> service.getAllDrugs(42));
         assertEquals(409, failure.getResponse().getStatus()); verifyNoInteractions(rx);
     }
-    @Test void allergyAuthorizationPrecedesTheProtectedRepresentationQuery() {
+    @Test void shouldAuthorizeAllergy_beforeProtectedRepresentationQuery() {
         CdsLegacyProjectionDao records = mock(CdsLegacyProjectionDao.class);
         AllergyManager manager = mock(AllergyManager.class);
         when(manager.getActiveAllergies(null, 42)).thenThrow(new SecurityException("denied"));
@@ -77,7 +77,7 @@ class CdsCategoryProjectionBoundaryUnitTest {
         assertThrows(SecurityException.class, () -> service.getCurrentAllergiesWithPrecision(42));
         verifyNoInteractions(records);
     }
-    @Test void evenExactAllergyDatesCannotHideOmittedImportedFieldsInAnOldProjection() {
+    @Test void shouldNotHideOmittedImportedFields_withExactAllergyDatesInOldProjection() {
         CdsLegacyProjectionDao records = mock(CdsLegacyProjectionDao.class);
         when(records.hasSourceFields(42, Set.of("AllergiesAndAdverseReactions"))).thenReturn(true);
         AllergyManager manager = mock(AllergyManager.class);

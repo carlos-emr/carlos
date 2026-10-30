@@ -505,7 +505,7 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
 
         @ParameterizedTest
         @ValueSource(strings = {"true", "false"})
-        void shouldRefreshOnlyManualCdsStatusRequests(String background) throws Exception {
+        void shouldRefreshOnlyManualCdsStatusRequests_byAutoRefreshFlag(String background) throws Exception {
             var request=authenticatedRequest();
             request.setRequestURI(CONTEXT_PATH+"/form/cdsImportStatus");
             request.setParameter("autoRefresh",background);
@@ -524,7 +524,7 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
             }
         }
 
-        @Test void shouldInitializeFirstCdsBackgroundRequestTimer() throws Exception {
+        @Test void shouldInitializeTimer_forFirstCdsBackgroundRequest() throws Exception {
             var request=authenticatedRequest();
             request.setRequestURI(CONTEXT_PATH+"/form/cdsImportStatus");
             request.setParameter("autoRefresh","true");
@@ -539,7 +539,7 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
             }
         }
 
-        @Test void shouldRejectExpiredCdsBackgroundRequestsBeforeAnyTimerReset() throws Exception {
+        @Test void shouldRejectExpiredCdsBackgroundRequests_beforeAnyTimerReset() throws Exception {
             var request=authenticatedRequest();
             request.setRequestURI(CONTEXT_PATH+"/form/cdsImportStatus");
             request.setParameter("autoRefresh","true");

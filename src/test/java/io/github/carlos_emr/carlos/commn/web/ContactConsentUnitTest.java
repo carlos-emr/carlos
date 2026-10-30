@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("unit")
 class ContactConsentUnitTest {
-    @Test void missingOrUnknownConsentRemainsUnknownRatherThanGrantingPermission() {
+    @Test void shouldKeepConsentUnknown_whenMissingOrUnknownRatherThanGrantingPermission() {
         assertNull(ContactConsentParser.parse(null));
         assertNull(ContactConsentParser.parse(""));
         DemographicContact association = new DemographicContact();
@@ -36,7 +36,7 @@ class ContactConsentUnitTest {
         assertNull(association.getConsentToContact());
         assertFalse(association.isConsentToContact());
     }
-    @Test void onlyExplicitValidFormValuesChangeConsent() {
+    @Test void shouldChangeConsent_onlyForExplicitValidFormValues() {
         assertEquals(Boolean.TRUE, ContactConsentParser.parse("1"));
         assertEquals(Boolean.FALSE, ContactConsentParser.parse("0"));
         for (String invalid : new String[]{"true", "false", "2", " ", "null"}) {

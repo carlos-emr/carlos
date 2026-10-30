@@ -35,7 +35,7 @@ import java.util.List;
 class CaseManagementNoteUnknownSourceUnitTest {
     @Test
     void
-            shouldSortKnownDatesDescending_thenUnknownDatesByStableId_withoutInventingAnEncounterDate() {
+            shouldSortKnownDatesDescendingThenUnknownDatesByStableId_withoutInventingEncounterDate() {
         var unknownLater = note(20L, null);
         var earlier = note(3L, new Date(1000));
         var unknownFirst = note(10L, null);

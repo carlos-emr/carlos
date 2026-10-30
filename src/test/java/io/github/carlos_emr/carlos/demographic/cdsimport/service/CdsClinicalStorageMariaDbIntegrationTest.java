@@ -110,7 +110,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
     }
 
     @Test
-    void missingRepresentationAfterTheRecordedReleaseMigrationRefusesProjection() {
+    void shouldRefuseProjection_whenRepresentationIsMissingAfterRecordedReleaseMigration() {
         try (Session session = factory.openSession()) {
             var transaction = session.beginTransaction();
             try {
@@ -128,7 +128,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
     }
 
     @Test
-    void completeMedicationStrengthAndSourceAuthorRoundTripWithoutTruncationOrInventedDates()
+    void shouldRoundTripCompleteMedicationStrengthAndSourceAuthor_withoutTruncationOrInventedDates()
             throws Exception {
         Map<String, String> source = new LinkedHashMap<>();
         source.put("DrugName", "Synthetic source formulation");
@@ -188,7 +188,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
     }
 
     @Test
-    void contactNamePhonesAndUnknownConsentSurviveNativeOrmRoundTrip() throws Exception {
+    void shouldPreserveContactNamePhonesAndUnknownConsent_throughNativeOrmRoundTrip() throws Exception {
         Map<String, String> source = new LinkedHashMap<>();
         source.put("Name/FirstName", "F".repeat(50));
         source.put("Name/MiddleName", "M".repeat(50));
@@ -236,7 +236,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
     }
 
     @Test
-    void careTextBeyondLegacy255CharactersAndItsDatePrecisionMetadataSurviveNativeStorage()
+    void shouldPreserveCareTextBeyond255CharactersAndDatePrecision_throughNativeStorage()
             throws Exception {
         var dto =
                 new CdsCareNormalizationService(fields, normalization)
@@ -290,7 +290,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
     }
 
     @Test
-    void boundedNativeTypeQueryRejectsNumericValidationAndWrongUnitMeaning() {
+    void shouldRejectNumericValidationAndWrongUnitMeaning_inBoundedNativeTypeQuery() {
         try (Session session = factory.openSession()) {
             var transaction = session.beginTransaction();
             try {
@@ -332,7 +332,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
     }
 
     @Test
-    void actualProviderDaoPreservesExactUnicodeAgainstALatin1Directory() throws Exception {
+    void shouldPreserveExactUnicodeInActualProviderDao_againstLatin1Directory() throws Exception {
         try (Session session = factory.openSession()) {
             var transaction = session.beginTransaction();
             try {
@@ -391,7 +391,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
     }
 
     @Test
-    void immunizationWriterRetainsUnknownAndYearPrecisionWithAlphanumericAuditCreator()
+    void shouldRetainUnknownAndYearPrecisionInImmunizationWriter_withAlphanumericAuditCreator()
             throws Exception {
         try (Session session = factory.openSession()) {
             var transaction = session.beginTransaction();
@@ -458,7 +458,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
 
     @Test
     @ResourceLock("java.util.TimeZone")
-    void earlyCivilDatesAndTheirRecordedPrecisionSurviveTheNativeImmunizationWriter()
+    void shouldPreserveEarlyCivilDatesAndRecordedPrecision_throughNativeImmunizationWriter()
             throws Exception {
         withImmunizationTransaction((session, writer, dates, extensions) -> {
             for (String[] choice : java.util.List.of(
@@ -500,7 +500,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
 
     @Test
     @ResourceLock("java.util.TimeZone")
-    void unrepresentableCalendarDaysAndTimestampFoldsRefuseBeforeNativeWriting()
+    void shouldRefuseUnrepresentableCalendarDaysAndTimestampFolds_beforeNativeWriting()
             throws Exception {
         withImmunizationTransaction((session, writer, dates, extensions) -> {
             Map<String, Long> before = nativeTemporalRowCounts(session);
@@ -528,7 +528,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
 
     @Test
     @ResourceLock("java.util.TimeZone")
-    void timestampPrecisionIsFlooredBeforeDatetimeZeroRoundingAndLaterFoldKeepsItsInstant()
+    void shouldFloorTimestampPrecisionBeforeDatetimeZeroRounding_withLaterFoldKeepingItsInstant()
             throws Exception {
         withImmunizationTransaction((session, writer, dates, extensions) -> {
             for (String[] choice : java.util.List.of(

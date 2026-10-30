@@ -442,7 +442,7 @@ class CdsReportMediaUnitTest {
                         eq(false));
     }
 
-    @Test void unsupportedNativeReportTimingRetainsTheFullSource_andReportsItsDisposition() throws Exception {
+    @Test void shouldRetainFullSourceForUnsupportedNativeReportTiming_andReportItsDisposition() throws Exception {
         TimeZone previous = TimeZone.getDefault();
         try {
             TimeZone.setDefault(TimeZone.getTimeZone("America/Toronto"));

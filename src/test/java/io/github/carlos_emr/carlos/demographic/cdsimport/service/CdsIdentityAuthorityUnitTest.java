@@ -80,7 +80,7 @@ class CdsIdentityAuthorityUnitTest {
     }
 
     @Test
-    void authorityVocabularyMatchesEveryPinnedXsdCodeAndAllCanadianAliases() throws Exception {
+    void shouldMatchEveryPinnedXsdCodeAndCanadianAlias_inAuthorityVocabulary() throws Exception {
         XMLInputFactory factory = XMLInputFactory.newFactory();
         factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
         factory.setProperty("javax.xml.stream.isSupportingExternalEntities", false);
@@ -123,13 +123,13 @@ class CdsIdentityAuthorityUnitTest {
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"-50", "-70", "-90", "CA-XX", "US-XX", "NY", "on", "ON ", "CA-ON "})
-    void unknownSentinelsAndUnrecognizedCodesNeverDisambiguateIdentity(String value) {
+    void shouldNeverDisambiguateIdentity_fromUnknownSentinelsOrUnrecognizedCodes(String value) {
         assertThat(CdsHealthCardAuthority.known(value)).isNull();
         assertThat(CdsHealthCardAuthority.normalize(value)).isEqualTo(value);
     }
 
     @Test
-    void firstSeenIsIdempotentAndStoresCanonicalAuthorityWithoutAnInodeMarker() {
+    void shouldStoreCanonicalAuthorityIdempotentlyOnFirstSeen_withoutInodeMarker() {
         var source = source("CA-ON");
         assertThat(service.register("run", 1, "patient", "clinical", source)).isTrue();
         assertThat(service.register("run", 1, "patient", "clinical", source)).isFalse();
@@ -146,7 +146,7 @@ class CdsIdentityAuthorityUnitTest {
     }
 
     @Test
-    void declinedOrTypedInvalidOccurrencesRemainSeenWithoutPoisoningActiveIdentityChecks() {
+    void shouldKeepDeclinedOrInvalidOccurrencesSeen_withoutPoisoningActiveIdentityChecks() {
         assertThat(service.register("run", 1, "declined", "clinical", source("ON"), false))
                 .isTrue();
         assertThat(service.register("run", 1, "declined", "clinical", source("ON"), false))
@@ -168,7 +168,7 @@ class CdsIdentityAuthorityUnitTest {
     }
 
     @Test
-    void batchLookupReceivesKnownAuthorityAndNeverANameDisambiguator() {
+    void shouldPassKnownAuthorityToBatchLookup_withoutNameDisambiguator() {
         service.register("run", 1, "one", "clinical", source("CA-ON"));
         service.register("run", 1, "two", "clinical", source("BC"));
         verify(identities).healthNumberCollision("run", "clinical", "one", "123456", "ON");
@@ -180,7 +180,7 @@ class CdsIdentityAuthorityUnitTest {
     }
 
     @Test
-    void freshScanClearsOnlyItsOwnedInventoryInBoundedPages() {
+    void shouldClearOnlyOwnedInventoryInBoundedPages_onFreshScan() {
         List<CdsImportIdentity> full = new ArrayList<>();
         for (int i = 0; i < 200; i++) full.add(new CdsImportIdentity());
         when(identities.page("run", 200)).thenReturn(full, List.of(new CdsImportIdentity()));
@@ -191,7 +191,7 @@ class CdsIdentityAuthorityUnitTest {
     }
 
     @Test
-    void cancellationStopsBeforeTheNextInventoryPage() {
+    void shouldStopOnCancellation_beforeNextInventoryPage() {
         owner.setCancelRequested(true);
         assertThatThrownBy(() -> service.beginScan("run", 1))
                 .hasMessageContaining("IMPORT_CANCELLED");
@@ -199,7 +199,7 @@ class CdsIdentityAuthorityUnitTest {
     }
 
     @Test
-    void sourceBirthDateShiftCannotOverflowTheNativeCalendar() throws Exception {
+    void shouldRefuseSourceBirthDateShift_whenItWouldOverflowNativeCalendar() throws Exception {
         var record =
                 CdsClinicalFixture.record(
                         temp, "Demographics", Map.of("DateOfBirth", "9999-12-31"));

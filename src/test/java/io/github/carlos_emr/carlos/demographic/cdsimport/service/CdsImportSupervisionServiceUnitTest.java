@@ -67,7 +67,7 @@ class CdsImportSupervisionServiceUnitTest {
     }
     @AfterEach void close() {service.close();}
 
-    @Test void recoveredWorkWaitsForExplicitPostRefreshWebBootstrap() throws Exception {
+    @Test void shouldHoldRecoveredWork_untilExplicitPostRefreshWebBootstrap() throws Exception {
         var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
         when(job.id()).thenReturn("recovered");
         when(job.state()).thenReturn("RUNNING");
@@ -91,7 +91,7 @@ class CdsImportSupervisionServiceUnitTest {
         assertThat(worker.isShutdown()).isTrue();
     }
 
-    @Test void disabledWebWorkerDoesNotStartAtBootstrap() throws Exception {
+    @Test void shouldNotStartDisabledWebWorker_atBootstrap() throws Exception {
         when(configuration.value("cds.import.worker.enabled","true")).thenReturn("false");
         service.start();
         var field=CdsImportService.class.getDeclaredField("dispatcher");field.setAccessible(true);
@@ -99,7 +99,7 @@ class CdsImportSupervisionServiceUnitTest {
         verifyNoInteractions(ledger,execution);
     }
 
-    @Test void closeBeforeBootstrapCannotResurrectWorker() throws Exception {
+    @Test void shouldNotResurrectWorker_whenClosedBeforeBootstrap() throws Exception {
         service.close();service.start();service.close();
         var field=CdsImportService.class.getDeclaredField("dispatcher");field.setAccessible(true);
         assertThat(field.get(service)).isNull();
@@ -107,7 +107,7 @@ class CdsImportSupervisionServiceUnitTest {
         verifyNoInteractions(ledger,execution);
     }
 
-    @Test void fatalReviewStaysSuspendedUntilHealthySupervisorPersistsIt() throws Exception {
+    @Test void shouldKeepFatalReviewSuspended_untilHealthySupervisorPersistsIt() throws Exception {
         when(reviews.process("failed")).thenThrow(new AssertionError("synthetic private failure"));
         call("scheduleReview", new Class<?>[]{String.class}, "failed");barrier();
         call("scheduleReview", new Class<?>[]{String.class}, "failed");barrier();
@@ -119,7 +119,7 @@ class CdsImportSupervisionServiceUnitTest {
         call("dispatch", new Class<?>[]{});barrier();
         verify(reviews).process("other");verify(reviews, times(1)).process("failed");
     }
-    @Test void unavailableFatalPersistenceKeepsWorkerSuspended() throws Exception {
+    @Test void shouldKeepWorkerSuspended_whenFatalPersistenceIsUnavailable() throws Exception {
         when(reviews.process("failed")).thenThrow(new AssertionError("synthetic private failure"));
         doThrow(new IOException("synthetic unavailable metadata")).doNothing().when(reviews).superviseFatal("failed");
         call("scheduleReview", new Class<?>[]{String.class}, "failed");barrier();
@@ -128,7 +128,7 @@ class CdsImportSupervisionServiceUnitTest {
         verify(reviews, times(1)).process("failed");
         call("dispatch", new Class<?>[]{});verify(reviews, times(2)).superviseFatal("failed");
     }
-    @Test void fatalSupervisorBecomesVisibleAndStopsAutomaticWork() throws Exception {
+    @Test void shouldMakeFatalSupervisorVisible_andStopAutomaticWork() throws Exception {
         when(reviews.process("failed")).thenThrow(new AssertionError("synthetic private failure"));
         doThrow(new AssertionError("synthetic supervisor resource failure")).when(reviews).superviseFatal("failed");
         call("scheduleReview", new Class<?>[]{String.class}, "failed");barrier();
@@ -139,7 +139,7 @@ class CdsImportSupervisionServiceUnitTest {
     }
     @ParameterizedTest
     @ValueSource(strings={"REVIEW_REQUIRED", "RECONCILIATION_REQUIRED"})
-    void pendingReviewAllowsOnlyStoppedPendingReportDelivery(String state) throws Exception {
+    void shouldAllowOnlyStoppedPendingReportDelivery_duringPendingReview(String state) throws Exception {
         var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
         when(job.state()).thenReturn(state); when(ledger.hasPendingReport("run")).thenReturn(true);
         when(ledger.status("run")).thenReturn(job); when(reviews.hasPending("run")).thenReturn(true);
@@ -148,14 +148,14 @@ class CdsImportSupervisionServiceUnitTest {
         verify(execution, never()).execute("run", false);
         verify(execution, never()).execute("run", true);
     }
-    @Test void pendingReviewContinuesBlockingClinicalResume() throws Exception {
+    @Test void shouldKeepBlockingClinicalResume_duringPendingReview() throws Exception {
         var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
         when(job.state()).thenReturn("RESUME_REQUESTED"); when(ledger.hasPendingReport("run")).thenReturn(true);
         when(ledger.status("run")).thenReturn(job); when(reviews.hasPending("run")).thenReturn(true);
         call("schedule", new Class<?>[]{String.class, boolean.class}, "run", true); barrier();
         verifyNoInteractions(execution);
     }
-    @Test void pendingReviewDoesNotRedispatchAnAlreadyStoppedReport() throws Exception {
+    @Test void shouldNotRedispatchAlreadyStoppedReport_duringPendingReview() throws Exception {
         var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
         when(job.state()).thenReturn("REVIEW_REQUIRED"); when(ledger.hasPendingReport("run")).thenReturn(false);
         when(ledger.status("run")).thenReturn(job); when(reviews.hasPending("run")).thenReturn(true);
@@ -164,7 +164,7 @@ class CdsImportSupervisionServiceUnitTest {
     }
     @ParameterizedTest
     @ValueSource(strings={"REQUESTED", "VALIDATING", "OVERLAY_PUBLISHED", "PATIENT_DECLINED", "REVISION_PUBLISHED"})
-    void deliveredStoppedReportCannotTerminateAnAcceptedReviewWaitingForTheWorker(String state) throws Exception {
+    void shouldNotTerminateAcceptedReviewWaitingForWorker_withDeliveredStoppedReport(String state) throws Exception {
         var job=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
         when(job.state()).thenReturn("REVIEW_REQUIRED");
         when(ledger.status("run")).thenReturn(job);
@@ -190,7 +190,7 @@ class CdsImportSupervisionServiceUnitTest {
         verify(execution, never()).execute("run", true);
         verify(reviews, never()).process(anyString());
     }
-    @Test void supervisedFatalReviewKeepsItsStoppedTerminalOutcomeAndExplicitRecoveryCode() throws Exception {
+    @Test void shouldKeepStoppedTerminalOutcomeAndExplicitRecoveryCode_forSupervisedFatalReview() throws Exception {
         when(ledger.summary("run")).thenReturn(Map.of("operationTerminal", true, "cleanComplete", true));
         when(reviews.summary("run")).thenReturn(Map.of(
                 "pendingReviewCount", 1, "reviewState", "REVISION_PUBLISHED", "reviewErrorCode", "REVIEW_WORKER_FATAL"));
@@ -200,7 +200,7 @@ class CdsImportSupervisionServiceUnitTest {
         assertThat(summary.get("reviewErrorCode")).isEqualTo("REVIEW_WORKER_FATAL");
         assertThat(summary.get("pendingReviewCount")).isEqualTo(1);
     }
-    @Test void pendingReviewCountRemainsTypedAndZeroDoesNotRewriteTheLedgerOutcome() throws Exception {
+    @Test void shouldKeepPendingReviewCountTyped_withZeroNotRewritingLedgerOutcome() throws Exception {
         when(ledger.summary("run")).thenReturn(Map.of("operationTerminal", true, "cleanComplete", true));
         when(reviews.summary("run")).thenReturn(Map.of("pendingReviewCount", 0));
         var zero=(Map<?, ?>)operatorSummary();

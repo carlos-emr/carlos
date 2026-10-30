@@ -148,7 +148,7 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"year", "month", "unknown", "exact"})
-    void shouldRenderImportedMedicationDatePrecision_andSourceDose_whenPreparingTheActualForm(String precision) throws Exception {
+    void shouldRenderImportedMedicationDatePrecisionAndSourceDose_whenPreparingActualForm(String precision) throws Exception {
         request.setMethod("GET"); request.setParameter("demographic_no", "101");
         var types = EctFindMeasurementTypeUtil.loadMeasurementTypes(definition());
         var dates = createAndRegisterMock(PartialDateDao.class);

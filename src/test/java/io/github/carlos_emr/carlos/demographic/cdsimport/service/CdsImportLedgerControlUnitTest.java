@@ -58,30 +58,30 @@ class CdsImportLedgerControlUnitTest {
     }
     @ParameterizedTest
     @ValueSource(strings={"ACCEPTED","CLI_ACCEPTED","RUNNING","FINALIZING","DISCOVERING","VALIDATING","PREFLIGHT","PREFLIGHTING","SEALING","PLANNING","READY","REPORTING","RECONCILING","PAUSED"})
-    void activeResumeRecordsIntentWithoutDeclaringTheOldProcessInactive(String state) {
+    void shouldRecordActiveResumeIntent_withoutDeclaringOldProcessInactive(String state) {
         run.setState(state);ledger.requestResume("run");
         assertThat(run.getState()).isEqualTo(state);assertThat(run.isCancelRequested()).isTrue();assertThat(run.getOwnerEpoch()).isEqualTo(7);
         assertThat(ledger.summary("run")).containsEntry("resumeRequested",true).containsEntry("operationTerminal",false);
         assertThat(ledger.pendingResumeEvent("run")).isEqualTo(12);
         ledger.cancel("run");assertThat(ledger.summary("run")).containsEntry("resumeRequested",false);assertThat(ledger.pendingResumeEvent("run")).isZero();
     }
-    @Test void reviewOnlyResumeAuditDoesNotAuthorizeClinicalRecovery() {
+    @Test void shouldNotAuthorizeClinicalRecovery_fromReviewOnlyResumeAudit() {
         assertThat(ledger.pendingResumeEvent("run")).isZero();
         verify(events,never()).pendingResumeEvent(anyString());
     }
-    @Test void definitiveRefusalCannotRetireANewerResumeOrCancellation() {
+    @Test void shouldNotRetireNewerResumeOrCancellation_onDefinitiveRefusal() {
         ledger.requestResume("run");when(events.pendingResumeEvent("run")).thenReturn(14L);
         ledger.refuseResumeIntent("run",12,"IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE");assertThat(run.isResumeRequested()).isTrue();
         ledger.refuseResumeIntent("run",14,"ACCESS_REVOKED");assertThat(run.isResumeRequested()).isFalse();assertThat(run.isCancelRequested()).isTrue();assertThat(run.getOwnerEpoch()).isEqualTo(7);
         ledger.requestResume("run");ledger.cancel("run");ledger.refuseResumeIntent("run",14,"ACCESS_REVOKED");assertThat(run.isCancelRequested()).isTrue();assertThat(run.isResumeRequested()).isFalse();
     }
-    @Test void retainedAdmissionOwnerCannotStarveBehindEarlierAcceptedJobs() {
+    @Test void shouldNotStarveRetainedAdmissionOwner_behindEarlierAcceptedJobs() {
         run.setState("INCOMPLETE");run.setResumeRequested(true);run.setReportState("DELIVERED");
         var gate=new CdsImportAdmission();gate.setId("global");gate.setOwnerRunId("run");when(admission.get("global")).thenReturn(gate);
         when(runs.pending("",2)).thenReturn(List.of(row("a","ACCEPTED"),row("b","ACCEPTED")));
         assertThat(ledger.pending("",2)).extracting(value->value.id()).containsExactly("run","a");
     }
-    @Test void laterCancellationAndNewReviewRefuseAStaleQueuedResumeUnderTheRunLock() {
+    @Test void shouldRefuseStaleQueuedResumeUnderRunLock_afterLaterCancellationOrNewReview() {
         run.setState("RESUME_REQUESTED");ledger.cancel("run");assertThat(run.getState()).isEqualTo("CANCELLED_BEFORE_WRITE");
         // A newly accepted review clears its old cancellation, but does not grant clinical execution.
         run.setCancelRequested(false);when(runs.reviewBlocksExecution("run")).thenReturn(true);
@@ -92,7 +92,7 @@ class CdsImportLedgerControlUnitTest {
         assertThat(run.getOwnerEpoch()).isEqualTo(7);assertThat(run.isResumeRequested()).isFalse();
         verify(events,never()).pendingResumeEvent(anyString());
     }
-    @Test void fatalResumeIsRetiredOnlyByHealthySupervisionWithItsExactObservedControl() throws Exception {
+    @Test void shouldRetireFatalResume_onlyByHealthySupervisionWithExactObservedControl() throws Exception {
         var state=mock(CdsImportLedgerService.class);var status=mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
         when(state.status("run")).thenReturn(status);when(status.ownerEpoch()).thenReturn(7L);when(state.pendingResumeEvent("run")).thenReturn(12L);
         var jobs=mock(CdsImportJobService.class);var fatal=new AssertionError("synthetic exhausted worker");when(jobs.loadContext("run")).thenThrow(fatal);
@@ -105,7 +105,7 @@ class CdsImportLedgerControlUnitTest {
     }
     @ParameterizedTest
     @ValueSource(strings={"PLANNING","RUNNING"})
-    void laterCancelStillWinsBetweenPreparationAndTheActualPhaseCommit(String phase) {
+    void shouldLetLaterCancelWin_betweenPreparationAndActualPhaseCommit(String phase) {
         var gate=new CdsImportAdmission();gate.setId("global");gate.setOwnerRunId("run");when(admission.lock("global")).thenReturn(gate);
         var coordinator=mock(CdsImportCoordinatorService.Owner.class);var window=mock(CdsImportMaintenanceService.Owner.class);
         when(window.read(any())).thenAnswer(call->((java.util.function.Supplier<?>)call.getArgument(0)).get());
@@ -118,7 +118,7 @@ class CdsImportLedgerControlUnitTest {
     }
     @ParameterizedTest
     @ValueSource(strings={"PLANNING","RUNNING"})
-    void newReviewOrDraftDefersThePhaseWithoutConsumingANewerResume(String phase) {
+    void shouldDeferPhaseOnNewReviewOrDraft_withoutConsumingNewerResume(String phase) {
         var gate=new CdsImportAdmission();gate.setId("global");gate.setOwnerRunId("run");when(admission.lock("global")).thenReturn(gate);
         var coordinator=mock(CdsImportCoordinatorService.Owner.class);var window=mock(CdsImportMaintenanceService.Owner.class);
         when(window.read(any())).thenAnswer(call->((java.util.function.Supplier<?>)call.getArgument(0)).get());
@@ -131,7 +131,7 @@ class CdsImportLedgerControlUnitTest {
     private long claimPhase(String phase,CdsImportCoordinatorService.Owner coordinator,CdsImportMaintenanceService.Owner window) {
         return "PLANNING".equals(phase)?ledger.claimPlanning("run",coordinator,window):ledger.claimExecution("run",coordinator,window);
     }
-    @Test void summaryRetainsExactPendingUnknownInventoryAndHelperAccounting() {
+    @Test void shouldRetainExactPendingUnknownInventoryAndHelperAccounting_inSummary() {
         run.setDiscoveredFiles(-1);run.setPatientXmlFiles(-1);run.setSourceBytes(-1);
         when(patients.summaryOutcomes("run",17)).thenReturn(List.of(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientOutcomeDto("PLANNED",2,2),new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientOutcomeDto("REFUSED",1,2)));
         when(unitRows.summaryCategories("run",129)).thenReturn(List.of(
@@ -147,7 +147,7 @@ class CdsImportLedgerControlUnitTest {
         assertThat(category.get("expected")).isEqualTo(4L);assertThat(category.get("pending")).isEqualTo(2L);
         assertThat(category.get("expectedHelperUnits")).isEqualTo(2L);assertThat(category.get("pendingHelperUnits")).isEqualTo(1L);
     }
-    @Test void sealedDeclaredInventoryStaysDistinctFromEmptyObservedGroups() {
+    @Test void shouldKeepSealedDeclaredInventoryDistinct_fromEmptyObservedGroups() {
         run.setExecutionDigest("a".repeat(64));run.setExpectedPatients(17);run.setExpectedUnits(99);
         assertThat(ledger.summary("run")).containsEntry("inventoryState","SEALED").containsEntry("expectedPatients",17L)
                 .containsEntry("expectedUnits",99L).containsEntry("plannedUnits",0L).containsEntry("identifiedPatients",0L)
@@ -156,14 +156,14 @@ class CdsImportLedgerControlUnitTest {
     }
     @ParameterizedTest
     @ValueSource(ints={17,129})
-    void aggregateCardinalityStillFailsClosed(int count) {
+    void shouldFailClosed_onUnexpectedAggregateCardinality(int count) {
         if(count==17) when(patients.summaryOutcomes("run",17)).thenReturn(java.util.stream.IntStream.range(0,17)
                 .mapToObj(i->new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportPatientOutcomeDto("OUTCOME"+i,1,1)).toList());
         else when(unitRows.summaryCategories("run",129)).thenReturn(java.util.stream.IntStream.range(0,129)
                 .mapToObj(i->new Object[]{"CATEGORY"+i,1L,0L,0L,1L}).toList());
         assertThatThrownBy(()->ledger.summary("run")).hasMessage(count==17?"UNEXPECTED_OUTCOME_CARDINALITY":"UNEXPECTED_CATEGORY_CARDINALITY");
     }
-    @Test void observationProjectionRequiresAnActualReadOnlyBoundary() {
+    @Test void shouldRequireActualReadOnlyBoundary_forObservationProjection() {
         assertThatThrownBy(()->ledger.summaryInReadTransaction("run")).hasMessage("CDS_OBSERVATION_READ_TRANSACTION_REQUIRED");
         assertThatThrownBy(()->ledger.jobBindingInReadTransaction("run")).hasMessage("CDS_OBSERVATION_READ_TRANSACTION_REQUIRED");
         try {
@@ -176,7 +176,7 @@ class CdsImportLedgerControlUnitTest {
         }
         verifyNoInteractions(runs,patients,unitRows,manager);
     }
-    @Test void observationProjectionUsesTheExistingReadBoundaryAndPrivateBinding() {
+    @Test void shouldUseExistingReadBoundaryAndPrivateBinding_forObservationProjection() {
         run.setSnapshotLocation("/opaque/private-job-document");
         try {
             TransactionSynchronizationManager.setActualTransactionActive(true);TransactionSynchronizationManager.setCurrentTransactionReadOnly(true);
@@ -215,7 +215,7 @@ class CdsImportLedgerControlUnitTest {
             verifyNoInteractions(runs,manager);
         } finally {TransactionSynchronizationManager.setActualTransactionActive(false);}
     }
-    @Test void standaloneJobAndPathReadsPreserveEveryFieldAndObserveLaterControlChanges() {
+    @Test void shouldPreserveEveryFieldAndObserveLaterControlChanges_inStandaloneJobAndPathReads() {
         run.setSnapshotLocation("/opaque/private-job-document");
         run.setSourceNamespace("source");run.setProfile("pcon-2024-02");
         run.setSourceDigest("a".repeat(64));run.setOptionsDigest("b".repeat(64));
@@ -245,7 +245,7 @@ class CdsImportLedgerControlUnitTest {
     }
     @ParameterizedTest
     @ValueSource(booleans={false,true})
-    void standaloneReadsRetainInvalidMissingAndAmbientErrors(boolean location) {
+    void shouldRetainInvalidMissingAndAmbientErrors_inStandaloneReads(boolean location) {
         for(String invalid:java.util.Arrays.asList(null,""," ","x".repeat(37)))
             assertThatThrownBy(()->standaloneRead(location,invalid)).isInstanceOf(IllegalArgumentException.class).hasMessage("Invalid run id");
         verifyNoInteractions(runs,manager);
