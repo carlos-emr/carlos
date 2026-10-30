@@ -687,6 +687,8 @@ Facades do not log them again.
 | SVG with outside references | Remove the referencing elements, attributes, `url()` values, `@import` rules and processing instructions; render the rest (`SVG_REFERENCES_REMOVED`) | The box (unparseable SVG) |
 | Image missing, remote, unreadable or of an unknown format (for example HEIC) | — (remote sources are never fetched) | The box (`IMAGE_UNAVAILABLE`) |
 | Image header declaring over 250 megapixels (malformed or a decompression bomb) | — (never decoded) | The box (`IMAGE_UNAVAILABLE`) |
+| WebP declaring over 16 777 216 pixels (its decoder needs a full-size raster whatever the subsampling) | — (never decoded) | The box (`IMAGE_UNAVAILABLE`) |
+| Corrupt WebP that keeps the decoder busy (a lossless stream reading past its end), or one that compresses better than 2048:1 | The decode stops with an error (after 65 536 reads past the end, or at the library's expansion guard) instead of spinning | The box (`IMAGE_UNAVAILABLE`) |
 | Document's images exceed the slot's image memory | Downscale the largest decoded or converted images further, and convert as-is JPEGs that still do not fit, keeping printed sizes, until the total fits (`IMAGE_DOWNSCALED`) | — |
 | No render slot free within 10 s | — | Render with every raster image as the box and a document note (`IMAGES_OMITTED_FOR_MEMORY`); a document without images renders normally |
 | Layout pass 2 fails | Use pass 1 (complete content on a widened page) placed at `612 / W`: margins come out smaller than 10 mm (`MARGINS_REDUCED`) | Next row |
@@ -787,7 +789,19 @@ Flying Saucer embeds a JPEG without decoding it, so a JPEG costs about its file 
 whatever its resolution; every other format is decoded, at 14–15 bytes per pixel. Reading
 with `ImageIO` from a file stream with source subsampling holds only the result: the 95 MB,
 67-megapixel PNG was reduced to 3300 × 5100 in a 96 MB heap in 3.5 s, and a 48-megapixel
-WebP to 4000 × 3000 in a 96 MB heap (*tested*).
+lossy WebP without transparency to 4000 × 3000 in a 96 MB heap (*tested*).
+
+WebP is the exception. For lossless WebP and for lossy WebP with transparency, the
+TwelveMonkeys reader allocates a full-size raster (about 4 bytes per source pixel) whatever
+the subsampling: a 6000 × 6000 lossless WebP of 283 KB allocated 109 MB for a 500 × 500
+result and failed in a 96 MB heap (*tested*, found in the Task 3 review). A WebP is
+therefore decoded only up to 16 777 216 source pixels (4096 × 4096, about 67 MB of
+raster), and a larger one shows the box. Two further guards cover untrusted WebP data: a
+corrupt lossless stream can keep the decoder spinning for minutes, so decoding stops with an
+error after 65 536 reads past the end of the data (valid files need at most 828, measured
+over 14 588 files); and byte payloads (`data:` URIs) are read through a stream that reports
+its length, so the library's own 2048:1 expansion guard applies to them as it does to files
+(a WebP that compresses better than 2048:1, such as a large flat canvas, is refused).
 
 So the rules let through everything that is cheap, at full resolution, and reduce only
 what would otherwise exhaust memory, never below what paper shows: 25 megapixels on a full
@@ -819,10 +833,11 @@ rules 6 and 7):
    in place. SVG skips rules 4–6.
 4. **Header.** Read only the header with `ImageIO`, without decoding. TwelveMonkeys
    `imageio-webp` is added (see "Removals and Packaging") so WebP is recognised. Unusable
-   if no reader recognises it (for example HEIC), if the header cannot be read, or if it
+   if no reader recognises it (for example HEIC), if the header cannot be read, if it
    declares more than 250 megapixels (about 15 800 × 15 800, nearly four times a 600-dpi
    tabloid scan): such a header is malformed or a decompression bomb, and decoding it would
-   occupy a server thread for minutes.
+   occupy a server thread for minutes, or if it is a WebP declaring more than 16 777 216
+   pixels (see the cost note above).
 5. **Plan.** Each image gets one of three plans, with a memory charge:
    - **as is, JPEG:** a JPEG of at most 32 MB that OpenPDF can embed, at any resolution;
      charged four times its file size (the bytes are held by the renderer, the layout
@@ -1335,7 +1350,8 @@ List these in PR 1:
   - images that today silently disappear (repeated `src`, removed sources, `.bmp`/`.tif`)
     now print, or show the "[image unavailable]" box; non-JPEG images over 25 megapixels
     print at reduced resolution (still above print resolution) with the same printed
-    size; JPEG photos print at full resolution; WebP prints where it reaches the renderer;
+    size; JPEG photos print at full resolution; WebP prints where it reaches the renderer
+    (up to 16.7 megapixels);
     SVGs with outside references print without
     those references;
   - very wide content shrinks without limit instead of being clipped;
@@ -1352,6 +1368,8 @@ List these in PR 1:
 
 ## Known limitations
 
+- **WebP** photos above 16.7 megapixels, and WebP files that compress better than 2048:1
+  (large flat canvases), print as the box; phones produce JPEG or HEIC, so this is rare.
 - **Copying or searching shaped Arabic** in the PDF yields presentation forms in visual
   order, not the original text (Unicode advises against those forms in stored text); the
   printed page is correct. Some Persian and Urdu letter forms are missing from DejaVu Sans
