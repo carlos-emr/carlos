@@ -156,10 +156,11 @@ copy a value and before right-to-left text is reordered; form controls are repla
 reordering, so a Hebrew value is reordered like any text; spans are clamped before tables are marked;
 fallback fonts come last, because their spans would split the runs that shaping reorders.
 
-**Geometry.** The output of wkhtmltopdf, the engine this module replaced, is the reference: US Letter, 10 mm margins on all sides, 1 CSS px =
-0.6 pt, `line-height: normal` about 1.164 for DejaVu Sans, a repeated `<thead>`, no top margin at the
-start of a page, content wider than 925 px shrunk uniformly to fit. `PrintStylesheet` and
-`PageZoomCalculator` reproduce it; the author's `@page` is ignored (`!important` on ours).
+**Geometry.** The output of wkhtmltopdf, the engine this module replaced, is the reference: US Letter,
+10 mm margins on all sides, 1 CSS px = 0.6 pt, `line-height: normal` about 1.164 for DejaVu Sans, a
+repeated `<thead>`, no top margin at the start of a page, content wider than 925 px shrunk uniformly to
+fit. `PrintStylesheet` and `PageZoomCalculator` reproduce it; the author's `@page` is ignored
+(`!important` on ours).
 
 ## 5 — Time and memory bounds
 
