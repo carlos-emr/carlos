@@ -56,8 +56,8 @@ import java.util.Set;
  * <p>The steps, in order (the letters are the spec's):</p>
  *
  * <ol>
- *   <li>{@link #prepare}: [safe and text-only modes: the elements the markup hid ({@code hidden},
- *       {@code display: none}, {@code visibility: hidden}) removed, so that dropping the styles does not
+ *   <li>{@link #prepare}: markup-hidden elements removed in every mode; [safe and text-only modes:
+ *       elements hidden by inline {@code display: none} or {@code visibility: hidden} removed, so dropping the styles does not
  *       print them] [safe mode: author styles and inline graphics removed] a. scripts and
  *       comments, then the engine's own {@code -fs-} CSS properties (so a style cannot set a span the
  *       clamp of step f never sees); b. soft hyphens, bidi controls and XML-invalid characters; c. form controls;
@@ -111,6 +111,7 @@ class PrintDocumentComposer {
         Objects.requireNonNull(mode, "mode");
         Objects.requireNonNull(degradations, "degradations");
         Document document = Jsoup.parse(html);
+        HiddenContent.removeMarkupHidden(document);
         if (mode != PrintMode.NORMAL) {
             // These rungs drop the author's styles or keep every word: what the markup hid must not come back.
             HiddenContent.remove(document);

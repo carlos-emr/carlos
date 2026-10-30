@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.documentManager.htmlpdf.engine;
 
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.TestImages;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.TestPdfs;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.SvgReferences;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -270,6 +271,7 @@ class BoundedOutputDeviceUnitTest {
 
     private static byte[] render(BoundedOutputDevice bounded, Path directory, String html) {
         LocalOnlyUserAgent agent = new LocalOnlyUserAgent(bounded, 20, List.of(directory));
+        agent.setSvgCleaner(bytes -> SvgReferences.clean(bytes).map(SvgReferences.Cleaned::svg).orElse(null));
         ITextRenderer renderer = new ITextRenderer(DOTS_PER_POINT, 20, bounded, agent, new ITextFontResolver());
         ByteArrayOutputStream pdf = new ByteArrayOutputStream();
 

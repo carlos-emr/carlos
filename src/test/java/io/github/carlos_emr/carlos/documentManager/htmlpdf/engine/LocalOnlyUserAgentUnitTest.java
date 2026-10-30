@@ -21,6 +21,7 @@
 package io.github.carlos_emr.carlos.documentManager.htmlpdf.engine;
 
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.SvgReferences;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -91,8 +92,10 @@ class LocalOnlyUserAgentUnitTest {
 
     /** Creates an agent that may read files from the given directories (none by default). */
     private static LocalOnlyUserAgent createAgent(Path... allowedDirectories) {
-        return new LocalOnlyUserAgent(new ITextOutputDevice(DEFAULT_DOTS_PER_POINT), DEFAULT_DOTS_PER_PIXEL,
+        LocalOnlyUserAgent agent = new LocalOnlyUserAgent(new ITextOutputDevice(DEFAULT_DOTS_PER_POINT), DEFAULT_DOTS_PER_PIXEL,
                 List.of(allowedDirectories));
+        agent.setSvgCleaner(bytes -> SvgReferences.clean(bytes).map(SvgReferences.Cleaned::svg).orElse(null));
+        return agent;
     }
 
     /** Invokes the protected resolveAndOpenStream via reflection. */
@@ -594,6 +597,27 @@ class LocalOnlyUserAgentUnitTest {
 
         private ImageResource load(LocalOnlyUserAgent agent, Path file) {
             return agent.getImageResource(file.toUri().toString());
+        }
+
+        @Test
+        @DisplayName("should refuse SVG resources when no sanitizer was supplied")
+        void shouldRefuseSvg_whenCleanerIsMissing() throws Exception {
+            Path svg = Files.writeString(tempDir.resolve("unsafe.svg"),
+                    "<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10'><rect width='10' height='10'/></svg>");
+            LocalOnlyUserAgent agent = new LocalOnlyUserAgent(new ITextOutputDevice(DEFAULT_DOTS_PER_POINT),
+                    DEFAULT_DOTS_PER_PIXEL, List.of(tempDir));
+
+            assertThat(load(agent, svg).getImage()).isNull();
+            assertThat(agent.leftOutImages()).isPositive();
+        }
+
+        @Test
+        @DisplayName("should keep raster images whose metadata or trailing bytes mention SVG")
+        void shouldKeepRasterImage_whenBytesMentionSvg() throws Exception {
+            Path png = writeGrayPng("with-svg-text.png", 2, 2);
+            Files.writeString(png, "<svg xmlns='http://www.w3.org/2000/svg'/>", java.nio.file.StandardOpenOption.APPEND);
+
+            assertThat(load(createAgent(tempDir), png).getImage()).isNotNull();
         }
 
         private Path writeGrayPng(String name, int width, int height) throws IOException {

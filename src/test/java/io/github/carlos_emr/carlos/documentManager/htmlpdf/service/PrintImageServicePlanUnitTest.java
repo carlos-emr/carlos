@@ -82,6 +82,22 @@ class PrintImageServicePlanUnitTest {
         return "data:" + type + ";base64," + Base64.getEncoder().encodeToString(bytes);
     }
 
+    @Test
+    @DisplayName("should bound retained inline payloads together and reuse duplicate sources")
+    void shouldBoundInlinePayloads_acrossTheWholePlan() {
+        byte[] first = java.util.Arrays.copyOf(TestImages.png(2, 2), 100_000);
+        byte[] second = first.clone();
+        second[second.length - 1] = 1;
+        String a = dataUri("image/png", first);
+        String b = dataUri("image/png", second);
+
+        ImagePlan plan = plan("<img src='" + a + "'><img src='" + b + "'><img src='" + a + "'>", 150_000);
+
+        assertThat(plan.images()).extracting(PlannedImage::outcome)
+                .containsExactly(ImageOutcome.AS_IS, ImageOutcome.BOX, ImageOutcome.AS_IS);
+        assertThat(plan.images().get(1).reason()).isEqualTo(ImagePlan.REASON_MEMORY);
+    }
+
     // ---- as is ------------------------------------------------------------------------------
 
     @Test

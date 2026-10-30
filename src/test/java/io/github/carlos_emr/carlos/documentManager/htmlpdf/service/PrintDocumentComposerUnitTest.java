@@ -275,9 +275,9 @@ class PrintDocumentComposerUnitTest {
         String html = "<html><head></head><body><p>FAKE-Shown</p><div style=\"display:none\">FAKE-Screen copy</div><p hidden>FAKE-Scratch</p>"
                 + "<input type=\"text\" hidden value=\"FAKE-Value\"><table><tr><td style=\"visibility:hidden\">FAKE-Cell</td><td>FAKE-Kept</td></tr></table></body></html>";
 
-        // Normal mode leaves the markup to Flying Saucer, which hides it itself.
+        // Normal mode retains inline CSS for Flying Saucer, but markup-hidden content is already gone.
         Document normal = composer.prepare(html, PrintMode.NORMAL, degradations());
-        assertThat(normal.html()).contains("FAKE-Screen copy").contains("FAKE-Scratch");
+        assertThat(normal.html()).contains("FAKE-Screen copy").doesNotContain("FAKE-Scratch", "FAKE-Value");
 
         for (PrintMode mode : List.of(PrintMode.SAFE, PrintMode.TEXT_ONLY)) {
             Document document = composer.prepare(html, mode, degradations());

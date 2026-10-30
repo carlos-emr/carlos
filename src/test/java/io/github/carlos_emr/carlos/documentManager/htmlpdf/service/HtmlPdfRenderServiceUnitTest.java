@@ -106,6 +106,24 @@ class HtmlPdfRenderServiceUnitTest {
         return "<html><head><title>FAKE-Title</title></head><body>" + body + "</body></html>";
     }
 
+    @Test
+    @DisplayName("should never print hidden attributes or hidden ancestor content on any rung")
+    void shouldNotPrintHiddenContent_inEveryRenderMode() throws Exception {
+        String html = page("<p>FAKE-visible</p><input hidden value='FAKE-hidden-input'>"
+                + "<textarea hidden>FAKE-hidden-note</textarea><div hidden><p>FAKE-hidden-child</p></div>"
+                + "<span hidden='false'>FAKE-hidden-false</span>");
+        for (PrintMode mode : PrintMode.values()) {
+            if (mode == PrintMode.SAFE) {
+                failLayoutIn(new IllegalStateException("forced"), PrintMode.NORMAL);
+            } else if (mode == PrintMode.TEXT_ONLY) {
+                failLayoutIn(new IllegalStateException("forced"), PrintMode.NORMAL, PrintMode.SAFE);
+            }
+            HtmlPdfRenderResult result = service.render(request(html));
+            assertThat(text(result)).as("printed text in %s", mode)
+                    .contains("FAKE-visible").doesNotContain("FAKE-hidden");
+        }
+    }
+
     private static String text(HtmlPdfRenderResult result) throws IOException {
         return String.join("\n", TestPdfs.pageTexts(result.pdf())).replaceAll("\\s+", " ").strip();
     }

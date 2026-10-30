@@ -143,7 +143,8 @@ The document steps, in this order:
 | l | Wrap the characters DejaVu lacks in spans that name WenQuanYi or Symbola | `FallbackFontRuns` |
 | m | Serialise as XHTML (valid XML, UTF-8) | `XhtmlCleanup` |
 
-Both simplified modes first remove the elements the markup hid (`hidden`, an inline `display: none`,
+Every mode first removes markup-hidden elements (`hidden`) and their descendants, before replacing
+form controls. Both simplified modes also remove elements with an inline `display: none`,
 `visibility: hidden` or `collapse`; `HiddenContent`), because they drop the styles that would hide them
 or keep every word. Safe mode then removes the author's `<style>`, stylesheet `<link>` and `style`
 attributes and turns inline `<svg>` into a box (`SafeModeMarkup`); text-only mode builds a new document
@@ -229,8 +230,9 @@ without its images.
 
 `PrintImageService` plans every image first, against the slot's memory share, then applies the plan:
 
-- **Plan** (nothing is written to disk; the decoded payload of a `data:` image that has to be converted
-  or cleaned is kept for the apply step, and the plan holds every distinct payload while it is made):
+- **Plan** (nothing is written to disk; decoded `data:` payloads retained during planning share a
+  total byte budget equal to the slot's image-memory share, with duplicate URIs decoded once;
+  an over-budget payload becomes an unavailable-image box before decoding):
   resolve and probe each `<img>` and inline `<svg>`; charge 16 bytes
   per decoded pixel (and four times the file size for a JPEG that must be decoded; a progressive one
   costs four bytes per source pixel more, because the JDK keeps its coefficients outside the heap);
@@ -249,7 +251,9 @@ without its images.
 - **SVG** is cleaned (outside references removed) and then drawn by Flying Saucer and Batik, not
   decoded by the plan. The cleaning is a second layer: Flying Saucer gives Batik no document URL, so Batik
   itself refuses everything an SVG names but a `data:` URI. What the cleaner adds is that the rest of the
-  drawing prints; an SVG left to Batik alone is left out whole (`IMAGE_UNAVAILABLE`) when it names a file.
+  drawing prints. Stylesheet SVGs pass through the same cleaner in the user agent before Batik reads
+  them, including the nested raster-image limits. SVG streams over 16 MB or without a configured
+  sanitizer are refused. Failed background-image loads report `IMAGE_UNAVAILABLE`.
   Four things were learned the hard way (section 14): an SVG that needs a bitmap is
   bounded by `BoundedOutputDevice`; its size is scaled to device dots by `LocalOnlyUserAgent` (a
   viewBox-only inline `<svg>` gets `width` and `height` from `SvgViewBox`); right-to-left text inside
@@ -426,20 +430,18 @@ every cell, so assert on phrases and glyph positions (`TestPdfs.glyphs`), not on
   WebKit dropped any first block's): a heading nested in a wrapper (`<form><h1>`), a paragraph after a
   `position: fixed` element and an empty block keep theirs, a few points at most.
 - **Layout time is quadratic in the number of rows**, and the size limit is in characters (section 5).
-- **CSS background images** that fail to load are omitted with a WARN; they cannot show the box.
-  An SVG named by a style sheet is not cleaned of outside references and cannot reach a file with them:
-  Flying Saucer gives Batik an SVG image with no document URL, so Batik refuses everything the SVG names
-  except a `data:` URI (`HtmlPdfSsrfUnitTest` pins this for a background, and fails the build if a library
-  upgrade loses it).
+- **CSS background images** that fail to load are omitted and report `IMAGE_UNAVAILABLE`; they cannot
+  show the box. An SVG named by a stylesheet is sanitized before loading, using the same reference
+  and nested-image rules as other SVGs.
 - **Safe and text-only mode print what a style sheet class hid** (section 4); in normal mode Flying Saucer
-  applies the print rules. The `hidden` attribute is not honoured in normal mode (Flying Saucer's default
-  style sheet has no `[hidden]` rule, and the form-control replacements drop the attribute), as in the
-  WebKit wkhtmltopdf used; a browser hides such an element. `type="hidden"` inputs never print.
+  applies the print rules. Elements marked `hidden`, their descendants, and `type="hidden"` inputs
+  never print in any mode. The existing exception for a hidden document root (`html` or `body`)
+  remains, so pages hidden until a script runs can still print.
 - **A non-vector SVG is rasterised once for each `SvgImage` Flying Saucer makes**, so fifty `<img>` of the
   same gradient icon are fifty small bitmaps (about 40 ms each); one SVG tiled, or drawn on several pages,
   is one bitmap.
-- **The decoded `data:` payloads of a document are not capped in total** while it is planned (each is capped
-  at 128 MB, and the document string is in memory as well).
+- **Decoded `data:` payloads are bounded together** by the slot's image-memory share during planning
+  (and individually by 128 MB). The original HTML string remains in memory.
 - **HRM files in Windows-1252** decode to U+FFFD, as they did with wkhtmltopdf; `HRMPDFCreator` decodes UTF-8.
 - **Form controls are replaced by their text:** author CSS that targets `input`/`select`/`textarea`
   element types no longer sizes them.

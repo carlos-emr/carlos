@@ -217,6 +217,7 @@ class PrintImageService {
         List<Entry> entries = new ArrayList<>();
         Map<String, Raster> rasters = new LinkedHashMap<>();
         Map<String, Svg> svgs = new LinkedHashMap<>();
+        InlinePayloads inlinePayloads = new InlinePayloads(share);
         for (Element element : document.select("img, svg")) {
             if (element.normalName().equals("svg")) {
                 if (element.parents().stream().noneMatch(parent -> parent.normalName().equals("svg"))) {
@@ -224,7 +225,7 @@ class PrintImageService {
                 }
                 continue;
             }
-            entries.add(examine(element, base, allowedDirectories, share, pixelCap, rasters, svgs));
+            entries.add(examine(element, base, allowedDirectories, share, pixelCap, rasters, svgs, inlinePayloads));
         }
 
         fit(rasters, share);
@@ -234,7 +235,7 @@ class PrintImageService {
     // ---- one element ------------------------------------------------------------------------
 
     private Entry examine(Element img, URI base, List<Path> allowedDirectories, long share, long pixelCap,
-            Map<String, Raster> rasters, Map<String, Svg> svgs) {
+            Map<String, Raster> rasters, Map<String, Svg> svgs, InlinePayloads inlinePayloads) {
         if (img.hasAttr("data-carlos-image-unavailable")) {
             return Entry.box(img, REASON_MARKED_UNAVAILABLE);
         }
@@ -242,7 +243,7 @@ class PrintImageService {
         if (src.isEmpty()) {
             return Entry.box(img, REASON_NO_SOURCE);
         }
-        Source source = load(src, base, allowedDirectories);
+        Source source = load(src, base, allowedDirectories, inlinePayloads);
         if (source.reason != null) {
             return Entry.box(img, source.reason);
         }
@@ -267,11 +268,9 @@ class PrintImageService {
     /** Resolves {@code src} as the renderer would, and reads the file or decodes the payload. */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of a URI scheme to recognise file: URIs; the allowed-directory containment check decides access, not this comparison
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of a URI scheme; the allowed-directory containment check decides access, not this comparison")
-    private Source load(String src, URI base, List<Path> allowedDirectories) {
+    private Source load(String src, URI base, List<Path> allowedDirectories, InlinePayloads inlinePayloads) {
         if (DataUris.isDataUri(src)) {
-            return DataUris.decodeBase64(src, MAX_DATA_URI_BYTES)
-                    .map(bytes -> bytes.length == 0 ? Source.failed(REASON_EMPTY) : Source.ofData(bytes))
-                    .orElseGet(() -> Source.failed(REASON_INVALID_SOURCE));
+            return inlinePayloads.read(src);
         }
         URI resolved;
         try {
@@ -760,6 +759,44 @@ class PrintImageService {
     }
 
     // ---- value types ------------------------------------------------------------------------
+
+    /**
+     * Decoded inline payloads retained during planning share one bound. Pixel charges cannot protect
+     * this stage: a tiny raster may carry megabytes of trailing bytes, and every Source retains them.
+     * Repeated URIs reuse their decoded source instead of consuming the budget again.
+     */
+    private static final class InlinePayloads {
+        private final Map<String, Source> sources = new HashMap<>();
+        private final boolean noSlot;
+        private long remaining;
+
+        InlinePayloads(long share) {
+            remaining = share;
+            noSlot = share == 0;
+        }
+
+        Source read(String uri) {
+            return sources.computeIfAbsent(uri, this::decode);
+        }
+
+        private Source decode(String uri) {
+            if (noSlot) {
+                return Source.failed(ImagePlan.REASON_NO_SLOT);
+            }
+            int comma = uri.indexOf(',');
+            long estimatedBytes = comma < 0 ? 0 : ((long) uri.length() - comma - 1 + 3) / 4 * 3;
+            if (estimatedBytes > remaining && remaining < MAX_DATA_URI_BYTES) {
+                return Source.failed(ImagePlan.REASON_MEMORY);
+            }
+            Optional<byte[]> decoded = DataUris.decodeBase64(uri, Math.min(remaining, MAX_DATA_URI_BYTES));
+            if (decoded.isEmpty()) {
+                return Source.failed(REASON_INVALID_SOURCE);
+            }
+            byte[] bytes = decoded.get();
+            remaining -= bytes.length;
+            return bytes.length == 0 ? Source.failed(REASON_EMPTY) : Source.ofData(bytes);
+        }
+    }
 
     /** A resolved source: a real file or a decoded payload, or the reason it is unusable. */
     private static final class Source {
