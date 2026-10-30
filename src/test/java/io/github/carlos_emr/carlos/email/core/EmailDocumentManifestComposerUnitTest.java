@@ -259,15 +259,17 @@ class EmailDocumentManifestComposerUnitTest {
         verifyNoInteractions(documentDao);
     }
 
-    @Test
-    @DisplayName("should keep the document ID but no title or date when the record is gone")
-    void shouldKeepTheDocumentId_whenTheRecordIsGone() {
-        DocumentManifest manifest = composer.forSend(loggedInInfo, fakeEmailLog())
-                .forAttachment(attachment(DocumentType.EFORM, 42));
+    @ParameterizedTest
+    @EnumSource(value = DocumentType.class, names = {"EFORM", "DOC", "LAB", "HRM"})
+    @DisplayName("should stop the send when the patient link outlives its record")
+    void shouldStopTheSend_whenTheRecordIsGone(DocumentType type) {
+        // The email's patient owns record 42 (setUp), but no record 42 exists.
+        EmailDocumentManifestComposer.AttachmentManifests manifests = composer.forSend(loggedInInfo, fakeEmailLog());
+        EmailAttachment attachment = attachment(type, 42);
 
-        assertThat(manifest.documentId()).isEqualTo(expectedDocumentId("eform", "42"));
-        assertThat(manifest.documentTitle()).isNull();
-        assertThat(manifest.serviceDate()).isNull();
+        assertThatThrownBy(() -> manifests.forAttachment(attachment))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("An attached record no longer exists");
     }
 
     @Test
@@ -276,6 +278,7 @@ class EmailDocumentManifestComposerUnitTest {
         EmailLog emailLog = fakeEmailLog();
         emailLog.getDemographic().setAlias("FAKE-Jojo");
         emailLog.getDemographic().setMonthOfBirth("13");
+        recordExists(DocumentType.EFORM, 42);
 
         DocumentManifest manifest = composer.forSend(loggedInInfo, emailLog)
                 .forAttachment(attachment(DocumentType.EFORM, 42));
@@ -291,6 +294,7 @@ class EmailDocumentManifestComposerUnitTest {
         when(settings.clinicId()).thenReturn("clinic-a");
         portal.when(PatientPortalSettings::isConfigured).thenReturn(true);
         portal.when(PatientPortalSettings::fromCarlosProperties).thenReturn(settings);
+        recordExists(DocumentType.EFORM, 42);
 
         assertThat(composer.forSend(loggedInInfo, fakeEmailLog()).forAttachment(attachment(DocumentType.EFORM, 42))
                 .clinicId()).isEqualTo("clinic-a");
@@ -352,6 +356,7 @@ class EmailDocumentManifestComposerUnitTest {
     @DisplayName("should build the manifest for a record of the email's patient")
     void shouldBuildTheManifest_whenTheRecordIsTheEmailPatients(DocumentType type) {
         linkRecord(type, 7, 1001);
+        recordExists(type, 7);
 
         DocumentManifest manifest = composer.forSend(loggedInInfo, fakeEmailLog())
                 .forAttachment(attachment(type, 7));
@@ -398,6 +403,24 @@ class EmailDocumentManifestComposerUnitTest {
                 .startsWith("FAKE x");
     }
 
+    @Test
+    @DisplayName("should not split a surrogate pair when it shortens a title")
+    void shouldKeepWholeCodePoints_whenItShortensATitle() {
+        // U+1F4C4 (a supplementary character) straddles the cut: its high surrogate is the last
+        // char that would be kept.
+        String pageFacingUp = new String(Character.toChars(0x1F4C4));
+        Document document = new Document();
+        document.setDocdesc("x".repeat(EmailDocumentManifestComposer.MAX_TITLE_LENGTH - 1) + pageFacingUp + "tail");
+        when(documentDao.find(8)).thenReturn(document);
+
+        DocumentManifest manifest = composer.forSend(loggedInInfo, fakeEmailLog())
+                .forAttachment(attachment(DocumentType.DOC, 8));
+
+        assertThat(manifest.documentTitle()).isEqualTo("x".repeat(EmailDocumentManifestComposer.MAX_TITLE_LENGTH - 1));
+        // The manifest's canonical JSON refuses unpaired surrogates; this must not throw.
+        assertThat(manifest.toCanonicalJson("FAKE-kid")).isNotEmpty();
+    }
+
     /**
      * Links the record to {@code owner} only, through the lookup the ownership rule uses for its
      * type: the email's patient (1001) then owns it only when {@code owner} is 1001, and nobody
@@ -407,6 +430,16 @@ class EmailDocumentManifestComposerUnitTest {
         ownedBy(type, 1001, List.of());
         if (owner != null) {
             ownedBy(type, owner, List.of(recordId));
+        }
+    }
+
+    private void recordExists(DocumentType type, int recordId) {
+        switch (type) {
+            case EFORM -> when(eFormDataDao.find(recordId)).thenReturn(new EFormData());
+            case DOC -> when(documentDao.find(recordId)).thenReturn(new Document());
+            case LAB -> when(hl7TextInfoDao.findLabId(recordId)).thenReturn(new Hl7TextInfo());
+            case HRM -> when(hrmDocumentDao.find(recordId)).thenReturn(new HRMDocument());
+            case FORM -> throw new IllegalArgumentException("a form is read through FormsManager");
         }
     }
 
