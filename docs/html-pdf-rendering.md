@@ -416,7 +416,7 @@ directory per test exhausts a test JVM's heap), `TestImages`.
 Fixtures are in `src/test/resources/htmlpdf` (its README says how each was made). The two Annual form
 pages were derived from the JSPs by `scripts/htmlpdf/derive-annual-fixtures.py` because they were made
 where no server runs; **`scripts/htmlpdf/capture-annual-fixtures.js` captures them from a running
-devcontainer instead (it has not been run)**. Fonts under other hosts: `bash scripts/check-report-fonts.sh`.
+devcontainer or a packaged install instead (run once, in an Ubuntu 26.04 container)**. Fonts under other hosts: `bash scripts/check-report-fonts.sh`.
 Text read back from a PDF: PDFBox returns right-to-left text in logical order and splits a line at
 every cell, so assert on phrases and glyph positions (`TestPdfs.glyphs`), not on whole lines.
 

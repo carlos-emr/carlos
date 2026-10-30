@@ -31,11 +31,13 @@
  * redisplays for the saved record, so `checked` and the values are server-rendered attributes, as in the
  * page ConvertToEdoc receives.
  *
- * NOT RUN BY ITS AUTHOR: it follows the flow of scripts/clinical-forms-save-reopen-playwright-checks.js
- * (the Annual Health Review is opened as ../form/formannual.jsp, the Save button asks for a confirmation,
- * and Save redisplays the saved form), but no running application was available to try it against; only the
- * page clean-up (`relativise`) was exercised, in headless Chromium on a sample page.
- * Adjust the selectors below if the form changes.
+ * It follows the flow of scripts/clinical-forms-save-reopen-playwright-checks.js: the Annual Health Review is
+ * opened at /form/formannual (the route; the .jsp it was written for answers 404), the Save button asks for a
+ * confirmation, which the harness has to be told to expect (`withExpectedDialogs`; a page listener of the
+ * script's own is a second handler for the same dialog and fails), and Save redisplays the saved form. It was
+ * run once, against a packaged install (the .deb files in an Ubuntu 26.04 container) with the demo data of the
+ * FAKE- patients, and wrote female.html and male.html with the structure of the committed fixtures. Adjust
+ * the selectors below if the form changes.
  *
  * It refuses to write a page that does not name a FAKE- patient, and it never writes a page whose text boxes or
  * text areas hold anything but what it typed itself, a FAKE- value, or a date or number (the server fills in the
@@ -114,7 +116,7 @@ async function relativise(page, appPath) {
 }
 
 async function capture(page, config, demographicNo, kind) {
-  const url = `/form/formannual.jsp?demographic_no=${encodeURIComponent(demographicNo)}&formId=0&provNo=999998`;
+  const url = `/form/formannual?demographic_no=${encodeURIComponent(demographicNo)}&formId=0&provNo=999998`;
   await h.gotoApp(page, config.baseUrl, url);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
@@ -135,12 +137,14 @@ async function capture(page, config, demographicNo, kind) {
     }
   }
 
-  // Save asks for a confirmation, then redisplays the saved form with server-rendered values.
-  page.once('dialog', dialog => dialog.accept());
-  await Promise.all([
-    page.waitForNavigation({ waitUntil: 'load', timeout: 30000 }),
-    page.locator('input[type="submit"][onclick*="onSave()"]').first().click(),
-  ]);
+  // Save asks for a confirmation, then redisplays the saved form with server-rendered values. The harness
+  // answers every dialog itself, so the one expected here is declared to it.
+  await h.withExpectedDialogs(page, async () => {
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'load', timeout: 30000 }),
+      page.locator('input[type="submit"][onclick*="onSave()"]').first().click(),
+    ]);
+  });
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
   const unexplained = await unexplainedText(page);
