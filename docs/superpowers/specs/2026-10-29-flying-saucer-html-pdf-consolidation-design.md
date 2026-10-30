@@ -602,6 +602,14 @@ structure).
    - n. mark with `class="carlos-pdf-wrap"` the block or table cell around every word of 40
      characters or more (`XhtmlCleanup.markLongWords`; it runs after step i in every mode,
      on the plain text document too; see "Injected stylesheet");
+   - o. replace the CSS2 system colour keywords (`windowtext`, `window`, `buttonface`, ...) in the
+     colour properties of `style` attributes and style sheets with the colours of the default
+     Windows theme (`SystemColors`; runs after step n). Word writes every table border as
+     `border: solid windowtext 1.0pt`, WebKit knew the keyword, and Flying Saucer 10.7.0 drops
+     the whole declaration, so a report that began as a Word document printed without table
+     borders (*measured*: that border draws nothing, `solid #000000` draws the box; found with
+     the Word-style HRM fixture). Only a keyword standing alone in a colour property's value is
+     replaced, never one in a string, a `url()`, a selector or a non-colour property;
    - j. images: `PrintImageService` (see "Images"), the only step with side effects before
      layout (temporary files). In `TEXT_ONLY` mode there are no images and `prepare`
      returns an empty holder with no directory;

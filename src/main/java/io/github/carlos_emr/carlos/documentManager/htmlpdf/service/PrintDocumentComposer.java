@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.PrintMessages
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.PrintStylesheet;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.RtlTextShaping;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.SafeModeMarkup;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.SystemColors;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.XhtmlCleanup;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.DataNode;
@@ -56,8 +57,8 @@ import java.util.Set;
  *       comments; b. soft hyphens, bidi controls and XML-invalid characters; c. form controls;
  *       d. {@code position: fixed}; e. {@code <ol type>}; f. row and column spans; g. paginated
  *       tables; h. right-to-left text; i. {@code alt} text. [Text-only mode: the cleaned document
- *       is then reduced to its text.] Last, n. the blocks that hold a very long word are marked, in
- *       every mode.</li>
+ *       is then reduced to its text.] Last, n. the blocks that hold a very long word are marked and
+ *       o. the CSS2 system colour keywords Word writes ({@code windowtext}) become colours, in every mode.</li>
  *   <li>Image handling (step j), by {@code PrintImageService}, runs between the two methods because
  *       it is the only step with side effects.</li>
  *   <li>{@link #finish}: k. the {@code carlos-pdf-defaults} style sheet as the first child of
@@ -117,6 +118,7 @@ class PrintDocumentComposer {
         XhtmlCleanup.addMissingAltText(document);
         Document prepared = mode == PrintMode.TEXT_ONLY ? PlainTextDocument.from(document) : document;
         XhtmlCleanup.markLongWords(prepared);
+        SystemColors.replace(prepared);
         return prepared;
     }
 

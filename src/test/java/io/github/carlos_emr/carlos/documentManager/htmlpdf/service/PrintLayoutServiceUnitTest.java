@@ -205,6 +205,27 @@ class PrintLayoutServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should draw the table borders Word writes with the windowtext keyword")
+    void shouldDrawBorders_ofSystemColourKeywords() throws Exception {
+        // Flying Saucer drops a declaration with a system colour; the document rules turn the keyword into a colour.
+        String html = "<html><head><style>body { margin: 0 }</style></head><body>"
+                + "<div style=\"width: 100px; height: 40px; border: solid windowtext 1.0pt\"></div></body></html>";
+
+        byte[] pdf = render(html);
+
+        int dark = 0;
+        java.awt.image.BufferedImage image = TestPdfs.image(pdf, 1);
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                if ((image.getRGB(x, y) & 0xFFFFFF) != 0xFFFFFF) {
+                    dark++;
+                }
+            }
+        }
+        assertThat(dark).isGreaterThan(100);
+    }
+
+    @Test
     @DisplayName("should print 8 px text at 6 points: the 10 px minimum, scaled by the default zoom")
     void shouldPrintTinyText_atSixPoints() throws Exception {
         byte[] pdf = render("<html><body><p style=\"font-size: 8px\">tiny text</p></body></html>");

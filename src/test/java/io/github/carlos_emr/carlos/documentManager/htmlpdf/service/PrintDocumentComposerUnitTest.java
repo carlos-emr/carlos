@@ -147,6 +147,17 @@ class PrintDocumentComposerUnitTest {
     }
 
     @Test
+    @DisplayName("should turn the system colour keywords Word writes into colours, in the style attributes and the style sheets")
+    void shouldReplaceSystemColours_inNormalMode() {
+        Document document = composer.prepare("<html><head><title>T</title><style>td { border: solid windowtext 1pt }</style></head>"
+                + "<body><table><tr><td id=\"c\" style=\"border-top: none; background: window\">x</td></tr></table></body></html>",
+                PrintMode.NORMAL, degradations());
+
+        assertThat(document.select("style").first().data()).isEqualTo("td { border: solid #000000 1pt }");
+        assertThat(document.getElementById("c").attr("style")).isEqualTo("border-top: none; background: #ffffff");
+    }
+
+    @Test
     @DisplayName("should apply every document rule in normal mode and keep the author's styles")
     void shouldApplyEveryRule_inNormalMode() {
         Document document = composer.prepare("<html><head><title>T</title><style>p { color: red }</style>"
