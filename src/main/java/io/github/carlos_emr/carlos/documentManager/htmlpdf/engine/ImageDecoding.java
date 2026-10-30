@@ -27,6 +27,7 @@ import com.twelvemonkeys.imageio.metadata.jpeg.JPEGSegment;
 import com.twelvemonkeys.imageio.metadata.jpeg.JPEGSegmentUtil;
 import com.twelvemonkeys.imageio.metadata.tiff.TIFFReader;
 import com.twelvemonkeys.imageio.stream.SubImageInputStream;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import java.awt.geom.AffineTransform;
 import java.awt.image.AffineTransformOp;
@@ -37,6 +38,7 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import javax.imageio.ImageIO;
@@ -113,6 +115,14 @@ public final class ImageDecoding {
      */
     // measured: a 65 MB JPEG made of Exif segments made the unbounded scan allocate 67 MB
     private static final long MAX_EXIF_SCAN_BYTES = 1L << 20;
+
+    /**
+     * How many times a WebP reader may read past the end of the data before the decode is cut off
+     * (see {@link EofBudgetImageInputStream}). Package-private so that the tests can check how much
+     * room the valid files leave below it.
+     */
+    // measured: valid WebPs read past the end at most 828 times (14 600 swept); corrupt 36-byte lossless ones ran for 15 s and, in one case, over 4 min
+    static final int WEBP_MAX_READS_PAST_END = 4096;
 
     private static final int ORIENTATION_UPRIGHT = 1;
     private static final int MAX_ORIENTATION = 8;
@@ -250,6 +260,12 @@ public final class ImageDecoding {
      * {@link #subsamplingToFit(ImageHeader, long)}, because a result that does not fit the heap
      * fails with {@link OutOfMemoryError}.</p>
      *
+     * <p>A WebP is read through a view that fails once the reader has read past the end of the
+     * data more than a few thousand times (see {@link EofBudgetImageInputStream}). Valid files
+     * stay several times below that, and a corrupt lossless one, which the library alone would
+     * spend 15 s or more on, fails with an {@code IOException} within milliseconds. No other format
+     * is affected.</p>
+     *
      * @param file the image file
      * @param subsampling how many source pixels to step over, at least 1 (1 decodes in full)
      * @return the decoded, reduced image
@@ -295,12 +311,15 @@ public final class ImageDecoding {
             if (reader == null) {
                 throw new IOException("no image reader recognises the input");
             }
-            // Not forward-only: a TIFF may store its strips out of order, and a random-access
-            // stream on a file costs nothing extra.
-            reader.setInput(stream, false, true);
-            ImageReadParam param = reader.getDefaultReadParam();
-            param.setSourceSubsampling(subsampling, subsampling, 0, 0);
-            return reader.read(0, param);
+            if (isWebp(reader)) {
+                // The one reader found to loop for 15 s or more on corrupt data instead of failing. The
+                // other readers get the stream as it is, so their handling of truncated files
+                // (the JDK's JPEG reader returns what it has) does not change.
+                try (ImageInputStream bounded = new EofBudgetImageInputStream(stream, WEBP_MAX_READS_PAST_END)) {
+                    return read(reader, bounded, subsampling);
+                }
+            }
+            return read(reader, stream, subsampling);
         } catch (RuntimeException e) {
             // Corrupt data surfaces from the readers as all sorts of runtime exceptions; callers
             // handle one type. The message carries the class name only, never the reader's text.
@@ -310,6 +329,21 @@ public final class ImageDecoding {
                 reader.dispose();
             }
         }
+    }
+
+    private static BufferedImage read(ImageReader reader, ImageInputStream input, int subsampling) throws IOException {
+        // Not forward-only: a TIFF may store its strips out of order, and a random-access
+        // stream on a file costs nothing extra.
+        reader.setInput(input, false, true);
+        ImageReadParam param = reader.getDefaultReadParam();
+        param.setSourceSubsampling(subsampling, subsampling, 0, 0);
+        return reader.read(0, param);
+    }
+
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an ImageIO reader's format name (an internal ASCII identifier such as "webp", never user input); not a security or authorization decision
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an ImageIO reader's format name (an internal ASCII identifier such as webp, never user input); not a security or authorization decision")
+    private static boolean isWebp(ImageReader reader) throws IOException {
+        return "webp".equals(reader.getFormatName().toLowerCase(Locale.ROOT));
     }
 
     private static void requireSubsampling(int subsampling) {

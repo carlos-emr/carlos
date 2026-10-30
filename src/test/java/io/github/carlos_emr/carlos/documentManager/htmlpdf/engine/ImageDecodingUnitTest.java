@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.documentManager.htmlpdf.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.awt.Transparency;
@@ -33,6 +34,7 @@ import java.awt.image.DataBuffer;
 import java.awt.image.IndexColorModel;
 import java.awt.image.Raster;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
@@ -44,7 +46,9 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -56,6 +60,7 @@ import java.util.stream.Stream;
 import java.util.zip.CRC32;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
+import javax.imageio.IIOException;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
@@ -342,6 +347,256 @@ class ImageDecodingUnitTest {
         assertThat(alpha.getColorModel().hasAlpha()).isTrue();
         assertThat(alpha.getRGB(1, 1) >>> 24).isEqualTo(128);
         assertThat(ImageDecoding.readSubsampled(fixtureBytes("opaque-4x4.webp"), 1).getColorModel().hasAlpha()).isFalse();
+    }
+
+    // ---- WebP decodes that read past the end of the data ------------------------------------
+
+    /**
+     * Three 36-byte files made by corrupting a few bytes of the lossless fixture alpha-4x4.webp.
+     * TwelveMonkeys' lossless decoder treats the end of the data as endless zero bits, so a corrupt
+     * count in the header sent it round its Huffman loops for 15 to 16 s of CPU on each, where
+     * every other format finished a corrupt input in 31 ms or less.
+     */
+    private static final String[] SPINNING_WEBPS = {
+            "524946461c000000574542505650384c0f0000002f5cc0a8100710fd8f02069da27c0100",
+            "524946461c000000574542505650384c0f0000002f03c000100755fd8f020622a2ff0100",
+            "524946461c00006d574542505650384c0f0000002f8ec000100710fd8f690622a2ff0100"};
+
+    @ParameterizedTest(name = "reproducer {index}")
+    @ValueSource(ints = {0, 1, 2})
+    void shouldFailWithinSeconds_forCorruptLosslessWebp(int reproducer) {
+        byte[] webp = HexFormat.of().parseHex(SPINNING_WEBPS[reproducer]);
+
+        // Preemptive: without the guard the decode cannot be interrupted, so the test gives up
+        // after five seconds instead of waiting for the library.
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () ->
+                assertThatThrownBy(() -> ImageDecoding.readSubsampled(webp, 1)).isInstanceOf(IOException.class));
+    }
+
+    @ParameterizedTest(name = "reproducer {index} as a file")
+    @ValueSource(ints = {0, 1, 2})
+    void shouldFailWithinSeconds_forCorruptLosslessWebpFile(int reproducer) throws IOException {
+        // The hazard is not particular to the in-memory stream: reproducers 2 and 3 spin through a
+        // file stream as well (reproducer 1 happens to fail fast there, and spins in memory).
+        Path file = Files.write(tempDir.resolve("spinning.webp"), HexFormat.of().parseHex(SPINNING_WEBPS[reproducer]));
+
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () ->
+                assertThatThrownBy(() -> ImageDecoding.readSubsampled(file, 1)).isInstanceOf(IOException.class));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"opaque-4x4.webp", "alpha-4x4.webp", "lossy-halves-37x23.webp",
+            "lossless-pattern-37x23.webp", "animated-8x8.webp", "flat-49x28.webp"})
+    void shouldDecodeValidWebp_exactlyAsTheReaderAloneDoes(String name) throws IOException {
+        byte[] webp = fixtureBytes(name);
+        // The control: the same reader through ImageIO's plain entry point, with nothing around it.
+        BufferedImage expected = ImageIO.read(new ByteArrayInputStream(webp));
+        int width = expected.getWidth();
+        int height = expected.getHeight();
+
+        for (BufferedImage actual : List.of(ImageDecoding.readSubsampled(webp, 1), ImageDecoding.readSubsampled(fixture(name), 1))) {
+            assertThat(actual.getWidth()).as(name).isEqualTo(width);
+            assertThat(actual.getHeight()).as(name).isEqualTo(height);
+            assertThat(actual.getRGB(0, 0, width, height, null, 0, width)).as(name)
+                    .isEqualTo(expected.getRGB(0, 0, width, height, null, 0, width));
+        }
+    }
+
+    @Test
+    void shouldDecodeLosslessWebpBitExactly_forKnownPattern() throws IOException {
+        // Pixel (x, y) was written as (7x, 11y, xy) modulo 256 by Pillow's lossless encoder.
+        BufferedImage image = ImageDecoding.readSubsampled(fixtureBytes("lossless-pattern-37x23.webp"), 1);
+
+        assertThat(image.getWidth()).isEqualTo(37);
+        assertThat(image.getHeight()).isEqualTo(23);
+        for (int y = 0; y < 23; y++) {
+            for (int x = 0; x < 37; x++) {
+                int expected = (((x * 7) & 255) << 16) | (((y * 11) & 255) << 8) | ((x * y) & 255);
+                assertThat(image.getRGB(x, y) & 0xFFFFFF).as("pixel %d,%d", x, y).isEqualTo(expected);
+            }
+        }
+    }
+
+    @Test
+    void shouldDecodeFirstFrame_forAnimatedWebp() throws IOException {
+        // Three lossless frames, red then green then blue; a still print shows the first.
+        BufferedImage image = ImageDecoding.readSubsampled(fixtureBytes("animated-8x8.webp"), 1);
+
+        assertThat(image.getWidth()).isEqualTo(8);
+        assertThat(image.getHeight()).isEqualTo(8);
+        assertThat(image.getRGB(3, 3)).isEqualTo(0xFFFF0000);
+    }
+
+    @ParameterizedTest(name = "reader named {0}")
+    @ValueSource(strings = {"webp", "WebP", "WEBP"})
+    void shouldBoundTheStream_forAReaderNamedWebp(String formatName) throws IOException {
+        // A synthetic reader stands in for the real one, so that what is checked is the routing
+        // and not what the library happens to do. The name is compared without regard to case.
+        byte[] data = Arrays.copyOf(EXPLODING_MAGIC, EXPLODING_MAGIC.length + 16);
+        Path file = Files.write(tempDir.resolve("named.img"), data);
+        IIORegistry registry = IIORegistry.getDefaultInstance();
+        ExplodingReaderSpi spi = new ExplodingReaderSpi(formatName);
+        registry.registerServiceProvider(spi);
+        try {
+            ExplodingReader.lastInput = null;
+            assertThatThrownBy(() -> ImageDecoding.readSubsampled(data, 1)).isInstanceOf(IOException.class);
+            assertThat(ExplodingReader.lastInput).as("stream for a decode of bytes").isEqualTo(EofBudgetImageInputStream.class);
+
+            ExplodingReader.lastInput = null;
+            assertThatThrownBy(() -> ImageDecoding.readSubsampled(file, 1)).isInstanceOf(IOException.class);
+            assertThat(ExplodingReader.lastInput).as("stream for a decode of a file").isEqualTo(EofBudgetImageInputStream.class);
+
+            // A header read decodes nothing, so it needs no bound and gets the plain stream.
+            ExplodingReader.lastInput = null;
+            ImageDecoding.readHeader(data);
+            assertThat(ExplodingReader.lastInput).as("stream for a header read").isEqualTo(MemoryCacheImageInputStream.class);
+        } finally {
+            registry.deregisterServiceProvider(spi);
+            ExplodingReader.lastInput = null;
+        }
+    }
+
+    @Test
+    void shouldLeaveRoomBelowTheBudget_forEveryValidWebpFixture() throws IOException {
+        // flat-49x28.webp is the valid lossless WebP that read past the end of its data most often
+        // among 14 600 swept (828 times; tiny flat images do, because libwebp codes their pixels one
+        // by one, while a 2048 x 2048 flat one does it 14 times). Lowering the budget towards it, or
+        // a library update that makes valid files read past the end more, must fail here and not in
+        // front of a patient's image.
+        int worst = 0;
+        for (String name : List.of("opaque-4x4.webp", "alpha-4x4.webp", "lossy-halves-37x23.webp",
+                "lossless-pattern-37x23.webp", "animated-8x8.webp", "flat-49x28.webp")) {
+            int reads = endReadsOf(fixtureBytes(name));
+            assertThat(reads * 4L).as("reads past the end by %s, times four", name)
+                    .isLessThanOrEqualTo(ImageDecoding.WEBP_MAX_READS_PAST_END);
+            worst = Math.max(worst, reads);
+        }
+        assertThat(worst).as("the worst fixture still stresses the budget").isGreaterThan(500);
+    }
+
+    // ---- EofBudgetImageInputStream ----------------------------------------------------------
+
+    @Test
+    void shouldPassReadsAndSeeksThrough_whileInsideTheData() throws IOException {
+        byte[] data = {10, 11, 12, 13, 14, 15, 16, 17, 18, 19};
+        try (ImageInputStream raw = new MemoryCacheImageInputStream(new ByteArrayInputStream(data));
+                EofBudgetImageInputStream bounded = new EofBudgetImageInputStream(raw, 2)) {
+            assertThat(bounded.read()).isEqualTo(10);
+            assertThat(bounded.getStreamPosition()).isEqualTo(1);
+
+            byte[] buffer = new byte[4];
+            assertThat(bounded.read(buffer, 0, 4)).isEqualTo(4);
+            assertThat(buffer).containsExactly(11, 12, 13, 14);
+
+            bounded.seek(7);
+            assertThat(bounded.readUnsignedByte()).isEqualTo(17);
+            bounded.seek(2);
+            assertThat(bounded.readInt()).isEqualTo(0x0C0D0E0F); // big-endian until a reader says otherwise
+            bounded.seek(0);
+            bounded.setByteOrder(ByteOrder.LITTLE_ENDIAN);
+            assertThat(bounded.readShort()).isEqualTo((short) 0x0B0A);
+
+            // A short read at the very end returned bytes, so it is not a read past the end.
+            bounded.seek(8);
+            assertThat(bounded.read(buffer, 0, 4)).isEqualTo(2);
+            assertThat(bounded.endReads()).isZero();
+            // The wrapped stream was followed along: both stand at the end.
+            assertThat(raw.getStreamPosition()).isEqualTo(10);
+            assertThat(bounded.getStreamPosition()).isEqualTo(10);
+        }
+    }
+
+    @Test
+    void shouldStartAtThePositionOfTheWrappedStream_whenCreated() throws IOException {
+        byte[] data = {1, 2, 3, 4, 5};
+        try (ImageInputStream raw = new MemoryCacheImageInputStream(new ByteArrayInputStream(data))) {
+            raw.seek(2);
+            try (EofBudgetImageInputStream bounded = new EofBudgetImageInputStream(raw, 1)) {
+                assertThat(bounded.getStreamPosition()).isEqualTo(2);
+                assertThat(bounded.read()).isEqualTo(3);
+            }
+        }
+    }
+
+    @Test
+    void shouldReportTheLengthOfTheWrappedStream_whenItKnowsIt() throws IOException {
+        Path file = Files.write(tempDir.resolve("four.bin"), new byte[] {1, 2, 3, 4});
+        try (ImageInputStream raw = new javax.imageio.stream.FileImageInputStream(file.toFile());
+                EofBudgetImageInputStream bounded = new EofBudgetImageInputStream(raw, 1)) {
+            assertThat(bounded.length()).isEqualTo(4);
+        }
+    }
+
+    @Test
+    void shouldThrowEofExceptionThenIioException_forEndReadsBeyondTheBudget() throws IOException {
+        byte[] data = {1, 2, 3, 4};
+        try (ImageInputStream raw = new MemoryCacheImageInputStream(new ByteArrayInputStream(data));
+                EofBudgetImageInputStream bounded = new EofBudgetImageInputStream(raw, 3)) {
+            bounded.seek(4); // exactly at the end of the data
+
+            // Three end-of-data reads are tolerated, whichever way they are made: the caller sees
+            // -1 (or an EOFException from readByte), exactly as without the view.
+            assertThat(bounded.read()).isEqualTo(-1);
+            assertThat(bounded.read(new byte[2], 0, 2)).isEqualTo(-1);
+            assertThatThrownBy(bounded::readByte).isExactlyInstanceOf(EOFException.class);
+            assertThat(bounded.endReads()).isEqualTo(3);
+
+            // The fourth and every later one fail with an IIOException. It is not an EOFException,
+            // so a reader that swallows EOFException while prefetching does not swallow this.
+            assertThatThrownBy(bounded::read).isExactlyInstanceOf(IIOException.class);
+            assertThatThrownBy(() -> bounded.read(new byte[1], 0, 1)).isExactlyInstanceOf(IIOException.class);
+            assertThatThrownBy(bounded::readByte).isExactlyInstanceOf(IIOException.class)
+                    .hasMessageNotContaining(tempDir.toString());
+            assertThat(bounded.endReads()).as("the count stops at the budget").isEqualTo(3);
+        }
+    }
+
+    @Test
+    void shouldCountEndReadsAcrossSeeks_notOnlyConsecutiveOnes() throws IOException {
+        // The library seeks back after each end-of-data read, so the budget cannot be reset by a
+        // normal read in between.
+        byte[] data = {1, 2, 3, 4};
+        try (ImageInputStream raw = new MemoryCacheImageInputStream(new ByteArrayInputStream(data));
+                EofBudgetImageInputStream bounded = new EofBudgetImageInputStream(raw, 2)) {
+            bounded.seek(4);
+            assertThat(bounded.read()).isEqualTo(-1);
+            bounded.seek(0);
+            assertThat(bounded.read()).isEqualTo(1);
+            bounded.seek(4);
+            assertThat(bounded.read()).isEqualTo(-1);
+            bounded.seek(1);
+            assertThat(bounded.read()).isEqualTo(2);
+            bounded.seek(4);
+            assertThatThrownBy(bounded::read).isExactlyInstanceOf(IIOException.class);
+        }
+    }
+
+    @Test
+    void shouldFailOnTheFirstEndRead_forZeroBudget() throws IOException {
+        try (ImageInputStream raw = new MemoryCacheImageInputStream(new ByteArrayInputStream(new byte[] {1}));
+                EofBudgetImageInputStream bounded = new EofBudgetImageInputStream(raw, 0)) {
+            assertThat(bounded.read()).isEqualTo(1); // data is still read freely
+            assertThatThrownBy(bounded::read).isExactlyInstanceOf(IIOException.class);
+        }
+    }
+
+    @Test
+    void shouldLeaveTheWrappedStreamOpen_whenClosed() throws IOException {
+        try (ImageInputStream raw = new MemoryCacheImageInputStream(new ByteArrayInputStream(new byte[] {7, 8}))) {
+            EofBudgetImageInputStream bounded = new EofBudgetImageInputStream(raw, 1);
+            bounded.close();
+
+            assertThatThrownBy(bounded::read).isInstanceOf(IOException.class);
+            assertThat(raw.read()).as("the wrapped stream is still usable").isEqualTo(7);
+        }
+    }
+
+    @Test
+    void shouldRejectInvalidArguments_forEofBudgetStream() throws IOException {
+        try (ImageInputStream raw = new MemoryCacheImageInputStream(new ByteArrayInputStream(new byte[0]))) {
+            assertThatThrownBy(() -> new EofBudgetImageInputStream(null, 1)).isInstanceOf(NullPointerException.class);
+            assertThatThrownBy(() -> new EofBudgetImageInputStream(raw, -1)).isInstanceOf(IllegalArgumentException.class);
+        }
     }
 
     @Test
@@ -835,9 +1090,13 @@ class ImageDecodingUnitTest {
     /** Registers a reader for {@link #EXPLODING_MAGIC} data; its reader fails with an unchecked exception. */
     private static final class ExplodingReaderSpi extends ImageReaderSpi {
         ExplodingReaderSpi() {
+            this("carlos-test-exploding");
+        }
+
+        ExplodingReaderSpi(String formatName) {
             vendorName = "CARLOS tests";
             version = "1";
-            names = new String[] {"carlos-test-exploding"};
+            names = new String[] {formatName};
             inputTypes = new Class<?>[] {ImageInputStream.class};
         }
 
@@ -918,6 +1177,21 @@ class ImageDecodingUnitTest {
         @Override
         public BufferedImage read(int imageIndex, ImageReadParam param) {
             throw failure();
+        }
+    }
+
+    /** How many times the reader reads past the end of this WebP's data when it decodes it, unbounded. */
+    private static int endReadsOf(byte[] webp) throws IOException {
+        try (ImageInputStream raw = new MemoryCacheImageInputStream(new ByteArrayInputStream(webp));
+                EofBudgetImageInputStream counting = new EofBudgetImageInputStream(raw, Integer.MAX_VALUE)) {
+            ImageReader reader = ImageIO.getImageReaders(raw).next();
+            try {
+                reader.setInput(counting, false, true);
+                reader.read(0);
+            } finally {
+                reader.dispose();
+            }
+            return counting.endReads();
         }
     }
 
