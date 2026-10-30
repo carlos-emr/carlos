@@ -764,6 +764,17 @@ class ImageDecodingUnitTest {
         }
     }
 
+    @ParameterizedTest(name = "[{index}] picture {0}, thumbnail {1} is {2}")
+    @CsvSource({"6, , 6", "3, 6, 3", "1, 6, 1", "6, 8, 6", ", 6, 1", ", 8, 1"})
+    void shouldTakeOrientationOfThePictureOnly_whenTheThumbnailHasOneToo(Integer picture, Integer thumbnail, int expected)
+            throws IOException {
+        byte[] jpeg = withExif(fixtureBytes("exif-orientation-6.jpg"), tiffWithThumbnail(picture, thumbnail));
+
+        assertThat(ImageDecoding.exifOrientation(jpeg)).isEqualTo(expected);
+        assertThat(ImageDecoding.exifOrientation(Files.write(tempDir.resolve("thumb-" + picture + "-" + thumbnail + ".jpg"), jpeg)))
+                .isEqualTo(expected);
+    }
+
     @ParameterizedTest
     @ValueSource(ints = {0, 9, 16, 255, 32768, 65535})
     void shouldReturnOne_forOutOfRangeOrientation(int orientation) throws IOException {
@@ -1292,6 +1303,31 @@ class ImageDecodingUnitTest {
         tiff.putShort((short) orientation).putShort((short) 0);                       // value, padded to 4 bytes
         tiff.putInt(0);                                                               // no next IFD
         return tiff.array();
+    }
+
+    /**
+     * An EXIF TIFF structure with the picture's IFD0 and a thumbnail IFD1 after it, either of which holds one
+     * Orientation entry or none ({@code null}).
+     */
+    private static byte[] tiffWithThumbnail(Integer picture, Integer thumbnail) {
+        ByteBuffer tiff = ByteBuffer.allocate(64).order(ByteOrder.BIG_ENDIAN);
+        tiff.put((byte) 'M').put((byte) 'M').putShort((short) 42).putInt(8);
+        putIfd(tiff, picture, thumbnail != null);
+        if (thumbnail != null) {
+            putIfd(tiff, thumbnail, false);
+        }
+        return Arrays.copyOf(tiff.array(), tiff.position());
+    }
+
+    private static void putIfd(ByteBuffer tiff, Integer orientation, boolean nextFollows) {
+        if (orientation == null) {
+            tiff.putShort((short) 0);
+        } else {
+            tiff.putShort((short) 1);
+            tiff.putShort((short) 0x0112).putShort((short) 3).putInt(1);
+            tiff.putShort(orientation.shortValue()).putShort((short) 0);
+        }
+        tiff.putInt(nextFollows ? tiff.position() + 4 : 0);
     }
 
     /** Returns {@code jpeg} with its APP1 segment replaced by an Exif segment holding {@code tiff}. */

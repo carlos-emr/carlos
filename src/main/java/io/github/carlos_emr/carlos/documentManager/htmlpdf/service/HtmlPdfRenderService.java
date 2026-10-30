@@ -115,16 +115,16 @@ public class HtmlPdfRenderService {
      * HTML longer than this many characters, not counting {@code data:} payloads, goes straight to
      * {@code TEXT_ONLY}.
      *
-     * <p>Measured with {@code HtmlPdfComparisonMain size-limit} (Flying Saucer 10.7.0, JDK 25, 4 cores of
-     * a 2.1 GHz Xeon, 2 GB heap, a four-column laboratory table of 77 characters a row). A normal-mode
-     * layout takes 0.6 s at 153,000 characters (2000 rows, the reference fixture), 3.4 s at 769,000,
-     * 7.9 s at 1,003,000 (13,000 rows), 15.6 s at 1,549,000, 26.9 s at 2,017,000 and 31.7 s at 2,173,000:
-     * 30 s is reached at about 2.1 million. The limit is the largest round number for which the worst
-     * case of the ladder stays under 60 s (a 10 s wait for a slot, a normal-mode attempt, a safe-mode
-     * attempt that costs as much, and the text-only attempt): 10 + 7.9 + 7.9 + 0.8 = 27 s, where 2
-     * million would give 66 s. Real documents are far below it. The time grows with the square of the
-     * number of rows (Flying Saucer looks for the next sibling of a block while it collapses margins), so
-     * a document of very short rows reaches the same time with fewer characters.</p>
+     * <p>Measured when the module was added, with a one-off tool that went with wkhtmltopdf (Flying Saucer
+     * 10.7.0, JDK 25, 4 cores of a 2.1 GHz Xeon, 2 GB heap, a four-column laboratory table of 77 characters
+     * a row). A normal-mode layout takes 0.6 s at 153,000 characters (2000 rows, the reference fixture),
+     * 3.4 s at 769,000, 7.9 s at 1,003,000 (13,000 rows), 15.6 s at 1,549,000, 26.9 s at 2,017,000 and
+     * 31.7 s at 2,173,000: 30 s is reached at about 2.1 million. The limit is the largest round number
+     * for which the worst case of the ladder stays under 60 s (a 10 s wait for a slot, a normal-mode
+     * attempt, a safe-mode attempt that costs as much, and the text-only attempt): 10 + 7.9 + 7.9 + 0.8
+     * = 27 s, where 2 million would give 66 s. Real documents are far below it. The time grows with the
+     * square of the number of rows (Flying Saucer looks for the next sibling of a block while it collapses
+     * margins), so a document of very short rows reaches the same time with fewer characters.</p>
      */
     static final int TEXT_ONLY_HTML_CHARS = 1_000_000;
 
@@ -323,7 +323,7 @@ public class HtmlPdfRenderService {
     private boolean takeSlot() throws PDFGenerationException {
         try {
             return slots.tryAcquire(slotWait.toNanos(), TimeUnit.NANOSECONDS);
-        } catch (InterruptedException e) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
             // Nothing has started, so the caller may try again; rendering on with the flag set would only
             // fail every file read that follows.

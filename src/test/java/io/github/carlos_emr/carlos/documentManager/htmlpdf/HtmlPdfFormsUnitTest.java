@@ -34,6 +34,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.openpdf.text.pdf.PdfReader;
 import org.openpdf.text.pdf.PdfStamper;
 
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -127,10 +128,29 @@ class HtmlPdfFormsUnitTest {
     }
 
     @Test
-    @DisplayName("should not print buttons, image buttons or their labels, and print progress and meter as text")
-    void shouldNotPrintButtons_butPrintProgressAndMeterAsText() {
+    @DisplayName("should not print buttons, image buttons or their labels")
+    void shouldNotPrintButtons_orTheirLabels() {
         assertThat(flat).doesNotContain("FAKE-Submit", "FAKE-Button", "FAKE-Reset", "FAKE-image button");
-        assertThat(flat).contains("30/100", "0.6");
+    }
+
+    @Test
+    @DisplayName("should draw progress and meter as bars filled to their value, with no text of their own")
+    void shouldDrawProgressAndMeterAsBars_filledToTheirValue() throws Exception {
+        // The fixture's progress is 30 of 100 and its meter 0.6 of 1; the second progress has no value at all.
+        assertThat(flat).doesNotContain("30/100", "unknown", "60%");
+        BufferedImage page = TestPdfs.image(result.pdf(), 1);
+
+        // The progress fill is #2f6fbf, the meter fill #3f9d3f (the green of a meter with no low, high or optimum)
+        // and what is left of either track #e8e8e8.
+        BarRow progress = BarRow.widestFill(page, 0x2F6FBF);
+        BarRow meter = BarRow.widestFill(page, 0x3F9D3F);
+
+        assertThat(progress.filledShare(page)).isCloseTo(0.30, within(0.05));
+        assertThat(meter.filledShare(page)).isCloseTo(0.60, within(0.05));
+        // The track of the progress with no value is empty: the fill colour is on the page in one run, not two.
+        assertThat(progress.runsOfFill(page)).isEqualTo(1);
+        // A meter is half the width of a progress bar, as in a browser.
+        assertThat((double) meter.trackWidth(page) / progress.trackWidth(page)).isCloseTo(0.5, within(0.06));
     }
 
     @Test
@@ -153,5 +173,74 @@ class HtmlPdfFormsUnitTest {
         assertThat(skipped).isZero();
         assertThat(String.join("\n", TestPdfs.pageTexts(merged.toByteArray()))).isEqualTo(text);
         assertThat(String.join("\n", TestPdfs.pageTexts(flattened.toByteArray()))).isEqualTo(text);
+    }
+    /**
+     * One bar read off a rendered page: the row where its fill (a colour) is widest, and the fill's start and length
+     * in that row. The unfilled rest of a bar is the track colour {@code #e8e8e8}.
+     */
+    private record BarRow(int row, int start, int length, int fill) {
+
+        private static final int TRACK = 0xE8E8E8;
+
+        static BarRow widestFill(BufferedImage page, int fill) {
+            BarRow widest = new BarRow(-1, -1, 0, fill);
+            for (int y = 0; y < page.getHeight(); y++) {
+                int x = 0;
+                while (x < page.getWidth()) {
+                    if (!near(page.getRGB(x, y), fill)) {
+                        x++;
+                        continue;
+                    }
+                    int end = x;
+                    while (end < page.getWidth() && near(page.getRGB(end, y), fill)) {
+                        end++;
+                    }
+                    if (end - x > widest.length) {
+                        widest = new BarRow(y, x, end - x, fill);
+                    }
+                    x = end;
+                }
+            }
+            assertThat(widest.length).as("a bar filled with #%06x", fill).isGreaterThan(0);
+            return widest;
+        }
+
+        /** How many separate runs of the fill colour the row holds. */
+        int runsOfFill(BufferedImage page) {
+            int runs = 0;
+            boolean inRun = false;
+            for (int x = 0; x < page.getWidth(); x++) {
+                boolean on = near(page.getRGB(x, row), fill);
+                if (on && !inRun) {
+                    runs++;
+                }
+                inRun = on;
+            }
+            return runs;
+        }
+
+        /** The width of the fill and the track colour after it, past at most two pixels where the two blend. */
+        int trackWidth(BufferedImage page) {
+            int x = start + length;
+            int blended = 0;
+            while (blended < 2 && x < page.getWidth() && !near(page.getRGB(x, row), TRACK)) {
+                x++;
+                blended++;
+            }
+            while (x < page.getWidth() && near(page.getRGB(x, row), TRACK)) {
+                x++;
+            }
+            return x - start;
+        }
+
+        double filledShare(BufferedImage page) {
+            return (double) length / trackWidth(page);
+        }
+
+        private static boolean near(int rgb, int colour) {
+            return Math.abs(((rgb >> 16) & 0xFF) - ((colour >> 16) & 0xFF)) <= 12
+                    && Math.abs(((rgb >> 8) & 0xFF) - ((colour >> 8) & 0xFF)) <= 12
+                    && Math.abs((rgb & 0xFF) - (colour & 0xFF)) <= 12;
+        }
     }
 }

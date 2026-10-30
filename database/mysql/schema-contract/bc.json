@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "828a524b772d74bf672008913ec511e2bd4508fd2e656b778cc99785df8a83d4",
+ "migration_sha256": "4087bfef9ba2cc68a913af1cbd22042202176b740e591f6376a4abb86adfd709",
  "province": "bc",
  "schema": {
   "checks": [
@@ -164714,7 +164714,7 @@
    [
     "messagetbl",
     "pdfattachment",
-    "blob",
+    "mediumblob",
     "YES",
     "NULL",
     "",

@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
@@ -423,37 +424,125 @@ class PrintFormControlsUnitTest {
     @DisplayName("progress and meter")
     class ProgressAndMeter {
 
+        /** The style of the filled part of a bar, or {@code null} when the bar is the track alone. */
+        private String fillStyle(Document document, String selector) {
+            Element fill = only(document, selector).selectFirst("span.carlos-pdf-gauge-fill");
+            return fill == null ? null : fill.attr("style");
+        }
+
         @Test
-        @DisplayName("should print value and max of a progress bar, with max defaulting to 1")
-        void shouldPrintValueOverMax_forProgress() {
+        @DisplayName("should fill a progress bar to its value over its max, with max defaulting to 1 and the fill held within the track")
+        void shouldFillProgressToValueOverMax_withMaxDefaultingToOne() {
             Document document = replaced("<progress id=\"a\" value=\"30\" max=\"100\"></progress>"
                     + "<progress id=\"b\" value=\"0.5\"></progress>"
-                    + "<progress id=\"c\" value=\"2\" max=\"0\"></progress>");
+                    + "<progress id=\"c\" value=\"2\" max=\"0\"></progress>"
+                    + "<progress id=\"d\" value=\"-3\" max=\"10\"></progress>"
+                    + "<progress id=\"e\" value=\"1\" max=\"3\"></progress>"
+                    + "<progress id=\"f\" value=\"7\" max=\"5\"></progress>");
 
-            assertThat(only(document, "#a").text()).isEqualTo("30/100");
-            assertThat(only(document, "#b").text()).isEqualTo("0.5/1");
-            assertThat(only(document, "#c").text()).isEqualTo("2/1");
-            assertThat(only(document, "#a").hasClass("carlos-pdf-text")).isTrue();
+            assertThat(fillStyle(document, "#a")).isEqualTo("width: 30%");
+            assertThat(fillStyle(document, "#b")).isEqualTo("width: 50%");
+            assertThat(fillStyle(document, "#c")).isEqualTo("width: 100%");
+            assertThat(fillStyle(document, "#d")).isEqualTo("width: 0%");
+            assertThat(fillStyle(document, "#e")).isEqualTo("width: 33.3%");
+            assertThat(fillStyle(document, "#f")).isEqualTo("width: 100%");
+            assertThat(only(document, "#a").hasClass("carlos-pdf-control")).isTrue();
+            assertThat(only(document, "#a").hasClass("carlos-pdf-progress")).isTrue();
             assertThat(only(document, "#a").attr("data-input-type")).isEqualTo("progress");
+            assertThat(only(document, "#a").select("span.carlos-pdf-gauge-fill").first().classNames())
+                    .containsExactly("carlos-pdf-gauge-fill");
         }
 
         @Test
-        @DisplayName("should print nothing for an indeterminate progress bar")
-        void shouldPrintNothing_forIndeterminateProgress() {
-            Document document = replaced("<progress></progress><progress value=\"abc\" max=\"10\"></progress>");
+        @DisplayName("should print the track alone for a progress bar without a usable value")
+        void shouldPrintTrackAlone_forIndeterminateProgress() {
+            Document document = replaced("<progress id=\"a\"></progress><progress id=\"b\" value=\"abc\" max=\"10\"></progress>"
+                    + "<progress id=\"c\" value=\"1e999\"></progress>");
 
-            assertThat(texts(document.select("span.carlos-pdf-text"))).containsExactly("", "");
+            for (String id : List.of("#a", "#b", "#c")) {
+                assertThat(only(document, id).hasClass("carlos-pdf-progress")).as(id).isTrue();
+                assertThat(fillStyle(document, id)).as(id).isNull();
+                assertThat(only(document, id).children()).as(id).isEmpty();
+            }
         }
 
         @Test
-        @DisplayName("should print the value of a meter")
-        void shouldPrintValue_forMeter() {
-            Document document = replaced("<meter id=\"a\" value=\"0.7\" min=\"0\" max=\"1\">70%</meter><meter id=\"b\">fallback</meter>");
+        @DisplayName("should not print the text a progress bar or a meter holds for browsers that cannot draw it")
+        void shouldDropFallbackText_ofProgressAndMeter() {
+            Document document = replaced("<progress value=\"3\" max=\"4\">fallback of a progress bar</progress>"
+                    + "<meter value=\"0.5\">fallback of a meter</meter>");
 
-            assertThat(only(document, "#a").text()).isEqualTo("0.7");
+            assertThat(document.body().text()).isEmpty();
+            assertThat(document.html()).doesNotContain("fallback").doesNotContain("<progress").doesNotContain("<meter");
+        }
+
+        @Test
+        @DisplayName("should fill a meter from its min, max and value, with the defaults and corrections of HTML")
+        void shouldPositionMeterFill_fromMinMaxAndValue() {
+            Document document = replaced("<meter id=\"a\" value=\"0.7\" min=\"0\" max=\"1\">70%</meter>"
+                    + "<meter id=\"b\"></meter>"
+                    + "<meter id=\"c\" min=\"10\" max=\"90\" value=\"50\"></meter>"
+                    + "<meter id=\"d\" min=\"10\" max=\"20\" value=\"5\"></meter>"
+                    + "<meter id=\"e\" min=\"10\" max=\"20\" value=\"99\"></meter>"
+                    + "<meter id=\"f\" min=\"5\" max=\"3\" value=\"4\"></meter>"
+                    + "<meter id=\"g\" value=\"abc\" max=\"2\"></meter>"
+                    + "<meter id=\"h\" value=\"1\" max=\"1e999\"></meter>");
+
+            assertThat(fillStyle(document, "#a")).isEqualTo("width: 70%");
+            assertThat(fillStyle(document, "#b")).isEqualTo("width: 0%");
+            assertThat(fillStyle(document, "#c")).isEqualTo("width: 50%");
+            assertThat(fillStyle(document, "#d")).isEqualTo("width: 0%");
+            assertThat(fillStyle(document, "#e")).isEqualTo("width: 100%");
+            // max below min is raised to min, a range with no width has no position, a value that is no number is 0
+            assertThat(fillStyle(document, "#f")).isEqualTo("width: 0%");
+            assertThat(fillStyle(document, "#g")).isEqualTo("width: 0%");
+            // a max that is no finite number is taken as absent (1)
+            assertThat(fillStyle(document, "#h")).isEqualTo("width: 100%");
+            assertThat(only(document, "#a").hasClass("carlos-pdf-meter")).isTrue();
             assertThat(only(document, "#a").attr("data-input-type")).isEqualTo("meter");
-            assertThat(only(document, "#b").text()).isEmpty();
-            assertThat(document.html()).doesNotContain("fallback").doesNotContain("70%");
+        }
+
+        @ParameterizedTest(name = "[{index}] value {0}, low {1}, high {2}, optimum {3} is {4}")
+        @CsvSource({
+                // no points given: the optimum is the middle of the range, so any value is as good as it can be
+                "0.6, , , , optimum",
+                // the optimum is under low: values up to low are good, up to high so-so, beyond that poor
+                "0.2, 0.3, 0.7, 0.1, optimum",
+                "0.3, 0.3, 0.7, 0.1, optimum",
+                "0.5, 0.3, 0.7, 0.1, suboptimal",
+                "0.7, 0.3, 0.7, 0.1, suboptimal",
+                "0.9, 0.3, 0.7, 0.1, poor",
+                // the optimum is over high: the mirror image
+                "0.8, 0.3, 0.7, 0.9, optimum",
+                "0.7, 0.3, 0.7, 0.9, optimum",
+                "0.5, 0.3, 0.7, 0.9, suboptimal",
+                "0.3, 0.3, 0.7, 0.9, suboptimal",
+                "0.1, 0.3, 0.7, 0.9, poor",
+                // the optimum is between low and high: inside them is good, outside so-so, never poor
+                "0.5, 0.3, 0.7, 0.5, optimum",
+                "0.3, 0.3, 0.7, 0.5, optimum",
+                "0.9, 0.3, 0.7, 0.5, suboptimal",
+                "0.1, 0.3, 0.7, 0.5, suboptimal"})
+        @DisplayName("should colour the fill of a meter by where its value lies among low, high and optimum")
+        void shouldColourMeterFill_byWhereValueLies(String value, String low, String high, String optimum, String level) {
+            String points = (low == null ? "" : " low=\"" + low + "\"") + (high == null ? "" : " high=\"" + high + "\"")
+                    + (optimum == null ? "" : " optimum=\"" + optimum + "\"");
+            Document document = replaced("<meter id=\"m\" min=\"0\" max=\"1\" value=\"" + value + "\"" + points + "></meter>");
+
+            Element fill = only(document, "#m").selectFirst("span.carlos-pdf-gauge-fill");
+            assertThat(fill.classNames()).containsExactlyInAnyOrder("carlos-pdf-gauge-fill", "carlos-pdf-gauge-" + level);
+        }
+
+        @Test
+        @DisplayName("should keep the size the author gave a progress bar, on the track, and fill that much of it")
+        void shouldKeepAuthorsSize_onTheTrack() {
+            Document document = replaced("<progress id=\"a\" class=\"wide\" title=\"Done so far\" style=\"width:300px;height:20px\""
+                    + " value=\"50\" max=\"100\"></progress>");
+
+            assertThat(only(document, "#a").attr("style")).isEqualTo("width:300px;height:20px");
+            assertThat(only(document, "#a").attr("title")).isEqualTo("Done so far");
+            assertThat(only(document, "#a").classNames()).contains("wide", "carlos-pdf-control", "carlos-pdf-progress");
+            assertThat(fillStyle(document, "#a")).isEqualTo("width: 50%");
         }
     }
 

@@ -42,8 +42,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.ArgumentCaptor;
-import org.mockito.MockedConstruction;
-import org.mockito.Mockito;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.ByteArrayOutputStream;
@@ -56,7 +54,6 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -66,8 +63,7 @@ import static org.mockito.Mockito.when;
 /**
  * How {@link ConvertToEdoc} hands a document to {@link HtmlPdfRenderService}: the request it builds (the webapp
  * root and the directories a document may read), which source each entry point reports, and what happens when
- * wkhtmltopdf, the render or the save fails. The service and the file manager are mocks; wkhtmltopdf is made to fail,
- * which is when the service is used.
+ * the render or the save fails. The service and the file manager are mocks.
  */
 @Tag("unit")
 @Tag("fast")
@@ -116,10 +112,18 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    /** wkhtmltopdf fails, so the render goes to the service. */
-    private MockedConstruction<InternalEDocConverter> primaryConverterFails() {
-        return Mockito.mockConstruction(InternalEDocConverter.class, (converter, context) ->
-                doThrow(new IOException("FAKE-primary quoted the document")).when(converter).convert(any(), any()));
+    /** A form that holds {@code html} and names {@code realPath} as the webapp root (which may be {@code null}). */
+    private static FormTransportContainer form(String html, String realPath, String formName) {
+        FormTransportContainer form = mock(FormTransportContainer.class);
+        when(form.getHTML()).thenReturn(html);
+        when(form.getRealPath()).thenReturn(realPath);
+        when(form.getFormName()).thenReturn(formName);
+        when(form.getDemographicNo()).thenReturn("1");
+        return form;
+    }
+
+    private static String page(String body) {
+        return "<html><body>" + body + "</body></html>";
     }
 
     private HtmlPdfRenderRequest requestSentToService() throws Exception {
@@ -188,9 +192,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
         setRealPath(null);
         when(servletContext.getRealPath("/")).thenReturn(root + "/");
 
-        try (MockedConstruction<InternalEDocConverter> converter = primaryConverterFails()) {
-            assertThat(ConvertToEdoc.saveAsTempPDF("<html><body><img src=\"stamp.png\"></body></html>", "FAKE-name")).isNotNull();
-        }
+        assertThat(ConvertToEdoc.saveAsTempPDF(form(page("<img src=\"stamp.png\">"), null, "FAKE-name"))).isNotNull();
 
         HtmlPdfRenderRequest request = requestSentToService();
         assertThat(request.baseDirectory()).isEqualTo(root.toAbsolutePath().normalize());
@@ -203,11 +205,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
     @DisplayName("should label each entry point's request with its source")
     void shouldLabelSources_perEntryPoint() throws Exception {
         setRealPath(directory.toString());
-        FormTransportContainer form = mock(FormTransportContainer.class);
-        when(form.getHTML()).thenReturn("<p>FAKE-form</p>");
-        when(form.getRealPath()).thenReturn(directory.toString());
-        when(form.getFormName()).thenReturn("FAKE-form");
-        when(form.getDemographicNo()).thenReturn("1");
+        FormTransportContainer form = form("<p>FAKE-form</p>", directory.toString(), "FAKE-form");
         EmailData email = mock(EmailData.class);
         when(email.getEncryptedMessage()).thenReturn("<p>FAKE-email</p>");
         EFormData eform = mock(EFormData.class);
@@ -215,47 +213,28 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
         when(eform.getFormName()).thenReturn("FAKE-hrm");
         when(eform.getDemographicId()).thenReturn(1);
 
-        try (MockedConstruction<InternalEDocConverter> converter = primaryConverterFails()) {
-            ConvertToEdoc.saveAsTempPDF(form);
-            ConvertToEdoc.saveAsTempPDF(email);
-            ConvertToEdoc.saveAsTempPDF(eform);
-            ConvertToEdoc.saveAsTempPDF("<p>FAKE-string</p>", "FAKE-string");
-        }
+        ConvertToEdoc.saveAsTempPDF(form);
+        ConvertToEdoc.saveAsTempPDF(email);
+        ConvertToEdoc.saveAsTempPDF(eform);
 
         ArgumentCaptor<HtmlPdfRenderRequest> requests = ArgumentCaptor.forClass(HtmlPdfRenderRequest.class);
-        verify(service, times(4)).render(requests.capture());
+        verify(service, times(3)).render(requests.capture());
         assertThat(requests.getAllValues()).extracting(HtmlPdfRenderRequest::source).containsExactly(HtmlPdfRenderSource.FORM,
-                HtmlPdfRenderSource.EMAIL, HtmlPdfRenderSource.HRM, HtmlPdfRenderSource.FORM);
+                HtmlPdfRenderSource.EMAIL, HtmlPdfRenderSource.HRM);
     }
 
-    // ---- the ladder of converters -----------------------------------------------------------
+    // ---- the one engine ---------------------------------------------------------------------
 
     @Test
-    @DisplayName("should use the service only when wkhtmltopdf fails, and log the class of that failure, not its message")
-    void shouldUseServiceAsFallback_whenWkhtmltopdfFails() throws Exception {
+    @DisplayName("should render a form through the service, once, and save what it renders")
+    void shouldRenderThroughService_once() throws Exception {
         setRealPath(directory.toString());
 
-        try (LogCapture capture = LogCapture.forLogger(ConvertToEdoc.class);
-                MockedConstruction<InternalEDocConverter> converter = primaryConverterFails()) {
-            Path saved = ConvertToEdoc.saveAsTempPDF("<html><body><p>FAKE-body</p></body></html>", "FAKE-name");
+        Path saved = ConvertToEdoc.saveAsTempPDF(form(page("<p>FAKE-body</p>"), directory.toString(), "FAKE-name"));
 
-            assertThat(saved).isNotNull();
-            assertThat(requestSentToService().source()).isEqualTo(HtmlPdfRenderSource.FORM);
-            assertThat(capture.messages()).anyMatch(message -> message.contains("Primary PDF conversion failed (IOException)"));
-            assertThat(capture.messages()).noneMatch(message -> message.contains("FAKE-primary"));
-        }
-    }
-
-    @Test
-    @DisplayName("should not call the service when wkhtmltopdf produces the document")
-    void shouldNotUseService_whenWkhtmltopdfSucceeds() throws Exception {
-        setRealPath(directory.toString());
-
-        try (MockedConstruction<InternalEDocConverter> converter = Mockito.mockConstruction(InternalEDocConverter.class)) {
-            assertThat(ConvertToEdoc.saveAsTempPDF("<html><body><p>FAKE-body</p></body></html>", "FAKE-name")).isNotNull();
-        }
-
-        verify(service, never()).render(any());
+        assertThat(saved).isEqualTo(directory.resolve("saved.pdf"));
+        assertThat(requestSentToService().source()).isEqualTo(HtmlPdfRenderSource.FORM);
+        verify(files, times(1)).saveTempFile(anyString(), any(ByteArrayOutputStream.class));
     }
 
     // ---- failures ---------------------------------------------------------------------------
@@ -266,9 +245,8 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
         setRealPath(directory.toString());
         when(service.render(any())).thenThrow(new PDFGenerationException("FAKE-secret body text from the engine"));
 
-        try (LogCapture capture = LogCapture.forLogger(ConvertToEdoc.class);
-                MockedConstruction<InternalEDocConverter> converter = primaryConverterFails()) {
-            Path saved = ConvertToEdoc.saveAsTempPDF("<html><body><p>FAKE-secret body text</p></body></html>", "FAKE-name\n[forged]");
+        try (LogCapture capture = LogCapture.forLogger(ConvertToEdoc.class)) {
+            Path saved = ConvertToEdoc.saveAsTempPDF(form(page("<p>FAKE-secret body text</p>"), directory.toString(), "FAKE-name\n[forged]"));
 
             assertThat(saved).isNull();
             assertThat(capture.messages()).anyMatch(message -> message.startsWith("HTML could not be converted to PDF for ")
@@ -276,6 +254,23 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
             assertThat(capture.messages()).noneMatch(message -> message.contains("FAKE-secret") || message.contains("\n"));
         }
         verify(files, never()).saveTempFile(anyString(), any(ByteArrayOutputStream.class));
+        verify(service, times(1)).render(any());
+    }
+
+    @Test
+    @DisplayName("should return null and log only the class of the cause when the service fails unexpectedly")
+    void shouldReturnNullAndLogNoMessage_whenServiceFailsUnexpectedly() throws Exception {
+        setRealPath(directory.toString());
+        when(service.render(any())).thenThrow(new IllegalStateException("FAKE-secret body text from the engine"));
+
+        try (LogCapture capture = LogCapture.forLogger(ConvertToEdoc.class)) {
+            assertThat(ConvertToEdoc.saveAsTempPDF(form(page("<p>FAKE-secret body text</p>"), directory.toString(), "FAKE-name"))).isNull();
+
+            assertThat(capture.messages()).anyMatch(message -> message.endsWith(": IllegalStateException"));
+            assertThat(capture.messages()).noneMatch(message -> message.contains("FAKE-secret"));
+        }
+        verify(files, never()).saveTempFile(anyString(), any(ByteArrayOutputStream.class));
+        verify(service, times(1)).render(any());
     }
 
     @Test
@@ -283,11 +278,9 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
     void shouldReturnNull_forBlankHtml() throws Exception {
         setRealPath(directory.toString());
 
-        try (MockedConstruction<InternalEDocConverter> converter = primaryConverterFails()) {
-            assertThat(ConvertToEdoc.saveAsTempPDF("   ", "FAKE-name")).isNull();
-            assertThat(ConvertToEdoc.saveAsTempPDF("", "FAKE-name")).isNull();
-            assertThat(ConvertToEdoc.saveAsTempPDF((String) null, "FAKE-name")).isNull();
-        }
+        assertThat(ConvertToEdoc.saveAsTempPDF(form("   ", directory.toString(), "FAKE-name"))).isNull();
+        assertThat(ConvertToEdoc.saveAsTempPDF(form("", directory.toString(), "FAKE-name"))).isNull();
+        assertThat(ConvertToEdoc.saveAsTempPDF(form(null, directory.toString(), "FAKE-name"))).isNull();
 
         verify(service, never()).render(any());
     }
@@ -298,9 +291,8 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
         setRealPath(directory.toString());
         when(files.saveTempFile(anyString(), any(ByteArrayOutputStream.class))).thenThrow(new IOException("disk full at " + directory));
 
-        try (LogCapture capture = LogCapture.forLogger(ConvertToEdoc.class);
-                MockedConstruction<InternalEDocConverter> converter = primaryConverterFails()) {
-            assertThat(ConvertToEdoc.saveAsTempPDF("<html><body><p>FAKE-body</p></body></html>", "FAKE-name")).isNull();
+        try (LogCapture capture = LogCapture.forLogger(ConvertToEdoc.class)) {
+            assertThat(ConvertToEdoc.saveAsTempPDF(form(page("<p>FAKE-body</p>"), directory.toString(), "FAKE-name"))).isNull();
 
             assertThat(capture.messages()).anyMatch(message -> message.endsWith(": IOException"));
             assertThat(capture.messages()).noneMatch(message -> message.contains(directory.toString()));
@@ -308,27 +300,6 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
 
         verify(files, times(1)).saveTempFile(anyString(), any(ByteArrayOutputStream.class));
         verify(service, times(1)).render(any());
-    }
-
-    @Test
-    @DisplayName("should discard what wkhtmltopdf wrote before it failed, so only the service's PDF is saved")
-    void shouldDiscardPartialOutput_whenWkhtmltopdfFailsMidWay() throws Exception {
-        setRealPath(directory.toString());
-        List<byte[]> saved = new java.util.ArrayList<>();
-        when(files.saveTempFile(anyString(), any(ByteArrayOutputStream.class))).thenAnswer(invocation -> {
-            saved.add(invocation.<ByteArrayOutputStream>getArgument(1).toByteArray());
-            return directory.resolve("saved.pdf");
-        });
-
-        try (MockedConstruction<InternalEDocConverter> converter = Mockito.mockConstruction(InternalEDocConverter.class, (mock, context) ->
-                Mockito.doAnswer(invocation -> {
-                    invocation.<java.io.OutputStream>getArgument(1).write("PARTIAL-OUTPUT".getBytes());
-                    throw new IOException("failed after writing");
-                }).when(mock).convert(any(), any()))) {
-            ConvertToEdoc.saveAsTempPDF("<html><body><p>FAKE-body</p></body></html>", "FAKE-name");
-        }
-
-        assertThat(saved).singleElement().isEqualTo("%PDF-1.4 FAKE".getBytes());
     }
 
     @Test
@@ -341,9 +312,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
             return directory.resolve("saved.pdf");
         });
 
-        try (MockedConstruction<InternalEDocConverter> converter = primaryConverterFails()) {
-            ConvertToEdoc.saveAsTempPDF("<html><body><p>FAKE-body</p></body></html>", "FAKE-name");
-        }
+        ConvertToEdoc.saveAsTempPDF(form(page("<p>FAKE-body</p>"), directory.toString(), "FAKE-name"));
 
         assertThat(saved).singleElement().isEqualTo("%PDF-1.4 FAKE".getBytes());
     }

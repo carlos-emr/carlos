@@ -350,7 +350,8 @@ class PrintImageServiceApplyUnitTest {
             assertThat(document.select("img")).isEmpty();
             Element box = document.selectFirst("p > span.carlos-pdf-image-unavailable");
             assertThat(box.text()).isEqualTo("[image unavailable]");
-            assertThat(box.attr("style")).isEqualTo("width: 90px; height: 60px");
+            // The size of the image it replaces; the label is also fitted to the box, which this test is not about.
+            assertThat(box.attr("style")).startsWith("width: 90px; height: 60px");
             assertThat(images.directory()).isNull();
             assertThat(capture.messages()).isNotEmpty().allSatisfy(message -> assertThat(message)
                     .doesNotContain("cut.png").doesNotContain(base.toString()).doesNotContain("file:"));
@@ -421,7 +422,7 @@ class PrintImageServiceApplyUnitTest {
         try (LogCapture capture = LogCapture.forLogger(PrintImageService.class);
                 PreparedPrintImages images = service().apply(document, plan, degradations)) {
             assertThat(document.select("img")).isEmpty();
-            assertThat(document.selectFirst("span.carlos-pdf-image-unavailable").attr("style")).isEqualTo("width: 20px; height: 10px");
+            assertThat(document.selectFirst("span.carlos-pdf-image-unavailable").attr("style")).startsWith("width: 20px; height: 10px");
             assertThat(images.directory()).isNull();
             assertThat(capture.messages()).isNotEmpty().allSatisfy(message -> assertThat(message).doesNotContain("no-longer"));
         }

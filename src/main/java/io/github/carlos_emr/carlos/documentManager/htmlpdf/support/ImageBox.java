@@ -23,9 +23,11 @@ package io.github.carlos_emr.carlos.documentManager.htmlpdf.support;
 
 import org.jsoup.nodes.Element;
 
+import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -41,6 +43,12 @@ import java.util.regex.Pattern;
  * whole page and shrink everything else on it. The box has the class
  * {@code carlos-pdf-image-unavailable}, which {@code PrintStylesheet} gives its border and font.</p>
  *
+ * <p>The label has to fit the box it is in, or only the start of it shows ("[image una"). When the width is
+ * known in pixels and the label does not fit it on one line at the style sheet's 8 pt, the box says so itself: it
+ * lets the label wrap between its words, and sets it smaller if the longest word would not fit either, down to 4 pt.
+ * A box too short for two lines keeps one line and a smaller size instead. The widths of the letters are
+ * estimated, a little wide, for the bundled DejaVu Sans, which every document is set in.</p>
+ *
  * @since 2026-10-29
  */
 public final class ImageBox {
@@ -48,8 +56,26 @@ public final class ImageBox {
     /** The class that styles the box. */
     public static final String CLASS = "carlos-pdf-image-unavailable";
 
+    private static final String WIDTH = "width";
+    private static final String HEIGHT = "height";
+
     /** The largest width or height, in CSS pixels, a box takes: about the width of a printed page's content. */
     static final int MAX_PIXELS = 900;
+
+    /** The size of the label in the style sheet (8 pt), in CSS pixels. */
+    static final double LABEL_PIXELS = 8 * 4.0 / 3;
+
+    /** The smallest label that is worth printing (4 pt), in CSS pixels. */
+    static final double SMALLEST_LABEL_PIXELS = 4 * 4.0 / 3;
+
+    /** What a character of the label is wide, as a share of its font size: DejaVu Sans lower-case text, rounded up. */
+    static final double CHARACTER_WIDTH = 0.6;
+
+    /** The line height of a document (the style sheet's {@code line-height}). */
+    static final double LINE_HEIGHT = 1.164;
+
+    /** The border and the padding on both sides of the box, in CSS pixels: 2 x (1 + 2). */
+    static final int FRAME_PIXELS = 6;
 
     private static final Pattern LENGTH = Pattern.compile("(\\d+(?:\\.\\d+)?)(px|pt|em|rem|in|cm|mm|%)?");
 
@@ -67,13 +93,47 @@ public final class ImageBox {
         Element box = new Element("span");
         box.addClass(CLASS);
         StringBuilder style = new StringBuilder();
-        append(style, "width", sizeOf(original, "width"));
-        append(style, "height", sizeOf(original, "height"));
+        Optional<String> width = sizeOf(original, WIDTH);
+        Optional<String> height = sizeOf(original, HEIGHT);
+        append(style, WIDTH, width);
+        append(style, HEIGHT, height);
+        String label = PrintMessages.imageUnavailable();
+        fitLabel(style, label, pixels(width), pixels(height));
         if (!style.isEmpty()) {
             box.attr("style", style.toString());
         }
-        box.appendText(PrintMessages.imageUnavailable());
+        box.appendText(label);
         return box;
+    }
+
+    /** Wraps the label, or sets it smaller, when a box of this size is too narrow for it at the style sheet's size. */
+    private static void fitLabel(StringBuilder style, String label, OptionalInt width, OptionalInt height) {
+        if (width.isEmpty()) {
+            return;
+        }
+        double room = Math.max(1, width.getAsInt() - FRAME_PIXELS);
+        if (room >= label.length() * CHARACTER_WIDTH * LABEL_PIXELS) {
+            return;
+        }
+        int longestWord = Arrays.stream(label.strip().split("\\s+")).mapToInt(String::length).max().orElse(label.length());
+        double wrapped = Math.min(LABEL_PIXELS, room / (longestWord * CHARACTER_WIDTH));
+        boolean twoLines = wrapped >= SMALLEST_LABEL_PIXELS
+                && (height.isEmpty() || height.getAsInt() - FRAME_PIXELS >= 2 * wrapped * LINE_HEIGHT);
+        double size = twoLines ? wrapped : Math.max(SMALLEST_LABEL_PIXELS, room / (label.length() * CHARACTER_WIDTH));
+        if (size < LABEL_PIXELS) {
+            // Rounded down, so that the estimate is never the reason a label does not fit.
+            append(style, "font-size", Optional.of(String.format(Locale.ROOT, "%.1fpx", Math.floor(size * 10) / 10)));
+        }
+        if (twoLines) {
+            append(style, "white-space", Optional.of("normal"));
+        }
+    }
+
+    /** The length in pixels when it is one ({@code 60px}); empty for a percentage or no size. */
+    private static OptionalInt pixels(Optional<String> length) {
+        return length.filter(value -> value.endsWith("px"))
+                .map(value -> OptionalInt.of(Integer.parseInt(value.substring(0, value.length() - 2))))
+                .orElse(OptionalInt.empty());
     }
 
     /**
@@ -86,7 +146,7 @@ public final class ImageBox {
     public static boolean declaresSize(Element element) {
         Objects.requireNonNull(element, "element");
         String style = element.attr("style");
-        return element.hasAttr("width") || element.hasAttr("height")
+        return element.hasAttr(WIDTH) || element.hasAttr(HEIGHT)
                 || InlineStyle.setsWidth(style) || InlineStyle.setsHeight(style);
     }
 

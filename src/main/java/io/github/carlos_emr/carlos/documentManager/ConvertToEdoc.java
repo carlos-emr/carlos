@@ -79,8 +79,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>Parse and clean HTML with Jsoup (DOCTYPE injection, resource path validation)</li>
  *   <li>Translate relative resource paths to encoded {@code file:} URIs; an image that cannot be
  *       read stays as an unavailable marker, which prints as a box</li>
- *   <li>Primary conversion via {@code InternalEDocConverter} (wkhtmltopdf)</li>
- *   <li>Fallback conversion through {@link HtmlPdfRenderService} (Flying Saucer)</li>
+ *   <li>Render through {@link HtmlPdfRenderService} (Flying Saucer), the one HTML-to-PDF engine of
+ *       CARLOS EMR; it prints a simpler version of a document it cannot lay out as written rather
+ *       than none at all</li>
  * </ol>
  *
  * <p>Thread safety: conversion, document parsing and tidying entry points are synchronized
@@ -99,7 +100,13 @@ public final class ConvertToEdoc {
 
     public enum ElementAttribute {src, href, value, name, id, title, type, rel, media}
 
-    private enum FileType {pdf, css, jpeg, png, gif, js, jpg}
+    /**
+     * The extensions a local resource path may have. The picture types are the ones the HTML-to-PDF service
+     * draws when it is given a file: PNG, JPEG and GIF as they are, BMP, WBMP and TIFF after converting them,
+     * and SVG after removing its outside references. WebP and HEIC stay out on purpose: the service does not
+     * decode them, so they print as the "[image unavailable]" box whether or not they are listed here.
+     */
+    private enum FileType {PDF, CSS, JPEG, PNG, GIF, JS, JPG, BMP, WBMP, TIF, TIFF, SVG}
 
     public static final String CUSTOM_STYLESHEET_ID = "pdfMediaStylesheet";
     private static final String OSCAR_IMAGE_PATH_TOKEN = "${oscar_image_path}";
@@ -109,45 +116,11 @@ public final class ConvertToEdoc {
     public static final String DEFAULT_DATE_FORMAT = "yyyy-MM-dd";
     private static final String DEFAULT_CONTENT_TYPE = "application/pdf";
     private static final String SYSTEM_ID = "-1";
-    private static final String DEFAULT_WKHTMLTOPDF_COMMAND = "/usr/bin/wkhtmltopdf";
-    private static final String DEFAULT_WKHTMLTOPDF_ARGS = "--enable-local-file-access --minimum-font-size 10 --print-media-type --encoding utf-8 -T 10mm -L 8mm -R 8mm --disable-javascript";
     private static final String BACKGROUND_ATTRIBUTE = "background";
     /** Marks an {@code <img>} whose source cannot be used; the HTML-to-PDF module prints the "[image unavailable]" box for it. */
     public static final String UNAVAILABLE_IMAGE_ATTRIBUTE = "data-carlos-image-unavailable";
     private static final String STYLE_ATTRIBUTE = "style";
     private static String realPath;
-
-    /**
-     * Converts an EForm into a PDF and returns an EDoc wrapping the result.
-     * The PDF is saved to a temporary file path. The caller should move the file
-     * to persistent storage before saving the EDoc to the database.
-     *
-     * @param eform EFormData the electronic form data to convert
-     * @return EDoc the document object referencing the generated PDF, or null if conversion fails
-     */
-    public synchronized static EDoc from(EFormData eform) {
-
-        String eformString = eform.getFormData();
-        String demographicNo = eform.getDemographicId() + "";
-        String filename = buildFilename(eform.getFormName(), demographicNo);
-        String eDocDescription = (eform.getSubject() == null || eform.getSubject().trim().isEmpty()) ? eform.getFormName() : eform.getSubject();
-        EDoc edoc = null;
-        Path path = execute(eformString, filename, HtmlPdfRenderSource.HRM);
-
-        if (path != null && Files.isReadable(path)) {
-            edoc = buildEDoc(path.getFileName().toString(),
-                    eDocDescription,
-                    null,
-                    eform.getProviderNo(),
-                    demographicNo,
-                    DocumentType.eForm,
-                    path.getParent().toString());
-        } else {
-            logger.error("Could not read temporary PDF file {}", LogSafe.sanitize(filename));
-        }
-
-        return edoc;
-    }
 
     /**
      * Creates an EDoc from an EForm whose PDF has already been generated at the specified path.
@@ -157,7 +130,7 @@ public final class ConvertToEdoc {
      * @return EDoc the document object referencing the PDF
      * @throws PDFGenerationException if the PDF file at the given path is not readable
      */
-    public synchronized static EDoc from(EFormData eForm, Path eFormPDFPath) throws PDFGenerationException {
+    public static synchronized EDoc from(EFormData eForm, Path eFormPDFPath) throws PDFGenerationException {
         String demographicNo = eForm.getDemographicId() + "";
         String filename = buildFilename(eForm.getFormName(), demographicNo);
         String eDocDescription = (eForm.getSubject() == null || eForm.getSubject().trim().isEmpty()) ? eForm.getFormName() : eForm.getSubject();
@@ -179,78 +152,16 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * Converts a Form (via its transport container) into a PDF and returns an EDoc.
-     * The PDF is saved to a temporary file path. The caller should move the file
-     * to persistent storage before saving the EDoc to the database.
-     *
-     * <p>Example usage:
-     * <pre>{@code
-     * FormTransportContainer ftc = new FormTransportContainer(response, request, forwardPath);
-     * ftc.setDemographicNo(bpmh.getDemographicNo());
-     * ftc.setProviderNo(bpmh.getProvider().getProviderNo());
-     * ftc.setSubject("BPMH Form ID " + bpmh.getFormId());
-     * ftc.setFormName("bpmh");
-     * ftc.setRealPath(getServlet().getServletContext().getRealPath(File.separator));
-     * FormsManager.saveFormDataAsEDoc(loggedInInfo, ftc);
-     * }</pre>
-     *
-     * @param formTransportContainer FormTransportContainer containing form HTML, metadata, and real path
-     * @return EDoc the document object referencing the generated PDF, or null if conversion fails
-     */
-    public synchronized static EDoc from(FormTransportContainer formTransportContainer) {
-
-        String htmlString = formTransportContainer.getHTML();
-        String demographicNo = formTransportContainer.getDemographicNo();
-        String filename = buildFilename(formTransportContainer.getFormName(), demographicNo);
-        String subject = formTransportContainer.getSubject();
-        String providerNo = formTransportContainer.getProviderNo();
-        if (providerNo == null) {
-            providerNo = formTransportContainer.getLoggedInInfo().getLoggedInProviderNo();
-        }
-        // this should be the same for every thread.
-        ConvertToEdoc.realPath = formTransportContainer.getRealPath();
-
-        EDoc edoc = null;
-        Path path = execute(htmlString, filename, HtmlPdfRenderSource.FORM);
-
-        if (path != null && Files.isReadable(path)) {
-            edoc = buildEDoc(filename,
-                    subject,
-                    null,
-                    providerNo,
-                    demographicNo,
-                    formTransportContainer.getDocumentType(),
-                    path.toString());
-        } else {
-            logger.error("Could not read temporary PDF file {}", LogSafe.sanitize(filename));
-        }
-
-        return edoc;
-    }
-
-    /**
      * Converts an EForm to a temporary PDF file without creating an EDoc entity.
      * The caller is responsible for deleting the temporary file after use.
      *
      * @param eform EFormData the electronic form data to convert
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
-    public synchronized static Path saveAsTempPDF(EFormData eform) {
+    public static synchronized Path saveAsTempPDF(EFormData eform) {
         String eformString = eform.getFormData();
         String filename = buildFilename(eform.getFormName(), eform.getDemographicId() + "");
         return execute(eformString, filename, HtmlPdfRenderSource.HRM);
-    }
-
-    /**
-     * Converts an arbitrary HTML string to a temporary PDF file.
-     * The caller is responsible for deleting the temporary file after use.
-     *
-     * @param htmlString String the HTML markup to convert
-     * @param filename String the base filename (without directory) used for the temporary PDF
-     * @return Path the temporary file path to the produced PDF, or null if conversion fails
-     */
-    public static synchronized Path saveAsTempPDF(String htmlString, String filename) {
-        return execute(htmlString, filename, HtmlPdfRenderSource.FORM);
     }
 
     /**
@@ -260,7 +171,7 @@ public final class ConvertToEdoc {
      * @param formTransportContainer FormTransportContainer containing form HTML, metadata, and real path
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
-    public synchronized static Path saveAsTempPDF(FormTransportContainer formTransportContainer) {
+    public static synchronized Path saveAsTempPDF(FormTransportContainer formTransportContainer) {
         String htmlString = formTransportContainer.getHTML();
         ConvertToEdoc.realPath = formTransportContainer.getRealPath();
         String filename = buildFilename(formTransportContainer.getFormName(), formTransportContainer.getDemographicNo());
@@ -274,7 +185,7 @@ public final class ConvertToEdoc {
      * @param emailData EmailData containing the encrypted/HTML email message body
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
-    public synchronized static Path saveAsTempPDF(EmailData emailData) {
+    public static synchronized Path saveAsTempPDF(EmailData emailData) {
         String htmlString = emailData.getEncryptedMessage();
         String filename = buildFilename("emailbody_", "");
         return execute(htmlString, filename, HtmlPdfRenderSource.EMAIL);
@@ -386,36 +297,18 @@ public final class ConvertToEdoc {
     }
 
     /**
-     * Renders the HTML document string to a PDF output stream. Uses the primary converter
-     * (wkhtmltopdf via InternalEDocConverter) first; if it fails, the document is rendered by
-     * {@link HtmlPdfRenderService}, which prints a simpler version of it rather than none at all.
+     * Renders the HTML document string to a PDF output stream through {@link HtmlPdfRenderService}, resolved at
+     * call time (this class is static; the bean is not retained across context reloads). The service reads only
+     * the directories of {@link #buildRenderRequest}, makes no network request and prints a simpler version of a
+     * document it cannot lay out as written rather than none at all.
      *
      * @param document String the cleaned HTML document string
      * @param os ByteArrayOutputStream the output stream to write the PDF to
      * @param source HtmlPdfRenderSource which kind of document this is
-     * @throws PDFGenerationException if the service cannot produce a PDF either
+     * @throws PDFGenerationException if the service cannot produce a PDF
      * @throws IOException if an I/O error occurs during rendering
      */
     private static void renderPDF(final String document, ByteArrayOutputStream os, HtmlPdfRenderSource source)
-            throws PDFGenerationException, IOException {
-        EDocConverterInterface converter = new InternalEDocConverter();
-
-        try {
-            converter.convert(document, os);
-        } catch (Exception e) {
-            // The class only: the message of a failed render can quote the document.
-            logger.warn("Primary PDF conversion failed ({}), rendering with the HTML-to-PDF service", e.getClass().getSimpleName());
-            os.reset();
-            renderWithService(document, os, source);
-        }
-    }
-
-    /**
-     * Renders through {@link HtmlPdfRenderService}, resolved at call time (this class is static; the
-     * bean is not retained across context reloads). The service reads only the directories of
-     * {@link #buildRenderRequest}, makes no network request and never throws for a printable document.
-     */
-    private static void renderWithService(String document, ByteArrayOutputStream os, HtmlPdfRenderSource source)
             throws PDFGenerationException, IOException {
         HtmlPdfRenderService service = SpringUtils.getBean(HtmlPdfRenderService.class);
         service.render(buildRenderRequest(document, source)).writeTo(os);
@@ -464,13 +357,9 @@ public final class ConvertToEdoc {
         try {
             Path path = Path.of(text).toAbsolutePath().normalize();
             return path.getParent() == null ? null : path;
-        } catch (InvalidPathException e) {
+        } catch (InvalidPathException _) {
             return null;
         }
-    }
-
-    private static Path usablePath(Path path) {
-        return path == null ? null : usablePath(path.toString());
     }
 
     /**
@@ -1166,15 +1055,14 @@ public final class ConvertToEdoc {
         /*
          * Use the w3c Document output to interpret the external image
          * and css links into absolute links that can be
-         * read by the HTMLtoPDF parser.
+         * read by the HTML-to-PDF service.
          */
         translateResourcePaths(document);
         addCss(document);
 
         /*
-         * Convert edited Document object back to String
-         * Mostly because the htmltopdf tools require String input
-         * for some strange reason.
+         * Convert edited Document object back to String,
+         * which is the input the HTML-to-PDF service takes.
          */
         return documentToString(document);
     }
