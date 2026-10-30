@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.nio.file.Files;
@@ -309,7 +310,8 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                 type.setValidation(validation.getId().toString());
                 session.persist(type);
                 session.flush();
-                MeasurementTypeDaoImpl dao = new MeasurementTypeDaoImpl();
+                MeasurementTypeDaoImpl dao = new MeasurementTypeDaoImpl(
+                        new ConcurrentMapCacheManager(io.github.carlos_emr.carlos.config.CacheConfig.MEASUREMENT_TYPES));
                 ReflectionTestUtils.setField(dao, "entityManager", session);
                 assertThat(
                                 dao.hasCdsImportType(
