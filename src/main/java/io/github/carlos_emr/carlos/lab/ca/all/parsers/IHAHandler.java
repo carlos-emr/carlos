@@ -61,6 +61,11 @@ public class IHAHandler implements MessageHandler {
     Logger logger = MiscUtils.getLogger();
     protected Message msg = null;
     protected Terser terser;
+    /**
+     * The segments named the way HAPI 1.x named them; HAPI 2.x names the segments of a generic
+     * message differently, so the handler cannot ask the message for them.
+     */
+    protected GenericSegmentNames segmentNames;
     protected ArrayList<ArrayList<Segment>> obrGroups = null;
 
     public IHAHandler() {
@@ -78,11 +83,12 @@ public class IHAHandler implements MessageHandler {
         msg = p.parse(hl7Body.replaceAll("\n", "\r\n"));
 
         terser = new Terser(msg);
+        segmentNames = GenericSegmentNames.of(terser.getFinder().getRoot());
         int obrCount = getOBRCount();
         int obrNum;
         boolean obrFlag;
         String segmentName;
-        String[] segments = terser.getFinder().getRoot().getNames();
+        String[] segments = segmentNames.getNames();
         obrGroups = new ArrayList<ArrayList<Segment>>();
 
         /*
@@ -100,7 +106,7 @@ public class IHAHandler implements MessageHandler {
                 if (obrFlag && segmentName.equals("OBX")) {
 
                     // make sure to count all of the obx segments in the group
-                    Structure[] segs = terser.getFinder().getRoot().getAll(segments[k]);
+                    Structure[] segs = segmentNames.getAll(segments[k]);
                     for (int l = 0; l < segs.length; l++) {
                         Segment obxSeg = (Segment) segs[l];
                         obxSegs.add(obxSeg);
@@ -384,7 +390,7 @@ public class IHAHandler implements MessageHandler {
                 test = terser.getSegment("/.OBR");
                 while (test != null) {
                     i++;
-                    test = (Segment) terser.getFinder().getRoot().get("OBR" + i);
+                    test = segmentNames.get("OBR" + i);
                 }
 
             } catch (Exception e) {
@@ -443,7 +449,7 @@ public class IHAHandler implements MessageHandler {
                 if (obrName.equals(""))
                     obrName = getString(terser.get("/.OBR-4-1"));
             } else {
-                Segment obrSeg = (Segment) terser.getFinder().getRoot().get("OBR" + i);
+                Segment obrSeg = segmentNames.get("OBR" + i);
                 obrName = getString(Terser.get(obrSeg, 4, 0, 2, 1));
                 if (obrName.equals(""))
                     obrName = getString(Terser.get(obrSeg, 4, 0, 1, 1));
@@ -466,7 +472,7 @@ public class IHAHandler implements MessageHandler {
             if (i == 1) {
                 obrName = getString(terser.get("/.OBR-4-1"));
             } else {
-                Segment obrSeg = (Segment) terser.getFinder().getRoot().get("OBR" + i);
+                Segment obrSeg = segmentNames.get("OBR" + i);
                 obrName = getString(Terser.get(obrSeg, 4, 0, 2, 1));
                 if (obrName.equals(""))
                     obrName = getString(Terser.get(obrSeg, 4, 0, 1, 1));
@@ -519,10 +525,10 @@ public class IHAHandler implements MessageHandler {
     public String getOBRComment(int i, int j) {
 
         try {
-            String[] segments = terser.getFinder().getRoot().getNames();
+            String[] segments = segmentNames.getNames();
             int k = getNTELocation(i, -1);
 
-            Structure[] nteSegs = terser.getFinder().getRoot().getAll(segments[k]);
+            Structure[] nteSegs = segmentNames.getAll(segments[k]);
             Segment nteSeg = (Segment) nteSegs[j];
             return (getString(Terser.get(nteSeg, 3, 0, 1, 1)));
 
@@ -564,7 +570,12 @@ public class IHAHandler implements MessageHandler {
             if (i == 1) {
                 requestDate = formatDateTime(getString(terser.get("/.OBR-14-1")));
             } else {
-                requestDate = formatDateTime(getString(terser.get("/.OBR" + i + "-14-1")));
+                // HAPI 1.x could not resolve a numbered Terser path such as "/.OBR2-14-1" (it threw
+                // "End of message reached while iterating without loop"), so every request after the
+                // first fell into the catch below and reported the message date. HAPI 2.x resolves the
+                // path by its own segment naming and would change the stored date, so the message date
+                // is returned explicitly to keep the result the same.
+                return getMsgDate();
             }
             return (requestDate);
         } catch (Exception e) {
@@ -960,7 +971,7 @@ public class IHAHandler implements MessageHandler {
             if (i == 1) {
                 timeStamp = formatDateTime(getString(terser.get("/.OBR-7-1")));
             } else {
-                Segment obrSeg = (Segment) terser.getFinder().getRoot().get("OBR" + i);
+                Segment obrSeg = segmentNames.get("OBR" + i);
                 timeStamp = formatDateTime(getString(Terser.get(obrSeg, 7, 0, 1, 1)));
             }
             return (timeStamp);
@@ -1019,12 +1030,12 @@ public class IHAHandler implements MessageHandler {
 
         try {
 
-            String[] segments = terser.getFinder().getRoot().getNames();
+            String[] segments = segmentNames.getNames();
             int k = getNTELocation(i, j);
 
             int count = 0;
             if (k < segments.length && segments[k].substring(0, 3).equals("NTE")) {
-                Structure[] nteSegs = terser.getFinder().getRoot().getAll(segments[k]);
+                Structure[] nteSegs = segmentNames.getAll(segments[k]);
                 for (int l = 0; l < nteSegs.length; l++) {
                     count++;
                 }
@@ -1054,9 +1065,9 @@ public class IHAHandler implements MessageHandler {
 
         try {
 
-            String[] segments = terser.getFinder().getRoot().getNames();
+            String[] segments = segmentNames.getNames();
             int k = getNTELocation(i, j);
-            Structure[] nteSegs = terser.getFinder().getRoot().getAll(segments[k]);
+            Structure[] nteSegs = segmentNames.getAll(segments[k]);
             Segment nteSeg = (Segment) nteSegs[nteNum];
             return (getString(Terser.get(nteSeg, 3, 0, 1, 1)));
 
@@ -1123,7 +1134,7 @@ public class IHAHandler implements MessageHandler {
         int k = 0;
         int obrCount = 0;
         int obxCount = 0;
-        String[] segments = terser.getFinder().getRoot().getNames();
+        String[] segments = segmentNames.getNames();
 
         while (k != segments.length && obrCount != i + 1) {
             if (segments[k].substring(0, 3).equals("OBR"))
@@ -1136,7 +1147,7 @@ public class IHAHandler implements MessageHandler {
 
 
             if (segments[k].substring(0, 3).equals(("OBX"))) {
-                obxSegs = terser.getFinder().getRoot().getAll(segments[k]);
+                obxSegs = segmentNames.getAll(segments[k]);
                 obxCount = obxCount + obxSegs.length;
             }
             k++;

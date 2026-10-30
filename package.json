@@ -57,6 +57,7 @@
     "test:cds-export-patient-sections-playwright": "node scripts/cds-export-patient-sections-playwright-checks.js",
     "test:lab-embedded-pdf-playwright": "node scripts/lab-embedded-pdf-playwright-checks.js",
     "test:lab-epsilon-playwright": "node scripts/lab-epsilon-playwright-checks.js",
+    "test:lab-hapi-hl7-playwright": "node scripts/lab-hapi-hl7-playwright-checks.js",
     "test:rest-roster-enrolled-to-playwright": "node scripts/rest-roster-enrolled-to-playwright-checks.js",
     "test:lab-file-for-others-playwright": "node scripts/lab-file-for-others-playwright-checks.js",
     "test:pathnet-patient-link-playwright": "node scripts/pathnet-patient-link-playwright-checks.js",

@@ -186,8 +186,11 @@
         <jsqlparser.version>5.3</jsqlparser.version>
         <!-- JNA: pin transitive ultrabuk-htmltopdf-java range [5.12,) to the locked version -->
         <jna.version>5.19.1</jna.version>
-        <!-- HAPI HL7 v2 -->
-        <hapi-hl7.version>1.0.1</hapi-hl7.version>
+        <!-- HAPI HL7 v2 (ca.uhn.hapi, separate from the HAPI FHIR line above). Keep hapi-base and every
+             hapi-structures-vNN module on this one property: the modules share internal APIs and a
+             mixed set fails at runtime. 2.x stopped loading external entities and external DTDs in
+             its XML parser (1.0.1 did; see docs/hapi-hl7v2-xml-hardening.md). -->
+        <hapi-hl7.version>2.6.0</hapi-hl7.version>
         <!-- Flyway schema migrations (Community edition covers MariaDB/MySQL) -->
         <flyway.version>11.14.1</flyway.version>
         <!-- Selenium: drives the pinned headless Chromium for eForm browser PDF rendering -->
@@ -695,24 +698,11 @@
             <artifactId>hapi-base</artifactId>
             <version>${hapi-hl7.version}</version>
             <exclusions>
-                <!-- Not being used, excluded to avoid triggering security issue -->
+                <!-- Declared by hapi-base 2.x but referenced by no class in hapi-base or any
+                     hapi-structures module; its bundled time zone data dates from 2012. -->
                 <exclusion>
-                    <groupId>xalan</groupId>
-                    <artifactId>xalan</artifactId>
-                </exclusion>
-                <!-- Excluded this low version to avoid triggering security issue -->
-                <exclusion>
-                    <groupId>org.jdom</groupId>
-                    <artifactId>jdom</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>commons-lang</groupId>
-                    <artifactId>commons-lang</artifactId>
-                </exclusion>
-                <!-- Exclude vulnerable log4j v1.2.x - default to using log4j 2.x instead -->
-                <exclusion>
-                    <groupId>log4j</groupId>
-                    <artifactId>log4j</artifactId>
+                    <groupId>joda-time</groupId>
+                    <artifactId>joda-time</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -742,7 +732,8 @@
             <version>${hapi-hl7.version}</version>
         </dependency>
 
-        <!-- Replaces jdom v1 excluded from hapi-base (security fix) -->
+        <!-- JDOM 2 for CARLOS's own XML helpers (XmlUtils.createSecureSAXBuilder); jdom v1,
+             which hapi-base 1.0.1 pulled in, is no longer on the classpath -->
         <dependency>
             <groupId>org.jdom</groupId>
             <artifactId>jdom2</artifactId>
