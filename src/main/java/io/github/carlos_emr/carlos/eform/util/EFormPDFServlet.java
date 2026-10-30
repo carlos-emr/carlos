@@ -63,6 +63,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -211,6 +212,18 @@ public class EFormPDFServlet extends HttpServlet {
 
         } catch (jakarta.servlet.ServletException | java.io.IOException e) {
             throw e;
+        } catch (FileValidationException _) {
+            // A missing or rejected __template value is a bad request, not a server fault; the value
+            // itself is not logged or echoed. The sendError IOException is handled here so it never
+            // escapes doPost() (Sonar S1989), as in FrmPDFServlet.
+            log.warn("Rejected an invalid eForm PDF template name");
+            if (!res.isCommitted()) {
+                try {
+                    res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid PDF template.");
+                } catch (IOException ioe) {
+                    log.warn("Unable to send 400 for an invalid eForm PDF template", ioe);
+                }
+            }
         } catch (Exception e) {
             log.error("Error generating eForm PDF", e);
             if (!res.isCommitted()) {
@@ -263,7 +276,34 @@ public class EFormPDFServlet extends HttpServlet {
             writer = PdfWriterFactory.newInstance(document, baosPDF, FontSettings.HELVETICA_6PT);
 
             String title = req.getParameter("__title" + suffix) != null ? req.getParameter("__title" + suffix) : "Unknown";
-            String template = req.getParameter("__template" + suffix) != null ? req.getParameter("__template" + suffix) + ".pdf" : "";
+            // __template names a PDF in the eForm image directory, which PdfReader opens below. It is
+            // request data, so it must be exactly one file-name component: "../" or an absolute path
+            // would otherwise let any eForm reader overlay arbitrary server PDFs, such as other
+            // patients' documents (#5316). Same rule as FrmPDFServlet. This servlet cannot render
+            // without a template (a missing one used to end in a 500), so a blank value is refused
+            // the same way as an unsafe one.
+            String templateParam = req.getParameter("__template" + suffix);
+            if (templateParam == null || templateParam.isBlank()) {
+                throw new FileValidationException("Missing PDF template.");
+            }
+            String template = PathValidationUtils.validatePathComponent(templateParam.trim(), "__template") + ".pdf";
+            // Resolve and contain the template inside the image directory now, before the PDF
+            // document is opened: a refusal raised after that is masked by the document's own
+            // "no pages" error on close. The directory is configuration, so a problem with it stays
+            // a server error; only the template itself can be a bad request.
+            File imageDirectory = PathValidationUtils.resolveConfiguredDirectory(
+                    CarlosProperties.getInstance().getEformImageDirectory(), "EFORM_IMAGES_DIR");
+            File templateFile;
+            try {
+                templateFile = PathValidationUtils.validatePath(template, imageDirectory);
+            } catch (FileValidationException rejected) {
+                throw rejected;
+            } catch (SecurityException outside) {
+                // A single-component name can still resolve outside the directory through a
+                // symbolic link planted in it; that is a refused template too, not a server fault.
+                throw new FileValidationException("PDF template is outside the eForm image directory.", outside);
+            }
+            String propFilename = templateFile.getPath();
 
             int numPages = 1;
             String pages = req.getParameter("__numPages" + suffix);
@@ -292,8 +332,6 @@ public class EFormPDFServlet extends HttpServlet {
             saveMeasurementValues(measurements, props, req, numPages, xMeasurementValues, yMeasurementValues);
             addDocumentProps(document, title, props);
 
-            // create a reader for a certain document
-            String propFilename = CarlosProperties.getInstance().getEformImageDirectory() + "/" + template;
 
             try {
                 reader = new PdfReader(propFilename);
@@ -399,12 +437,17 @@ public class EFormPDFServlet extends HttpServlet {
             return ret;
         }
         
-        String propFilename = CarlosProperties.getInstance().getEformImageDirectory() + "/" + cfgFilename;
         InputStream is = null;
 
         try {
-            log.debug("1Looking for the prop file! {}", LogSafe.sanitize(propFilename));
-            is = new FileInputStream(propFilename); //getServletContext().getResourceAsStream(propFilename);
+            // The checks above already reduce the name to one component; validatePath also binds the
+            // opened file to the image directory, and a rejection lands in the catch below exactly
+            // like a missing file (empty layout), as before.
+            File propFile = PathValidationUtils.validatePath(cfgFilename,
+                    PathValidationUtils.resolveConfiguredDirectory(
+                            CarlosProperties.getInstance().getEformImageDirectory(), "EFORM_IMAGES_DIR"));
+            log.debug("1Looking for the prop file! {}", () -> LogSafe.sanitize(propFile.getPath()));
+            is = new FileInputStream(propFile);
             if (is != null) {
                 log.debug("2Found the prop file! {}", LogSafe.sanitize(cfgFilename));
                 ret.load(is);

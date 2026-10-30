@@ -70,6 +70,20 @@
       "notes": "Read-only issue3665 findings2/4: retired aliases return404; retained template management opens Add New without saving."
     },
     {
+      "name": "el-jstl-pages",
+      "script": "scripts/el-jstl-pages-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Read-only #5416: EL 6 from Tomcat evaluates JSTL c:if/c:forEach, fmt:message, displaytag tables and the carlos:forJavaScript/forHtmlAttribute EL functions on Administration, Disease Registry, Facility management and Add professional contact; no unevaluated ${...} or ???key???."
+    },
+    {
       "name": "annotate-document",
       "script": "scripts/e2e/fax/annotate-document-playwright-checks.js",
       "tiers": [
@@ -2262,6 +2276,21 @@
         "all"
       ],
       "timeoutSec": 300
+    },
+    {
+      "name": "request-boundary-filters",
+      "script": "scripts/request-boundary-filters-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The workflow's owned synthetic patient only; opening the legacy Annual form without saving writes no form row.",
+      "notes": "Issue #5305: anonymous requests to a public action, the heartbeat and a static asset mint no JSESSIONID; a signed-in heartbeat answers JSON with and without autoRefresh; repeated legacy-form loads (Struts action then JSP over legacy JDBC) leave the CARLOS MariaDB connection count where it was; Logout passes /logoutPage and POST /logout once each. Reads information_schema.PROCESSLIST, so MYSQL_USER needs PROCESS (root in the deb runbook)."
     },
     {
       "name": "master-record-tabs",
@@ -5057,6 +5086,24 @@
       "notes": "Fails at its last step on 2026.08: lookupListManagerAction accepts GET for its mutating methods."
     },
     {
+      "name": "reference-data-cache",
+      "script": "scripts/reference-data-cache-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "appointment_status",
+        "LookupListItem"
+      ],
+      "fixtures": "Snapshots one clinic-wide appointment_status row (an editable active custom status a-f), changes its label, colour and active flag through the status editor and edits it back, and adds then removes one marker-labelled LookupListItem on the clinic-wide reasonCode list through Manage Lookup Lists, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). A failed run first repairs both through the same UI (best effort, so the caches are evicted) and then restores the status snapshot and deletes the owned item by SQL, asserting both. Nothing is booked."
+    },
+    {
       "name": "admin-update-demographic-provider",
       "script": "scripts/admin-update-demographic-provider-playwright-checks.js",
       "tiers": [
@@ -5492,7 +5539,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: the Search Patient popup closes itself before listing anyone, and Link to Patient posts a runtime-built form without a CSRF token.",
+      "notes": "Passes on 2026.09.0~snapshot27 through the front door. Its last step had failed since #5250 gave the box pages' Inbox tab a boxType=0 link, which the check's way back to the Inbox did not match (#5349); the Search Patient and Link to Patient defects it was written for were fixed by #4149 and #4130.",
       "fixtures": "Owned patient, an owned messenger group and owned messages; all removed."
     },
     {
@@ -5592,6 +5639,180 @@
         "consultationServices",
         "professionalSpecialists",
         "serviceSpecialists"
+      ]
+    },
+    {
+      "name": "consultation-followup-date",
+      "script": "scripts/consultation-followup-date-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "notes": "Issue #5272. Schedule ▸ Consultations ▸ the owned referral ▸ Last Follow Up Date ▸ Update ▸ reopen: a typed date is stored exactly and archives the previous version; a changed date updates the same request; clearing it stores NULL and reopens empty (release/2026.08 kept the old date, finding 324); 30 February typed into the control is refused by the form with an alert naming the field, and posted past the control (type switched to text) the server answers 400 before archiving or saving (release/2026.08 stored 2026-03-02, finding 325); closing the window over an unsaved edit changes nothing; a control referral of the same patient is unchanged throughout.",
+      "fixtures": "Owned FAKE patient, service, consultant (lib/consultation-referral-fixture.js) and service link seeded by SQL; the service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). A second (control) referral for the same patient. Cleanup deletes every owned referral with its archive, extension and attachment rows and the consultation signatures the saves record, then the owned service, consultant and patients, and asserts them gone.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists"
+      ]
+    },
+    {
+      "name": "consultation-appointment-instructions",
+      "script": "scripts/consultation-appointment-instructions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 480,
+      "env": [],
+      "notes": "Issue #5273. E-Chart ▸ Consultations + ▸ pickers ▸ Appointment Instructions ▸ Submit; Schedule ▸ Consultations ▸ the referral ▸ Update / Update And Print Preview: the form offers the owned active instructions by value and label and not the inactive one; Submit stores the chosen value and reopens it selected; Update stores the other one, archives the previous one and keeps the reason and clinical information; the PDF prints the chosen instruction as its reply heading; the blank option stores an empty instruction and reopens blank; closing the window over an unsaved selection changes nothing; a control referral is unchanged. Passes on release/2026.08. Skips without an active consultApptInst list or with CONSULTATION_APPOINTMENT_INSTRUCTIONS_LOOKUP off. Needs pdftotext.",
+      "fixtures": "Owned FAKE patient, service, consultant (lib/consultation-referral-fixture.js) and service link seeded by SQL; the service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Three marker-labelled LookupListItem rows on the clinic-wide consultApptInst list, added through Administration ▸ Customize Consult Appointment Instructions (the form reads the list through a 30-minute cache only the lookup list manager's writes evict), one removed again through Manage Lookup Lists to make it inactive; every login's consultation form offers them while the run lasts. At the end, or after a failure, the active ones are removed through Manage Lookup Lists; cleanup deletes the owned rows and asserts the list's other items unchanged. Cleanup deletes every owned referral with its archive, extension and attachment rows and the consultation signatures the saves record, then the owned service, consultant and patients, and asserts them gone.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists",
+        "LookupListItem"
+      ]
+    },
+    {
+      "name": "consultation-multisite-site",
+      "script": "scripts/consultation-multisite-site-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 480,
+      "env": [],
+      "notes": "Issue #5274, multisite. Schedule ▸ E on the owned patient's visit at SB ▸ Consultations + ▸ Site ▸ Submit; Schedule ▸ Consultations ▸ the referral ▸ Site ▸ Update / Update And Print Preview: the new referral offers the login's sites (SA, SB, SC, not SD) with the visit's site SB selected (release/2026.08 opened on the first site, finding 326); a chosen SC is stored and reopened; Update to SB archives SC and leaves the second patient's referral at SA; an Update of the notes alone keeps SB (release/2026.08 moved it to the first site); two windows open at once (one from the patient's E-Chart, one from the clinic list, which opens every referral in one shared window) keep their own sites; the PDF prints the letterhead, not the site's address (a site logo needs the operator's faxLogoInConsultation and a site logo document and is not exercised; the check prints a NOTE); a referral saved at SD, a site the login is not linked to, reopens from the patient's E-Chart with SD selected and keeps it through an Update of its notes alone. Reports SKIP when multisites is off. Needs pdftotext.",
+      "fixtures": "Operator prerequisite: multisites=on in /etc/carlos-emr/carlos.properties, then carlos-ctl restart; restore the property and restart afterwards. With multisites on, the clinic Consultations list shows a login holding _site_access_privacy (the installer's administrator) only the referrals at its own sites, so the other consultation checks, which seed referrals without a site, are run with it off. Owned FAKE patient, service, consultant (lib/consultation-referral-fixture.js) and service link seeded by SQL; the service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). A second owned patient with a referral at SA; four active sites named '<marker> SA/SB/SC/SD', SA-SC linked to the test provider through providersite, which every login's clinic lists show while the check runs; today's visit of the owned patient at SB. Cleanup removes the visit, the site links and the sites with every owned referral row, and asserts them gone.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists",
+        "site",
+        "providersite"
+      ]
+    },
+    {
+      "name": "consultation-letterhead-title",
+      "script": "scripts/consultation-letterhead-title-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 480,
+      "env": [],
+      "notes": "Issue #5275. Schedule ▸ Consultations ▸ the owned referral ▸ Letterhead ▸ Include Dr. with name ▸ Update / Update And Print Preview: the checkbox is rendered and starts unchecked; checking it stores the letterheadTitle=Dr extension and reopens checked; the PDF letterhead prints Dr. once before the provider's name; an Update of another field keeps it; the clinic letterhead prints the clinic name unchanged and the provider letterhead applies the title again; unchecking removes the extension and prints the plain name; closing the window over an unsaved toggle changes nothing. Passes on release/2026.08. Skips where the checkbox is not rendered (consultation fax disabled or no _fax right). Needs pdftotext.",
+      "fixtures": "Owned FAKE patient, service, consultant (lib/consultation-referral-fixture.js) and service link seeded by SQL; the service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The referral's letterhead is an existing active doctor other than the signed-in one; no provider record is changed. Cleanup deletes every owned referral with its archive, extension and attachment rows and the consultation signatures the saves record, then the owned service, consultant and patients, and asserts them gone.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists"
+      ]
+    },
+    {
+      "name": "consultation-status-transitions",
+      "script": "scripts/consultation-status-transitions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Issue #5276. Schedule ▸ Consultations ▸ the owned referral ▸ Status ▸ Update ▸ list ▸ reopen, through 1▸2▸3▸4▸2▸1: each status is stored, the previous version archived with its status, the reopened radio checked and the list row coded ND/SR/PR/DONE; Completed leaves the default list and shows with Include completed; the appointment date and time, notes, attached document and patient never change; Update again with the same status keeps it; closing over an unsaved status changes nothing; a control referral is unchanged. A native referral does not offer Booking Confirmed; a synthetic Ocean eReferral (ereferral_* extension rows) offers it, listed as BC, with no save control (Ocean sets that status; a NOTE says it was not driven). Passes on release/2026.08.",
+      "fixtures": "Owned FAKE patient, service, consultant (lib/consultation-referral-fixture.js) and service link seeded by SQL; the service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). A control referral, a synthetic eReferral (three ereferral_* consultationRequestExt rows) and a FAKE chart document attached to the first referral. Cleanup deletes every owned referral with its archive, extension and attachment rows and the consultation signatures the saves record, then the owned service, consultant and patients, and asserts them gone.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists"
+      ]
+    },
+    {
+      "name": "consultation-referral-journey",
+      "script": "scripts/consultation-referral-journey-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Issue #5277. One referral from request to reviewed completion: E-Chart ▸ Consultations + ▸ pickers ▸ Submit; Schedule ▸ Consultations ▸ appointment date, time, notes and Last Follow-up ▸ Update (stored, listed, reopened); the specialist's reply, a document in the patient's chart, attached through the referral's Manage Attachments window (the second patient's document is not offered) ▸ Update; the referral opened from the E-Chart shows the reply; a completion refused for an unreadable follow-up date and one abandoned by closing the window leave it open (release/2026.08 posted the unreadable date as empty and completed it, finding 325); Completed is stored, archived and moves it to the completed list. The second patient's referral is unchanged. Response blocker (finding 328, printed as a NOTE): no clinician page authors or reviews a consultation response; consultationResponse is reachable only through /ws/rs/consults/*Response, which consultation-response-attachments covers.",
+      "fixtures": "Owned FAKE patient, service, consultant (lib/consultation-referral-fixture.js) and service link seeded by SQL; the service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). A second owned patient with a referral and a FAKE document of their own; a FAKE reply document in the first patient's chart. Cleanup deletes every owned referral with its archive, extension and attachment rows and the consultation signatures the saves record, then the owned service, consultant and patients, and asserts them gone.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists"
+      ]
+    },
+    {
+      "name": "consultation-fax-account",
+      "script": "scripts/consultation-fax-account-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "CONSULT_FAX_DOCUMENT_STORE"
+      ],
+      "notes": "Issue #5278. Letterhead ▸ Fax Account with two owned active senders and one inactive: the selector offers the active ones by number and name; Submit And Fax with the non-default sender opens the cover page on that sender (release/2026.08 compared the posted number with the account id and fell back to another sender, finding 327) and saves one referral; Send queues one job from exactly that sender's line and user, to the consultant, for the owned patient, logged against the referral, with a PDF of this referral in the document store; Update And Fax with the other sender does the same without a second referral; Cancel queues nothing; a sender deactivated after it was chosen is not replaced (no account selected) and Send is refused with an alert; two windows at once (E-Chart and clinic list) keep their own senders and patients. The senders are MIDDLEWARE accounts on an unroutable loopback relay with no inbound polling, so nothing leaves the host (a running scheduler fails the job at the provider boundary); consultation-fax-account-transport drives the relay call. Skips without consultation fax or the _fax right, and where any other fax sender account is active. Needs pdftotext and read access to the document store (CONSULT_FAX_DOCUMENT_STORE, default the packaged path).",
+      "fixtures": "Owned FAKE patient, service, consultant (lib/consultation-referral-fixture.js) and service link seeded by SQL; the service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). A second owned patient with a referral; three owned fax_config rows (MIDDLEWARE, unroutable loopback relay, download off), which are clinic-wide while the run lasts. Cleanup removes the owned fax jobs with their FaxClientLog rows and PDFs, the accounts and every owned referral row, and asserts them gone.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists",
+        "fax_config",
+        "faxes"
+      ]
+    },
+    {
+      "name": "consultation-fax-account-transport",
+      "script": "scripts/consultation-fax-account-transport-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "manual": true,
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "CONSULT_FAX_DOCUMENT_STORE",
+        "FAX_TRANSPORT_STUB",
+        "FAX_TRANSPORT_STUB_PORT"
+      ],
+      "notes": "Issue #5278, transport. A local relay stub on 127.0.0.1 (FAX_TRANSPORT_STUB_PORT, default 18096) stands in for the fax provider: after Update And Fax ▸ Send from sender A, the fax scheduler (started from Configure Fax when stopped) calls the stub once, as A only (A's site credentials, fax user and fax password, the consultant as destination, A's fax line) with a document byte-identical to the PDF the job names, and the job is SENT with the stub's job id; a send from B, which the stub refuses with HTTP 500, leaves B's job in ERROR (Problem communicating with fax service) and is never retried through A. Manual: needs the operator prerequisite below; SKIPs without FAX_TRANSPORT_STUB=on. Needs pdftotext.",
+      "fixtures": "Operator prerequisite: add -Dcarlos.fax.middleware.allowedHosts=127.0.0.1 to CARLOS_JAVA_OPTS in /etc/carlos-emr/carlos-emr.env, carlos-ctl restart, export FAX_TRANSPORT_STUB=on; afterwards remove the option and restart again. Owned FAKE patient, service, consultant (lib/consultation-referral-fixture.js) and service link seeded by SQL; the service and consultant are in the clinic-wide pickers while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Two owned MIDDLEWARE fax_config rows pointed at the stub (download off), clinic-wide while the run lasts. If the fax scheduler was stopped the check starts it, as an administrator would; once the accounts are removed its cycles have nothing to send. Cleanup removes the owned jobs with their FaxClientLog rows and PDFs, the accounts and every owned referral row, and asserts them gone.",
+      "mutates": [
+        "consultationServices",
+        "professionalSpecialists",
+        "serviceSpecialists",
+        "fax_config",
+        "faxes"
       ]
     },
     {
@@ -5895,7 +6116,7 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "notes": "Fails on 2026.08: the patient-search page closes itself on load (null-safe encoder vs \"null\" comparison) and throws a TypeError; through the front door the WAF blocks the Doc2PDF preview/attach POSTs.",
+      "notes": "Passes on 2026.09.0~snapshot27 through the front door, all 11 steps: the patient-search page no longer closes itself on load (#4514, fixed by #4149) and the WAF no longer blocks the Doc2PDF preview and attach POSTs (#5349 validation).",
       "fixtures": "Owned patient, an owned messenger group as recipient and owned messages with stored PDF attachments; all removed."
     },
     {
@@ -6106,6 +6327,19 @@
       ],
       "notes": "Fails on 2026.08: Billing Reconciliation ▸ Report posts a runtime-built form without a CSRF token (403), so the billing clipboard is unreachable.",
       "fixtures": "Owned FAKE- provider (sites copied from the operator), owned patients, batch-billing queue rows, an RA with an owned radetail row and the clipboard notes; all rows and files removed."
+    },
+    {
+      "name": "billing-on-batch-percentage-limit",
+      "script": "scripts/billing-on-batch-percentage-limit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "fixtures": "Owned FAKE- provider (sites copied from the operator), owned patients, two FAKE- percentage fee rows with unused codes, their limit rows (one keyed by a fee-row id) and two batch-billing queue rows; all rows removed."
     },
     {
       "name": "billing-on-admin-config",
@@ -8494,6 +8728,27 @@
       "notes": "Verifies one saved eForm and its clinical fields across rapid activation, slow re-click and POST reload; bypasses JavaScript to assert server replay rejection, then checks independent windows and a reopened saved-form revision. Last, pinned to app-findings-log.md finding 168: a login that may save eForms but holds no _edoc x presses Add to Documents; the eForm is stored once and no document is filed (control step), and the answer must not be the replay refusal (AddEForm2Action used to answer every post-commit RuntimeException with eform.submitUnavailable; since #4424 it answers HTTP 409 eform.submitSavedStepIncomplete, naming the step). Runs about 65 s. The demo database carries EFormDocs rows (attached documents, labs, forms, HRM reports and eForms) for ids 247-1063 that no eform_data row owns, so a new instance whose id falls there inherits them and a login without read access to those object types is refused 403 before the eForm is stored (\"no permission to use one or more selected attachments\"); the workflow therefore moves the id counter past them first, or the control step would fail depending on the id it happened to get. The POST-replay step failed once in an earlier run of this plan with its message lost and did not fail in 22 later runs (16 through the runner, 6 replay-only under four busy CPU cores): see the Task 15 report. Its failure messages now carry the AddEForm statuses and the owned-row count. The finding-168 step needs the eForm PDF renderer: before passing it, the check downloads one of the run's saved eForms (eform/downloadEFormPdf); when no PDF comes back, Add to Documents never reached the document step, and the check SKIPs there rather than passing the pinned step."
     },
     {
+      "name": "eform-pdf-template-path",
+      "script": "scripts/eform-pdf-template-path-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "EFORM_IMAGE_DIR",
+        "DOCUMENT_DIR",
+        "CONSULT_DEMO_NO"
+      ],
+      "fixtures": "Plants one marker template PDF in EFORM_IMAGE_DIR and one marker PDF in DOCUMENT_DIR (outside the image directory); cleanup deletes both and asserts them gone. Writes no database rows. Must run on the server, where those directories are.",
+      "notes": "Issue #5316: /eform/createpdf built its PdfReader path from __template with no validation. A template inside the image directory must still render a PDF; a relative ../ path and an absolute path to the outside PDF, a blank and a missing template must each be refused (the application's 400, or the front-door WAF for the traversal payloads) with no PDF and without echoing the value. Direct POSTs: the servlet has no in-app page."
+    },
+    {
       "name": "double-submit-lab-manual",
       "script": "scripts/double-submit-lab-manual-playwright-checks.js",
       "tiers": [
@@ -8870,8 +9125,8 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "fixtures": "Owned FAKE-PW patient; one CPP note per box (Medical History, Ongoing Concerns, Reminders, Family History, Other Meds, Risk Factors) created through the chart '+' dialogs; all notes, issue links, ext rows, casemgmt_issue/cpp/eChart rows of the patient removed and asserted gone. Needs pdftotext.",
-      "notes": "Passes on 2026.08. Observation only: 'Print all notes' re-lists every CPP item (including one flagged Hide in CPP) as an ordinary note on page 2 of the print; the CPP-section print itself honours Hide in CPP and Archive."
+      "fixtures": "Owned FAKE-PW patient; one CPP note per box (Medical History, Ongoing Concerns, Reminders, Family History, Other Meds, Risk Factors) created through the chart '+' dialogs, plus the revisions an edit, Hide in CPP and Archive save; all notes, issue links, ext rows, hash_audit signatures and casemgmt_issue/cpp/eChart rows of the patient removed and asserted gone. Needs pdftotext.",
+      "notes": "Failed on 2026.08 beta1/beta2 (#5365): a new item stored an empty-valued extension row for every field it hid or left blank; a blank now adds no row and only clears a key the revision already holds. An edit, Hide in CPP and Archive each save a new revision (#4641), which the check follows by uuid. Observation only: 'Print all notes' re-lists every CPP item (including one flagged Hide in CPP) as an ordinary note on page 2 of the print; the CPP-section print itself honours Hide in CPP and Archive."
     },
     {
       "name": "gap-clinical-chart-print-scope",
@@ -9454,6 +9709,179 @@
       "env": [],
       "fixtures": "The runWorkflow FAKE- patient, made 70 by SQL so the flu reminder applies; its preventions and their ext rows are removed in cleanup.",
       "notes": "A vaccine given elsewhere. Steps: Inf saved as Completed externally with an outside provider's name is stored as given elsewhere (refused=3) by that provider; the list shows it without the refused or ineligible colour, and the reopened form shows the status and the name; it counts as done, so the patient's \"Needs Flu Shot\" reminder goes away."
+    },
+    {
+      "name": "prevention-h1n1-chronic-condition",
+      "script": "scripts/prevention-h1n1-chronic-condition-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; its preventions and their preventionsExt rows are removed in cleanup.",
+      "notes": "Issue #5279 section 1. H1N1 Chronic Condition: a new record opens at No and offers No, Yes and nine categories; each category is stored as its exact value, reopens selected and stays on the archived record when changed; returning to No stores false. All mismatches are reported together."
+    },
+    {
+      "name": "prevention-h1n1-pregnancy-remote",
+      "script": "scripts/prevention-h1n1-pregnancy-remote-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; its preventions and their preventionsExt rows are removed in cleanup.",
+      "notes": "Issue #5279 section 2. H1N1 Pregnant and Remote Setting, alone, together and cleared: ticked boxes store true, clear boxes store no row (no stale value), the archived record keeps its own boxes, and the record reopens with the same boxes."
+    },
+    {
+      "name": "prevention-h1n1-healthcare-worker",
+      "script": "scripts/prevention-h1n1-healthcare-worker-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; its preventions and their preventionsExt rows are removed in cleanup.",
+      "notes": "Issue #5279 section 3. H1N1 Health Care Worker: No, Yes and the eight categories (acute care, laboratory, pharmacy and the rest) are each stored exactly, reopen selected and stay on the archived record when changed between categories; returning to No stores false."
+    },
+    {
+      "name": "prevention-h1n1-first-responder",
+      "script": "scripts/prevention-h1n1-first-responder-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient and one legacy H1N1 record seeded by SQL; its preventions and their preventionsExt rows are removed in cleanup.",
+      "notes": "Issue #5279 section 4. H1N1 Household Contact, First Responder Police and Fire alone, together and cleared, without changing the pregnancy, chronic-condition and healthcare-worker values; LAST, a record with the legacy single firstresponder value reopens with both boxes ticked and saving stores both."
+    },
+    {
+      "name": "prevention-h1n1-dose-flags",
+      "script": "scripts/prevention-h1n1-dose-flags-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; its preventions and their preventionsExt rows are removed in cleanup.",
+      "notes": "Issue #5279 section 5. H1N1 First Dose and Second Dose are independent boxes: each alone, both together and cleared are stored exactly with no stale value; no next date or added record is created (CARLOS has no automated vaccine series)."
+    },
+    {
+      "name": "prevention-screening-result-other",
+      "script": "scripts/prevention-screening-result-other-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; its preventions and their preventionsExt rows are removed in cleanup. Reads the printout with Poppler pdftotext (SKIP without it).",
+      "notes": "Issue #5279 section 6. FOBT Result Other with an explanation: stored, listed on the Other colour, reopened with its summary and printed as Result: other (explanation); a save refused for an empty date posts nothing and keeps the entries; Other with no explanation is stored and prints (no reason submitted); amending to Abnormal keeps Other on the archived record."
+    },
+    {
+      "name": "prevention-dose-route-amendment",
+      "script": "scripts/prevention-dose-route-amendment-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; its preventions and their preventionsExt rows are removed in cleanup. SKIP when cvc.url replaces the brand picker, or without Poppler pdftotext.",
+      "notes": "Issue #5279 section 7. A Tdap recorded through the brand picker (ADACEL 0.5 mL IM) is amended to 1 vial SC: the replacement stores them and keeps the vaccine, DIN, manufacturer, lot, site and comment, the original is archived unchanged, and the reopened form, summary and printout show the new dose. LAST, a dose saved without a unit must reopen with that dose and survive an unchanged save. Fails at that last step while finding 322 (#5431) stands; every earlier step passes.",
+      "expectedFailure": {
+        "finding": 322,
+        "step": "a dose saved with no unit reopens with that dose and survives an unchanged save"
+      }
+    },
+    {
+      "name": "prevention-brand-picker-units-routes",
+      "script": "scripts/prevention-brand-picker-units-routes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient; read-only: each Add Prevention popup is read and closed, nothing is saved. SKIP when cvc.url replaces the brand picker.",
+      "notes": "Found while covering issue #5279 section 7. For one brand per distinct dose unit and route in prevention/vaccine-brands.json, the Add Prevention form opened from the brand picker must show the catalogue's own unit and route (any letter case), never a blank box or another value; every difference is reported together. Fails at its one step while finding 323 (#5432) stands; standard route codes (SQ as SC, Intranasal as IN, Intradermal as ID) are accepted.",
+      "expectedFailure": {
+        "finding": 323,
+        "step": "every dose unit and route the catalogue prefills is shown by the Add Prevention form as given"
+      }
+    },
+    {
+      "name": "prevention-cvc-lot-expiry",
+      "script": "scripts/prevention-cvc-lot-expiry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient and its recorded catalogue Tdap; a synthetic CVC brand (not a generic), its medication and two dated lots. Cleanup removes the catalogue rows, the patient's preventions and their ext rows, and asserts none remain.",
+      "notes": "Issue #5279 section 8. A catalogue vaccination's dated lots: choosing a lot fills its expiry date, which is stored and reopens; changing lot replaces the date (the archived record keeps the first); when a refreshed catalogue no longer lists the recorded lot, the lot and its expiry date are kept through a save. prevention-brand-picker keeps the undated-lot cases."
+    },
+    {
+      "name": "prevention-reminder-eligibility-matrix",
+      "script": "scripts/prevention-reminder-eligibility-matrix-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient, whose sex and birth date are set per row; its preventions and their ext rows are cleared between cases and removed in cleanup.",
+      "notes": "Issue #5279 section 9. Expectations come from prevention.drl's documentation (scripts/lib/prevention-eligibility-rules.js, kept matched by its node test). Seven age/sex rules on both sides of every documented boundary for women and men, then history cases: FIT overdue and its amended date, FIT completed externally, colonoscopy superseding FIT, ineligible mammogram and HPV-CERVIX, mammogram coming due versus overdue after an amended date, LDCT for a current smoker withdrawn by amending to non-smoker, and AAA and BMD cleared by new records. SKIP when ResourceStorage holds active custom rules."
+    },
+    {
+      "name": "prevention-recall-completed-intervention",
+      "script": "scripts/prevention-recall-completed-intervention-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [],
+      "fixtures": "The runWorkflow FAKE- patient and a FAKE- control patient, each with a 2023-06-01 mammogram seeded by SQL, and one saved patient query naming both. Cleanup removes the query, both patients' preventions and the control patient, and asserts none remain.",
+      "notes": "Issue #5279 section 10. Mammogram recall as of 2026-06-30: both patients Overdue; a mammogram entered on the patient's Preventions page makes the rerun report Pending, its result amended to Normal Up to date, and its date corrected to 2024-01-15 due; the untreated control stays Overdue on every run."
     },
     {
       "name": "demographic-address-phone-history",
@@ -16363,6 +16791,42 @@
       ],
       "fixtures": "Three owned synthetic patients, saved notes and an issue link, chart drafts and lock rows; owned roles/logins for registry and issue-write refusals; transient triggers scoped to the exact owned draft and issue deletion force real rollback and are removed and verified. The issue trigger fires after its exact row is deleted and only when the new owned note revision exists inside the transaction. Requires CREATE/DROP TRIGGER in the disposable database; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "Signed context forgery, cross-patient and cross-login replay, conflicting parameters, foreign note edit/history/draft references and GET autosave refusal preserve complete clinical rows; registry module and record locks refuse with 403. Issue-only write access cannot partially delete an issue attached to a saved note. A database failure after issue deletion preserves every clinical row, the persisted draft and exact editor lock; the same editor retries successfully and removes only its superseded draft. Actual autosave database failure preserves the prior draft, reports failure visibly and recovers on retry, including network failures, cleared text and the legacy editor. A real 45-second native XHR timeout releases the save guard and allows retry. HTTP 200 login HTML cannot acknowledge a saved draft in either editor; the implicit existing-note legacy editor submits its actual selected ID. A real lost-lock autosave causes HTTP 409: Cancel retains raw editor text and the last acknowledged draft; native reload acquires a fresh owned lock, and retry autosaves the retained raw text. Passive browser protocol observations associate at most one canceled old-document release beacon with its exact request and later application response, preserving every unrelated diagnostic."
+    },
+    {
+      "name": "lab-hapi-hl7",
+      "script": "scripts/lab-hapi-hl7-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "HOSTILE_OBSERVER_HOST",
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "fixtures": "No patient and no lab rows: four synthetic HL7 v2 XML messages (external entity, parameter entity, external DTD, exponential entity expansion) uploaded as lab type PHS, and a loopback HTTP listener the script starts. The file-upload bookkeeping rows and archived copies of the uploads are removed by their stamped file names.",
+      "notes": "Issue #5414: a deployed server must not fetch what a hostile HL7 v2 XML DOCTYPE points at. Each upload is refused, the listener sees no request, and the application still answers."
+    },
+    {
+      "name": "dao-findall-paging",
+      "script": "scripts/dao-findall-paging-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "mutates": [
+        "pharmacyInfo"
+      ],
+      "fixtures": "Seven pharmacies named after the run marker are in the clinic-wide pharmacy list while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Issue #5308: AbstractDaoImpl.findAll orders every page by the entity identifier. The session REST pharmacy list pages through it: a maximum-size first page holds exactly the first database rows in id order, small pages concatenate to the whole directory with no repeat or gap (a directory larger than one 5000-row page included), a re-read page is identical, an offset past the end is empty and a limit above the 5000-row maximum is refused."
     }
   ]
 }

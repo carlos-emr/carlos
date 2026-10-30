@@ -64,6 +64,45 @@ pages (the admin preview shows the catalog description as the subject) and
 with only the new-form page reverted (a new form is pre-filled with that
 description).
 
+The referral-form checks for issues #5272-#5278 were added on 2026-10-29:
+`consultation-followup-date`, `consultation-appointment-instructions`,
+`consultation-multisite-site`, `consultation-letterhead-title`,
+`consultation-status-transitions`, `consultation-referral-journey`,
+`consultation-fax-account` and the manual `consultation-fax-account-transport`. They were run
+against 2026.09.0~snapshot27 packages built with `dpkg-buildpackage` inside an Ubuntu 26.04
+container, first from `release/2026.08` at `e2517398` and then from the fix branch (DrugRef from
+its pinned ref, carlos-ctl 1.2.1 from its release), installed with
+`scripts/deb-docker-validation.sh up` and the Ontario demo dataset (`carlos-ctl check` clean,
+`EXPECT_FRONT_DOOR=true`, `:443`). The egress proxy reset reused connections, so apt ran with
+`Pipeline-Depth "0"` from the image passed as `BASE_IMAGE`, and Maven Central answered 429 often
+enough that the build was retried until its cache was complete. Results:
+
+- On the unfixed packages `consultation-followup-date` FAILS at clearing the date (the old date stays,
+  finding 324), `consultation-referral-journey` at the refused completion (an unreadable follow-up date
+  was posted empty and the referral completed, finding 325), `consultation-fax-account` at Submit And Fax
+  (the cover page selected another sender, finding 327) and, with `multisites=on`,
+  `consultation-multisite-site` at the new referral's default site (finding 326). An ad-hoc probe on the
+  same install stored `2026-02-30` as 2026-03-02 and moved a referral saved at SB to the first site on a
+  notes-only Update. `consultation-appointment-instructions`, `consultation-letterhead-title` and
+  `consultation-status-transitions` pass there.
+- On the fixed packages all seven core checks **PASS** (`consultation-multisite-site` 7/7 with
+  `multisites=on`, SKIP with it off), and `consultation-fax-account-transport` **PASS**es 2/2 with the
+  middleware allowlist set: the stub relay received exactly sender A's call with the job's PDF byte for
+  byte, and B's refused send stayed in ERROR without a call as A.
+- Consultation responses have no clinician page in this release (finding 328): the journey check
+  receives the specialist's reply as a chart document attached to the referral and says so in a NOTE.
+- Regression pass on the fixed packages with `--residue-audit`: every other consultation check (and
+  `surface-audit:consultations-surface`), `document-viewer-fax`, `eform-toolbar-fax-recipient`,
+  `fax-configure` and `admin-lookup-lists`, 56 passed. `admin-lookup-lists` failed at its GET-mutator step,
+  as its manifest note says it does on `release/2026.08`, and `echart-navbar-modules` failed on its
+  catalogued "Forms" link; that check fails the same way with the unfixed `carlos-emr` package
+  reinstalled, so neither failure comes from this change. The audit's `property` and `quickListUser`
+  rows came from other checks: the new checks run alone under `--residue-audit` report no residue.
+- After review, `consultation-multisite-site` gained its seventh step (a referral saved at a site the
+  login is not linked to keeps that site) and `consultation-fax-account-transport` reads the scheduler
+  state Configure Fax reports instead of pausing for it. Both were rerun on the fixed packages with
+  `--residue-audit`: 7/7 and 2/2, no residue.
+
 `allergy-injected-form-csrf-playwright-checks.js` (issues #3355 and #3488) was
 added on 2026-10-08. It was run against 2026.09.0~snapshot26 packages built from the
 `release/2026.08` fix branch (DrugRef from its pinned ref, carlos-ctl 1.1.1 from its tag)
@@ -448,6 +487,32 @@ through `:443` with `EXPECT_FRONT_DOOR=true`). Its environment notes (a Maven Ce
 for a rate-limited egress, `login_lock=true`, the extra directory exports) and per-check
 results are in
 [release-2026.08-workflow-coverage-expansion.md](release-2026.08-workflow-coverage-expansion.md).
+
+`reference-data-cache-playwright-checks.js` (issue #5304) was added on 2026-10-29. That change
+moved the appointment-status, measurement-type and lookup-list caches onto copy-on-read. The check
+was run against 2026.09.0~snapshot27 packages built in an Ubuntu 26.04 container from the
+`release/2026.08` fix branch (prebuilt WAR through `CARLOS_WAR`, DrugRef from its pinned ref,
+carlos-ctl 1.2.1 from its tag). Two DrugRef dependencies that Maven could not fetch through the
+egress proxy were seeded into `debian/build/m2` before a `dpkg-buildpackage -nc` rebuild. The
+packages were installed fresh with `scripts/deb-docker-validation.sh up` and the demo dataset
+(`carlos-ctl check` clean, `:443`). Results:
+
+- The check **PASS**es 6/6. A status label, colour and Disable/Enable saved in the status editor,
+  and a reasonCode item added and removed through Manage Lookup Lists, each reach the
+  add-appointment form on its next load. Repeated loads agree with each other and with the
+  database.
+- Two mutations of the new copy factories, swapped into the installed webapp, make it **FAIL**.
+  A lookup-list copy that drops its items fails at the first step (the form offers no reason
+  codes). A status copy that drops its colour fails at the status-editor step.
+- `appointment-status-editing`, `schedule-admin-settings`, `measurement-type-group-admin` (with
+  `MEASUREMENT_CSS_UPLOAD_DIR` set to the server's styles directory), `measurement-group-entry`,
+  `measurement-history`, `measurement-validation`, `cdm-measurement-report`, `flowsheet-admin`,
+  `demographic-edit-update`, `consultation-appointment-time` and the smoke tier also pass.
+  `tickler-crud` passed on a re-run after one aborted list request.
+- `admin-lookup-lists` still fails only at its pinned last step (GET reaches the mutator), and
+  `gap-provider-schedule-reason-privacy` only at the tooltip disclosure (finding L329). The
+  residue audit was clean. The server-log audit's one unexplained signature is Tomcat's own
+  record of the `flowsheet-admin` missing-flowsheet NPE it already lists as known.
 
 ## Scope
 
@@ -838,6 +903,8 @@ checks that failed on a fresh install instead; they now behave as follows.
 | `patient-list-by-appointment-export` | The demo dataset, and either `MYSQL_*` (it inserts and removes its own three appointments, marked per run) or fixture d plus `PATIENT_LIST_FIXTURE_PROFILE`. | Runs, self-seeding. SKIPs when it has neither route, when the database is not the demo dataset, or when its date windows (2026-08-07..10, 2026-09-01..02) already hold appointments. |
 | `rx-fax-record-binding` | `rx_fax_enabled=true`, the provider stamp (fixture b), `RX_FAX_DOCUMENT_DIR` readable by the run (root), Poppler. | Runs. The `[login] pageerror: Error` #4412 reported was the check's own stub, fixed in #4407; a finding now carries the throwing frame (`... at fn (/carlos/path.jsp:line:col)`: no message, query string or session id, record-id path segments shown as `:id`), so a bare `Error` is no longer the whole diagnosis. SKIPs only without Poppler. |
 | `o19-migrated-smoke` (tier `extended`) | A database produced by `carlos-ctl import-o19`, and its break-glass credentials at `O19_STATE_DIR/admin-credentials.txt`. | SKIP naming the credentials file. To run it, import an OSCAR 19 dump into a rehearsal copy and drive `scripts/migration/o19/rehearsal/ui-smoke.sh`; never point it at a post-go-live database (it resets passwords and restores them). |
+| `consultation-multisite-site` | `multisites=on` in `/etc/carlos-emr/carlos.properties`, then `carlos-ctl restart` (and back afterwards). Run the other consultation checks with it off: with it on, the clinic Consultations list shows the installer's administrator (who holds `_site_access_privacy`) only the referrals at its own sites, and those checks seed referrals without a site. | SKIP naming `multisites`. |
+| `consultation-fax-account-transport` (manual) | `-Dcarlos.fax.middleware.allowedHosts=127.0.0.1` in `CARLOS_JAVA_OPTS` (`/etc/carlos-emr/carlos-emr.env`), `carlos-ctl restart`, `FAX_TRANSPORT_STUB=on`, no other active fax sender account, Poppler and a readable document store (`CONSULT_FAX_DOCUMENT_STORE`). The check runs its own relay stub on 127.0.0.1:18096. Remove the option and restart afterwards. | Runs only when named with `--only`; SKIP without `FAX_TRANSPORT_STUB=on`. |
 
 Validated on 2026-10-08 against `release/2026.08` at `9784de27`: 2026.09.0~snapshot26
 debs (`dpkg-buildpackage` in `ubuntu:26.04`, carlos-ctl 1.1.2 built from the pin's
@@ -3703,3 +3770,26 @@ page put back byte for byte:
   ended the attribute, and `<` or `&` did not come back as typed (CodeRabbit).
 - A configured PRI default billed privately even when the PRI form was not installed and another form was chosen in
   its place (CodeRabbit). The private billing type now follows the chosen form.
+
+### Messenger Inbox locator after #5250 (2026-10-29, issue #5349)
+
+`messenger-demographic-link` failed at its last step with a bare 20 s `page.waitForResponse` timeout and nothing
+recorded. The step starts on the Archived box, after Unarchive, and goes back to the Inbox. #5250 changed the box
+page's Inbox tab from a bare `DisplayMessages` href to `DisplayMessages?boxType=0` with the box's search and sort, and
+the check's locator excluded every link carrying `boxType` or `orderby`, so it clicked nothing. The checks now share
+one `INBOX_LINK` locator, and `clickAndLoad` names a locator that matches nothing instead of timing out.
+`scripts/messenger-inbox-link.test.js` pins the locator to the mailbox JSPs offline.
+
+Packages: `release/2026.08` at `e2517398` and the fix branch (`88f4892e`), each built as `2026.09.0~snapshot27` with
+`dpkg-buildpackage -us -uc -b` in an `ubuntu:26.04` container (DrugRef from `debian/drugref.pin`, carlos-ctl 1.2.1
+from its release), installed fresh with `CARLOS_PROVINCE=on scripts/deb-docker-validation.sh up`; `carlos-ctl check`
+passed both times.
+
+| Run | Result |
+|---|---|
+| `messenger-demographic-link`, unfixed check | **FAIL** at its last step: `page.waitForResponse: Timeout 20000ms exceeded`, no request, console issue or dialog recorded (as #5349 reported) |
+| The same with only the new `clickAndLoad` guard | **FAIL** naming the locator: `No visible control to open /messenger/DisplayMessages` |
+| `messenger-demographic-link`, fixed | **PASS**, 8 of 8, five runs across both installs, four with `--residue-audit`. Search Patient lists and picks the patient and Link to Patient writes the `msgDemoMap` row: the defects its manifest note named are fixed (#4149, #4130) |
+| `messenger-attachments` | **PASS**, 11 of 11 through the front door, before and after the change (its Inbox hops start from pages with the Inbox button) |
+| `--tier smoke` (fix-branch packages) | **PASS**, 12 of 12 |
+| The 17 messenger checks, `--residue-audit` (fix-branch packages) | 13 **PASS**. `double-submit-messenger`, `search-sort-messenger-inbox` and `messenger-reply-send-archive` fail at the same steps with the unfixed scripts. `messenger-group-admin` is intermittent on both script trees ("Clicking the checkbox did not change its state": 4 of 6 runs of the unfixed tree failed). The audit reported one `messengerMembershipLock` row: the permanent lock key `GroupMembersDaoImpl.lockMembershipChanges()` inserts on the first membership change after install |
