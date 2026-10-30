@@ -864,7 +864,9 @@ probes the servlet without a grant (401 on loopback, 403/405 on POST, refused th
 It also pins the save result view: the form action `EForm` writes carries
 `efmfid`/`efmdemographic_no` rather than `fid`/`demographic_no`, and the interactive lookup route
 (`eform/efmformapconfig_lookup`, via `ApCacheLookupParameterResolver`) accepts both spellings, so
-the lookups a form re-runs after a save-and-download resolve instead of answering "Invalid fid".
+the lookups a form re-runs after a save-and-download resolve instead of answering "Invalid fid". Patient-independent
+forms may omit both patient parameters; their AP queries retain an absent patient context.
+When a patient is supplied, the existing patient-scoped prevention precision check still applies.
 
 ### 3. Look at the PDF
 
