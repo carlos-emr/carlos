@@ -586,6 +586,48 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("should remove earlier PDFs on every retry after a later attachment is rejected (#5445)")
+    void shouldRemoveEarlierPdfs_whenLaterAttachmentRejectedRepeatedly(boolean runtimeFailure) throws Exception {
+        ComposeMocks mocks = registerComposeMocks();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/email/compose");
+        AtomicReference<Path> ownedPdf = stageOneEFormAttachment(mocks, request);
+        // Ownership rejection uses PDFGenerationException; transient preparation failures can
+        // also be unchecked. Both must clean files rendered by an earlier attachment type.
+        when(mocks.emailComposeManager().prepareEDocAttachments(any(), any(), any()))
+                .thenAnswer(invocation -> {
+                    assertThat(ownedPdf.get()).isNotNull();
+                    assertThat(Files.exists(ownedPdf.get())).as("earlier attachment rendered before rejection").isTrue();
+                    if (runtimeFailure) {
+                        throw new IllegalStateException("FAKE preparation failure");
+                    }
+                    throw new PDFGenerationException("Attachment unavailable");
+                });
+
+        EmailComposeViewTestSupport.stageSessionFieldsAsDraft(request);
+        try (MockedStatic<ServletActionContext> servletActionContext = mockStatic(ServletActionContext.class)) {
+            servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
+            servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            EmailCompose2Action action = new EmailCompose2Action();
+            Path previousDirectory = null;
+            for (int attempt = 0; attempt < 2; attempt++) {
+                assertThat(action.prepareComposeEFormMailer()).isEqualTo("eFormError");
+                Path pdf = ownedPdf.get();
+                assertThat(pdf).isNotNull();
+                assertThat(pdf.getParent()).isNotEqualTo(previousDirectory);
+                assertThat(Files.exists(pdf)).as("earlier PDF removed after attempt %s", attempt).isFalse();
+                assertThat(Files.exists(pdf.getParent())).as("working directory removed").isFalse();
+                previousDirectory = pdf.getParent();
+            }
+            verify(mocks.emailComposeManager(), times(2)).prepareEFormAttachments(any(), any(), any(), any());
+            verify(mocks.emailComposeManager(), times(2)).prepareEDocAttachments(any(), any(), any());
+            verify(mocks.emailComposeManager(), never()).prepareLabAttachments(any(), any(), any());
+            verify(mocks.emailComposeManager(), never()).prepareHRMAttachments(any(), any(), any());
+            verify(mocks.emailComposeManager(), never()).prepareFormAttachments(any(), any(), any(), anyInt(), any());
+        }
+    }
+
     @Test
     @DisplayName("should remove partial attachment output when a later renderer fails")
     void shouldRemovePartialAttachmentOutput_whenLaterRendererFails() throws Exception {
