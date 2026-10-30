@@ -5072,6 +5072,24 @@
       "notes": "Fails at its last step on 2026.08: lookupListManagerAction accepts GET for its mutating methods."
     },
     {
+      "name": "reference-data-cache",
+      "script": "scripts/reference-data-cache-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "mutates": [
+        "appointment_status",
+        "LookupListItem"
+      ],
+      "fixtures": "Snapshots one clinic-wide appointment_status row (an editable active custom status a-f), changes its label, colour and active flag through the status editor and edits it back, and adds then removes one marker-labelled LookupListItem on the clinic-wide reasonCode list through Manage Lookup Lists, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). A failed run first repairs both through the same UI (best effort, so the caches are evicted) and then restores the status snapshot and deletes the owned item by SQL, asserting both. Nothing is booked."
+    },
+    {
       "name": "admin-update-demographic-provider",
       "script": "scripts/admin-update-demographic-provider-playwright-checks.js",
       "tiers": [
@@ -6238,6 +6256,19 @@
       ],
       "notes": "Fails on 2026.08: Billing Reconciliation ▸ Report posts a runtime-built form without a CSRF token (403), so the billing clipboard is unreachable.",
       "fixtures": "Owned FAKE- provider (sites copied from the operator), owned patients, batch-billing queue rows, an RA with an owned radetail row and the clipboard notes; all rows and files removed."
+    },
+    {
+      "name": "billing-on-batch-percentage-limit",
+      "script": "scripts/billing-on-batch-percentage-limit-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 240,
+      "fixtures": "Owned FAKE- provider (sites copied from the operator), owned patients, two FAKE- percentage fee rows with unused codes, their limit rows (one keyed by a fee-row id) and two batch-billing queue rows; all rows removed."
     },
     {
       "name": "billing-on-admin-config",
@@ -9002,8 +9033,8 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "fixtures": "Owned FAKE-PW patient; one CPP note per box (Medical History, Ongoing Concerns, Reminders, Family History, Other Meds, Risk Factors) created through the chart '+' dialogs; all notes, issue links, ext rows, casemgmt_issue/cpp/eChart rows of the patient removed and asserted gone. Needs pdftotext.",
-      "notes": "Passes on 2026.08. Observation only: 'Print all notes' re-lists every CPP item (including one flagged Hide in CPP) as an ordinary note on page 2 of the print; the CPP-section print itself honours Hide in CPP and Archive."
+      "fixtures": "Owned FAKE-PW patient; one CPP note per box (Medical History, Ongoing Concerns, Reminders, Family History, Other Meds, Risk Factors) created through the chart '+' dialogs, plus the revisions an edit, Hide in CPP and Archive save; all notes, issue links, ext rows, hash_audit signatures and casemgmt_issue/cpp/eChart rows of the patient removed and asserted gone. Needs pdftotext.",
+      "notes": "Failed on 2026.08 beta1/beta2 (#5365): a new item stored an empty-valued extension row for every field it hid or left blank; a blank now adds no row and only clears a key the revision already holds. An edit, Hide in CPP and Archive each save a new revision (#4641), which the check follows by uuid. Observation only: 'Print all notes' re-lists every CPP item (including one flagged Hide in CPP) as an ordinary note on page 2 of the print; the CPP-section print itself honours Hide in CPP and Archive."
     },
     {
       "name": "gap-clinical-chart-print-scope",
@@ -16668,6 +16699,24 @@
       ],
       "fixtures": "Three owned synthetic patients, saved notes and an issue link, chart drafts and lock rows; owned roles/logins for registry and issue-write refusals; transient triggers scoped to the exact owned draft and issue deletion force real rollback and are removed and verified. The issue trigger fires after its exact row is deleted and only when the new owned note revision exists inside the transaction. Requires CREATE/DROP TRIGGER in the disposable database; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "Signed context forgery, cross-patient and cross-login replay, conflicting parameters, foreign note edit/history/draft references and GET autosave refusal preserve complete clinical rows; registry module and record locks refuse with 403. Issue-only write access cannot partially delete an issue attached to a saved note. A database failure after issue deletion preserves every clinical row, the persisted draft and exact editor lock; the same editor retries successfully and removes only its superseded draft. Actual autosave database failure preserves the prior draft, reports failure visibly and recovers on retry, including network failures, cleared text and the legacy editor. A real 45-second native XHR timeout releases the save guard and allows retry. HTTP 200 login HTML cannot acknowledge a saved draft in either editor; the implicit existing-note legacy editor submits its actual selected ID. A real lost-lock autosave causes HTTP 409: Cancel retains raw editor text and the last acknowledged draft; native reload acquires a fresh owned lock, and retry autosaves the retained raw text. Passive browser protocol observations associate at most one canceled old-document release beacon with its exact request and later application response, preserving every unrelated diagnostic."
+    },
+    {
+      "name": "lab-hapi-hl7",
+      "script": "scripts/lab-hapi-hl7-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "HOSTILE_OBSERVER_HOST",
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "fixtures": "No patient and no lab rows: four synthetic HL7 v2 XML messages (external entity, parameter entity, external DTD, exponential entity expansion) uploaded as lab type PHS, and a loopback HTTP listener the script starts. The file-upload bookkeeping rows and archived copies of the uploads are removed by their stamped file names.",
+      "notes": "Issue #5414: a deployed server must not fetch what a hostile HL7 v2 XML DOCTYPE points at. Each upload is refused, the listener sees no request, and the application still answers."
     }
   ]
 }
