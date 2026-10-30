@@ -79,7 +79,8 @@ class BillingEditCode2ActionUnitTest extends CarlosUnitTestBase {
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
         servlet.when(ServletActionContext::getResponse).thenReturn(response);
         loggedIn = mockStatic(LoggedInInfo.class);
-        loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(mock(LoggedInInfo.class));
+        LoggedInInfo sessionUser = mock(LoggedInInfo.class);
+        loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class))).thenReturn(sessionUser);
         request.getSession().setAttribute("user", "999998");
     }
 
@@ -124,7 +125,8 @@ class BillingEditCode2ActionUnitTest extends CarlosUnitTestBase {
         grantBillingWrite(false);
         codeUpdate();
 
-        assertThatThrownBy(() -> new BillingEditCode2Action().execute()).isInstanceOf(SecurityException.class);
+        BillingEditCode2Action action = new BillingEditCode2Action();
+        assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
         verifyNoInteractions(billingServices);
     }
 
@@ -142,6 +144,30 @@ class BillingEditCode2ActionUnitTest extends CarlosUnitTestBase {
 
         verify(billingServices).merge(code);
         assertThat(code.getValue()).isEqualTo("99.99");
+    }
+
+    @Test
+    @DisplayName("should answer the fields the page reads from the saved code row")
+    void shouldAnswerFieldsThePageReads_fromTheSavedCodeRow() throws Exception {
+        request.setMethod("POST");
+        grantBillingWrite(true);
+        codeUpdate();
+        BillingService code = new BillingService();
+        code.setBillingserviceNo(12);
+        when(billingServices.find(12)).thenReturn(code);
+
+        new BillingEditCode2Action().execute();
+
+        // billingEditCode.jsp reads id, value, billingserviceDate and terminationDate. The row has
+        // no percentage-limit property any more (issue #5307), so serializing it touches no
+        // association and cannot fail on the detached row.
+        com.fasterxml.jackson.databind.JsonNode answer =
+                new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(answer.get("id").asText()).isEqualTo("1");
+        assertThat(answer.get("value").asText()).isEqualTo("99.99");
+        assertThat(answer.has("billingserviceDate")).isTrue();
+        assertThat(answer.has("terminationDate")).isTrue();
+        assertThat(answer.has("billingPercLimit")).isFalse();
     }
 
     @Test

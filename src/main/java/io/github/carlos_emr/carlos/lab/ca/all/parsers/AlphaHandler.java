@@ -84,6 +84,8 @@ public class AlphaHandler extends DefaultGenericHandler implements MessageHandle
         } else {
             terser = new Terser(msg23);
         }
+        // The inherited comment and NTE lookups read the segment names built here, not in super.init.
+        segmentNames = GenericSegmentNames.of(terser.getFinder().getRoot());
 
 
         int obrCount = getOBRCount();

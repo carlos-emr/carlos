@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import io.github.carlos_emr.carlos.commn.model.LookupList;
+import io.github.carlos_emr.carlos.commn.model.LookupListItem;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,17 +39,25 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Cache invalidation regression tests for {@link LookupListDao}. Verifies writes
+ * Cache invalidation and isolation regression tests for {@link LookupListDao}. Verifies writes
  * (persist/merge/remove/saveEntity) evict the {@code lookupLists} cache after commit,
  * and confirms the null-key guard on {@code findByName} prevents cache poisoning.
+ *
+ * <p>Also verifies that every read returns its own detached deep copies (issue #5304): changing
+ * a returned list, its item list or one of its items must not reach another reader, the cached
+ * snapshot or the database.</p>
  */
-@DisplayName("LookupListDao cache invalidation")
+@DisplayName("LookupListDao cache invalidation and isolation")
 @Tag("integration")
 @Tag("dao")
 @Tag("cache")
@@ -61,12 +70,16 @@ class LookupListDaoCacheIntegrationTest extends CarlosTestBase {
     private LookupListDao lookupListDao;
 
     @Autowired
+    private LookupListItemDao lookupListItemDao;
+
+    @Autowired
     private CacheManager cacheManager;
 
     @Autowired
     private PlatformTransactionManager transactionManager;
 
     private final List<Integer> idsToCleanUp = new ArrayList<>();
+    private final List<Integer> itemIdsToCleanUp = new ArrayList<>();
     private TransactionTemplate transactionTemplate;
 
     @BeforeEach
@@ -79,6 +92,16 @@ class LookupListDaoCacheIntegrationTest extends CarlosTestBase {
     @AfterEach
     void cleanUpCommittedRows() {
         clearCache();
+        // Items first: removing a list with items still attached would try to null their
+        // NOT NULL lookupListId through the list's one-to-many join column.
+        for (Integer itemId : itemIdsToCleanUp) {
+            transactionTemplate.executeWithoutResult(status -> {
+                LookupListItem item = lookupListItemDao.find(itemId);
+                if (item != null) {
+                    lookupListItemDao.remove(item);
+                }
+            });
+        }
         for (Integer id : idsToCleanUp) {
             transactionTemplate.executeWithoutResult(status -> {
                 LookupList entity = lookupListDao.find(id);
@@ -225,6 +248,167 @@ class LookupListDaoCacheIntegrationTest extends CarlosTestBase {
         assertThat(cacheEntryCount())
                 .as("null/empty keys must not be cached; compare with ProviderDaoImpl.getProviderName null guard")
                 .isZero();
+    }
+
+    @Test
+    @DisplayName("should return independent deep copies when findByName is served from the cache")
+    void shouldReturnIndependentDeepCopies_whenFindByNameServedFromCache() {
+        LookupList seeded = persistSeedWithItems(uniqueName());
+        String key = "name:" + seeded.getName();
+
+        LookupList first = transactionTemplate.execute(status -> lookupListDao.findByName(seeded.getName()));
+        LookupList second = transactionTemplate.execute(status -> lookupListDao.findByName(seeded.getName()));
+
+        assertThat(first.getItems()).extracting(LookupListItem::getLabel).containsExactly("First", "Second");
+        assertThat(second).isNotSameAs(first).isNotSameAs(cachedValue(key));
+        assertThat(second.getItems()).isNotSameAs(first.getItems());
+        assertNoSharedItems(second, (LookupList) cachedValue(key));
+
+        first.setDescription("mutated-copy");
+        first.getItems().get(0).setLabel("mutated-label");
+        first.getItems().remove(1);
+        first.getItems().add(buildItem(seeded.getId(), "added", 9));
+
+        LookupList third = transactionTemplate.execute(status -> lookupListDao.findByName(seeded.getName()));
+        assertThat(third.getDescription())
+                .as("changing one returned list must not change the next read")
+                .isEqualTo("seeded for cache invalidation test");
+        assertThat(third.getItems())
+                .as("changing one returned item list or item must not change the next read")
+                .extracting(LookupListItem::getLabel)
+                .containsExactly("First", "Second");
+        LookupList snapshot = (LookupList) cachedValue(key);
+        assertThat(snapshot.getDescription()).isEqualTo("seeded for cache invalidation test");
+        assertThat(snapshot.getItems()).extracting(LookupListItem::getLabel).containsExactly("First", "Second");
+    }
+
+    @Test
+    @DisplayName("should return unmodifiable independent deep copies when findAllActive is served from the cache")
+    void shouldReturnUnmodifiableIndependentDeepCopies_whenFindAllActiveServedFromCache() {
+        LookupList seeded = persistSeedWithItems(uniqueName());
+
+        List<LookupList> first = transactionTemplate.execute(status -> lookupListDao.findAllActive());
+        List<LookupList> second = transactionTemplate.execute(status -> lookupListDao.findAllActive());
+
+        assertThatThrownBy(() -> first.add(buildLookupList(uniqueName())))
+                .isInstanceOf(UnsupportedOperationException.class);
+        assertThat(second).isNotSameAs(first);
+        @SuppressWarnings("unchecked")
+        List<LookupList> cached = (List<LookupList>) cachedValue("allActive");
+        for (LookupList returned : second) {
+            assertNoSharedItems(returned, findById(cached, returned.getId()));
+        }
+
+        LookupList changed = findById(first, seeded.getId());
+        changed.setActive(false);
+        changed.getItems().clear();
+
+        List<LookupList> third = transactionTemplate.execute(status -> lookupListDao.findAllActive());
+        LookupList reread = findById(third, seeded.getId());
+        assertThat(reread.isActive()).isTrue();
+        assertThat(reread.getItems()).extracting(LookupListItem::getLabel).containsExactly("First", "Second");
+        assertThat(findById(cached, seeded.getId()).getItems()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("should neither write nor cache a change made to a cache-miss result inside a transaction")
+    void shouldNotWriteOrCacheChange_whenCacheMissResultChangedInsideTransaction() {
+        LookupList seeded = persistSeedWithItems(uniqueName());
+
+        // Before #5304 a cache miss returned managed entities: these changes were flushed to the
+        // database when the transaction committed, and the same instance became the cached value.
+        transactionTemplate.executeWithoutResult(status -> {
+            LookupList loaded = lookupListDao.findByName(seeded.getName());
+            loaded.setDescription("changed-in-tx");
+            loaded.getItems().get(0).setLabel("changed-in-tx");
+        });
+
+        LookupList stored = transactionTemplate.execute(status -> lookupListDao.find(seeded.getId()));
+        LookupListItem storedItem = transactionTemplate.execute(
+                status -> lookupListItemDao.find(itemIdsToCleanUp.get(0)));
+        assertThat(stored.getDescription())
+                .as("a returned list is a detached copy: changing it must not write to the database")
+                .isEqualTo("seeded for cache invalidation test");
+        assertThat(storedItem.getLabel())
+                .as("a returned item is a detached copy: changing it must not write to the database")
+                .isEqualTo("First");
+        LookupList snapshot = (LookupList) cachedValue("name:" + seeded.getName());
+        assertThat(snapshot.getDescription()).isEqualTo("seeded for cache invalidation test");
+        assertThat(snapshot.getItems()).extracting(LookupListItem::getLabel).containsExactly("First", "Second");
+    }
+
+    @Test
+    @DisplayName("should not populate the cache when the reading transaction rolls back")
+    void shouldNotPopulateCache_whenReadingTransactionRollsBack() {
+        LookupList seeded = persistSeedWithItems(uniqueName());
+
+        transactionTemplate.executeWithoutResult(status -> {
+            lookupListDao.findAllActive();
+            lookupListDao.findByName(seeded.getName());
+            status.setRollbackOnly();
+        });
+
+        assertThat(cacheEntryCount())
+                .as("cache puts are transaction-aware: a rolled-back read must leave the cache empty")
+                .isZero();
+    }
+
+    private LookupList persistSeedWithItems(String name) {
+        LookupList seeded = persistSeed(name);
+        transactionTemplate.executeWithoutResult(status -> {
+            LookupListItem firstItem = buildItem(seeded.getId(), "First", 1);
+            LookupListItem secondItem = buildItem(seeded.getId(), "Second", 2);
+            lookupListItemDao.persist(firstItem);
+            lookupListItemDao.persist(secondItem);
+            itemIdsToCleanUp.add(firstItem.getId());
+            itemIdsToCleanUp.add(secondItem.getId());
+        });
+        // Item rows were written without the list's DAO, so start from an empty cache.
+        clearCache();
+        return seeded;
+    }
+
+    private LookupListItem buildItem(Integer lookupListId, String label, int displayOrder) {
+        LookupListItem item = new LookupListItem();
+        item.setLookupListId(lookupListId);
+        item.setValue("v" + ThreadLocalRandom.current().nextInt(100000, 999999));
+        item.setLabel(label);
+        item.setActive(true);
+        item.setDisplayOrder(displayOrder);
+        item.setCreatedBy("cachetst");
+        return item;
+    }
+
+    private LookupList findById(List<LookupList> lists, Integer id) {
+        for (LookupList list : lists) {
+            if (id.equals(list.getId())) {
+                return list;
+            }
+        }
+        throw new AssertionError("Expected lookup list id " + id + " in result list");
+    }
+
+    private Object cachedValue(String key) {
+        org.springframework.cache.Cache cache = cacheManager.getCache(CACHE_NAME);
+        assertThat(cache).isNotNull();
+        org.springframework.cache.Cache.ValueWrapper wrapper = cache.get(key);
+        assertThat(wrapper).as("cache entry %s should be populated", key).isNotNull();
+        return wrapper.get();
+    }
+
+    private void assertNoSharedItems(LookupList returned, LookupList cached) {
+        assertThat(returned).isNotSameAs(cached);
+        if (returned.getItems() == null) {
+            return;
+        }
+        assertThat(returned.getItems()).isNotSameAs(cached.getItems());
+        Set<LookupListItem> cachedItems = Collections.newSetFromMap(new IdentityHashMap<>());
+        cachedItems.addAll(cached.getItems());
+        for (LookupListItem item : returned.getItems()) {
+            assertThat(cachedItems.contains(item))
+                    .as("returned item %s must not be the cached instance", item.getId())
+                    .isFalse();
+        }
     }
 
     private LookupList persistSeed(String name) {

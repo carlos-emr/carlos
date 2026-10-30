@@ -21,7 +21,7 @@
  *
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-// Static regressions for findings 322-324 (issues #5272, #5274, #5278), and the safety rules of the fixture
+// Static regressions for findings 325-327 (issues #5272, #5274, #5278), and the safety rules of the fixture
 // libraries the referral-form checks share. The live round trips are pinned by consultation-followup-date,
 // consultation-multisite-site and consultation-fax-account; these keep the page contracts from regressing in CI,
 // which does not run the browser checks.

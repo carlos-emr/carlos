@@ -47,6 +47,26 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.SqlUtils;
 
+/**
+ * Request-end safety net for legacy JDBC: after the request finishes, successfully or not, it
+ * releases the thread's legacy connection ({@link #getThreadLocalDbConnection()}), any
+ * {@link LegacyJdbcQuery} resources a caller left open and every connection still tracked by
+ * {@link OscarTrackingBasicDataSource} for the thread.
+ *
+ * <p>The cleanup only works where the filter is mapped (issue #5305). {@code web.xml} maps it as
+ * the first application filter, for the REQUEST dispatcher only, so it encloses every other
+ * application filter, the Struts action, the JSP the action forwards to and any servlet, and
+ * runs exactly once per request after all of them return. Struts executes an action without
+ * calling the rest of the chain, so a mapping after {@code struts2-execute} never runs for
+ * actions. A FORWARD, INCLUDE or ERROR mapping would run the cleanup inside a forward, while the
+ * code that forwarded can still be using its resources.</p>
+ *
+ * <p>The tracked-connection cleanup closes connections outright, so it must run after any
+ * transaction on the thread has finished: no filter inside this one may hold a transaction open
+ * around {@code chain.doFilter}. {@link LegacyJdbcQuery} connections are released through
+ * Spring's {@code DataSourceUtils}, which leaves a connection that an active transaction owns
+ * to that transaction.</p>
+ */
 public class DbConnectionFilter implements jakarta.servlet.Filter {
     private static final Logger logger = MiscUtils.getLogger();
 

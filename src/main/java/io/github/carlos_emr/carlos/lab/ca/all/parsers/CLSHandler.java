@@ -40,6 +40,7 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import ca.uhn.hl7v2.HL7Exception;
+import io.github.carlos_emr.carlos.lab.ca.all.util.Hl7Utils;
 import ca.uhn.hl7v2.model.Segment;
 import ca.uhn.hl7v2.model.v23.datatype.FT;
 import ca.uhn.hl7v2.model.v23.datatype.XCN;
@@ -113,23 +114,43 @@ public class CLSHandler implements MessageHandler {
     }
 
     public ORU_R01_ORDER_OBSERVATION getOBR(int i) throws HL7Exception {
-        return msg.getRESPONSE().getORDER_OBSERVATION(i);
+        try {
+            return msg.getRESPONSE().getORDER_OBSERVATION(i);
+        } catch (RuntimeException e) {
+            throw Hl7Utils.unwrapHl7AccessFailure(e);
+        }
     }
 
     public ORC getORC(int i) throws HL7Exception {
-        return msg.getRESPONSE().getORDER_OBSERVATION(i).getORC();
+        try {
+            return msg.getRESPONSE().getORDER_OBSERVATION(i).getORC();
+        } catch (RuntimeException e) {
+            throw Hl7Utils.unwrapHl7AccessFailure(e);
+        }
     }
 
     public OBX getOBX(int i, int ii) throws HL7Exception {
-        return msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(ii).getOBX();
+        try {
+            return msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(ii).getOBX();
+        } catch (RuntimeException e) {
+            throw Hl7Utils.unwrapHl7AccessFailure(e);
+        }
     }
 
     public NTE getNTE(int i, int j, int k) throws HL7Exception {
-        return msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getNTE(k);
+        try {
+            return msg.getRESPONSE().getORDER_OBSERVATION(i).getOBSERVATION(j).getNTE(k);
+        } catch (RuntimeException e) {
+            throw Hl7Utils.unwrapHl7AccessFailure(e);
+        }
     }
 
     public NTE getOBRNTE(int i, int j) throws HL7Exception {
-        return msg.getRESPONSE().getORDER_OBSERVATION(i).getNTE(j);
+        try {
+            return msg.getRESPONSE().getORDER_OBSERVATION(i).getNTE(j);
+        } catch (RuntimeException e) {
+            throw Hl7Utils.unwrapHl7AccessFailure(e);
+        }
     }
 
     public void insertOBR(ORU_R01_ORDER_OBSERVATION newOBR) {
