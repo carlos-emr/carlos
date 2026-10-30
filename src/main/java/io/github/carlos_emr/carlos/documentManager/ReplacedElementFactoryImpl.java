@@ -30,6 +30,7 @@ package io.github.carlos_emr.carlos.documentManager;
 
 
 // Flying Saucer 10.x ITextFSImage works with OpenPDF 3.x (org.openpdf.*)
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.LocalOnlyUserAgent;
 import org.openpdf.text.BadElementException;
 import org.openpdf.text.Image;
 import org.apache.commons.io.IOUtils;

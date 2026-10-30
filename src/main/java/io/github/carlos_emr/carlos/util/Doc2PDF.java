@@ -62,7 +62,7 @@ import org.jsoup.select.NodeFilter;
 import org.jsoup.select.NodeTraversor;
 import java.nio.charset.StandardCharsets;
 
-import io.github.carlos_emr.carlos.documentManager.LocalOnlyUserAgent;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.LocalOnlyUserAgent;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 import org.xhtmlrenderer.layout.SharedContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;

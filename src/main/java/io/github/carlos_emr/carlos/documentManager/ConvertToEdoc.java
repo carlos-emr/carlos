@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager;
 
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.LocalOnlyUserAgent;
 import org.openpdf.text.DocumentException;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
