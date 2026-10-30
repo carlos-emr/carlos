@@ -137,6 +137,11 @@ Contact consent remains nullable because the source supplies no consent assertio
 
 The thirteen Care Elements map to native measurements with original dates, fixed source units, source type/code, and explicit precision metadata. An exam-performed assertion never becomes a normal exam result. Collaborative goals remain text, including empty text, and never become Yes/No. Unbounded goals use a bounded native source-reference marker with the complete value retained in the category. Approved logical corrections are applied before deciding native capacity. Nonquantitative or unrepresentable numeric text uses a dedicated text measurement with a blocking clinical review diagnostic; it never enters a numeric graph as an invented number.
 
+Migration 1.0.59.26 widens `measurementsDeleted.dataField` to match the live
+measurement's `MEDIUMTEXT` capacity. Native measurement deletion and HL7 replacement
+therefore preserve the complete value in their archive copy. The forward change preserves
+existing charset, collation, defaults, nullability and comments and retains a larger adopted type.
+
 Reserved source-text measurement types require their exact purpose and dedicated unconstrained text validation. A colliding local type or numeric validator is an explicit configuration failure, not permission to overwrite local configuration. Date-only care observations use the explicitly configured clinic zone as a storage anchor and carry `FULL_DATE` metadata; the source supplies no observation clock or provider. Legacy projections that cannot carry category or date meaning are guarded separately.
 
 Native Boolean Care destinations use `Yes`/`No`, because the established recommendation consumer and smoking clinical report recognize the full native spelling. Original source indicators remain separate and the normalization is reported explicitly. The regression invokes the real existing recommendation consumer, so accepting a validator's shorter `Y` spelling cannot silently turn an affirmative source assertion into a negative clinical rule result.

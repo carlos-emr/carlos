@@ -76,6 +76,7 @@
           depends-on="flywaySchemaValidator" init-method="initialize">
         <constructor-arg ref="dataSource"/>
         <constructor-arg value="${cds.import.maintenanceGuardEnabled:false}"/>
+        <constructor-arg value="${cds.import.enabled:false}"/>
         <constructor-arg value="${carlos.flyway.onBoot:off}"/>
     </bean>
 	<!-- primary="true" was originally needed to resolve autowiring ambiguity with a

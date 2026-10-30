@@ -3757,14 +3757,6 @@
     "optional" : false,
     "integrity" : "sha512:rAiWuaP+pxZEMw2u9OzLMwBbW3rB4dHXPu0rKh9LIoIFfzwPNpi4meHHaxnAnGm/TNDuVIQnubzGdreR21w2vA=="
   }, {
-    "groupId" : "xml-apis",
-    "artifactId" : "xml-apis",
-    "version" : "1.4.01",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:jbAoO2hAzWQHlX0pa4AuPt+QZT4nIvjin4bBwLYJlsS0Pp4GXmhk2ribITjdsBdNm0/dpKk/lO64hHg9uC8yaA=="
-  }, {
     "groupId" : "xml-resolver",
     "artifactId" : "xml-resolver",
     "version" : "1.2",

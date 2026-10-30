@@ -569,7 +569,7 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
     void shouldRefuseLossyMetadataEncoding_beforePreparedValuesCanBeBoundWithoutMaintenance() throws Exception {
         try(var planning=dataSource(jdbcProperties)) {
             configureLossyConnection(planning);
-            new CdsJdbcAdmissionInitializer(planning,false,"off").initialize();
+            new CdsJdbcAdmissionInitializer(planning,false,true,"off").initialize();
             assertThat(planning.getCdsAdmissionState()).isNull();
             try(Connection connection=planning.getConnection()) {
                 assertThatThrownBy(()->connection.prepareStatement("UPDATE cds_import_run SET operator=? WHERE id=?"))
@@ -583,7 +583,7 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
         String payload="{\"patientId\":\"Caf\u00e9 \uD83D\uDE00\",\"reason\":\"\u6f22\u5b57 \uD83E\uDDEC\"}";
         try(var planning=dataSource(jdbcProperties)) {
             planning.setConnectionProperties("sessionVariables=sql_mode='';jdbcCompliantTruncation=false");
-            new CdsJdbcAdmissionInitializer(planning,false,"off").initialize();
+            new CdsJdbcAdmissionInitializer(planning,false,true,"off").initialize();
             assertThat(planning.getCdsAdmissionState()).isNull();
             try(Connection connection=planning.getConnection()) {
                 update(connection,"ordinary-before-metadata");

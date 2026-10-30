@@ -60,6 +60,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("security")
 class XmlUtilsUnitTest {
 
+    @Test
+    void shouldUseJdkParserFactories_whenCdsXercesIsOnTheClasspath() throws Exception {
+        org.junit.jupiter.api.Assertions.assertAll(
+                () -> assertThat(XmlUtils.createSecureDocumentBuilderFactory().getClass())
+                        .isEqualTo(DocumentBuilderFactory.newDefaultInstance().getClass()),
+                () -> assertThat(XmlUtils.createSecureSAXParserFactory().getClass())
+                        .isEqualTo(javax.xml.parsers.SAXParserFactory.newDefaultInstance().getClass()));
+    }
+
     private Document createTestDocument() throws Exception {
         Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();
         Element root = doc.createElement("root");

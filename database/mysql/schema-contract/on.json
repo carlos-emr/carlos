@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "e400dabe823ceef55888effbcd18e254c1f6b6bc9f9a6bc8f371cb0610c33134",
+ "migration_sha256": "7da135663200932f37faca45d6e5bf5a1f1203aa8d68e8c28fe3dfc4e7e44ade",
  "province": "on",
  "schema": {
   "checks": [
@@ -118051,7 +118051,7 @@
    [
     "measurementsDeleted",
     "dataField",
-    "varchar(255)",
+    "mediumtext",
     "NO",
     null,
     "",

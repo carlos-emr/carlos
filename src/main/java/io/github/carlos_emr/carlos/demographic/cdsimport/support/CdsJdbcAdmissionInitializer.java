@@ -31,9 +31,15 @@ import java.sql.SQLException;
 public final class CdsJdbcAdmissionInitializer {
     private final OscarTrackingBasicDataSource dataSource;
     private final boolean enabled;
+    private final boolean importEnabled;
     private final String schemaMode;
     public CdsJdbcAdmissionInitializer(OscarTrackingBasicDataSource dataSource, boolean enabled, String schemaMode) {
-        this.dataSource = dataSource; this.enabled = enabled; this.schemaMode = schemaMode;
+        this(dataSource, enabled, enabled, schemaMode);
+    }
+    /** Separates import metadata protection from activation of the clinical maintenance guard. */
+    public CdsJdbcAdmissionInitializer(OscarTrackingBasicDataSource dataSource, boolean enabled,
+            boolean importEnabled, String schemaMode) {
+        this.dataSource = dataSource; this.enabled = enabled; this.importEnabled = importEnabled; this.schemaMode = schemaMode;
     }
     public void initialize() throws SQLException {
         if (enabled && !"validate".equals(schemaMode) && !"migrate".equals(schemaMode)) {
@@ -68,7 +74,7 @@ public final class CdsJdbcAdmissionInitializer {
                 }
             }
             if (enabled) dataSource.installCdsAdmissionState(new CdsJdbcAdmissionState(connection.getCatalog()));
-            else dataSource.enableCdsMetadataGuard();
+            else if (importEnabled) dataSource.enableCdsMetadataGuard();
         }
     }
 }

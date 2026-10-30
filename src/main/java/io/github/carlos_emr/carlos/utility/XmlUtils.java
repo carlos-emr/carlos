@@ -150,7 +150,7 @@ public final class XmlUtils {
      * @throws ParserConfigurationException if the critical disallow-doctype-decl protection cannot be enabled
      */
     public static DocumentBuilderFactory createSecureDocumentBuilderFactory() throws ParserConfigurationException {
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newDefaultInstance();
         // Critical protection — fail closed if it cannot be applied
         dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         // Defense-in-depth features — warn individually if unavailable
@@ -217,7 +217,7 @@ public final class XmlUtils {
      * @throws SAXException if the critical disallow-doctype-decl protection cannot be enabled
      */
     public static SAXParserFactory createSecureSAXParserFactory() throws ParserConfigurationException, SAXException {
-        SAXParserFactory spf = SAXParserFactory.newInstance();
+        SAXParserFactory spf = SAXParserFactory.newDefaultInstance();
         // Critical protection — fail closed if it cannot be applied
         spf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         // Defense-in-depth features — warn individually if unavailable

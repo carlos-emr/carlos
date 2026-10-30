@@ -4,7 +4,11 @@
 `cds.import.maintenanceMode=true` activation and when `cds.import.maintenanceGuardEnabled=true`
 installed the physical datasource guard after the Flyway boot gate (`carlos.flyway.onBoot=migrate`
 or `validate`). After Flyway, a metadata-only wrapper also protects new `cds_import_*`
-mutations when clinical maintenance admission is disabled. It validates the actual JDBC encoder
+mutations when imports are enabled but clinical maintenance admission is disabled. When both
+flags are false, ordinary connections retain the pool's native delegate without the CDS
+metadata proxy or its drained-pool requirement. The retained maintenance/hold startup check
+still runs: disabling import cannot reopen a chart or window retained by an earlier run.
+The enabled metadata wrapper validates the actual JDBC encoder
 and session charset before a prepared statement can bind source values, applies strict mode
 through the metadata transaction, then restores the physical session. This scope requires no
 maintenance lease, so upload, planning, dry-run and review metadata stay lossless before clinical

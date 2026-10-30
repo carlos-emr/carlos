@@ -88,6 +88,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                     Contact.class,
                     DemographicContact.class,
                     Measurement.class,
+                    io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted.class,
                     MeasurementsExt.class,
                     MeasurementType.class,
                     Validations.class,
@@ -107,6 +108,93 @@ class CdsClinicalStorageMariaDbIntegrationTest {
     @AfterAll
     static void closeFactory() {
         if (factory != null) factory.close();
+    }
+
+    @Test
+    void shouldKeepLongMeasurementValues_whenArchivedThroughTheNativeOrm() {
+        String value = "x".repeat(300);
+        try (Session session = factory.openSession()) {
+            var transaction = session.beginTransaction();
+            try {
+                var source = new Measurement();
+                source.setDemographicId(974233);
+                source.setType("WT");
+                source.setProviderNo("999998");
+                source.setCreateDate(new java.util.Date());
+                source.setDateObserved(new java.util.Date());
+                source.setDataField(value);
+                session.persist(source);
+                session.flush();
+                var archived = new io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted(source);
+                session.persist(archived);
+                session.flush();
+                Integer id = archived.getId();
+                session.clear();
+                assertThat(session.find(io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted.class, id)
+                        .getDataField()).isEqualTo(value);
+            } finally { transaction.rollback(); }
+        }
+    }
+
+    @Test
+    void shouldReplayArchiveCapacityMigration_withoutChangingRowsOrAdoptedMetadata() throws Exception {
+        String migration;
+        try (var input = getClass().getResourceAsStream(
+                "/db/migration/common/V1.0.59.26__cds_measurements_deleted_capacity.sql")) {
+            assertThat(input).isNotNull();
+            migration = new String(input.readNBytes(16384), java.nio.charset.StandardCharsets.UTF_8);
+            assertThat(input.read()).isEqualTo(-1);
+        }
+        String fixture = "cds_archive_capacity_fixture";
+        String replay = migration.replace("measurementsDeleted", fixture);
+        try (Session session = factory.openSession()) {
+            session.doWork(connection -> {
+                try (var query = connection.createStatement()) {
+                    query.execute("CREATE TABLE `cds_archive_capacity_fixture` LIKE `measurementsDeleted`");
+                    try {
+                        String attributes = " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'kept' COMMENT 'archive fixture'";
+                        query.execute("ALTER TABLE `cds_archive_capacity_fixture` MODIFY `dataField` VARCHAR(255)" + attributes);
+                        try (var insert = connection.prepareStatement("INSERT INTO `cds_archive_capacity_fixture`"
+                                + " (demographicNo,dataField,dateEntered,dateDeleted,originalId,type,measuringInstruction) VALUES (?,?,?,?,?,?,?)")) {
+                            insert.setInt(1, 974233);
+                            insert.setString(2, "retained fixture");
+                            insert.setTimestamp(3, java.sql.Timestamp.from(Instant.now()));
+                            insert.setTimestamp(4, java.sql.Timestamp.from(Instant.now()));
+                            insert.setInt(5, 1);
+                            insert.setString(6, "WT");
+                            insert.setString(7, "");
+                            assertThat(insert.executeUpdate()).isEqualTo(1);
+                        }
+                        replayArchiveMigration(connection, replay);
+                        String widened = archiveTableDefinition(connection);
+                        assertThat(widened).contains("mediumtext", "utf8mb4_unicode_ci", "DEFAULT 'kept'", "archive fixture");
+                        replayArchiveMigration(connection, replay);
+                        assertThat(archiveTableDefinition(connection)).isEqualTo(widened);
+                        try (var rows = query.executeQuery("SELECT dataField FROM `cds_archive_capacity_fixture` WHERE originalId=1")) {
+                            assertThat(rows.next()).isTrue();
+                            assertThat(rows.getString(1)).isEqualTo("retained fixture");
+                        }
+                        query.execute("ALTER TABLE `cds_archive_capacity_fixture` MODIFY `dataField` LONGTEXT" + attributes);
+                        String adopted = archiveTableDefinition(connection);
+                        replayArchiveMigration(connection, replay);
+                        assertThat(archiveTableDefinition(connection)).isEqualTo(adopted);
+                    } finally { query.execute("DROP TABLE `cds_archive_capacity_fixture`"); }
+                }
+            });
+        }
+    }
+
+    private static void replayArchiveMigration(java.sql.Connection connection, String sql) throws java.sql.SQLException {
+        for (String statement : sql.split(";")) {
+            if (!statement.isBlank()) try (var query = connection.createStatement()) { query.execute(statement); }
+        }
+    }
+
+    private static String archiveTableDefinition(java.sql.Connection connection) throws java.sql.SQLException {
+        try (var query = connection.createStatement(); var rows = query.executeQuery("SHOW CREATE TABLE `cds_archive_capacity_fixture`")) {
+            assertThat(rows.next()).isTrue();
+            return rows.getString(2);
+        }
     }
 
     @Test
