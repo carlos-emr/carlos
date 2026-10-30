@@ -936,9 +936,14 @@
     "test:admin-security-workflow-playwright": "node scripts/admin-security-workflow-playwright-checks.js",
     "test:email-compose-send-playwright": "node scripts/email-compose-send-playwright-checks.js",
     "test:admin-login-text-playwright": "node scripts/admin-login-text-playwright-checks.js",
+    "test:billing-on-bill-form-code-typeahead-playwright": "node scripts/billing-on-bill-form-code-typeahead-playwright-checks.js",
+    "test:billing-on-bill-form-referral-typeahead-playwright": "node scripts/billing-on-bill-form-referral-typeahead-playwright-checks.js",
     "test:login-agreement-display-playwright": "node scripts/login-agreement-display-playwright-checks.js",
     "test:chart-message-followups-playwright": "node scripts/chart-message-followups-playwright-checks.js",
     "test:chart-context-request-guards-playwright": "node scripts/chart-context-request-guards-playwright-checks.js",
+    "test:consultation-specialist-details-playwright": "node scripts/consultation-specialist-details-playwright-checks.js",
+    "test:echart-left-modules-list-owned-rows-playwright": "node scripts/echart-left-modules-list-owned-rows-playwright-checks.js",
+    "test:echart-right-modules-list-owned-rows-playwright": "node scripts/echart-right-modules-list-owned-rows-playwright-checks.js",
     "test:group-note-selection-playwright": "node scripts/group-note-selection-playwright-checks.js"
   },
   "dependencies": {
