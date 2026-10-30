@@ -43,8 +43,6 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -134,41 +132,10 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
 
     private static final Set<String> NETWORK_SCHEMES = Set.of("http", "https", "ftp");
 
-    /** Legacy mode only: cached system temp directory (stable after JVM startup). */
-    private static final Path CACHED_TMPDIR;
-
-    /** Legacy mode only: cached Catalina work directory (stable after JVM startup). */
-    private static final Path CACHED_CATALINA_WORK;
-
-    static {
-        Path tmpDir = null;
-        String tmp = System.getProperty("java.io.tmpdir");
-        if (tmp != null) {
-            try {
-                tmpDir = Path.of(tmp).normalize().toAbsolutePath();
-            } catch (RuntimeException e) {
-                logger.warn("Could not parse java.io.tmpdir as an allowed directory ({})", e.getClass().getSimpleName());
-            }
-        }
-        CACHED_TMPDIR = tmpDir;
-
-        Path catalinaWork = null;
-        String catalinaBase = System.getProperty("catalina.base");
-        if (catalinaBase != null) {
-            try {
-                catalinaWork = Path.of(catalinaBase, "work").normalize().toAbsolutePath();
-            } catch (RuntimeException e) {
-                logger.warn("Could not parse the Catalina work directory as an allowed directory ({})",
-                        e.getClass().getSimpleName());
-            }
-        }
-        CACHED_CATALINA_WORK = catalinaWork;
-    }
-
     private final int dotsPerPixel;
 
-    /** The directories {@code file:} URIs may point into; {@code null} only in legacy mode. */
-    private final List<Path> explicitDirectories;
+    /** The directories {@code file:} URIs may point into: nothing else is implied. */
+    private final List<Path> allowedDirectories;
 
     /**
      * Creates an agent that reads local files only from the given directories.
@@ -182,14 +149,7 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
     public LocalOnlyUserAgent(ITextOutputDevice outputDevice, int dotsPerPixel, List<Path> allowedDirectories) {
         super(outputDevice, dotsPerPixel);
         this.dotsPerPixel = dotsPerPixel;
-        this.explicitDirectories = List.copyOf(Objects.requireNonNull(allowedDirectories, "allowedDirectories"));
-    }
-
-    /** Legacy mode, for {@link #createRestrictedRenderer()} only: implicit roots, as before. */
-    private LocalOnlyUserAgent(ITextOutputDevice outputDevice, int dotsPerPixel) {
-        super(outputDevice, dotsPerPixel);
-        this.dotsPerPixel = dotsPerPixel;
-        this.explicitDirectories = null;
+        this.allowedDirectories = List.copyOf(Objects.requireNonNull(allowedDirectories, "allowedDirectories"));
     }
 
     // ---- streams ----------------------------------------------------------------------------
@@ -315,31 +275,7 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
 
     /** Delegates to {@link AllowedDirectories}: canonical paths, fails closed, never logs a path. */
     private boolean isInAllowedDirectory(Path target) {
-        return AllowedDirectories.contains(allowedDirectories(), target);
-    }
-
-    private List<Path> allowedDirectories() {
-        return explicitDirectories != null ? explicitDirectories : legacyDirectories();
-    }
-
-    /** Legacy mode: the base URL's directory (set lazily by Flying Saucer), the temp and work directories. */
-    private List<Path> legacyDirectories() {
-        List<Path> dirs = new ArrayList<>(3);
-        String baseUrl = getBaseURL();
-        if (baseUrl != null) {
-            try {
-                dirs.add(Path.of(new URI(baseUrl)).normalize().toAbsolutePath());
-            } catch (URISyntaxException | RuntimeException e) {
-                logger.warn("Could not parse the base URL as an allowed directory ({})", e.getClass().getSimpleName());
-            }
-        }
-        if (CACHED_TMPDIR != null) {
-            dirs.add(CACHED_TMPDIR);
-        }
-        if (CACHED_CATALINA_WORK != null) {
-            dirs.add(CACHED_CATALINA_WORK);
-        }
-        return Collections.unmodifiableList(dirs);
+        return AllowedDirectories.contains(allowedDirectories, target);
     }
 
     // ---- images -----------------------------------------------------------------------------
@@ -481,23 +417,6 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
         ITextOutputDevice outputDevice = new ITextOutputDevice(DEFAULT_DOTS_PER_POINT);
         LocalOnlyUserAgent userAgent = new LocalOnlyUserAgent(outputDevice, DEFAULT_DOTS_PER_PIXEL, allowedDirectories);
         return new ITextRenderer(DEFAULT_DOTS_PER_POINT, DEFAULT_DOTS_PER_PIXEL, outputDevice, userAgent, fontResolver);
-    }
-
-    /**
-     * Legacy factory for the two callers that still build their own renderer
-     * ({@code ConvertToEdoc} and {@code Doc2PDF}): local files are readable from the base URL's
-     * directory, {@code java.io.tmpdir} and the Catalina work directory. The base URL is unknown at
-     * this point, which is why these roots are implicit, and why they depend on where the server runs.
-     *
-     * @return a renderer that makes no network request
-     * @deprecated use {@link #createRestrictedRenderer(List, FontResolver)} through
-     *             {@code HtmlPdfRenderService}; this is removed with the last legacy caller
-     */
-    @Deprecated(forRemoval = true)
-    public static ITextRenderer createRestrictedRenderer() {
-        ITextOutputDevice outputDevice = new ITextOutputDevice(DEFAULT_DOTS_PER_POINT);
-        LocalOnlyUserAgent userAgent = new LocalOnlyUserAgent(outputDevice, DEFAULT_DOTS_PER_PIXEL);
-        return new ITextRenderer(DEFAULT_DOTS_PER_POINT, DEFAULT_DOTS_PER_PIXEL, outputDevice, userAgent);
     }
 
     // ---- helpers ----------------------------------------------------------------------------

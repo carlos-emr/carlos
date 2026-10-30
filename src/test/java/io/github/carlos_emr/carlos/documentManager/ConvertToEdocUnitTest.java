@@ -90,16 +90,6 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should normalize invalid HTML comments for Flying Saucer")
-    void shouldNormalizeInvalidHtmlComments_whenPreparingForFlyingSaucer() {
-        Document document = ConvertToEdoc.prepareDocumentForFlyingSaucer("<html><body><!-- bad -- comment--><div>ok</div></body></html>");
-
-        assertThat(document.outerHtml()).contains("bad - - comment--");
-        assertThat(document.outerHtml()).doesNotContain("bad -- comment--");
-    }
-
-
-    @Test
     @DisplayName("should remove unresolved external background and css urls during tidy")
     void shouldRemoveUnresolvedExternalBackgroundAndCssUrls_whenTidyingDocument() {
         String html = "<html><body background=\"https://evil.example/tracker.png\" style=\"background-image:url('https://evil.example/tracker.png')\">x</body></html>";

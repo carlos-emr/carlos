@@ -55,29 +55,29 @@ import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import org.jsoup.Jsoup;
-import org.jsoup.nodes.Comment;
 import org.jsoup.nodes.Entities;
-import org.jsoup.nodes.Node;
-import org.jsoup.select.NodeFilter;
-import org.jsoup.select.NodeTraversor;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
-import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.LocalOnlyUserAgent;
-import org.xhtmlrenderer.pdf.ITextRenderer;
-import org.xhtmlrenderer.layout.SharedContext;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderRequest;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderSource;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.service.HtmlPdfRenderService;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * HTML-to-PDF conversion utility using Flying Saucer's ITextRenderer.
+ * HTML-to-PDF conversion utility for Messenger and legacy callers.
  *
  * <p>Provides multiple entry points for converting HTML content (from strings, URIs, or JSP
- * output) into PDF documents. Uses Jsoup for HTML parsing and XHTML cleanup, then
- * Flying Saucer ({@link ITextRenderer}) for PDF rendering. Also includes legacy methods
- * for invoking the external {@code htmldoc} command-line tool.</p>
- *
- * <p>Note: Flying Saucer's {@code ITextRenderer} uses OpenPDF (the LGPL fork of iText)
- * as its PDF backend. The "iText" in the class name is a historical artifact from when
- * Flying Saucer used the original iText library.</p>
+ * output) into PDF documents. Uses Jsoup for HTML parsing and XHTML cleanup, then hands the
+ * document to {@link HtmlPdfRenderService}, which renders it with Flying Saucer on US Letter
+ * pages, makes no network request, and prints a plainer version of a document it cannot lay out
+ * rather than none at all.</p>
  *
  * @deprecated Unsafe with potential memory leaks. Consider using
  *     {@link io.github.carlos_emr.carlos.documentManager.ConvertToEdoc} for HTML-to-PDF conversion.
@@ -120,55 +120,61 @@ public class Doc2PDF {
     }
 
     /**
-     * Render HTML to PDF using Flying Saucer's ITextRenderer.
-     * Mirrors the proven pattern from {@code ConvertToEdoc.fallbackRender()}.
+     * Renders HTML to PDF through {@link HtmlPdfRenderService}, as a Messenger document.
      *
-     * <p>Uses {@link LocalOnlyUserAgent} to prevent SSRF — all external network
-     * resource fetches ({@code http:}, {@code https:}, {@code ftp:}, protocol-relative
-     * {@code //}) are blocked at the transport layer. Only {@code data:} URIs and local
-     * file paths are permitted.</p>
+     * <p>The service removes scripts and comments, replaces form controls and images it cannot use,
+     * fetches nothing over the network and reads local files only from the web root (the base URL),
+     * {@code java.io.tmpdir} and Catalina's work directory. If it cannot lay the document out it prints
+     * a plainer version, with a note on the page, and only a document it cannot print at all fails.</p>
      *
      * @param html String containing the HTML content to render
      * @param os OutputStream to write the PDF to
      * @param baseUrl String optional base URL for resolving relative resources (e.g. {@code file:///path/to/webapp/}), or null
-     * @throws org.openpdf.text.DocumentException if the PDF document structure cannot be created
+     * @throws PDFGenerationException if the HTML is blank or cannot be converted to PDF
+     * @throws IOException if the PDF cannot be written to {@code os}
      * @since 2026-03-04
      */
-    private static void renderWithFlyingSaucer(String html, OutputStream os, String baseUrl) throws org.openpdf.text.DocumentException {
-        org.jsoup.nodes.Document doc = Jsoup.parse(html);
-        configureJsoupForXhtml(doc);
-        doc.outputSettings().charset(StandardCharsets.UTF_8.name());
+    private static void renderWithFlyingSaucer(String html, OutputStream os, String baseUrl) throws PDFGenerationException, IOException {
+        Path root = webRootOf(baseUrl);
+        Set<Path> allowed = new LinkedHashSet<>();
+        if (root != null) {
+            allowed.add(root);
+        }
+        addDirectory(allowed, System.getProperty("java.io.tmpdir"));
+        String catalinaBase = System.getProperty("catalina.base");
+        if (catalinaBase != null && !catalinaBase.isBlank()) {
+            addDirectory(allowed, Path.of(catalinaBase, "work").toString());
+        }
+        HtmlPdfRenderService service = SpringUtils.getBean(HtmlPdfRenderService.class);
+        service.render(new HtmlPdfRenderRequest(html, root, List.copyOf(allowed), HtmlPdfRenderSource.MESSENGER)).writeTo(os);
+    }
 
-        // Flying Saucer attempts to execute script content during rendering, causing errors
-        doc.select("script").remove();
-        // Comments render nothing, but an HTML comment may legally contain "--" (the drug
-        // profile page has one) while an XML comment may not, so the XHTML handed to Flying
-        // Saucer would fail to parse and the whole item would be lost.
-        NodeTraversor.filter(new NodeFilter() {
-            @Override
-            public FilterResult head(Node node, int depth) {
-                return node instanceof Comment ? FilterResult.REMOVE : FilterResult.CONTINUE;
-            }
+    /** The directory of a {@code file://} base URL as an absolute, normalised path; {@code null} for none or for a root. */
+    private static Path webRootOf(String baseUrl) {
+        String prefix = "file://";
+        if (baseUrl == null || !baseUrl.startsWith(prefix)) {
+            return null;
+        }
+        return usableDirectory(baseUrl.substring(prefix.length()));
+    }
 
-            @Override
-            public FilterResult tail(Node node, int depth) {
-                return FilterResult.CONTINUE;
-            }
-        }, doc);
-        // XHTML requires alt attributes on all img elements; missing ones cause validation failures
-        doc.select("img:not([alt])").attr("alt", "");
-        // Flying Saucer's form renderer crashes on input elements without an explicit type attribute
-        doc.select("input:not([type])").attr("type", "text");
+    private static void addDirectory(Set<Path> allowed, String directory) {
+        Path path = usableDirectory(directory);
+        if (path != null) {
+            allowed.add(path);
+        }
+    }
 
-        ITextRenderer renderer = LocalOnlyUserAgent.createRestrictedRenderer();
-        SharedContext sharedContext = renderer.getSharedContext();
-        sharedContext.setPrint(true);
-        sharedContext.setInteractive(false);
-        sharedContext.getTextRenderer().setSmoothingThreshold(0);
-
-        renderer.setDocumentFromString(doc.outerHtml(), baseUrl);
-        renderer.layout();
-        renderer.createPDF(os, true);
+    private static Path usableDirectory(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        try {
+            Path path = Path.of(text).toAbsolutePath().normalize();
+            return path.getParent() == null ? null : path;
+        } catch (InvalidPathException e) {
+            return null;
+        }
     }
 
     /**
@@ -222,6 +228,7 @@ public class Doc2PDF {
     public static void parseString2PDF(HttpServletRequest request, HttpServletResponse response, String docText) {
 
         try {
+            requirePrintableText(docText);
 
             // Parse and clean HTML with Jsoup (handles UTF-8 internally)
             org.jsoup.nodes.Document doc = Jsoup.parse(docText);
@@ -251,6 +258,7 @@ public class Doc2PDF {
     public static String parseString2Bin(HttpServletRequest request, HttpServletResponse response, String docText) {
 
         try {
+            requirePrintableText(docText);
 
             // Parse and clean HTML with Jsoup (handles UTF-8 internally)
             org.jsoup.nodes.Document doc = Jsoup.parse(docText);
@@ -267,6 +275,18 @@ public class Doc2PDF {
             return null;
         }
 
+    }
+
+    /**
+     * Jsoup turns even an empty string into a document with a head and a body, which would then print as a
+     * blank page; a string with nothing in it is a failure here, as it is for the render service.
+     *
+     * @throws IllegalArgumentException if the text is null or only white space
+     */
+    private static void requirePrintableText(String docText) {
+        if (docText == null || docText.isBlank()) {
+            throw new IllegalArgumentException("There is no HTML to convert to PDF");
+        }
     }
 
     /**
@@ -535,7 +555,7 @@ public class Doc2PDF {
     }
 
     /**
-     * Converts an HTML string to a Base64-encoded PDF using Flying Saucer.
+     * Converts an HTML string to a Base64-encoded PDF through {@link HtmlPdfRenderService}.
      *
      * @param response HttpServletResponse unused but maintained for API compatibility
      * @param docText String the HTML content to convert
@@ -618,7 +638,7 @@ public class Doc2PDF {
     }
 
     /**
-     * Converts an HTML string to PDF using Flying Saucer and writes it to the HTTP response.
+     * Converts an HTML string to PDF through {@link HtmlPdfRenderService} and writes it to the HTTP response.
      *
      * @param response HttpServletResponse to write the PDF to
      * @param docText String the HTML content to convert and serve
@@ -644,7 +664,7 @@ public class Doc2PDF {
      * implementation constructed absolute HTTP URLs from src attributes; the current
      * implementation strips leading slashes so paths resolve relatively against a
      * {@code file://} base URL, which avoids HTTP requests blocked by
-     * {@link LocalOnlyUserAgent}.</p>
+     * the render service.</p>
      *
      * @param request HttpServletRequest unused, retained for API compatibility with existing callers
      * @param docText String the HTML content with potentially absolute src attributes

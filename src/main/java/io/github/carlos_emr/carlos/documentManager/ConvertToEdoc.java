@@ -28,17 +28,17 @@
  */
 package io.github.carlos_emr.carlos.documentManager;
 
-import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.LocalOnlyUserAgent;
-import org.openpdf.text.DocumentException;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderRequest;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderSource;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.service.HtmlPdfRenderService;
+import jakarta.servlet.ServletContext;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
-import org.jsoup.nodes.Comment;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.nodes.Entities;
-import org.jsoup.nodes.Node;
 import org.jsoup.select.Elements;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.email.core.EmailData;
@@ -49,8 +49,6 @@ import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
-import org.xhtmlrenderer.layout.SharedContext;
-import org.xhtmlrenderer.pdf.ITextRenderer;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 
@@ -80,9 +78,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <p>The conversion pipeline is:
  * <ol>
  *   <li>Parse and clean HTML with Jsoup (DOCTYPE injection, resource path validation)</li>
- *   <li>Translate relative resource paths to absolute file system paths</li>
+ *   <li>Translate relative resource paths to encoded {@code file:} URIs; an image that cannot be
+ *       read stays as an unavailable marker, which prints as a box</li>
  *   <li>Primary conversion via {@code InternalEDocConverter} (wkhtmltopdf)</li>
- *   <li>Fallback conversion via Flying Saucer {@code ITextRenderer} with OpenPDF backend</li>
+ *   <li>Fallback conversion through {@link HtmlPdfRenderService} (Flying Saucer)</li>
  * </ol>
  *
  * <p>Thread safety: conversion, document parsing and tidying entry points are synchronized
@@ -90,7 +89,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * @see EDoc
  * @see EDocFactory
- * @see ReplacedElementFactoryImpl
+ * @see HtmlPdfRenderService
  * @since 2018-10-15
  */
 public final class ConvertToEdoc {
@@ -134,7 +133,7 @@ public final class ConvertToEdoc {
         String filename = buildFilename(eform.getFormName(), demographicNo);
         String eDocDescription = (eform.getSubject() == null || eform.getSubject().trim().isEmpty()) ? eform.getFormName() : eform.getSubject();
         EDoc edoc = null;
-        Path path = execute(eformString, filename);
+        Path path = execute(eformString, filename, HtmlPdfRenderSource.HRM);
 
         if (path != null && Files.isReadable(path)) {
             edoc = buildEDoc(path.getFileName().toString(),
@@ -213,7 +212,7 @@ public final class ConvertToEdoc {
         ConvertToEdoc.realPath = formTransportContainer.getRealPath();
 
         EDoc edoc = null;
-        Path path = execute(htmlString, filename);
+        Path path = execute(htmlString, filename, HtmlPdfRenderSource.FORM);
 
         if (path != null && Files.isReadable(path)) {
             edoc = buildEDoc(filename,
@@ -240,7 +239,7 @@ public final class ConvertToEdoc {
     public synchronized static Path saveAsTempPDF(EFormData eform) {
         String eformString = eform.getFormData();
         String filename = buildFilename(eform.getFormName(), eform.getDemographicId() + "");
-        return execute(eformString, filename);
+        return execute(eformString, filename, HtmlPdfRenderSource.HRM);
     }
 
     /**
@@ -252,7 +251,7 @@ public final class ConvertToEdoc {
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
     public static synchronized Path saveAsTempPDF(String htmlString, String filename) {
-        return execute(htmlString, filename);
+        return execute(htmlString, filename, HtmlPdfRenderSource.FORM);
     }
 
     /**
@@ -266,7 +265,7 @@ public final class ConvertToEdoc {
         String htmlString = formTransportContainer.getHTML();
         ConvertToEdoc.realPath = formTransportContainer.getRealPath();
         String filename = buildFilename(formTransportContainer.getFormName(), formTransportContainer.getDemographicNo());
-        return execute(htmlString, filename);
+        return execute(htmlString, filename, HtmlPdfRenderSource.FORM);
     }
 
     /**
@@ -279,17 +278,23 @@ public final class ConvertToEdoc {
     public synchronized static Path saveAsTempPDF(EmailData emailData) {
         String htmlString = emailData.getEncryptedMessage();
         String filename = buildFilename("emailbody_", "");
-        return execute(htmlString, filename);
+        return execute(htmlString, filename, HtmlPdfRenderSource.EMAIL);
     }
 
     /**
      * Executes the HTML-to-PDF conversion pipeline and saves the result to the temp directory.
      *
+     * <p>Tidying the HTML, rendering and saving are one unit: anything that goes wrong in them (blank
+     * HTML, a render that cannot produce a PDF, a temporary file that cannot be written) is logged
+     * once, with the sanitised file name and the class of the cause, never with the HTML or an
+     * exception message (both can hold patient data), and gives the documented {@code null}.</p>
+     *
      * @param eformString String the raw HTML content to convert
      * @param filename String the base filename for the output PDF
+     * @param source HtmlPdfRenderSource which kind of document this is, for the render log line
      * @return Path the path to the saved temporary PDF, or null if conversion fails
      */
-    private static Path execute(final String eformString, final String filename) {
+    private static Path execute(final String eformString, final String filename, final HtmlPdfRenderSource source) {
         if (eformString == null) {
             // No source HTML to render. Return null per this method's documented failure contract
             // instead of NPE-ing deep in the Jsoup/Flying Saucer pipeline; callers treat null as a
@@ -298,19 +303,19 @@ public final class ConvertToEdoc {
             return null;
         }
         Path path = null;
-        String document = tidyDocument(eformString);
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
-            renderPDF(document, os);
+            // Settle the webapp root first, so translating the paths and rendering use the same one.
+            webappRoot();
+            String document = tidyDocument(eformString);
+            renderPDF(document, os, source);
             // Resolve against the current context; do not retain a bean across context reloads.
             path = SpringUtils.getBean(NioFileManager.class).saveTempFile(filename, os);
             if (logger.isDebugEnabled()) {
                 // Filename embeds demographic_no (buildFilename), so it is sanitized before logging.
                 logger.debug("Rendered temporary PDF ({} bytes) for {}", os.size(), LogSafe.sanitize(filename));
             }
-        } catch (DocumentException e1) {
-            logger.error("Exception parsing file to PDF. File not saved. ", e1);
-        } catch (IOException e) {
-            logger.error("Problem while writing PDF file to filesystem. {}", LogSafe.sanitize(filename), e);
+        } catch (PDFGenerationException | IOException | RuntimeException e) {
+            logger.error("HTML could not be converted to PDF for {}: {}", LogSafe.sanitize(filename), e.getClass().getSimpleName());
         }
 
         return path;
@@ -383,115 +388,111 @@ public final class ConvertToEdoc {
 
     /**
      * Renders the HTML document string to a PDF output stream. Uses the primary converter
-     * (wkhtmltopdf via InternalEDocConverter) first; on failure, falls back to Flying Saucer
-     * with OpenPDF backend. Flying Saucer requires well-formed XHTML, so the fallback path
-     * performs additional document preparation via Jsoup.
+     * (wkhtmltopdf via InternalEDocConverter) first; if it fails, the document is rendered by
+     * {@link HtmlPdfRenderService}, which prints a simpler version of it rather than none at all.
      *
      * @param document String the cleaned HTML document string
      * @param os ByteArrayOutputStream the output stream to write the PDF to
-     * @throws DocumentException if both primary and fallback PDF conversion fail
+     * @param source HtmlPdfRenderSource which kind of document this is
+     * @throws PDFGenerationException if the service cannot produce a PDF either
      * @throws IOException if an I/O error occurs during rendering
      */
-    private static void renderPDF(final String document, ByteArrayOutputStream os)
-            throws DocumentException, IOException {
+    private static void renderPDF(final String document, ByteArrayOutputStream os, HtmlPdfRenderSource source)
+            throws PDFGenerationException, IOException {
         EDocConverterInterface converter = new InternalEDocConverter();
 
         try {
             converter.convert(document, os);
         } catch (Exception e) {
-            logger.warn("Primary PDF conversion failed, attempting fallback: " + e.getMessage());
+            // The class only: the message of a failed render can quote the document.
+            logger.warn("Primary PDF conversion failed ({}), rendering with the HTML-to-PDF service", e.getClass().getSimpleName());
+            os.reset();
+            renderWithService(document, os, source);
+        }
+    }
 
+    /**
+     * Renders through {@link HtmlPdfRenderService}, resolved at call time (this class is static; the
+     * bean is not retained across context reloads). The service reads only the directories of
+     * {@link #buildRenderRequest}, makes no network request and never throws for a printable document.
+     */
+    private static void renderWithService(String document, ByteArrayOutputStream os, HtmlPdfRenderSource source)
+            throws PDFGenerationException, IOException {
+        HtmlPdfRenderService service = SpringUtils.getBean(HtmlPdfRenderService.class);
+        service.render(buildRenderRequest(document, source)).writeTo(os);
+    }
+
+    /**
+     * The request for one document: relative references resolve against the webapp root, and the
+     * document may read from it, from the eForm image directory, from {@code java.io.tmpdir} and from
+     * Catalina's work directory, and from nowhere else.
+     *
+     * @param tidiedHtml String the HTML after {@link #tidyDocument(String)}
+     * @param source HtmlPdfRenderSource which kind of document this is
+     * @return HtmlPdfRenderRequest the request; its base directory is {@code null} when the webapp root cannot be resolved
+     */
+    static HtmlPdfRenderRequest buildRenderRequest(String tidiedHtml, HtmlPdfRenderSource source) {
+        Path root = usablePath(webappRoot());
+        Set<Path> allowed = new LinkedHashSet<>();
+        if (root != null) {
+            allowed.add(root);
+        }
+        try {
+            addUsable(allowed, usablePath(getImageDirectory()));
+        } catch (RuntimeException e) {
+            // Not configured or not resolvable: documents then cannot read eForm images, which print as boxes.
+            logger.warn("The eForm image directory could not be resolved ({})", e.getClass().getSimpleName());
+        }
+        addUsable(allowed, usablePath(System.getProperty("java.io.tmpdir")));
+        String catalinaBase = System.getProperty("catalina.base");
+        if (catalinaBase != null && !catalinaBase.isBlank()) {
+            addUsable(allowed, usablePath(Path.of(catalinaBase, "work").toString()));
+        }
+        return new HtmlPdfRenderRequest(tidiedHtml, root, List.copyOf(allowed), source);
+    }
+
+    private static void addUsable(Set<Path> allowed, Path directory) {
+        if (directory != null) {
+            allowed.add(directory);
+        }
+    }
+
+    /** An absolute, normalised path that is not a filesystem root, or {@code null} if the text is not one. */
+    private static Path usablePath(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        try {
+            Path path = Path.of(text).toAbsolutePath().normalize();
+            return path.getParent() == null ? null : path;
+        } catch (InvalidPathException e) {
+            return null;
+        }
+    }
+
+    private static Path usablePath(Path path) {
+        return path == null ? null : usablePath(path.toString());
+    }
+
+    /**
+     * The webapp root the HTML's relative references resolve against, so that translating the paths and
+     * rendering use one root: {@link #realPath} if it was set, else the real path of the servlet
+     * context, which works on any thread (a fax scheduler has no request); {@code null} if neither
+     * resolves. A root found this way becomes {@link #realPath} too.
+     */
+    static synchronized String webappRoot() {
+        if (realPath == null || realPath.isBlank()) {
             try {
-                os.reset();
-                fallbackRender(document, os);
-            } catch (Exception fallbackError) {
-                logger.error("Fallback PDF conversion also failed", fallbackError);
-                String combinedMessage = "PDF conversion failed with all methods. "
-                        + "Primary error: " + e.getMessage()
-                        + "; Fallback error: " + fallbackError.getMessage();
-                DocumentException docEx = new DocumentException(combinedMessage);
-                docEx.initCause(fallbackError);
-                throw docEx;
-            }
-        }
-    }
-
-    /**
-     * Fallback PDF renderer using Flying Saucer ITextRenderer with OpenPDF backend.
-     * Prepares the document for Flying Saucer's strict XHTML requirements and
-     * uses a custom {@link ReplacedElementFactoryImpl} for image scaling.
-     *
-     * <p>Uses {@link LocalOnlyUserAgent} to prevent SSRF — all external network
-     * resource fetches ({@code http:}, {@code https:}, {@code ftp:}, protocol-relative
-     * {@code //}) are blocked at the transport layer. This closes the CSS {@code @import}
-     * and inline {@code style} {@code url()} gaps that DOM-level stripping cannot cover.
-     * The existing DOM-level stripping in {@link #translatePaths} remains as defense-in-depth.</p>
-     *
-     * @param document String the HTML document string
-     * @param os OutputStream the output stream to write the PDF to
-     * @throws DocumentException if PDF creation fails
-     * @throws IOException if an I/O error occurs
-     */
-    private static void fallbackRender(String document, OutputStream os)
-        throws DocumentException, IOException {
-        // Prepare document for Flying Saucer's strict XHTML requirements
-        Document doc = prepareDocumentForFlyingSaucer(document);
-        
-        ITextRenderer renderer = LocalOnlyUserAgent.createRestrictedRenderer();
-        SharedContext sharedContext = renderer.getSharedContext();
-        sharedContext.setPrint(true);
-        sharedContext.setInteractive(false);
-        sharedContext.setReplacedElementFactory(new ReplacedElementFactoryImpl());
-        sharedContext.getTextRenderer().setSmoothingThreshold(0);
-        
-        renderer.setDocumentFromString(doc.outerHtml(), null);
-        renderer.layout();
-        renderer.createPDF(os, true);
-    }
-
-    /**
-     * Prepare document for Flying Saucer which requires strict XHTML
-     */
-    static Document prepareDocumentForFlyingSaucer(String document) {
-        // Defensive: execute() already returns early on null HTML, but keep the sink null-safe so a
-        // future caller of this package-visible helper cannot NPE Jsoup.parse.
-        Document doc = Jsoup.parse(document == null ? "" : document);
-        normalizeHtmlCommentsForXml(doc);
-        
-        // Flying Saucer requires XML/XHTML syntax
-        doc.outputSettings()
-            .syntax(Document.OutputSettings.Syntax.xml)  // Self-closes tags automatically
-            .escapeMode(Entities.EscapeMode.xhtml)
-            .charset("UTF-8")
-            .prettyPrint(false);
-        
-        // Remove scripts (Flying Saucer can't execute them)
-        doc.select("script").remove();
-        
-        // Ensure img tags have alt attributes (XHTML requirement)
-        doc.select("img:not([alt])").attr("alt", "");
-        
-        // Ensure input tags have type attribute
-        doc.select("input:not([type])").attr("type", "text");
-        
-        return doc;
-    }
-
-    private static void normalizeHtmlCommentsForXml(Node root) {
-        if (root == null) {
-            return;
-        }
-
-        for (Node child : root.childNodes()) {
-            if (child instanceof Comment comment) {
-                String normalized = comment.getData().replace("--", "- -");
-                if (normalized.endsWith("-")) {
-                    normalized += " ";
+                ServletContext context = SpringUtils.getBean(ServletContext.class);
+                String contextRoot = context == null ? null : context.getRealPath("/");
+                if (contextRoot != null && !contextRoot.isBlank()) {
+                    realPath = contextRoot;
                 }
-                comment.setData(normalized);
+            } catch (RuntimeException e) {
+                logger.warn("The webapp root could not be resolved from the servlet context ({})", e.getClass().getSimpleName());
             }
-            normalizeHtmlCommentsForXml(child);
         }
+        return realPath == null || realPath.isBlank() ? null : realPath;
     }
 
     /**

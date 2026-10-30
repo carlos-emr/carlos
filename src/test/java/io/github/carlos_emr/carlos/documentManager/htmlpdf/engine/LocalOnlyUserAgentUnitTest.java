@@ -796,19 +796,5 @@ class LocalOnlyUserAgentUnitTest {
             assertThat(pdfBytes).isNotEmpty();
             assertThat(pdfBytes).startsWith(new byte[]{'%', 'P', 'D', 'F'});
         }
-
-        @Test
-        @DisplayName("should render with the legacy factory until the facades move to the service")
-        @SuppressWarnings("removal")
-        void shouldRenderWithLegacyFactory_untilFacadesMove() throws Exception {
-            ITextRenderer renderer = LocalOnlyUserAgent.createRestrictedRenderer();
-            renderer.getSharedContext().setPrint(true);
-            renderer.getSharedContext().setInteractive(false);
-            renderer.setDocumentFromString("<html><body><p>Legacy</p></body></html>", tempDir.toUri().toString());
-            renderer.layout();
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            renderer.createPDF(baos, true);
-            assertThat(baos.toByteArray()).startsWith(new byte[]{'%', 'P', 'D', 'F'});
-        }
     }
 }
