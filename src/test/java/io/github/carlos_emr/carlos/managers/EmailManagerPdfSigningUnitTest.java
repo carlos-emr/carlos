@@ -36,16 +36,21 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailConsentResolver;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailDocumentManifestComposer;
 import io.github.carlos_emr.carlos.email.core.EmailSenderFactory;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.test.util.PdfSigningTestSupport;
+import io.github.carlos_emr.carlos.utility.DocumentManifest;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFSigningConfig;
 import io.github.carlos_emr.carlos.utility.PDFSigningUtil;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -58,6 +63,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.when;
 
 /**
  * Verifies how {@link EmailManager} wires PDF signing into a send. The signature itself is
@@ -107,8 +113,9 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
                 MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
             config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
             paths.when(() -> PathValidationUtils.resolveTrustedPath(any())).thenAnswer(call -> call.getArgument(0));
-            // Unencrypted send: no owner password may be handed to the signer.
-            signer.when(() -> PDFSigningUtil.signPDF(eq(source), any(PDFSigningConfig.class), isNull()))
+            // Unencrypted send: no owner password may be handed to the signer, and this form
+            // of signAttachments embeds no manifest.
+            signer.when(() -> PDFSigningUtil.signPDF(eq(source), any(PDFSigningConfig.class), isNull(), isNull()))
                     .thenReturn(signed);
 
             createEmailManager().signAttachments(emailData);
@@ -138,14 +145,14 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
                 MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
             config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
             paths.when(() -> PathValidationUtils.resolveTrustedPath(any())).thenAnswer(call -> call.getArgument(0));
-            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any()))
+            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any(), any()))
                     .thenReturn(signed);
 
             createEmailManager().signAttachments(emailData);
 
             // An encrypted PDF can only be modified with its owner password.
             signer.verify(() -> PDFSigningUtil.signPDF(
-                    eq(source), any(PDFSigningConfig.class), eq("correct horse battery staple")));
+                    eq(source), any(PDFSigningConfig.class), eq("correct horse battery staple"), isNull()));
         } finally {
             closeWorkingDirectory(emailData);
         }
@@ -162,7 +169,7 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
                 MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
             config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
             paths.when(() -> PathValidationUtils.resolveTrustedPath(any())).thenAnswer(call -> call.getArgument(0));
-            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any()))
+            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any(), any()))
                     .thenThrow(new IOException("keystore /etc/carlos-emr/pdf-signing.p12 unreadable"));
 
             // Fail closed: signing is enabled, so an unsigned attachment must never be delivered.
@@ -190,7 +197,7 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
                 MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class)) {
             config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
-            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any()))
+            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any(), any()))
                     .thenReturn(signed);
 
             assertThatThrownBy(() -> createEmailManager().signAttachments(emailData))
@@ -211,7 +218,7 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
         try (MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
                 MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class)) {
             config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
-            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any()))
+            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any(), any()))
                     .thenThrow(new ClassCastException("malformed dictionary"));
 
             // Escaping as a RuntimeException would skip completeFailedSend and strand the
@@ -263,6 +270,110 @@ class EmailManagerPdfSigningUnitTest extends CarlosUnitTestBase {
         } finally {
             closeWorkingDirectory(emailData);
         }
+    }
+
+    @Test
+    @DisplayName("should hand each attachment's manifest to the signer when the send passes its context")
+    void shouldPassEachAttachmentsManifest_whenSendPassesItsContext() throws Exception {
+        Path source = writeSinglePagePdf("source.pdf");
+        Path signed = writeSinglePagePdf("signed.pdf");
+        EmailData emailData = emailDataWith(source);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        EmailLog emailLog = new EmailLog();
+        DocumentManifest manifest = fakeManifest();
+        EmailManager emailManager = createEmailManager(loggedInInfo, emailLog, attachment -> manifest);
+
+        try (MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
+                MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class);
+                MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS)) {
+            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
+            paths.when(() -> PathValidationUtils.resolveTrustedPath(any())).thenAnswer(call -> call.getArgument(0));
+            signer.when(() -> PDFSigningUtil.signPDF(eq(source), any(PDFSigningConfig.class), isNull(), eq(manifest)))
+                    .thenReturn(signed);
+
+            emailManager.signAttachments(emailData, loggedInInfo, emailLog);
+
+            signer.verify(() -> PDFSigningUtil.signPDF(eq(source), any(PDFSigningConfig.class), isNull(), eq(manifest)));
+        } finally {
+            closeWorkingDirectory(emailData);
+        }
+    }
+
+    @Test
+    @DisplayName("should abort the send when the manifests cannot be prepared")
+    void shouldAbortSend_whenManifestsCannotBePrepared() throws Exception {
+        Path source = writeSinglePagePdf("source.pdf");
+        EmailData emailData = emailDataWith(source);
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        EmailLog emailLog = new EmailLog();
+        EmailManager emailManager = createEmailManager(loggedInInfo, emailLog, null);
+
+        try (MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS);
+                MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class)) {
+            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
+
+            // Signing was asked for with a manifest: never send the PDFs without it.
+            assertThatThrownBy(() -> emailManager.signAttachments(emailData, loggedInInfo, emailLog))
+                    .isInstanceOf(EmailSendingException.class)
+                    .hasMessage("Failed to sign email PDF attachment");
+            signer.verifyNoInteractions();
+            assertThat(emailData.getAttachments().get(0).getFilePath()).isEqualTo(source.toString());
+        } finally {
+            closeWorkingDirectory(emailData);
+        }
+    }
+
+    @Test
+    @DisplayName("should embed the manifest in a password-protected PDF through the real pipeline")
+    void shouldEmbedManifestInEncryptedPdf_throughRealPipeline() throws Exception {
+        Path source = writeSinglePagePdf("lab-result.pdf");
+        EmailData emailData = emailDataWith(source);
+        emailData.setIsEncrypted(true);
+        emailData.setIsAttachmentEncrypted(true);
+        emailData.setPassword("correct horse battery staple");
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        EmailLog emailLog = new EmailLog();
+        EmailManager emailManager = createEmailManager(loggedInInfo, emailLog, attachment -> fakeManifest());
+        PDFSigningConfig realConfig = PdfSigningTestSupport.enabledRsaConfig(tempDir.resolve("pdf-signing.p12"));
+
+        try (MockedStatic<PDFSigningConfig> config = mockStatic(PDFSigningConfig.class, CALLS_REAL_METHODS)) {
+            config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(realConfig);
+
+            emailManager.encryptEmail(emailData);
+            emailManager.signAttachments(emailData, loggedInInfo, emailLog);
+
+            Path sent = Path.of(emailData.getAttachments().get(0).getFilePath());
+            try (PDDocument opened = Loader.loadPDF(sent.toFile(), "correct horse battery staple")) {
+                assertThat(opened.getDocumentCatalog().getNames().getEmbeddedFiles().getNames())
+                        .containsOnlyKeys(DocumentManifest.FILE_NAME);
+            }
+            assertThat(PdfSigningTestSupport.verifyDetachedSignature(sent, "correct horse battery staple")).isTrue();
+        } finally {
+            closeWorkingDirectory(emailData);
+        }
+    }
+
+    private static DocumentManifest fakeManifest() {
+        return new DocumentManifest("FAKE-document-id", 1, 1_792_454_400L, null, "FAKE Demo Clinic",
+                "FAKE-Provider, Demo", null, "FAKE-Manifest-Patient, Jo", "1985-06-15", "FAKE CBC", "lab_report", null);
+    }
+
+    /**
+     * An EmailManager whose composer returns {@code manifests} for this send, or fails as an
+     * invalid document ID secret does when {@code manifests} is null.
+     */
+    private EmailManager createEmailManager(LoggedInInfo loggedInInfo, EmailLog emailLog,
+            EmailDocumentManifestComposer.AttachmentManifests manifests) {
+        EmailDocumentManifestComposer composer = mock(EmailDocumentManifestComposer.class);
+        if (manifests == null) {
+            when(composer.forSend(loggedInInfo, emailLog))
+                    .thenThrow(new IllegalStateException("pdf.signing.document_id.secret is not base64"));
+        } else {
+            when(composer.forSend(loggedInInfo, emailLog)).thenReturn(manifests);
+        }
+        EmailManager emailManager = createEmailManager();
+        ReflectionTestUtils.setField(emailManager, "documentManifestComposer", composer);
+        return emailManager;
     }
 
     private EmailData emailDataWith(Path pdf) {
