@@ -28,8 +28,8 @@ concerns rendering, by rendering documents with the real engines:
   logging, a rollback plan and the release-fit question (decided: it stays on
   `release/2026.08`).
 - **Large images**: the smallest heap that renders 12- and 48-megapixel JPEGs and 8.4-,
-  25- and 67-megapixel PNGs, streamed subsampled decoding of a 95 MB PNG, and TwelveMonkeys
-  3.15.3 WebP decoding (see "Images").
+  25- and 67-megapixel PNGs, streamed subsampled decoding of a 95 MB PNG, and the WebP
+  decoder's behaviour on crafted files, which led to not decoding WebP (see "Images").
 
 Three rounds were run: a verification pass (claims audit, prototype against 15 fixtures,
 about 80 adversarial documents) and a final review cycle (document review, prototype of the
@@ -682,13 +682,12 @@ Facades do not log them again.
 |---|---|---|
 | Large JPEG photo (up to 32 MB, any resolution) | None needed: embedded as is, at full resolution (it is never decoded) | — |
 | Other image over the per-image cap (25 megapixels, or the slot's share: 16.7 megapixels with a 2 GB heap), or any image file over 32 MB | Read as a stream with `ImageIO` (never loaded whole), subsampled with `ImageReadParam.setSourceSubsampling` to fit the cap when larger; keep the printed size (`IMAGE_DOWNSCALED` when reduced, otherwise `IMAGE_CONVERTED`) | The box |
-| Image format OpenPDF cannot draw (for example WebP, WBMP, PNM) but `ImageIO` can read | Convert with `ImageIO` (subsampled if needed) to JPEG or PNG (`IMAGE_CONVERTED`) | The box |
+| Image format OpenPDF cannot draw (for example WBMP) but a vetted `ImageIO` reader can read | Convert with `ImageIO` (subsampled if needed) to JPEG or PNG (`IMAGE_CONVERTED`) | The box |
 | Valid header, corrupt data | Decode with `ImageIO` (tolerant reader) and re-encode as PNG (`IMAGE_CONVERTED`) | The box |
 | SVG with outside references | Remove the referencing elements, attributes, `url()` values, `@import` rules and processing instructions; render the rest (`SVG_REFERENCES_REMOVED`) | The box (unparseable SVG) |
 | Image missing, remote, unreadable or of an unknown format (for example HEIC) | — (remote sources are never fetched) | The box (`IMAGE_UNAVAILABLE`) |
 | Image header declaring over 250 megapixels (malformed or a decompression bomb) | — (never decoded) | The box (`IMAGE_UNAVAILABLE`) |
-| WebP declaring over 16 777 216 pixels (its decoder needs a full-size raster whatever the subsampling) | — (never decoded) | The box (`IMAGE_UNAVAILABLE`) |
-| Corrupt WebP that keeps the decoder busy (a lossless stream reading past its end), or one that compresses better than 2048:1 | The decode stops with an error (after 65 536 reads past the end, or at the library's expansion guard) instead of spinning | The box (`IMAGE_UNAVAILABLE`) |
+| Image in a format outside the vetted list (WebP, HEIC, and any decoder that later appears on the classpath) | — (never decoded) | The box (`IMAGE_UNAVAILABLE`) |
 | Document's images exceed the slot's image memory | Downscale the largest decoded or converted images further, and convert as-is JPEGs that still do not fit, keeping printed sizes, until the total fits (`IMAGE_DOWNSCALED`) | — |
 | No render slot free within 10 s | — | Render with every raster image as the box and a document note (`IMAGES_OMITTED_FOR_MEMORY`); a document without images renders normally |
 | Layout pass 2 fails | Use pass 1 (complete content on a widened page) placed at `612 / W`: margins come out smaller than 10 mm (`MARGINS_REDUCED`) | Next row |
@@ -791,17 +790,21 @@ with `ImageIO` from a file stream with source subsampling holds only the result:
 67-megapixel PNG was reduced to 3300 × 5100 in a 96 MB heap in 3.5 s, and a 48-megapixel
 lossy WebP without transparency to 4000 × 3000 in a 96 MB heap (*tested*).
 
-WebP is the exception. For lossless WebP and for lossy WebP with transparency, the
-TwelveMonkeys reader allocates a full-size raster (about 4 bytes per source pixel) whatever
-the subsampling: a 6000 × 6000 lossless WebP of 283 KB allocated 109 MB for a 500 × 500
-result and failed in a 96 MB heap (*tested*, found in the Task 3 review). A WebP is
-therefore decoded only up to 16 777 216 source pixels (4096 × 4096, about 67 MB of
-raster), and a larger one shows the box. Two further guards cover untrusted WebP data: a
-corrupt lossless stream can keep the decoder spinning for minutes, so decoding stops with an
-error after 65 536 reads past the end of the data (valid files need at most 828, measured
-over 14 588 files); and byte payloads (`data:` URIs) are read through a stream that reports
-its length, so the library's own 2048:1 expansion guard applies to them as it does to files
-(a WebP that compresses better than 2048:1, such as a large flat canvas, is refused).
+**WebP is not decoded.** The Task 3 review showed that the pure-Java WebP reader
+(TwelveMonkeys `imageio-webp` 3.15.3) cannot be bounded from outside: a corrupt lossless
+stream of 36 bytes keeps it busy for 15 seconds to over nine minutes; lossless WebP and lossy
+WebP with transparency allocate a full-size raster whatever the subsampling (109 MB for a
+500 × 500 result from a 283 KB file, out of memory in a 96 MB heap); a lossy frame inside a
+VP8X or animated container sizes its arrays from its own 14-bit header, not the container's
+(an 86-byte file allocates 108 MB); and a 222-byte file with an ICC profile chunk made the
+header read allocate 1 GiB. Each fix exposed the next hole, production runs with
+`-XX:+ExitOnOutOfMemoryError` (an out-of-memory error restarts the whole EMR), and WebP
+never printed before (wkhtmltopdf did not render it and `ConvertToEdoc` removed it), so a
+WebP shows the box, as HEIC does. The same reasoning is built in: `ImageDecoding` decodes
+only the vetted formats (PNG, JPEG, GIF, BMP, WBMP and TIFF), so a decoder that appears on
+the classpath later never reads untrusted bytes unnoticed. Byte payloads (`data:` URIs) are
+read through a stream that reports its length, so a reader's own length-dependent guard
+(TIFF has a 512:1 one) applies to them as it does to files.
 
 So the rules let through everything that is cheap, at full resolution, and reduce only
 what would otherwise exhaust memory, never below what paper shows: 25 megapixels on a full
@@ -831,21 +834,20 @@ rules 6 and 7):
    is written to the attempt's image directory and used (`SVG_REFERENCES_REMOVED`).
    An SVG that cannot be parsed is unusable. Inline `<svg>` elements get the same cleaning
    in place. SVG skips rules 4–6.
-4. **Header.** Read only the header with `ImageIO`, without decoding. TwelveMonkeys
-   `imageio-webp` is added (see "Removals and Packaging") so WebP is recognised. Unusable
-   if no reader recognises it (for example HEIC), if the header cannot be read, if it
-   declares more than 250 megapixels (about 15 800 × 15 800, nearly four times a 600-dpi
-   tabloid scan): such a header is malformed or a decompression bomb, and decoding it would
-   occupy a server thread for minutes, or if it is a WebP declaring more than 16 777 216
-   pixels (see the cost note above).
+4. **Header.** Read only the header with `ImageIO`, without decoding. Unusable if no
+   vetted reader recognises it (HEIC, WebP and every other format outside the list in the
+   cost note), if the header cannot be read, or if it declares more than 250 megapixels
+   (about 15 800 × 15 800, nearly four times a 600-dpi tabloid scan): such a header is
+   malformed or a decompression bomb, and decoding it would occupy a server thread for
+   minutes.
 5. **Plan.** Each image gets one of three plans, with a memory charge:
    - **as is, JPEG:** a JPEG of at most 32 MB that OpenPDF can embed, at any resolution;
      charged four times its file size (the bytes are held by the renderer, the layout
      PDF, the page import and the final PDF);
    - **as is, decoded:** another format OpenPDF can embed (PNG, GIF, BMP, TIFF) of at most
      32 MB and at most the per-image cap; charged 16 bytes per pixel;
-   - **converted:** everything else `ImageIO` can read (a larger file, a decoded format over
-     the cap, a format OpenPDF cannot embed such as WebP or WBMP), planned at the largest
+   - **converted:** everything else a vetted reader can read (a larger file, a decoded
+     format over the cap, a format OpenPDF cannot embed such as WBMP), planned at the largest
      subsampling that fits the cap, or at full size when already under it; charged
      16 bytes per output pixel.
 
@@ -861,8 +863,8 @@ rules 6 and 7):
    (for a JPEG this reads only its header); on failure it is converted instead. A
    converted image is read by an `ImageIO` reader from a file `ImageInputStream` (or the
    decoded `data:` bytes) at the planned subsampling and written into the attempt's image
-   directory: as JPEG at quality 0.9 when the source is a JPEG or WebP without
-   transparency (so the result is again cheap to embed), otherwise as PNG (lossless, for
+   directory: as JPEG at quality 0.9 when the source is a JPEG (so the result is again
+   cheap to embed), otherwise as PNG (lossless, for
    scans and text) (`IMAGE_DOWNSCALED` when reduced, `IMAGE_CONVERTED` otherwise). If
    `ImageIO` cannot decode it, it is unusable.
 7. **Rewrite.** A usable `<img>` gets its `src` set to the checked or converted file's
@@ -907,12 +909,9 @@ so this matters mainly for HRM and email HTML.
   lookup used for the request (below), so path translation and rendering use one root.
 
 Measured through `Doc2PDF`'s path: CMYK and progressive JPEG, 16-bit and alpha PNG, GIF
-(first frame), BMP and TIFF load; corrupt and zero-byte files show the box. WebP converts
-with the TwelveMonkeys reader (*tested* standalone; through the pipeline in PR 1); HEIC has
-no Java reader and shows the box. In `ConvertToEdoc`, only `jpeg`, `jpg`, `png` and `gif`
-files pass `FileType`; other image files, WebP included, show the box (today they silently
-disappear); WebP still prints there when embedded as a `data:` URI, and always through
-`Doc2PDF`.
+(first frame), BMP and TIFF load; corrupt and zero-byte files show the box. WebP and HEIC
+are not decoded and show the box. In `ConvertToEdoc`, only `jpeg`, `jpg`, `png` and `gif`
+files pass `FileType`; other image files show the box (today they silently disappear).
 
 ### Right-to-left text (`RtlTextShaping`)
 
@@ -1159,11 +1158,6 @@ failure.
   - Flying Saucer `10.0.6` → `10.7.0` (keep the `com.github.librepdf:openpdf` exclusion).
   - Declare `com.ibm.icu:icu4j` explicitly at the locked version 78.1 (CARLOS code now
     imports it; it was only transitive through HAPI FHIR).
-  - Add `com.twelvemonkeys.imageio:imageio-webp` at `${twelvemonkeys.version}` (3.15.3, the
-    release of the existing `imageio-tiff`; BSD 3-clause, pure Java, read-only). Its
-    dependencies (`imageio-core`, `imageio-metadata`, `common-*`) are already locked at
-    3.15.3, so it adds one 80 KB jar. It registers with `ImageIO` the same way as the TIFF
-    reader that `ImagePDFCreator` already relies on.
   - Remove `com.github.openosp:ultrabuk-htmltopdf-java`.
   - Remove `com.github.librepdf.openpdf:openpdf-html` (also drops `neko-htmlunit`).
   - Remove the `jna.version` property and the `net.java.dev.jna:jna` dependency-management
@@ -1245,8 +1239,8 @@ package-private setter, because no web application context exists in tests.
 | `XhtmlCleanupUnitTest` | Steps a, b, d–g, i and m: scripts and comments removed (including the `--` comment case moved from `ConvertToEdocUnitTest:94`); soft hyphens and bidi controls removed; inline `position: fixed` rewritten; `<ol type>` mapped; `rowspan` clamped to its row group; only `thead` tables without row spans get `carlos-pdf-paginate`; `alt` added; output parses with the JDK XML parser |
 | `PrintDocumentComposerUnitTest` | Step order a–i and k–m with no collaborators (pure); `carlos-pdf-defaults` first in `<head>` and an author class rule beats it; the document note is the first child of `<body>`; note and box text identical under `Locale.setDefault(Locale.FRENCH)`; `SAFE` mode drops author styles and boxes inline SVG; `TEXT_ONLY` mode keeps reading order, table cells joined with " \| " and form-control text |
 | `PrintFormControlsUnitTest` | Every row of the form-control table, including copied attributes, sizing, CR/LF removal, multi-select, `optgroup`, no selection, `checked="false"`, password not revealing length, `progress` with and without `value`/`max`, `meter` |
-| `PrintImageServiceUnitTest` (plan) | The planned outcome and charge, with no file written: as is (file inside an allowed directory, `data:` PNG, a path with spaces and accents, a 48-megapixel JPEG charged four times its file size); convert (WBMP, WebP, an over-32 MB file); downscale (an over-25-megapixel PNG; a document over its slot's share plans its largest images smaller and converts a JPEG that does not fit; without a slot every raster image is planned as the box; the same document and heap always give the same plan); clean (SVG with outside references); box (remote, outside allowed directories, missing, zero-byte, a PDF, HEIC, a crafted PNG header declaring 20 000 × 20 000 that is never decoded, a raw space in a relative `src`, unparseable SVG, `data-carlos-image-unavailable`); repeated sources counted once |
-| `PrintImageServiceUnitTest` (apply) | Applying the plan: encoded-URI rewrite; a JPEG embedded unchanged (same bytes); WBMP and a valid header with corrupt data that `ImageIO` can still read are converted; WebP without transparency becomes JPEG, with transparency PNG; an over-cap PNG is read as a stream with subsampling (no full decode) and its printed size kept; SVG and inline `<svg>` cleaned with their other content kept; undecodable data boxed; box sized from `width`/`height`; WARN without path; the image directory is deleted when a later step throws; SVG `@import` rules and `<?xml-stylesheet?>` are removed |
+| `PrintImageServiceUnitTest` (plan) | The planned outcome and charge, with no file written: as is (file inside an allowed directory, `data:` PNG, a path with spaces and accents, a 48-megapixel JPEG charged four times its file size); convert (WBMP, an over-32 MB file); downscale (an over-25-megapixel PNG; a document over its slot's share plans its largest images smaller and converts a JPEG that does not fit; without a slot every raster image is planned as the box; the same document and heap always give the same plan); clean (SVG with outside references); box (remote, outside allowed directories, missing, zero-byte, a PDF, HEIC, WebP, a crafted PNG header declaring 20 000 × 20 000 that is never decoded, a raw space in a relative `src`, unparseable SVG, `data-carlos-image-unavailable`); repeated sources counted once |
+| `PrintImageServiceUnitTest` (apply) | Applying the plan: encoded-URI rewrite; a JPEG embedded unchanged (same bytes); WBMP and a valid header with corrupt data that `ImageIO` can still read are converted; an over-cap PNG is read as a stream with subsampling (no full decode) and its printed size kept; SVG and inline `<svg>` cleaned with their other content kept; undecodable data boxed; box sized from `width`/`height`; WARN without path; the image directory is deleted when a later step throws; SVG `@import` rules and `<?xml-stylesheet?>` are removed |
 | `HtmlPdfRenderServiceSlotUnitTest` | Slot share a quarter of `maxMemory()` split between two slots; a third concurrent render waits, and after the (injected, short) wait renders with boxes and the note, or normally if it has no images; a slot is returned when an attempt throws; an interrupted wait restores the interrupt flag and does not wait again; fairness: an earlier waiter is served first |
 | `HtmlPdfMemoryUnitTest`, tagged `slow` (a child JVM started by the test with `ProcessBuilder`, the test classpath, `-Xmx256m` and `-XX:+ExitOnOutOfMemoryError`, so the Surefire configuration is unchanged and a failure ends the child, not the build) | With images scaled to the small heap: six near-cap PNGs in one document and four such documents concurrently; a document with a large JPEG and a large streamed PNG scan: no `OutOfMemoryError`; every document produced (the JPEG at full resolution; PNGs downscaled, or boxes with the note when no slot is free) |
 | `RtlTextShapingUnitTest` | Hebrew reordered to visual order; Arabic joined to presentation forms and reordered; brackets mirrored; paragraph direction from `dir` or the first strong character; `text-align: right` on `dir="rtl"` blocks; a run over 40 characters adds `RTL_BEST_EFFORT`; mixed left-to-right digits and Latin keep their order |
@@ -1277,7 +1271,7 @@ package-private setter, because no web application context exists in tests.
   `meter`).
 - The demo HRM report and three synthetic HTML HRM reports: table-heavy (including a
   2000-row table), inline styles, and images (file, `data:`, remote, repeated `src`, `.bmp`,
-  WBMP, corrupt header, corrupt body, WebP with and without transparency, HEIC, PDF,
+  WBMP, corrupt header, corrupt body, WebP, HEIC, PDF,
   oversized, SVG with outside references). The large images (48-megapixel JPEG,
   67-megapixel PNG, a header declaring 20 000 × 20 000) are generated by the tests at run
   time into a temporary directory, not committed.
@@ -1350,8 +1344,7 @@ List these in PR 1:
   - images that today silently disappear (repeated `src`, removed sources, `.bmp`/`.tif`)
     now print, or show the "[image unavailable]" box; non-JPEG images over 25 megapixels
     print at reduced resolution (still above print resolution) with the same printed
-    size; JPEG photos print at full resolution; WebP prints where it reaches the renderer
-    (up to 16.7 megapixels);
+    size; JPEG photos print at full resolution;
     SVGs with outside references print without
     those references;
   - very wide content shrinks without limit instead of being clipped;
@@ -1368,8 +1361,8 @@ List these in PR 1:
 
 ## Known limitations
 
-- **WebP** photos above 16.7 megapixels, and WebP files that compress better than 2048:1
-  (large flat canvases), print as the box; phones produce JPEG or HEIC, so this is rare.
+- **WebP and HEIC images** are not decoded and print as the box (see "Images" for why WebP
+  is not decoded). JPEG copies print.
 - **Copying or searching shaped Arabic** in the PDF yields presentation forms in visual
   order, not the original text (Unicode advises against those forms in stored text); the
   printed page is correct. Some Persian and Urdu letter forms are missing from DejaVu Sans
@@ -1396,7 +1389,7 @@ List these in PR 1:
 
 Two PRs, both from and to `release/2026.08`, both merged before 2026.08 ships:
 
-1. **New engine.** Flying Saucer 10.7.0; `icu4j` declared; `imageio-webp` added; the
+1. **New engine.** Flying Saucer 10.7.0; `icu4j` declared; the
    `org.xhtmlrenderer` logger pinned at WARN; the `htmlpdf` package with its
    `package-info` files and the `htmlpdf.*` message keys; `LocalOnlyUserAgent` moved into
    it (`git mv`, with its test) and changed; the `ConvertToEdoc` path/image and error-path
@@ -1407,7 +1400,7 @@ Two PRs, both from and to `release/2026.08`, both merged before 2026.08 ships:
    images.
 2. **Switch and removal.** `ConvertToEdoc` uses `HtmlPdfRenderService` only; deletions and
    every remaining item in "Removals and Packaging" (the Flying Saucer upgrade, the
-   `icu4j` and `imageio-webp` additions, the logger and the message keys are already in
+   `icu4j` declaration, the logger and the message keys are already in
    PR 1). Nothing else goes into PR 2, so it can be reverted as a unit.
 
 **Rollback.** If printed, faxed or emailed documents regress after release, reverting PR 2
