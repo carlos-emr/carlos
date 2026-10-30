@@ -219,21 +219,47 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should keep an image it cannot resolve, or whose type is not allowed, as an unavailable marker without a source")
     void shouldMarkUnresolvedImage_insteadOfRemoving(@TempDir Path tempDir) throws Exception {
-        Files.createFile(tempDir.resolve("scan.bmp"));
+        // WebP and HEIC are not decoded by the render service, so a path to one stays out of the allowed types.
+        Files.createFile(tempDir.resolve("scan.webp"));
+        Files.createFile(tempDir.resolve("photo.heic"));
         String html = "<html><body><img id=\"missing\" src=\"missing.png\" width=\"90\" height=\"40\">"
-                + "<img id=\"bmp\" src=\"scan.bmp\" srcset=\"scan.bmp 2x\"></body></html>";
+                + "<img id=\"webp\" src=\"scan.webp\" srcset=\"scan.webp 2x\"><img id=\"heic\" src=\"photo.heic\"></body></html>";
 
         Document tidied = Jsoup.parse(ConvertToEdoc.tidyDocument(html, tempDir.toString()));
 
-        assertThat(tidied.select("img")).hasSize(2);
-        for (String id : java.util.List.of("missing", "bmp")) {
+        assertThat(tidied.select("img")).hasSize(3);
+        for (String id : java.util.List.of("missing", "webp", "heic")) {
             assertThat(tidied.getElementById(id).hasAttr("data-carlos-image-unavailable")).as(id).isTrue();
             assertThat(tidied.getElementById(id).hasAttr("src")).as(id).isFalse();
             assertThat(tidied.getElementById(id).hasAttr("srcset")).as(id).isFalse();
         }
         // The size the author gave is kept, so the box takes the picture's place.
         assertThat(tidied.getElementById("missing").attr("width")).isEqualTo("90");
-        assertThat(tidied.outerHtml()).doesNotContain("missing.png").doesNotContain("scan.bmp");
+        assertThat(tidied.outerHtml()).doesNotContain("missing.png").doesNotContain("scan.webp").doesNotContain("photo.heic");
+    }
+
+    @Test
+    @DisplayName("should translate the path of every picture type the render service draws, whatever the case of its extension")
+    void shouldTranslateImagePaths_ofTheTypesTheRenderServiceDraws(@TempDir Path tempDir) throws Exception {
+        java.util.List<String> names = java.util.List.of("stamp.png", "photo.jpg", "photo.jpeg", "spinner.gif", "scan.bmp",
+                "pixel.wbmp", "fax.tif", "fax.tiff", "logo.svg", "SCAN.BMP");
+        StringBuilder html = new StringBuilder("<html><body>");
+        for (int i = 0; i < names.size(); i++) {
+            Files.createFile(tempDir.resolve(names.get(i)));
+            html.append("<img id=\"i").append(i).append("\" src=\"").append(names.get(i)).append("\">");
+        }
+        html.append("</body></html>");
+
+        Document tidied = Jsoup.parse(ConvertToEdoc.tidyDocument(html.toString(), tempDir.toString()));
+
+        assertThat(tidied.select("img")).hasSize(names.size());
+        for (int i = 0; i < names.size(); i++) {
+            String name = names.get(i);
+            assertThat(tidied.getElementById("i" + i).hasAttr("data-carlos-image-unavailable")).as(name).isFalse();
+            String src = tidied.getElementById("i" + i).attr("src");
+            assertThat(src).as(name).startsWith("file:");
+            assertThat(Files.isSameFile(Path.of(java.net.URI.create(src)), tempDir.resolve(name))).as(name).isTrue();
+        }
     }
 
     @Test
