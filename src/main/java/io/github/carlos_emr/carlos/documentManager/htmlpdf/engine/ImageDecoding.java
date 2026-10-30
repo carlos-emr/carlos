@@ -115,6 +115,14 @@ public final class ImageDecoding {
     public static final long MAX_SOURCE_PIXELS = 250_000_000L;
 
     /**
+     * The most pixels any image is decoded at: a larger one is reduced to fit (an image that is
+     * smaller is decoded in full). 25 megapixels across a Letter page is about 520 dpi, above fax
+     * (200 dpi) and office printers (300 to 600 dpi), so nothing visible is lost by the reduction
+     * (spec §Images).
+     */
+    public static final long MAX_DECODED_PIXELS = 25_000_000L;
+
+    /**
      * The formats this class reads, by the lower-case name their ImageIO reader reports (see the
      * class summary). The JDK reports {@code "png"}, {@code "JPEG"}, {@code "gif"}, {@code "bmp"},
      * {@code "wbmp"} and, for TIFF, {@code "tif"}; the TwelveMonkeys TIFF reader says {@code "tiff"}.
