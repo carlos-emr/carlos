@@ -108,6 +108,16 @@
 - `bash scripts/check-report-fonts.sh` re-runs the report tests under other host fonts in fresh
   JVMs. See `docs/pdf-font-policy.md`.
 
+## Container-Provided Jakarta APIs
+
+- Tomcat 11 supplies Servlet 6.1, Pages 4.0, Expression Language 6.0 and Annotations 3.0 and
+  always loads those packages from its own `lib/`, so `pom.xml` keeps them `provided`, even when a
+  library asks for one at compile scope (#5416: EL 5.0.1 shipped beside Tomcat's EL 6.0). JSTL is
+  the exception: Tomcat has none, so its API and the Glassfish implementation stay `compile`.
+- `ContainerApiPackagingUnitTest` (dependency graph) and `scripts/check-war-container-apis.py`
+  (the built WAR, run by `debian/rules`) enforce this from
+  `scripts/fixtures/tomcat-container-packages.json`. The `jspc` profile compiles with Tomcat 11's
+  Jasper (`${tomcat.version}`), not the plugin's default 10.1. See `docs/container-provided-apis.md`.
 ## HAPI HL7 v2 Parsing
 
 - `ca.uhn.hapi` (HL7 v2, 2.6.0; not the `ca.uhn.hapi.fhir` line) reads lab and PHS/STAR messages
@@ -652,7 +662,7 @@ or per-site `@SuppressFBWarnings`; Semgrep uses CARLOS sanitizer-aware rules in 
 rule-specific `nosemgrep` comments only when the code is already encoded/sanitized and the rule
 cannot model that sanitizer. Semgrep CI filters suppressed SARIF results before GitHub Code Scanning
 upload, so `nosemgrep` suppressions must remain specific and justified; do not blanket-disable
-Semgrep Pro or broad rule groups to clear PR noise. The `IMPROPER_UNICODE` detector is
+Semgrep Pro or broad rule groups to clear PR noise. SonarCloud path-traversal false positives (`javasecurity:S2083`/`S6549`/`S6096`) are excluded in `pom.xml` one file at a time, never by package, each with a source-and-helper comment; `SonarPathTraversalExclusionPolicyUnitTest` enforces this (issue #5316, see `docs/static-analysis-workflows.md`). The `IMPROPER_UNICODE` detector is
 *informational* — it flags `equalsIgnoreCase`/`toLowerCase`/`Normalizer` case folding **regardless
 of `Locale`** (so it cannot be cleared by adding `Locale.ROOT`), and almost all hits are intended
 case-insensitive domain comparisons. It is suppressed **per-site** with

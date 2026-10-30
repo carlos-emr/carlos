@@ -55,51 +55,201 @@
         </sonar.cpd.exclusions>
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
         <!--
-            Suppress SonarCloud S2083 (path traversal) false positives in files that use
-            PathValidationUtils for sanitization. SonarCloud's taint engine cannot trace
-            sanitization through custom utility methods, so it flags every downstream file
-            operation even when PathValidationUtils.validatePath/validateExistingPath/validateUpload
-            has already validated the path. This does NOT suppress the rule globally — any code
-            that uses raw user input in file paths without PathValidationUtils will still be caught.
+            SonarCloud javasecurity:S2083 (path traversal) exclusions, issue #5316.
+
+            These are per-FILE, never per-package. Each listed file takes a path from a request
+            parameter, an upload, a web-service call or a remote billing/fax/lab message, and every
+            file-system use of that path in the file goes through a containment helper in
+            PathValidationUtils first (docs/path-validation-utils.md). SonarCloud cannot be told that
+            those helpers sanitize (custom taint configuration is a SonarQube Server Enterprise
+            feature), so a report on these files is a false positive. The comment above each entry
+            records the source and the helper. Every other file, including every new file in these
+            packages, stays under the rule, so an unvalidated file operation is still reported.
+
+            SonarPathTraversalExclusionPolicyUnitTest fails the build if an entry uses a wildcard,
+            names a file that no longer exists or no longer calls PathValidationUtils, or lacks a
+            justification comment. The procedure for adding or dropping an entry is in
+            docs/static-analysis-workflows.md ("SonarCloud path-traversal exclusions").
         -->
-        <sonar.issue.ignore.multicriteria>pvuSelf,pvuEform,pvuDoc,pvuLab,pvuInteg,pvuForm,pvuFax,pvuEncounter,pvuDx,pvuDemog,pvuBilling,pvuDocS6549,csrfTplS6638,csrfTplS3403,bcFormLabel,bcFormLabel2008,bcFormFont,bcFormFont2008</sonar.issue.ignore.multicriteria>
-        <!-- PathValidationUtils itself (it IS the sanitizer) -->
+        <sonar.issue.ignore.multicriteria>pvuSelf,s2083BillingsMSPDocumentTeleplanReportUploadServlet,s2083BillingsBcMSPDocumentTeleplanReportUploadServlet,s2083GenTa2Action,s2083TeleplanCodesManager,s2083TeleplanResponse,s2083DownloadBilling2Action,s2083ManageTeleplan2Action,s2083BillingOnRaService,s2083OhipClaimExtractService,s2083BillingDocumentErrorReportUpload2Action,s2083BillingLegacyReport2Action,s2083MoveMohFiles2Action,s2083ScheduleOfBenefitsUpload2Action,s2083CreateHRMFile,s2083ImportDemographicDataAction42Action,s2083ImportLogDownload2Action,s2083Util,s2083EDoc,s2083IncomingDocUtil,s2083IncomingDocumentMutationLock,s2083IncomingDocumentPublication,s2083IncomingDocumentScratch,s2083StoredDocumentRevision,s2083AddEditDocument2Action,s2083DocumentUpload2Action,s2083ManageDocument2Action,s2083DxResearchLoadAssociations2Action,s2083EFormExportZip,s2083DelImage2Action,s2083DisplayImage2Action,s2083ManageEForm2Action,s2083HtmlUpload2Action,s2083ImageUpload2Action,s2083EFormImageViewForPdfGenerationServlet,s2083MeasurementFlowSheet,s2083EctAddMeasurementStyleSheet2Action,s2083FaxImporter,s2083FrmSetupForm2Action,s2083FrmXmlUpload2Action,s2083FrmCustomedPDFServlet,s2083FrmPDFServlet,s2083PhsStarHandler,s2083Update2Action,s2083ActionUtils,s2083Download2Action,s2083Upload2Action,s2083FileUploadCheck,s2083LabAllLabUpload2Action,s2083DefaultHandler,s2083ExcellerisOntarioHandler,s2083FHIRCommunicationRequestHandler,s2083IHAPOIHandler,s2083MEDITECHHandler,s2083PDFHandler,s2083Utilities,s2083LabBcPathNetLabUpload2Action,s2083LabOnCMLUploadLabUpload2Action,pvuDocS6549,csrfTplS6638,csrfTplS3403,bcFormLabel,bcFormLabel2008,bcFormFont,bcFormFont2008</sonar.issue.ignore.multicriteria>
+        <!-- PathValidationUtils itself: it IS the sanitizer, so its own file operations take the unvalidated input by design -->
         <sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>
-        <sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>**/utility/PathValidationUtils.java</sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>
-        <!-- eform upload/display actions -->
-        <sonar.issue.ignore.multicriteria.pvuEform.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuEform.ruleKey>
-        <sonar.issue.ignore.multicriteria.pvuEform.resourceKey>**/eform/**/*.java</sonar.issue.ignore.multicriteria.pvuEform.resourceKey>
-        <!-- Document management actions -->
-        <sonar.issue.ignore.multicriteria.pvuDoc.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuDoc.ruleKey>
-        <sonar.issue.ignore.multicriteria.pvuDoc.resourceKey>**/documentManager/**/*.java</sonar.issue.ignore.multicriteria.pvuDoc.resourceKey>
-        <!-- Lab upload/processing -->
-        <sonar.issue.ignore.multicriteria.pvuLab.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuLab.ruleKey>
-        <sonar.issue.ignore.multicriteria.pvuLab.resourceKey>**/lab/**/*.java</sonar.issue.ignore.multicriteria.pvuLab.resourceKey>
-        <!-- Integration (MCEDT, HL7) -->
-        <sonar.issue.ignore.multicriteria.pvuInteg.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuInteg.ruleKey>
-        <sonar.issue.ignore.multicriteria.pvuInteg.resourceKey>**/integration/**/*.java</sonar.issue.ignore.multicriteria.pvuInteg.resourceKey>
-        <!-- Form PDF servlets and upload -->
-        <sonar.issue.ignore.multicriteria.pvuForm.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuForm.ruleKey>
-        <sonar.issue.ignore.multicriteria.pvuForm.resourceKey>**/form/**/*.java</sonar.issue.ignore.multicriteria.pvuForm.resourceKey>
-        <!-- Fax actions -->
-        <sonar.issue.ignore.multicriteria.pvuFax.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuFax.ruleKey>
-        <sonar.issue.ignore.multicriteria.pvuFax.resourceKey>**/fax/**/*.java</sonar.issue.ignore.multicriteria.pvuFax.resourceKey>
-        <!-- Encounter measurement actions -->
-        <sonar.issue.ignore.multicriteria.pvuEncounter.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuEncounter.ruleKey>
-        <sonar.issue.ignore.multicriteria.pvuEncounter.resourceKey>**/encounter/**/*.java</sonar.issue.ignore.multicriteria.pvuEncounter.resourceKey>
-        <!-- Dx research associations -->
-        <sonar.issue.ignore.multicriteria.pvuDx.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuDx.ruleKey>
-        <sonar.issue.ignore.multicriteria.pvuDx.resourceKey>**/dxresearch/**/*.java</sonar.issue.ignore.multicriteria.pvuDx.resourceKey>
-        <!-- Demographic utilities -->
-        <sonar.issue.ignore.multicriteria.pvuDemog.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuDemog.ruleKey>
-        <sonar.issue.ignore.multicriteria.pvuDemog.resourceKey>**/demographic/**/*.java</sonar.issue.ignore.multicriteria.pvuDemog.resourceKey>
-        <!-- Billing upload servlets -->
-        <sonar.issue.ignore.multicriteria.pvuBilling.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuBilling.ruleKey>
-        <sonar.issue.ignore.multicriteria.pvuBilling.resourceKey>**/billings/**/*.java</sonar.issue.ignore.multicriteria.pvuBilling.resourceKey>
+        <sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>**/io/github/carlos_emr/carlos/utility/PathValidationUtils.java</sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>
+        <!-- upload body filename -> validatePath(upload folder) -> FileOutputStream -->
+        <sonar.issue.ignore.multicriteria.s2083BillingsMSPDocumentTeleplanReportUploadServlet.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083BillingsMSPDocumentTeleplanReportUploadServlet.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083BillingsMSPDocumentTeleplanReportUploadServlet.resourceKey>**/io/github/carlos_emr/carlos/billings/MSP/DocumentTeleplanReportUploadServlet.java</sonar.issue.ignore.multicriteria.s2083BillingsMSPDocumentTeleplanReportUploadServlet.resourceKey>
+        <!-- multipart filename -> validatePath(DOCUMENT_DIR) -> Files.copy -->
+        <sonar.issue.ignore.multicriteria.s2083BillingsBcMSPDocumentTeleplanReportUploadServlet.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083BillingsBcMSPDocumentTeleplanReportUploadServlet.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083BillingsBcMSPDocumentTeleplanReportUploadServlet.resourceKey>**/io/github/carlos_emr/carlos/billings/ca/bc/MSP/DocumentTeleplanReportUploadServlet.java</sonar.issue.ignore.multicriteria.s2083BillingsBcMSPDocumentTeleplanReportUploadServlet.resourceKey>
+        <!-- uploaded or Teleplan filename (request attribute) -> validatePath(DOCUMENT_DIR) -> FileInputStream -->
+        <sonar.issue.ignore.multicriteria.s2083GenTa2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083GenTa2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083GenTa2Action.resourceKey>**/io/github/carlos_emr/carlos/billings/ca/bc/MSP/GenTa2Action.java</sonar.issue.ignore.multicriteria.s2083GenTa2Action.resourceKey>
+        <!-- Teleplan response file -> validateExistingPath(DOCUMENT_DIR) -> FileReader -->
+        <sonar.issue.ignore.multicriteria.s2083TeleplanCodesManager.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083TeleplanCodesManager.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083TeleplanCodesManager.resourceKey>**/io/github/carlos_emr/carlos/billings/ca/bc/Teleplan/TeleplanCodesManager.java</sonar.issue.ignore.multicriteria.s2083TeleplanCodesManager.resourceKey>
+        <!-- Teleplan response filename -> validatePath(DOCUMENT_DIR) -> renameTo / getFile -->
+        <sonar.issue.ignore.multicriteria.s2083TeleplanResponse.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083TeleplanResponse.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083TeleplanResponse.resourceKey>**/io/github/carlos_emr/carlos/billings/ca/bc/Teleplan/TeleplanResponse.java</sonar.issue.ignore.multicriteria.s2083TeleplanResponse.resourceKey>
+        <!-- filename parameter -> validatePathComponent + validateExistingPath(HOME_DIR) -> Files.readAllBytes -->
+        <sonar.issue.ignore.multicriteria.s2083DownloadBilling2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083DownloadBilling2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083DownloadBilling2Action.resourceKey>**/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/DownloadBilling2Action.java</sonar.issue.ignore.multicriteria.s2083DownloadBilling2Action.resourceKey>
+        <!-- Teleplan response file / stored name -> validateExistingPath / validatePath(HOME_DIR) -> FileReader -->
+        <sonar.issue.ignore.multicriteria.s2083ManageTeleplan2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083ManageTeleplan2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083ManageTeleplan2Action.resourceKey>**/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/ManageTeleplan2Action.java</sonar.issue.ignore.multicriteria.s2083ManageTeleplan2Action.resourceKey>
+        <!-- uploaded RA file name -> validateExistingPath -> FileInputStream -->
+        <sonar.issue.ignore.multicriteria.s2083BillingOnRaService.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083BillingOnRaService.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083BillingOnRaService.resourceKey>**/io/github/carlos_emr/carlos/billings/ca/on/service/BillingOnRaService.java</sonar.issue.ignore.multicriteria.s2083BillingOnRaService.resourceKey>
+        <!-- file names carrying the monthCode parameter -> validatePath(HOME_DIR) -> FileOutputStream -->
+        <sonar.issue.ignore.multicriteria.s2083OhipClaimExtractService.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083OhipClaimExtractService.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083OhipClaimExtractService.resourceKey>**/io/github/carlos_emr/carlos/billings/ca/on/service/OhipClaimExtractService.java</sonar.issue.ignore.multicriteria.s2083OhipClaimExtractService.resourceKey>
+        <!-- filename parameter and upload name -> validatePath -> FileInputStream / FileOutputStream / copyFile -->
+        <sonar.issue.ignore.multicriteria.s2083BillingDocumentErrorReportUpload2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083BillingDocumentErrorReportUpload2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083BillingDocumentErrorReportUpload2Action.resourceKey>**/io/github/carlos_emr/carlos/billings/ca/on/web/BillingDocumentErrorReportUpload2Action.java</sonar.issue.ignore.multicriteria.s2083BillingDocumentErrorReportUpload2Action.resourceKey>
+        <!-- filename parameter -> validatePath(EDT folder) -> readFileToString -->
+        <sonar.issue.ignore.multicriteria.s2083BillingLegacyReport2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083BillingLegacyReport2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083BillingLegacyReport2Action.resourceKey>**/io/github/carlos_emr/carlos/billings/ca/on/web/BillingLegacyReport2Action.java</sonar.issue.ignore.multicriteria.s2083BillingLegacyReport2Action.resourceKey>
+        <!-- mohFile[] / unzipfile parameters -> validatePath + validateExistingPath -> moveToDirectory -->
+        <sonar.issue.ignore.multicriteria.s2083MoveMohFiles2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083MoveMohFiles2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083MoveMohFiles2Action.resourceKey>**/io/github/carlos_emr/carlos/billings/ca/on/web/MoveMohFiles2Action.java</sonar.issue.ignore.multicriteria.s2083MoveMohFiles2Action.resourceKey>
+        <!-- upload temp file -> validateUpload, name -> validateStrictFileName -> FileInputStream -->
+        <sonar.issue.ignore.multicriteria.s2083ScheduleOfBenefitsUpload2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083ScheduleOfBenefitsUpload2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083ScheduleOfBenefitsUpload2Action.resourceKey>**/io/github/carlos_emr/carlos/billings/ca/on/web/ScheduleOfBenefitsUpload2Action.java</sonar.issue.ignore.multicriteria.s2083ScheduleOfBenefitsUpload2Action.resourceKey>
+        <!-- uploaded CDS report values -> validateGeneratedChildPath / validateExistingPath -> save -->
+        <sonar.issue.ignore.multicriteria.s2083CreateHRMFile.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083CreateHRMFile.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083CreateHRMFile.resourceKey>**/io/github/carlos_emr/carlos/demographic/pageUtil/CreateHRMFile.java</sonar.issue.ignore.multicriteria.s2083CreateHRMFile.resourceKey>
+        <!-- upload, ZIP entries and XML paths -> validateUploadContent / validateZipEntryPath / validateExistingPath / validateGeneratedChildPath -->
+        <sonar.issue.ignore.multicriteria.s2083ImportDemographicDataAction42Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083ImportDemographicDataAction42Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083ImportDemographicDataAction42Action.resourceKey>**/io/github/carlos_emr/carlos/demographic/pageUtil/ImportDemographicDataAction42Action.java</sonar.issue.ignore.multicriteria.s2083ImportDemographicDataAction42Action.resourceKey>
+        <!-- importlog parameter -> validateExistingPath(temp dir) -> FileInputStream -->
+        <sonar.issue.ignore.multicriteria.s2083ImportLogDownload2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083ImportLogDownload2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083ImportLogDownload2Action.resourceKey>**/io/github/carlos_emr/carlos/demographic/pageUtil/ImportLogDownload2Action.java</sonar.issue.ignore.multicriteria.s2083ImportLogDownload2Action.resourceKey>
+        <!-- export zip name from patientSet -> validateGeneratedChildPath / validateExistingPath -> FileOutputStream -->
+        <sonar.issue.ignore.multicriteria.s2083Util.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083Util.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083Util.resourceKey>**/io/github/carlos_emr/carlos/demographic/pageUtil/Util.java</sonar.issue.ignore.multicriteria.s2083Util.resourceKey>
+        <!-- upload-derived file name -> validateChildPath / validateExistingPath -> FileOutputStream / read -->
+        <sonar.issue.ignore.multicriteria.s2083EDoc.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083EDoc.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083EDoc.resourceKey>**/io/github/carlos_emr/carlos/documentManager/EDoc.java</sonar.issue.ignore.multicriteria.s2083EDoc.resourceKey>
+        <!-- queueId / pdfDir / pdfName parameters -> validatePathComponent + validateExistingPath / validateChildPath -->
+        <sonar.issue.ignore.multicriteria.s2083IncomingDocUtil.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083IncomingDocUtil.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083IncomingDocUtil.resourceKey>**/io/github/carlos_emr/carlos/documentManager/IncomingDocUtil.java</sonar.issue.ignore.multicriteria.s2083IncomingDocUtil.resourceKey>
+        <!-- request-built queue path -> validateChildPath -> Files.exists / isRegularFile -->
+        <sonar.issue.ignore.multicriteria.s2083IncomingDocumentMutationLock.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083IncomingDocumentMutationLock.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083IncomingDocumentMutationLock.resourceKey>**/io/github/carlos_emr/carlos/documentManager/IncomingDocumentMutationLock.java</sonar.issue.ignore.multicriteria.s2083IncomingDocumentMutationLock.resourceKey>
+        <!-- request-built queue paths, validated by the callers (ManageDocument2Action, IncomingDocUtil: validateChildPath / validatePath) -> Files.move -->
+        <sonar.issue.ignore.multicriteria.s2083IncomingDocumentPublication.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083IncomingDocumentPublication.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083IncomingDocumentPublication.resourceKey>**/io/github/carlos_emr/carlos/documentManager/IncomingDocumentPublication.java</sonar.issue.ignore.multicriteria.s2083IncomingDocumentPublication.resourceKey>
+        <!-- request-built queue directory -> validateExistingPath -> createTempFile / newDirectoryStream -->
+        <sonar.issue.ignore.multicriteria.s2083IncomingDocumentScratch.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083IncomingDocumentScratch.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083IncomingDocumentScratch.resourceKey>**/io/github/carlos_emr/carlos/documentManager/IncomingDocumentScratch.java</sonar.issue.ignore.multicriteria.s2083IncomingDocumentScratch.resourceKey>
+        <!-- request-built queue file (after validateChildPath) and stored child -> validateExistingPath -> Files.newInputStream -->
+        <sonar.issue.ignore.multicriteria.s2083StoredDocumentRevision.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083StoredDocumentRevision.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083StoredDocumentRevision.resourceKey>**/io/github/carlos_emr/carlos/documentManager/StoredDocumentRevision.java</sonar.issue.ignore.multicriteria.s2083StoredDocumentRevision.resourceKey>
+        <!-- upload temp file and name -> validateUpload / validateFileName + validatePath(DOCUMENT_DIR) -->
+        <sonar.issue.ignore.multicriteria.s2083AddEditDocument2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083AddEditDocument2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083AddEditDocument2Action.resourceKey>**/io/github/carlos_emr/carlos/documentManager/actions/AddEditDocument2Action.java</sonar.issue.ignore.multicriteria.s2083AddEditDocument2Action.resourceKey>
+        <!-- upload temp file and name -> validateUpload / validateFileName + validatePath / validateGeneratedChildPath -->
+        <sonar.issue.ignore.multicriteria.s2083DocumentUpload2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083DocumentUpload2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083DocumentUpload2Action.resourceKey>**/io/github/carlos_emr/carlos/documentManager/actions/DocumentUpload2Action.java</sonar.issue.ignore.multicriteria.s2083DocumentUpload2Action.resourceKey>
+        <!-- queueId / pdfDir / pdfName parameters -> validateExistingPath / validateUserFilePath / validatePath -->
+        <sonar.issue.ignore.multicriteria.s2083ManageDocument2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083ManageDocument2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083ManageDocument2Action.resourceKey>**/io/github/carlos_emr/carlos/documentManager/actions/ManageDocument2Action.java</sonar.issue.ignore.multicriteria.s2083ManageDocument2Action.resourceKey>
+        <!-- upload temp file -> validateUploadContent / validateUpload -> FileReader -->
+        <sonar.issue.ignore.multicriteria.s2083DxResearchLoadAssociations2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083DxResearchLoadAssociations2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083DxResearchLoadAssociations2Action.resourceKey>**/io/github/carlos_emr/carlos/dxresearch/pageUtil/dxResearchLoadAssociations2Action.java</sonar.issue.ignore.multicriteria.s2083DxResearchLoadAssociations2Action.resourceKey>
+        <!-- ZIP entries and image names -> validateZipEntryPath / validatePathComponent / validateGeneratedChildPath -->
+        <sonar.issue.ignore.multicriteria.s2083EFormExportZip.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083EFormExportZip.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083EFormExportZip.resourceKey>**/io/github/carlos_emr/carlos/eform/EFormExportZip.java</sonar.issue.ignore.multicriteria.s2083EFormExportZip.resourceKey>
+        <!-- filename parameter -> validateExistingPath(image dir) -> Files.delete -->
+        <sonar.issue.ignore.multicriteria.s2083DelImage2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083DelImage2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083DelImage2Action.resourceKey>**/io/github/carlos_emr/carlos/eform/actions/DelImage2Action.java</sonar.issue.ignore.multicriteria.s2083DelImage2Action.resourceKey>
+        <!-- imagefile parameter -> validatePath(image dir) -> FileInputStream -->
+        <sonar.issue.ignore.multicriteria.s2083DisplayImage2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083DisplayImage2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083DisplayImage2Action.resourceKey>**/io/github/carlos_emr/carlos/eform/actions/DisplayImage2Action.java</sonar.issue.ignore.multicriteria.s2083DisplayImage2Action.resourceKey>
+        <!-- upload temp file -> validateUpload -> Files.newInputStream -->
+        <sonar.issue.ignore.multicriteria.s2083ManageEForm2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083ManageEForm2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083ManageEForm2Action.resourceKey>**/io/github/carlos_emr/carlos/eform/actions/ManageEForm2Action.java</sonar.issue.ignore.multicriteria.s2083ManageEForm2Action.resourceKey>
+        <!-- upload temp file -> validateUploadContent / validateUpload -> Files.readAllBytes -->
+        <sonar.issue.ignore.multicriteria.s2083HtmlUpload2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083HtmlUpload2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083HtmlUpload2Action.resourceKey>**/io/github/carlos_emr/carlos/eform/upload/HtmlUpload2Action.java</sonar.issue.ignore.multicriteria.s2083HtmlUpload2Action.resourceKey>
+        <!-- upload and name -> validateUploadContent + three-argument validateUpload(image dir) -->
+        <sonar.issue.ignore.multicriteria.s2083ImageUpload2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083ImageUpload2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083ImageUpload2Action.resourceKey>**/io/github/carlos_emr/carlos/eform/upload/ImageUpload2Action.java</sonar.issue.ignore.multicriteria.s2083ImageUpload2Action.resourceKey>
+        <!-- imagefile parameter -> validatePathComponent + validatePath(image dir) -> FileInputStream -->
+        <sonar.issue.ignore.multicriteria.s2083EFormImageViewForPdfGenerationServlet.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083EFormImageViewForPdfGenerationServlet.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083EFormImageViewForPdfGenerationServlet.resourceKey>**/io/github/carlos_emr/carlos/eform/util/EFormImageViewForPdfGenerationServlet.java</sonar.issue.ignore.multicriteria.s2083EFormImageViewForPdfGenerationServlet.resourceKey>
+        <!-- names from an uploaded flowsheet -> validatePath(measurement dirs) -> FileInputStream -->
+        <sonar.issue.ignore.multicriteria.s2083MeasurementFlowSheet.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083MeasurementFlowSheet.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083MeasurementFlowSheet.resourceKey>**/io/github/carlos_emr/carlos/encounter/oscarMeasurements/MeasurementFlowSheet.java</sonar.issue.ignore.multicriteria.s2083MeasurementFlowSheet.resourceKey>
+        <!-- upload and name -> validateStrictFileName + three-argument validateUpload -->
+        <sonar.issue.ignore.multicriteria.s2083EctAddMeasurementStyleSheet2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083EctAddMeasurementStyleSheet2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083EctAddMeasurementStyleSheet2Action.resourceKey>**/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/EctAddMeasurementStyleSheet2Action.java</sonar.issue.ignore.multicriteria.s2083EctAddMeasurementStyleSheet2Action.resourceKey>
+        <!-- fax provider file names -> validatePath / validateExistingPath -> Files.move -->
+        <sonar.issue.ignore.multicriteria.s2083FaxImporter.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083FaxImporter.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083FaxImporter.resourceKey>**/io/github/carlos_emr/carlos/fax/core/FaxImporter.java</sonar.issue.ignore.multicriteria.s2083FaxImporter.resourceKey>
+        <!-- formName parameter -> validatePath(form dir) -> FileInputStream -->
+        <sonar.issue.ignore.multicriteria.s2083FrmSetupForm2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083FrmSetupForm2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083FrmSetupForm2Action.resourceKey>**/io/github/carlos_emr/carlos/form/pageUtil/FrmSetupForm2Action.java</sonar.issue.ignore.multicriteria.s2083FrmSetupForm2Action.resourceKey>
+        <!-- upload temp file and name -> validateUploadContent / validateStrictFileName / validateExistingPath -->
+        <sonar.issue.ignore.multicriteria.s2083FrmXmlUpload2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083FrmXmlUpload2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083FrmXmlUpload2Action.resourceKey>**/io/github/carlos_emr/carlos/form/pageUtil/FrmXmlUpload2Action.java</sonar.issue.ignore.multicriteria.s2083FrmXmlUpload2Action.resourceKey>
+        <!-- pdfId / imgFile parameters -> validatePath -> Files.newOutputStream / readAllBytes -->
+        <sonar.issue.ignore.multicriteria.s2083FrmCustomedPDFServlet.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083FrmCustomedPDFServlet.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083FrmCustomedPDFServlet.resourceKey>**/io/github/carlos_emr/carlos/form/pdfservlet/FrmCustomedPDFServlet.java</sonar.issue.ignore.multicriteria.s2083FrmCustomedPDFServlet.resourceKey>
+        <!-- __template / __cfgfile parameters -> validatePathComponent / validatePath -> PdfReader / FileInputStream -->
+        <sonar.issue.ignore.multicriteria.s2083FrmPDFServlet.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083FrmPDFServlet.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083FrmPDFServlet.resourceKey>**/io/github/carlos_emr/carlos/form/pdfservlet/FrmPDFServlet.java</sonar.issue.ignore.multicriteria.s2083FrmPDFServlet.resourceKey>
+        <!-- saved upload path -> validateExistingPath(DOCUMENT_DIR) -> FileReader -->
+        <sonar.issue.ignore.multicriteria.s2083PhsStarHandler.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083PhsStarHandler.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083PhsStarHandler.resourceKey>**/io/github/carlos_emr/carlos/integration/hl7/handlers/upload/PhsStarHandler.java</sonar.issue.ignore.multicriteria.s2083PhsStarHandler.resourceKey>
+        <!-- upload temp file -> validateUpload -> Files.readAllBytes -->
+        <sonar.issue.ignore.multicriteria.s2083Update2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083Update2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083Update2Action.resourceKey>**/io/github/carlos_emr/carlos/integration/mcedt/Update2Action.java</sonar.issue.ignore.multicriteria.s2083Update2Action.resourceKey>
+        <!-- MCEDT response file names -> validateGeneratedChildPath -> move / copy -->
+        <sonar.issue.ignore.multicriteria.s2083ActionUtils.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083ActionUtils.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083ActionUtils.resourceKey>**/io/github/carlos_emr/carlos/integration/mcedt/mailbox/ActionUtils.java</sonar.issue.ignore.multicriteria.s2083ActionUtils.resourceKey>
+        <!-- MCEDT response descriptions -> validatePath(inbox) -> writeByteArrayToFile -->
+        <sonar.issue.ignore.multicriteria.s2083Download2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083Download2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083Download2Action.resourceKey>**/io/github/carlos_emr/carlos/integration/mcedt/mailbox/Download2Action.java</sonar.issue.ignore.multicriteria.s2083Download2Action.resourceKey>
+        <!-- fileName parameter and upload -> validateStrictFileName + validatePath(outbox) / validateUploadContent -->
+        <sonar.issue.ignore.multicriteria.s2083Upload2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083Upload2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083Upload2Action.resourceKey>**/io/github/carlos_emr/carlos/integration/mcedt/mailbox/Upload2Action.java</sonar.issue.ignore.multicriteria.s2083Upload2Action.resourceKey>
+        <!-- saved upload path -> validateExistingDocumentPath / validateExistingPath -> Files.newInputStream / delete -->
+        <sonar.issue.ignore.multicriteria.s2083FileUploadCheck.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083FileUploadCheck.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083FileUploadCheck.resourceKey>**/io/github/carlos_emr/carlos/lab/FileUploadCheck.java</sonar.issue.ignore.multicriteria.s2083FileUploadCheck.resourceKey>
+        <!-- upload temp file -> validateUploadContent / validateUpload / validateExistingDocumentPath -->
+        <sonar.issue.ignore.multicriteria.s2083LabAllLabUpload2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083LabAllLabUpload2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083LabAllLabUpload2Action.resourceKey>**/io/github/carlos_emr/carlos/lab/ca/all/pageUtil/LabUpload2Action.java</sonar.issue.ignore.multicriteria.s2083LabAllLabUpload2Action.resourceKey>
+        <!-- saved upload path -> validateExistingDocumentPath -> FileReader / XML parse -->
+        <sonar.issue.ignore.multicriteria.s2083DefaultHandler.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083DefaultHandler.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083DefaultHandler.resourceKey>**/io/github/carlos_emr/carlos/lab/ca/all/upload/handlers/DefaultHandler.java</sonar.issue.ignore.multicriteria.s2083DefaultHandler.resourceKey>
+        <!-- saved upload path -> validateExistingPath(DOCUMENT_DIR) -> XML parse -->
+        <sonar.issue.ignore.multicriteria.s2083ExcellerisOntarioHandler.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083ExcellerisOntarioHandler.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083ExcellerisOntarioHandler.resourceKey>**/io/github/carlos_emr/carlos/lab/ca/all/upload/handlers/ExcellerisOntarioHandler.java</sonar.issue.ignore.multicriteria.s2083ExcellerisOntarioHandler.resourceKey>
+        <!-- saved upload path -> validateExistingPath -> FileReader -->
+        <sonar.issue.ignore.multicriteria.s2083FHIRCommunicationRequestHandler.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083FHIRCommunicationRequestHandler.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083FHIRCommunicationRequestHandler.resourceKey>**/io/github/carlos_emr/carlos/lab/ca/all/upload/handlers/FHIRCommunicationRequestHandler.java</sonar.issue.ignore.multicriteria.s2083FHIRCommunicationRequestHandler.resourceKey>
+        <!-- saved upload path -> validateExistingDocumentPath / validateUpload -> FileInputStream -->
+        <sonar.issue.ignore.multicriteria.s2083IHAPOIHandler.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083IHAPOIHandler.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083IHAPOIHandler.resourceKey>**/io/github/carlos_emr/carlos/lab/ca/all/upload/handlers/IHAPOIHandler.java</sonar.issue.ignore.multicriteria.s2083IHAPOIHandler.resourceKey>
+        <!-- saved upload path -> validateExistingDocumentPath / validateUpload -> FileInputStream -->
+        <sonar.issue.ignore.multicriteria.s2083MEDITECHHandler.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083MEDITECHHandler.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083MEDITECHHandler.resourceKey>**/io/github/carlos_emr/carlos/lab/ca/all/upload/handlers/MEDITECHHandler.java</sonar.issue.ignore.multicriteria.s2083MEDITECHHandler.resourceKey>
+        <!-- saved upload path -> validateExistingPath(DOCUMENT_DIR) -> PdfReader -->
+        <sonar.issue.ignore.multicriteria.s2083PDFHandler.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083PDFHandler.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083PDFHandler.resourceKey>**/io/github/carlos_emr/carlos/lab/ca/all/upload/handlers/PDFHandler.java</sonar.issue.ignore.multicriteria.s2083PDFHandler.resourceKey>
+        <!-- REST / SOAP / upload file names -> validatePath + validateGeneratedChildPath -> Files.newOutputStream -->
+        <sonar.issue.ignore.multicriteria.s2083Utilities.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083Utilities.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083Utilities.resourceKey>**/io/github/carlos_emr/carlos/lab/ca/all/util/Utilities.java</sonar.issue.ignore.multicriteria.s2083Utilities.resourceKey>
+        <!-- upload and name -> validateUploadContent + validateGeneratedChildPath(DOCUMENT_DIR) -->
+        <sonar.issue.ignore.multicriteria.s2083LabBcPathNetLabUpload2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083LabBcPathNetLabUpload2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083LabBcPathNetLabUpload2Action.resourceKey>**/io/github/carlos_emr/carlos/lab/ca/bc/PathNet/pageUtil/LabUpload2Action.java</sonar.issue.ignore.multicriteria.s2083LabBcPathNetLabUpload2Action.resourceKey>
+        <!-- upload and name -> validateUploadContent / validateStrictFileName + validatePath(DOCUMENT_DIR) -->
+        <sonar.issue.ignore.multicriteria.s2083LabOnCMLUploadLabUpload2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083LabOnCMLUploadLabUpload2Action.ruleKey>
+        <sonar.issue.ignore.multicriteria.s2083LabOnCMLUploadLabUpload2Action.resourceKey>**/io/github/carlos_emr/carlos/lab/ca/on/CML/Upload/LabUpload2Action.java</sonar.issue.ignore.multicriteria.s2083LabOnCMLUploadLabUpload2Action.resourceKey>
         <!-- S6549 (path construction) false positive — limit suppression to DocumentUpload2Action
              so path-construction findings remain visible for other documentManager files. -->
         <sonar.issue.ignore.multicriteria.pvuDocS6549.ruleKey>javasecurity:S6549</sonar.issue.ignore.multicriteria.pvuDocS6549.ruleKey>
-        <sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>**/documentManager/**/DocumentUpload2Action.java</sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>
+        <sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>**/io/github/carlos_emr/carlos/documentManager/actions/DocumentUpload2Action.java</sonar.issue.ignore.multicriteria.pvuDocS6549.resourceKey>
         <!--
             The CSRFGuard client TEMPLATE (issue #4130) is not executed as written: CSRFGuard's
             JavaScriptServlet replaces each quoted placeholder such as '%DOMAIN_STRICT%' with a
@@ -499,10 +649,16 @@
                 <artifactId>jakarta.json.bind-api</artifactId>
                 <version>3.0.4</version>
             </dependency>
+            <!-- Expression Language 6.0, the version Tomcat 11 implements (#5416).
+                 Provided on every path: displaytag's JSTL API still asks for EL 5 at
+                 compile scope, and Tomcat always loads jakarta.el.* from its own
+                 lib/el-api.jar, so a copy in WEB-INF/lib is never used. See
+                 docs/container-provided-apis.md. -->
             <dependency>
                 <groupId>jakarta.el</groupId>
                 <artifactId>jakarta.el-api</artifactId>
-                <version>5.0.1</version>
+                <version>6.0.1</version>
+                <scope>provided</scope>
             </dependency>
             <!-- CXF/Ehcache caching API and Guava's annotation dependency. -->
             <dependency>
@@ -679,10 +835,23 @@
 
         <!-- ==================== Jakarta EE APIs ==================== -->
 
+        <!-- Container APIs. Tomcat 11 supplies Servlet 6.1, Pages 4.0, Expression
+             Language 6.0 and Annotations 3.0 and always loads those packages from
+             its own lib/, so they are provided: on the compile and test class paths,
+             never in the WAR. Of the web-tier APIs, only JSTL is the application's to ship
+             (Tomcat has none).
+             ContainerApiPackagingUnitTest and scripts/check-war-container-apis.py keep
+             it that way; docs/container-provided-apis.md has the reasoning. -->
         <dependency>
             <groupId>jakarta.servlet</groupId>
             <artifactId>jakarta.servlet-api</artifactId>
             <version>6.1.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <!-- Version managed above (6.0.1). Declared here so the scope is explicit. -->
+        <dependency>
+            <groupId>jakarta.el</groupId>
+            <artifactId>jakarta.el-api</artifactId>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -1569,10 +1738,14 @@
                 </exclusion>
            </exclusions>
         </dependency>
+        <!-- Annotations 3.0 (@PostConstruct, @Resource, @Nonnull): Tomcat 11 always
+             loads jakarta.annotation.* from its own lib/annotations-api.jar, so a WAR
+             copy was dead weight. Provided, like the other container APIs above. -->
         <dependency>
             <groupId>jakarta.annotation</groupId>
             <artifactId>jakarta.annotation-api</artifactId>
             <version>3.0.0</version>
+            <scope>provided</scope>
         </dependency>
         <!-- Required for @Inject annotation in OAuth resources -->
         <dependency>
@@ -2150,6 +2323,18 @@
                         <groupId>io.leonard.maven.plugins</groupId>
                         <artifactId>jspc-maven-plugin</artifactId>
                         <version>5.0.0</version>
+                        <!-- jspc-maven-plugin 5.0.0 depends on Tomcat 10.1's Jasper (Pages 3.1,
+                             EL 5.0), and its class loader puts that Jasper and its EL ahead of
+                             the project's provided APIs. Compile with Tomcat 11's Jasper
+                             (the tomcat.version the build already compiles against) instead,
+                             so this check sees Pages 4.0 and EL 6.0 as production does (#5416). -->
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.apache.tomcat</groupId>
+                                <artifactId>tomcat-jasper</artifactId>
+                                <version>${tomcat.version}</version>
+                            </dependency>
+                        </dependencies>
                         <executions>
                             <execution>
                                 <id>jspc</id>
