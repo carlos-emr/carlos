@@ -90,6 +90,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
         run: |
           set -euo pipefail
 
@@ -97,19 +98,24 @@ jobs:
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER")
-          pr_commit_count=$(jq -r '.commits' <<< "$pr_json")
-
-          if [ "$pr_commit_count" -gt 250 ]; then
-            echo "::error::CARLOS EMR DCO check cannot automatically verify $pr_commit_count commits because GitHub's pull request commits API is capped at 250 commits."
-            echo "commits_missing=true" >> "$GITHUB_OUTPUT"
-            echo "dco_truncated=true" >> "$GITHUB_OUTPUT"
-            {
-              echo "PR has $pr_commit_count commits; GitHub's pull request commits API is capped at 250 commits."
-              echo "CARLOS EMR cannot safely verify every commit's DCO trailer from this endpoint."
-            } > /tmp/dco_truncated.txt
-            exit 0
+          pr_commit_count=$(jq -er '.commits | if type == "number" and . >= 0 and . == floor then . else error("invalid PR commit count") end' <<< "$pr_json")
+          pr_base_sha=$(jq -er '.base.sha' <<< "$pr_json")
+          pr_head_sha=$(jq -er '.head.sha' <<< "$pr_json")
+          if [[ ! "$pr_base_sha" =~ ^[a-f0-9]{40}$ ]] || [[ ! "$pr_head_sha" =~ ^[a-f0-9]{40}$ ]]; then
+            echo "::error::The PR API did not return valid base/head commit identities."
+            exit 1
+          fi
+          if [ "$pr_head_sha" != "$HEAD_SHA" ]; then
+            echo "::error::The PR head changed after this workflow event; refusing to certify a different revision."
+            exit 1
           fi
           echo "dco_truncated=false" >> "$GITHUB_OUTPUT"
+
+          # The PR commits endpoint stops at 250, even when paginated. The compare
+          # endpoint supports the complete paginated range. Pin both immutable SHAs
+          # from the same PR snapshot so branch updates cannot change later pages.
+          # Compare and PR totals must agree, every SHA must be unique, and the
+          # expected head must be present before automatic verification can pass.
 
           # Bot exemption is keyed to the GitHub-verified account behind the
           # commit (.author.login / .author.type from the API), NOT the
@@ -140,14 +146,22 @@ jobs:
           total=0
           passed=0
           page=1
+          head_seen=false
+          declare -A seen_commits=()
 
           while true; do
             commits=$(curl -fsSL \
               -H "Authorization: Bearer $GH_TOKEN" \
               -H "Accept: application/vnd.github+json" \
-              "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER/commits?per_page=100&page=$page")
+              "https://api.github.com/repos/$REPO/compare/$pr_base_sha...$pr_head_sha?per_page=100&page=$page")
 
-            count=$(jq 'length' <<< "$commits")
+            comparison_total=$(jq -er '.total_commits | if type == "number" and . >= 0 and . == floor then . else error("invalid comparison commit count") end' <<< "$commits")
+            if [ "$comparison_total" -ne "$pr_commit_count" ] ||
+              ! jq -e --arg base "$pr_base_sha" '.base_commit.sha == $base' <<< "$commits" >/dev/null; then
+              echo "::error::The comparison does not match the snapshotted PR history; refusing incomplete DCO verification."
+              exit 1
+            fi
+            count=$(jq -er '.commits | if type == "array" then length else error("invalid comparison commits") end' <<< "$commits")
             if [ "$count" = "0" ]; then
               break
             fi
@@ -161,10 +175,20 @@ jobs:
               parent_count=$(jq -r '.parent_count // 0' <<< "$commit")
               signature_verified=$(jq -r '.signature_verified // false' <<< "$commit")
               verification_reason=$(jq -r '.verification_reason // ""' <<< "$commit")
+              if [[ ! "$sha" =~ ^[a-f0-9]{40}$ ]] || [ -n "${seen_commits[$sha]:-}" ]; then
+                echo "::error::The comparison returned an invalid or repeated commit identity."
+                exit 1
+              fi
+              seen_commits[$sha]=1
+              if [ "$sha" = "$HEAD_SHA" ]; then head_seen=true; fi
               short="${sha:0:7}"
               subject=$(printf '%s\n' "$message" | sed -n '1p')
 
               total=$((total + 1))
+              if [ "$total" -gt "$pr_commit_count" ]; then
+                echo "::error::The comparison returned more commits than the snapshotted PR."
+                exit 1
+              fi
               if printf '%s\n' "$message" | grep -qE '^Signed-off-by: .+ <.+>'; then
                 passed=$((passed + 1))
               elif [ "$author_type" = "Bot" ] && printf '%s' "$author_login" | grep -qE "$bot_logins_regex"; then
@@ -176,7 +200,7 @@ jobs:
               else
                 missing+=("$short $subject")
               fi
-            done < <(jq -c '.[] | {
+            done < <(jq -c '.commits[] | {
               sha: .sha,
               message: .commit.message,
               author_login: (.author.login // ""),
@@ -189,6 +213,18 @@ jobs:
 
             page=$((page + 1))
           done
+
+          if [ "$total" -ne "$pr_commit_count" ] ||
+            { [ "$pr_commit_count" -gt 0 ] && [ "$head_seen" != true ]; }; then
+            echo "::error::DCO verification received $total of $pr_commit_count commits, or did not receive the expected head."
+            echo "commits_missing=true" >> "$GITHUB_OUTPUT"
+            echo "dco_truncated=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "PR has $pr_commit_count commits; the comparison returned $total and head coverage was $head_seen."
+              echo "CARLOS EMR cannot safely verify DCO until the API returns the complete snapshotted history."
+            } > /tmp/dco_truncated.txt
+            exit 0
+          fi
 
           if [ ${#bot_exempt[@]} -gt 0 ]; then
             echo "DCO-exempt bot commits (${#bot_exempt[@]}):"
@@ -488,7 +524,7 @@ jobs:
               echo ""
               cat /tmp/dco_truncated.txt
               echo ""
-              echo "Please reduce the PR commit count or have an authorized maintainer with write or higher repository permission post the manual confirmation phrase below after reviewing DCO coverage."
+              echo "Retry after the API can return the complete PR history, or have an authorized maintainer with write or higher repository permission post the manual confirmation phrase below after reviewing DCO coverage."
               echo ""
               echo '```text'
               echo "$CONFIRMATION_PHRASE at $HEAD_SHA"
