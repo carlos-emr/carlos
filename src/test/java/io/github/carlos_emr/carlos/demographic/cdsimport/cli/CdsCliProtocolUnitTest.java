@@ -58,11 +58,11 @@ class CdsCliProtocolUnitTest {
     private final PrintStream err = new PrintStream(stderr, true, StandardCharsets.UTF_8);
 
     @Test
-    void shouldSpaceProgressLines_fromFiveSecondsUpToAThirtySecondCap() {
+    void shouldSpaceProgressLines_fromFiveSecondsUpToAOneMinuteCap() {
         long delay = 0;
         List<Long> delays = new ArrayList<>();
         for (int line = 0; line < 6; line++) delays.add(delay = CdsImportCli.nextProgressDelayMillis(delay));
-        assertThat(delays).containsExactly(5_000L, 10_000L, 20_000L, 30_000L, 30_000L, 30_000L);
+        assertThat(delays).containsExactly(5_000L, 10_000L, 20_000L, 40_000L, 60_000L, 60_000L);
     }
 
     @Test

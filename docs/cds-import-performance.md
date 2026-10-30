@@ -89,7 +89,8 @@ beside both values, and the budget itself is unchanged, so a slower runner that
 samples for longer no longer charges its own monitoring to the import. Actual
 CLI progress-event counts make time-based operator reporting overhead visible.
 Each PROGRESS line reads the durable run summary, so the CLI spaces them out as
-an import runs longer: the first after 5s, then 10s and 20s, then one every 30s.
+an import runs longer: the first after 5s, then 10s, 20s and 40s, then one every
+minute.
 Bounded file and field reads share one explicit run/epoch control scope. Each
 read checks interruption and active-attempt/stage budgets locally. At every
 forced boundary, and otherwise after a wait that starts at 250ms and doubles

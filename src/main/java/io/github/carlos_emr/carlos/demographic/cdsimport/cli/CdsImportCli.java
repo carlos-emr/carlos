@@ -57,7 +57,7 @@ public final class CdsImportCli {
     /** The first PROGRESS line follows the start of an import by this long. */
     static final long FIRST_PROGRESS_MILLIS = 5_000L;
     /** Longest gap between PROGRESS lines on a long import. */
-    static final long MAXIMUM_PROGRESS_MILLIS = 30_000L;
+    static final long MAXIMUM_PROGRESS_MILLIS = 60_000L;
 
     @FunctionalInterface
     public interface RuntimeFactory {
@@ -213,7 +213,7 @@ public final class CdsImportCli {
     }
 
     /**
-     * Spaces PROGRESS lines out as an import runs longer: 5s, 10s, 20s, then every 30s. Each line reads
+     * Spaces PROGRESS lines out as an import runs longer: 5s, 10s, 20s, 40s, then every minute. Each line reads
      * the durable run summary, so a slow import does not spend a growing share of its statements on
      * reporting; the RESULT line and the durable run state stay authoritative either way.
      *
