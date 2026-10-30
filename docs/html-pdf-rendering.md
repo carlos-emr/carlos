@@ -156,7 +156,7 @@ copy a value and before right-to-left text is reordered; form controls are repla
 reordering, so a Hebrew value is reordered like any text; spans are clamped before tables are marked;
 fallback fonts come last, because their spans would split the runs that shaping reorders.
 
-**Geometry.** wkhtmltopdf's output is the reference: US Letter, 10 mm margins on all sides, 1 CSS px =
+**Geometry.** The output of wkhtmltopdf, the engine this module replaced, is the reference: US Letter, 10 mm margins on all sides, 1 CSS px =
 0.6 pt, `line-height: normal` about 1.164 for DejaVu Sans, a repeated `<thead>`, no top margin at the
 start of a page, content wider than 925 px shrunk uniformly to fit. `PrintStylesheet` and
 `PageZoomCalculator` reproduce it; the author's `@page` is ignored (`!important` on ours).
@@ -172,7 +172,7 @@ it out.
 | Wait for a slot | 10 s, once per render | The only wait in the module; a fax with several attachments queued behind `ConvertToEdoc`'s lock stays far inside the proxy's 300 s read timeout |
 | Image memory | a quarter of the heap, shared equally by the slots (256 MB per slot at the 2 GB default) | How a document's images are reduced depends only on the document and the heap size, never on load, so output is deterministic |
 | Decoded image | 25 megapixels; a header declaring more than 250 is a box; a file used as is up to 32 MB; a file read by the user agent up to 128 MB | Measured; see `ImageDecoding`, `PrintImageService`, `LocalOnlyUserAgent` |
-| HTML size | 1,000,000 characters, not counting `data:` payloads, then straight to `TEXT_ONLY` | Measured in PR 1 (below) |
+| HTML size | 1,000,000 characters, not counting `data:` payloads, then straight to `TEXT_ONLY` | Measured when the module was added (below) |
 | SVG bitmap | One per SVG, at most `clamp(maxMemory / 256, 1, 8)` million pixels (1.05 million at a 256 MB heap, 8 million from 2 GB), kept in proportion and stretched to the box | Flying Saucer rasterises an SVG with a gradient, pattern, filter, mask or translucency at its box in device dots (20 to a CSS pixel): 400 times the pixels of the CSS box, again at every draw. A 500 x 500 px chart is 400 MB |
 | Picture inside an SVG | A base64 PNG, JPEG or GIF whose header declares at most 4 million pixels | Batik decodes it in full; a 100 KB PNG can declare 900 million pixels |
 | Spans | `rowspan`/`colspan` clamped; `-fs-table-cell-*` properties removed; form control sizes capped (200 columns, 100 rows) | A span of 99,999,999,999 exhausts a 512 MB heap |
@@ -182,11 +182,11 @@ four-column table of 77 characters a row): a normal-mode layout takes 0.6 s at 1
 (2000 rows, the reference fixture), 7.9 s at 1.0 million, 15.6 s at 1.55 million, 26.9 s at 2.0
 million, 31.7 s at 2.17 million and 66 s at 3.1 million. Text-only mode takes 0.8 s at 1.0 million.
 The limit is where the worst case of the ladder (10 s wait + normal + safe + text-only) stays under
-60 s: 27 s at 1 million, 66 s at 2 million. To repeat the measurement:
-
-```sh
-bash scripts/htmlpdf/compare-with-wkhtmltopdf.sh size-limit 500,5000,13000,26000
-```
+60 s: 27 s at 1 million, 66 s at 2 million. To repeat the measurement, build `HtmlPdfRenderService` with
+the constructor that takes the limit (raise it above the size under test) and time `render` on a
+generated table of four-column rows. The tool that did this, `HtmlPdfComparisonMain size-limit`, went
+with wkhtmltopdf; `git log --diff-filter=A -- '*HtmlPdfComparisonMain.java'` finds the commit that
+added it.
 
 The time is **quadratic in the number of rows** (Flying Saucer walks the siblings of a block while it
 collapses margins; found by profiling), so characters are only a proxy: a document of very short
@@ -333,7 +333,7 @@ checks parity); the French, Spanish, Polish and Brazilian Portuguese values carr
 | `ConvertToEdoc.saveAsTempPDF(FormTransportContainer)` | `FORM` | A `Path` to the PDF in the temporary directory, or `null` (it logs why) |
 | `ConvertToEdoc.saveAsTempPDF(EFormData)` | `HRM` | The same; its only production caller is `HRMPDFCreator` |
 | `ConvertToEdoc.saveAsTempPDF(EmailData)` | `EMAIL` | The same |
-| `ConvertToEdoc.from(FormTransportContainer)` and `from(EFormData)` | `FORM`, `HRM` | An `EDoc` that wraps the saved PDF, or `null` |
+| `ConvertToEdoc.from(EFormData, Path)` | none | An `EDoc` that wraps a PDF rendered elsewhere (the headless-browser eForm path); no HTML is rendered; throws `PDFGenerationException` if the PDF is unreadable |
 | `Doc2PDF.parseString2PDF`, `parseString2Bin` and the string entry points | `MESSENGER` | Their existing failure paths; null or blank text is a failure, not a blank page |
 
 `ConvertToEdoc` does the legacy translation before it asks the service to render: it settles one
@@ -344,9 +344,8 @@ root, missing or of an unlisted type (its `FileType` list is `jpeg`, `jpg`, `png
 request: the webapp root as the base directory; the root, the eForm image directory, the temporary
 directory and Catalina's work directory as the allowed ones.
 
-**Until the follow-up change that removes wkhtmltopdf lands,** `ConvertToEdoc` renders with
-wkhtmltopdf first and hands the document to the service only when that fails (the output stream is
-reset before the second attempt, so one PDF is saved). Doc2PDF has always used Flying Saucer.
+`ConvertToEdoc` has one engine: the service. It renders the document once; a document the service
+cannot print at all is a failure of the facade (a logged `null`), not a reason to try another engine.
 
 What callers do with a failure:
 
@@ -435,7 +434,7 @@ every cell, so assert on phrases and glyph positions (`TestPdfs.glyphs`), not on
   is one bitmap.
 - **The decoded `data:` payloads of a document are not capped in total** while it is planned (each is capped
   at 128 MB, and the document string is in memory as well).
-- **HRM files in Windows-1252** decode to U+FFFD in both engines; `HRMPDFCreator` decodes UTF-8.
+- **HRM files in Windows-1252** decode to U+FFFD, as they did with wkhtmltopdf; `HRMPDFCreator` decodes UTF-8.
 - **Form controls are replaced by their text:** author CSS that targets `input`/`select`/`textarea`
   element types no longer sizes them.
 
@@ -479,12 +478,13 @@ every cell, so assert on phrases and glyph positions (`TestPdfs.glyphs`), not on
 
 ## 15 — Rollback
 
-If printed, faxed or emailed documents regress after release, revert the follow-up change that made
-the service `ConvertToEdoc`'s only engine: it restores wkhtmltopdf as the primary engine with this
-module as its fallback (and brings back the vendored jar, the JNA pin, `libxrender1` and the settings;
-regenerate `dependencies-lock.json` with `make lock`). Triage reports as GitHub issues with a
-FAKE-data reproduction (the form, values with FAKE- names, and the `htmlpdf-render` log line), never
-a patient's PDF.
+If printed, faxed or emailed documents regress after release, revert the change that made the service
+`ConvertToEdoc`'s only engine (`feat(documents): switch to Flying Saucer and remove wkhtmltopdf (2/2)`):
+it restores wkhtmltopdf as the primary engine with this module as its fallback, and brings back the
+vendored jar, the JNA pin, `libxrender1`, the settings and the comparison tool (regenerate
+`dependencies-lock.json` with `make lock`). Triage reports as GitHub issues with a FAKE-data
+reproduction (the form, values with FAKE- names, and the `htmlpdf-render` log line), never a patient's
+PDF.
 
 ## 16 — Cross-references
 
@@ -493,5 +493,3 @@ a patient's PDF.
   the layering and naming conventions this module follows.
 - [superpowers/specs/2026-10-29-flying-saucer-html-pdf-consolidation-design.md](superpowers/specs/2026-10-29-flying-saucer-html-pdf-consolidation-design.md):
   the decisions, the measurements and the full resilience table.
-- `scripts/htmlpdf/compare-with-wkhtmltopdf.sh`: the side-by-side comparison with wkhtmltopdf and the
-  size-limit measurement (PR 1 only; it goes with wkhtmltopdf).

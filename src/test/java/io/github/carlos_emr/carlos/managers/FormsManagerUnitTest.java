@@ -65,7 +65,6 @@ class FormsManagerUnitTest extends CarlosUnitTestBase {
     @Mock private EFormGroupDao mockEFormGroupDao;
     @Mock private EFormDataDao mockEFormDataDao;
     @Mock private EncounterFormDao mockEncounterFormDao;
-    @Mock private DocumentManager mockDocumentManager;
     @Mock private SecurityInfoManager mockSecurityInfoManager;
 
     private FormsManagerImpl manager;
@@ -87,7 +86,6 @@ class FormsManagerUnitTest extends CarlosUnitTestBase {
         registerMock(EFormGroupDao.class, mockEFormGroupDao);
         registerMock(EFormDataDao.class, mockEFormDataDao);
         registerMock(EncounterFormDao.class, mockEncounterFormDao);
-        registerMock(DocumentManager.class, mockDocumentManager);
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
 
         manager = new FormsManagerImpl();
@@ -95,7 +93,6 @@ class FormsManagerUnitTest extends CarlosUnitTestBase {
         injectDependency(manager, "eFormGroupDao", mockEFormGroupDao);
         injectDependency(manager, "eFormDataDao", mockEFormDataDao);
         injectDependency(manager, "encounterFormDao", mockEncounterFormDao);
-        injectDependency(manager, "documentManager", mockDocumentManager);
         injectDependency(manager, "securityInfoManager", mockSecurityInfoManager);
 
         loggedInInfo = mock(LoggedInInfo.class);
@@ -298,27 +295,6 @@ class FormsManagerUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> manager.getEncounterFormsbyDemographicNumber(loggedInInfo, 100, false, false))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageContaining("_form");
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // saveFormDataAsEDoc - security
-    // -----------------------------------------------------------------------
-
-    @Nested
-    @DisplayName("saveFormDataAsEDoc security")
-    class SaveFormDataAsEDocSecurity {
-
-        @Test
-        @DisplayName("should throw RuntimeException when edoc write privilege denied")
-        void shouldThrowException_whenEdocWriteDenied() {
-            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull()))
-                    .thenReturn(false);
-
-            assertThatThrownBy(() -> manager.saveFormDataAsEDoc(loggedInInfo, null))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("_edoc");
-            verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_edoc"), eq(SecurityInfoManager.WRITE), isNull());
         }
     }
 

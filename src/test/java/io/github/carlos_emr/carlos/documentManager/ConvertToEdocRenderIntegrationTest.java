@@ -33,28 +33,23 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.mockito.MockedConstruction;
-import org.mockito.Mockito;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
  * {@link ConvertToEdoc} through the real HTML-to-PDF service, with the webapp somewhere other than the working
  * directory (as on a Debian install, where Tomcat runs in one place and the application lives in another). The
- * wkhtmltopdf step is made to fail, which is when the service renders. The web root holds a linked style sheet, a
- * CSS {@code url()} background image and an image, the eForm image directory holds the style sheet a hidden input
- * names: all of them must load, and none may print as the "[image unavailable]" box.
+ * web root holds a linked style sheet, a CSS {@code url()} background image and an image, the eForm image
+ * directory holds the style sheet a hidden input names: all of them must load, and none may print as the
+ * "[image unavailable]" box.
  */
 @Tag("integration")
 @Tag("documentManager")
@@ -110,11 +105,7 @@ class ConvertToEdocRenderIntegrationTest extends CarlosTestBase {
         when(form.getFormName()).thenReturn("FAKE-form");
         when(form.getDemographicNo()).thenReturn("1");
 
-        Path pdf;
-        try (MockedConstruction<InternalEDocConverter> converter = Mockito.mockConstruction(InternalEDocConverter.class, (mock, context) ->
-                doThrow(new IOException("wkhtmltopdf is not available")).when(mock).convert(any(), any()))) {
-            pdf = ConvertToEdoc.saveAsTempPDF(form);
-        }
+        Path pdf = ConvertToEdoc.saveAsTempPDF(form);
 
         assertThat(pdf).isNotNull();
         byte[] bytes = Files.readAllBytes(pdf);
