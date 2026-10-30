@@ -1,3 +1,25 @@
+<!--
+Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+This software is published under the GPL GNU General Public License.
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+CARLOS EMR Project
+https://github.com/carlos-emr/carlos
+-->
+
 # OSCAR 19 `drugs.special` encoding: investigation and repair plan
 
 Status: proposed implementation; this document does not change import behavior.
@@ -107,7 +129,49 @@ Expected candidate hex: `E28093`, then `E289A4`; marker results: `1,0` for each
 row; warning count: zero. Existing non-round-tripping conversions can be
 investigated separately, but must not be used as an UPDATE recipe.
 
+### Follow-up design review
+
+The second review found an ordering issue in the initial proposal. For example,
+the synthetic envelope `C383C2A2C382E282ACC382E2809C` decodes through the existing
+guarded Windows-1252 repair to `C3A2C280C293`. Chaining the new replacement after
+that would produce `E28093` in the same pass, accepting an extra encoding layer.
+The revised plan below chooses a single repair path from the original value
+and leaves the newly exposed C1 sequence blocked.
+
+The revised candidate and residual-check design was probed with 22 synthetic
+cases under both `utf8mb4_general_ci` and `utf8mb4_bin` on each MariaDB version:
+88 case/collation/server combinations. The probes also checked emoji, NUL,
+CRLF/tab preservation, a 65535-byte source TEXT, partial sequences, both
+Windows-1252 envelopes, immutable source values, stored candidate hex, accepted
+candidate idempotence, and detection of deliberate target alteration, including
+NULL-to-text changes. Unrelated C1 characters and a legitimate NEL line
+separator beside an accented word were preserved. All passed with zero
+candidate conversion warnings.
+These are design probes built with the existing guarded repair and proposed
+SQL expressions, not tests of an implemented repair classifier, ledger wiring,
+or complete import. The integration and release gates below are still required.
+
 ## Implementation plan
+
+### Approach selection
+
+Use an exact, explicitly acknowledged repair while copying from immutable
+staging. This is the best fit for the supplied evidence and the existing
+importer: it supports both reported cases without guessing about neighboring
+characters or changing source preservation and verification semantics.
+
+| Alternative | Assessment |
+|---|---|
+| Rewrite the source during preflight | Changes the clinic's data during assessment and invalidates the measured source set. Keep preflight read-only. |
+| Generic Unicode cleanup, transliteration, or ignored conversion errors | Can alter valid medication instructions or discard meaningful symbols. Do not use. |
+| Decode every affected row through ISO-8859-1 | Assumes all characters share one encoding history; mixed correct Unicode disproves that assumption. Do not use. |
+| Patch staging or target in a separate UPDATE phase | Requires a new mutation/checkpoint protocol and a second model for digests and verification. The existing copy expression already supplies those controls. |
+| Exact replacements in the existing copy expression | Limits changes to reviewed spans, preserves the source, and lets the existing value checks verify the transformation. Recommended. |
+
+No heuristic can establish the intended meaning of every arbitrary corrupted
+clinical value. Recognized suspicious cases with no approved repair remain
+blocked for investigation;
+additional supported sequences require evidence, reviewed rules, and fixtures.
 
 ### 1. Add a narrow, versioned repair rule
 
@@ -118,11 +182,20 @@ match an unaligned substring of `HEX(special)`. Do not key on drug IDs or patien
 IDs. Do not expand to all narrative columns, punctuation, or arbitrary Unicode
 without separate evidence and review.
 
-Keep the existing Windows-1252 repair and its safety guards. Apply that guarded
-whole-row repair first where it already applies, then the two exact substring
-replacements. A value containing these C1 sequences will normally fail the
-whole-row predicate and reach only the exact replacements. Do not run a second
-whole-row conversion on the resulting valid dash or mathematical symbol.
+Keep the existing Windows-1252 repair and its safety guards. Choose mutually
+exclusive paths from the ORIGINAL normalized value:
+
+1. If the original `drugs.special` contains either exact sequence, apply only
+   the two substring replacements to that value. Preserve all other spans.
+2. Otherwise, use the existing guarded Windows-1252 repair unchanged.
+3. Check the candidate for residual corruption before accepting either path.
+
+Do not chain the two paths, run the whole-row decoder after inserting valid
+symbols, or repeatedly decode until the value looks clean. In particular, a
+Windows-1252-encoded envelope around a reported sequence can expose that sequence
+after one legacy decode. Automatically replacing it in the same pass would
+silently accept an additional encoding layer. It must remain B8. Keep existing
+original-value repeated-encoding refusals as well as the candidate checks.
 
 This ordering deliberately leaves a row containing other unresolved mojibake
 blocked. For example, `CafÃ©` beside a reported C1 sequence must not become an
@@ -130,10 +203,24 @@ accepted row merely because the C1 sequence was replaced. If supporting that
 additional mixture requires a broader decoder, stop and extend the reviewed
 rules and fixtures separately.
 
-Represent the rule version and column scope consistently in the package and
-the standalone assessment script. The standalone script must remain a single
-Python 3.4-compatible file with no package imports. Pin the deliberate duplicate
-with behavior tests in `tests/test_sql_escape_contract.py`.
+Keep the reviewed rule registry in CLI-owned code, keyed by the full
+`(table, source_column)` identity, with a stable rule-set version. Do not derive
+scope from a bare column name: `source_expr` receives a table entry, not the
+table name. Attach trusted scope metadata through the common `effective_entry`
+path, or pass it explicitly through every caller. P4 and P7 must reconstruct
+the same metadata; entry copying, renames, and archived-column expansion must
+not drop it. Enrich a copied entry rather than mutating shared ON/BC profile
+data. Never apply these rules to `drugs.comment`, `special_instruction`,
+an archived column, or another table's `special` merely because the name matches.
+
+Keep a deliberately duplicated registry/helper in the standalone assessment
+code OUTSIDE its generated manifest block. `load_manifest` and
+`write_standalone_preflight` must not erase or change it. The standalone script
+must remain one Python 3.4-compatible file with no package imports. Pin scope,
+rule bytes, branch selection, and classifier agreement with behavior tests in
+`tests/test_sql_escape_contract.py`, including a freshly exported standalone
+file and both Ontario and British Columbia profiles. This avoids requiring a
+new schema-manifest format merely to deliver CLI repair behavior.
 
 ### 2. Assess candidates without writing to the source
 
@@ -142,15 +229,35 @@ each exact rule, then evaluate the existing unrepairable and repeated-encoding
 checks on the proposed output. Do not clear B8 by subtracting every row that
 contains a known sequence: a single row can contain both known and unknown
 corruption. Detect residual C1-style corruption independently of the existing
-case-dependent marker on the target. Include the unmapped en/em-dash neighbor
-`C3A2C280C294` as a required blocking fixture under binary collation.
+case-dependent marker on the target. Specifically recognize residual ISO-style
+fragments beginning `U+00E2` followed by a C1 control (`U+0080` through `U+009F`)
+in this scoped column after the candidate is built. Use byte-exact character
+searches or a validated Unicode-aware predicate. Do not strip those characters
+or infer their replacements. Do not introduce a blanket ban on C1 characters:
+an unrelated NEL separator, for example, is outside these repair rules.
+Include the unmapped
+em-dash sequence `C3A2C280C294`, partial sequences, and newly exposed known
+sequences as required blocking fixtures under binary collation. Preserve the
+existing mixed-encoding checks for residual corruption without C1 controls.
+
+Use guarded CASE branches for candidate evaluation and any target-side
+speculative conversions. Reusing the unguarded `REPAIR_TEMPLATE` or assuming
+that AND predicates short-circuit is unsafe: correct Unicode and C1 values can
+produce conversion warnings or question marks. New candidate/count expressions
+must produce no conversion warnings; an unexpected warning/error fails the
+check. Do not change session SQL modes or warning handling globally to make a
+new expression pass.
 
 Use `CONVERT`, `UNHEX`, and binary `LOCATE` for known-rule counts on older source
 servers; these counts must not depend on modern PCRE escapes. Preserve the
 existing `charset-b8-unmeasured` disclosure where the remaining B8 scan cannot
 be performed. A query error remains an uncompleted check or a hard failure,
 never a count of zero. Distinguish an absent lower-patch-level column using only
-the existing absent-object handling.
+the existing absent-object handling. Do not claim complete residual validation
+on an older source server when it is unmeasured; the target-side gate remains
+authoritative. Do not call the target's modern PCRE-guarded repair builder from
+the standalone old-server path. Known-pattern and residual-C1 counts can use
+the portable exact-character operations without modern regex support.
 
 Keep `--accept charset-repair` as the explicit acknowledgement, with report
 text naming the two new rules. Known, fully repairable rows require that flag;
@@ -158,6 +265,16 @@ unresolved rows remain B8 with no override. Preflight must never issue UPDATEs,
 rewrite a dump, or change source digests. Do not print medication instructions
 or patient identifiers in routine reports. Report column, rule, affected-row
 count, and, if collected, a separately labeled occurrence count.
+
+Extend the repair-set decision itself: a column needs repair when it has legacy
+repairable rows OR exact-rule rows. These reported C1 rows have a legacy count
+of zero; adding only a finding or a replacement helper would leave
+`source_expr` unwrapped and silently copy the original corruption. Preserve the
+existing `repairs = {table: [column, ...]}` ledger shape and existing finding /
+verdict fields. Record rule version and counts in separate additive metadata.
+Count affected rows as a union so a row matching both rules is not counted
+twice; keep per-rule counts separately. If any row fails the residual gate, the
+entire import remains no-go before the copy, regardless of acknowledgements.
 
 ### 3. Copy and verify the same candidate
 
@@ -177,7 +294,9 @@ Bind the new transformation rules to `ETL_CONTRACT_VERSION` and the existing
 resume checks. An import already written under older rules must finish with
 its original package or restore the pre-import backup before restarting.
 Never reinterpret its completed checkpoints under the new repair. An unchanged
-rerun of the new version must remain idempotent.
+rerun of the new version must remain idempotent. Refuse unknown or inconsistent
+recorded rule versions; do not fall back to today's rules. Keep supported
+cleanup/retirement under the original package available for older workspaces.
 
 ### 4. Prove the integrated behavior before release
 
@@ -185,12 +304,17 @@ rerun of the new version must remain idempotent.
 |---|---|
 | Both reported sequences; repeated occurrences; different synthetic drug IDs | Exact expected target hex, no dependence on the tester's IDs. |
 | Correct `–`, `≤`, accents, non-Latin text, emoji, ASCII `1,800`, NULL, empty, CRLF/tab | Unchanged bytes in the utf8mb4-normalized value outside the two matched spans. |
+| Unrelated C1 characters; a NEL line separator after an accented word | No blanket control-character cleanup or new refusal outside the recognized corruption patterns. |
 | Known and unknown corruption in the same row; unmapped C1 sequence; mixed or thrice-encoded text | B8 remains; `--accept charset-repair` cannot clear it. |
+| Legacy decode exposes a new allowlisted sequence; partial or truncated sequence | No chained decode; residual corruption remains B8. |
 | Known-only rows, with and without acknowledgement | Both assessment and import require the flag; accepted copy succeeds and records rules/counts. |
+| Only new-rule rows; legacy repair count is zero | `drugs.special` is still recorded in the repair set, copied with the right expression, and verified by P7. |
 | utf8mb4_general_ci, utf8mb4_bin, target 11.8 default; genuine latin1 staging | Known detection is collation-independent; existing Windows-1252 behavior survives. |
+| Another column/table named `special`, archives, ON/BC profile switches | New rules never escape their scope; freshly exported standalone and target agree. |
 | Old source regex engine; denied/corrupt scan; absent optional column | Known detection still works; unmeasured/error/absence states remain explicit. |
 | P2/P7, deliberate target alteration, and text-size boundary | Source digests agree; faithful transformed copy verifies; altered/truncated output fails. |
 | Interrupted/resumed import and package change | Same-version resume succeeds; changed-rule resume refuses before further writes. |
+| Upgrade from the currently supported CARLOS and CLI pair | Package dependencies install the fixed CLI; target runs it rather than an older satisfying version. |
 
 Add live database tests to `carlos-ctl/tests/test_etl_mariadb.py` and verdict /
 standalone parity cases to `tests/test_preflight.py` and
@@ -208,15 +332,25 @@ Submit the runtime and regression changes to `carlos-emr/carlos-ctl`'s supported
 development branch. Publish a tested package release, then submit a separate
 integration PR to CARLOS `release/2026.08` updating `debian/carlos-ctl.pin` to the
 actual published tag and refreshing the operator documentation and rehearsal
-evidence. Do not invent a package version or pin an unpublished asset. Review
-whether the dependency floor must rise; the release pin and minimum dependency
-serve different purposes.
+evidence. Raise `debian/control`'s CLI minimum to the first published version
+providing this repair when the CARLOS release advertises it. A pin selects the
+release asset; it does not force an installed older CLI satisfying the existing
+dependency to upgrade. Test both fresh installation and upgrade from the current
+pair, and assert the version actually invoked. Do not invent a package version
+or pin an unpublished asset.
 
 Regenerate the standalone assessment from the upgraded pair of packages and
 reassess before exporting the final frozen source set. Keep existing CLI flags,
 report verdicts, schema, and source backups compatible. New rule/audit metadata
 must be additive; changing the ETL contract is an explicit protection against
 mixing old and new conversion rules during a partial import.
+
+The intended safety changes are explicit: residual ISO-style C1 patterns previously missed
+by a binary-collation scan now stop, and an import already written under old
+conversion rules cannot resume under the new contract. These are documented
+refusals, not automatic rewrites, dropped values, or a promise that upgrading
+mid-import is supported. No Flyway migration, application schema, public CLI
+flag, or unrelated-column transformation changes are required for this repair.
 
 This plan is complete when the integrated regression matrix and full rehearsal
 pass, the published CLI is pinned by the release branch, and the release notes
