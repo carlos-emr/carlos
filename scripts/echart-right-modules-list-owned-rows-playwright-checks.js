@@ -1,5 +1,25 @@
 #!/usr/bin/env node
-/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 /*
  * The eChart's right-column modules list what the patient has: Dx Registry
  * (encounter/displayDisease), Allergies (encounter/displayAllergy) and Medications
@@ -18,17 +38,16 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
-const { moduleList, seedSecondPatient, openSecondChart, releaseLocksAfter, closeChart } = require('./lib/echart-module-list');
+const { moduleList, seedSecondPatient, openSecondChart, assertDistinctCharts, releaseLocksAfter, closeChart } = require('./lib/echart-module-list');
 
 // Diabetes mellitus: '250' on a plain ICD-9 catalogue, '250.0' where the codes are dotted.
 const DX_CODE_PREFIX = '250';
 
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
-  const q = h.sqlString;
-  const dxCode = sql.value(`SELECT icd9 FROM icd9 WHERE icd9 LIKE ${q(`${DX_CODE_PREFIX}%`)} ORDER BY icd9 LIMIT 1`);
+  const dxCode = sql.value(`SELECT icd9 FROM icd9 WHERE icd9 LIKE ? ORDER BY icd9 LIMIT 1`, [`${DX_CODE_PREFIX}%`]);
   h.assert(dxCode, `No icd9 code starting ${DX_CODE_PREFIX} in this database`);
-  const dxDescription = sql.value(`SELECT description FROM icd9 WHERE icd9=${q(dxCode)} LIMIT 1`);
+  const dxDescription = sql.value(`SELECT description FROM icd9 WHERE icd9=? LIMIT 1`, [dxCode]);
   h.assert(dxDescription, `No icd9 description for ${dxCode} in this database`);
   const allergy = `${marker} allergy`;
   const drugName = `${marker} drug`;
@@ -36,22 +55,22 @@ async function workflow(s) {
   let allergyId;
   let drugId;
   s.cleanup(() => {
-    if (drugId) sql.execute(`DELETE FROM drugs WHERE drugid=${drugId} AND demographic_no=${patient}`);
-    if (allergyId) sql.execute(`DELETE FROM allergies WHERE allergyid=${allergyId} AND demographic_no=${patient}`);
-    if (dxId) sql.execute(`DELETE FROM dxresearch WHERE dxresearch_no=${dxId} AND demographic_no=${patient}`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}`) === '0', 'Owned drug remains');
-    h.assert(sql.value(`SELECT COUNT(*) FROM allergies WHERE demographic_no=${patient}`) === '0', 'Owned allergy remains');
-    h.assert(sql.value(`SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${patient}`) === '0', 'Owned diagnosis remains');
+    if (drugId) sql.execute(`DELETE FROM drugs WHERE drugid=? AND demographic_no=?`, [drugId, patient]);
+    if (allergyId) sql.execute(`DELETE FROM allergies WHERE allergyid=? AND demographic_no=?`, [allergyId, patient]);
+    if (dxId) sql.execute(`DELETE FROM dxresearch WHERE dxresearch_no=? AND demographic_no=?`, [dxId, patient]);
+    h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=?`, [patient]) === '0', 'Owned drug remains');
+    h.assert(sql.value(`SELECT COUNT(*) FROM allergies WHERE demographic_no=?`, [patient]) === '0', 'Owned allergy remains');
+    h.assert(sql.value(`SELECT COUNT(*) FROM dxresearch WHERE demographic_no=?`, [patient]) === '0', 'Owned diagnosis remains');
   });
   dxId = h.insertId(sql, `INSERT INTO dxresearch (demographic_no,start_date,update_date,status,dxresearch_code,coding_system,association,providerNo)
-    VALUES (${patient},CURDATE(),NOW(),'A',${q(dxCode)},'icd9',0,${q(provider)})`, 'owned diagnosis');
+    VALUES (?,CURDATE(),NOW(),'A',?,'icd9',0,?)`, 'owned diagnosis', [patient, dxCode, provider]);
   allergyId = h.insertId(sql, `INSERT INTO allergies (demographic_no,entry_date,start_date,DESCRIPTION,TYPECODE,reaction,nonDrug,
       severity_of_reaction,onset_of_reaction,archived,position,lastUpdateDate,providerNo)
-    VALUES (${patient},CURDATE(),CURDATE(),${q(allergy)},0,${q(`${marker} reaction`)},1,'2','1',0,0,NOW(),${q(provider)})`, 'owned allergy');
+    VALUES (?,CURDATE(),CURDATE(),?,0,?,1,'2','1',0,0,NOW(),?)`, 'owned allergy', [patient, allergy, `${marker} reaction`, provider]);
   drugId = h.insertId(sql, `INSERT INTO drugs (provider_no,demographic_no,rx_date,end_date,written_date,customName,special,archived,archived_reason,
       create_date,position,lastUpdateDate,dispenseInternal,quantity,duration,durunit,freqcode)
-    VALUES (${q(provider)},${patient},CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),${q(drugName)},
-      ${q(`${drugName} 10 mg\nTake 1 tablet daily`)},0,'',NOW(),1,NOW(),0,'30','30','D','OD')`, 'owned drug');
+    VALUES (?,?,CURDATE(),DATE_ADD(CURDATE(),INTERVAL 30 DAY),CURDATE(),?,
+      ?,0,'',NOW(),1,NOW(),0,'30','30','D','OD')`, 'owned drug', [provider, patient, drugName, `${drugName} 10 mg\nTake 1 tablet daily`]);
   const second = seedSecondPatient(s);
 
   await releaseLocksAfter(s, () => steps(s, { second, dxDescription, allergy, drugName }));
@@ -96,12 +115,13 @@ async function steps(s, { second, dxDescription, allergy, drugName }) {
   });
 
   await s.step('a second patient\'s chart lists none of them', async () => {
-    const other = await openSecondChart(s, second);
+    const other = await openSecondChart(s, second, chart);
     for (const [name, divId] of [['Dx Registry', 'Dx'], ['Allergies', 'allergies'], ['Medications', 'Rx']]) {
       const list = moduleList(other, divId);
       const shown = await list.shown();
       h.assert(shown === '0', `${name} shows ${shown} rows for a patient who has none`);
       h.assert(await list.rows.count() === 0, `${name} lists a row for a patient who has none`);
+      assertDistinctCharts(s, chart, other);
     }
     await closeChart(s, other);
   });

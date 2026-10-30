@@ -1,5 +1,25 @@
 #!/usr/bin/env node
-/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 /*
  * The Ontario bill form's service-code and diagnosis type-aheads (billingON.jsp
  * initCodeAutocomplete): ViewBillingCodeSearchAjax and ViewBillingDigSearchAjax answer
@@ -21,8 +41,7 @@ const DX_SEARCH = '/billing/CA/ON/ViewBillingDigSearchAjax';
 const DX_DESC = '/billing/CA/ON/ViewBillingONDxDesc';
 
 async function workflow(s) {
-  const q = h.sqlString;
-  const exists = (table, column) => value => s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE ${column}=${q(value)}`) !== '0';
+  const exists = (table, column) => value => s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE ${column}=?`, [value]) !== '0';
   // Ontario service codes are a letter, three digits and a suffix letter (A001A); the owned one
   // starts with Z9 so no real code shares its prefix.
   const serviceCode = unusedNumber('Z9', 4, candidate => exists('billingservice', 'service_code')(`${candidate}A`)) + 'A';
@@ -31,14 +50,14 @@ async function workflow(s) {
   const dxCode = unusedNumber('9', 3, exists('diagnosticcode', 'diagnostic_code'));
   const dxDescription = `${s.marker} diagnosis`;
   s.cleanup(() => {
-    s.sql.execute(`DELETE FROM billingservice WHERE service_code=${q(serviceCode)} AND description=${q(serviceDescription)};
-      DELETE FROM diagnosticcode WHERE diagnostic_code=${q(dxCode)} AND description=${q(dxDescription)}`);
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM billingservice WHERE service_code=${q(serviceCode)}`) === '0', 'Owned service code remains');
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM diagnosticcode WHERE diagnostic_code=${q(dxCode)}`) === '0', 'Owned diagnosis code remains');
+    s.sql.execute(`DELETE FROM billingservice WHERE service_code=? AND description=?`, [serviceCode, serviceDescription]);
+    s.sql.execute(`DELETE FROM diagnosticcode WHERE diagnostic_code=? AND description=?`, [dxCode, dxDescription]);
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM billingservice WHERE service_code=? AND description=?`, [serviceCode, serviceDescription]) === '0', 'Owned service code remains');
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM diagnosticcode WHERE diagnostic_code=? AND description=?`, [dxCode, dxDescription]) === '0', 'Owned diagnosis code remains');
   });
   s.sql.execute(`INSERT INTO billingservice (service_code,description,value,percentage,billingservice_date,specialty,region,anaesthesia)
-    VALUES (${q(serviceCode)},${q(serviceDescription)},'12.34','',DATE_SUB(CURDATE(),INTERVAL 1 YEAR),'','ON','00');
-    INSERT INTO diagnosticcode (diagnostic_code,description,status,region) VALUES (${q(dxCode)},${q(dxDescription)},'A','ON')`);
+    VALUES (?,?,'12.34','',DATE_SUB(CURDATE(),INTERVAL 1 YEAR),'','ON','00')`, [serviceCode, serviceDescription]);
+  s.sql.execute(`INSERT INTO diagnosticcode (diagnostic_code,description,status,region) VALUES (?,?,'A','ON')`, [dxCode, dxDescription]);
 
   const { page } = await openOntarioBillForm(s, 'on-bill-form-codes');
   const service = index => page.locator(`input[name="serviceCode${index}"]`);
@@ -58,6 +77,7 @@ async function workflow(s) {
     const response = suggestionsFor(page, CODE_SEARCH, term);
     await service(0).fill(term);
     const items = await (await response).json();
+    assertCodeMatches(items, term);
     const owned = items.find(item => item.code === serviceCode);
     h.assert(owned && owned.description === serviceDescription,
       `The code search did not return the owned code with its description: ${JSON.stringify(items.map(item => item.code))}`);
@@ -69,6 +89,7 @@ async function workflow(s) {
     const response = suggestionsFor(page, CODE_SEARCH, s.marker);
     await service(1).fill(s.marker);
     const items = await (await response).json();
+    assertCodeMatches(items, s.marker);
     h.assert(items.some(item => item.code === serviceCode), 'A description term did not return the owned code');
     await pickSuggestion(page, serviceCode);
     h.assert(await service(1).inputValue() === serviceCode, 'Picking from a description search did not fill the code');
@@ -80,6 +101,7 @@ async function workflow(s) {
       && new URL(r.url()).searchParams.get('diagnostic_code') === dxCode, { timeout: 20000 });
     await dx.fill(dxCode);
     const items = await (await response).json();
+    assertCodeMatches(items, dxCode);
     const owned = items.find(item => item.code === dxCode);
     h.assert(owned && owned.description === dxDescription,
       `The diagnosis search did not return the owned code with its description: ${JSON.stringify(items.map(item => item.code))}`);
@@ -101,7 +123,20 @@ async function workflow(s) {
     await page.keyboard.press('Tab');
     await page.waitForFunction(() => document.forms[0].dxCode.value === '');
   });
+
+  await s.step('an unrelated service term returns no suggestions', async () => {
+    const response = suggestionsFor(page, CODE_SEARCH, `${s.marker}-no-match`);
+    await service(2).fill(`${s.marker}-no-match`);
+    h.assert((await (await response).json()).length === 0, 'An unrelated service term returned suggestions');
+  });
+}
+
+/** Every result must answer either the code prefix or the description term. */
+function assertCodeMatches(items, term) {
+  const needle = term.toLowerCase();
+  h.assert(items.every(item => String(item.code || '').toLowerCase().startsWith(needle)
+    || String(item.description || '').toLowerCase().includes(needle)), 'The type-ahead returned an unrelated code');
 }
 
 if (require.main === module) runWorkflow('billing-on-bill-form-code-typeahead', workflow, { openMaster: false });
-module.exports = { workflow };
+module.exports = { workflow, assertCodeMatches };

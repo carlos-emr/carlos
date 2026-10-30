@@ -1,5 +1,25 @@
 #!/usr/bin/env node
-/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 /*
  * The Ontario bill form's referring-doctor type-ahead (billingON.jsp initRefDocAutocomplete):
  * ViewSearchRefDocAjax answers a name typed in the referral-doctor name field and a number
@@ -18,12 +38,10 @@ const { openOntarioBillForm, suggestionsFor, pickSuggestion, requestsWhile } = r
 const REFDOC_SEARCH = '/billing/CA/ON/ViewSearchRefDocAjax';
 
 async function workflow(s) {
-  const q = h.sqlString;
-  const referralTaken = value => s.sql.value(`SELECT COUNT(*) FROM professionalSpecialists WHERE referralNo=${q(value)}`) !== '0';
-  const specialists = [];
+  const referralTaken = value => s.sql.value(`SELECT COUNT(*) FROM professionalSpecialists WHERE referralNo=?`, [value]) !== '0';
   s.cleanup(() => {
-    for (const id of specialists) s.sql.execute(`DELETE FROM professionalSpecialists WHERE specId=${id}`);
-    h.assert(s.sql.value(`SELECT COUNT(*) FROM professionalSpecialists WHERE lName LIKE ${q(`${s.marker}%`)}`) === '0',
+    s.sql.execute('DELETE FROM professionalSpecialists WHERE lName IN (?,?) AND fName=?', [s.marker, `${s.marker}-gone`, 'FAKE']);
+    h.assert(s.sql.value(`SELECT COUNT(*) FROM professionalSpecialists WHERE lName LIKE ?`, [`${s.marker}%`]) === '0',
       'Owned specialists remain');
   });
   const lastName = s.marker;
@@ -33,9 +51,9 @@ async function workflow(s) {
   // out of the number search.
   const goneReferralNo = unusedNumber(referralNo.slice(0, 4), 6, value => value === referralNo || referralTaken(value));
   for (const [name, number, deleted] of [[lastName, referralNo, 0], [goneLastName, goneReferralNo, 1]]) {
-    specialists.push(h.insertId(s.sql, `INSERT INTO professionalSpecialists
+    h.insertId(s.sql, `INSERT INTO professionalSpecialists
         (fName,lName,referralNo,annotation,lastUpdated,institutionId,departmentId,hideFromView,deleted)
-      VALUES ('FAKE',${q(name)},${q(number)},'',NOW(),0,0,0,${deleted})`, 'owned specialist'));
+      VALUES ('FAKE',?,?,'',NOW(),0,0,0,?)`, 'owned specialist', [name, number, deleted]);
   }
 
   const { page } = await openOntarioBillForm(s, 'on-bill-form-referral');
@@ -60,6 +78,7 @@ async function workflow(s) {
     const response = suggestionsFor(page, REFDOC_SEARCH, term);
     await name.fill(term);
     const items = await (await response).json();
+    assertReferralMatches(items, term);
     const owned = items.find(item => item.referralNo === referralNo);
     h.assert(owned && owned.lastName === lastName && owned.firstName === 'FAKE',
       `The name search did not return the owned specialist: ${JSON.stringify(items.map(item => item.lastName))}`);
@@ -76,13 +95,31 @@ async function workflow(s) {
     const response = suggestionsFor(page, REFDOC_SEARCH, term);
     await code.fill(term);
     const items = await (await response).json();
+    assertReferralMatches(items, term);
     h.assert(items.some(item => item.referralNo === referralNo), 'The number search did not return the owned specialist');
     h.assert(!items.some(item => item.referralNo === goneReferralNo), 'The number search suggested a deleted specialist');
     // Suggestions are rendered by name (renderRefDocItem), not by number.
     await pickSuggestion(page, lastName);
     await expectFilled('number pick');
   });
+
+  await s.step('an unrelated referral term returns no suggestions', async () => {
+    const term = `${s.marker}-no-match`;
+    const response = suggestionsFor(page, REFDOC_SEARCH, term);
+    await name.fill(term);
+    h.assert((await (await response).json()).length === 0, 'An unrelated referral term returned suggestions');
+  });
+}
+
+/** The endpoint searches names, referral numbers, specialties, addresses and phones. */
+function assertReferralMatches(items, term) {
+  const needle = term.toLowerCase();
+  const fields = ['lastName', 'firstName', 'specialtyType', 'streetAddress'];
+  h.assert(items.every(item => fields.some(field => String(item[field] || '').toLowerCase().includes(needle))
+    || String(item.referralNo || '').startsWith(term)
+    || (/^\d+$/.test(term) && String(item.phoneNumber || '').replace(/\D/g, '').includes(term))),
+  'The referral type-ahead returned an unrelated specialist');
 }
 
 if (require.main === module) runWorkflow('billing-on-bill-form-referral-typeahead', workflow, { openMaster: false });
-module.exports = { workflow };
+module.exports = { workflow, assertReferralMatches };

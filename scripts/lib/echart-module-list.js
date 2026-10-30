@@ -1,4 +1,24 @@
-/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 /*
  * The eChart's navigation modules as lists: each module (newCaseManagementView.js.jsp's
  * leftNavBarTitles / rightNavBarTitles name its <div>) holds a <ul id="...list"> of rows,
@@ -43,21 +63,29 @@ function moduleList(chart, divId) {
  */
 function seedSecondPatient(s, firstName = 'PatientBravo') {
   const { sql, marker, provider } = s;
-  const q = h.sqlString;
-  const id = h.insertId(sql, `INSERT INTO demographic (last_name, first_name, year_of_birth, month_of_birth,
-      date_of_birth, sex, patient_status, provider_no, hc_type, province, roster_status, lastUpdateDate)
-    VALUES (${q(marker)}, ${q(firstName)}, '1975', '03', '04', 'M', 'AC', ${q(provider)}, 'ON', 'ON', 'NR', NOW())`, 'second patient');
+  let id;
+  // Register intent before INSERT: a committed insert can lose its returned key.
   s.cleanup(() => {
-    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${id} AND last_name=${q(marker)}`) === '1',
-      'The second patient fixture changed owner');
+    const owned = sql.rows('SELECT demographic_no FROM demographic WHERE last_name=? AND first_name=? AND provider_no=?',
+      [marker, firstName, provider]);
+    h.assert(owned.length <= 1, 'The second patient marker is ambiguous');
+    if (!id && owned.length === 0) return; // INSERT did not commit, or cleanup already ran.
+    h.assert(owned.length === 1 && (!id || owned[0][0] === id), 'The second patient fixture changed owner');
+    const patient = owned[0][0];
+    h.assert(/^[1-9]\d*$/.test(patient), 'The second patient key is invalid');
     const support = [
       ['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no'],
       ['demographicExt', 'demographic_no'], ['demographicArchive', 'demographic_no'],
     ];
-    sql.execute(support.map(([table, column]) => `DELETE FROM ${table} WHERE ${column}=${id}`).join(';'));
-    sql.execute(`DELETE FROM demographic WHERE demographic_no=${id} AND last_name=${q(marker)}`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${id}`) === '0', 'The second patient was not removed');
+    for (const [table, column] of support) sql.execute(`DELETE FROM ${table} WHERE ${column}=?`, [patient]);
+    sql.execute('DELETE FROM demographic WHERE demographic_no=? AND last_name=? AND first_name=? AND provider_no=?',
+      [patient, marker, firstName, provider]);
+    h.assert(sql.value('SELECT COUNT(*) FROM demographic WHERE demographic_no=?', [patient]) === '0', 'The second patient was not removed');
+    id = undefined;
   });
+  id = h.insertId(sql, `INSERT INTO demographic (last_name, first_name, year_of_birth, month_of_birth,
+      date_of_birth, sex, patient_status, provider_no, hc_type, province, roster_status, lastUpdateDate)
+    VALUES (?, ?, '1975', '03', '04', 'M', 'AC', ?, 'ON', 'ON', 'NR', NOW())`, 'second patient', [marker, firstName, provider]);
   return id;
 }
 
@@ -93,16 +121,33 @@ async function closeChart(s, chart) {
 }
 
 /** Opens the second patient's chart the way a clinician does (schedule, Search, record, E-Chart). */
-async function openSecondChart(s, demographicNo) {
+async function openSecondChart(s, demographicNo, firstChart) {
+  assertDistinctCharts(s, firstChart);
+  // Keep the login/session shared, but free the application's named popup target.
+  // Otherwise popupEChart can navigate the first patient's "encounter" window in place.
+  await firstChart.evaluate(name => { window.name = name; }, `${s.marker}-first-chart`);
   const second = await s.context.newPage();
   const schedule = new URL(s.schedule.url());
-  await h.gotoApp(second, s.config.baseUrl, schedule.pathname.replace(/^\/[^/]+/, '') + schedule.search);
+  const appRoot = s.config.baseUrl.pathname.replace(/\/$/, '');
+  h.assert(schedule.pathname.startsWith(`${appRoot}/`), 'The schedule is outside the configured application path');
+  await h.gotoApp(second, s.config.baseUrl, schedule.pathname.slice(appRoot.length) + schedule.search);
   const { masterPage } = await openMasterRecord(s.context, second, s.recorder, {
     searchTerm: s.marker, preferredDemographicNo: demographicNo, timeout: TIMEOUT });
   const chart = await openChart(s.context, masterPage, s.recorder, TIMEOUT);
   await waitForNavbars(chart, TIMEOUT);
   h.assert(new URL(chart.url()).searchParams.get('demographicNo') === String(demographicNo), 'The second chart is not the second patient\'s');
+  assertDistinctCharts(s, firstChart, chart);
   return chart;
 }
 
-module.exports = { moduleList, seedSecondPatient, openSecondChart, releaseLocksAfter, closeChart, TIMEOUT };
+/** Both windows retain their own patient while sharing one authenticated browser session. */
+function assertDistinctCharts(s, first, second) {
+  h.assert(first && !first.isClosed(), 'The first chart was closed');
+  h.assert(new URL(first.url()).searchParams.get('demographicNo') === String(s.patient), 'The first chart changed patient');
+  if (second) {
+    h.assert(first !== second && !second.isClosed(), 'The second chart reused or closed the first window');
+    h.assert(first.context() === second.context(), 'Chart isolation must be tested within the same login session');
+  }
+}
+
+module.exports = { moduleList, seedSecondPatient, openSecondChart, assertDistinctCharts, releaseLocksAfter, closeChart, TIMEOUT };
