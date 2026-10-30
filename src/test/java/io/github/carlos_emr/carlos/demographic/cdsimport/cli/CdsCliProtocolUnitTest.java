@@ -67,6 +67,58 @@ class CdsCliProtocolUnitTest {
         }
     }
 
+    /**
+     * The dedicated CLI context hand-picks its DAOs, so a shared DAO that gains a constructor
+     * dependency (MeasurementTypeDaoImpl's CacheManager, #5423) can break every CLI command at
+     * startup while the WAR still starts. Only the configuration classes are parsed, so no bean is
+     * created and nothing touches a database: the check asks whether each injected constructor
+     * parameter has a candidate bean.
+     */
+    @Test
+    void shouldResolveEveryConstructorDependency_whenCliProfileWiresTheImportContext() {
+        try (var context = new org.springframework.context.annotation.AnnotationConfigApplicationContext()) {
+            context.getEnvironment().setActiveProfiles("cds-import-cli");
+            Properties properties = new Properties();
+            context.registerBean("cdsImportProperties", Properties.class, () -> properties);
+            context.register(CdsCliSpringConfiguration.class);
+            var factory = context.getDefaultListableBeanFactory();
+            var parser = new org.springframework.context.annotation.ConfigurationClassPostProcessor();
+            parser.setEnvironment(context.getEnvironment());
+            parser.setResourceLoader(context);
+            parser.postProcessBeanDefinitionRegistry(factory);
+            assertThat(factory.containsBeanDefinition("dataSource")).isTrue();
+            List<String> unresolved = new ArrayList<>();
+            for (String name : factory.getBeanDefinitionNames()) {
+                var definition = factory.getBeanDefinition(name);
+                if (definition.getFactoryMethodName() != null || definition.getBeanClassName() == null) continue;
+                Class<?> type = factory.getType(name, false);
+                if (type == null || !type.getName().startsWith("io.github.carlos_emr.")) continue;
+                var injected = java.util.Arrays.stream(type.getDeclaredConstructors())
+                        .filter(c -> c.isAnnotationPresent(org.springframework.beans.factory.annotation.Autowired.class))
+                        .toList();
+                if (injected.isEmpty() && type.getDeclaredConstructors().length == 1) {
+                    injected = List.of(type.getDeclaredConstructors()[0]);
+                }
+                for (var constructor : injected) {
+                    for (var parameter : constructor.getParameters()) {
+                        // Property values, collections and optional/deferred lookups are not single-bean lookups.
+                        if (parameter.isAnnotationPresent(org.springframework.beans.factory.annotation.Value.class)
+                                || java.util.Collection.class.isAssignableFrom(parameter.getType())
+                                || Map.class.isAssignableFrom(parameter.getType())
+                                || parameter.getType() == java.util.Optional.class
+                                || org.springframework.beans.factory.ObjectProvider.class.isAssignableFrom(parameter.getType())) continue;
+                        var qualifier = parameter.getAnnotation(org.springframework.beans.factory.annotation.Qualifier.class);
+                        boolean resolvable = qualifier != null ? factory.containsBean(qualifier.value())
+                                : factory.getBeanNamesForType(parameter.getType(), true, false).length > 0;
+                        if (!resolvable) unresolved.add(type.getSimpleName() + "(" + parameter.getType().getName() + ")");
+                    }
+                }
+            }
+            assertThat(unresolved).isEmpty();
+            assertThat(factory.getBeanNamesForType(org.springframework.cache.CacheManager.class, true, false)).hasSize(1);
+        }
+    }
+
     @Test
     void shouldBindUtf8ArgumentsByLength_whenMatchingBothLauncherContracts() {
         String[] arguments = {"--operation", "import", "--provider", "999998", "--input", "/allowed/é.xml"};

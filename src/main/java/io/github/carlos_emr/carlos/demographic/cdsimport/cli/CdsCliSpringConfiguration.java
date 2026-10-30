@@ -67,6 +67,8 @@ import java.sql.Connection;
 import java.time.Duration;
 import java.util.Properties;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.support.NoOpCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -111,6 +113,16 @@ public class CdsCliSpringConfiguration {
 
     @Bean(name="IssueDAO")
     public IssueDAO issueDao() { return new IssueDAOImpl(); }
+
+    /**
+     * Satisfies the reference-data DAOs that now take a {@link CacheManager} (MeasurementTypeDaoImpl,
+     * #5423) without caching anything. This one-shot import process keeps every reference-data read on
+     * the database, as it did before those caches existed, and deliberately does not import the WAR's
+     * CacheConfig: that would also enable {@code @EnableCaching} and switch on annotation caching of
+     * shared provider entities inside an import.
+     */
+    @Bean
+    public CacheManager cacheManager() { return new NoOpCacheManager(); }
 
     @Bean(destroyMethod = "close")
     public OscarTrackingBasicDataSource dataSource(@Qualifier("cdsImportProperties") Properties properties) {
