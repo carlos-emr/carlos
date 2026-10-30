@@ -50,14 +50,11 @@ reject sixteen MiB plus one byte. Private JSON evidence records response status,
 proxy/backend proof and numeric rule IDs; it does not include request bodies or
 audit headers.
 
-The real blocking-engine matrix passed 32 cases with Ubuntu Nginx
-`1.28.3-2ubuntu1.12`, its ModSecurity connector `1.0.3-2build6`, libModSecurity
-`3.0.14-1build2` and CRS `3.3.8-1`. Before the exception, the actual canonical binary
-request received `403` from CRS `920420`/`949110`. The corrected policy allowed
-only the intended transaction; unrelated SQL injection still received `403`
-from `942100`/`949110`. Explicit binary over-limit requests received `413` from
-the scoped rules. This inert matrix proves the proxy boundary, not authentication
-or a completed clinical import.
+The blocking-engine matrix in `scripts/ci/run-cds-waf-boundary.py` checks, against the packaged
+Nginx, ModSecurity connector, libModSecurity and CRS versions, that the canonical binary request
+is allowed, that unrelated SQL injection still receives `403` from `942100`/`949110`, and that
+explicit binary over-limit requests receive `413` from the scoped rules. This inert matrix proves
+the proxy boundary, not authentication or a completed clinical import.
 
 Verify the native application separately through the same real proxy: a canonical
 request without a valid session/CSRF must be denied, an authorized small chunk

@@ -2,7 +2,7 @@
 
 This is the entry point for the CDS import system targeting `release/2026.08`. Browser imports and the paired `carlos-ctl` command use the same CARLOS engine, clinical models and durable recovery contracts. Import admission is disabled by default. Export is outside this delivery.
 
-These documents explain the implementation and operating contracts. Release acceptance additionally requires the executed evidence for the final candidate. Consult the [release verification contract](cds-import-release-verification.md) and [current PR verification record](https://github.com/carlos-emr/carlos/pull/5347#issuecomment-6451727760) for that distinction.
+These documents explain the implementation and operating contracts. Release acceptance additionally requires the executed evidence for the final candidate, recorded on the release pull request.
 
 ## Start by role
 
@@ -11,8 +11,8 @@ These documents explain the implementation and operating contracts. Release acce
 | Import operator | [Operator guide](cds-import-operator-guide.md) | [Web workflow](cds-import-web.md), [recovery runbook](cds-import-recovery-runbook.md) |
 | Clinical reconciler | [Clinical meaning and native writes](cds-clinical-import-contract.md) | [Prevention dates](cds-prevention-date-contract.md), [legacy reader safeguards](cds-legacy-projection-contract.md), protected per-run reports |
 | Administrator | [Maintenance admission](cds-maintenance-admission.md) | Operator guide, recovery runbook, [installed compatibility](cds-import-installed-compatibility.md) |
-| Developer or reviewer | [Architecture and class responsibilities](cds-import-architecture.md) | [Ledger and transactions](cds-import-ledger.md), clinical contract, [final review and refactor decisions](cds-import-final-review.md) |
-| Release verifier | [Release verification](cds-import-release-verification.md) | [CLI verification](cds-import-cli-verification.md), [resource verification](cds-import-performance.md), [browser lifecycle](cds-import-lifecycle-verification.md), [WAF verification](cds-import-waf-verification.md) |
+| Developer or reviewer | [Architecture and class responsibilities](cds-import-architecture.md) | [Ledger and transactions](cds-import-ledger.md), clinical contract |
+| Release verifier | [Resource verification](cds-import-performance.md) | [CLI gate](cds-import-cli-verification.md), [browser lifecycle gate](cds-import-lifecycle-verification.md), [WAF policy and gate](cds-import-waf-verification.md), [installed compatibility](cds-import-installed-compatibility.md) |
 
 ## Documentation map
 
@@ -27,7 +27,6 @@ These documents explain the implementation and operating contracts. Release acce
 | Source normalization, existing DAO composition and historical clinical semantics | [Clinical contract](cds-clinical-import-contract.md) |
 | Unknown and partial prevention dates, storage anchors and downstream meaning | [Prevention date contract](cds-prevention-date-contract.md) |
 | REST/SOAP, legacy readers and refusal of unsafe projections | [Legacy projection contract](cds-legacy-projection-contract.md) |
-| Pinned OntarioMD artifacts, scope, implementation phases and reviewed design decisions | [Implementation plan](cds-import-implementation-plan.md) |
 | Field, choice and compositor coverage | [Specification crosswalk](cds-spec-crosswalk.md), [machine-readable crosswalk](cds-spec-crosswalk.json), [review pins](cds-spec-review.json) |
 | Physical JDBC timeout and cancellation behavior | [JDBC timeout verification](cds-import-jdbc-timeouts.md) |
 | Actual host package, delegation, interruption and command compatibility | [Installed CLI verification](cds-import-cli-verification.md) |
@@ -36,8 +35,6 @@ These documents explain the implementation and operating contracts. Release acce
 | Large inputs, heap/RSS, SQL counts, disk reserve and actual ENOSPC | [Resource verification](cds-import-performance.md) |
 | Session expiry, proxy failure, tab closure and same-run recovery | [Browser lifecycle verification](cds-import-lifecycle-verification.md) |
 | Actual Nginx/ModSecurity body and route policy | [WAF verification](cds-import-waf-verification.md) |
-| Required final artifacts, non-skipping suites, CI and installed gates | [Release verification](cds-import-release-verification.md) |
-| Final independent review, remaining defects and bounded refactor decisions | [Final review](cds-import-final-review.md) |
 
 ## What completion means
 
@@ -55,4 +52,4 @@ The CARLOS application owns the shared engine, web workflow, migrations and clin
 
 Update the relevant contract when changing a public route, command, configuration property, DTO field, state transition, DAO operation, native representation, resource bound or recovery decision. Update this index when adding a document. Check relative links and examples against the implementation.
 
-Keep executed candidate-specific results in the linked verification record with their exact source/artifact identities. Preserve failures, skips, interrupted attempts and pending gates explicitly. A previous candidate's result or a source review does not certify a successor or establish OntarioMD certification.
+Keep executed candidate-specific results on the release pull request with their exact source/artifact identities. Preserve failures, skips, interrupted attempts and pending gates explicitly. A previous candidate's result or a source review does not certify a successor or establish OntarioMD certification.

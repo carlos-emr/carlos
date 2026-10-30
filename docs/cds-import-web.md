@@ -2,7 +2,7 @@
 
 Target branch: `release/2026.08`. The existing **Administration → Data Management → Demographic Import** menu and `/form/importUpload` bookmark open the durable importer.
 
-Follow the [maintenance admission procedure](cds-maintenance-admission.md), [clinical import contract](cds-clinical-import-contract.md), and [implementation plan](cds-import-implementation-plan.md). The web and foreground command adapters share the application service, source parser, ledger and clinical writers.
+Follow the [maintenance admission procedure](cds-maintenance-admission.md), and [clinical import contract](cds-clinical-import-contract.md). The web and foreground command adapters share the application service, source parser, ledger and clinical writers.
 
 Import administration requires a current active account/provider with live `_admin w` or `_cds_import w`, in addition to the applicable demographic, merge, provider and facility/program permissions. Migration `1.0.59.21` registers `_cds_import` without granting it to existing roles. An ordinary authenticated doctor cannot acquire import administration through the bookmarked route or JSON endpoints. Clinical source-field readers use their own patient/category read permissions and do not need import administration.
 
@@ -24,7 +24,7 @@ The primary status view distinguishes source patients from destination patient c
 
 If a status read fails or the session expires, the page displays **Status unknown**, retains the exact job bookmark and clearly marked last confirmed counts, and offers a read-only status refresh. It does not submit a replacement import. Terminal report or cleanup failures ask for attention rather than suggesting that background finalization is still progressing. Detailed JSON remains available under the initially closed **Advanced job details** disclosure.
 
-Each job response contains the job and its summary from one authorized database snapshot. The report generation, cancellation state and terminal predicates therefore belong together. Reopening a job, including the same job, supersedes older status and page requests: delayed responses, errors and polling callbacks cannot overwrite its newer confirmed state. These checks preserve the existing polling interval, request deadlines and bounded pages. The [final review's R10 decision](cds-import-final-review.md#coherent-browser-job-observations) describes the transaction and concurrency regressions.
+Each job response contains the job and its summary from one authorized database snapshot. The report generation, cancellation state and terminal predicates therefore belong together. Reopening a job, including the same job, supersedes older status and page requests: delayed responses, errors and polling callbacks cannot overwrite its newer confirmed state. These checks preserve the existing polling interval, request deadlines and bounded pages.
 
 Scheduled status polling, including the patient and diagnostic pages refreshed by that poll, carries `autoRefresh=true`. Both session inactivity filters continue to enforce authentication and expiry without treating these background reads as user activity. Manual opening, retrying, pagination and controls retain their normal activity semantics. The first authenticated request still initializes the inactivity timer. Leaving a status page open therefore does not keep a login alive indefinitely; an expired session can sign in again and return to its saved job URL while the durable import continues independently.
 

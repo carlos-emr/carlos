@@ -1,6 +1,6 @@
 # CDS import architecture and framework integration
 
-This document maps the import implementation to CARLOS's [Ontario billing architecture](billing-ontario-module.md) and [layer naming policy](architecture/layer-names.md). Use the [documentation index](cds-import.md) for the operating and clinical contracts. The [final review](cds-import-final-review.md) records the last independent review and focused refactor decisions.
+This document maps the import implementation to CARLOS's [Ontario billing architecture](billing-ontario-module.md) and [layer naming policy](architecture/layer-names.md). Use the [documentation index](cds-import.md) for the operating and clinical contracts.
 
 ## Responsibilities and dependency direction
 

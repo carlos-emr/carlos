@@ -331,29 +331,7 @@ runs the existing schema generator, its seed/collation validation, physical `--c
 `--verify-files` for both provinces. The optional `--schema-only` mode requires that flag and
 explicitly reports that native tests were not run; the required CI gate uses the full test mode.
 
-Before the durable-resume migration, the reviewed reference run passed all 47 native cases across nine required suites with zero
-failures, errors or skips. Both ON fixtures applied and validated all 66 migrations (450 tables);
-the BC reference applied and validated all 63 migrations (483 tables). Both generated contracts
-passed physical re-export comparison and migration/policy binding checks. The six document ORM
-cases compare exact timestamp milliseconds, so JDBC's `Timestamp` subclass does not make equal
-stored clocks fail a Java object-type equality check. These results cover the tested compiled
-candidate; whole-build, browser and installed CLI verification remain separate gates.
-
-The separate `59.24` schema proof bootstrapped fresh Ontario (450 tables, 67 migrations) and BC
-(483 tables, 64 migrations) references from the complete baseline. A second Flyway migrate/validate
-applied zero migrations in each province. Both actual generated contracts passed physical
-re-export comparison and migration/policy binding; the incremental shape is exactly one column
-and ten index-definition rows per province, with unchanged database defaults. This schema proof
-does not substitute for the combined candidate's required native recovery and installed-runtime gates.
-
-Migration `V1.0.59.25` widens `cds_import_review.kind` from 24 to 32 characters so the
-26-character `APPROVE_UNWRITTEN_REVISION` control can be durably accepted. It retains an
-already larger capacity and preserves nullability, collation, default, comment and existing
-values. Published migration bytes remain unchanged. Fresh references applied and validated
-all 68 Ontario migrations (450 tables) and 65 BC migrations (483 tables), followed by a
-zero-migration repeat. Both canonical contracts were generated from those actual databases
-and independently re-exported and checked. The only physical column change is the intended
-review-kind capacity; the migration/policy bindings were regenerated from the frozen source.
+Fresh Ontario and BC references apply and validate every migration from the complete baseline, followed by a zero-migration repeat; both generated schema contracts pass physical re-export comparison and migration/policy binding checks (`scripts/ci/run-cds-native-tier.py` and the `DB schema verify` job). Migration `V1.0.59.25` widens `cds_import_review.kind` from 24 to 32 characters so the 26-character `APPROVE_UNWRITTEN_REVISION` control can be durably accepted; it preserves nullability, collation, default, comment and existing values.
 The eight actual service/ORM acceptance cases passed without failures or skips. Three separate
 exact-SQL metadata replays preserved a quoted comment/custom collation/default, nullable
 Unicode/NULL data, and an adopted `VARCHAR(64)` capacity; second replays changed nothing.
@@ -367,7 +345,7 @@ patient. Only the owned temporary catalog was dropped, with absence verified aft
 
 A review-persistence error remains HTTP 503 with acceptance unconfirmed. A committed review
 can exist after a lost acknowledgement: refresh the same durable run before another action.
-Do not infer `NOT_ACCEPTED` or automatically resubmit. Bounded protected technical evidence
+Do not infer that the review was not accepted, and do not automatically resubmit. Bounded protected technical evidence
 and a live nonblocking operational diagnostic can explain that request failure without
 rewriting an already selected immutable report generation or changing its clinical flags.
 

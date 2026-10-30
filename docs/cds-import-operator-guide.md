@@ -16,7 +16,7 @@ Read the [web workflow](cds-import-web.md), [clinical normalization contract](cd
 
 Receive the original package, ReadMe/instructions, source audit material and ExportEventLog through the clinic's approved secure transfer process. Preserve their original names, hashes and chain of custody. Keep passwords and decryption keys outside the patient package and command arguments. The importer accepts unencrypted XML/ZIP inputs; decrypt an encrypted delivery in a private directory with the approved local tool, entering the passphrase through its protected prompt/key mechanism. Verify the decrypted archive and its vendor manifest, then import its unmodified relative directory layout. Retain both original encrypted delivery and the approved decrypted evidence according to clinic policy. Do not upload an encrypted archive and interpret refusal as a completed migration.
 
-The registered profiles are `pcon-2024-02` and `omd-5.2`. The supplied PCON and 5.2 schema pairs have identical bytes; namespace or XSD hash cannot infer the applicable narrative profile. Registration records the agreed source contract. The uploaded specification bundle provenance and normative crosswalk are in the [implementation plan](cds-import-implementation-plan.md).
+The registered profiles are `pcon-2024-02` and `omd-5.2`. The supplied PCON and 5.2 schema pairs have identical bytes; namespace or XSD hash cannot infer the applicable narrative profile. Registration records the agreed source contract. The uploaded specification bundle provenance and normative crosswalk are in the [specification crosswalk](cds-spec-crosswalk.md).
 
 ## Submit and verify a rehearsal
 

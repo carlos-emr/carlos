@@ -94,4 +94,4 @@ After database maintenance release, each web node must finish its deferred clini
 
 Record the exact software/package/runtime identities, source/profile, operator scope, upload/submission/run IDs, safe failure code, report-generation identity, last-confirmed clinical/hold/release state and the protected evidence locations. Mark each fact as observed, unknown or inferred. Preserve the failed attempt before running a later recovery command.
 
-Use the [release verification contract](cds-import-release-verification.md) for rehearsals that demonstrate these paths with actual database commits, process interruption, browser failure and constrained resources. A source review or a mocked failure test does not establish installed recovery.
+Rehearse these paths with actual database commits, process interruption, browser failure and constrained resources before relying on them; the CLI, browser-lifecycle and resource gate guides describe how. A source review or a mocked failure test does not establish installed recovery.
