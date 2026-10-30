@@ -8898,8 +8898,8 @@
       ],
       "timeoutSec": 420,
       "env": [],
-      "fixtures": "Owned FAKE-PW patient; one CPP note per box (Medical History, Ongoing Concerns, Reminders, Family History, Other Meds, Risk Factors) created through the chart '+' dialogs; all notes, issue links, ext rows, casemgmt_issue/cpp/eChart rows of the patient removed and asserted gone. Needs pdftotext.",
-      "notes": "Passes on 2026.08. Observation only: 'Print all notes' re-lists every CPP item (including one flagged Hide in CPP) as an ordinary note on page 2 of the print; the CPP-section print itself honours Hide in CPP and Archive."
+      "fixtures": "Owned FAKE-PW patient; one CPP note per box (Medical History, Ongoing Concerns, Reminders, Family History, Other Meds, Risk Factors) created through the chart '+' dialogs, plus the revisions an edit, Hide in CPP and Archive save; all notes, issue links, ext rows, hash_audit signatures and casemgmt_issue/cpp/eChart rows of the patient removed and asserted gone. Needs pdftotext.",
+      "notes": "Failed on 2026.08 beta1/beta2 (#5365): a new item stored an empty-valued extension row for every field it hid or left blank; a blank now adds no row and only clears a key the revision already holds. An edit, Hide in CPP and Archive each save a new revision (#4641), which the check follows by uuid. Observation only: 'Print all notes' re-lists every CPP item (including one flagged Hide in CPP) as an ordinary note on page 2 of the print; the CPP-section print itself honours Hide in CPP and Archive."
     },
     {
       "name": "gap-clinical-chart-print-scope",
