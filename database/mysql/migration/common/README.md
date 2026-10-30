@@ -111,3 +111,14 @@ demo-data load and the OSCAR 19 importer; a package upgrade runs Flyway alone, s
 an earlier package never received the inputs. The `UPDATE` is identical to the script's (pinned by
 `scripts/rtl-signature-stamp.test.js`), matches nothing on a fresh schema, skips customized or
 already-patched rows, and can be rerun safely.
+
+## V1.0.59.8 — Messenger chart PDFs: `messagetbl.pdfattachment` as `MEDIUMBLOB`
+
+The Messenger keeps the text of the chart PDFs it attaches (each as base64) in `messagetbl.pdfattachment`,
+which was a `BLOB`: 65,535 bytes, and with `sql_mode` not strict (as on a packaged install) MariaDB cut a longer
+text off without a word. A chart PDF with its fonts embedded is about 40 KB, 55 KB as base64, so the second PDF of
+a message was stored in two. The column becomes a `MEDIUMBLOB` (16,777,215 bytes), lossless for every stored message
+and rerunnable (`MODIFY` to the type the column already has changes nothing). InnoDB copies the table once, so on a
+large `messagetbl` the upgrade takes as long as that copy; stop the application nodes first, as for any column change.
+`MessageTbl.PDF_ATTACHMENT_MAX_BYTES` is raised to the new size in the same change, and the application still refuses
+a message whose PDFs do not fit instead of storing them cut. Apply before deploying the application.

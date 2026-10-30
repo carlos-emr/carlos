@@ -8,34 +8,42 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * The limit {@link MessageTbl} puts on the chart PDF records of a message: what its {@code pdfattachment} column
- * (a 65,535-byte BLOB) holds, counted in the bytes that are stored.
+ * (a 16,777,215-byte MEDIUMBLOB since migration V1.0.59.8) holds, counted in the bytes that are stored.
+ *
+ * @since 2026-10-30
  */
 @Tag("unit")
 @Tag("fast")
 @DisplayName("MessageTbl unit tests")
 class MessageTblUnitTest {
 
+    private static final int MAX = MessageTbl.PDF_ATTACHMENT_MAX_BYTES;
+
     @Test
-    @DisplayName("should fit no PDF records, and records of up to 65,535 bytes")
-    void shouldFit_whenThereAreNoRecordsOrTheyFillTheColumnExactly() {
-        assertThat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES).isEqualTo(65_535);
-        assertThat(MessageTbl.pdfAttachmentFits(null)).isTrue();
-        assertThat(MessageTbl.pdfAttachmentFits("")).isTrue();
-        assertThat(MessageTbl.pdfAttachmentFits("A".repeat(65_535))).isTrue();
+    @DisplayName("should be the size of a MEDIUMBLOB, which is what the column is")
+    void shouldBeTheSizeOfAMediumBlob_whichTheColumnIs() {
+        assertThat(MAX).isEqualTo(16_777_215);
     }
 
     @Test
-    @DisplayName("should not fit records of 65,536 bytes or more, which the database would cut off")
+    @DisplayName("should fit no PDF records, and records of up to the column's size")
+    void shouldFit_whenThereAreNoRecordsOrTheyFillTheColumnExactly() {
+        assertThat(MessageTbl.pdfAttachmentFits(null)).isTrue();
+        assertThat(MessageTbl.pdfAttachmentFits("")).isTrue();
+        assertThat(MessageTbl.pdfAttachmentFits("A".repeat(MAX))).isTrue();
+    }
+
+    @Test
+    @DisplayName("should not fit records of one byte more than the column holds, which the database would cut off")
     void shouldNotFit_whenOneByteOverTheColumn() {
-        assertThat(MessageTbl.pdfAttachmentFits("A".repeat(65_536))).isFalse();
-        assertThat(MessageTbl.pdfAttachmentFits("A".repeat(110_000))).isFalse();
+        assertThat(MessageTbl.pdfAttachmentFits("A".repeat(MAX + 1))).isFalse();
     }
 
     @Test
     @DisplayName("should count bytes, not characters, so a title with accents is measured as it is stored")
     void shouldCountBytes_notCharacters() {
-        // "é" is two bytes in UTF-8: 32,767 of them are 65,534 bytes, 32,768 are 65,536.
-        assertThat(MessageTbl.pdfAttachmentFits("é".repeat(32_767))).isTrue();
-        assertThat(MessageTbl.pdfAttachmentFits("é".repeat(32_768))).isFalse();
+        // "é" is two bytes in UTF-8: half the column, rounded down, is one byte short of it, and one more is one over.
+        assertThat(MessageTbl.pdfAttachmentFits("é".repeat(MAX / 2))).isTrue();
+        assertThat(MessageTbl.pdfAttachmentFits("é".repeat(MAX / 2 + 1))).isFalse();
     }
 }

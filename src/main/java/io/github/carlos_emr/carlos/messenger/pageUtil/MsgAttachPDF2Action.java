@@ -59,6 +59,7 @@ import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.form.util.FormTransportContainer;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
 import io.github.carlos_emr.carlos.messenger.pageUtil.MsgPdfAttachmentResolver.Attachment;
 import io.github.carlos_emr.carlos.messenger.pageUtil.MsgPdfAttachmentResolver.Item;
 import io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver;
@@ -303,8 +304,8 @@ public class MsgAttachPDF2Action extends ActionSupport {
             records.setCurrentAttachmentCount(records.getCurrentAttachmentCount() + 1);
         }
         String stored = records.getPDFAttachment();
-        if (!MessageTbl.pdfAttachmentFits(stored)) {
-            // The column cuts a longer text off without a word and the second PDF would arrive in two. Nothing is
+        if (!MsgMessageData.pdfAttachmentFits(stored)) {
+            // The column cuts a longer text off without a word and the last PDF would arrive in two. Nothing is
             // staged, so what was attached before stays; only sizes are logged.
             logger.warn("Refused chart PDFs of {} bytes: a message holds {}", stored.length(),
                     MessageTbl.PDF_ATTACHMENT_MAX_BYTES);

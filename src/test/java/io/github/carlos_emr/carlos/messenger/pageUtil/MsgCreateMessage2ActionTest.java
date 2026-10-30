@@ -434,10 +434,43 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
         }
 
         @Test
+        @DisplayName("should refuse chart PDFs that fit only until the send doubles a backslash of a title, and keep everything")
+        void shouldRefuseChartPdfs_whenTheyOnlyOverflowOnceQuoted() throws Exception {
+            // As staged this is exactly the column's size; the send stores it one byte over.
+            String record = "<PDF>" + "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES - "<PDF></PDF>".length() - 1) + "\\" + "</PDF>";
+            assertThat(record).hasSize(MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
+            MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, record);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            assertThat((String) getMockRequest().getAttribute("createMessageError"))
+                    .isEqualTo(MsgAttachPDF2Action.PDFS_TOO_LARGE);
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment()).isEqualTo(record);
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+        }
+
+        @Test
+        @DisplayName("should send chart PDFs that fill a message exactly once a backslash of a title is doubled")
+        void shouldSendChartPdfs_whenTheyFillAMessageExactlyOnceQuoted() throws Exception {
+            String record = "<PDF>" + "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES - "<PDF></PDF>".length() - 2) + "\\" + "</PDF>";
+            MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, record);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(sentPdfs.get()).isEqualTo(record);
+        }
+
+        @Test
         @DisplayName("should send chart PDFs that fill a message exactly")
         void shouldSendChartPdfs_whenTheyFillAMessageExactly() throws Exception {
             String exact = "<PDF>" + "A".repeat(MessageTbl.PDF_ATTACHMENT_MAX_BYTES - "<PDF></PDF>".length()) + "</PDF>";
-            assertThat(exact.length()).isEqualTo(MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
+            assertThat(exact).hasSize(MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
             MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, exact);
             action.setAttachmentKey(thisWindow);
             action.setDemographic_no("101");

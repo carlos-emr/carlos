@@ -22,17 +22,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
  * What {@link MsgMessageData} stores of a message's chart PDF records: the bytes the viewers read back, and never a
  * text the {@code pdfattachment} column would cut off without a word.
+ *
+ * @since 2026-10-30
  */
 @Tag("unit")
 @Tag("fast")
 @DisplayName("MsgMessageData unit tests")
 class MsgMessageDataUnitTest extends CarlosUnitTestBase {
+
+    private static final int MAX = MessageTbl.PDF_ATTACHMENT_MAX_BYTES;
 
     private MessageTblDao messageTblDao;
     private MsgMessageData data;
@@ -64,30 +69,68 @@ class MsgMessageDataUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should store PDF records that fill the column exactly, as the UTF-8 bytes the viewers read")
     void shouldStoreRecordsAsUtf8_whenTheyFillTheColumnExactly() {
-        String exact = "é".repeat(32_767) + "A";
+        // "é" is two bytes: the column's size is odd, so this is exactly full.
+        String exact = "é".repeat(MAX / 2) + "A";
 
         sendMessage2(exact);
         sendMessageReview(exact);
 
         ArgumentCaptor<MessageTbl> stored = ArgumentCaptor.forClass(MessageTbl.class);
-        verify(messageTblDao, org.mockito.Mockito.times(2)).persist(stored.capture());
+        verify(messageTblDao, times(2)).persist(stored.capture());
         for (MessageTbl message : stored.getAllValues()) {
-            assertThat(message.getPdfAttachment()).hasSize(MessageTbl.PDF_ATTACHMENT_MAX_BYTES)
-                    .isEqualTo(exact.getBytes(StandardCharsets.UTF_8));
+            assertThat(message.getPdfAttachment()).hasSize(MAX).isEqualTo(exact.getBytes(StandardCharsets.UTF_8));
         }
     }
 
     @Test
     @DisplayName("should refuse PDF records longer than the column, in bytes, and store nothing")
     void shouldRefuseRecordsLongerThanTheColumn_andStoreNothing() {
-        String twoBytesOver = "é".repeat(32_768);
+        String oneByteOver = "A".repeat(MAX + 1);
+        String multiByteOver = "é".repeat(MAX / 2 + 1);
 
-        assertThatThrownBy(() -> sendMessage2("A".repeat(65_536))).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("65536 bytes");
-        assertThatThrownBy(() -> sendMessage2(twoBytesOver)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> sendMessageReview("A".repeat(65_536))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> sendMessage2(oneByteOver)).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining((MAX + 1) + " bytes");
+        assertThatThrownBy(() -> sendMessage2(multiByteOver)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> sendMessageReview(oneByteOver)).isInstanceOf(IllegalArgumentException.class);
 
         verify(messageTblDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("should judge whether staged PDF records fit by the text the send stores, with each backslash doubled")
+    void shouldJudgeFit_byTheQuotedRecords() {
+        assertThat(MsgMessageData.pdfAttachmentFits(null)).isTrue();
+        assertThat(MsgMessageData.pdfAttachmentFits("A".repeat(MAX))).isTrue();
+        assertThat(MsgMessageData.pdfAttachmentFits("A".repeat(MAX + 1))).isFalse();
+        // A near-limit record with one backslash in its title: MAX characters as staged, one byte over as stored; with
+        // a character fewer it is exactly full. An apostrophe is quoted the same way.
+        assertThat(MsgMessageData.pdfAttachmentFits("A".repeat(MAX - 1) + "\\")).isFalse();
+        assertThat(MsgMessageData.pdfAttachmentFits("A".repeat(MAX - 2) + "\\")).isTrue();
+        assertThat(MsgMessageData.pdfAttachmentFits("A".repeat(MAX - 1) + "'")).isFalse();
+        assertThat(MsgMessageData.pdfAttachmentFits("A".repeat(MAX - 2) + "'")).isTrue();
+        // Two of them, in the middle of the text and not at its end.
+        assertThat(MsgMessageData.pdfAttachmentFits("A".repeat(MAX - 4) + "\\x\\")).isFalse();
+        assertThat(MsgMessageData.pdfAttachmentFits("A".repeat(MAX - 5) + "\\x\\")).isTrue();
+    }
+
+    @Test
+    @DisplayName("should store records whose backslashes are doubled up to the column's size, and refuse one byte more")
+    void shouldStoreQuotedRecords_upToTheColumnAndNoFurther() {
+        String exact = "A".repeat(MAX - 2) + "\\";
+        String oneOver = "A".repeat(MAX - 1) + "\\";
+
+        sendMessage2(exact);
+        sendMessageReview(exact);
+
+        ArgumentCaptor<MessageTbl> stored = ArgumentCaptor.forClass(MessageTbl.class);
+        verify(messageTblDao, times(2)).persist(stored.capture());
+        for (MessageTbl message : stored.getAllValues()) {
+            assertThat(message.getPdfAttachment()).hasSize(MAX)
+                    .isEqualTo(("A".repeat(MAX - 2) + "\\\\").getBytes(StandardCharsets.UTF_8));
+        }
+        assertThatThrownBy(() -> sendMessage2(oneOver)).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining((MAX + 1) + " bytes");
+        assertThatThrownBy(() -> sendMessageReview(oneOver)).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
