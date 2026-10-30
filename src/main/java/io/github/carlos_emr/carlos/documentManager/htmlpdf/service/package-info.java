@@ -33,9 +33,9 @@
  * <ul>
  *   <li>Beans are singletons with constructor injection. They hold no per-render state: the
  *       DOM, the degradation set, the renderer and the temporary directories of one render live on
- *       the calling thread for one attempt. The only state a bean keeps is immutable and shared,
- *       such as the verified {@code BundledFontSet} that {@code BundledFontFileService}
- *       publishes.</li>
+ *       the calling thread for one attempt. The only state a bean keeps is shared and thread-safe:
+ *       the verified {@code BundledFontSet} that {@code BundledFontFileService} publishes, and the
+ *       render slots (a fair semaphore) of {@code HtmlPdfRenderService}.</li>
  *   <li>No constructor does I/O. A bean reads the disk, the class path or the clock when it is
  *       first used.</li>
  *   <li>No servlet, Struts, DAO, manager or legacy facade type is imported here, and no bean is

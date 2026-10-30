@@ -59,6 +59,7 @@ final class HtmlPdfRenderException extends RuntimeException {
 
     private final PrintMode mode;
     private final Phase phase;
+    private final boolean linkageError;
 
     /**
      * Records a failure.
@@ -72,6 +73,7 @@ final class HtmlPdfRenderException extends RuntimeException {
                 + Objects.requireNonNull(phase, "phase") + " (" + Objects.requireNonNull(original, "original").getClass().getName() + ")");
         this.mode = mode;
         this.phase = phase;
+        this.linkageError = original instanceof LinkageError;
         setStackTrace(original.getStackTrace());
     }
 
@@ -81,5 +83,14 @@ final class HtmlPdfRenderException extends RuntimeException {
 
     PrintMode mode() {
         return mode;
+    }
+
+    /**
+     * Whether the original failure was a {@link LinkageError} (a missing or incompatible class): a
+     * packaging defect rather than a problem with the document, which the render service logs at
+     * ERROR while still retrying on a simpler rung.
+     */
+    boolean linkageError() {
+        return linkageError;
     }
 }
