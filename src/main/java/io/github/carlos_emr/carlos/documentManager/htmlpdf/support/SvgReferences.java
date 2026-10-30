@@ -67,8 +67,10 @@ import java.util.Set;
  * {@link #MAX_NESTED_RASTER_PIXELS} pixels (Batik decodes such an image in full: a 100 KB PNG can declare
  * 900 million pixels and take 3.6 GB). A {@code data:} URI of anything else goes: Batik reads
  * the content, not the media type, and an SVG inside a {@code data:} URI is a second document whose own
- * references this cleaner never sees (a {@code use} of one of its elements would draw a file from
- * anywhere). What goes:</p>
+ * references this cleaner never sees. As Flying Saucer runs Batik (no document URL) such a document
+ * can load nothing but {@code data:} URIs, so the cleaner is a second layer there. It does not rely on
+ * that setting, and it is also what lets the rest of a drawing print when one part of it names
+ * something outside. What goes:</p>
  *
  * <ul>
  *   <li>an {@code href}, {@code xlink:href} or {@code src} attribute with any other value, and the whole
@@ -79,7 +81,8 @@ import java.util.Set;
  *   <li>CSS, in a {@code style} attribute, a {@code <style>} element or a presentation attribute:
  *       {@code @import} rules (string or {@code url()} form), and any {@code url()} that is not a
  *       fragment or a raster {@code data:} URI, which becomes {@code none}; CSS that contains a backslash
- *       (an escape could spell {@code url(} in a way the scan misses) is emptied;</li>
+ *       (an escape could spell {@code url(} in a way the scan misses) is emptied, and so is any other
+ *       attribute value that contains one;</li>
  *   <li>processing instructions such as {@code <?xml-stylesheet?>}, and the document type, so no
  *       external DTD is ever named.</li>
  * </ul>
@@ -296,8 +299,7 @@ public final class SvgReferences {
             if (REFERENCE_ATTRIBUTES.contains(localName(attribute)) && !isLocal(value)) {
                 element.getAttributes().removeNamedItem(attribute.getNodeName());
                 changed = true;
-            } else if (containsAscii(value, "url(") || containsAscii(value, "@import")
-                    || (attribute.getNodeName().equals("style") && value.indexOf('\\') >= 0)) {
+            } else if (containsAscii(value, "url(") || containsAscii(value, "@import") || value.indexOf('\\') >= 0) {
                 Css cleaned = cleanCss(value);
                 if (cleaned.changed()) {
                     attribute.setNodeValue(cleaned.text());
@@ -396,8 +398,7 @@ public final class SvgReferences {
             if (REFERENCE_ATTRIBUTES.contains(attributeLocalName(key)) && !isLocal(value)) {
                 element.removeAttr(key);
                 changed = true;
-            } else if (containsAscii(value, "url(") || containsAscii(value, "@import")
-                    || (key.equals("style") && value.indexOf('\\') >= 0)) {
+            } else if (containsAscii(value, "url(") || containsAscii(value, "@import") || value.indexOf('\\') >= 0) {
                 Css cleaned = cleanCss(value);
                 if (cleaned.changed()) {
                     element.attr(key, cleaned.text());

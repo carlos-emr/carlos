@@ -140,7 +140,7 @@ class HtmlPdfFixturesUnitTest {
     @CsvSource(delimiter = '|', value = {"hrm/inline-styles.html|FAKE-Word style report", "email/body.html|FAKE-Secure message",
             "messenger/letter.html|FAKE-Messenger letter", "hrm/demo-text-as-html.html|FAKE-Hospital Report"})
     @DisplayName("should not print the title of the document")
-    void shouldNotPrintTitle(String fixture, String title) throws Exception {
+    void shouldNotPrintTitle_forEveryDocumentType(String fixture, String title) throws Exception {
         assertThat(flat(render(fixture))).doesNotContain(title);
     }
 
@@ -361,7 +361,7 @@ class HtmlPdfFixturesUnitTest {
             "edge/fragment-only.html|FAKE-just a fragment with a second paragraph and bold text",
             "edge/text-only.html|FAKE-Just some plain text with no tags at all. Second line of plain text."})
     @DisplayName("should print the text of unusual markup: empty and self-closing elements, misnesting, a fragment, plain text")
-    void shouldPrintEdgeMarkup(String fixture, String expected) throws Exception {
+    void shouldPrintEdgeMarkup_forUnusualInput(String fixture, String expected) throws Exception {
         HtmlPdfRenderResult result = render(fixture);
 
         assertThat(TestPdfs.pageSizes(result.pdf())).hasSize(1);

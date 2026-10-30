@@ -54,7 +54,7 @@ class HiddenContentUnitTest {
             "<div><p style=\"display:none\"><b>FAKE-Hidden</b></p></div>", "<table><tr><td style=\"display:none\">FAKE-Hidden</td><td>x</td></tr></table>",
             "<span hidden style=\"color:red\">FAKE-Hidden</span>", "<div hidden><p style=\"display:none\">FAKE-Hidden</p></div>"})
     @DisplayName("should remove an element the markup hides, with everything inside it")
-    void shouldRemoveHiddenElements(String markup) {
+    void shouldRemoveHiddenElements_withEverythingInside(String markup) {
         Document document = cleaned("<p>FAKE-Shown</p>" + markup);
 
         assertThat(document.body().text()).contains("FAKE-Shown").doesNotContain("FAKE-Hidden");
@@ -67,7 +67,7 @@ class HiddenContentUnitTest {
             "<p style=\"text-visibility:hidden\">FAKE-Shown</p>", "<p style=\"visibility: hidden-ish\">FAKE-Shown</p>",
             "<p class=\"hidePrint\">FAKE-Shown</p>", "<p aria-hidden=\"true\">FAKE-Shown</p>", "<input type=\"hidden\" value=\"FAKE-Shown\">"})
     @DisplayName("should keep what is not hidden by the markup, including what a style sheet might hide")
-    void shouldKeepVisibleElements(String markup) {
+    void shouldKeepVisibleElements_whenTheMarkupDoesNotHideThem(String markup) {
         Document document = cleaned(markup);
         String before = Jsoup.parse("<html><head></head><body>" + markup + "</body></html>").body().html();
 

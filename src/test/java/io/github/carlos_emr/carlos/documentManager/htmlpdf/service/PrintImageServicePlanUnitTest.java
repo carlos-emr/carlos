@@ -482,7 +482,7 @@ class PrintImageServicePlanUnitTest {
             "ftp://example.invalid/x.png", "jar:http://example.invalid/x.jar!/x.png", "javascript:alert(1)",
             "file://example.invalid/x.png"})
     @DisplayName("should never plan a remote or non-file source")
-    void shouldBoxRemoteSources(String src) {
+    void shouldBoxRemoteSources_inEverySpelling(String src) {
         PlannedImage image = only(plan("<img src=\"" + src + "\">"));
 
         assertThat(image.outcome()).isEqualTo(ImageOutcome.BOX);

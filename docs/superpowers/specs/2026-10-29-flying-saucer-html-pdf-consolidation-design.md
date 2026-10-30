@@ -1458,10 +1458,15 @@ List these in PR 1:
 The review of PR 1 as a whole (Important I1 to I4, Minor 1 to 15) led to these changes, each with a test
 that fails without it:
 
-- **A `data:` SVG nested in a cleaned SVG** let Batik read any local image through a `use` of one of its
-  elements. `SvgReferences` now keeps only a fragment (`#id`) or a base64 `data:` URI of a PNG, JPEG or GIF
-  whose header, read the way the pipeline reads every image, declares at most 4 million pixels (a 100 KB PNG
-  can declare 900 million); an SVG under any media type, an unreadable image and one of another format go.
+- **A `data:` SVG nested in a cleaned SVG** is a second document whose references the cleaner cannot read.
+  The review expected Batik to read any local image through a `use` of one of its elements. It does not here:
+  Flying Saucer gives Batik no document URL, so a nested `data:` document loads nothing but `data:` URIs
+  (*measured*: with the cleaner replaced by a pass-through, `HtmlPdfSsrfUnitTest` still draws no outside
+  image, inline or as an `<img>`; the SVG is only left out whole). The cleaner is therefore a second layer, and
+  it no longer depends on that: `SvgReferences` keeps only a fragment (`#id`) or a base64 `data:` URI of a PNG,
+  JPEG or GIF whose header, read the way the pipeline reads every image, declares at most 4 million pixels (a
+  100 KB PNG can declare 900 million, and Batik does decode a nested picture in full); an SVG under any media
+  type, an unreadable image and one of another format go. `SvgReferencesUnitTest` pins the rule.
 - **SVG bitmaps.** Flying Saucer draws an SVG with a gradient, pattern, filter, mask or translucency from a
   bitmap made by Batik at the size of its box in device dots, 20 to a CSS pixel and again at every draw: a
   500 x 500 px chart is 10,000 x 10,000 pixels, and a small gradient tiled as a background was made and embedded

@@ -98,18 +98,28 @@ class HtmlPdfLibraryLoggingUnitTest {
 
     /** The level the application's own {@code log4j2.xml} gives a logger of the library. */
     private static org.apache.logging.log4j.Level levelInApplicationConfig(String loggerName) throws Exception {
+        List<String> levels = levelsInApplicationConfig(loggerName);
+        if (levels.isEmpty()) {
+            throw new AssertionError("log4j2.xml has no logger for " + loggerName);
+        }
+        return org.apache.logging.log4j.Level.toLevel(levels.get(0));
+    }
+
+    /** The level of every {@code <Logger>} the application's own {@code log4j2.xml} declares under a name. */
+    private static List<String> levelsInApplicationConfig(String loggerName) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         Element configuration = factory.newDocumentBuilder().parse(Path.of("src/main/resources/log4j2.xml").toFile()).getDocumentElement();
         NodeList loggers = configuration.getElementsByTagName("Logger");
+        List<String> levels = new ArrayList<>();
         for (int i = 0; i < loggers.getLength(); i++) {
             Element logger = (Element) loggers.item(i);
             if (loggerName.equals(logger.getAttribute("name"))) {
-                return org.apache.logging.log4j.Level.toLevel(logger.getAttribute("level"));
+                levels.add(logger.getAttribute("level"));
             }
         }
-        throw new AssertionError("log4j2.xml has no logger for " + loggerName);
+        return levels;
     }
 
     /** Sets the level of the library's logger in the running configuration; the capture removes the logger when it closes. */
@@ -239,19 +249,7 @@ class HtmlPdfLibraryLoggingUnitTest {
     @DisplayName("should hold the library's logger at WARN in the application's log4j2.xml")
     void shouldPinLibraryLoggerAtWarn_inLog4jConfig() throws Exception {
         // The tests run with src/test/resources/log4j2.xml, so the application's own file is read directly.
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        Element configuration = factory.newDocumentBuilder().parse(Path.of("src/main/resources/log4j2.xml").toFile()).getDocumentElement();
-
-        NodeList loggers = configuration.getElementsByTagName("Logger");
-        List<String> levels = new ArrayList<>();
-        for (int i = 0; i < loggers.getLength(); i++) {
-            Element logger = (Element) loggers.item(i);
-            if (LIBRARY_LOGGER.equals(logger.getAttribute("name"))) {
-                levels.add(logger.getAttribute("level"));
-            }
-        }
+        List<String> levels = levelsInApplicationConfig(LIBRARY_LOGGER);
 
         assertThat(levels).as("exactly one <Logger name=\"org.xhtmlrenderer\">").containsExactly("warn");
     }
