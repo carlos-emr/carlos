@@ -433,6 +433,14 @@ every cell, so assert on phrases and glyph positions (`TestPdfs.glyphs`), not on
 - **Long right-to-left passages** that wrap print their lines in reverse order (the note says so).
 - **Progress and meter bars** fill from the left even in right-to-left text, where a browser fills from the right;
   the filled share is right.
+- **The label of a very small placeholder box** (an image under about 45 pixels wide) is clipped even at the smallest
+  size (4 pt); a wider box wraps it between its words and sets it smaller to fit. The box still marks where the
+  image was.
+- **Messenger carries about one chart PDF per message.** `messagetbl.pdfattachment` is a 65,535-byte `BLOB`
+  (`MessageTbl.PDF_ATTACHMENT_MAX_BYTES`) and a PDF with its fonts embedded is about 40 KB, 55 KB as base64. The
+  application refuses what does not fit (a 413 when attaching, the compose page again when sending) instead of
+  letting MariaDB cut the text off; several PDFs in one message need the column to be a `MEDIUMBLOB`, a migration
+  for a maintainer (see the pull request that made the switch, #5444).
 - **Stylesheet-defined `position: fixed`** still repeats on every page; an inline one is rewritten.
 - **A table with both `<thead>` and row spans** prints its header once.
 - **Top margins at the start of a page** are dropped only for the body and its direct first child (as
