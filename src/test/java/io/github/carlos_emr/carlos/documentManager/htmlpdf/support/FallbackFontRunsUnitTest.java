@@ -35,11 +35,9 @@ import org.apache.pdfbox.text.PDFTextStripper;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 
 import java.io.ByteArrayOutputStream;
@@ -79,15 +77,8 @@ class FallbackFontRunsUnitTest {
     private static final String GURMUKHI = chars(0xA15);
     private static final String REPLACEMENT = chars(0xFFFD);
 
-    @TempDir
-    Path directory;
-
-    private BundledFontSet fonts;
-
-    @BeforeEach
-    void loadFonts() throws Exception {
-        fonts = TestFonts.extractTo(directory);
-    }
+    private final Path directory = TestFonts.sharedDirectory();
+    private final BundledFontSet fonts = TestFonts.sharedFonts();
 
     private static String chars(int... codePoints) {
         return new String(codePoints, 0, codePoints.length);

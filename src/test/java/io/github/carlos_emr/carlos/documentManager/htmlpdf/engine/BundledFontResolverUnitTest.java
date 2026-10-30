@@ -35,11 +35,9 @@ import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.pdfbox.text.TextPosition;
 import org.assertj.core.data.Offset;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 
 import java.io.ByteArrayOutputStream;
@@ -69,15 +67,8 @@ class BundledFontResolverUnitTest {
      */
     private static final String EMOJI = new String(Character.toChars(0x1F600));
 
-    @TempDir
-    Path directory;
-
-    private BundledFontSet fonts;
-
-    @BeforeEach
-    void loadFonts() throws Exception {
-        fonts = TestFonts.extractTo(directory);
-    }
+    private final Path directory = TestFonts.sharedDirectory();
+    private final BundledFontSet fonts = TestFonts.sharedFonts();
 
     // ---- families ---------------------------------------------------------------------------
 

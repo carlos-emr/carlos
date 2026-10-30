@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BundledFontSet
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BundledFontSet.Face;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -77,6 +78,12 @@ class BundledFontFileServiceUnitTest {
     Path otherRoot;
 
     private final ClassLoader classes = getClass().getClassLoader();
+
+    /** Each test writes the fonts under a new directory; OpenPDF would keep a parsed copy of each for the whole run. */
+    @AfterEach
+    void forgetCachedFonts() {
+        TestFonts.clearOpenPdfFontCache();
+    }
 
     // ---- directory and files ----------------------------------------------------------------
 

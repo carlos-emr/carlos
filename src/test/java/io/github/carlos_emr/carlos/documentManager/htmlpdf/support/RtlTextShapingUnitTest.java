@@ -34,7 +34,6 @@ import org.jsoup.nodes.Document;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 
 import java.io.ByteArrayOutputStream;
@@ -340,8 +339,9 @@ class RtlTextShapingUnitTest {
 
     @Test
     @DisplayName("should print right-to-left text in the right visual order, read back from the PDF")
-    void shouldPrintInVisualOrder_whenRenderedByFlyingSaucer(@TempDir Path fontDirectory) throws Exception {
-        BundledFontSet fonts = TestFonts.extractTo(fontDirectory);
+    void shouldPrintInVisualOrder_whenRenderedByFlyingSaucer() throws Exception {
+        Path fontDirectory = TestFonts.sharedDirectory();
+        BundledFontSet fonts = TestFonts.sharedFonts();
         Document document = shaped("<p dir=\"rtl\">" + SHALOM + " 123</p><p dir=\"rtl\">" + SALAM + "</p>");
         String xhtml = XhtmlCleanup.serialize(document);
 

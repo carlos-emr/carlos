@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.documentManager.htmlpdf.engine;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.TestFonts;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BundledFontSet.Face;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -48,21 +47,15 @@ import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 @DisplayName("BundledFontSet Unit Tests")
 class BundledFontSetUnitTest {
 
+    /** The shared copy of the fonts, so the parsed fonts OpenPDF caches by path are not multiplied by the tests. */
+    private final Path shared = TestFonts.sharedDirectory();
+    private final Path sans = shared.resolve("DejaVuSans.ttf");
+    private final Path sansBold = shared.resolve("DejaVuSans-Bold.ttf");
+    private final Path cjk = shared.resolve("wqy-microhei.ttc");
+    private final Path symbol = shared.resolve("Symbola_hint.ttf");
+
     @TempDir
     Path directory;
-
-    private Path sans;
-    private Path sansBold;
-    private Path cjk;
-    private Path symbol;
-
-    @BeforeEach
-    void copyFonts() throws IOException {
-        sans = TestFonts.copy(TestFonts.SANS_REGULAR, directory);
-        sansBold = TestFonts.copy(TestFonts.SANS_BOLD, directory);
-        cjk = TestFonts.copy(TestFonts.CJK, directory);
-        symbol = TestFonts.copy(TestFonts.SYMBOL, directory);
-    }
 
     @Test
     @DisplayName("should report which characters each face can draw")
