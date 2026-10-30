@@ -30,6 +30,8 @@ import java.nio.file.Path;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.LinkedHashMap;
+import java.lang.reflect.Field;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -59,10 +61,17 @@ class CdsImmunizationProjectionIntegrationTest extends CarlosTestBase {
     @Autowired private PartialDateDao dates;
     @Autowired private CVCMappingDao mappings;
     @Autowired private CVCImmunizationDao vaccines;
+    @Autowired private io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager catalogue;
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager entityManager;
 
     @Test
     void shouldReadBackConfiguredTypesAndSourceNames_forEverySchemaImmunizationType() throws Exception {
+        try (var ignored = new NativeCatalogueScope(true)) {
+            readBackConfiguredTypesAndSourceNames();
+        }
+    }
+
+    private void readBackConfiguredTypesAndSourceNames() throws Exception {
         var factory = io.github.carlos_emr.carlos.utility.XmlUtils.createSecureDocumentBuilderFactory();
         factory.setNamespaceAware(true);
         var parser = factory.newDocumentBuilder();
@@ -95,6 +104,57 @@ class CdsImmunizationProjectionIntegrationTest extends CarlosTestBase {
             var stored = preventions.find(id);
             assertThat(display.getPrevention(stored.getPreventionType())).as("Native page recognizes %s", type).isNotNull();
             assertThat(extensions.getPreventionExt(id)).containsEntry("cdsName", "Synthetic product café").containsEntry("cdsType", type);
+        }
+    }
+
+    @Test
+    void shouldUseCurrentCatalogue_andRestoreDelegatesAfterAnEarlierContext() throws Exception {
+        try (var original = new NativeCatalogueScope(false)) {
+            var stale = org.mockito.Mockito.mock(CVCMappingDao.class, call -> {
+                throw new IllegalStateException("Previous test application context is closed");
+            });
+            field("cvcMapping").set(null, stale);
+            try (var current = new NativeCatalogueScope(true)) {
+                var display = PreventionDisplayConfig.getInstance();
+                display.loadPreventions();
+                assertThat(display.getPrevention("BCG")).as("Native catalogue uses current context").isNotNull();
+            }
+            assertThat(field("cvcMapping").get(null)).isSameAs(stale);
+        }
+    }
+
+    private static Field field(String name) throws Exception {
+        var field = PreventionDisplayConfig.class.getDeclaredField(name);
+        field.setAccessible(true);
+        return field;
+    }
+
+    private final class NativeCatalogueScope implements AutoCloseable {
+        private final Map<Field, Object> previous = new LinkedHashMap<>();
+        private final String previousItems;
+
+        private NativeCatalogueScope(boolean bindCurrent) throws Exception {
+            for (String name : new String[]{"cvcMapping", "cvcImmunizationDao", "cvcManager", "preventionDisplayConfig"}) {
+                var field = field(name); previous.put(field, field.get(null));
+            }
+            previousItems = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("PREVENTION_ITEMS");
+            if (bindCurrent) {
+                field("cvcMapping").set(null, mappings);
+                field("cvcImmunizationDao").set(null, vaccines);
+                field("cvcManager").set(null, catalogue);
+                var constructor = PreventionDisplayConfig.class.getDeclaredConstructor();
+                constructor.setAccessible(true);
+                field("preventionDisplayConfig").set(null, constructor.newInstance());
+                io.github.carlos_emr.CarlosProperties.getInstance().setProperty("PREVENTION_ITEMS",
+                        "classpath:oscar/prevention/PreventionItems.xml");
+            }
+        }
+
+        @Override public void close() throws Exception {
+            for (var entry : previous.entrySet()) entry.getKey().set(null, entry.getValue());
+            var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+            if (previousItems == null) properties.remove("PREVENTION_ITEMS");
+            else properties.setProperty("PREVENTION_ITEMS", previousItems);
         }
     }
 }
