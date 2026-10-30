@@ -99,7 +99,13 @@ public final class ConvertToEdoc {
 
     public enum ElementAttribute {src, href, value, name, id, title, type, rel, media}
 
-    private enum FileType {pdf, css, jpeg, png, gif, js, jpg}
+    /**
+     * The extensions a local resource path may have. The picture types are the ones the HTML-to-PDF service
+     * draws when it is given a file: PNG, JPEG and GIF as they are, BMP, WBMP and TIFF after converting them,
+     * and SVG after removing its outside references. WebP and HEIC stay out on purpose: the service does not
+     * decode them, so they print as the "[image unavailable]" box whether or not they are listed here.
+     */
+    private enum FileType {pdf, css, jpeg, png, gif, js, jpg, bmp, wbmp, tif, tiff, svg}
 
     public static final String CUSTOM_STYLESHEET_ID = "pdfMediaStylesheet";
     private static final String OSCAR_IMAGE_PATH_TOKEN = "${oscar_image_path}";

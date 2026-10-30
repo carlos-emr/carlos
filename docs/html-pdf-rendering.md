@@ -346,10 +346,12 @@ checks parity); the French, Spanish, Polish and Brazilian Portuguese values carr
 `ConvertToEdoc` does the legacy translation before it asks the service to render: it settles one
 webapp root, rewrites each element's resource paths (every occurrence of a repeated `src` is
 translated and validated) into encoded `file:` URIs, and gives an `<img>` that is remote, outside the
-root, missing or of an unlisted type (its `FileType` list is `jpeg`, `jpg`, `png`, `gif`, `css`,
-`js`, `pdf`) a `data-carlos-image-unavailable` marker so it prints as the box. It then builds one
-request: the webapp root as the base directory; the root, the eForm image directory, the temporary
-directory and Catalina's work directory as the allowed ones.
+root, missing or of an unlisted type a `data-carlos-image-unavailable` marker so it prints as the box.
+The `FileType` list holds the picture types the service draws (`jpeg`, `jpg`, `png`, `gif`, `bmp`,
+`wbmp`, `tif`, `tiff`, `svg`) and the `css`, `js` and `pdf` a document may link; it is only the front
+door, as the service judges a file by its content, not its extension (a `.png` that is a PDF is still a
+box). It then builds one request: the webapp root as the base directory; the root, the eForm image
+directory, the temporary directory and Catalina's work directory as the allowed ones.
 
 **Until the follow-up change that removes wkhtmltopdf lands,** `ConvertToEdoc` renders with
 wkhtmltopdf first and hands the document to the service only when that fails (the output stream is
@@ -417,8 +419,9 @@ every cell, so assert on phrases and glyph positions (`TestPdfs.glyphs`), not on
 ## 13 — Known limitations
 
 - **WebP and HEIC images** are not decoded and print as the box.
-- **`ConvertToEdoc` image types:** only `jpeg`, `jpg`, `png` and `gif` pass its `FileType` list; other
-  files named by path (BMP, TIFF, SVG) show the box. The same formats inside a `data:` URI are drawn.
+- **`ConvertToEdoc` image types:** a picture named by path passes by its extension (`jpeg`, `jpg`, `png`,
+  `gif`, `bmp`, `wbmp`, `tif`, `tiff`, `svg`, in any case); any other extension (`.webp`, `.heic`,
+  `.jfif`) shows the box. The same formats inside a `data:` URI are drawn.
 - **Indic and Thai scripts** (Devanagari, Gurmukhi, Tamil, Thai) have no bundled glyphs or shaping and
   print as U+FFFD (wkhtmltopdf printed boxes). Some Persian and Urdu letter forms are missing from
   DejaVu Sans. Copying or searching shaped Arabic out of the PDF yields presentation forms in visual
