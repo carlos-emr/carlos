@@ -36,6 +36,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.List;
@@ -399,6 +400,79 @@ public final class ImageDecoding {
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an ImageIO reader's format name (an internal ASCII identifier such as png, never user input); not a security or authorization decision")
     private static boolean isListed(ImageReader reader) throws IOException {
         return LISTED_FORMATS.contains(reader.getFormatName().toLowerCase(Locale.ROOT));
+    }
+
+    // ---- progressive JPEG -------------------------------------------------------------------
+
+    /**
+     * Whether a JPEG file is progressive (its frame header is SOF2 or one of the other progressive
+     * markers).
+     *
+     * <p>The JDK's JPEG reader keeps the coefficients of a progressive JPEG in native memory, about
+     * four bytes per source pixel whatever the subsampling (see {@link #readSubsampled(Path, int)}),
+     * so a caller that has to decode one budgets it by its source size. Only the marker segments
+     * before the frame header are read, never more than the first mebibyte of the file.</p>
+     *
+     * @param file the image file
+     * @return {@code true} for a progressive JPEG; {@code false} for a baseline one, for anything
+     *         that is not a JPEG and for a file that cannot be read; never throws because of the
+     *         file's content
+     * @throws NullPointerException if {@code file} is {@code null}
+     */
+    public static boolean isProgressiveJpeg(Path file) {
+        Objects.requireNonNull(file, "file");
+        try (InputStream in = Files.newInputStream(file)) {
+            return progressive(in.readNBytes((int) MAX_EXIF_SCAN_BYTES));
+        } catch (IOException | RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Whether a JPEG held in memory is progressive. The same rules as {@link #isProgressiveJpeg(Path)}.
+     *
+     * @param data the image bytes; not modified
+     * @return {@code true} for a progressive JPEG
+     * @throws NullPointerException if {@code data} is {@code null}
+     */
+    public static boolean isProgressiveJpeg(byte[] data) {
+        Objects.requireNonNull(data, "data");
+        try {
+            return progressive(data);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /** Walks the marker segments from the start of the image to the frame header. */
+    private static boolean progressive(byte[] head) {
+        if (head.length < 4 || (head[0] & 0xFF) != 0xFF || (head[1] & 0xFF) != 0xD8) {
+            return false;
+        }
+        int position = 2;
+        while (position + 4 <= head.length) {
+            if ((head[position] & 0xFF) != 0xFF) {
+                return false;
+            }
+            int marker = head[position + 1] & 0xFF;
+            if (marker == 0xFF) {
+                position++;
+                continue;
+            }
+            if (marker >= 0xC0 && marker <= 0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC) {
+                // SOF2, SOF6, SOF10 and SOF14 are the progressive frames (Huffman, differential, arithmetic).
+                return marker == 0xC2 || marker == 0xC6 || marker == 0xCA || marker == 0xCE;
+            }
+            if (marker == 0xDA || marker == 0xD9) {
+                return false;
+            }
+            int length = ((head[position + 2] & 0xFF) << 8) | (head[position + 3] & 0xFF);
+            if (length < 2) {
+                return false;
+            }
+            position += 2 + length;
+        }
+        return false;
     }
 
     // ---- EXIF orientation -------------------------------------------------------------------

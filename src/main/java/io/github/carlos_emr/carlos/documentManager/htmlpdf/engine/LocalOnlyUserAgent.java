@@ -35,7 +35,6 @@ import javax.imageio.ImageIO;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -45,7 +44,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -315,28 +313,9 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
         }
     }
 
-    /**
-     * Compares canonical paths, so symbolic links and {@code ..} segments cannot lead out of an
-     * allowed directory. It fails closed, and it never logs the paths it compares:
-     * {@code PathValidationUtils.validateExistingPath} does the same comparison but logs both full
-     * paths at ERROR for every directory that does not match, which this module's logging rule
-     * forbids.
-     */
+    /** Delegates to {@link AllowedDirectories}: canonical paths, fails closed, never logs a path. */
     private boolean isInAllowedDirectory(Path target) {
-        try {
-            String canonicalTarget = target.toFile().getCanonicalPath();
-            for (Path allowed : allowedDirectories()) {
-                String canonicalAllowed = allowed.toFile().getCanonicalPath();
-                if (canonicalTarget.equals(canonicalAllowed)
-                        || canonicalTarget.startsWith(canonicalAllowed + File.separator)) {
-                    return true;
-                }
-            }
-        } catch (IOException | RuntimeException e) {
-            logger.warn("Could not check a path against the allowed directories; the resource is blocked ({})",
-                    e.getClass().getSimpleName());
-        }
-        return false;
+        return AllowedDirectories.contains(allowedDirectories(), target);
     }
 
     private List<Path> allowedDirectories() {
@@ -454,19 +433,7 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
 
     /** Decodes the payload of a {@code data:} URI, or returns {@code null} if it is not a usable base64 image. */
     private static byte[] decodeDataUri(String uri) {
-        int comma = uri.indexOf(',');
-        if (comma < 0 || !uri.substring(0, comma).toLowerCase(Locale.ROOT).contains(";base64")) {
-            return null;
-        }
-        long encodedLength = (long) uri.length() - comma - 1;
-        if (encodedLength / 4 * 3 > MAX_FILE_BYTES) {
-            return null;
-        }
-        try {
-            return Base64.getMimeDecoder().decode(uri.substring(comma + 1));
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
+        return DataUris.decodeBase64(uri, MAX_FILE_BYTES).orElse(null);
     }
 
     private static boolean looksLikeSvg(Path file) {
