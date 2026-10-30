@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
+import java.util.Objects;
 
 /** Pure conversion from scalar persistence facts to the existing application contracts. */
 final class CdsImportProjections {
@@ -48,7 +49,9 @@ final class CdsImportProjections {
     }
 
     static CdsImportReviewSummaryDto toDto(io.github.carlos_emr.carlos.commn.dto.CdsImportReviewSummaryDto row) {
-        return row == null ? null : new CdsImportReviewSummaryDto(row.id(), row.state(), row.errorCode(), row.pending(), row.inactiveDrafts());
+        // The DAO supplies an IDLE row when no review exists; this projection is required.
+        Objects.requireNonNull(row, "Review summary projection");
+        return new CdsImportReviewSummaryDto(row.id(), row.state(), row.errorCode(), row.pending(), row.inactiveDrafts());
     }
 
     static CdsImportReviewOriginDto toDto(io.github.carlos_emr.carlos.commn.dto.CdsImportReviewOriginDto row) {
