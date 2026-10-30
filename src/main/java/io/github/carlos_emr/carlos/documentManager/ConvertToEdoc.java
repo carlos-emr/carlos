@@ -114,6 +114,8 @@ public final class ConvertToEdoc {
     private static final String DEFAULT_WKHTMLTOPDF_COMMAND = "/usr/bin/wkhtmltopdf";
     private static final String DEFAULT_WKHTMLTOPDF_ARGS = "--enable-local-file-access --minimum-font-size 10 --print-media-type --encoding utf-8 -T 10mm -L 8mm -R 8mm --disable-javascript";
     private static final String BACKGROUND_ATTRIBUTE = "background";
+    /** Marks an {@code <img>} whose source cannot be used; the HTML-to-PDF module prints the "[image unavailable]" box for it. */
+    public static final String UNAVAILABLE_IMAGE_ATTRIBUTE = "data-carlos-image-unavailable";
     private static final String STYLE_ATTRIBUTE = "style";
     private static String realPath;
 
@@ -606,7 +608,7 @@ public final class ConvertToEdoc {
         if (filename != null) {
             Element linkElement = document.createElement("link");
             linkElement.attr("rel", "stylesheet");
-            linkElement.attr("href", filename);
+            linkElement.attr("href", toFileUri(filename));
             getHeadElement(document).appendChild(linkElement);
         }
     }
@@ -616,24 +618,30 @@ public final class ConvertToEdoc {
      * translated into an absolute path to the global image directory.
      */
     private static void translateResourcePaths(Document document) {
-        Map<List<String>, Element> pathTranslationMap = new HashMap<>();
+        // Keyed by element, not by the candidate paths: every <img> of a repeated src is translated.
+        Map<Element, List<String>> pathTranslationMap = new LinkedHashMap<>();
         translateLinkPaths(document, pathTranslationMap);
         translateImagePaths(document, pathTranslationMap);
         translateBackgroundAttributes(document);
         translateInlineStylePaths(document);
         translateEmbeddedStylesheetPaths(document);
 
-        for (Map.Entry<List<String>, Element> pathSet : pathTranslationMap.entrySet()) {
-            if (!pathSet.getKey().isEmpty()) {
-                Element element = pathSet.getValue();
-                List<String> path = pathSet.getKey();
+        for (Map.Entry<Element, List<String>> pathSet : pathTranslationMap.entrySet()) {
+            if (!pathSet.getValue().isEmpty()) {
+                Element element = pathSet.getKey();
+                // The first candidate that is a readable file, as an encoded file: URI.
+                String path = toFileUri(validateLink(pathSet.getValue()));
+                if (path == null) {
+                    markOrRemoveUnresolved(element);
+                    continue;
+                }
 
                 if (element.hasAttr(ElementAttribute.href.name())) {
-                    element.attr(ElementAttribute.href.name(), path.get(0));
+                    element.attr(ElementAttribute.href.name(), path);
                 }
 
                 if (element.hasAttr(ElementAttribute.src.name())) {
-                    element.attr(ElementAttribute.src.name(), path.get(0));
+                    element.attr(ElementAttribute.src.name(), path);
                 }
             }
         }
@@ -642,7 +650,7 @@ public final class ConvertToEdoc {
     /**
      * CSS (link) resource links
      */
-    private static void translateLinkPaths(Document document, Map<List<String>, Element> pathTranslationMap) {
+    private static void translateLinkPaths(Document document, Map<Element, List<String>> pathTranslationMap) {
         Elements linkNodeList = document.getElementsByTag("link");
         translatePaths(linkNodeList, ElementAttribute.href, pathTranslationMap);
     }
@@ -650,7 +658,7 @@ public final class ConvertToEdoc {
     /**
      * Javascript resource links
      */
-    private static void translateJavascriptPaths(Document document, Map<List<String>, Element> pathTranslationMap) {
+    private static void translateJavascriptPaths(Document document, Map<Element, List<String>> pathTranslationMap) {
         Elements linkNodeList = document.getElementsByTag("script");
         translatePaths(linkNodeList, ElementAttribute.src, pathTranslationMap);
     }
@@ -658,7 +666,7 @@ public final class ConvertToEdoc {
     /**
      * Image resource links
      */
-    private static void translateImagePaths(Document document, Map<List<String>, Element> pathTranslationMap) {
+    private static void translateImagePaths(Document document, Map<Element, List<String>> pathTranslationMap) {
         Elements imageNodeList = document.getElementsByTag("img");
         translatePaths(imageNodeList, ElementAttribute.src, pathTranslationMap);
     }
@@ -668,7 +676,7 @@ public final class ConvertToEdoc {
             String originalPath = element.attr(BACKGROUND_ATTRIBUTE);
             String translatedPath = translateSingleResourcePath(originalPath);
             if (translatedPath != null) {
-                element.attr(BACKGROUND_ATTRIBUTE, translatedPath);
+                element.attr(BACKGROUND_ATTRIBUTE, toFileUri(translatedPath));
             } else if (!isEmbeddedDataResourcePath(originalPath)) {
                 element.removeAttr(BACKGROUND_ATTRIBUTE);
             }
@@ -718,7 +726,7 @@ public final class ConvertToEdoc {
         if (translatedPath != null) {
             // translateSingleResourcePath returns data: URIs unchanged, so this branch
             // also handles embedded data resources (they arrive here with translatedPath == originalPath).
-            rewrittenCss.append("url('").append(SafeEncode.forCssString(translatedPath)).append("')");
+            rewrittenCss.append("url('").append(SafeEncode.forCssString(toFileUri(translatedPath))).append("')");
         } else {
             rewrittenCss.append("url('')");
         }
@@ -892,28 +900,55 @@ public final class ConvertToEdoc {
      * a Struts HTTP request parameter or HTTP relative context path.
      * All resource links in the document must be absolute for the PDF
      * creator to work.
-     * TODO filter out relative URI's and external URL's without a proper place holder so they can be removed
+     *
+     * <p>A link or script that cannot be translated (remote, outside the web root, not found) is
+     * removed. An image that cannot be translated is kept as an unavailable marker, so that the printed
+     * page shows the "[image unavailable]" box where the picture should be instead of silently
+     * closing up the layout.</p>
      *
      * @param nodeList           jsoup Elements collection of potential resource links
      * @param pathAttribute      jsoup ElementAttribute to be translated to an absolute link
-     * @param pathTranslationMap Map to collect translated URI's
+     * @param pathTranslationMap Map to collect translated URI's, in document order
      */
-    private static void translatePaths(Elements nodeList, ElementAttribute pathAttribute, Map<List<String>, Element> pathTranslationMap) {
+    private static void translatePaths(Elements nodeList, ElementAttribute pathAttribute, Map<Element, List<String>> pathTranslationMap) {
         for (Element element : nodeList) {
             if (element.hasAttr(pathAttribute.name())) {
                 String path = element.attributes().get(pathAttribute.name());
                 if (isExternalResourcePath(path)) {
-                    element.remove();
+                    markOrRemoveUnresolved(element);
                 } else if (!isEmbeddedDataResourcePath(path)) {
                     List<String> potentialFilePaths = collectPotentialFilePaths(path);
                     if (!potentialFilePaths.isEmpty()) {
-                        pathTranslationMap.put(potentialFilePaths, element);
+                        pathTranslationMap.put(element, potentialFilePaths);
                     } else {
-                        element.remove();
+                        markOrRemoveUnresolved(element);
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Gives up on a resource that cannot be read: a picture keeps its place as an unavailable marker
+     * (no {@code src}, so nothing can be fetched; the PDF renderer prints a box), anything else is removed.
+     */
+    private static void markOrRemoveUnresolved(Element element) {
+        if (element.normalName().equals("img")) {
+            element.removeAttr(ElementAttribute.src.name()).removeAttr("srcset").attr(UNAVAILABLE_IMAGE_ATTRIBUTE, "");
+        } else {
+            element.remove();
+        }
+    }
+
+    /**
+     * A translated path as an encoded {@code file:} URI, so a directory or file name with a space or an
+     * accent loads; {@code data:} URIs and null pass through.
+     */
+    private static String toFileUri(String translatedPath) {
+        if (translatedPath == null || isEmbeddedDataResourcePath(translatedPath)) {
+            return translatedPath;
+        }
+        return Path.of(translatedPath).toUri().toString();
     }
 
     private static boolean isExternalResourcePath(String path) {
@@ -1006,16 +1041,16 @@ public final class ConvertToEdoc {
      * remove paths to the filesystem or to external sources that are not valid.
      */
     private static void validateResourcePaths(Document document) {
-        Map<List<String>, Element> pathTranslationMap = new HashMap<>();
+        Map<Element, List<String>> pathTranslationMap = new LinkedHashMap<>();
         translateLinkPaths(document, pathTranslationMap);
         translateImagePaths(document, pathTranslationMap);
         translateJavascriptPaths(document, pathTranslationMap);
-        for (Map.Entry<List<String>, Element> pathSet : pathTranslationMap.entrySet()) {
-            Element element = pathSet.getValue();
-            List<String> paths = pathSet.getKey();
+        for (Map.Entry<Element, List<String>> pathSet : pathTranslationMap.entrySet()) {
+            Element element = pathSet.getKey();
+            List<String> paths = pathSet.getValue();
             if (validateLink(paths) == null) {
-                // vamoose
-                element.remove();
+                // vamoose (a picture stays as an unavailable marker)
+                markOrRemoveUnresolved(element);
             }
         }
     }

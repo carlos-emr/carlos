@@ -4,6 +4,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.AfterEach;
@@ -136,12 +137,12 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
         String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
 
-        // SafeEncode.forCssString encodes '/' in the absolute path — match the encoded form.
-        assertThat(tidied).contains("url('" + SafeEncode.forCssString(image.toAbsolutePath().toString()) + "')");
+        // A translated path is an encoded file: URI; SafeEncode.forCssString encodes '/' in it — match the encoded form.
+        assertThat(tidied).contains("url('" + SafeEncode.forCssString(image.toAbsolutePath().toUri().toString()) + "')");
     }
 
     @Test
-    @DisplayName("should strip unresolved absolute file paths during tidy")
+    @DisplayName("should strip unresolved absolute file paths during tidy, and keep the image as an unavailable marker")
     void shouldStripUnresolvedAbsoluteFilePaths_whenTidyingDocument(@TempDir Path tempDir) {
         String html = "<html><body><img src=\"/etc/passwd\"><div background=\"/etc/passwd\">x</div></body></html>";
 
@@ -150,6 +151,8 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
         assertThat(tidied)
                 .doesNotContain("/etc/passwd")
                 .doesNotContain("background=\"/etc/passwd\"");
+        // The image is not removed: the printed page shows a box where it was.
+        assertThat(Jsoup.parse(tidied).select("img[data-carlos-image-unavailable]:not([src])")).hasSize(1);
     }
 
     @Test
@@ -162,8 +165,8 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
         String tidied = ConvertToEdoc.tidyDocument(html, tempDir.toString());
 
         assertThat(tidied)
-                .contains("background=\"" + image.toAbsolutePath() + "\"")
-                .contains("background-image:url('" + SafeEncode.forCssString(image.toAbsolutePath().toString()) + "')")
+                .contains("background=\"" + image.toAbsolutePath().toUri() + "\"")
+                .contains("background-image:url('" + SafeEncode.forCssString(image.toAbsolutePath().toUri().toString()) + "')")
                 .doesNotContain("background-image:url( 'stamp(1).png' )");
     }
 
@@ -187,8 +190,134 @@ class ConvertToEdocUnitTest extends CarlosUnitTestBase {
 
         Document document = ConvertToEdoc.getDocument(html, tempDir.toString());
 
+        // The link and the script go; the image stays as an unavailable marker without a source or a path.
         assertThat(document.select("link[href], img[src], script[src]")).isEmpty();
+        assertThat(document.select("link, script")).isEmpty();
+        assertThat(document.select("img[data-carlos-image-unavailable]")).hasSize(1);
+        assertThat(document.outerHtml()).doesNotContain("passwd");
     }
+    @Test
+    @DisplayName("should translate every image when the same src is used several times")
+    void shouldTranslateEveryImage_whenSrcRepeats(@TempDir Path tempDir) throws Exception {
+        Path stamp = Files.createFile(tempDir.resolve("stamp.png"));
+        String html = "<html><body><img id=\"a\" src=\"stamp.png\"><img id=\"b\" src=\"stamp.png\"><img id=\"c\" src=\"stamp.png\"></body></html>";
+
+        Document tidied = Jsoup.parse(ConvertToEdoc.tidyDocument(html, tempDir.toString()));
+
+        assertThat(tidied.select("img")).hasSize(3);
+        for (String id : java.util.List.of("a", "b", "c")) {
+            assertThat(tidied.getElementById(id).attr("src")).as(id).isEqualTo(stamp.toAbsolutePath().toUri().toString());
+        }
+    }
+
+    @Test
+    @DisplayName("should emit encoded file URIs for translated paths, so a space or an accent in a folder name loads")
+    void shouldEmitEncodedFileUris_forTranslatedPaths(@TempDir Path tempDir) throws Exception {
+        Path root = Files.createDirectory(tempDir.resolve("FAKE dir " + (char) 0xE9));
+        Files.createFile(root.resolve("stamp.png"));
+        Files.createFile(root.resolve("print.css"));
+        String html = "<html><head><link rel=\"stylesheet\" href=\"print.css\"></head><body><img src=\"stamp.png\"></body></html>";
+
+        Document tidied = Jsoup.parse(ConvertToEdoc.tidyDocument(html, root.toString()));
+
+        String src = tidied.selectFirst("img").attr("src");
+        assertThat(src).startsWith("file:").contains("%20").contains("%C3%A9").doesNotContain(" ");
+        assertThat(Path.of(java.net.URI.create(src))).isEqualTo(root.resolve("stamp.png").toRealPath());
+        assertThat(tidied.selectFirst("link").attr("href")).startsWith("file:").contains("%20").contains("%C3%A9");
+    }
+
+    @Test
+    @DisplayName("should keep an image it cannot resolve, or whose type is not allowed, as an unavailable marker without a source")
+    void shouldMarkUnresolvedImage_insteadOfRemoving(@TempDir Path tempDir) throws Exception {
+        Files.createFile(tempDir.resolve("scan.bmp"));
+        String html = "<html><body><img id=\"missing\" src=\"missing.png\" width=\"90\" height=\"40\">"
+                + "<img id=\"bmp\" src=\"scan.bmp\" srcset=\"scan.bmp 2x\"></body></html>";
+
+        Document tidied = Jsoup.parse(ConvertToEdoc.tidyDocument(html, tempDir.toString()));
+
+        assertThat(tidied.select("img")).hasSize(2);
+        for (String id : java.util.List.of("missing", "bmp")) {
+            assertThat(tidied.getElementById(id).hasAttr("data-carlos-image-unavailable")).as(id).isTrue();
+            assertThat(tidied.getElementById(id).hasAttr("src")).as(id).isFalse();
+            assertThat(tidied.getElementById(id).hasAttr("srcset")).as(id).isFalse();
+        }
+        // The size the author gave is kept, so the box takes the picture's place.
+        assertThat(tidied.getElementById("missing").attr("width")).isEqualTo("90");
+        assertThat(tidied.outerHtml()).doesNotContain("missing.png").doesNotContain("scan.bmp");
+    }
+
+    @Test
+    @DisplayName("should keep a remote, protocol-relative or file: image as an unavailable marker, without its address")
+    void shouldMarkRemoteImage_insteadOfRemoving(@TempDir Path tempDir) {
+        String html = "<html><body><img src=\"http://evil.example/t.png\"><img src=\"https://evil.example/t.png\">"
+                + "<img src=\"//evil.example/t.png\"><img src=\"file:///etc/passwd\"></body></html>";
+
+        Document tidied = Jsoup.parse(ConvertToEdoc.tidyDocument(html, tempDir.toString()));
+
+        assertThat(tidied.select("img[data-carlos-image-unavailable]:not([src])")).hasSize(4);
+        assertThat(tidied.outerHtml()).doesNotContain("evil.example").doesNotContain("passwd");
+    }
+
+    @Test
+    @DisplayName("should keep removing links and scripts it cannot resolve while tidying")
+    void shouldKeepRemovingUnresolvedLinksAndScripts_whenTidying(@TempDir Path tempDir) {
+        String html = "<html><head><link rel=\"stylesheet\" href=\"missing.css\"><link rel=\"stylesheet\" href=\"http://evil.example/x.css\">"
+                + "<script src=\"missing.js\"></script><script src=\"https://evil.example/x.js\"></script></head><body><p>text</p></body></html>";
+
+        Document tidied = Jsoup.parse(ConvertToEdoc.tidyDocument(html, tempDir.toString()));
+
+        assertThat(tidied.select("link, script")).isEmpty();
+        assertThat(tidied.text()).isEqualTo("text");
+    }
+
+    @Test
+    @DisplayName("should point an image at the first candidate that is a readable file, not at the first candidate")
+    void shouldUseFirstReadableCandidate_whenAnImageSrcNamesSeveralParameters(@TempDir Path tempDir) throws Exception {
+        String originalEformImagesDir = CarlosProperties.getInstance().getProperty("EFORM_IMAGES_DIR");
+        Path imageDirectory = Files.createDirectories(tempDir.resolve("eform-images"));
+        CarlosProperties.getInstance().setProperty("EFORM_IMAGES_DIR", imageDirectory.toString());
+        Path logo = Files.createFile(imageDirectory.resolve("logo.png"));
+        try {
+            // Two parameters name a file in the image directory; only the second one exists.
+            String html = "<html><body><img src=\"eform/displayImage?junk=missing.png&imagefile=logo.png\"></body></html>";
+
+            Document tidied = Jsoup.parse(ConvertToEdoc.tidyDocument(html, tempDir.toString()));
+
+            assertThat(tidied.selectFirst("img").attr("src")).isEqualTo(logo.toAbsolutePath().toUri().toString());
+        } finally {
+            if (originalEformImagesDir == null) {
+                CarlosProperties.getInstance().remove("EFORM_IMAGES_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("EFORM_IMAGES_DIR", originalEformImagesDir);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("should link the custom stylesheet named by the hidden input as an encoded file URI")
+    void shouldLinkCustomStylesheet_asFileUri(@TempDir Path tempDir) throws Exception {
+        String originalEformImagesDir = CarlosProperties.getInstance().getProperty("EFORM_IMAGES_DIR");
+        Path imageDirectory = Files.createDirectories(tempDir.resolve("eform images"));
+        CarlosProperties.getInstance().setProperty("EFORM_IMAGES_DIR", imageDirectory.toString());
+        Path stylesheet = Files.writeString(imageDirectory.resolve("letter print.css"), "p { color: #123456 }");
+        try {
+            String html = "<html><head></head><body><input type=\"hidden\" id=\"" + ConvertToEdoc.CUSTOM_STYLESHEET_ID
+                    + "\" name=\"s\" value=\"letter print.css\"><p>x</p></body></html>";
+
+            Document tidied = Jsoup.parse(ConvertToEdoc.tidyDocument(html, tempDir.toString()));
+
+            String href = tidied.selectFirst("head link[rel=stylesheet]").attr("href");
+            assertThat(href).startsWith("file:").contains("letter%20print.css").contains("eform%20images");
+            assertThat(Path.of(java.net.URI.create(href))).isEqualTo(stylesheet.toRealPath());
+        } finally {
+            if (originalEformImagesDir == null) {
+                CarlosProperties.getInstance().remove("EFORM_IMAGES_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("EFORM_IMAGES_DIR", originalEformImagesDir);
+            }
+        }
+    }
+
     @Test
     @DisplayName("should preserve oscar image path resources when backing files exist")
     void shouldPreserveOscarImagePathResources_whenBackingFilesExist(@TempDir Path tempDir) throws Exception {
