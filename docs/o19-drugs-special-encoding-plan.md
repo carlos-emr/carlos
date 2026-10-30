@@ -386,8 +386,11 @@ The installed-package CI job now includes the new encoding module.
 
 `fixtures/drug-special.sql` and the SQL semantics verifier here add a separate
 synthetic oracle for the stored bytes, hard B8 refusals, source preservation,
-and P7's detection of a deliberately altered repaired instruction. Until the
+and P7's detection of a deliberately altered repaired instruction. It checks
+source preservation on both refused and accepted paths and independently
+rejects missing target rows, including a row with a NULL instruction. Until the
 fixed CLI is published, run that verifier with `CARLOS_CTL_SRC` selecting the
-reviewed implementation checkout; an older CLI fails explicitly instead of
-skipping the regression. Complete clinic cutover/rollback and release-upgrade
+reviewed implementation checkout and `--require-exact-special-repair`. Capable
+CLIs run the check automatically; older CLIs explicitly skip it by default and
+fail when that flag requires it. Complete clinic cutover/rollback and release-upgrade
 rehearsals remain release gates, rather than claims established by these tests.

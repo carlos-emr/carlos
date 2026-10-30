@@ -768,6 +768,40 @@ class TestTheSqlSemanticsOracleStaysUsable(unittest.TestCase):
             "--password", "-p", "--protocol=tcp",
         ]), ["-p", "--password", "--password", "--password", "-p"])
 
+    def test_old_cli_skips_only_the_optional_exact_repair_check(self):
+        client = mock.Mock()
+        output = io.StringIO()
+        with mock.patch.object(self.mod, "o19_preflight", types.SimpleNamespace()), \
+                contextlib.redirect_stdout(output):
+            failures = self.mod.check_exact_special_repair(
+                client, "scratch_src", "scratch_dst", required=False)
+        self.assertEqual(failures, [])
+        self.assertIn("SKIPPED", output.getvalue())
+        self.assertIn("--require-exact-special-repair", output.getvalue())
+        self.assertEqual(client.mock_calls, [])
+
+    def test_requiring_exact_repair_fails_with_an_old_cli(self):
+        client = mock.Mock()
+        with mock.patch.object(self.mod, "o19_preflight", types.SimpleNamespace()):
+            failures = self.mod.check_exact_special_repair(
+                client, "scratch_src", "scratch_dst", required=True)
+        self.assertEqual(len(failures), 1)
+        self.assertIn("lacks the scoped drugs.special repair", failures[0])
+        self.assertEqual(client.mock_calls, [])
+
+    def test_main_passes_the_explicit_exact_repair_requirement(self):
+        for required in (False, True):
+            argv = ["--require-exact-special-repair"] if required else []
+            with self.subTest(required=required), \
+                    mock.patch.object(self.mod, "Client") as client, \
+                    mock.patch.object(self.mod, "same_statement_visibility"), \
+                    mock.patch.object(self.mod, "_run_checks", return_value=0) as run, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                client.return_value.run.return_value = (0, "test server", "")
+                self.assertEqual(self.mod.main(argv), 0)
+                self.assertEqual(run.call_args.args[1].require_exact_special_repair,
+                                 required)
+
     def test_it_drives_a_table_the_manifest_still_calls_merge(self):
         # if consultationServices ever stops being merge-class, or loses
         # its surrogate key, the script would be checking nothing

@@ -111,7 +111,10 @@ The exact `drugs.special` regression in `verify_sql_semantics.py` uses the
 isolated synthetic `fixtures/drug-special.sql` oracle. It requires the fixed
 CLI from [carlos-ctl #18](https://github.com/carlos-emr/carlos-ctl/pull/18);
 until that package is published, select the reviewed checkout through
-`CARLOS_CTL_SRC`. An older CLI fails the check explicitly. The fixture is
+`CARLOS_CTL_SRC`. Capable CLIs run this check automatically; the pinned 1.2.1
+CLI prints an explicit skip while the existing checks still run. Add
+`--require-exact-special-repair` to make a missing capability fail, including
+when validating the fixed CLI for release. The fixture is
 loaded only into the verifier's disposable schemas, never a clinic database.
 
 ## Verifying the DDL parse
