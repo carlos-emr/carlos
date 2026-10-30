@@ -1132,7 +1132,15 @@ types, so the engine package does not depend on the request record.
   (`FallbackFontRuns` makes every character drawable or U+FFFD first), and `log4j2.xml`
   gains `<Logger name="org.xhtmlrenderer" level="warn"/>` so that raising CARLOS's
   verbosity (for example the devcontainer's `debug-on`) never turns on the library's INFO
-  and DEBUG output.
+  and DEBUG output. The SLF4J route is the one that matters in practice, *measured* on
+  10.7.0: the CSS parser traces every declaration of the document's CSS with its values
+  (`url(patient-123.png)`, a `font-family` name), and one paragraph produces over a thousand
+  events at TRACE; at WARN a document with malformed CSS, unknown fonts, missing images and
+  missing glyphs produces none. `HtmlPdfLibraryLoggingUnitTest` renders such a document at the
+  level the application's `log4j2.xml` sets and asserts that nothing the library logs, through
+  either route, contains document text, and shows at TRACE that it otherwise would. An
+  operator's `log4j.override.configuration` replaces the whole file, so the comment beside the
+  logger tells them to carry it.
 
 **Callers' requests:**
 
