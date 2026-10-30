@@ -123,6 +123,18 @@ class LocalOnlyUserAgentUnitTest {
         }
     }
 
+    @Test
+    @DisplayName("should preserve CSS streams that contain literal SVG markup")
+    void shouldPreserveStylesheet_whenCssMentionsSvg(@TempDir Path directory) throws Exception {
+        String css = "/* Inline SVG example: <svg xmlns='http://www.w3.org/2000/svg'/> */ p { color: red }";
+        Path stylesheet = Files.writeString(directory.resolve("print.css"), css);
+
+        try (InputStream stream = invokeResolveAndOpenStream(createAgent(directory), stylesheet.toUri().toString())) {
+            assertThat(stream).isNotNull();
+            assertThat(new String(stream.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).isEqualTo(css);
+        }
+    }
+
     /** Tests for the resolveAndOpenStream method — the SSRF chokepoint. */
     @Nested
     @DisplayName("resolveAndOpenStream")

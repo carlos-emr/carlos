@@ -47,6 +47,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -155,6 +156,9 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
     private UnaryOperator<byte[]> svgCleaner = bytes -> null;
 
     private int leftOutImages;
+
+    /** Only image loads are sanitized; an ordinary CSS stream may contain literal SVG markup. */
+    private final Set<Path> svgImageFiles = new HashSet<>();
 
     /**
      * The pictures reduced to fit, by the URI they were asked for. Flying Saucer caches what it loads itself, but
@@ -272,7 +276,7 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
             if (lower.startsWith("file:")) {
                 try {
                     Path file = Path.of(new URI(uri));
-                    if (looksLikeSvg(file) && ImageDecoding.readHeader(file).isEmpty()) {
+                    if (svgImageFiles.contains(file)) {
                         try (InputStream stream = Files.newInputStream(file)) {
                             byte[] bytes = stream.readNBytes(MAX_SVG_BYTES + 1);
                             if (bytes.length > MAX_SVG_BYTES) {
@@ -419,7 +423,11 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
         if (header.isEmpty()) {
             // Not a vetted raster format. SVG is Flying Saucer's to draw; a PDF (which it would
             // render as an image), WebP, HEIC and everything else is refused.
-            return file != null && looksLikeSvg(file) ? null : new ImageResource(uriStr, null);
+            if (file != null && looksLikeSvg(file)) {
+                svgImageFiles.add(file);
+                return null;
+            }
+            return new ImageResource(uriStr, null);
         }
         ImageHeader h = header.get();
         if (h.pixels() > ImageDecoding.MAX_SOURCE_PIXELS) {
