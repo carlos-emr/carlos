@@ -31,14 +31,16 @@ io.github.carlos_emr.carlos.documentManager.htmlpdf
 ├── dto/       HtmlPdfRenderRequest, HtmlPdfRenderResult, HtmlPdfRenderSource, HtmlPdfRenderDegradation
 ├── service/   Spring beans. Only HtmlPdfRenderService is public
 │              (PrintDocumentComposer, PrintImageService, PrintLayoutService, RenderedPdfValidator,
-│               BundledFontFileService; PageZoomCalculator, PrintMode, HtmlPdfRenderException, PreparedPrintImages)
+│               BundledFontFileService; PageZoomCalculator, PageGeometry, PrintMode, HtmlPdfRenderException,
+│               PreparedPrintImages, ImagePlan, PlannedImage, ImageOutcome)
 ├── support/   Static markup rules and printed text (domain nouns, no suffix, private constructor)
-│              XhtmlCleanup, PrintFormControls, RtlTextShaping, FallbackFontRuns, SystemColors,
-│              LegacyBodyMargins, SafeModeMarkup, PlainTextDocument, ImageBox, SvgReferences,
-│              PrintStylesheet, PrintMessages
+│              XhtmlCleanup, EngineExtensions, PrintFormControls, RtlTextShaping, FallbackFontRuns,
+│              SystemColors, LegacyBodyMargins, SafeModeMarkup, HiddenContent, PlainTextDocument,
+│              ImageBox, SvgReferences, SvgViewBox, PrintStylesheet, PrintMessages;
+│              package-private: InlineStyle, HtmlAttributeNumbers
 └── engine/    Flying Saucer and OpenPDF extensions, one set per render
-               LocalOnlyUserAgent, AllowedDirectories, DataUris, ImageDecoding,
-               BundledFontResolver, BundledFontSet
+               LocalOnlyUserAgent, BoundedOutputDevice, AllowedDirectories, DataUris, ImageDecoding,
+               ImageHeader, BundledFontResolver, BundledFontSet
 ```
 
 ```
@@ -70,7 +72,7 @@ htmlpdf service tier (Spring beans)
    PrintImageService     plans and prepares every image
    PrintLayoutService    layout passes and placement on Letter
    BundledFontFileService, RenderedPdfValidator
-Engine extensions (per render): LocalOnlyUserAgent, BundledFontResolver, BundledFontSet
+Engine extensions (per render): LocalOnlyUserAgent, BoundedOutputDevice, BundledFontResolver, BundledFontSet
 ```
 
 Rules, as in [billing-ontario-module.md](billing-ontario-module.md) §3 and
@@ -125,7 +127,7 @@ The document steps, in this order:
 
 | Step | Rule | Where |
 |---|---|---|
-| a | Remove `<script>` and every comment (an HTML comment may contain `--`, which XML does not allow) | `XhtmlCleanup` |
+| a | Remove `<script>` and every comment (an HTML comment may contain `--`, which XML does not allow), then Flying Saucer's own `-fs-` CSS properties from `style` attributes and `<style>` text (`-fs-table-cell-rowspan` bypasses the span clamp of step f) | `XhtmlCleanup`, `EngineExtensions` |
 | b | Remove soft hyphens and invisible bidi marks from text and `value` attributes | `XhtmlCleanup` |
 | c | Form controls become static text and marks (section 9) | `PrintFormControls` |
 | d | An inline `position: fixed` becomes `absolute` (Flying Saucer repeats fixed boxes on every page) | `XhtmlCleanup` |
@@ -141,9 +143,13 @@ The document steps, in this order:
 | l | Wrap the characters DejaVu lacks in spans that name WenQuanYi or Symbola | `FallbackFontRuns` |
 | m | Serialise as XHTML (valid XML, UTF-8) | `XhtmlCleanup` |
 
-Safe mode first removes the author's `<style>`, stylesheet `<link>` and `style` attributes and turns
-inline `<svg>` into a box (`SafeModeMarkup`); text-only mode builds a new document from the text in
-reading order, table rows as `a | b | c` lines (`PlainTextDocument`).
+Both simplified modes first remove the elements the markup hid (`hidden`, an inline `display: none`,
+`visibility: hidden` or `collapse`; `HiddenContent`), because they drop the styles that would hide them
+or keep every word. Safe mode then removes the author's `<style>`, stylesheet `<link>` and `style`
+attributes and turns inline `<svg>` into a box (`SafeModeMarkup`); text-only mode builds a new document
+from the text in reading order, table rows as `a | b | c` lines (`PlainTextDocument`). What a style
+sheet class hides (`form/print.css` hides `.hidePrint` and others for print) cannot be told without
+evaluating the sheets and is printed on these rungs.
 
 **The order matters, and each dependency has a test:** control characters go before the form controls
 copy a value and before right-to-left text is reordered; form controls are replaced before
@@ -167,7 +173,9 @@ it out.
 | Image memory | a quarter of the heap, shared equally by the slots (256 MB per slot at the 2 GB default) | How a document's images are reduced depends only on the document and the heap size, never on load, so output is deterministic |
 | Decoded image | 25 megapixels; a header declaring more than 250 is a box; a file used as is up to 32 MB; a file read by the user agent up to 128 MB | Measured; see `ImageDecoding`, `PrintImageService`, `LocalOnlyUserAgent` |
 | HTML size | 1,000,000 characters, not counting `data:` payloads, then straight to `TEXT_ONLY` | Measured in PR 1 (below) |
-| Spans | `rowspan`/`colspan` clamped; form control sizes capped (200 columns, 100 rows) | A span of 99,999,999,999 exhausts a 512 MB heap |
+| SVG bitmap | One per SVG, at most `clamp(maxMemory / 256, 1, 8)` million pixels (1.05 million at a 256 MB heap, 8 million from 2 GB), kept in proportion and stretched to the box | Flying Saucer rasterises an SVG with a gradient, pattern, filter, mask or translucency at its box in device dots (20 to a CSS pixel): 400 times the pixels of the CSS box, again at every draw. A 500 x 500 px chart is 400 MB |
+| Picture inside an SVG | A base64 PNG, JPEG or GIF whose header declares at most 4 million pixels | Batik decodes it in full; a 100 KB PNG can declare 900 million pixels |
+| Spans | `rowspan`/`colspan` clamped; `-fs-table-cell-*` properties removed; form control sizes capped (200 columns, 100 rows) | A span of 99,999,999,999 exhausts a 512 MB heap |
 
 **Measured text-only limit** (Flying Saucer 10.7.0, JDK 25, 4 cores of a 2.1 GHz Xeon, 2 GB heap, a
 four-column table of 77 characters a row): a normal-mode layout takes 0.6 s at 153,000 characters
@@ -196,6 +204,7 @@ Each row is tried in order; an error reaches the caller only from the last colum
 | An image format OpenPDF cannot draw but a vetted reader can (BMP, WBMP, TIFF) | Converted to PNG or JPEG (`IMAGE_CONVERTED`) | The box |
 | A valid header with corrupt data | Decoded by the tolerant reader and re-encoded (`IMAGE_CONVERTED`) | The box |
 | An SVG with outside references | The referencing elements, attributes, `url()` values and `@import` rules are removed (`SVG_REFERENCES_REMOVED`) | The box (unparseable SVG) |
+| An SVG Batik cannot draw (a `use` of an element that does not exist) | Left out of the page (`IMAGE_UNAVAILABLE`); the rest of the page prints | |
 | A missing, remote, unreadable or unknown image (HEIC), a header over 250 megapixels, a format outside the vetted list (WebP) | Nothing: a remote source is never fetched | The box (`IMAGE_UNAVAILABLE`) |
 | The document's images exceed the slot's memory share | The largest are reduced further, keeping printed sizes (`IMAGE_DOWNSCALED`) | |
 | No slot within 10 s | | Every raster image is a box, with a note (`IMAGES_OMITTED_FOR_MEMORY`); a document without images renders normally |
@@ -219,7 +228,9 @@ without its images.
 
 `PrintImageService` plans every image first, against the slot's memory share, then applies the plan:
 
-- **Plan** (pure, no bytes kept): resolve and probe each `<img>` and inline `<svg>`; charge 16 bytes
+- **Plan** (nothing is written to disk; the decoded payload of a `data:` image that has to be converted
+  or cleaned is kept for the apply step, and the plan holds every distinct payload while it is made):
+  resolve and probe each `<img>` and inline `<svg>`; charge 16 bytes
   per decoded pixel (and four times the file size for a JPEG that must be decoded; a progressive one
   costs four bytes per source pixel more, because the JDK keeps its coefficients outside the heap);
   fit the total to the share by lowering the highest common charge ("water-filling"), so the largest
@@ -229,8 +240,17 @@ without its images.
   read becomes a box, not a failed attempt.
 - **WebP and HEIC are not decoded** and print as the box (JPEG copies print). WebP decoding was removed
   after three separate bounding holes in the third-party decoder; `ImageDecoding` has an allow-list of
-  vetted formats (PNG, JPEG, GIF, BMP, WBMP, TIFF), so a decoder that appears on the class path later
-  never reads untrusted bytes unnoticed.
+  vetted formats (PNG, JPEG, GIF, BMP, WBMP, TIFF) **and of vetted readers** (the JDK's, and the
+  TwelveMonkeys TIFF reader), so a decoder that appears on the class path later never reads untrusted
+  bytes unnoticed. The JAI ImageIO jar on the class path registers its own BMP, WBMP and TIFF readers,
+  ahead of the JDK's for BMP and TIFF, under names that pass a list of formats; a provider that is not
+  vetted is not even asked whether it can decode an input.
+- **SVG** is cleaned (outside references removed) and then drawn by Flying Saucer and Batik, not
+  decoded by the plan. Four things were learned the hard way (section 14): an SVG that needs a bitmap is
+  bounded by `BoundedOutputDevice`; its size is scaled to device dots by `LocalOnlyUserAgent` (a
+  viewBox-only inline `<svg>` gets `width` and `height` from `SvgViewBox`); right-to-left text inside
+  it is left in logical order for Batik; and one that cannot be drawn is left out instead of failing
+  the document.
 
 ## 7 — Degradations and what an operator does
 
@@ -246,7 +266,7 @@ htmlpdf-render source=FORM mode=SAFE durationMs=238 degradations=[SAFE_MODE]
 |---|---|---|---|
 | DEBUG | none | Normal | Nothing |
 | INFO | `IMAGE_DOWNSCALED`, `IMAGE_CONVERTED`, `SVG_REFERENCES_REMOVED`, `MARGINS_REDUCED`, `RTL_BEST_EFFORT` | Content kept | Nothing |
-| WARN | `IMAGE_UNAVAILABLE` | An image shows the box: missing, remote, corrupt or of an unsupported format | Check the form's image path, or the format (a HEIC or WebP photo) |
+| WARN | `IMAGE_UNAVAILABLE` | An image shows the box: missing, remote, corrupt or of an unsupported format; or an SVG that Batik could not draw was left out of the page (a log line names the exception class) | Check the form's image path, or the format (a HEIC or WebP photo), or the SVG (a `use` of an id that does not exist) |
 | WARN | `IMAGES_OMITTED_FOR_MEMORY` | Two renders held both slots for more than 10 s | Look for a very large or runaway document; raise the heap |
 | WARN | `FALLBACK_FONT_UNAVAILABLE` | A bundled font failed to load | Reinstall the package; check the font directory's owner |
 | WARN | `WEBAPP_ROOT_UNAVAILABLE` | The render ran outside a request and the webapp root could not be found | Styles and images from the webapp are missing from that document; report it with the `source` |
@@ -259,8 +279,11 @@ appear only when raised (`debug-on` in the devcontainer). There are no metrics: 
 **Flying Saucer's own logging stays at WARN.** The library's CSS parser traces every declaration of a
 document's CSS with its values at TRACE, and its font resolver logs families, so at TRACE a patient's
 text could reach the log through a `url(...)` or a font name. `log4j2.xml` pins the `org.xhtmlrenderer`
-logger at WARN with a comment; **an override configuration must carry the same logger**.
-`HtmlPdfLibraryLoggingUnitTest` checks the setting the application actually reads.
+logger at WARN with a comment; **an override configuration must carry the same logger**. Its SVG
+logger, `org.xhtmlrenderer.pdf.SvgImage`, is held at ERROR: the WARN it would write quotes the reference
+Batik could not follow, which can be a whole `data:` URI (a picture in a record). The pipeline logs the
+class of that exception itself. `HtmlPdfLibraryLoggingUnitTest` checks the settings the application
+actually reads.
 
 ## 8 — Printed text and its keys
 
@@ -367,7 +390,8 @@ Run the module's tests with the `htmlpdf` tag (`mvn -q test -Dgroups=htmlpdf`) o
 | `HtmlPdfFixturesUnitTest`, `HtmlPdfFormsUnitTest` | The Annual forms, an every-control page, HRM reports (demo, table-heavy, Word-style, images), email, Messenger, 14 geometry pages, scripts and edge markup, through the production beans. The central assertion: **a real document renders with no WARN- or ERROR-level degradation** |
 | `HtmlPdfSsrfUnitTest` | No network request and no read outside the allowed directories, whichever way the document asks, in every mode |
 | `HtmlPdfConcurrencyUnitTest`, `HtmlPdfMemoryUnitTest` | Concurrent renders give identical bytes; the image memory share holds under a 256 MB heap in a child JVM |
-| `HtmlPdfLibraryLoggingUnitTest` | The library's logger stays at WARN and a document's values never reach it |
+| `HtmlPdfLibraryLoggingUnitTest` | The library's logger stays at WARN, its SVG logger at ERROR, and a document's values never reach either |
+| `HtmlPdfSvgSizeUnitTest`, `HtmlPdfSvgTextUnitTest`, `BoundedOutputDeviceUnitTest` | An SVG prints at the size a browser gives it however it is sized; Hebrew in an inline SVG keeps its order; huge gradient SVGs, tiled backgrounds and SVGs that cannot be drawn render within bounds. `HtmlPdfMemoryUnitTest` renders them in a 256 MB child JVM |
 | `*UnitTest` per class | Each rule and bean, with mutation checks |
 
 Helpers: `HtmlPdfFixtures` (documents, the web root they read, the images report), `HtmlPdfTestServices`
@@ -400,6 +424,17 @@ every cell, so assert on phrases and glyph positions (`TestPdfs.glyphs`), not on
   `position: fixed` element and an empty block keep theirs, a few points at most.
 - **Layout time is quadratic in the number of rows**, and the size limit is in characters (section 5).
 - **CSS background images** that fail to load are omitted with a WARN; they cannot show the box.
+  An SVG named by a style sheet is not cleaned of outside references (the bitmap bound and Batik's own
+  handling apply).
+- **Safe and text-only mode print what a style sheet class hid** (section 4); in normal mode Flying Saucer
+  applies the print rules. The `hidden` attribute is not honoured in normal mode (Flying Saucer's default
+  style sheet has no `[hidden]` rule, and the form-control replacements drop the attribute), as in the
+  WebKit wkhtmltopdf used; a browser hides such an element. `type="hidden"` inputs never print.
+- **A non-vector SVG is rasterised once for each `SvgImage` Flying Saucer makes**, so fifty `<img>` of the
+  same gradient icon are fifty small bitmaps (about 40 ms each); one SVG tiled, or drawn on several pages,
+  is one bitmap.
+- **The decoded `data:` payloads of a document are not capped in total** while it is planned (each is capped
+  at 128 MB, and the document string is in memory as well).
 - **HRM files in Windows-1252** decode to U+FFFD in both engines; `HRMPDFCreator` decodes UTF-8.
 - **Form controls are replaced by their text:** author CSS that targets `input`/`select`/`textarea`
   element types no longer sizes them.
@@ -428,6 +463,19 @@ every cell, so assert on phrases and glyph positions (`TestPdfs.glyphs`), not on
   drawn at all.
 - `ImageIO.scanForPlugins()` is not called anywhere; the TIFF reader is found by the same service
   provider mechanism as before. Check it under Tomcat's web application class loader (a manual check).
+  `ImageDecoding` asks only the JDK's providers (the `java.desktop` module) and the TwelveMonkeys TIFF
+  provider; which of the two answers for TIFF follows ImageIO's registry order.
+- **Flying Saucer takes an SVG's size in device dots** and a raster image's in CSS pixels (it scales those
+  by the dots per pixel in `ITextUserAgent`, and not SVGs), so an SVG whose page gives no size would print
+  at a twentieth of its width. `SvgImage.getImage()` also runs Batik's `PNGTranscoder` at the box size in
+  dots *every time it is called*, with nothing cached, for an SVG with a gradient, pattern, filter, mask or
+  translucency (`SvgImage.isDrawableAsVector` decides; a vector SVG is drawn into a template added to the
+  page only when complete). A `BridgeException` (a `use` of an element that does not exist) is not caught
+  by the library and ends the render.
+- **Batik lays out SVG `<text>` with its own bidirectional algorithm** and Arabic shaping; text the
+  pipeline has already put in visual order is reordered a second time and prints back to front.
+- **`word-wrap` is inherited** in Flying Saucer 10.7.0: a table inside a block marked `carlos-pdf-wrap`
+  needs `word-wrap: normal` (the stylesheet has it), or its words break mid-word.
 
 ## 15 — Rollback
 

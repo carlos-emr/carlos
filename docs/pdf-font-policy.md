@@ -118,7 +118,7 @@ life of the JVM, so a test must not extract a directory of its own (`TestFonts.s
 | `PdfFontsUnitTest` | The fallback and the `phrase`/`paragraph`/`showTextAligned` helpers |
 | `BundledFontResolverUnitTest`, `BundledFontSetUnitTest`, `BundledFontFileServiceUnitTest` | Every family resolves to a bundled face, bold selects the bold face, the files are verified and restored, a foreign-owned directory is not used |
 | `FallbackFontRunsUnitTest` | CJK and symbol runs get the right face and are read back from a real render; a character no face draws becomes U+FFFD; the same input gives the same spans |
-| `HtmlPdfFixturesUnitTest#shouldPrintScripts` | Accents, symbols, Chinese, Japanese, Korean, Hebrew, Arabic and Vietnamese print and only the four bundled fonts are embedded; Hindi, Punjabi, Tamil and Thai print as U+FFFD |
+| `HtmlPdfFixturesUnitTest#shouldPrintScripts_ofManyLanguages` | Accents, symbols, Chinese, Japanese, Korean, Hebrew, Arabic and Vietnamese print and only the four bundled fonts are embedded; Hindi, Punjabi, Tamil and Thai print as U+FFFD |
 
 Removing the Jasper policy files makes the policy, rendering and clinical-form tests fail on an
 ordinary host (mangled non-Cp1252 text) and under a tall host face (fields at zero height).

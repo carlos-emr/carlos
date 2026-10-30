@@ -384,7 +384,7 @@ practice:
   memory of a quarter of the heap shared between the slots; charges of 16 bytes per
   decoded pixel and four times a JPEG's file size; 25 megapixels per decoded image;
   250 megapixels per source header; 32 MB per file used as is; 128 MB per file in the user
-  agent; 4 megapixels per decoded CSS background; the HTML size above which a render goes
+  agent; 25 megapixels per decoded CSS background (the planning's cap); the HTML size above which a render goes
   straight to text-only mode; a 40-character right-to-left threshold; a zoom warning below
   0.4) are named `static final` constants in the class that owns them, each commented with
   its measured reason. No new `carlos.properties` keys: the image memory already follows
@@ -1282,7 +1282,7 @@ package-private setter, because no web application context exists in tests.
 | `HtmlPdfRenderRequestUnitTest`, `HtmlPdfRenderResultUnitTest` | Canonical-constructor validation (null HTML, empty, relative, unnormalised or root directories, base outside allowed; a `null` base accepted); defensive copies; unmodifiable degradations; `toString()` contains no HTML and no path; results with equal bytes are equal |
 | `HtmlPdfArchitectureUnitTest` | Reads the module's source files and checks the import rules under "Package dependencies" (no `jakarta.servlet`, Struts, DAO, manager or facade imports; `dto` and `engine` independent; `support` free of `service`; no wildcard imports), and that only `HtmlPdfRenderService` is public in `service` |
 | `HtmlPdfSpringWiringUnitTest` | An `AnnotationConfigApplicationContext` scanning only `documentManager.htmlpdf` starts and supplies `HtmlPdfRenderService` (the module needs no outside beans, constructor selection works, no cycles) and renders one fixture |
-| `LocalOnlyUserAgentUnitTest` (moved to `engine` with the class and extended; its three `createRestrictedRenderer()` calls at lines ~472–494 move to the new signature) | Default stylesheet URL opens and `setBaseURL` with it logs nothing; another entry in the same jar, `jar:http:`, `http:`, protocol-relative and out-of-directory `file:` return `null`; behaviour does not depend on the working directory; blocked `file:` logs contain no path; `getImageResource` loads a `data:` image and a large JPEG background as is, downscales an over-4-megapixel PNG background to fit, and returns an empty resource for a corrupt image, an over-128 MB file and an over-250-megapixel header without decoding it |
+| `LocalOnlyUserAgentUnitTest` (moved to `engine` with the class and extended; its three `createRestrictedRenderer()` calls at lines ~472–494 move to the new signature) | Default stylesheet URL opens and `setBaseURL` with it logs nothing; another entry in the same jar, `jar:http:`, `http:`, protocol-relative and out-of-directory `file:` return `null`; behaviour does not depend on the working directory; blocked `file:` logs contain no path; `getImageResource` loads a `data:` image and a large JPEG background as is, reduces an over-25-megapixel PNG background to fit (once, however many elements paint it), gives an SVG the size Flying Saucer gives a raster image of the same pixels, and returns an empty resource for a corrupt image, an over-128 MB file and an over-250-megapixel header without decoding it |
 | `XhtmlCleanupUnitTest` | Steps a, b, d–g, i and m: scripts and comments removed (including the `--` comment case moved from `ConvertToEdocUnitTest:94`); soft hyphens and bidi controls removed; inline `position: fixed` rewritten; `<ol type>` mapped; `rowspan` clamped to its row group; only `thead` tables without row spans get `carlos-pdf-paginate`; `alt` added; output parses with the JDK XML parser |
 | `PrintDocumentComposerUnitTest` | Step order a–i and k–m with no collaborators (pure); `carlos-pdf-defaults` first in `<head>` and an author class rule beats it; the document note is the first child of `<body>`; note and box text identical under `Locale.setDefault(Locale.FRENCH)`; `SAFE` mode drops author styles and boxes inline SVG; `TEXT_ONLY` mode keeps reading order, table cells joined with " \| " and form-control text |
 | `PrintFormControlsUnitTest` | Every row of the form-control table, including copied attributes, sizing, CR/LF removal, multi-select, `optgroup`, no selection, `checked="false"`, password not revealing length, `progress` with and without `value`/`max`, `meter` |
@@ -1431,10 +1431,63 @@ List these in PR 1:
 - **Stylesheet-defined `position: fixed`** (as opposed to inline) still repeats on every
   page; inline is rewritten.
 - **Tables with both `<thead>` and row spans** print their header once.
+- **Safe and text-only mode print what a style sheet hid.** They remove the elements the markup
+  hid (`hidden`, an inline `display: none`, `visibility: hidden` or `collapse`) before they drop
+  the styles, but cannot know what a class hides (`form/print.css` hides `.hidePrint`, `.head`,
+  `.header` and `.LeftTable` for print, and 96 form JSPs use them). In normal mode Flying
+  Saucer applies the print rules itself.
+- **The `hidden` attribute in normal mode:** Flying Saucer's default style sheet has no
+  `[hidden] { display: none }`, and a form-control replacement drops the attribute, so
+  `<input type="text" hidden value="...">` prints its value in a box. wkhtmltopdf's old WebKit did the
+  same; a browser hides it. A hidden input (`type="hidden"`) never prints.
+- **An SVG named by a style sheet** (a CSS `background`) is not cleaned of outside references; its
+  nested pictures and fragments are bounded by Batik's own handling and by the bitmap bound only.
+  A non-vector SVG (a gradient, pattern, filter, mask or translucency) is rasterised once for every
+  `SvgImage` Flying Saucer makes, so fifty `<img>` elements of the same gradient icon are fifty small
+  bitmaps (about 40 ms each); one SVG tiled or drawn on several pages is one bitmap.
 - **Layout time is quadratic in the number of rows.** The size limit is in characters, so a
   document of very short rows (about 19 characters a row) can still take minutes to lay out
   below it (*measured*: 20,000 rows of 77 characters took 15.6 s, 40,000 took 66 s). Layout
   cannot be interrupted; the render still holds one of two slots and one request thread.
+
+## What the whole-branch review changed
+
+The review of PR 1 as a whole (Important I1 to I4, Minor 1 to 15) led to these changes, each with a test
+that fails without it:
+
+- **A `data:` SVG nested in a cleaned SVG** let Batik read any local image through a `use` of one of its
+  elements. `SvgReferences` now keeps only a fragment (`#id`) or a base64 `data:` URI of a PNG, JPEG or GIF
+  whose header, read the way the pipeline reads every image, declares at most 4 million pixels (a 100 KB PNG
+  can declare 900 million); an SVG under any media type, an unreadable image and one of another format go.
+- **SVG bitmaps.** Flying Saucer draws an SVG with a gradient, pattern, filter, mask or translucency from a
+  bitmap made by Batik at the size of its box in device dots, 20 to a CSS pixel and again at every draw: a
+  500 x 500 px chart is 10,000 x 10,000 pixels, and a small gradient tiled as a background was made and embedded
+  40,000 times (55 s, 17 MB). `BoundedOutputDevice` makes the bitmap once per SVG and keeps it within
+  `clamp(maxMemory / 256, 1, 8) million` pixels, kept in proportion and stretched to the box. The child-JVM memory
+  test (256 MB) renders huge `<img>`, inline and tiled gradient SVGs.
+- **An SVG Batik cannot draw** (a `use` of an element that does not exist throws) is left out of the page and the
+  document reports `IMAGE_UNAVAILABLE`; before, the exception failed every attempt and the whole document
+  printed as text. Each failing SVG is tried once. Flying Saucer's `SvgImage` logger is held at ERROR (its
+  WARN quotes the reference Batik could not follow).
+- **SVG sizes.** Flying Saucer takes the size of an SVG in device dots where it takes a raster image's in pixels:
+  an SVG that its page gave no size printed at a twentieth, and a repeating background of one tiled 400 times as
+  often. The user agent scales an SVG's size by the dots per pixel; an inline `<svg>` that declares only a `viewBox`
+  gets its size as `width` and `height` (`SvgViewBox`).
+- **`-fs-` properties** in a `style` attribute or style sheet (`-fs-table-cell-rowspan: 99999999999`) bypassed the
+  span clamps and exhausted a 512 MB heap; `EngineExtensions` removes them from the CSS a document brings.
+- **Quadratic regular expressions** (the SVG cleaner's `url(` and `@import` scans, `!important`, comments in
+  colour declarations) are linear scanners; the decimal-number check of `<progress>` and `<meter>` is a scan.
+- **ImageIO readers** are chosen by provider, not by format name: only the JDK's readers and the TwelveMonkeys
+  TIFF reader are asked about an input. The JAI ImageIO jar on the class path registered BMP and TIFF readers
+  ahead of the JDK's, under names that passed the list.
+- **A large CSS background** is reduced once for every element that paints it (it was decoded and embedded
+  again for each).
+- **Right-to-left text in an inline `<svg>`** is no longer reordered (Batik reorders it): it printed back to
+  front. **A nested table** inside a block that holds a long word keeps its words whole
+  (`.carlos-pdf-wrap table { word-wrap: normal }`). **Safe and text-only mode** remove what the markup hid.
+  **The size limit's `data:` discount** counts only a real `data:` URI up to the end of its attribute value.
+- **Housekeeping:** BDD names (the module's tests joined the lint), SpotBugs suppressions, the TwelveMonkeys
+  `imageio-core` and `imageio-metadata` dependencies declared, a defensive copy in `SvgReferences.Cleaned`.
 
 ## Delivery
 
