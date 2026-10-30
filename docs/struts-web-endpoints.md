@@ -13,6 +13,7 @@ This is the default pattern for login pages, forms, eForms, provider views, and 
 - `struts.xml` is the parent config. Add new actions to the appropriate `struts-*.xml` module file, not to the parent file.
 - The root app path is handled by `RootEntryRedirectFilter`, which forwards `/context/` and `/index` directly to the internal login JSP before Struts executes. Users should not need to browse to `/index` directly.
 - Struts request processing in `web.xml` is split into `StrutsPrepareFilter` and `StrutsExecuteFilter`, with `LoggedInUserFilter` between them to rebuild authenticated request context before action execution.
+- `StrutsExecuteFilter` runs an action without calling the rest of the filter chain, so a filter that must cover actions has to be mapped before it. `DbConnectionFilter` (legacy JDBC cleanup) is the first application filter, so its `finally` encloses the action and the JSP it forwards to; `UserActivityFilter` sits between `LoginFilter` and `struts2-prepare` (issue #5305). Both use the REQUEST dispatcher only.
 - Migrated section-home pages that used to rely on public `index.jsp` resolution may need a small allowlisted compatibility filter to preserve clean directory URLs such as `/administration/`.
 
 ## How To Add a New Page

@@ -186,8 +186,11 @@
         <jsqlparser.version>5.3</jsqlparser.version>
         <!-- JNA: pin transitive ultrabuk-htmltopdf-java range [5.12,) to the locked version -->
         <jna.version>5.19.1</jna.version>
-        <!-- HAPI HL7 v2 -->
-        <hapi-hl7.version>1.0.1</hapi-hl7.version>
+        <!-- HAPI HL7 v2 (ca.uhn.hapi, separate from the HAPI FHIR line above). Keep hapi-base and every
+             hapi-structures-vNN module on this one property: the modules share internal APIs and a
+             mixed set fails at runtime. 2.x stopped loading external entities and external DTDs in
+             its XML parser (1.0.1 did; see docs/hapi-hl7v2-xml-hardening.md). -->
+        <hapi-hl7.version>2.6.0</hapi-hl7.version>
         <!-- Flyway schema migrations (Community edition covers MariaDB/MySQL) -->
         <flyway.version>11.14.1</flyway.version>
         <!-- Selenium: drives the pinned headless Chromium for eForm browser PDF rendering -->
@@ -323,12 +326,10 @@
                 <artifactId>gson</artifactId>
                 <version>2.13.2</version>
             </dependency>
-            <!-- Keep the transitive Commons Logging bridge on the same SLF4J release as the API. -->
-            <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>jcl-over-slf4j</artifactId>
-                <version>${slf4j.version}</version>
-            </dependency>
+            <!-- org.slf4j:jcl-over-slf4j is deliberately NOT managed here: it is
+                 excluded everywhere and banned by maven-enforcer-plugin
+                 (ban-duplicate-commons-logging), because commons-logging is the
+                 one Commons Logging implementation (#5413). -->
             <!-- Pin transitive JNA range from ultrabuk-htmltopdf-java to the dependency lock. -->
             <dependency>
                 <groupId>net.java.dev.jna</groupId>
@@ -556,6 +557,27 @@
 
         <!-- ==================== Logging ==================== -->
 
+        <!-- Commons Logging (JCL) routing, #5413: commons-logging is the ONLY
+             provider of the org.apache.commons.logging classes. Spring 7 depends
+             on it directly (spring-jcl is gone), and since 1.3 its LogFactory
+             finds the Log4j API on the classpath and binds to Log4jApiLogFactory,
+             so JCL calls (Spring, the HttpClient 4 under CXF's HTTP transport,
+             PDFBox, JasperReports, the Commons libraries, the JSPs) go straight
+             to the Log4j 2 backend and its log4j2.xml.
+
+             org.slf4j:jcl-over-slf4j redefines the same classes and adds a
+             META-INF/services entry that reroutes JCL through SLF4J. Shipping
+             both left the winning LogFactory to class-loader order, so it is
+             excluded from both dependencies that declare it (apache-cxf, also
+             through cxf-rt-transports-http-hc, and hapi-fhir-base; the poi,
+             displaytag and javamelody-core exclusions date from older releases
+             of those libraries and are kept as defence in depth) and banned
+             outright by maven-enforcer-plugin (ban-duplicate-commons-logging).
+             Do not add org.apache.logging.log4j:log4j-to-slf4j either: it would
+             make commons-logging pick its SLF4J factory and loop SLF4J back to
+             Log4j through log4j-slf4j2-impl.
+             Guards: CommonsLoggingRoutingUnitTest (classpath and routing) and
+             debian/check-war-commons-logging.py (the packaged WAR). -->
         <dependency>
             <groupId>commons-logging</groupId>
             <artifactId>commons-logging</artifactId>
@@ -676,24 +698,11 @@
             <artifactId>hapi-base</artifactId>
             <version>${hapi-hl7.version}</version>
             <exclusions>
-                <!-- Not being used, excluded to avoid triggering security issue -->
+                <!-- Declared by hapi-base 2.x but referenced by no class in hapi-base or any
+                     hapi-structures module; its bundled time zone data dates from 2012. -->
                 <exclusion>
-                    <groupId>xalan</groupId>
-                    <artifactId>xalan</artifactId>
-                </exclusion>
-                <!-- Excluded this low version to avoid triggering security issue -->
-                <exclusion>
-                    <groupId>org.jdom</groupId>
-                    <artifactId>jdom</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>commons-lang</groupId>
-                    <artifactId>commons-lang</artifactId>
-                </exclusion>
-                <!-- Exclude vulnerable log4j v1.2.x - default to using log4j 2.x instead -->
-                <exclusion>
-                    <groupId>log4j</groupId>
-                    <artifactId>log4j</artifactId>
+                    <groupId>joda-time</groupId>
+                    <artifactId>joda-time</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -723,7 +732,8 @@
             <version>${hapi-hl7.version}</version>
         </dependency>
 
-        <!-- Replaces jdom v1 excluded from hapi-base (security fix) -->
+        <!-- JDOM 2 for CARLOS's own XML helpers (XmlUtils.createSecureSAXBuilder); jdom v1,
+             which hapi-base 1.0.1 pulled in, is no longer on the classpath -->
         <dependency>
             <groupId>org.jdom</groupId>
             <artifactId>jdom2</artifactId>
@@ -1240,6 +1250,13 @@
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-api</artifactId>
                 </exclusion>
+                <!-- apache-cxf and cxf-rt-transports-http-hc declare the SLF4J
+                     Commons Logging bridge; commons-logging is the one JCL
+                     implementation (#5413, see the Logging section). -->
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>jcl-over-slf4j</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>com.fasterxml.woodstox</groupId>
                     <artifactId>woodstox-core</artifactId>
@@ -1470,6 +1487,23 @@
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <version>2.5.250</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Embedded Tomcat and Jasper, same version as the packaged container, for tests that
+             need a real servlet container: RequestBoundaryFilterOrderIntegrationTest runs the
+             web.xml filter order with the real Struts filters and a compiled JSP (issue #5305).
+             Test scope only; nothing here reaches the WAR. -->
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-core</artifactId>
+            <version>${tomcat.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tomcat.embed</groupId>
+            <artifactId>tomcat-embed-jasper</artifactId>
+            <version>${tomcat.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -2022,6 +2056,44 @@
                         <goals>
                             <goal>check</goal>
                         </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- One Commons Logging implementation (#5413). The dependency lock
+                 alone cannot hold this: regenerating it after a library bump
+                 silently re-admits whatever the new tree resolves, which is how
+                 jcl-over-slf4j came back through CXF. This rule fails the build
+                 at validate, in every scope, whatever path brings one in. See the
+                 Logging section of <dependencies> for the routing it protects. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.6.3</version>
+                <executions>
+                    <execution>
+                        <id>ban-duplicate-commons-logging</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <!-- Redefine org.apache.commons.logging.* -->
+                                        <exclude>org.slf4j:jcl-over-slf4j</exclude>
+                                        <exclude>org.springframework:spring-jcl</exclude>
+                                        <exclude>commons-logging:commons-logging-api</exclude>
+                                        <exclude>org.jboss.logging:commons-logging-jboss-logging</exclude>
+                                        <!-- Reroute commons-logging's own LogFactory
+                                             discovery away from Log4jApiLogFactory -->
+                                        <exclude>org.apache.logging.log4j:log4j-jcl</exclude>
+                                        <exclude>org.apache.logging.log4j:log4j-to-slf4j</exclude>
+                                    </excludes>
+                                    <message>CARLOS routes Commons Logging through commons-logging:commons-logging to Log4j 2 (#5413). Exclude the banned artifact from the dependency that brings it in (mvn dependency:tree -Dincludes=GROUP:ARTIFACT shows the path); see the Logging section of pom.xml.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

@@ -108,6 +108,21 @@
 - `bash scripts/check-report-fonts.sh` re-runs the report tests under other host fonts in fresh
   JVMs. See `docs/pdf-font-policy.md`.
 
+## HAPI HL7 v2 Parsing
+
+- `ca.uhn.hapi` (HL7 v2, 2.6.0; not the `ca.uhn.hapi.fhir` line) reads lab and PHS/STAR messages
+  (#5414). Keep `hapi-base` and the five `hapi-structures-vNN` modules on the one
+  `hapi-hl7.version` property, and never reintroduce a vendored copy under `local_repo/`.
+- Text from outside CARLOS that may be HL7 v2 XML goes through `Hl7XmlMessageValidator` before
+  `GenericParser` / `DefaultXMLParser.parse`: HAPI 2.x no longer loads external entities or DTDs
+  but still expands internal ones. `PipeParser` never reads XML. Tests that need hostile XML use
+  `HostileHl7Xml` (loopback observer, synthetic marker file); never contact a public service.
+- Typed HAPI accessors report a missing repetition as a `RuntimeException` caused by an
+  `HL7Exception`. Where a handler answers such a miss with an empty value, catch `RuntimeException`
+  and call `Hl7Utils.rethrowUnlessHl7AccessFailure`; do not rely on `catch (HL7Exception)`.
+- Do not look repetitions of a generic message up by HAPI's segment names (`"OBR" + n`); use
+  `GenericSegmentNames`. See `docs/hapi-hl7v2-xml-hardening.md`.
+
 ## Generic DAO Paging Order
 
 - `AbstractDaoImpl.findAll(offset, limit)` always orders by the entity identifier, read from the
