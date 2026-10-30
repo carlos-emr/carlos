@@ -255,6 +255,39 @@ class PrintDocumentComposerUnitTest {
     }
 
     @Test
+    @DisplayName("should remove the engine's own CSS properties in every mode, so a style cannot set a span the clamp never sees")
+    void shouldRemoveEngineProperties_inEveryMode() {
+        String html = "<html><head><style>td { -fs-table-cell-colspan: 99999999999; color: red }</style></head><body>"
+                + "<table><tr><td id=\"a\" style=\"-fs-table-cell-rowspan: 99999999999; width: 3px\">FAKE-a</td></tr></table></body></html>";
+
+        for (PrintMode mode : PrintMode.values()) {
+            Document document = composer.prepare(html, mode, degradations());
+            composer.finish(document, mode, fonts, degradations());
+
+            assertThat(document.html()).as(mode.name()).doesNotContain("99999999999").doesNotContain("-fs-table-cell");
+            assertThat(document.text()).as(mode.name()).contains("FAKE-a");
+        }
+    }
+
+    @Test
+    @DisplayName("should keep what the markup hid hidden in safe and text-only modes, which drop the styles that hide it")
+    void shouldRemoveHiddenElements_inSafeAndTextOnlyModes() {
+        String html = "<html><head></head><body><p>FAKE-Shown</p><div style=\"display:none\">FAKE-Screen copy</div><p hidden>FAKE-Scratch</p>"
+                + "<input type=\"text\" hidden value=\"FAKE-Value\"><table><tr><td style=\"visibility:hidden\">FAKE-Cell</td><td>FAKE-Kept</td></tr></table></body></html>";
+
+        // Normal mode leaves the markup to Flying Saucer, which hides it itself.
+        Document normal = composer.prepare(html, PrintMode.NORMAL, degradations());
+        assertThat(normal.html()).contains("FAKE-Screen copy").contains("FAKE-Scratch");
+
+        for (PrintMode mode : List.of(PrintMode.SAFE, PrintMode.TEXT_ONLY)) {
+            Document document = composer.prepare(html, mode, degradations());
+
+            assertThat(document.text()).as(mode.name()).contains("FAKE-Shown").contains("FAKE-Kept")
+                    .doesNotContain("FAKE-Screen copy").doesNotContain("FAKE-Scratch").doesNotContain("FAKE-Value").doesNotContain("FAKE-Cell");
+        }
+    }
+
+    @Test
     @DisplayName("should follow the defaults with a rule for the body's legacy margin attributes, ahead of the author's styles")
     void shouldAddBodyMarginRule_afterTheDefaults() {
         Document document = composer.prepare("<html><head><title>T</title><style>body { margin: 20px }</style></head>"
@@ -388,7 +421,7 @@ class PrintDocumentComposerUnitTest {
 
     @Test
     @DisplayName("should write XHTML that Flying Saucer loads, from hostile input in every mode")
-    void shouldWriteLoadableXhtml_forHostileInput_inEveryMode() throws Exception {
+    void shouldWriteLoadableXhtml_forHostileInputInEveryMode() throws Exception {
         String hostile = "<!DOCTYPE html><html><head><script>x()</script><!-- -- --></head><body><o:p>w</o:p>"
                 + "<p style=\"position:fixed\">t" + chars(0x1, 0xAD) + "</p><svg><use xlink:href=\"#a\"/></svg>"
                 + "<table><tr><td rowspan=\"9\" colspan=\"99999999999\">c</td></tr></table></body></html>";

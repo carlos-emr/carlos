@@ -157,7 +157,7 @@ class HtmlPdfFixturesUnitTest {
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"annual/female.html", "annual/male.html"})
     @DisplayName("should print one marked box for every ticked checkbox of the Annual form, its values and its two-line text")
-    void shouldPrintAnnualFormValues(String fixture) throws Exception {
+    void shouldPrintMarkedBoxesAndValues_ofTheAnnualForm(String fixture) throws Exception {
         // The ticked boxes the form really has: the ones in the page, not in a comment.
         int ticked = Jsoup.parse(HtmlPdfFixtures.html(fixture)).select("input[type=checkbox][checked]").size();
         assertThat(ticked).isGreaterThanOrEqualTo(10);
@@ -180,7 +180,7 @@ class HtmlPdfFixturesUnitTest {
     @ParameterizedTest(name = "{0}")
     @CsvSource({"annual/female.html", "annual/male.html"})
     @DisplayName("should lay the Annual form out as the form does: label columns at their natural width")
-    void shouldKeepAnnualLabelsReadable(String fixture) throws Exception {
+    void shouldKeepLabelColumns_atNaturalWidthOnTheAnnualForm(String fixture) throws Exception {
         String text = flat(render(fixture));
 
         // Vertical strips of letters ("S m o k i n g") were the symptom of a table squeezed to one-character columns.
@@ -190,7 +190,7 @@ class HtmlPdfFixturesUnitTest {
     @ParameterizedTest(name = "{0}")
     @CsvSource({"annual/female.html", "annual/male.html"})
     @DisplayName("should start the Annual form at the 10 mm margin, as wkhtmltopdf did: its body says leftmargin=0 and topmargin=0")
-    void shouldStartAnnualFormAtMargin(String fixture) throws Exception {
+    void shouldStartAnnualForm_atTheTenMillimetreMargin(String fixture) throws Exception {
         Rectangle ink = TestPdfs.inkBounds(TestPdfs.image(render(fixture).pdf(), 1));
 
         // Without the legacy body margin attributes the form started at 32.8 pt, the 8 px default body margin further in.
@@ -204,7 +204,7 @@ class HtmlPdfFixturesUnitTest {
 
     @Test
     @DisplayName("should print accents, symbols, Chinese, Hebrew, Arabic and Vietnamese, and U+FFFD for Hindi, Punjabi, Tamil and Thai")
-    void shouldPrintScripts() throws Exception {
+    void shouldPrintScripts_ofManyLanguages() throws Exception {
         HtmlPdfRenderResult result = render("scripts/all-scripts.html");
         String text = text(result);
 
@@ -252,7 +252,7 @@ class HtmlPdfFixturesUnitTest {
 
     @Test
     @DisplayName("should ignore the page size and margins the author's @page rule asks for")
-    void shouldIgnoreAuthorPageRule() throws Exception {
+    void shouldIgnoreAuthorPageRule_forSizeAndMargins() throws Exception {
         HtmlPdfRenderResult result = render("geometry/author-page.html");
 
         assertThat(TestPdfs.pageSizes(result.pdf())).singleElement().satisfies(size -> assertThat(size).containsExactly(612f, 792f));
@@ -275,7 +275,7 @@ class HtmlPdfFixturesUnitTest {
 
     @Test
     @DisplayName("should apply print media rules and not screen media rules")
-    void shouldApplyPrintMedia() throws Exception {
+    void shouldApplyPrintMediaRules_andNotScreenOnes() throws Exception {
         HtmlPdfRenderResult result = render("geometry/print-screen-media.html");
 
         assertThat(TestPdfs.glyphs(result.pdf())).isNotEmpty()
@@ -289,6 +289,17 @@ class HtmlPdfFixturesUnitTest {
 
         assertThat(TestPdfs.zoomOf(result.pdf())).isCloseTo(0.8f, within(0.001f));
         assertThat(text(result)).contains("aaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbb", "FAKE-details");
+        assertThat(result.degradations()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should break a long run of characters but keep the words of a table beside it whole, though word-wrap is inherited")
+    void shouldKeepWordsWhole_inATableBesideALongRun() throws Exception {
+        HtmlPdfRenderResult result = render("geometry/long-run-beside-table.html");
+
+        List<String> words = List.of("Smoking", "history", "Alcohol", "consumption", "Medications", "taken");
+        String lines = String.join(" ", TestPdfs.pageTexts(result.pdf()));
+        assertThat(words).allSatisfy(word -> assertThat(lines).contains(word));
         assertThat(result.degradations()).isEmpty();
     }
 
@@ -315,7 +326,7 @@ class HtmlPdfFixturesUnitTest {
 
     @Test
     @DisplayName("should print soft hyphens and bidi marks as nothing")
-    void shouldDropInvisibleCharacters() throws Exception {
+    void shouldDropInvisibleCharacters_fromThePrintedText() throws Exception {
         String text = text(render("geometry/soft-hyphens.html"));
 
         assertThat(text).contains("Softhyphenated", "invisible", "left", "right");
@@ -324,7 +335,7 @@ class HtmlPdfFixturesUnitTest {
 
     @Test
     @DisplayName("should number ordered lists in the style their type asks for")
-    void shouldMapOrderedListTypes() throws Exception {
+    void shouldNumberOrderedLists_inTheStyleTheirTypeAsksFor() throws Exception {
         String flat = flat(render("geometry/ol-type.html"));
 
         assertThat(flat).contains("a. alpha one", "b. alpha two", "A. upper one", "i. roman one", "ii. roman two", "I. upper roman", "5. five");
@@ -362,7 +373,7 @@ class HtmlPdfFixturesUnitTest {
 
     @Test
     @DisplayName("should print the character an entity stands for, and an unknown entity as it was written")
-    void shouldPrintEntities() throws Exception {
+    void shouldPrintEntities_asTheCharactersTheyStandFor() throws Exception {
         String flat = flat(render("edge/entities.html"));
 
         assertThat(flat).contains("copy:©", "emoji:😀", "A:A", "unknown:&unknown;", "amp:&amp;", "tag:<tag>", "bare & ampersand",
@@ -373,7 +384,7 @@ class HtmlPdfFixturesUnitTest {
 
     @Test
     @DisplayName("should draw the images it can, convert what OpenPDF cannot embed, and box the rest with the reason logged once")
-    void shouldPrintImagesReport() throws Exception {
+    void shouldDrawConvertAndBoxImages_ofTheImagesReport() throws Exception {
         String html = HtmlPdfFixtures.imagesReport(webRoot);
 
         HtmlPdfRenderResult result = SERVICE.render(HtmlPdfFixtures.request(html, webRoot));
@@ -394,7 +405,7 @@ class HtmlPdfFixturesUnitTest {
 
     @Test
     @DisplayName("should fail with a PDFGenerationException for white space and print one blank page for no visible content")
-    void shouldHandleEmptyInput() throws Exception {
+    void shouldFailOrPrintBlankPage_forEmptyInput() throws Exception {
         assertThatExceptionOfType(PDFGenerationException.class).isThrownBy(() -> SERVICE.render(HtmlPdfFixtures.request("  \n ", webRoot)));
 
         HtmlPdfRenderResult blank = SERVICE.render(HtmlPdfFixtures.request("<html><body></body></html>", webRoot));

@@ -33,6 +33,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
+import java.util.Random;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
@@ -74,6 +76,37 @@ class PrintFormControlsUnitTest {
     }
 
     // ---- text-like inputs -------------------------------------------------------------------
+
+    @ParameterizedTest(name = "[{index}] \"{0}\" is a number")
+    @ValueSource(strings = {"0", "7", "-7", "+7", "007", "7.", "7.5", "-7.5", ".5", "-.5", "+.5", "7e3", "7E3", "7e-3", "7e+3", ".5e3", "7.e3", "7.5E-10",
+            "1e999999999", "123456789012345678901234567890"})
+    @DisplayName("should take a decimal number")
+    void shouldTakeDecimalNumber(String text) {
+        assertThat(PrintFormControls.isDecimalNumber(text)).isTrue();
+    }
+
+    @ParameterizedTest(name = "[{index}] \"{0}\" is not a number")
+    @ValueSource(strings = {"", " ", "+", "-", ".", "+.", "-.", "e3", ".e3", "7e", "7e+", "7e-", "7.5.5", "7,5", "7 ", " 7", "7x", "x7", "NaN", "Infinity", "0x10",
+            "7e3.5", "7ee3", "--7", "+-7", "\u0667", "7\u0661", "1_000"})
+    @DisplayName("should refuse text that is not a decimal number")
+    void shouldRefuseNonNumber(String text) {
+        assertThat(PrintFormControls.isDecimalNumber(text)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should take a number as the pattern it replaces did, for random text")
+    void shouldMatchTheOldPattern_forRandomText() {
+        Pattern old = Pattern.compile("[+-]?(\\d+(\\.\\d*)?|\\.\\d+)([eE][+-]?\\d+)?");
+        String[] pieces = {"+", "-", ".", "e", "E", "0", "7", "42", "x", " ", "", "\u0667"};
+        Random random = new Random(20261030);
+        for (int i = 0; i < 50_000; i++) {
+            StringBuilder text = new StringBuilder();
+            for (int n = random.nextInt(8); n > 0; n--) {
+                text.append(pieces[random.nextInt(pieces.length)]);
+            }
+            assertThat(PrintFormControls.isDecimalNumber(text.toString())).as(text.toString()).isEqualTo(old.matcher(text).matches());
+        }
+    }
 
     @Nested
     @DisplayName("text-like inputs")

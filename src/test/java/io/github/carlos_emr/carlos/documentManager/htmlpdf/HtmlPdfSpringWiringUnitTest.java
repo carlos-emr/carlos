@@ -71,7 +71,7 @@ class HtmlPdfSpringWiringUnitTest {
 
     @Test
     @DisplayName("should register exactly the six beans of the design as singletons under their expected names")
-    void shouldRegisterTheSixBeans() {
+    void shouldRegisterTheSixBeans_asSingletons() {
         try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(MODULE_PACKAGE)) {
             String[] names = Arrays.stream(context.getBeanDefinitionNames())
                     .filter(name -> !name.startsWith("org.springframework.")).sorted().toArray(String[]::new);

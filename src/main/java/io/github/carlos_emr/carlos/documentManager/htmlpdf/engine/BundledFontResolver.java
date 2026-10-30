@@ -50,7 +50,7 @@ import java.util.Set;
  * Helvetica, Courier) are never available, so a font that is not embedded cannot print.</p>
  *
  * <p>Text is never smaller than {@link #MIN_FONT_SIZE_DOTS}, 10 CSS pixels, as in wkhtmltopdf
- * (an 8 px label prints at 7.5 pt).</p>
+ * (an 8 px label is raised to 10 px: 7.5 pt before the page's 0.8 zoom, 6 pt on the printed page).</p>
  *
  * <p>One instance belongs to one renderer (a Flying Saucer font resolver keeps the faces it
  * resolved). It registers the fonts by the file paths of the {@link BundledFontSet}, and registers a

@@ -27,7 +27,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.time.Duration;
+import java.util.Random;
+import java.util.regex.Pattern;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 /**
  * Unit tests for {@link InlineStyle}, the scanner of the inline {@code style} attribute.
@@ -103,6 +108,41 @@ class InlineStyleUnitTest {
         assertThat(InlineStyle.valueOf("min-width: 10px; line-height: 3", "width")).isEmpty();
         assertThat(InlineStyle.valueOf("width: ", "width")).isEmpty();
         assertThat(InlineStyle.valueOf("", "width")).isEmpty();
+    }
+
+    @ParameterizedTest(name = "[{index}] \"{0}\"")
+    @ValueSource(strings = {"10px", "10px !important", "10px!important", "10px !IMPORTANT  ", "  10px  ", "!important", " !important ",
+            "10px !important !important", "10px !impor", "10px important", "10px !important x", "x\n!important\n", "10px !important\u2028"})
+    @DisplayName("should strip a trailing !important and the white space around the value")
+    void shouldStripTrailingImportant(String value) {
+        assertThat(InlineStyle.withoutImportant(value)).isEqualTo(Pattern.compile("(?i)\\s*!important\\s*$").matcher(value).replaceAll("").strip());
+    }
+
+    @Test
+    @DisplayName("should strip !important as the pattern it replaces did, for random values")
+    void shouldMatchTheOldPattern_forRandomValues() {
+        Pattern old = Pattern.compile("(?i)\\s*!important\\s*$");
+        String[] pieces = {" ", "\t", "\n", "\r\n", "\f", "!important", "!IMPORTANT", "!imp", "!", "important", "x", "10px", ""};
+        Random random = new Random(20261030);
+        for (int i = 0; i < 20_000; i++) {
+            StringBuilder value = new StringBuilder();
+            for (int n = random.nextInt(9); n > 0; n--) {
+                value.append(pieces[random.nextInt(pieces.length)]);
+            }
+            assertThat(InlineStyle.withoutImportant(value.toString())).as(value.toString()).isEqualTo(old.matcher(value).replaceAll("").strip());
+        }
+    }
+
+    @Test
+    @DisplayName("should read a value of half a million spaces in linear time")
+    void shouldReadValue_ofHalfAMillionSpacesInLinearTime() {
+        // \s*!important\s*$ tried every space as the start of a match: about w squared over two steps.
+        String style = "width: x" + " ".repeat(500_000) + "y; height: 2px";
+
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+            assertThat(InlineStyle.valueOf(style, "width")).hasValue("x" + " ".repeat(500_000) + "y");
+            assertThat(InlineStyle.valueOf("width:" + " ".repeat(500_000) + "x" + " ".repeat(500_000), "width")).hasValue("x");
+        });
     }
 
     @Test

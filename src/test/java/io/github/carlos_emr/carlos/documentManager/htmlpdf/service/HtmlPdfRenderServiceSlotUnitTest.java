@@ -91,11 +91,13 @@ class HtmlPdfRenderServiceSlotUnitTest {
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws InterruptedException {
         if (gate != null) {
             gate.releaseAll();
         }
         executor.shutdownNow();
+        // A render thread that outlived its test would run into the next one.
+        assertThat(executor.awaitTermination(1, TimeUnit.MINUTES)).as("render threads ended").isTrue();
     }
 
     private HtmlPdfRenderService serviceWaiting(Duration wait) {

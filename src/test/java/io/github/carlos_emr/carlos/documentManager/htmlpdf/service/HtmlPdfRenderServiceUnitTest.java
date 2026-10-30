@@ -269,7 +269,7 @@ class HtmlPdfRenderServiceUnitTest {
 
     @Test
     @DisplayName("should start each attempt from the original HTML, so a failed attempt's degradations do not leak")
-    void shouldStartEachAttemptFresh() throws Exception {
+    void shouldStartEachAttempt_fromTheOriginalHtml() throws Exception {
         String html = page("<p>FAKE-Body</p><svg width=\"10\" height=\"10\"><rect width=\"5\" height=\"5\"/>"
                 + "<image xlink:href=\"http://127.0.0.1:1/x.png\"/></svg>");
         failLayoutIn(new IllegalStateException("FAKE"), PrintMode.NORMAL);
@@ -520,8 +520,31 @@ class HtmlPdfRenderServiceUnitTest {
     }
 
     @Test
+    @DisplayName("should end a data: URI of an unquoted attribute at the end of the tag, and count the markup after it")
+    void shouldEndDataUri_atTheEndOfAnUnquotedAttribute() throws Exception {
+        HtmlPdfRenderService limited = serviceWith(HtmlPdfTestServices.sharedFontFiles(), 1000);
+        String uri = "data:image/png;base64," + "A".repeat(300);
+        String markup = "<b>x</b>".repeat(200);
+
+        assertThat(limited.render(request("<html><body><img src=" + uri + ">" + markup + "</body></html>")).degradations())
+                .containsExactly(HtmlPdfRenderDegradation.TEXT_ONLY);
+    }
+
+    @Test
+    @DisplayName("should count text that only looks like a data: URI: the end of a longer word, or one with no comma")
+    void shouldCountText_thatOnlyLooksLikeADataUri() throws Exception {
+        HtmlPdfRenderService limited = serviceWith(HtmlPdfTestServices.sharedFontFiles(), 1000);
+        String run = "A".repeat(1500);
+
+        for (String text : List.of("metadata:text/plain,", "my-data:text/plain,", "data1:text/plain,", "data:text/plain ", "data:" + "x".repeat(300) + ",")) {
+            String html = "<html><body><p>" + text + run + "</p></body></html>";
+            assertThat(limited.render(request(html)).degradations()).as(text).containsExactly(HtmlPdfRenderDegradation.TEXT_ONLY);
+        }
+    }
+
+    @Test
     @DisplayName("should report the duration in milliseconds")
-    void shouldLogDurationInMilliseconds() throws Exception {
+    void shouldLogDuration_inMilliseconds() throws Exception {
         try (LogCapture capture = LogCapture.forLogger(HtmlPdfRenderService.class)) {
             service.render(request(page("<p>FAKE-Body</p>")));
 
@@ -673,7 +696,7 @@ class HtmlPdfRenderServiceUnitTest {
 
     @Test
     @DisplayName("should name the source of the request in the line")
-    void shouldLogTheSource() throws Exception {
+    void shouldNameTheSource_inTheLogLine() throws Exception {
         try (LogCapture capture = LogCapture.forLogger(HtmlPdfRenderService.class)) {
             for (HtmlPdfRenderSource source : HtmlPdfRenderSource.values()) {
                 service.render(new HtmlPdfRenderRequest(page("<p>x</p>"), webRoot, List.of(webRoot), source));

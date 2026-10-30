@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager.htmlpdf.service;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BundledFontSet;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BundledFontSet.Face;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -67,9 +68,11 @@ import java.util.concurrent.locks.ReentrantLock;
  *       because another JVM sharing the temporary directory may be using one.</li>
  *   <li><b>Owner only.</b> The directory is created owner-only where POSIX permissions exist, and
  *       the files are written owner-only; that is the tamper control. A directory that already
- *       exists but is a symbolic link, belongs to another user or is writable by others is not
- *       used: this JVM uses a fresh private directory instead and logs a WARN, so another local user
- *       cannot block PDF generation.</li>
+ *       exists but is a symbolic link or belongs to another user is not used: this JVM uses a
+ *       fresh private directory instead and logs a WARN, so another local user cannot block PDF
+ *       generation. One of this user's own that others can reach is tightened to owner-only and
+ *       used; a file planted in it while it was open is caught only by the SHA-256 check at first
+ *       use.</li>
  *   <li><b>Verified.</b> On first use each file's SHA-256 is compared with the class-path bytes, and
  *       a file that is missing or different is written to a temporary name and moved into place
  *       atomically, under one lock.</li>
@@ -264,8 +267,8 @@ class BundledFontFileService {
         if (isTrusted(shared)) {
             return shared;
         }
-        logger.warn("The shared bundled-font directory is a link, belongs to another user or is writable by"
-                + " others; this JVM uses a private directory");
+        logger.warn("The shared bundled-font directory is a link or belongs to another user;"
+                + " this JVM uses a private directory");
         return Files.createTempDirectory(tempRoot, DIRECTORY_PREFIX);
     }
 
@@ -324,8 +327,11 @@ class BundledFontFileService {
     }
 
     /** Writes to a temporary name in the same directory, then moves the complete file into place. */
+    // FindSecBugs PATH_TRAVERSAL_IN: the file is one of the four bundled fonts inside this service's own directory; no part of the path comes from a request
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "the file is one of the four bundled fonts inside the service's own owner-only directory; no part of the path comes from a request")
     private static void write(Path file, byte[] bytes) throws IOException {
-        Path temporary = Files.createTempFile(file.getParent(), file.getFileName() + ".", ".tmp");
+        Path directory = Objects.requireNonNull(file.getParent(), "file");
+        Path temporary = Files.createTempFile(directory, file.getFileName() + ".", ".tmp");
         try {
             Files.write(temporary, bytes);
             try {

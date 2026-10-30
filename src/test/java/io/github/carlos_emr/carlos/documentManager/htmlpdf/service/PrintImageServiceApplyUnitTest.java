@@ -278,7 +278,7 @@ class PrintImageServiceApplyUnitTest {
 
     @Test
     @DisplayName("should give every converted file its own name")
-    void shouldNameEveryConvertedFileApart() throws IOException {
+    void shouldNameEveryConvertedFile_apart() throws IOException {
         file("a.wbmp", TestImages.wbmp(8, 8));
         file("b.wbmp", TestImages.wbmp(16, 12));
         Document document = document("<img id=\"a\" src=\"a.wbmp\"><img id=\"b\" src=\"b.wbmp\">");
@@ -374,7 +374,7 @@ class PrintImageServiceApplyUnitTest {
 
     @Test
     @DisplayName("should box every raster image without a render slot and report that images were omitted")
-    void shouldBoxEveryImage_withoutSlot_andReportOmitted() throws IOException {
+    void shouldBoxEveryImageAndReportOmitted_withoutSlot() throws IOException {
         file("a.png", TestImages.png(10, 10));
         Document document = document("<img src=\"a.png\"><img src=\"missing.png\"><img src=\"a.png\">");
 
@@ -502,7 +502,7 @@ class PrintImageServiceApplyUnitTest {
 
     @Test
     @DisplayName("should clean a data: SVG and an inline svg, and report nothing for a clean SVG")
-    void shouldCleanDataAndInlineSvg() throws IOException {
+    void shouldCleanDataAndInlineSvg_andReportNothingWhenClean() throws IOException {
         Document document = document("<img id=\"d\" src=\"" + dataUri("image/svg+xml", TestImages.svgWithOutsideReference()) + "\">"
                 + "<svg id=\"s\" width=\"10\" height=\"10\"><rect width=\"5\" height=\"5\"/><image xlink:href=\"http://127.0.0.1:1/x\"/>"
                 + "<style>.a{fill:url(http://127.0.0.1:1/p)}</style></svg>");
@@ -526,7 +526,7 @@ class PrintImageServiceApplyUnitTest {
 
     @Test
     @DisplayName("should report the removal of a reference from an inline svg on its own, and nothing for a clean one")
-    void shouldReportInlineSvgReferenceRemoval() throws IOException {
+    void shouldReportInlineSvgReferenceRemoval_onItsOwn() throws IOException {
         Document dirty = document("<svg id=\"s\" width=\"10\" height=\"10\"><image xlink:href=\"http://127.0.0.1:1/x\"/></svg>");
         try (PreparedPrintImages images = prepare(dirty)) {
             assertThat(images.directory()).isNull();
@@ -538,6 +538,24 @@ class PrintImageServiceApplyUnitTest {
         Document clean = document("<svg width=\"10\" height=\"10\"><rect width=\"5\" height=\"5\"/></svg>");
         try (PreparedPrintImages images = prepare(clean)) {
             assertThat(clean.select("svg rect")).hasSize(1);
+        }
+        assertThat(degradations).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should give an inline svg with only a viewBox the size of the viewBox, and leave one that has a size")
+    void shouldSizeInlineSvg_fromItsViewBox() throws IOException {
+        Document document = document("<svg id=\"v\" viewBox=\"0 0 24 12\"><rect width=\"5\" height=\"5\"/></svg>"
+                + "<svg id=\"w\" viewBox=\"0 0 24 12\" width=\"48\"><rect width=\"5\" height=\"5\"/></svg>"
+                + "<svg id=\"n\"><rect width=\"5\" height=\"5\"/></svg>");
+
+        try (PreparedPrintImages images = prepare(document)) {
+            Element sized = document.getElementById("v");
+            assertThat(sized.attr("width")).isEqualTo("24");
+            assertThat(sized.attr("height")).isEqualTo("12");
+            assertThat(document.getElementById("w").hasAttr("height")).isFalse();
+            assertThat(document.getElementById("w").attr("width")).isEqualTo("48");
+            assertThat(document.getElementById("n").hasAttr("width")).isFalse();
         }
         assertThat(degradations).isEmpty();
     }
@@ -746,7 +764,7 @@ class PrintImageServiceApplyUnitTest {
 
     @Test
     @DisplayName("should remove srcset, which the renderer does not read")
-    void shouldRemoveSrcset() throws IOException {
+    void shouldRemoveSrcset_theRendererDoesNotRead() throws IOException {
         file("a.png", TestImages.png(10, 10));
         Document document = document("<img id=\"i\" src=\"a.png\" srcset=\"http://example.invalid/x.png 2x\">");
 
@@ -757,7 +775,7 @@ class PrintImageServiceApplyUnitTest {
 
     @Test
     @DisplayName("should handle a document with several kinds of image at once, in order")
-    void shouldHandleMixedDocument() throws IOException {
+    void shouldHandleMixedDocument_inOrder() throws IOException {
         file("a.jpg", TestImages.jpeg(30, 20, false));
         file("w.wbmp", TestImages.wbmp(8, 8));
         file("l.svg", TestImages.svgWithOutsideReference());

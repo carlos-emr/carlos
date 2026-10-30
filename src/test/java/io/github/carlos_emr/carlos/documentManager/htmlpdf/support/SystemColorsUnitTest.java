@@ -31,7 +31,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.time.Duration;
+import java.util.Random;
+import java.util.regex.Pattern;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 /**
@@ -42,6 +47,41 @@ import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 @Tag("htmlpdf")
 @DisplayName("SystemColors Unit Tests")
 class SystemColorsUnitTest {
+
+    @ParameterizedTest(name = "[{index}] \"{0}\"")
+    @ValueSource(strings = {"", "a", "/* x */", "a /* x */ b", "/**/", "/*/", "/*/ x", "/* x", "a /* x", "/* a */ b /* c", "/* a */ /* b */", "/* /* a */ */",
+            "x /* a\nb */ y", "/*", "*/", "/* */ */", "a/**/b/**/c"})
+    @DisplayName("should remove comments, and an unterminated one stays")
+    void shouldRemoveComments(String text) {
+        assertThat(SystemColors.withoutComments(text)).isEqualTo(Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL).matcher(text).replaceAll(""));
+    }
+
+    @Test
+    @DisplayName("should remove comments as the pattern it replaces did, for random text")
+    void shouldMatchTheOldPattern_forRandomText() {
+        Pattern old = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
+        String[] pieces = {"/*", "*/", "/", "*", "a", ":", " ", "\n", "/**/", "/*/", "**/", "color", ""};
+        Random random = new Random(20261030);
+        for (int i = 0; i < 20_000; i++) {
+            StringBuilder text = new StringBuilder();
+            for (int n = random.nextInt(12); n > 0; n--) {
+                text.append(pieces[random.nextInt(pieces.length)]);
+            }
+            assertThat(SystemColors.withoutComments(text.toString())).as(text.toString()).isEqualTo(old.matcher(text).replaceAll(""));
+        }
+    }
+
+    @Test
+    @DisplayName("should read text made of comment openers with no closer in linear time")
+    void shouldReadUnterminatedComments_inLinearTime() {
+        // /\*.*?\*/ scanned to the end from every opener: about n squared over six steps.
+        String hostile = "/* ".repeat(300_000) + ":";
+
+        assertTimeoutPreemptively(Duration.ofSeconds(5), () -> {
+            assertThat(SystemColors.replaceIn(hostile)).isEqualTo(hostile);
+            assertThat(SystemColors.replaceIn("/* ".repeat(300_000) + "color: windowtext")).isEqualTo("/* ".repeat(300_000) + "color: windowtext");
+        });
+    }
 
     @Test
     @DisplayName("should turn the border Word writes into one Flying Saucer draws")

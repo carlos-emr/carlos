@@ -23,7 +23,9 @@ package io.github.carlos_emr.carlos.documentManager.htmlpdf.service;
 
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderDegradation;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BundledFontSet;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.EngineExtensions;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.FallbackFontRuns;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.HiddenContent;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.LegacyBodyMargins;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.PlainTextDocument;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.PrintFormControls;
@@ -54,8 +56,11 @@ import java.util.Set;
  * <p>The steps, in order (the letters are the spec's):</p>
  *
  * <ol>
- *   <li>{@link #prepare}: [safe mode: author styles and inline graphics removed] a. scripts and
- *       comments; b. soft hyphens, bidi controls and XML-invalid characters; c. form controls;
+ *   <li>{@link #prepare}: [safe and text-only modes: the elements the markup hid ({@code hidden},
+ *       {@code display: none}, {@code visibility: hidden}) removed, so that dropping the styles does not
+ *       print them] [safe mode: author styles and inline graphics removed] a. scripts and
+ *       comments, then the engine's own {@code -fs-} CSS properties (so a style cannot set a span the
+ *       clamp of step f never sees); b. soft hyphens, bidi controls and XML-invalid characters; c. form controls;
  *       d. {@code position: fixed}; e. {@code <ol type>}; f. row and column spans; g. paginated
  *       tables; h. right-to-left text; i. {@code alt} text. [Text-only mode: the cleaned document
  *       is then reduced to its text.] Last, n. the blocks that hold a very long word are marked and
@@ -106,10 +111,15 @@ class PrintDocumentComposer {
         Objects.requireNonNull(mode, "mode");
         Objects.requireNonNull(degradations, "degradations");
         Document document = Jsoup.parse(html);
+        if (mode != PrintMode.NORMAL) {
+            // These rungs drop the author's styles or keep every word: what the markup hid must not come back.
+            HiddenContent.remove(document);
+        }
         if (mode == PrintMode.SAFE) {
             SafeModeMarkup.simplify(document);
         }
         XhtmlCleanup.removeScriptsAndComments(document);
+        EngineExtensions.remove(document);
         XhtmlCleanup.removeInvisibleCharacters(document);
         PrintFormControls.replaceControls(document);
         XhtmlCleanup.rewriteFixedPositioning(document);

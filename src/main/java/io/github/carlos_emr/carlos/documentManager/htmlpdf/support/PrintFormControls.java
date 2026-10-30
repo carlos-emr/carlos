@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.regex.Pattern;
 
 /**
  * Replaces form controls with static text and marks for printing (step c of the render pipeline).
@@ -116,10 +115,55 @@ public final class PrintFormControls {
     private static final BigDecimal EM_PER_COLUMN = new BigDecimal("0.55");
     private static final BigDecimal EM_PER_ROW = new BigDecimal("1.2");
 
-    /** A decimal number, as {@code <progress>} and {@code <meter>} attributes must be. */
-    private static final Pattern NUMBER = Pattern.compile("[+-]?(\\d+(\\.\\d*)?|\\.\\d+)([eE][+-]?\\d+)?");
-
     private PrintFormControls() {
+    }
+
+    /**
+     * Whether the text is a decimal number, as {@code <progress>} and {@code <meter>} attributes must be: an optional
+     * sign, digits with an optional fraction or a fraction alone, and an optional exponent. A scan, not
+     * a regular expression, so that no attribute value can make it backtrack.
+     */
+    static boolean isDecimalNumber(String text) {
+        int length = text.length();
+        int i = 0;
+        if (i < length && (text.charAt(i) == '+' || text.charAt(i) == '-')) {
+            i++;
+        }
+        int whole = i;
+        while (i < length && isDigit(text.charAt(i))) {
+            i++;
+        }
+        boolean hasWhole = i > whole;
+        if (i < length && text.charAt(i) == '.') {
+            i++;
+            int fraction = i;
+            while (i < length && isDigit(text.charAt(i))) {
+                i++;
+            }
+            if (!hasWhole && i == fraction) {
+                return false;
+            }
+        } else if (!hasWhole) {
+            return false;
+        }
+        if (i < length && (text.charAt(i) == 'e' || text.charAt(i) == 'E')) {
+            i++;
+            if (i < length && (text.charAt(i) == '+' || text.charAt(i) == '-')) {
+                i++;
+            }
+            int exponent = i;
+            while (i < length && isDigit(text.charAt(i))) {
+                i++;
+            }
+            if (i == exponent) {
+                return false;
+            }
+        }
+        return i == length;
+    }
+
+    private static boolean isDigit(char c) {
+        return c >= '0' && c <= '9';
     }
 
     /**
@@ -225,17 +269,17 @@ public final class PrintFormControls {
 
     private static String progressText(Element progress) {
         String value = progress.attr("value").strip();
-        if (!NUMBER.matcher(value).matches()) {
+        if (!isDecimalNumber(value)) {
             return "";
         }
         String max = progress.attr("max").strip();
-        boolean usableMax = NUMBER.matcher(max).matches() && Double.parseDouble(max) > 0;
+        boolean usableMax = isDecimalNumber(max) && Double.parseDouble(max) > 0;
         return value + "/" + (usableMax ? max : "1");
     }
 
     private static String meterText(Element meter) {
         String value = meter.attr("value").strip();
-        return NUMBER.matcher(value).matches() ? value : "";
+        return isDecimalNumber(value) ? value : "";
     }
 
     // ---- replacement ------------------------------------------------------------------------

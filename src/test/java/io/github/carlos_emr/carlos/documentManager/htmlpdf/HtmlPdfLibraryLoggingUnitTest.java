@@ -40,6 +40,7 @@ import org.xhtmlrenderer.util.Configuration;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -92,6 +93,11 @@ class HtmlPdfLibraryLoggingUnitTest {
 
     /** The level the application's own {@code log4j2.xml} gives the library, which the test configuration does not load. */
     private static org.apache.logging.log4j.Level levelInApplicationConfig() throws Exception {
+        return levelInApplicationConfig(LIBRARY_LOGGER);
+    }
+
+    /** The level the application's own {@code log4j2.xml} gives a logger of the library. */
+    private static org.apache.logging.log4j.Level levelInApplicationConfig(String loggerName) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
@@ -99,18 +105,22 @@ class HtmlPdfLibraryLoggingUnitTest {
         NodeList loggers = configuration.getElementsByTagName("Logger");
         for (int i = 0; i < loggers.getLength(); i++) {
             Element logger = (Element) loggers.item(i);
-            if (LIBRARY_LOGGER.equals(logger.getAttribute("name"))) {
+            if (loggerName.equals(logger.getAttribute("name"))) {
                 return org.apache.logging.log4j.Level.toLevel(logger.getAttribute("level"));
             }
         }
-        throw new AssertionError("log4j2.xml has no logger for " + LIBRARY_LOGGER);
+        throw new AssertionError("log4j2.xml has no logger for " + loggerName);
     }
 
     /** Sets the level of the library's logger in the running configuration; the capture removes the logger when it closes. */
     private static void setLibraryLevel(org.apache.logging.log4j.Level level) {
+        setLevel(LIBRARY_LOGGER, level);
+    }
+
+    private static void setLevel(String loggerName, org.apache.logging.log4j.Level level) {
         LoggerContext context = (LoggerContext) LogManager.getContext(false);
-        LoggerConfig config = context.getConfiguration().getLoggerConfig(LIBRARY_LOGGER);
-        assertThat(config.getName()).as("logger config made by the capture").isEqualTo(LIBRARY_LOGGER);
+        LoggerConfig config = context.getConfiguration().getLoggerConfig(loggerName);
+        assertThat(config.getName()).as("logger config made by the capture").isEqualTo(loggerName);
         config.setLevel(level);
         context.updateLoggers();
     }
@@ -153,6 +163,47 @@ class HtmlPdfLibraryLoggingUnitTest {
             jul.removeHandler(handler);
             jul.setLevel(previousLevel);
         }
+    }
+
+    @Test
+    @DisplayName("should log nothing of an SVG that cannot be drawn, through either of the library's routes, at the levels the application configures")
+    void shouldLogNoSvgContent_whenSvgCannotBeDrawn() throws Exception {
+        String svgLogger = "org.xhtmlrenderer.pdf.SvgImage";
+        Files.writeString(webRoot.resolve("broken.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" "
+                + "width=\"20\" height=\"20\"><use xlink:href=\"#FAKE-Patient-Fragment\"/></svg>");
+        Logger jul = Logger.getLogger(LIBRARY_LOGGER);
+        RecordingHandler handler = new RecordingHandler();
+        handler.setLevel(Level.ALL);
+        Level previousLevel = jul.getLevel();
+        jul.setLevel(Level.ALL);
+        jul.addHandler(handler);
+        try (LogCapture library = LogCapture.forLogger(LIBRARY_LOGGER); LogCapture svg = LogCapture.forLogger(svgLogger)) {
+            setLibraryLevel(levelInApplicationConfig());
+            setLevel(svgLogger, levelInApplicationConfig(svgLogger));
+            // Positive control: Flying Saucer's own logger for SVG writes what the library wrote there before it was pinned.
+            org.slf4j.LoggerFactory.getLogger(svgLogger).warn("control-slf4j-warn FAKE-Control");
+            org.slf4j.LoggerFactory.getLogger(svgLogger).error("control-slf4j-error");
+            assertThat(svg.messages()).contains("control-slf4j-error").doesNotContain("control-slf4j-warn FAKE-Control");
+
+            HtmlPdfRenderResult result = render("<html><body><p>FAKE-Body</p><img src=\"broken.svg\"/></body></html>");
+
+            assertThat(result.pdf()).isNotEmpty();
+            assertThat(result.degradations()).as("one SVG is left out; the document is not simplified")
+                    .containsExactly(io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderDegradation.IMAGE_UNAVAILABLE);
+            List<String> everything = new ArrayList<>(handler.texts);
+            everything.addAll(library.messages());
+            everything.addAll(svg.messages());
+            assertThat(everything).noneMatch(text -> text.contains("FAKE-"));
+        } finally {
+            jul.removeHandler(handler);
+            jul.setLevel(previousLevel);
+        }
+    }
+
+    @Test
+    @DisplayName("should hold the SVG logger of the library at ERROR in the application's log4j2.xml")
+    void shouldPinSvgLoggerAtError_inLog4jConfig() throws Exception {
+        assertThat(levelInApplicationConfig("org.xhtmlrenderer.pdf.SvgImage")).isEqualTo(org.apache.logging.log4j.Level.ERROR);
     }
 
     @Test

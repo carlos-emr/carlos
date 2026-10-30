@@ -46,7 +46,10 @@ import java.math.RoundingMode;
  *       ignores {@code overflow-wrap} but supports {@code word-wrap}. The property is not set on the
  *       whole body: Flying Saucer then takes the minimum width of every table cell to be one
  *       character, and the label columns of an ordinary form (the Annual form's lifestyle block)
- *       collapse into vertical strips of letters;</li>
+ *       collapse into vertical strips of letters. The property is inherited, so a table nested in the
+ *       marked block gets {@code word-wrap: normal} ({@code .carlos-pdf-wrap table}): a long signature
+ *       line or URL beside a nested table would otherwise break its words ("Smokin" / "g"). A cell
+ *       of that table that holds a long word is marked itself and breaks it;</li>
  *   <li>{@code -fs-table-paginate} for the tables step g marks, which repeats their headers;</li>
  *   <li>the printed form controls ({@code carlos-pdf-control}, see {@code PrintFormControls}):
  *       bordered boxes that grow to fit their content, keep their line breaks and wrap long values;</li>
@@ -69,6 +72,7 @@ public final class PrintStylesheet {
             html, body { margin-top: 0 !important }          /* WebKit drops the top margin at the page start */
             body > *:first-child { margin-top: 0 !important }
             .carlos-pdf-wrap { word-wrap: break-word }       /* a block with a very long word (step n): wrap, not shrink */
+            .carlos-pdf-wrap table { word-wrap: normal }     /* word-wrap is inherited: a table inside would break its words */
             table.carlos-pdf-paginate { -fs-table-paginate: paginate }  /* repeat thead (step g) */
             .carlos-pdf-control { display: inline-block; vertical-align: baseline; font-size: 10pt;
               text-align: left; text-indent: 0; text-transform: none; letter-spacing: normal;

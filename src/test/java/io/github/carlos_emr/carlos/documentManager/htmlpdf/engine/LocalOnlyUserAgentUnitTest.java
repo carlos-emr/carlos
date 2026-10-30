@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.xhtmlrenderer.extend.FSImage;
 import org.xhtmlrenderer.pdf.ITextFSImage;
 import org.xhtmlrenderer.pdf.ITextFontResolver;
 import org.xhtmlrenderer.pdf.ITextOutputDevice;
@@ -547,7 +548,7 @@ class LocalOnlyUserAgentUnitTest {
 
         @Test
         @DisplayName("should accept file: base URL")
-        void shouldAcceptFileBaseUrl() {
+        void shouldAcceptBaseUrl_ofTheFileScheme() {
             LocalOnlyUserAgent agent = createAgent();
             agent.setBaseURL("file:///opt/webapp/");
             assertThat(agent.getBaseURL()).isEqualTo("file:///opt/webapp/");
@@ -555,7 +556,7 @@ class LocalOnlyUserAgentUnitTest {
 
         @Test
         @DisplayName("should accept null base URL")
-        void shouldAcceptNullBaseUrl() {
+        void shouldAcceptBaseUrl_thatIsNull() {
             LocalOnlyUserAgent agent = createAgent();
             agent.setBaseURL(null);
             assertThat(agent.getBaseURL()).isNull();
@@ -563,7 +564,7 @@ class LocalOnlyUserAgentUnitTest {
 
         @Test
         @DisplayName("should reject http: base URL")
-        void shouldRejectHttpBaseUrl() {
+        void shouldRejectBaseUrl_ofTheHttpScheme() {
             LocalOnlyUserAgent agent = createAgent();
             agent.setBaseURL("file:///safe/path/");
             agent.setBaseURL("http://evil.com/");
@@ -574,7 +575,7 @@ class LocalOnlyUserAgentUnitTest {
 
         @Test
         @DisplayName("should reject https: base URL")
-        void shouldRejectHttpsBaseUrl() {
+        void shouldRejectBaseUrl_ofTheHttpsScheme() {
             LocalOnlyUserAgent agent = createAgent();
             agent.setBaseURL("https://evil.com/");
             assertThat(agent.getBaseURL())
@@ -659,6 +660,43 @@ class LocalOnlyUserAgentUnitTest {
         }
 
         @Test
+        @DisplayName("should reduce a large PNG once, however many elements paint it, and share the picture between them")
+        void shouldReduceLargePngOnce_forEveryAskOfTheSameUri() throws Exception {
+            Path png = writeGrayPng("thirty-megapixels-again.png", 6000, 5000);
+            LocalOnlyUserAgent agent = createAgent(tempDir);
+
+            ImageResource first = load(agent, png);
+            ImageResource second = load(agent, png);
+            ImageResource third = load(agent, png);
+            ImageResource other = load(createAgent(tempDir), png);
+
+            ITextFSImage a = (ITextFSImage) first.getImage();
+            ITextFSImage b = (ITextFSImage) second.getImage();
+            ITextFSImage c = (ITextFSImage) third.getImage();
+            // Copies, as Flying Saucer hands out what it caches, of one picture: one image in the PDF.
+            assertThat(List.of(System.identityHashCode(a), System.identityHashCode(b), System.identityHashCode(c))).doesNotHaveDuplicates();
+            assertThat(b.getImage().getMySerialId()).isEqualTo(a.getImage().getMySerialId());
+            assertThat(c.getImage().getMySerialId()).isEqualTo(a.getImage().getMySerialId());
+            assertThat(b.getWidth()).isEqualTo(a.getWidth());
+            assertThat(b.getHeight()).isEqualTo(a.getHeight());
+            // Another agent is another render: its own picture.
+            assertThat(((ITextFSImage) other.getImage()).getImage().getMySerialId()).isNotEqualTo(a.getImage().getMySerialId());
+        }
+
+        @Test
+        @DisplayName("should reduce a large data: PNG once as well")
+        void shouldReduceLargeDataPng_once() throws Exception {
+            Path png = writeGrayPng("source-of-data.png", 6000, 5000);
+            String uri = "data:image/png;base64," + Base64.getEncoder().encodeToString(Files.readAllBytes(png));
+            LocalOnlyUserAgent agent = createAgent(tempDir);
+
+            ITextFSImage first = (ITextFSImage) agent.getImageResource(uri).getImage();
+            ITextFSImage second = (ITextFSImage) agent.getImageResource(uri).getImage();
+
+            assertThat(second.getImage().getMySerialId()).isEqualTo(first.getImage().getMySerialId());
+        }
+
+        @Test
         @DisplayName("should return an empty resource for a corrupt image")
         void shouldReturnEmpty_forCorruptImage() throws Exception {
             Path corrupt = tempDir.resolve("corrupt.png");
@@ -716,6 +754,43 @@ class LocalOnlyUserAgentUnitTest {
         }
 
         @Test
+        @DisplayName("should give an SVG its size in device dots, as Flying Saucer gives a raster image its")
+        void shouldScaleSvgSize_toDeviceDots() throws Exception {
+            Path sized = tempDir.resolve("sized.svg");
+            Files.writeString(sized, "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"30\" height=\"10\">"
+                    + "<rect width=\"30\" height=\"10\" fill=\"red\"/></svg>");
+            Path boxed = tempDir.resolve("boxed.svg");
+            Files.writeString(boxed, "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 40 20\">"
+                    + "<rect width=\"40\" height=\"20\" fill=\"red\"/></svg>");
+            Path raster = writeGrayPng("raster.png", 30, 10);
+            LocalOnlyUserAgent agent = createAgent(tempDir);
+
+            FSImage svg = load(agent, sized).getImage();
+            FSImage viewBox = load(agent, boxed).getImage();
+
+            assertThat(svg.getWidth()).isEqualTo(30 * DEFAULT_DOTS_PER_PIXEL);
+            assertThat(svg.getHeight()).isEqualTo(10 * DEFAULT_DOTS_PER_PIXEL);
+            assertThat(viewBox.getWidth()).isEqualTo(40 * DEFAULT_DOTS_PER_PIXEL);
+            assertThat(viewBox.getHeight()).isEqualTo(20 * DEFAULT_DOTS_PER_PIXEL);
+            // The same size Flying Saucer gives a raster image of the same pixels.
+            assertThat(load(agent, raster).getImage().getWidth()).isEqualTo(svg.getWidth());
+            assertThat(load(agent, raster).getImage().getHeight()).isEqualTo(svg.getHeight());
+        }
+
+        @Test
+        @DisplayName("should not overflow when an SVG declares a size in the billions")
+        void shouldSaturateSvgSize_whenItIsHuge() throws Exception {
+            Path huge = tempDir.resolve("huge.svg");
+            Files.writeString(huge, "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"2000000000\" height=\"7\">"
+                    + "<rect width=\"1\" height=\"1\"/></svg>");
+
+            FSImage image = load(createAgent(tempDir), huge).getImage();
+
+            assertThat(image.getWidth()).isEqualTo(Integer.MAX_VALUE);
+            assertThat(image.getHeight()).isEqualTo(7 * DEFAULT_DOTS_PER_PIXEL);
+        }
+
+        @Test
         @DisplayName("should return an empty resource for an image outside the allowed directories")
         void shouldReturnEmpty_forImageOutsideAllowedDirectories() throws Exception {
             Path allowed = Files.createDirectories(tempDir.resolve("allowed"));
@@ -759,7 +834,7 @@ class LocalOnlyUserAgentUnitTest {
 
         @Test
         @DisplayName("should return non-null renderer")
-        void shouldReturnNonNullRenderer() {
+        void shouldReturnRenderer_thatIsNotNull() {
             ITextRenderer renderer = LocalOnlyUserAgent.createRestrictedRenderer(List.of(tempDir), new ITextFontResolver());
             assertThat(renderer).isNotNull();
             // Verify the renderer has a shared context configured (required for PDF generation)
@@ -768,7 +843,7 @@ class LocalOnlyUserAgentUnitTest {
 
         @Test
         @DisplayName("should use the font resolver it is given")
-        void shouldUseGivenFontResolver() {
+        void shouldUseFontResolver_itIsGiven() {
             ITextFontResolver resolver = new ITextFontResolver();
             ITextRenderer renderer = LocalOnlyUserAgent.createRestrictedRenderer(List.of(tempDir), resolver);
             assertThat(renderer.getFontResolver()).isSameAs(resolver);

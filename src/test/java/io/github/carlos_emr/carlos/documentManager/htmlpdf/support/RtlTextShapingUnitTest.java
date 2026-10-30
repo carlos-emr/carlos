@@ -99,6 +99,26 @@ class RtlTextShapingUnitTest {
     }
 
     @Test
+    @DisplayName("should leave the text of an SVG or a formula alone, because Batik puts SVG text in order itself")
+    void shouldLeaveSvgAndMathText_asItIs() {
+        Document document = shaped("<svg><text>" + SHALOM + "</text><g><text dir=\"rtl\">" + SALAM + "</text></g></svg>"
+                + "<math><mtext>" + SHALOM + "</mtext></math><p>" + SHALOM + "</p>");
+
+        assertThat(document.select("svg > text").first().wholeText()).isEqualTo(SHALOM);
+        assertThat(document.select("svg g text").first().wholeText()).isEqualTo(SALAM);
+        assertThat(textOf(document, "mtext")).isEqualTo(SHALOM);
+        assertThat(textOf(document, "p")).isEqualTo(SHALOM_VISUAL);
+    }
+
+    @Test
+    @DisplayName("should reorder the text of an element called svg-like but not inside an SVG")
+    void shouldReorderText_ofAnElementThatIsNotSvg() {
+        Document document = shaped("<div class=\"svg\"><svgish>" + SHALOM + "</svgish></div>");
+
+        assertThat(textOf(document, "svgish")).isEqualTo(SHALOM_VISUAL);
+    }
+
+    @Test
     @DisplayName("should join Arabic letters into presentation forms and reorder them")
     void shouldJoinArabic_toPresentationForms() {
         Document document = shaped("<p>" + SALAM + "</p>");

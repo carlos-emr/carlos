@@ -457,8 +457,10 @@ public final class XhtmlCleanup {
 
     private static Element blockAround(Element element) {
         Element block = element;
-        while (INLINE_TAGS.contains(block.normalName()) && block.parent() != null) {
-            block = block.parent();
+        Element parent = block.parent();
+        while (parent != null && INLINE_TAGS.contains(block.normalName())) {
+            block = parent;
+            parent = block.parent();
         }
         return block;
     }

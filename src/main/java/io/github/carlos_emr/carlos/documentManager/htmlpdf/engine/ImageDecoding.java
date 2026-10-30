@@ -28,7 +28,6 @@ import com.twelvemonkeys.imageio.metadata.jpeg.JPEGSegmentUtil;
 import com.twelvemonkeys.imageio.metadata.tiff.TIFFReader;
 import com.twelvemonkeys.imageio.stream.ByteArrayImageInputStream;
 import com.twelvemonkeys.imageio.stream.SubImageInputStream;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import java.awt.geom.AffineTransform;
 import java.awt.image.AffineTransformOp;
@@ -44,9 +43,12 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
+import javax.imageio.spi.IIORegistry;
+import javax.imageio.spi.ImageReaderSpi;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 
@@ -75,17 +77,22 @@ import javax.imageio.stream.MemoryCacheImageInputStream;
  *       errors) throws anything else.</li>
  * </ul>
  *
- * <p><b>Only vetted formats are read.</b> A header is reported, and a decode attempted, only when
- * the first ImageIO reader that claims the input is for PNG, JPEG, GIF, BMP, WBMP or TIFF (the
- * JDK's readers and the TwelveMonkeys TIFF reader). For any other reader the input is treated as
- * one that no reader recognises: {@link #readHeader(Path)} is empty, {@link #readSubsampled(Path, int)}
- * throws {@link IOException}, and the reader is never given the stream. ImageIO registers every
- * reader it finds on the classpath, so a decoder that turns up later, as a transitive dependency
- * of another library for example, would otherwise start decoding untrusted bytes without anyone
- * noticing. Adding a format here is a conscious change, made once its reader has been tried on
- * corrupt, hostile and oversized input. The TwelveMonkeys WebP reader, tried that way, looped for
- * minutes on a 36-byte file, ignored the subsampling and allocated from sizes it read out of the
- * data; that is why WebP is not on the list and its plugin is not a dependency.</p>
+ * <p><b>Only vetted formats are read, by vetted readers.</b> A header is reported, and a decode
+ * attempted, only by a reader that is for PNG, JPEG, GIF, BMP, WBMP or TIFF <em>and</em> comes from
+ * a vetted provider: the JDK's own readers (the {@code java.desktop} module) or the TwelveMonkeys
+ * TIFF reader. The first such reader that claims the input is used. A reader of another
+ * provider is never asked about the input, and never given the stream: ImageIO registers every
+ * reader it finds on the classpath, in an order that follows the class loader, and the JAI ImageIO
+ * jar that is on this classpath registers its own BMP, WBMP and TIFF readers, ahead of the JDK's
+ * for BMP and TIFF, under names that pass the list of formats. A decoder that turns up later, as a
+ * transitive dependency of another library for example, would otherwise start decoding untrusted bytes
+ * without anyone noticing. Input no vetted reader claims is treated as one that no reader
+ * recognises: {@link #readHeader(Path)} is empty and {@link #readSubsampled(Path, int)} throws
+ * {@link IOException}. Adding a format or a provider here is a conscious change, made once its
+ * reader has been tried on corrupt, hostile and oversized input. The TwelveMonkeys WebP reader,
+ * tried that way, looped for minutes on a 36-byte file, ignored the subsampling and allocated from
+ * sizes it read out of the data; that is why WebP is not on the list and its plugin is not a
+ * dependency.</p>
  *
  * <p>The usual sequence, for a file that may be hostile:</p>
  *
@@ -131,7 +138,14 @@ public final class ImageDecoding {
     private static final Set<String> LISTED_FORMATS = Set.of("png", "jpeg", "gif", "bmp", "wbmp", "tiff", "tif");
 
     /**
-     * The message when the input is no image in a listed format, whether no reader claims it or the
+     * The providers from the class path (not the JDK) whose readers are vetted: the TwelveMonkeys TIFF reader.
+     * Package-private, and only added to by tests, which register synthetic readers.
+     */
+    static final Set<String> VETTED_CLASS_PATH_PROVIDERS =
+            new CopyOnWriteArraySet<>(List.of("com.twelvemonkeys.imageio.plugins.tiff.TIFFImageReaderSpi"));
+
+    /**
+     * The message when the input is no image in a listed format, whether no vetted reader claims it or the
      * reader that does is not for a listed format. It is fixed, so it names no file and no content.
      */
     static final String UNSUPPORTED_FORMAT_MESSAGE = "the input is not an image in a supported format";
@@ -198,8 +212,9 @@ public final class ImageDecoding {
      * depend on it: the TwelveMonkeys TIFF reader refuses an input that would expand to more than
      * 512 times its length (a blank 1728 x 2200 CCITT fax page of under 800 bytes does), a check
      * that is skipped for a stream of unknown length, so a byte payload would be decoded where the
-     * same file is refused. Which TIFF reader claims an input depends on the order of the classpath
-     * (the JAI ImageIO and JDK readers have no such check), so the check is not guaranteed.</p>
+     * same file is refused. Which TIFF reader claims an input depends on the order of ImageIO's
+     * registry between the vetted ones (the JDK's reader has no such check); the JAI ImageIO reader, which
+     * has none either, is never asked.</p>
      *
      * @param data the image bytes, for example a decoded {@code data:} URI payload; not modified
      * @return the header, or empty in the cases listed for {@link #readHeader(Path)}
@@ -377,27 +392,42 @@ public final class ImageDecoding {
 
     /**
      * The reader both the header and the decode use, so that they agree on what the image is, and
-     * the one place that decides which formats are read (see the class summary): the first reader
-     * that claims the stream, provided it is for a listed format.
+     * the one place that decides which formats are read, and by whom (see the class summary): the
+     * first reader of a vetted provider that claims the stream, provided it is for a listed format.
+     * Providers that are not vetted are filtered out before they are asked whether they can decode the
+     * stream, so none of them reads a byte of it.
      *
-     * @return that reader, or {@code null} if none claims the stream or the first one is for a
-     *         format that is not listed; that reader is disposed without ever being given the stream
+     * @return that reader, or {@code null} if no vetted reader claims the stream
      */
     private static ImageReader firstReader(ImageInputStream stream) throws IOException {
-        Iterator<ImageReader> readers = ImageIO.getImageReaders(stream);
-        if (!readers.hasNext()) {
+        Iterator<ImageReaderSpi> providers = IIORegistry.getDefaultInstance().getServiceProviders(ImageReaderSpi.class,
+                provider -> isVetted((ImageReaderSpi) provider) && canDecode((ImageReaderSpi) provider, stream), true);
+        if (!providers.hasNext()) {
             return null;
         }
-        ImageReader reader = readers.next();
+        ImageReader reader = providers.next().createReaderInstance();
         if (!isListed(reader)) {
+            // The first vetted reader to claim the input decides what it is; there is no looking for another.
             reader.dispose();
             return null;
         }
         return reader;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an ImageIO reader's format name (an internal ASCII identifier such as "png", never user input); not a security or authorization decision
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an ImageIO reader's format name (an internal ASCII identifier such as png, never user input); not a security or authorization decision")
+    /** The JDK's own readers, and the TwelveMonkeys TIFF reader, whose expansion check refuses a tiny file that would fill the heap. */
+    static boolean isVetted(ImageReaderSpi provider) {
+        Class<?> type = provider.getClass();
+        return type.getModule() == ImageReader.class.getModule() || VETTED_CLASS_PATH_PROVIDERS.contains(type.getName());
+    }
+
+    private static boolean canDecode(ImageReaderSpi provider, ImageInputStream stream) {
+        try {
+            return provider.canDecodeInput(stream);
+        } catch (IOException | RuntimeException e) {
+            return false;
+        }
+    }
+
     private static boolean isListed(ImageReader reader) throws IOException {
         return LISTED_FORMATS.contains(reader.getFormatName().toLowerCase(Locale.ROOT));
     }

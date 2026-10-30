@@ -40,6 +40,7 @@ import org.mockito.Mockito;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 
 import java.awt.Rectangle;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -92,6 +93,26 @@ class PrintLayoutServiceUnitTest {
         return service.render(PrintMode.NORMAL, xhtml(html), baseDirectory, List.of(baseDirectory), fonts, degradations);
     }
 
+    // ---- images -----------------------------------------------------------------------------
+
+    @Test
+    @DisplayName("should print the rest of the page and report an unavailable image when an SVG cannot be drawn")
+    void shouldReportImageUnavailable_whenSvgCannotBeDrawn() throws Exception {
+        Files.writeString(baseDirectory.resolve("broken.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" "
+                + "width=\"40\" height=\"40\"><use xlink:href=\"#FAKE-Missing-Id\"/></svg>");
+        Files.writeString(baseDirectory.resolve("fine.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"40\" height=\"40\"><rect width=\"40\" height=\"40\"/></svg>");
+        Set<HtmlPdfRenderDegradation> broken = degradations();
+        Set<HtmlPdfRenderDegradation> fine = degradations();
+
+        byte[] withBroken = render("<html><body><p>FAKE-Text</p><img src=\"broken.svg\"/><p>FAKE-More</p></body></html>", broken);
+        byte[] withFine = render("<html><body><p>FAKE-Text</p><img src=\"fine.svg\"/><p>FAKE-More</p></body></html>", fine);
+
+        assertThat(broken).containsExactly(HtmlPdfRenderDegradation.IMAGE_UNAVAILABLE);
+        assertThat(String.join(" ", TestPdfs.pageTexts(withBroken))).contains("FAKE-Text").contains("FAKE-More");
+        assertThat(fine).isEmpty();
+        assertThat(String.join(" ", TestPdfs.pageTexts(withFine))).contains("FAKE-Text").contains("FAKE-More");
+    }
+
     // ---- geometry ---------------------------------------------------------------------------
 
     @ParameterizedTest
@@ -118,7 +139,7 @@ class PrintLayoutServiceUnitTest {
 
     @Test
     @DisplayName("should use the default zoom for a page that fits and a smaller one for a wide page")
-    void shouldZoomOnlyWidePages() throws Exception {
+    void shouldZoomOnly_widePages() throws Exception {
         // Exactly 0.8: a page that fits is never sent through the pass-2 arithmetic, which would give 0.7995.
         assertThat(TestPdfs.zoomOf(render(blockPage(400)))).isEqualTo(0.8f);
         assertThat(TestPdfs.zoomOf(render(blockPage(850)))).isEqualTo(0.8f);
@@ -149,7 +170,7 @@ class PrintLayoutServiceUnitTest {
 
     @Test
     @DisplayName("should ignore the page size and margins an author sets")
-    void shouldIgnoreAuthorPageRule() throws Exception {
+    void shouldIgnoreAuthorPageRule_forSizeAndMargins() throws Exception {
         String html = "<html><head><style>@page { size: A4 landscape; margin: 5mm } body { margin: 0 } "
                 + ".block { height: 40px; width: 300px; background: #000 }</style></head>"
                 + "<body><div class=\"block\"></div></body></html>";
@@ -237,7 +258,7 @@ class PrintLayoutServiceUnitTest {
 
     @Test
     @DisplayName("should apply print media rules and not screen media rules")
-    void shouldApplyPrintMediaOnly() throws Exception {
+    void shouldApplyPrintMedia_only() throws Exception {
         byte[] pdf = render("<html><head><style>.x { font-size: 20px } @media print { .x { font-size: 30px } }"
                 + " @media screen { .x { font-size: 50px } }</style></head><body><p class=\"x\">media</p></body></html>");
 

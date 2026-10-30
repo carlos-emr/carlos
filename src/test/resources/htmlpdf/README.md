@@ -10,7 +10,7 @@ Every name in them starts with `FAKE-`; none is real patient data.
 | `forms/` | One page with every control type (CJK and Hebrew values, `optgroup`, `progress`, `meter`, hidden fields that must never print) | By hand |
 | `hrm/` | A hospital discharge summary as HTML, a table-heavy report, a report that began as a Word document (`windowtext` borders, `<o:p>`, comments with `--`), and a report with every kind of image | By hand. `images.html` names image files the test writes into the folder (TestImages), so no binary is committed except `images/` below |
 | `email/`, `messenger/` | An encrypted-email message body, a Messenger letter | By hand |
-| `geometry/` | Pages of 400, 850, 1000 and 1400 px, a narrow page followed by a wide one, an author `@page`, small text, print and screen media rules, a long URL, a table across pages, `position: fixed`, soft hyphens, `<ol type>`, an over-long `rowspan` | By hand |
+| `geometry/` | Pages of 400, 850, 1000 and 1400 px, a narrow page followed by a wide one, an author `@page`, small text, print and screen media rules, a long URL, a long run of characters beside a table, a table across pages, `position: fixed`, soft hyphens, `<ol type>`, an over-long `rowspan` | By hand |
 | `scripts/` | Latin accents, CJK, symbols, Hebrew (short and long), Arabic, Urdu, Hindi, Punjabi, Tamil, Thai, Vietnamese | By hand |
 | `edge/` | Empty elements, self-closing tags, misnested tags, entities, a fragment, plain text | By hand |
 | `images/` | Two small binaries: a JPEG with EXIF orientation 6 and a 4x4 WebP (a format that is deliberately not decoded) | Task 3 |

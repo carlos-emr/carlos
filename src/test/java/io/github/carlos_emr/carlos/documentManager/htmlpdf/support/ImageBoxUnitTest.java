@@ -46,7 +46,7 @@ class ImageBoxUnitTest {
 
     @Test
     @DisplayName("should be a span of the box class holding the unavailable-image text")
-    void shouldBuildBoxWithClassAndText() {
+    void shouldBuildBox_withClassAndText() {
         Element box = ImageBox.replacing(img("src=\"x.png\""));
 
         assertThat(box.normalName()).isEqualTo("span");
@@ -90,7 +90,7 @@ class ImageBoxUnitTest {
 
     @Test
     @DisplayName("should accept padding around a length and upper-case units, as HTML and CSS do")
-    void shouldAcceptPaddingAndUpperCase() {
+    void shouldAcceptPaddingAndUpperCase_asHtmlAndCssDo() {
         assertThat(ImageBox.replacing(img("width=\" 40 \" height=\"20PX\"")).attr("style")).isEqualTo("width: 40px; height: 20px");
         assertThat(ImageBox.replacing(img("style=\"width: 1IN; height: 50Pt\"")).attr("style")).isEqualTo("width: 96px; height: 67px");
     }
@@ -98,7 +98,7 @@ class ImageBoxUnitTest {
     @ParameterizedTest
     @ValueSource(strings = {"auto", "calc(1px + 2px)", "abc", "-5", "0", "0%", "0.4", "", "10 20", "10 px", "expression(alert(1))", "url(x)", "inherit"})
     @DisplayName("should ignore a size that is not a plain positive length")
-    void shouldIgnoreUnusableSizes(String value) {
+    void shouldIgnoreSizes_thatAreNotPlainPositiveLengths(String value) {
         Element box = ImageBox.replacing(img("width=\"" + value.replace("\"", "'") + "\" style=\"height: " + value + "\""));
 
         assertThat(box.attr("style")).isEmpty();
@@ -106,13 +106,13 @@ class ImageBoxUnitTest {
 
     @Test
     @DisplayName("should not mistake min-width or max-width for the width")
-    void shouldNotUseMinOrMaxWidth() {
+    void shouldNotMistakeMinOrMaxWidth_forTheWidth() {
         assertThat(ImageBox.replacing(img("style=\"min-width: 100px; max-width: 200px; line-height: 3\"")).attr("style")).isEmpty();
     }
 
     @Test
     @DisplayName("should say whether an element declares its own size")
-    void shouldDetectDeclaredSize() {
+    void shouldDetectDeclaredSize_ofAnElement() {
         assertThat(ImageBox.declaresSize(img("src=\"x\""))).isFalse();
         assertThat(ImageBox.declaresSize(img("width=\"10\""))).isTrue();
         assertThat(ImageBox.declaresSize(img("height=\"10\""))).isTrue();

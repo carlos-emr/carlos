@@ -174,7 +174,7 @@ class HtmlPdfArchitectureUnitTest {
 
     @Test
     @DisplayName("should have a package-info.java in the module and in each of its packages")
-    void shouldDocumentEveryPackage() {
+    void shouldHavePackageInfo_inTheModuleAndEveryPackage() {
         assertThat(MODULE.resolve("package-info.java")).isRegularFile();
         for (String subPackage : SUB_PACKAGES) {
             assertThat(MODULE.resolve(subPackage).resolve("package-info.java")).as(subPackage).isRegularFile();
@@ -183,7 +183,7 @@ class HtmlPdfArchitectureUnitTest {
 
     @Test
     @DisplayName("should hold only the four packages the dependency rules describe")
-    void shouldHoldOnlyTheDescribedPackages() throws IOException {
+    void shouldHoldOnlyTheFourPackages_theDependencyRulesDescribe() throws IOException {
         List<String> packages = new ArrayList<>();
         try (Stream<Path> children = Files.list(MODULE)) {
             for (Path child : children.filter(Files::isDirectory).sorted().toList()) {
@@ -196,7 +196,7 @@ class HtmlPdfArchitectureUnitTest {
 
     @Test
     @DisplayName("should not decode an image with ImageIO anywhere but ImageDecoding, which guards every format")
-    void shouldDecodeImagesOnlyThroughImageDecoding() throws IOException {
+    void shouldDecodeImages_onlyThroughImageDecoding() throws IOException {
         Pattern decoding = Pattern.compile("ImageIO\\s*\\.\\s*(read|getImageReaders\\w*|createImageInputStream|getImageReader\\w*)\\s*\\(");
         List<String> violations = new ArrayList<>();
         for (Path file : allJavaFiles()) {
@@ -215,7 +215,7 @@ class HtmlPdfArchitectureUnitTest {
 
     @Test
     @DisplayName("should use no retired class-name suffix or SpringUtils lookup in the module")
-    void shouldFollowTheLayerNamePolicy() throws IOException {
+    void shouldUseNoRetiredSuffix_orSpringUtilsLookupInTheModule() throws IOException {
         Pattern retired = Pattern.compile(".*(Prep|Manager|ManagerImpl|Helper|Utils|Util)\\.java$");
         List<String> badNames = new ArrayList<>();
         for (Path file : allJavaFiles()) {

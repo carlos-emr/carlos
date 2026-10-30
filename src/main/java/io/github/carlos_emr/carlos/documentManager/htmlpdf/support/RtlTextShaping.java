@@ -25,7 +25,6 @@ import com.ibm.icu.text.ArabicShaping;
 import com.ibm.icu.text.ArabicShapingException;
 import com.ibm.icu.text.Bidi;
 import com.ibm.icu.text.BidiRun;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderDegradation;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -102,7 +101,7 @@ public final class RtlTextShaping {
         Objects.requireNonNull(degradations, "degradations");
         List<TextNode> candidates = new ArrayList<>();
         document.traverse((node, depth) -> {
-            if (node instanceof TextNode text && containsRightToLeft(text.getWholeText()) && !isStyleOrTitle(text)) {
+            if (node instanceof TextNode text && containsRightToLeft(text.getWholeText()) && !isSkipped(text)) {
                 candidates.add(text);
             }
         });
@@ -177,13 +176,24 @@ public final class RtlTextShaping {
         return false;
     }
 
-    private static boolean isStyleOrTitle(TextNode text) {
-        Element parent = text.parent() instanceof Element element ? element : null;
-        if (parent == null) {
-            return false;
+    /** Elements whose text is not drawn as HTML text. */
+    private static final Set<String> NOT_HTML_TEXT = Set.of("style", "title", "script", "svg", "math");
+
+    /**
+     * Text that is not drawn as HTML text: the content of a style, title or script, and anything inside an
+     * {@code <svg>} or {@code <math>}. Batik lays an SVG's {@code <text>} out with a bidirectional algorithm and
+     * Arabic shaping of its own, so text already put in visual order would be put in order a second time and
+     * print reversed (measured: the Hebrew of an inline SVG printed back to front, the same line in a paragraph
+     * did not).
+     */
+    private static boolean isSkipped(TextNode text) {
+        for (Element ancestor = text.parent() instanceof Element parent ? parent : null; ancestor != null;
+                ancestor = ancestor.parent()) {
+            if (NOT_HTML_TEXT.contains(ancestor.normalName())) {
+                return true;
+            }
         }
-        String name = parent.normalName();
-        return name.equals("style") || name.equals("title") || name.equals("script");
+        return false;
     }
 
     private static int firstNonWhitespace(String text) {
@@ -222,9 +232,6 @@ public final class RtlTextShaping {
         return Bidi.LEVEL_DEFAULT_LTR;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-fold of an HTML dir keyword (ASCII); selects a rendering, not a security decision
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
-            justification = "case-fold of an HTML dir keyword; selects a rendering, not a security decision")
     private static String direction(Element element) {
         return element.attr("dir").strip().toLowerCase(Locale.ROOT);
     }

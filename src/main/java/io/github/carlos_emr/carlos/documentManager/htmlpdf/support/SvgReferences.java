@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.documentManager.htmlpdf.support;
 
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.DataUris;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.ImageDecoding;
 import org.jsoup.nodes.Attribute;
 import org.jsoup.nodes.Element;
 import org.w3c.dom.Document;
@@ -48,12 +50,9 @@ import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Removes from an SVG everything that points anywhere but at the SVG itself, so that drawing it
@@ -62,8 +61,13 @@ import java.util.regex.Pattern;
  * <p>Flying Saucer draws SVG with Batik, which follows {@code href}, {@code xlink:href}, CSS
  * {@code url()} and {@code @import} and, by default, may load from the same host and from
  * {@code file:} URLs; a hospital report or a form can carry an SVG whose author did not mean that
- * (or did). What stays: a fragment ({@code #id}, a reference inside the document) and a
- * {@code data:} URI. What goes:</p>
+ * (or did). What stays: a fragment ({@code #id}, a reference inside the document) and a base64
+ * {@code data:} URI of a PNG, JPEG or GIF image whose header can be read and declares at most
+ * {@link #MAX_NESTED_RASTER_PIXELS} pixels (Batik decodes such an image in full: a 100 KB PNG can declare
+ * 900 million pixels and take 3.6 GB). A {@code data:} URI of anything else goes: Batik reads
+ * the content, not the media type, and an SVG inside a {@code data:} URI is a second document whose own
+ * references this cleaner never sees (a {@code use} of one of its elements would draw a file from
+ * anywhere). What goes:</p>
  *
  * <ul>
  *   <li>an {@code href}, {@code xlink:href} or {@code src} attribute with any other value, and the whole
@@ -73,7 +77,7 @@ import java.util.regex.Pattern;
  *       references);</li>
  *   <li>CSS, in a {@code style} attribute, a {@code <style>} element or a presentation attribute:
  *       {@code @import} rules (string or {@code url()} form), and any {@code url()} that is not a
- *       fragment or a {@code data:} URI, which becomes {@code none}; CSS that contains a backslash
+ *       fragment or a raster {@code data:} URI, which becomes {@code none}; CSS that contains a backslash
  *       (an escape could spell {@code url(} in a way the scan misses) is emptied;</li>
  *   <li>processing instructions such as {@code <?xml-stylesheet?>}, and the document type, so no
  *       external DTD is ever named.</li>
@@ -102,22 +106,44 @@ public final class SvgReferences {
     /** Attributes that name a resource. */
     private static final Set<String> REFERENCE_ATTRIBUTES = Set.of("href", "src");
 
-    private static final Pattern IMPORT_RULE = Pattern.compile(
-            "@import\\s*(?:url\\([^)]*\\)|\"[^\"]*\"|'[^']*')[^;{}]*;?", Pattern.CASE_INSENSITIVE);
+    /**
+     * What the base64 text of a PNG, a JPEG and a GIF begins with ({@code \x89PNG\r\n\x1a\n}, {@code FF D8 FF},
+     * {@code GIF8}). Batik tells an image from an SVG by its content, so the payload decides whether a
+     * {@code data:} URI is a picture, whatever media type it declares.
+     */
+    private static final List<String> RASTER_BASE64_PREFIXES = List.of("iVBORw0KGg", "/9j/", "R0lGOD");
 
-    private static final Pattern URL_FUNCTION = Pattern.compile(
-            "url\\(\\s*(['\"]?)(.*?)\\1\\s*\\)", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
+    /**
+     * The most pixels a raster image inside an SVG may declare. Batik decodes it whole, four bytes to the pixel,
+     * and the SVG may hold many; a logo or a stamp is a few hundred thousand pixels, a photograph a few million.
+     */
+    public static final long MAX_NESTED_RASTER_PIXELS = 4_000_000L;
+
+    /** The most bytes of one inline image: the SVG itself may not be larger. */
+    private static final long MAX_NESTED_RASTER_BYTES = 16L << 20;
 
     private SvgReferences() {
     }
 
     /**
-     * The cleaned SVG and whether anything had to be removed.
+     * The cleaned SVG and whether anything had to be removed. The bytes are copied in and out, so a
+     * holder cannot change what another reads.
      *
      * @param svg the cleaned document, UTF-8
      * @param removedReferences {@code true} if at least one reference was removed
      */
     public record Cleaned(byte[] svg, boolean removedReferences) {
+
+        /** Keeps a copy of the bytes. */
+        public Cleaned {
+            svg = svg.clone();
+        }
+
+        /** {@return a copy of the cleaned document} */
+        @Override
+        public byte[] svg() {
+            return svg.clone();
+        }
     }
 
     // ---- standalone SVG ---------------------------------------------------------------------
@@ -250,7 +276,7 @@ public final class SvgReferences {
             if (REFERENCE_ATTRIBUTES.contains(localName(attribute)) && !isLocal(value)) {
                 element.getAttributes().removeNamedItem(attribute.getNodeName());
                 changed = true;
-            } else if (value.toLowerCase(Locale.ROOT).contains("url(") || value.toLowerCase(Locale.ROOT).contains("@import")
+            } else if (containsAscii(value, "url(") || containsAscii(value, "@import")
                     || (attribute.getNodeName().equals("style") && value.indexOf('\\') >= 0)) {
                 Css cleaned = cleanCss(value);
                 if (cleaned.changed()) {
@@ -350,7 +376,7 @@ public final class SvgReferences {
             if (REFERENCE_ATTRIBUTES.contains(attributeLocalName(key)) && !isLocal(value)) {
                 element.removeAttr(key);
                 changed = true;
-            } else if (value.toLowerCase(Locale.ROOT).contains("url(") || value.toLowerCase(Locale.ROOT).contains("@import")
+            } else if (containsAscii(value, "url(") || containsAscii(value, "@import")
                     || (key.equals("style") && value.indexOf('\\') >= 0)) {
                 Css cleaned = cleanCss(value);
                 if (cleaned.changed()) {
@@ -377,39 +403,185 @@ public final class SvgReferences {
         return LOADING_ELEMENTS.contains(lowerCaseLocalName);
     }
 
-    /** A fragment inside the document, or inline data: the only references that stay. */
-    // FindSecBugs IMPROPER_UNICODE: case-fold of a URI scheme to recognise data: URIs; the rest is removed, so a miss only removes more
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
-            justification = "case-fold of a URI scheme to recognise data: URIs; anything not recognised is removed")
+    /** A fragment inside the document, or an inline raster image: the only references that stay. */
     private static boolean isLocal(String reference) {
         String value = reference.strip();
-        return value.startsWith("#") || value.toLowerCase(Locale.ROOT).startsWith("data:");
+        return value.startsWith("#") || isRasterDataUri(value);
+    }
+
+    /**
+     * A base64 {@code data:} URI whose payload begins like a PNG, a JPEG or a GIF and whose header, read the way
+     * the pipeline reads every image, declares a size within {@link #MAX_NESTED_RASTER_PIXELS}. Anything else
+     * (an SVG under any media type, text, a URI without base64, an image that cannot be read or is too large)
+     * is a document Batik would load and read the references of on its own, or an image it would decode in full.
+     */
+    private static boolean isRasterDataUri(String value) {
+        if (!regionMatchesAscii(value, 0, "data:")) {
+            return false;
+        }
+        int comma = value.indexOf(',');
+        if (comma < 0 || !endsWithAscii(value, comma, ";base64")) {
+            return false;
+        }
+        for (String prefix : RASTER_BASE64_PREFIXES) {
+            if (value.startsWith(prefix, comma + 1)) {
+                return DataUris.decodeBase64(value, MAX_NESTED_RASTER_BYTES)
+                        .flatMap(ImageDecoding::readHeader)
+                        .filter(header -> header.pixels() <= MAX_NESTED_RASTER_PIXELS)
+                        .isPresent();
+            }
+        }
+        return false;
     }
 
     private record Css(String text, boolean changed) {
     }
 
-    /** Removes {@code @import} rules and turns every {@code url()} that is not local into {@code none}. */
+    /**
+     * Removes {@code @import} rules and turns every {@code url()} that is not local into {@code none}.
+     * One pass over the text: a CSS payload can be as large as an SVG file may be (16 MB), and a scan
+     * that starts again at every {@code url(} would take hours on one without a closing parenthesis.
+     */
     private static Css cleanCss(String css) {
         if (css.indexOf('\\') >= 0) {
             // A CSS escape can spell "url(" without those characters; do not try to read it.
             return new Css("", true);
         }
-        String withoutImports = IMPORT_RULE.matcher(css).replaceAll("");
-        Matcher matcher = URL_FUNCTION.matcher(withoutImports);
-        StringBuilder out = new StringBuilder();
-        while (matcher.find()) {
-            matcher.appendReplacement(out, Matcher.quoteReplacement(isLocal(matcher.group(2)) ? matcher.group() : "none"));
+        int length = css.length();
+        StringBuilder out = null;
+        int copied = 0;
+        int i = 0;
+        while (i < length) {
+            char c = css.charAt(i);
+            if (c == '@' && regionMatchesAscii(css, i, "@import")) {
+                int end = importEnd(css, i + "@import".length());
+                out = copyTo(out, css, copied, i);
+                copied = end;
+                i = end;
+            } else if ((c == 'u' || c == 'U') && regionMatchesAscii(css, i, "url(")) {
+                int[] token = urlToken(css, i + "url(".length());
+                if (isLocal(css.substring(token[0], token[1]))) {
+                    i = token[2];
+                } else {
+                    out = copyTo(out, css, copied, i).append("none");
+                    copied = token[2];
+                    i = token[2];
+                }
+            } else {
+                i++;
+            }
         }
-        matcher.appendTail(out);
-        String result = out.toString();
-        return new Css(result, !result.equals(css));
+        if (out == null) {
+            return new Css(css, false);
+        }
+        return new Css(out.append(css, copied, length).toString(), true);
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-fold of an SVG element or attribute name (ASCII); selects a rule, not a security decision
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
-            justification = "case-fold of an SVG element or attribute name; a miss only leaves an element the other rules still clean")
+    private static StringBuilder copyTo(StringBuilder out, String css, int from, int to) {
+        StringBuilder builder = out != null ? out : new StringBuilder(css.length());
+        return builder.append(css, from, to);
+    }
+
+    /**
+     * Where a {@code url(} that opens just before {@code open} has its content and where the token ends:
+     * {content start, content end, token end}. A token that never closes runs to the end of the text,
+     * which is also where the scan then stops.
+     */
+    private static int[] urlToken(String css, int open) {
+        int length = css.length();
+        int start = skipWhitespace(css, open);
+        if (start < length && (css.charAt(start) == '"' || css.charAt(start) == '\'')) {
+            int close = css.indexOf(css.charAt(start), start + 1);
+            if (close >= 0) {
+                int after = skipWhitespace(css, close + 1);
+                if (after < length && css.charAt(after) == ')') {
+                    return new int[]{start + 1, close, after + 1};
+                }
+            }
+        }
+        // Unquoted, or a quote that does not close properly: everything up to the next ')' is the reference.
+        int paren = css.indexOf(')', start);
+        return paren < 0 ? new int[]{start, length, length} : new int[]{start, paren, paren + 1};
+    }
+
+    /** The end of an {@code @import} rule that starts after the keyword: its url or string, its media list, its semicolon. */
+    private static int importEnd(String css, int from) {
+        int length = css.length();
+        int i = skipWhitespace(css, from);
+        if (regionMatchesAscii(css, i, "url(")) {
+            i = urlToken(css, i + "url(".length())[2];
+        } else if (i < length && (css.charAt(i) == '"' || css.charAt(i) == '\'')) {
+            int close = css.indexOf(css.charAt(i), i + 1);
+            i = close < 0 ? length : close + 1;
+        }
+        while (i < length) {
+            char c = css.charAt(i);
+            if (c == ';') {
+                return i + 1;
+            }
+            if (c == '{' || c == '}') {
+                return i;
+            }
+            i++;
+        }
+        return length;
+    }
+
+    private static int skipWhitespace(String text, int from) {
+        int i = from;
+        while (i < text.length() && Character.isWhitespace(text.charAt(i))) {
+            i++;
+        }
+        return i;
+    }
+
+    // ---- ASCII text -------------------------------------------------------------------------
+    // CSS keywords, SVG names and URI schemes are ASCII. Folding only ASCII letters is what they mean, and
+    // it leaves no Unicode case mapping (a dotted capital I, a Kelvin sign) to confuse a filter.
+
+    /** Whether {@code text} holds {@code lowerNeedle}, which is lower-case ASCII, at {@code at}, whatever the case of its ASCII letters. */
+    private static boolean regionMatchesAscii(String text, int at, String lowerNeedle) {
+        if (at < 0 || at + lowerNeedle.length() > text.length()) {
+            return false;
+        }
+        for (int i = 0; i < lowerNeedle.length(); i++) {
+            char c = text.charAt(at + i);
+            if (c >= 'A' && c <= 'Z') {
+                c += 'a' - 'A';
+            }
+            if (c != lowerNeedle.charAt(i)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Whether the text before {@code end} finishes with {@code lowerSuffix}, whatever the case of its ASCII letters. */
+    private static boolean endsWithAscii(String text, int end, String lowerSuffix) {
+        return regionMatchesAscii(text, end - lowerSuffix.length(), lowerSuffix);
+    }
+
+    private static boolean containsAscii(String text, String lowerNeedle) {
+        for (int i = 0; i + lowerNeedle.length() <= text.length(); i++) {
+            if (regionMatchesAscii(text, i, lowerNeedle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The name with its ASCII capitals made lower case. */
     private static String lower(String name) {
-        return name.toLowerCase(Locale.ROOT);
+        StringBuilder folded = null;
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            if (c >= 'A' && c <= 'Z') {
+                if (folded == null) {
+                    folded = new StringBuilder(name);
+                }
+                folded.setCharAt(i, (char) (c + ('a' - 'A')));
+            }
+        }
+        return folded == null ? name : folded.toString();
     }
 }

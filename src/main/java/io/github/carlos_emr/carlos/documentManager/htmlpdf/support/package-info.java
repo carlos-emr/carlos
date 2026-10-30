@@ -43,8 +43,13 @@
  *       Saucer drops a whole declaration for, become the colours of the default Windows theme;</li>
  *   <li>{@code SafeModeMarkup} and {@code PlainTextDocument}: what safe mode (no author styles, no
  *       inline graphics) and text-only mode (the text in reading order) make of a document;</li>
- *   <li>{@code ImageBox} and {@code SvgReferences}: the "[image unavailable]" box, and the removal of
- *       the outside references of an SVG.</li>
+ *   <li>{@code HiddenContent}: the elements the markup hid ({@code hidden}, {@code display: none},
+ *       {@code visibility: hidden}), removed before safe and text-only mode drop the styles that hide them;</li>
+ *   <li>{@code EngineExtensions}: Flying Saucer's own {@code -fs-} CSS properties, removed from the
+ *       CSS a document brings (a span property would otherwise reach the layout unclamped);</li>
+ *   <li>{@code ImageBox}, {@code SvgReferences} and {@code SvgViewBox}: the "[image unavailable]" box, the
+ *       removal of the outside references of an SVG (and of an inline picture that declares more pixels
+ *       than Batik should decode), and the size of an inline SVG that gives only a viewBox.</li>
  * </ul>
  *
  * <p>Two package-private classes serve them: {@code InlineStyle} (a scanner for the inline

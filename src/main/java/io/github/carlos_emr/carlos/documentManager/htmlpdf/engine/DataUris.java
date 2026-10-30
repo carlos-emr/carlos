@@ -46,9 +46,6 @@ public final class DataUris {
      * @param uri the value
      * @return {@code true} if it starts with {@code data:}
      */
-    // FindSecBugs IMPROPER_UNICODE: case-fold of a URI scheme to recognise data: URIs; not a security decision
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
-            justification = "case-fold of a URI scheme to recognise data: URIs; the payload checks decide, not this comparison")
     public static boolean isDataUri(String uri) {
         return uri != null && uri.regionMatches(true, 0, "data:", 0, 5);
     }

@@ -127,9 +127,6 @@ public final class BundledFontSet {
     }
 
     /** A font collection ({@code .ttc}) is addressed by file and index: the first font of it. */
-    // FindSecBugs IMPROPER_UNICODE: case-fold of a font file extension (an internal file name); not a security decision
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
-            justification = "case-fold of a font file extension (an internal file name); not a security decision")
     private static String fontPathOf(Path file) {
         String path = Objects.requireNonNull(file, "file").toString();
         return path.toLowerCase(Locale.ROOT).endsWith(".ttc") ? path + ",0" : path;

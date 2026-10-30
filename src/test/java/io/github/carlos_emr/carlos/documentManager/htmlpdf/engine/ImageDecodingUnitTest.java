@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.documentManager.htmlpdf.engine;
 
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.TestImages;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -44,6 +46,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -359,6 +362,153 @@ class ImageDecodingUnitTest {
         });
     }
 
+    /** A reader provider that claims every input (or fails when asked), under the given format names, and counts being asked. */
+    private static final class GreedyReaderSpi extends ImageReaderSpi {
+        static final java.util.concurrent.atomic.AtomicInteger ASKED = new java.util.concurrent.atomic.AtomicInteger();
+
+        private final String failure;
+
+        GreedyReaderSpi(String failure, String... formatNames) {
+            vendorName = "CARLOS tests";
+            version = "1";
+            names = formatNames;
+            inputTypes = new Class<?>[] {ImageInputStream.class};
+            this.failure = failure;
+        }
+
+        GreedyReaderSpi() {
+            this(null, "bmp", "png", "tiff");
+        }
+
+        @Override
+        public boolean canDecodeInput(Object source) throws IOException {
+            ASKED.incrementAndGet();
+            if ("io".equals(failure)) {
+                throw new IOException("claim failure");
+            }
+            if ("runtime".equals(failure)) {
+                throw new IllegalStateException("claim failure");
+            }
+            return true;
+        }
+
+        @Override
+        public ImageReader createReaderInstance(Object extension) {
+            return new ExplodingReader(this);
+        }
+
+        @Override
+        public String getDescription(Locale locale) {
+            return "CARLOS test reader that claims every input";
+        }
+    }
+
+    /** Registers the provider ahead of every real reader (and, if asked, vets it), runs the body, and puts the registry back. */
+    private static void withProviderFirst(GreedyReaderSpi first, boolean vetted, Runnable body) {
+        IIORegistry registry = IIORegistry.getDefaultInstance();
+        registry.registerServiceProvider(first);
+        if (vetted) {
+            ImageDecoding.VETTED_CLASS_PATH_PROVIDERS.add(GreedyReaderSpi.class.getName());
+        }
+        List<ImageReaderSpi> others = new ArrayList<>();
+        registry.getServiceProviders(ImageReaderSpi.class, false).forEachRemaining(provider -> {
+            if (provider != first) {
+                others.add(provider);
+            }
+        });
+        others.forEach(provider -> registry.setOrdering(ImageReaderSpi.class, first, provider));
+        GreedyReaderSpi.ASKED.set(0);
+        ExplodingReader.lastInput = null;
+        try {
+            body.run();
+        } finally {
+            others.forEach(provider -> registry.unsetOrdering(ImageReaderSpi.class, first, provider));
+            ImageDecoding.VETTED_CLASS_PATH_PROVIDERS.remove(GreedyReaderSpi.class.getName());
+            registry.deregisterServiceProvider(first);
+            ExplodingReader.lastInput = null;
+        }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"png", "bmp", "tiff"})
+    void shouldNeverAskAProviderThatIsNotVetted_evenWhenItIsFirst(String format) throws IOException {
+        // The JAI ImageIO jar on this classpath is such a provider: its BMP and TIFF readers come
+        // before the JDK's. This one is placed ahead of every real reader of the format and claims all input.
+        byte[] data = format.equals("png") ? TestImages.png(5, 4) : format.equals("bmp") ? TestImages.bmp(5, 4) : TestImages.tiff(5, 4);
+        Path file = Files.write(tempDir.resolve("greedy." + format), data);
+
+        withProviderFirst(new GreedyReaderSpi(), false, () -> {
+            try {
+                Optional<ImageHeader> fromBytes = ImageDecoding.readHeader(data);
+                Optional<ImageHeader> fromFile = ImageDecoding.readHeader(file);
+                BufferedImage decoded = ImageDecoding.readSubsampled(data, 1);
+
+                assertThat(fromBytes).isPresent().get().satisfies(header -> {
+                    assertThat(header.width()).isEqualTo(5);
+                    assertThat(header.height()).isEqualTo(4);
+                });
+                assertThat(fromFile).isEqualTo(fromBytes);
+                assertThat(decoded.getWidth()).isEqualTo(5);
+            } catch (IOException e) {
+                throw new AssertionError(e);
+            }
+            assertThat(GreedyReaderSpi.ASKED.get()).as("times the unvetted provider was asked whether it can decode").isZero();
+            assertThat(ExplodingReader.lastInput).as("the unvetted provider's reader was never given a stream").isNull();
+        });
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"io", "runtime"})
+    void shouldPassOverAVettedProvider_whoseClaimFails(String failure) {
+        byte[] png = TestImages.png(5, 4);
+
+        withProviderFirst(new GreedyReaderSpi(failure, "png"), true, () -> {
+            // Asked first, it fails; that is "no", and the next provider reads the picture.
+            assertThat(ImageDecoding.readHeader(png)).isPresent().get().satisfies(header -> assertThat(header.width()).isEqualTo(5));
+            assertThat(GreedyReaderSpi.ASKED.get()).as("it was asked").isEqualTo(1);
+            assertThat(ExplodingReader.lastInput).isNull();
+        });
+    }
+
+    @Test
+    void shouldLetTheFirstVettedReaderToClaimDecide_whatTheInputIs() {
+        byte[] png = TestImages.png(5, 4);
+
+        // A vetted reader for an unlisted format claims the PNG first: the input is then of a format
+        // that is not read, and no other reader is looked for.
+        withProviderFirst(new GreedyReaderSpi(null, "webp"), true, () -> {
+            assertThat(ImageDecoding.readHeader(png)).isEmpty();
+            assertThat(ExplodingReader.lastInput).as("no reader was given the stream").isNull();
+        });
+    }
+
+    @Test
+    void shouldVetOnlyTheJdksReaders_andTheTwelveMonkeysTiffReader() {
+        Iterator<ImageReaderSpi> providers = IIORegistry.getDefaultInstance().getServiceProviders(ImageReaderSpi.class, false);
+        List<String> vetted = new ArrayList<>();
+        List<String> refused = new ArrayList<>();
+        while (providers.hasNext()) {
+            ImageReaderSpi provider = providers.next();
+            (ImageDecoding.isVetted(provider) ? vetted : refused).add(provider.getClass().getName());
+        }
+
+        assertThat(vetted).isNotEmpty().allSatisfy(name -> assertThat(name)
+                .matches("com\\.sun\\.imageio\\.plugins\\..*|com\\.twelvemonkeys\\.imageio\\.plugins\\.tiff\\.TIFFImageReaderSpi"));
+        assertThat(vetted).contains("com.sun.imageio.plugins.png.PNGImageReaderSpi", "com.sun.imageio.plugins.jpeg.JPEGImageReaderSpi",
+                "com.sun.imageio.plugins.gif.GIFImageReaderSpi", "com.sun.imageio.plugins.bmp.BMPImageReaderSpi",
+                "com.sun.imageio.plugins.wbmp.WBMPImageReaderSpi", "com.twelvemonkeys.imageio.plugins.tiff.TIFFImageReaderSpi");
+        // The JAI readers of the same formats are on the test class path, and are not read through.
+        assertThat(refused).contains("com.github.jaiimageio.impl.plugins.bmp.BMPImageReaderSpi",
+                "com.github.jaiimageio.impl.plugins.tiff.TIFFImageReaderSpi");
+    }
+
+    @Test
+    void shouldNotVetAProvider_byItsNameAlone() {
+        ImageReaderSpi lookalike = new ExplodingReaderSpi("png");
+
+        assertThat(ImageDecoding.isVetted(lookalike)).isFalse();
+    }
+
     @Test
     void shouldNotDecodeWebp_withoutAnyDecoderOnTheClasspath() throws IOException {
         // The real file. The WebP plugin is no longer a dependency, so no reader claims it; one put
@@ -473,6 +623,7 @@ class ImageDecodingUnitTest {
         IIORegistry registry = IIORegistry.getDefaultInstance();
         ExplodingReaderSpi spi = new ExplodingReaderSpi();
         registry.registerServiceProvider(spi);
+        ImageDecoding.VETTED_CLASS_PATH_PROVIDERS.add(ExplodingReaderSpi.class.getName());
         try {
             // A header read swallows the failure ...
             assertThat(ImageDecoding.readHeader(data)).isEmpty();
@@ -489,6 +640,7 @@ class ImageDecodingUnitTest {
                     .hasMessageNotContaining("patient-secret")
                     .hasCauseInstanceOf(IllegalStateException.class);
         } finally {
+            ImageDecoding.VETTED_CLASS_PATH_PROVIDERS.remove(ExplodingReaderSpi.class.getName());
             registry.deregisterServiceProvider(spi);
         }
     }
@@ -508,6 +660,7 @@ class ImageDecodingUnitTest {
         IIORegistry registry = IIORegistry.getDefaultInstance();
         ExplodingReaderSpi spi = new ExplodingReaderSpi();
         registry.registerServiceProvider(spi);
+        ImageDecoding.VETTED_CLASS_PATH_PROVIDERS.add(ExplodingReaderSpi.class.getName());
         try {
             ExplodingReader.lastInput = null;
             ImageDecoding.readHeader(data);
@@ -531,6 +684,7 @@ class ImageDecodingUnitTest {
                     .isNotNull().isNotEqualTo(ByteArrayImageInputStream.class).isNotEqualTo(MemoryCacheImageInputStream.class)
                     .isNotEqualTo(FileCacheImageInputStream.class);
         } finally {
+            ImageDecoding.VETTED_CLASS_PATH_PROVIDERS.remove(ExplodingReaderSpi.class.getName());
             registry.deregisterServiceProvider(spi);
             ExplodingReader.lastInput = null;
         }
@@ -1042,10 +1196,12 @@ class ImageDecodingUnitTest {
         IIORegistry registry = IIORegistry.getDefaultInstance();
         ExplodingReaderSpi spi = new ExplodingReaderSpi(formatName);
         registry.registerServiceProvider(spi);
+        ImageDecoding.VETTED_CLASS_PATH_PROVIDERS.add(ExplodingReaderSpi.class.getName());
         try {
             ExplodingReader.lastInput = null;
             body.run(data, file);
         } finally {
+            ImageDecoding.VETTED_CLASS_PATH_PROVIDERS.remove(ExplodingReaderSpi.class.getName());
             registry.deregisterServiceProvider(spi);
             ExplodingReader.lastInput = null;
         }

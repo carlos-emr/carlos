@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager.htmlpdf.support;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.jsoup.nodes.DataNode;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -32,7 +33,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 /**
  * Replaces the CSS2 system color keywords ({@code windowtext}, {@code window}, {@code buttonface} and the
@@ -100,8 +100,6 @@ public final class SystemColors {
             "border-color", "border-top", "border-right", "border-bottom", "border-left", "border-top-color",
             "border-right-color", "border-bottom-color", "border-left-color", "outline", "outline-color", "fill", "stroke",
             "text-decoration-color", "column-rule", "column-rule-color");
-
-    private static final Pattern COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
 
     private SystemColors() {
     }
@@ -180,13 +178,15 @@ public final class SystemColors {
     }
 
     /** One declaration (or a selector, or anything else between delimiters): changed only if it is a colour declaration. */
+    // FindSecBugs IMPROPER_UNICODE: case-fold of a CSS property name (ASCII) to look it up in the list of colour properties; selects a rendering, not a security decision
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold of a CSS property name to look it up in a list of colour properties; selects a rendering, not a security decision")
     private static String replaceInDeclaration(String segment) {
         int colon = segment.indexOf(':');
         if (colon < 0) {
             return segment;
         }
         // A comment before the declaration (Word and editors write them) is not part of the property name.
-        String property = COMMENT.matcher(segment.substring(0, colon)).replaceAll("").strip().toLowerCase(Locale.ROOT);
+        String property = withoutComments(segment.substring(0, colon)).strip().toLowerCase(Locale.ROOT);
         if (!COLOR_PROPERTIES.contains(property)) {
             return segment;
         }
@@ -195,7 +195,33 @@ public final class SystemColors {
         return replaced.equals(value) ? segment : segment.substring(0, colon + 1) + replaced;
     }
 
+    /**
+     * The text without its comments; an unterminated comment stays. Not a regular expression: {@code /\*.*?\*}{@code /}
+     * starts again at every comment opener, and text made of openers with no end took minutes.
+     */
+    static String withoutComments(String text) {
+        int start = text.indexOf("/*");
+        if (start < 0) {
+            return text;
+        }
+        StringBuilder out = new StringBuilder(text.length());
+        int copied = 0;
+        while (start >= 0) {
+            int end = text.indexOf("*/", start + 2);
+            if (end < 0) {
+                // No later opener has a closer either.
+                break;
+            }
+            out.append(text, copied, start);
+            copied = end + 2;
+            start = text.indexOf("/*", copied);
+        }
+        return out.append(text, copied, text.length()).toString();
+    }
+
     /** Replaces each standalone keyword outside quotes and parentheses. */
+    // FindSecBugs IMPROPER_UNICODE: case-fold of a CSS colour keyword (ASCII) to look up its colour; selects a rendering, not a security decision
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold of a CSS colour keyword to look up its colour; selects a rendering, not a security decision")
     private static String replaceKeywords(String value) {
         StringBuilder out = new StringBuilder(value.length() + 8);
         int length = value.length();

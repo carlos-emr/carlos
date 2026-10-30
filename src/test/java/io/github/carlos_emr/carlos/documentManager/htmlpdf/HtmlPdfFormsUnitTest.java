@@ -88,7 +88,7 @@ class HtmlPdfFormsUnitTest {
 
     @Test
     @DisplayName("should print every value, Chinese and Hebrew and accented ones included")
-    void shouldPrintEveryValue() {
+    void shouldPrintEveryValue_inEveryScript() {
         assertThat(flat).contains("FAKE-Patient Name", "张伟", "FAKE-中文", "שלום", "עברית",
                 "évaluation à la façon de Zürich ≥ 5", "2026-10-29", "42", "fake.patient@example.invalid",
                 "FAKE-readonly value", "FAKE-disabled value");
@@ -96,27 +96,27 @@ class HtmlPdfFormsUnitTest {
 
     @Test
     @DisplayName("should print a ticked checkbox as a crossed box, an empty one as an empty box, and a radio as a filled or an empty circle")
-    void shouldPrintCheckAndRadioMarks() {
+    void shouldPrintCheckAndRadioMarks_asBoxesAndCircles() {
         assertThat(flat).contains("☒ checked one", "☐ unchecked two", "☒ checked three", "☐ unchecked four");
         assertThat(flat).contains("○ option A", "◉ option B", "○ option C");
     }
 
     @Test
     @DisplayName("should never print a hidden field, its name or its value")
-    void shouldNeverPrintHiddenFields() {
+    void shouldNeverPrint_hiddenFields() {
         assertThat(text).doesNotContain("HIDDEN", "demographic_no", "provider_no", "form_class", "formCreated", "4711", "999998");
     }
 
     @Test
     @DisplayName("should print only the selected option of a list, the first when none is selected, and every chosen one of a multiple list")
-    void shouldPrintOnlySelectedOptions() {
+    void shouldPrintOnlySelectedOptions_ofLists() {
         assertThat(flat).contains("FAKE-second selected", "one-b chosen", "FAKE-red, FAKE-blue", "FAKE-default one");
         assertThat(flat).doesNotContain("FAKE-first", "FAKE-third", "one-a", "two-a", "FAKE-Group", "FAKE-green", "FAKE-grey", "FAKE-other two");
     }
 
     @Test
     @DisplayName("should keep the two lines of a text area, and print a password as eight bullets without its length or value")
-    void shouldPrintTextAreaLinesAndPasswordBullets() throws Exception {
+    void shouldPrintTextAreaLines_andPasswordBullets() throws Exception {
         assertThat(text).contains("FAKE-line one of the note", "FAKE-line two of the note");
         assertThat(text).doesNotContain("FAKE-secret123");
         assertThat(text).contains("•".repeat(8)).doesNotContain("•".repeat(9));

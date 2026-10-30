@@ -99,6 +99,18 @@ class HtmlPdfRenderRequestUnitTest {
     }
 
     @Test
+    void shouldRejectInvalidDirectory_whereverItIsInTheList() {
+        // A loop that checked only the first entry would let these through.
+        assertThatIllegalArgumentException().as("relative directory last")
+                .isThrownBy(() -> requestWith(null, tmp, otherTmp, Path.of("rel", "dir")))
+                .withMessageContaining("must be absolute");
+        assertThatIllegalArgumentException().as("filesystem root in the middle")
+                .isThrownBy(() -> requestWith(null, tmp, Path.of("/"), otherTmp));
+        assertThatIllegalArgumentException().as("unnormalised directory second")
+                .isThrownBy(() -> requestWith(null, tmp, otherTmp.resolve("a/../b")));
+    }
+
+    @Test
     void shouldRejectBaseOutsideAllowed_forConstructor() {
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> requestWith(otherTmp, tmp));

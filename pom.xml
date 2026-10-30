@@ -855,6 +855,20 @@
             <artifactId>imageio-tiff</artifactId>
             <version>${twelvemonkeys.version}</version>
         </dependency>
+        <!-- The HTML-to-PDF image helpers (documentManager.htmlpdf.engine.ImageDecoding) import these two
+             directly: com.twelvemonkeys.imageio.stream (ByteArrayImageInputStream, SubImageInputStream) from
+             imageio-core, and com.twelvemonkeys.imageio.metadata (the JPEG segment and TIFF readers behind the
+             EXIF orientation) from imageio-metadata. imageio-tiff brings both, at this version. -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-core</artifactId>
+            <version>${twelvemonkeys.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-metadata</artifactId>
+            <version>${twelvemonkeys.version}</version>
+        </dependency>
 
         <!-- Glassfish JSTL 3.0.1 implementation (Jakarta EE 10 - jakarta.tags namespace) -->
         <dependency>

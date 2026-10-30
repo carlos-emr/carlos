@@ -45,8 +45,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Documents full of large pictures must never exhaust the heap. A child JVM is started with the test class
  * path, a 256 MB heap and {@code -XX:+ExitOnOutOfMemoryError} (as production runs), so the Surefire
  * configuration is unchanged and an out-of-memory error ends the child, not the build. The child renders, on
- * four threads, documents with six near-cap PNGs, a 36-megapixel JPEG and a 48-megapixel colour PNG scan, and exits
- * 0 only if every one of them came out as a PDF.
+ * four threads, documents with six near-cap PNGs, a 36-megapixel JPEG, a 48-megapixel colour PNG scan and SVGs with
+ * gradients that Flying Saucer would turn into bitmaps of hundreds of millions of pixels, and exits 0 only if every
+ * one of them came out as a PDF.
  *
  * <p>Tagged {@code slow}, not {@code unit}: it makes pictures of tens of megapixels and takes a while.</p>
  */
@@ -105,6 +106,12 @@ class HtmlPdfMemoryUnitTest {
             Files.copy(directory.resolve(HtmlPdfMemoryProbe.LARGE_SCAN), directory.resolve(copy));
         }
         assertThat(Files.size(directory.resolve(HtmlPdfMemoryProbe.LARGE_JPEG))).isGreaterThan(100_000);
+        // SVGs that Flying Saucer cannot draw as vectors, because they hold a gradient.
+        String gradient = "<defs><linearGradient id=\"g\"><stop offset=\"0\" stop-color=\"#000\"/><stop offset=\"1\" stop-color=\"#fff\"/></linearGradient></defs>";
+        Files.writeString(directory.resolve(HtmlPdfMemoryProbe.GRADIENT_SVG), "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"100\" height=\"100\">"
+                + gradient + "<rect width=\"100\" height=\"100\" fill=\"url(#g)\"/></svg>");
+        Files.writeString(directory.resolve(HtmlPdfMemoryProbe.TILE_SVG), "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"4\" height=\"4\">"
+                + gradient + "<rect width=\"4\" height=\"4\" fill=\"url(#g)\"/></svg>");
 
         Path log = directory.resolve("probe.log");
         String classPath = System.getProperty("surefire.test.class.path", System.getProperty("java.class.path"));
@@ -123,7 +130,7 @@ class HtmlPdfMemoryUnitTest {
 
         assertThat(finished).as("the child JVM finished within 5 minutes").isTrue();
         assertThat(child.exitValue()).as("child exit code; its output:%n%s", String.join("\n", output)).isZero();
-        assertThat(output).anyMatch(line -> line.startsWith("all 8 documents were produced"));
+        assertThat(output).anyMatch(line -> line.startsWith("all 10 documents were produced"));
         assertThat(new File(directory.toFile(), HtmlPdfMemoryProbe.LARGE_JPEG)).exists();
     }
 }

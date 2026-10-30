@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.documentManager.htmlpdf.service;
 
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderDegradation;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BoundedOutputDevice;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BundledFontResolver;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.BundledFontSet;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.LocalOnlyUserAgent;
@@ -122,7 +123,7 @@ class PrintLayoutService {
         Objects.requireNonNull(degradations, "degradations");
 
         byte[] pass1 = layout(mode, HtmlPdfRenderException.Phase.LAYOUT_PASS_1, xhtml, baseDirectory, allowedDirectories,
-                fonts, true);
+                fonts, true, degradations);
         float width = widestPage(mode, pass1);
         byte[] chosen = pass1;
         float zoom = PageZoomCalculator.DEFAULT_ZOOM;
@@ -130,7 +131,7 @@ class PrintLayoutService {
             PageGeometry geometry = PageZoomCalculator.pass2Geometry(width);
             try {
                 chosen = layout(mode, HtmlPdfRenderException.Phase.LAYOUT_PASS_2, pass2Document(xhtml, geometry),
-                        baseDirectory, allowedDirectories, fonts, false);
+                        baseDirectory, allowedDirectories, fonts, false, degradations);
                 zoom = geometry.zoom();
             } catch (HtmlPdfRenderException | IllegalStateException e) {
                 // The message of an HtmlPdfRenderException names only mode, phase and class; ours is fixed text.
@@ -149,7 +150,7 @@ class PrintLayoutService {
     // ---- layout -----------------------------------------------------------------------------
 
     private byte[] layout(PrintMode mode, HtmlPdfRenderException.Phase phase, String xhtml, Path baseDirectory,
-            List<Path> allowedDirectories, BundledFontSet fonts, boolean scaleToFit) {
+            List<Path> allowedDirectories, BundledFontSet fonts, boolean scaleToFit, Set<HtmlPdfRenderDegradation> degradations) {
         try {
             ITextRenderer renderer = rendererFactory.apply(allowedDirectories, new BundledFontResolver(fonts));
             SharedContext context = renderer.getSharedContext();
@@ -161,6 +162,9 @@ class PrintLayoutService {
             renderer.layout();
             ByteArrayOutputStream out = new ByteArrayOutputStream(64 * 1024);
             renderer.createPDF(out, true);
+            if (renderer.getOutputDevice() instanceof BoundedOutputDevice device && device.leftOutImages() > 0) {
+                degradations.add(HtmlPdfRenderDegradation.IMAGE_UNAVAILABLE);
+            }
             return out.toByteArray();
         } catch (Exception | LinkageError e) {
             throw new HtmlPdfRenderException(mode, phase, e);

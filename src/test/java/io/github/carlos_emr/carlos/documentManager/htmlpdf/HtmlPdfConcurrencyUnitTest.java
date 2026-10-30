@@ -105,6 +105,8 @@ class HtmlPdfConcurrencyUnitTest {
             }
         } finally {
             executor.shutdownNow();
+            // A render thread that outlived its test would run into the next one.
+            assertThat(executor.awaitTermination(1, TimeUnit.MINUTES)).as("render threads ended").isTrue();
         }
     }
 }

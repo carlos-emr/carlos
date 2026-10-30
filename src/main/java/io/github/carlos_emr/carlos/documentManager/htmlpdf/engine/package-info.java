@@ -31,8 +31,14 @@
  *   <li>{@link ImageHeader}: the format and declared size of an image, read from its header;</li>
  *   <li>{@link ImageDecoding}: header reads that never decode a pixel, the subsampling arithmetic,
  *       streamed subsampled reads and EXIF orientation, for a short list of vetted formats only (PNG,
- *       JPEG, GIF, BMP, WBMP and TIFF; any other ImageIO reader is refused).</li>
+ *       JPEG, GIF, BMP, WBMP and TIFF), read only by vetted readers (the JDK's, and the TwelveMonkeys
+ *       TIFF reader); any other ImageIO reader is never asked about the input.</li>
  * </ul>
+ *
+ * <p>The extensions are {@code LocalOnlyUserAgent} (no network, files only from the allowed directories,
+ * images vetted) and {@code BoundedOutputDevice}, which makes the bitmap of an SVG that Flying Saucer
+ * cannot draw as vectors once, within a bound of pixels, and leaves out an SVG that Batik cannot
+ * draw instead of failing the page.</p>
  *
  * <h2>Allowed dependencies</h2>
  *

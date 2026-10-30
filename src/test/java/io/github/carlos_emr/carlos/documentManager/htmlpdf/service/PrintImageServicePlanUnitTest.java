@@ -217,7 +217,7 @@ class PrintImageServicePlanUnitTest {
 
     @Test
     @DisplayName("should convert a JPEG file over 32 MB instead of holding it in memory four times")
-    void shouldConvertJpegOver32Megabytes() throws IOException {
+    void shouldConvertJpeg_over32Megabytes() throws IOException {
         Path big = file("huge-file.jpg", TestImages.jpeg(200, 100, false));
         try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(big.toFile(), "rw")) {
             // Trailing bytes after the end-of-image marker: still the same picture, in a (sparse) 33 MB file.
@@ -232,7 +232,7 @@ class PrintImageServicePlanUnitTest {
 
     @Test
     @DisplayName("should convert a PNG file over 32 MB even when its pixels fit the cap")
-    void shouldConvertPngOver32Megabytes() throws IOException {
+    void shouldConvertPng_over32Megabytes() throws IOException {
         Path big = file("huge-file.png", PngHeaders.declaring(100, 100));
         try (java.io.RandomAccessFile raf = new java.io.RandomAccessFile(big.toFile(), "rw")) {
             raf.setLength(33L << 20);
@@ -491,7 +491,7 @@ class PrintImageServicePlanUnitTest {
 
     @Test
     @DisplayName("should box a file outside the allowed directories, however the path is written")
-    void shouldBoxFileOutsideAllowedDirectories() throws IOException {
+    void shouldBoxFile_outsideAllowedDirectories() throws IOException {
         Path outside = Files.createTempFile("carlos-outside-", ".png");
         try {
             Files.write(outside, TestImages.png(10, 10));
@@ -528,7 +528,7 @@ class PrintImageServicePlanUnitTest {
 
     @Test
     @DisplayName("should box a missing file, a directory and an empty file, each for its own reason")
-    void shouldBoxMissingDirectoryAndEmptyFile() throws IOException {
+    void shouldBoxMissingFileDirectoryAndEmptyFile_eachForItsOwnReason() throws IOException {
         Files.createDirectory(base.resolve("folder.png"));
         file("empty.png", new byte[0]);
 
@@ -540,7 +540,7 @@ class PrintImageServicePlanUnitTest {
 
     @Test
     @DisplayName("should box a raw space, an empty source, a missing source and the unavailable marker")
-    void shouldBoxUnusableSources() {
+    void shouldBoxUnusableSources_ofEveryKind() {
         file("my photo.png", TestImages.png(10, 10));
 
         ImagePlan plan = plan("<img src=\"my photo.png\"><img src=\"\"><img><img src=\"   \">"
@@ -553,7 +553,7 @@ class PrintImageServicePlanUnitTest {
 
     @Test
     @DisplayName("should box a PDF, HEIC, WebP and unknown bytes, a corrupt data: URI and a non-base64 one")
-    void shouldBoxPdfHeicWebpAndUnknown() throws IOException {
+    void shouldBoxPdfHeicWebpAndUnknownBytes_andBadDataUris() throws IOException {
         file("doc.png", TestImages.pdf());
         file("photo.heic", TestImages.heic());
         try (InputStream in = getClass().getClassLoader().getResourceAsStream("htmlpdf/images/opaque-4x4.webp")) {
@@ -573,7 +573,7 @@ class PrintImageServicePlanUnitTest {
 
     @Test
     @DisplayName("should box a data: PDF as well")
-    void shouldBoxDataPdf() {
+    void shouldBoxDataPdf_asWell() {
         PlannedImage image = only(plan("<img src=\"" + dataUri("application/pdf", TestImages.pdf()) + "\">"));
 
         assertThat(image.reason()).isEqualTo(PrintImageService.REASON_PDF);
@@ -583,7 +583,7 @@ class PrintImageServicePlanUnitTest {
 
     @Test
     @DisplayName("should plan an SVG file and a data: SVG to be cleaned, and an inline svg in place")
-    void shouldPlanSvgToBeCleaned() {
+    void shouldPlanSvg_toBeCleaned() {
         Path svg = file("logo.svg", TestImages.svgWithOutsideReference());
 
         ImagePlan plan = plan("<img src=\"logo.svg\"><img src=\"" + dataUri("image/svg+xml", TestImages.svgWithOutsideReference())

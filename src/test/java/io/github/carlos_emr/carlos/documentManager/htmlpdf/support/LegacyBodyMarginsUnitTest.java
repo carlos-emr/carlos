@@ -67,7 +67,7 @@ class LegacyBodyMarginsUnitTest {
 
     @Test
     @DisplayName("should not read rightmargin and bottommargin, which WebKit ignored")
-    void shouldIgnoreRightmarginAndBottommargin() {
+    void shouldIgnoreRightmarginAndBottommargin_asWebKitDid() {
         assertThat(LegacyBodyMargins.rule(page("rightmargin=\"0\" bottommargin=\"0\""))).isEmpty();
         assertThat(rule("rightmargin=\"4\" leftmargin=\"1\"")).isEqualTo("body { margin-left: 1px; margin-right: 1px; }");
     }
@@ -110,7 +110,7 @@ class LegacyBodyMarginsUnitTest {
 
     @Test
     @DisplayName("should read only the body's attributes")
-    void shouldReadOnlyBody() {
+    void shouldReadOnly_theBody() {
         Document document = Jsoup.parse("<html leftmargin=\"4\"><head></head><body><div leftmargin=\"6\" topmargin=\"6\">FAKE</div></body></html>");
 
         assertThat(LegacyBodyMargins.rule(document)).isEmpty();
@@ -125,7 +125,7 @@ class LegacyBodyMarginsUnitTest {
 
     @Test
     @DisplayName("should not change the document")
-    void shouldNotChangeDocument() {
+    void shouldNotChange_theDocument() {
         Document document = page("leftmargin=\"0\" topmargin=\"0\"");
         String before = document.outerHtml();
 

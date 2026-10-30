@@ -43,7 +43,7 @@ final class InlineStyle {
     private static final Pattern LIST_STYLE = Pattern.compile("(?i)(?<![\\w-])list-style(-type)?\\s*:");
 
     private static final Pattern TEXT_ALIGN = Pattern.compile("(?i)(?<![\\w-])text-align\\s*:");
-    private static final Pattern IMPORTANT = Pattern.compile("(?i)\\s*!important\\s*$");
+    private static final String IMPORTANT = "!important";
     private static final Pattern WIDTH = Pattern.compile("(?i)(?<![\\w-])width\\s*:");
     private static final Pattern HEIGHT = Pattern.compile("(?i)(?<![\\w-])height\\s*:");
 
@@ -101,9 +101,23 @@ final class InlineStyle {
         Matcher matcher = Pattern.compile("(?i)(?<![\\w-])" + Pattern.quote(property) + "\\s*:\\s*([^;]*)").matcher(style);
         String found = null;
         while (matcher.find()) {
-            found = IMPORTANT.matcher(matcher.group(1)).replaceAll("").strip();
+            found = withoutImportant(matcher.group(1));
         }
         return found == null || found.isEmpty() ? Optional.empty() : Optional.of(found);
+    }
+
+    /**
+     * The value without a trailing {@code !important}, and without white space at either end. Not a regular
+     * expression: {@code \s*!important\s*$} tries every white space run of a value as a place for it to start, and a
+     * value of half a million spaces took minutes.
+     */
+    static String withoutImportant(String value) {
+        String trimmed = value.stripTrailing();
+        int start = trimmed.length() - IMPORTANT.length();
+        if (start >= 0 && trimmed.regionMatches(true, start, IMPORTANT, 0, IMPORTANT.length())) {
+            trimmed = trimmed.substring(0, start);
+        }
+        return trimmed.strip();
     }
 
     /**

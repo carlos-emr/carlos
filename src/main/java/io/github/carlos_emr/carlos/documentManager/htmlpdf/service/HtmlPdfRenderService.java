@@ -128,8 +128,15 @@ public class HtmlPdfRenderService {
      */
     static final int TEXT_ONLY_HTML_CHARS = 1_000_000;
 
-    /** A {@code data:} URI up to the character that ends it in an attribute or in CSS {@code url()}. */
-    private static final Pattern DATA_URI = Pattern.compile("data:[^\"')\\s]+", Pattern.CASE_INSENSITIVE);
+    /**
+     * A {@code data:} URI that stands on its own: it does not end a longer word ({@code metadata:} in a
+     * paragraph is text), it has a media type of up to 200 characters and a comma, and its payload runs to the
+     * character that ends it in an attribute or in CSS {@code url()}: a quote, a parenthesis, white space, or
+     * the start or the end of a tag (an unquoted attribute value ends at {@code >}, and must not take the
+     * markup after it along).
+     */
+    private static final Pattern DATA_URI = Pattern.compile("(?<![\\w-])data:[^,\"'()<>\\s]{0,200},[^\"'()<>\\s]+",
+            Pattern.CASE_INSENSITIVE);
 
     private final PrintDocumentComposer composer;
     private final PrintImageService imageService;

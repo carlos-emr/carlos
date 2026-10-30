@@ -79,7 +79,8 @@ public enum HtmlPdfRenderDegradation {
 
     /**
      * An image was missing, remote, unreadable, of an unknown format or too large to decode, and
-     * printed as a box. Remote sources are never fetched.
+     * printed as a box; or an SVG that Batik could not draw was left out of the page. Remote sources are
+     * never fetched.
      */
     IMAGE_UNAVAILABLE(Level.WARN),
 

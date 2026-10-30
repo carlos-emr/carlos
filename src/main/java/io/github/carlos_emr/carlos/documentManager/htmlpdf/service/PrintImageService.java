@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager.htmlpdf.service;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderDegradation;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.AllowedDirectories;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.DataUris;
@@ -28,6 +29,7 @@ import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.ImageDecoding;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.engine.ImageHeader;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.ImageBox;
 import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.SvgReferences;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.support.SvgViewBox;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import org.jsoup.nodes.Document;
@@ -263,6 +265,8 @@ class PrintImageService {
     }
 
     /** Resolves {@code src} as the renderer would, and reads the file or decodes the payload. */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of a URI scheme to recognise file: URIs; the allowed-directory containment check decides access, not this comparison
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of a URI scheme; the allowed-directory containment check decides access, not this comparison")
     private Source load(String src, URI base, List<Path> allowedDirectories) {
         if (DataUris.isDataUri(src)) {
             return DataUris.decodeBase64(src, MAX_DATA_URI_BYTES)
@@ -587,6 +591,8 @@ class PrintImageService {
                 if (SvgReferences.clean(image.element())) {
                     degradations.add(HtmlPdfRenderDegradation.SVG_REFERENCES_REMOVED);
                 }
+                // Flying Saucer reads the size of an inline SVG with only a viewBox in device dots.
+                SvgViewBox.sizeFromViewBox(image.element());
                 return;
             }
             Optional<Written> result = written.get(image.key());
@@ -739,9 +745,6 @@ class PrintImageService {
         return head.length >= 5 && head[0] == '%' && head[1] == 'P' && head[2] == 'D' && head[3] == 'F' && head[4] == '-';
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-fold of the first bytes of a file to find "<svg"; not a security decision
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
-            justification = "case-fold of the first bytes of a file to find <svg; the cleaning and parsing checks decide")
     private static boolean looksLikeSvg(byte[] head) {
         return new String(head, StandardCharsets.ISO_8859_1).toLowerCase(Locale.ROOT).contains("<svg");
     }

@@ -333,7 +333,7 @@ class ConvertToEdocRenderUnitTest extends CarlosUnitTestBase {
 
     @Test
     @DisplayName("should hand the service the document with its resources translated, and the bytes it renders to the file manager")
-    void shouldSaveWhatTheServiceRenders() throws Exception {
+    void shouldSaveWhatTheServiceRenders_asTheDocument() throws Exception {
         setRealPath(directory.toString());
         List<byte[]> saved = new java.util.ArrayList<>();
         when(files.saveTempFile(anyString(), any(ByteArrayOutputStream.class))).thenAnswer(invocation -> {

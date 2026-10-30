@@ -22,11 +22,13 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import org.openpdf.text.BadElementException;
 import org.openpdf.text.Image;
+import org.xhtmlrenderer.extend.FSImage;
 import org.xhtmlrenderer.extend.FontResolver;
 import org.xhtmlrenderer.pdf.ITextFSImage;
 import org.xhtmlrenderer.pdf.ITextOutputDevice;
 import org.xhtmlrenderer.pdf.ITextRenderer;
 import org.xhtmlrenderer.pdf.ITextUserAgent;
+import org.xhtmlrenderer.pdf.SvgImage;
 import org.xhtmlrenderer.resource.ImageResource;
 import org.xhtmlrenderer.simple.extend.XhtmlCssOnlyNamespaceHandler;
 import org.xhtmlrenderer.util.Configuration;
@@ -43,8 +45,10 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -89,9 +93,11 @@ import java.util.regex.Pattern;
  * {@link ImageDecoding#MAX_DECODED_PIXELS} is decoded subsampled to fit and keeps its printed size.
  * The agent cannot tell a CSS background from an {@code <img>}, so this cap is the same absolute
  * cap the image planning applies, not a lower one: a lower cap would quietly shrink images the
- * planning has already approved. SVG is passed to Flying Saucer as it is; the planning cleans the
+ * planning has already approved. SVG is passed to Flying Saucer as it is, but for its size, which is
+ * taken in pixels like a raster image's (see {@link #getImageResource}); the planning cleans the
  * SVG files it places in {@code <img>}, and an SVG referenced from a stylesheet is not cleaned
- * (a known limitation).</p>
+ * (a known limitation). The bitmap that Flying Saucer makes of an SVG it cannot draw as vectors is
+ * made once and bounded by the renderer's {@link BoundedOutputDevice}.</p>
  *
  * <p>Usage: create renderers with {@link #createRestrictedRenderer(List, FontResolver)} instead of
  * {@code new ITextRenderer()}.</p>
@@ -136,6 +142,13 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
 
     /** The directories {@code file:} URIs may point into: nothing else is implied. */
     private final List<Path> allowedDirectories;
+
+    /**
+     * The pictures reduced to fit, by the URI they were asked for. Flying Saucer caches what it loads itself, but
+     * not what this agent decides: a background that fills a page is asked for once by every element that paints
+     * it, and each ask would decode the picture again (up to 25 megapixels) and embed it as another image.
+     */
+    private final Map<String, ITextFSImage> reducedImages = new HashMap<>();
 
     /**
      * Creates an agent that reads local files only from the given directories.
@@ -212,8 +225,6 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
      * @return the stream, or {@code null} if the URI is refused
      * @throws IOException if opening the stream fails
      */
-    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     protected InputStream openStream(String uri) throws IOException {
         if (uri != null) {
@@ -242,8 +253,6 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
      *
      * @param url the base URL ({@code file:} or {@code null})
      */
-    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
     @Override
     public void setBaseURL(String url) {
         if (url != null && isDefaultStylesheet(url)) {
@@ -287,8 +296,6 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
      * @return the image, or an {@link ImageResource} without an image (drawn as nothing) when the
      *         image is refused or cannot be loaded; never {@code null} and never throws
      */
-    // FindSecBugs IMPROPER_UNICODE: case-fold of a URI scheme to recognise data: URIs; not a security decision on user text
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold of a URI scheme to recognise data: URIs; the file and size checks decide, not this comparison")
     @Override
     public ImageResource getImageResource(String uriStr) {
         if (uriStr == null) {
@@ -298,16 +305,32 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
             ImageResource decided = uriStr.toLowerCase(Locale.ROOT).startsWith("data:")
                     ? vetImageBytes(uriStr, decodeDataUri(uriStr), null)
                     : vetImageFile(uriStr);
-            return decided != null ? decided : super.getImageResource(uriStr);
+            return inOutputUnits(decided != null ? decided : super.getImageResource(uriStr));
         } catch (IOException | RuntimeException e) {
             logger.warn("An image could not be loaded and is left out of the PDF ({})", e.getClass().getSimpleName());
             return new ImageResource(uriStr, null);
         }
     }
 
+    /**
+     * Gives an SVG the size Flying Saucer gives a raster image. It scales a raster image from pixels to
+     * device dots, 20 to the pixel, and takes an SVG's size as dots: an SVG that its page gives no size
+     * would print at a twentieth of its width and height, and a repeating background of it would be
+     * tiled four hundred times as often. Raster images and SVGs the page sizes are not touched by this.
+     */
+    private ImageResource inOutputUnits(ImageResource resource) {
+        if (resource.getImage() instanceof SvgImage svg) {
+            return new ImageResource(resource.getImageUri(),
+                    svg.scale(dotsFor(svg.getWidth()), dotsFor(svg.getHeight())));
+        }
+        return resource;
+    }
+
+    private int dotsFor(int pixels) {
+        return (int) Math.min(Integer.MAX_VALUE, (long) pixels * dotsPerPixel);
+    }
+
     /** Returns the verdict for a local image file, or {@code null} to let Flying Saucer load it. */
-    // FindSecBugs IMPROPER_UNICODE: case-fold of a URI scheme; the containment check decides access, not this comparison
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold of a URI scheme; the canonical-path containment check decides access, not this comparison")
     private ImageResource vetImageFile(String uriStr) throws IOException {
         String resolved = resolveURI(uriStr);
         if (resolved == null || !resolved.toLowerCase(Locale.ROOT).startsWith("file:")) {
@@ -353,6 +376,10 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
         if (h.isJpeg() || h.pixels() <= ImageDecoding.MAX_DECODED_PIXELS) {
             return null;
         }
+        ITextFSImage known = reducedImages.get(uriStr);
+        if (known != null) {
+            return new ImageResource(uriStr, (FSImage) known.clone());
+        }
         // Larger than anything the pipeline decodes: read every n-th pixel and keep the printed size.
         int subsampling = ImageDecoding.subsamplingToFit(h, ImageDecoding.MAX_DECODED_PIXELS);
         BufferedImage reduced = data != null
@@ -361,7 +388,10 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
         try {
             Image image = Image.getInstance(toPng(reduced));
             image.scaleAbsolute((float) h.width() * dotsPerPixel, (float) h.height() * dotsPerPixel);
-            return new ImageResource(uriStr, new ITextFSImage(image));
+            ITextFSImage fsImage = new ITextFSImage(image);
+            reducedImages.put(uriStr, fsImage);
+            // A copy that shares the picture, as Flying Saucer hands out what it caches: it is embedded once.
+            return new ImageResource(uriStr, (FSImage) fsImage.clone());
         } catch (BadElementException e) {
             throw new IOException("the reduced image cannot be embedded", e);
         }
@@ -414,7 +444,7 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
      * @return a renderer that makes no network request and reads no file outside the directories
      */
     public static ITextRenderer createRestrictedRenderer(List<Path> allowedDirectories, FontResolver fontResolver) {
-        ITextOutputDevice outputDevice = new ITextOutputDevice(DEFAULT_DOTS_PER_POINT);
+        ITextOutputDevice outputDevice = new BoundedOutputDevice(DEFAULT_DOTS_PER_POINT);
         LocalOnlyUserAgent userAgent = new LocalOnlyUserAgent(outputDevice, DEFAULT_DOTS_PER_PIXEL, allowedDirectories);
         return new ITextRenderer(DEFAULT_DOTS_PER_POINT, DEFAULT_DOTS_PER_PIXEL, outputDevice, userAgent, fontResolver);
     }
@@ -435,8 +465,6 @@ public final class LocalOnlyUserAgent extends ITextUserAgent {
      * Describes a refused URI for the log without revealing what it pointed at: the scheme, and for
      * the network schemes the host. Never a path, a query or a user name.
      */
-    // FindSecBugs IMPROPER_UNICODE: case-fold of a URI scheme for a log message; not a security decision
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold of a URI scheme for a log message; not a security decision")
     static String describeForLog(String uri) {
         if (uri == null) {
             return "scheme: none";

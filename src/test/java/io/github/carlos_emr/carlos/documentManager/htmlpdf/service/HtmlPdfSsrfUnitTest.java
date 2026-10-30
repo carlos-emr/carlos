@@ -41,6 +41,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -68,11 +69,19 @@ class HtmlPdfSsrfUnitTest {
 
     private final PrintLayoutService layout = Mockito.spy(new PrintLayoutService());
 
+    /** An SVG that draws the image outside the web root, as the document that a {@code data:} URI holds. */
+    private static String nestedSvgUri(String secretImageUri) {
+        String nested = "<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='30' height='30'>"
+                + "<g id='a'><image xlink:href='" + secretImageUri + "' width='30' height='30'/></g></svg>";
+        return "data:image/svg+xml;base64," + Base64.getEncoder().encodeToString(nested.getBytes(StandardCharsets.UTF_8));
+    }
+
     /** Every way a document can name a resource, all pointing at the listener, and at files outside the web root. */
     private String hostileHtml(int port, Path secret, Path secretImage) {
         String remote = "http://127.0.0.1:" + port;
         String secretUri = secret.toUri().toString();
         String secretImageUri = secretImage.toUri().toString();
+        String nestedUri = nestedSvgUri(secretImageUri);
         return "<!DOCTYPE html><html><head><title>FAKE-Hostile</title>"
                 + "<base href=\"" + remote + "/base/\">"
                 + "<link rel=\"stylesheet\" href=\"" + remote + "/a.css\">"
@@ -101,6 +110,12 @@ class HtmlPdfSsrfUnitTest {
                 + "<use xlink:href=\"" + remote + "/o.svg#x\"/><style>@import url(" + remote + "/svg.css); rect { fill: url(" + remote + "/p.svg#g) }</style>"
                 + "<rect width=\"20\" height=\"20\"/></svg>"
                 + "<img src=\"outside.svg\" width=\"40\" height=\"20\">"
+                // An SVG inside an SVG, inside a data: URI: whatever it names is outside the allowed directories too.
+                + "<svg width=\"40\" height=\"40\" xmlns:xlink=\"http://www.w3.org/1999/xlink\"><image xlink:href=\"" + nestedUri
+                + "\" width=\"30\" height=\"30\"/></svg>"
+                + "<svg width=\"40\" height=\"40\" xmlns:xlink=\"http://www.w3.org/1999/xlink\"><use xlink:href=\"" + nestedUri
+                + "#a\"/></svg>"
+                + "<img src=\"nested.svg\" width=\"40\" height=\"40\">"
                 + "<img src=\"data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg'&gt;&lt;image href='" + remote + "/q.png'/&gt;&lt;/svg&gt;\">"
                 + "<a href=\"" + remote + "/link\">FAKE-link text</a>"
                 + "<form action=\"" + remote + "/submit\"><input type=\"text\" value=\"FAKE-field\"></form>"
@@ -146,6 +161,9 @@ class HtmlPdfSsrfUnitTest {
             listener.start();
             int port = probe.getLocalPort();
             Files.write(webRoot.resolve("outside.svg"), hostileSvg(port, secret));
+            Files.writeString(webRoot.resolve("nested.svg"), "<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink'"
+                    + " width='40' height='40'><image xlink:href='" + nestedSvgUri(secretImage.toUri().toString())
+                    + "' width='30' height='30'/></svg>", StandardCharsets.UTF_8);
             TestImages.write(webRoot, "j.png", TestImages.png(10, 10));
             if (forceSafe || forceTextOnly) {
                 doAnswer(invocation -> {
@@ -195,6 +213,40 @@ class HtmlPdfSsrfUnitTest {
             // Text-only mode has no images at all, so there is nothing to box.
             default -> assertThat(out.result.degradations()).contains(HtmlPdfRenderDegradation.TEXT_ONLY);
         }
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"inline-use", "inline-image", "svg-file", "svg-data-img"})
+    @DisplayName("should draw no file from outside the allowed directories through an SVG held in a data: URI inside an SVG")
+    void shouldNotDrawSecretImage_throughNestedSvgInDataUri(String vector) throws Exception {
+        // Batik loads a data: URI as a document of its own and, for the use of one of its elements, draws what
+        // that element names (here an image outside the web root) without asking the user agent.
+        Path webRoot = Files.createDirectories(directory.resolve("web"));
+        Path secretImage = TestImages.write(Files.createDirectories(directory.resolve("secret")), "secret.png", TestImages.png(20, 20));
+        String nestedUri = nestedSvgUri(secretImage.toUri().toString());
+        String xlink = "xmlns:xlink=\"http://www.w3.org/1999/xlink\"";
+        String useOfNested = "<svg width=\"40\" height=\"40\" " + xlink + "><use xlink:href=\"" + nestedUri + "#a\"/></svg>";
+        String body = switch (vector) {
+            case "inline-use" -> useOfNested;
+            case "inline-image" -> "<svg width=\"40\" height=\"40\" " + xlink + "><image xlink:href=\"" + nestedUri + "\" width=\"30\" height=\"30\"/></svg>";
+            case "svg-file" -> {
+                Files.writeString(webRoot.resolve("outer.svg"), useOfNested.replace("<svg ", "<svg xmlns=\"http://www.w3.org/2000/svg\" "),
+                        StandardCharsets.UTF_8);
+                yield "<img src=\"outer.svg\" width=\"40\" height=\"40\">";
+            }
+            default -> "<img width=\"40\" height=\"40\" src=\"data:image/svg+xml;base64,"
+                    + Base64.getEncoder().encodeToString(useOfNested.replace("<svg ", "<svg xmlns=\"http://www.w3.org/2000/svg\" ")
+                            .getBytes(StandardCharsets.UTF_8)) + "\">";
+        };
+        HtmlPdfRenderRequest request = new HtmlPdfRenderRequest("<html><body><p>FAKE-visible text</p>" + body + "</body></html>", webRoot,
+                List.of(webRoot), HtmlPdfRenderSource.FORM);
+
+        HtmlPdfRenderResult result = service(PrintModeLimits.NO_LIMIT).render(request);
+
+        assertThat(TestPdfs.imageDraws(result.pdf())).as("images drawn").isZero();
+        // The drawing is cleaned, not given up on: no step down the ladder, and the rest of the page prints.
+        assertThat(result.degradations()).doesNotContain(HtmlPdfRenderDegradation.SAFE_MODE, HtmlPdfRenderDegradation.TEXT_ONLY);
+        assertThat(String.join("\n", TestPdfs.pageTexts(result.pdf()))).contains("FAKE-visible text");
     }
 
     @Test
