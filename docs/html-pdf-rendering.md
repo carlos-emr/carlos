@@ -246,7 +246,10 @@ without its images.
   ahead of the JDK's for BMP and TIFF, under names that pass a list of formats; a provider that is not
   vetted is not even asked whether it can decode an input.
 - **SVG** is cleaned (outside references removed) and then drawn by Flying Saucer and Batik, not
-  decoded by the plan. Four things were learned the hard way (section 14): an SVG that needs a bitmap is
+  decoded by the plan. The cleaning is a second layer: Flying Saucer gives Batik no document URL, so Batik
+  itself refuses everything an SVG names but a `data:` URI. What the cleaner adds is that the rest of the
+  drawing prints; an SVG left to Batik alone is left out whole (`IMAGE_UNAVAILABLE`) when it names a file.
+  Four things were learned the hard way (section 14): an SVG that needs a bitmap is
   bounded by `BoundedOutputDevice`; its size is scaled to device dots by `LocalOnlyUserAgent` (a
   viewBox-only inline `<svg>` gets `width` and `height` from `SvgViewBox`); right-to-left text inside
   it is left in logical order for Batik; and one that cannot be drawn is left out instead of failing

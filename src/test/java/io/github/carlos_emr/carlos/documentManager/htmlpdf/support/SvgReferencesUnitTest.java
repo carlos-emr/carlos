@@ -110,7 +110,7 @@ class SvgReferencesUnitTest {
         assertThat(text(cleaned)).contains("<use").contains("xlink:href=\"#c\"").contains("<image").contains("data:image/png");
     }
 
-    /** An SVG that draws a file from anywhere: the document a {@code data:} URI must not be allowed to hold. */
+    /** An SVG that names a file outside itself: the document a {@code data:} URI must not be allowed to hold. */
     private static final String NESTED_SVG = "<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='30' height='30'>"
             + "<g id='a'><image xlink:href='file:///secret.png' width='30' height='30'/></g></svg>";
 
@@ -536,6 +536,17 @@ class SvgReferencesUnitTest {
         assertThat(text(cleaned)).doesNotContain("http://e").doesNotContain("72l").doesNotContain("75rl");
     }
 
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"fill", "stroke", "filter", "mask", "clip-path", "marker-start", "cursor", "data-note"})
+    @DisplayName("should empty an attribute whose value holds a CSS escape, whatever its name")
+    void shouldEmptyAttribute_whenItHoldsACssEscape(String attribute) {
+        SvgReferences.Cleaned cleaned = clean(HEAD + "<rect width=\"2\" height=\"2\" " + attribute + "=\"\\75rl(http://e/y.svg#g)\" fill-opacity=\"0.5\"/></svg>")
+                .orElseThrow();
+
+        assertThat(cleaned.removedReferences()).isTrue();
+        assertThat(text(cleaned)).doesNotContain("75rl").doesNotContain("http://e").contains(attribute + "=\"\"").contains("fill-opacity=\"0.5\"");
+    }
+
     // ---- parsing ----------------------------------------------------------------------------
 
     @Test
@@ -718,6 +729,18 @@ class SvgReferencesUnitTest {
         assertThat(removed).isTrue();
         assertThat(html).doesNotContain("a.css").doesNotContain("http://e").doesNotContain("z.css").doesNotContain("75rl")
                 .doesNotContain("@IMPORT").contains("fill: red");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"fill", "stroke", "filter", "mask", "clip-path", "marker-start", "cursor", "data-note"})
+    @DisplayName("should empty an attribute of an inline svg whose value holds a CSS escape, whatever its name")
+    void shouldEmptyInlineAttribute_whenItHoldsACssEscape(String attribute) {
+        Element svg = inline("<svg><rect width=\"2\" height=\"2\" " + attribute + "=\"\\75rl(http://e/y.svg#g)\" fill-opacity=\"0.5\"/></svg>");
+
+        boolean removed = SvgReferences.clean(svg);
+
+        assertThat(removed).isTrue();
+        assertThat(svg.outerHtml()).doesNotContain("75rl").doesNotContain("http://e").contains(attribute + "=\"\"").contains("fill-opacity=\"0.5\"");
     }
 
     @Test

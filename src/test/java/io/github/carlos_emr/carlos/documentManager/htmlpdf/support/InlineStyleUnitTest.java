@@ -114,7 +114,7 @@ class InlineStyleUnitTest {
     @ValueSource(strings = {"10px", "10px !important", "10px!important", "10px !IMPORTANT  ", "  10px  ", "!important", " !important ",
             "10px !important !important", "10px !impor", "10px important", "10px !important x", "x\n!important\n", "10px !important\u2028"})
     @DisplayName("should strip a trailing !important and the white space around the value")
-    void shouldStripTrailingImportant(String value) {
+    void shouldStripTrailingImportant_withTheSurroundingWhiteSpace(String value) {
         assertThat(InlineStyle.withoutImportant(value)).isEqualTo(Pattern.compile("(?i)\\s*!important\\s*$").matcher(value).replaceAll("").strip());
     }
 

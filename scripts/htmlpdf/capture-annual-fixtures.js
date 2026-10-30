@@ -1,5 +1,25 @@
 #!/usr/bin/env node
-/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 /*
  * Captures the Annual Health Review pages (female and male) from a running devcontainer as the HTML
  * fixtures of the HTML-to-PDF tests (src/test/resources/htmlpdf/annual/female.html and male.html).
@@ -17,8 +37,9 @@
  * page clean-up (`relativise`) was exercised, in headless Chromium on a sample page.
  * Adjust the selectors below if the form changes.
  *
- * It refuses to write a page that does not name a FAKE- patient, and it never writes a page with a
- * non-FAKE name in a text field.
+ * It refuses to write a page that does not name a FAKE- patient, and it never writes a page whose text boxes or
+ * text areas hold anything but what it typed itself, a FAKE- value, or a date or number (the server fills in the
+ * age and the dates): a record's own text can only come from a real patient.
  *
  * Required environment:
  *   FEMALE_DEMOGRAPHIC_NO=<id of a FAKE- female demo patient> MALE_DEMOGRAPHIC_NO=<id of a FAKE- male demo patient>
@@ -38,6 +59,7 @@ const outputDirectory = path.resolve(process.env.OUTPUT_DIR || path.join(__dirna
 const TICKS = 12;
 const TEXT = {
   currentConcerns: 'FAKE-concern one: fatigue since August\nFAKE-concern two: knee pain, left side',
+  other: 'FAKE-other finding line one\nFAKE-other finding line two',
   physicalSigns: 'General: well appearing\nChest: clear bilaterally',
   assessment: 'FAKE-assessment line one\nFAKE-assessment line two',
   plan: 'FAKE-plan line one\nFAKE-plan line two (follow up in 3 months)',
@@ -49,6 +71,21 @@ function requiredEnv(name) {
     throw new Error(`${name} is required (the id of a FAKE- demo patient)`);
   }
   return value;
+}
+
+/**
+ * The values, in the saved page, of the text boxes and text areas that nothing explains: not empty, not marked
+ * FAKE-, not a date or a number, and not one of the texts this script typed. The page is read from the browser's
+ * DOM, so a control is found whatever the order of its attributes. Only their number is ever reported, because a
+ * value that nothing explains may be a patient's.
+ */
+async function unexplainedText(page) {
+  const typed = new Set(Object.values(TEXT).map(value => value.trim()));
+  const values = await page.evaluate(() => [...document.querySelectorAll('textarea, input:not([type]), input[type="text"]')]
+    .map(control => control.value));
+  return values
+    .map(value => value.replace(/\r\n/g, '\n').trim())
+    .filter(value => value !== '' && !/FAKE-/.test(value) && !/^[\d\s/:.-]+$/.test(value) && !typed.has(value));
 }
 
 /**
@@ -106,11 +143,12 @@ async function capture(page, config, demographicNo, kind) {
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
-  const html = await relativise(page, new URL(config.baseUrl).pathname);
-  const remaining = [...html.matchAll(/<input[^>]*type="text"[^>]*value="([^"]*)"/gi)].map(m => m[1]).filter(Boolean);
-  if (remaining.some(value => /^[A-Z][a-z]+,\s*[A-Z][a-z]+$/.test(value) && !/FAKE-/.test(value))) {
-    throw new Error(`the captured ${kind} page holds a name that is not FAKE-; refusing to write it`);
+  const unexplained = await unexplainedText(page);
+  if (unexplained.length > 0) {
+    throw new Error(`the captured ${kind} page holds ${unexplained.length} text value(s) that the script did not type and `
+      + 'that are not marked FAKE-; refusing to write it');
   }
+  const html = await relativise(page, new URL(config.baseUrl).pathname);
   fs.mkdirSync(outputDirectory, { recursive: true });
   // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- kind is the literal 'female' or 'male' that main() passes; outputDirectory is the developer's own OUTPUT_DIR
   const file = path.join(outputDirectory, `${kind}.html`);
@@ -141,4 +179,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { relativise };
+module.exports = { relativise, unexplainedText };

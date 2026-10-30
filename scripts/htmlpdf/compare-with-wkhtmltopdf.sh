@@ -1,5 +1,23 @@
 #!/usr/bin/env bash
-# Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later.
+# Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+#
+# This software is published under the GPL GNU General Public License.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+# CARLOS EMR Project
+# https://github.com/carlos-emr/carlos
 #
 # One-off comparison of the HTML-to-PDF render service (Flying Saucer) with wkhtmltopdf, for PR 1 of the
 # HTML-to-PDF consolidation. Run from anywhere; it works from the repository root.
@@ -32,12 +50,15 @@ if [ ! -d "$dejavu" ]; then
 fi
 
 mkdir -p "$out"
+# Absolute from here on: OUT_DIR may be relative to the repository root or absolute, and the font
+# configuration below must name the same directory either way.
+out="$(cd "$out" && pwd)"
 cat > "$out/fonts.conf" <<CONF
 <?xml version="1.0"?>
 <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
 <fontconfig>
   <dir>$dejavu</dir>
-  <cachedir>$PWD/$out/fontconfig-cache</cachedir>
+  <cachedir>$out/fontconfig-cache</cachedir>
 </fontconfig>
 CONF
 
@@ -46,7 +67,7 @@ if [ "${SKIP_BUILD:-0}" != "1" ]; then
   mvn -q dependency:build-classpath -Dmdep.outputFile=target/htmlpdf-cp.txt
 fi
 
-LANG=C.UTF-8 LC_ALL=C.UTF-8 FONTCONFIG_FILE="$PWD/$out/fonts.conf" \
+LANG=C.UTF-8 LC_ALL=C.UTF-8 FONTCONFIG_FILE="$out/fonts.conf" \
   "${JAVA:-java}" "${JAVA_HEAP:--Xmx2g}" -Djna.encoding=UTF-8 -Djava.awt.headless=true \
   -cp "target/test-classes:target/classes:$(cat target/htmlpdf-cp.txt)" \
   io.github.carlos_emr.carlos.documentManager.htmlpdf.tools.HtmlPdfComparisonMain "$mode" "$out" "${@:2}"

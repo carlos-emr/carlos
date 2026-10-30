@@ -70,6 +70,12 @@ class HtmlPdfSsrfUnitTest {
 
     private final PrintLayoutService layout = Mockito.spy(new PrintLayoutService());
 
+    /**
+     * What an inline {@code <svg>} needs to be drawn at all: its own namespace and a block display. Without them the
+     * pipeline leaves the element out, and a test of what it would draw proves nothing.
+     */
+    private static final String INLINE_SVG = "xmlns=\"http://www.w3.org/2000/svg\" style=\"display:block\"";
+
     /** An SVG that draws the image outside the web root, as the document that a {@code data:} URI holds. */
     private static String nestedSvgUri(String secretImageUri) {
         String nested = "<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='30' height='30'>"
@@ -107,14 +113,14 @@ class HtmlPdfSsrfUnitTest {
                 + "<input type=\"image\" src=\"" + remote + "/button.png\">"
                 + "<iframe src=\"" + remote + "/k.html\"></iframe><object data=\"" + remote + "/l.png\"></object><embed src=\"" + remote + "/m.png\">"
                 + "<video src=\"" + remote + "/v.mp4\" poster=\"" + remote + "/poster.png\"></video><audio src=\"" + remote + "/a.mp3\"></audio>"
-                + "<svg width=\"50\" height=\"50\" xmlns:xlink=\"http://www.w3.org/1999/xlink\"><image xlink:href=\"" + remote + "/n.png\" width=\"10\" height=\"10\"/>"
+                + "<svg " + INLINE_SVG + " width=\"50\" height=\"50\" xmlns:xlink=\"http://www.w3.org/1999/xlink\"><image xlink:href=\"" + remote + "/n.png\" width=\"10\" height=\"10\"/>"
                 + "<use xlink:href=\"" + remote + "/o.svg#x\"/><style>@import url(" + remote + "/svg.css); rect { fill: url(" + remote + "/p.svg#g) }</style>"
                 + "<rect width=\"20\" height=\"20\"/></svg>"
                 + "<img src=\"outside.svg\" width=\"40\" height=\"20\">"
                 // An SVG inside an SVG, inside a data: URI: whatever it names is outside the allowed directories too.
-                + "<svg width=\"40\" height=\"40\" xmlns:xlink=\"http://www.w3.org/1999/xlink\"><image xlink:href=\"" + nestedUri
+                + "<svg " + INLINE_SVG + " width=\"40\" height=\"40\" xmlns:xlink=\"http://www.w3.org/1999/xlink\"><image xlink:href=\"" + nestedUri
                 + "\" width=\"30\" height=\"30\"/></svg>"
-                + "<svg width=\"40\" height=\"40\" xmlns:xlink=\"http://www.w3.org/1999/xlink\"><use xlink:href=\"" + nestedUri
+                + "<svg " + INLINE_SVG + " width=\"40\" height=\"40\" xmlns:xlink=\"http://www.w3.org/1999/xlink\"><use xlink:href=\"" + nestedUri
                 + "#a\"/></svg>"
                 + "<img src=\"nested.svg\" width=\"40\" height=\"40\">"
                 + "<img src=\"data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg'&gt;&lt;image href='" + remote + "/q.png'/&gt;&lt;/svg&gt;\">"
@@ -220,24 +226,23 @@ class HtmlPdfSsrfUnitTest {
     @ValueSource(strings = {"inline-use", "inline-image", "svg-file", "svg-data-img"})
     @DisplayName("should draw no file from outside the allowed directories through an SVG held in a data: URI inside an SVG")
     void shouldNotDrawSecretImage_throughNestedSvgInDataUri(String vector) throws Exception {
-        // Batik loads a data: URI as a document of its own and, for the use of one of its elements, draws what
-        // that element names (here an image outside the web root) without asking the user agent.
+        // The SVG in the data: URI is a second document that the cleaner never reads, and it names an image outside
+        // the web root. Flying Saucer gives Batik no document URL, so Batik loads nothing but data: URIs for it;
+        // the test pins the outcome, whichever layer provides it.
         Path webRoot = Files.createDirectories(directory.resolve("web"));
         Path secretImage = TestImages.write(Files.createDirectories(directory.resolve("secret")), "secret.png", TestImages.png(20, 20));
         String nestedUri = nestedSvgUri(secretImage.toUri().toString());
         String xlink = "xmlns:xlink=\"http://www.w3.org/1999/xlink\"";
-        String useOfNested = "<svg width=\"40\" height=\"40\" " + xlink + "><use xlink:href=\"" + nestedUri + "#a\"/></svg>";
+        String useOfNested = "<svg " + INLINE_SVG + " width=\"40\" height=\"40\" " + xlink + "><use xlink:href=\"" + nestedUri + "#a\"/></svg>";
         String body = switch (vector) {
             case "inline-use" -> useOfNested;
-            case "inline-image" -> "<svg width=\"40\" height=\"40\" " + xlink + "><image xlink:href=\"" + nestedUri + "\" width=\"30\" height=\"30\"/></svg>";
+            case "inline-image" -> "<svg " + INLINE_SVG + " width=\"40\" height=\"40\" " + xlink + "><image xlink:href=\"" + nestedUri + "\" width=\"30\" height=\"30\"/></svg>";
             case "svg-file" -> {
-                Files.writeString(webRoot.resolve("outer.svg"), useOfNested.replace("<svg ", "<svg xmlns=\"http://www.w3.org/2000/svg\" "),
-                        StandardCharsets.UTF_8);
+                Files.writeString(webRoot.resolve("outer.svg"), useOfNested, StandardCharsets.UTF_8);
                 yield "<img src=\"outer.svg\" width=\"40\" height=\"40\">";
             }
             default -> "<img width=\"40\" height=\"40\" src=\"data:image/svg+xml;base64,"
-                    + Base64.getEncoder().encodeToString(useOfNested.replace("<svg ", "<svg xmlns=\"http://www.w3.org/2000/svg\" ")
-                            .getBytes(StandardCharsets.UTF_8)) + "\">";
+                    + Base64.getEncoder().encodeToString(useOfNested.getBytes(StandardCharsets.UTF_8)) + "\">";
         };
         HtmlPdfRenderRequest request = new HtmlPdfRenderRequest("<html><body><p>FAKE-visible text</p>" + body + "</body></html>", webRoot,
                 List.of(webRoot), HtmlPdfRenderSource.FORM);
@@ -255,8 +260,9 @@ class HtmlPdfSsrfUnitTest {
             "nested-svg-absolute-path", "absolute-file", "relative-path", "use-of-external-svg"})
     @DisplayName("should draw nothing from outside the allowed directories through an SVG that a style sheet names")
     void shouldNotDrawOutsideFile_throughSvgBackground(String reference) throws Exception {
-        // A background is not planned like an <img>, so its SVG reaches the user agent as the file it is; Batik
-        // loads whatever the SVG names without asking the user agent, unless the agent hands it a cleaned copy.
+        // A background is not planned like an <img>, so its SVG reaches the user agent as the file it is, uncleaned.
+        // Batik, which has no document URL for it, refuses everything it names but data: URIs; the test pins that
+        // the file is not read, so that a library upgrade that loses the rule fails the build.
         Path webRoot = Files.createDirectories(directory.resolve("web"));
         Path secretDirectory = Files.createDirectories(directory.resolve("secret"));
         Path secretImage = TestImages.write(secretDirectory, "secret.png", TestImages.png(20, 20));
@@ -281,6 +287,54 @@ class HtmlPdfSsrfUnitTest {
         assertThat(TestPdfs.imageDraws(result.pdf())).as("images drawn").isZero();
         assertThat(hasColour(TestPdfs.image(result.pdf(), 1), 0x00cc00)).as("the rectangle of the SVG outside the web root").isFalse();
         assertThat(String.join("\n", TestPdfs.pageTexts(result.pdf()))).contains("FAKE-visible text");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"inline-attribute", "inline-style", "img-attribute", "img-style", "background-attribute"})
+    @DisplayName("should not follow a url() written with a CSS escape, in an attribute or a style, to an SVG outside the allowed directories")
+    void shouldNotFollowEscapedUrl_toSvgOutsideAllowedDirectories(String vector) throws Exception {
+        // \75 is the CSS escape for "u": a filter that looks for the characters "url(" would not see this reference.
+        Path webRoot = Files.createDirectories(directory.resolve("web"));
+        Path secretDirectory = Files.createDirectories(directory.resolve("secret"));
+        Path paint = Files.writeString(secretDirectory.resolve("paint.svg"), "<svg xmlns='http://www.w3.org/2000/svg'>"
+                + "<linearGradient id='g'><stop offset='0' stop-color='#00cc00'/><stop offset='1' stop-color='#00cc00'/></linearGradient></svg>",
+                StandardCharsets.UTF_8);
+        String reference = "\\75rl(" + paint.toUri() + "#g)";
+        String rect = vector.endsWith("style") ? "<rect width='40' height='40' style='fill:" + reference + "'/>"
+                : "<rect width='40' height='40' fill='" + reference + "'/>";
+        String svg = "<svg xmlns='http://www.w3.org/2000/svg' style='display:block' width='40' height='40'>" + rect + "</svg>";
+        String body;
+        if (vector.startsWith("inline")) {
+            body = svg;
+        } else {
+            Files.writeString(webRoot.resolve("bg.svg"), svg, StandardCharsets.UTF_8);
+            body = vector.startsWith("img") ? "<img src='bg.svg' width='40' height='40'/>" : "<div style=\"width:40px;height:40px;background:url(bg.svg)\"></div>";
+        }
+        HtmlPdfRenderRequest request = new HtmlPdfRenderRequest("<html><body><p>FAKE-visible text</p>" + body + "</body></html>", webRoot,
+                List.of(webRoot), HtmlPdfRenderSource.FORM);
+
+        HtmlPdfRenderResult result = service(PrintModeLimits.NO_LIMIT).render(request);
+
+        assertThat(hasColour(TestPdfs.image(result.pdf(), 1), 0x00cc00)).as("the gradient of the SVG outside the web root").isFalse();
+        assertThat(String.join("\n", TestPdfs.pageTexts(result.pdf()))).contains("FAKE-visible text");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"inline", "img"})
+    @DisplayName("should draw a gradient that the SVG defines itself, which is what makes the escaped url() test able to fail")
+    void shouldDrawGradient_whenTheSvgDefinesIt(String vector) throws Exception {
+        Path webRoot = Files.createDirectories(directory.resolve("web"));
+        String svg = "<svg xmlns='http://www.w3.org/2000/svg' style='display:block' width='40' height='40'><linearGradient id='g'>"
+                + "<stop offset='0' stop-color='#00cc00'/><stop offset='1' stop-color='#00cc00'/></linearGradient>"
+                + "<rect width='40' height='40' fill='url(#g)'/></svg>";
+        String body = vector.equals("inline") ? svg : "<img src='own.svg' width='40' height='40'/>";
+        Files.writeString(webRoot.resolve("own.svg"), svg, StandardCharsets.UTF_8);
+        HtmlPdfRenderRequest request = new HtmlPdfRenderRequest("<html><body><p>FAKE-visible text</p>" + body + "</body></html>", webRoot,
+                List.of(webRoot), HtmlPdfRenderSource.FORM);
+
+        HtmlPdfRenderResult result = service(PrintModeLimits.NO_LIMIT).render(request);
+
+        assertThat(hasColour(TestPdfs.image(result.pdf(), 1), 0x00cc00)).as("the gradient of the SVG").isTrue();
     }
 
     @Test

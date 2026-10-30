@@ -81,7 +81,7 @@ class PrintFormControlsUnitTest {
     @ValueSource(strings = {"0", "7", "-7", "+7", "007", "7.", "7.5", "-7.5", ".5", "-.5", "+.5", "7e3", "7E3", "7e-3", "7e+3", ".5e3", "7.e3", "7.5E-10",
             "1e999999999", "123456789012345678901234567890"})
     @DisplayName("should take a decimal number")
-    void shouldTakeDecimalNumber(String text) {
+    void shouldTakeDecimalNumber_inEveryWrittenForm(String text) {
         assertThat(PrintFormControls.isDecimalNumber(text)).isTrue();
     }
 
@@ -89,7 +89,7 @@ class PrintFormControlsUnitTest {
     @ValueSource(strings = {"", " ", "+", "-", ".", "+.", "-.", "e3", ".e3", "7e", "7e+", "7e-", "7.5.5", "7,5", "7 ", " 7", "7x", "x7", "NaN", "Infinity", "0x10",
             "7e3.5", "7ee3", "--7", "+-7", "\u0667", "7\u0661", "1_000"})
     @DisplayName("should refuse text that is not a decimal number")
-    void shouldRefuseNonNumber(String text) {
+    void shouldRefuseNonNumber_forEveryInvalidSpelling(String text) {
         assertThat(PrintFormControls.isDecimalNumber(text)).isFalse();
     }
 

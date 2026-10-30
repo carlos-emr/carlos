@@ -52,7 +52,7 @@ class SystemColorsUnitTest {
     @ValueSource(strings = {"", "a", "/* x */", "a /* x */ b", "/**/", "/*/", "/*/ x", "/* x", "a /* x", "/* a */ b /* c", "/* a */ /* b */", "/* /* a */ */",
             "x /* a\nb */ y", "/*", "*/", "/* */ */", "a/**/b/**/c"})
     @DisplayName("should remove comments, and an unterminated one stays")
-    void shouldRemoveComments(String text) {
+    void shouldRemoveComments_andKeepAnUnterminatedOne(String text) {
         assertThat(SystemColors.withoutComments(text)).isEqualTo(Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL).matcher(text).replaceAll(""));
     }
 
@@ -111,7 +111,7 @@ class SystemColorsUnitTest {
             "canvas,#ffffff", "canvastext,#000000", "linktext,#0000ee", "visitedtext,#551a8b", "activetext,#ff0000",
             "buttonborder,#767676", "field,#ffffff", "fieldtext,#000000", "mark,#ffff00", "marktext,#000000"})
     @DisplayName("should map every system colour to the colour of the default Windows theme, whatever the case")
-    void shouldMapEveryKeyword(String keyword, String color) {
+    void shouldMapEveryKeyword_whateverTheCase(String keyword, String color) {
         assertThat(SystemColors.replaceIn("color: " + keyword)).isEqualTo("color: " + color);
         assertThat(SystemColors.replaceIn("color: " + keyword.toUpperCase(java.util.Locale.ROOT))).isEqualTo("color: " + color);
     }

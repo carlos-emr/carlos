@@ -93,7 +93,7 @@ class LegacyBodyMarginsUnitTest {
     @CsvSource({"0,0", "12,12", "' 7 ',7", "+4,4", "10px,10", "10PX,10", "10 px,10", "10.5,10", "10.,10", "007,7", "1000,1000",
             "1001,1000", "99999,1000", "123456789012345678901234567890,1000"})
     @DisplayName("should read pixels, with or without px and a fraction, and clamp what is absurd")
-    void shouldReadPixels(String value, long pixels) {
+    void shouldReadPixels_withOrWithoutUnitAndFraction(String value, long pixels) {
         assertThat(rule("leftmargin=\"" + value + "\"")).isEqualTo("body { margin-left: " + pixels + "px; margin-right: " + pixels + "px; }");
     }
 
