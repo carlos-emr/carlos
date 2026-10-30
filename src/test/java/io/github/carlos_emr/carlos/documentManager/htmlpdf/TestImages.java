@@ -26,6 +26,10 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
+import java.awt.Color;
+import java.awt.GradientPaint;
+import java.awt.Graphics2D;
+import java.awt.Polygon;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -112,6 +116,80 @@ public final class TestImages {
             writer.dispose();
         }
         return out.toByteArray();
+    }
+
+    /**
+     * A picture whose four quarters are four different colours, red and green above and blue and yellow below,
+     * so that any turning or mirroring of it can be told from the picture itself.
+     */
+    public static BufferedImage quarters(int width, int height) {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = image.createGraphics();
+        try {
+            graphics.setColor(Color.RED);
+            graphics.fillRect(0, 0, width / 2, height / 2);
+            graphics.setColor(new Color(0, 160, 0));
+            graphics.fillRect(width / 2, 0, width - width / 2, height / 2);
+            graphics.setColor(Color.BLUE);
+            graphics.fillRect(0, height / 2, width / 2, height - height / 2);
+            graphics.setColor(Color.YELLOW);
+            graphics.fillRect(width / 2, height / 2, width - width / 2, height - height / 2);
+        } finally {
+            graphics.dispose();
+        }
+        return image;
+    }
+
+    /**
+     * A scene that has an obvious way up, drawn with shapes only so that no font is needed: a sky that is
+     * light blue at the top, green ground below it, a yellow sun in the upper right and a red house with a dark roof
+     * and a white door in the middle.
+     */
+    public static BufferedImage scene(int width, int height) {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = image.createGraphics();
+        try {
+            int horizon = (int) (height * 0.62);
+            graphics.setPaint(new GradientPaint(0, 0, new Color(110, 180, 245), 0, horizon, new Color(205, 230, 255)));
+            graphics.fillRect(0, 0, width, horizon);
+            graphics.setColor(new Color(60, 150, 60));
+            graphics.fillRect(0, horizon, width, height - horizon);
+            graphics.setColor(new Color(255, 215, 0));
+            int sun = (int) (width * 0.2);
+            graphics.fillOval((int) (width * 0.68), (int) (height * 0.06), sun, sun);
+            graphics.setColor(new Color(200, 60, 50));
+            graphics.fillRect((int) (width * 0.28), horizon, (int) (width * 0.44), (int) (height * 0.26));
+            graphics.setColor(new Color(110, 30, 30));
+            graphics.fillPolygon(new Polygon(
+                    new int[]{(int) (width * 0.22), (int) (width * 0.5), (int) (width * 0.78)},
+                    new int[]{horizon, (int) (height * 0.42), horizon}, 3));
+            graphics.setColor(Color.WHITE);
+            graphics.fillRect((int) (width * 0.45), (int) (height * 0.74), (int) (width * 0.1), (int) (height * 0.14));
+        } finally {
+            graphics.dispose();
+        }
+        return image;
+    }
+
+    /**
+     * A portrait photograph as a phone stores it: the {@link #scene} turned a quarter anticlockwise into a
+     * landscape picture, with EXIF orientation 6 recording that a viewer must turn it clockwise. Shown correctly, the
+     * sun is in the upper right and the ground is below.
+     *
+     * @return a 120 x 90 JPEG, which shows as 90 x 120
+     */
+    public static byte[] phonePhoto() {
+        BufferedImage upright = scene(90, 120);
+        int width = upright.getHeight();
+        int height = upright.getWidth();
+        BufferedImage stored = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                // Orientation 6 puts the stored pixel (x, y) at (height - 1 - y, x) of the picture a viewer shows.
+                stored.setRGB(x, y, upright.getRGB(height - 1 - y, x));
+            }
+        }
+        return withOrientation(encode(stored, "jpeg"), 6);
     }
 
     /** The JPEG with an EXIF segment recording an orientation, inserted right after the start-of-image marker. */

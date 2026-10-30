@@ -201,7 +201,7 @@ Each row is tried in order; an error reaches the caller only from the last colum
 
 | Failure point | Mitigations, in order | Last resort |
 |---|---|---|
-| A JPEG photo | None: embedded as it is, never decoded (a JPEG with an EXIF orientation is decoded and turned) | |
+| A JPEG photo | None: embedded as it is, never decoded (a JPEG with an EXIF orientation is decoded and turned upright, by the Orientation of its first EXIF block alone; a thumbnail's own is ignored) | |
 | Another image over the per-image cap, or over 32 MB | Read as a stream, subsampled to fit (`IMAGE_DOWNSCALED`), printed size kept | The box |
 | An image format OpenPDF cannot draw but a vetted reader can (BMP, WBMP, TIFF) | Converted to PNG or JPEG (`IMAGE_CONVERTED`) | The box |
 | A valid header with corrupt data | Decoded by the tolerant reader and re-encoded (`IMAGE_CONVERTED`) | The box |
@@ -401,6 +401,7 @@ Run the module's tests with the `htmlpdf` tag (`mvn -q test -Dgroups=htmlpdf`) o
 | `HtmlPdfSpringWiringUnitTest` | The module's package scan alone wires the six beans, all singletons, and renders |
 | `HtmlPdfFixturesUnitTest`, `HtmlPdfFormsUnitTest` | The Annual forms, an every-control page, HRM reports (demo, table-heavy, Word-style, images), email, Messenger, 14 geometry pages, scripts and edge markup, through the production beans. The central assertion: **a real document renders with no WARN- or ERROR-level degradation** |
 | `HtmlPdfSsrfUnitTest` | No network request and no read outside the allowed directories, whichever way the document asks, in every mode |
+| `HtmlPdfImageOrientationUnitTest` | A picture of four colours stored with each of the eight EXIF orientations prints as a viewer shows it; a 12-megapixel phone photo, stored sideways, prints upright in portrait proportions; the images grid's scene has the sun at the top right |
 | `HtmlPdfConcurrencyUnitTest`, `HtmlPdfMemoryUnitTest` | Concurrent renders give identical bytes; the image memory share holds under a 256 MB heap in a child JVM |
 | `HtmlPdfLibraryLoggingUnitTest` | The library's logger stays at WARN, its SVG logger at ERROR, and a document's values never reach either |
 | `HtmlPdfSvgSizeUnitTest`, `HtmlPdfSvgTextUnitTest`, `BoundedOutputDeviceUnitTest` | An SVG prints at the size a browser gives it however it is sized; Hebrew in an inline SVG keeps its order; huge gradient SVGs, tiled backgrounds and SVGs that cannot be drawn render within bounds. `HtmlPdfMemoryUnitTest` renders them in a 256 MB child JVM |

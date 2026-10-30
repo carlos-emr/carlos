@@ -107,13 +107,13 @@ public final class HtmlPdfFixtures {
         TestImages.write(webRoot, "corrupt-body.png", Arrays.copyOf(png, png.length / 2));
         byte[] jpeg = TestImages.jpeg(120, 80, false);
         TestImages.write(webRoot, "truncated.jpg", TestImages.withOrientation(Arrays.copyOf(jpeg, jpeg.length - 80), 6));
-        try (InputStream webp = HtmlPdfFixtures.class.getClassLoader().getResourceAsStream("htmlpdf/images/opaque-4x4.webp");
-                InputStream phone = HtmlPdfFixtures.class.getClassLoader().getResourceAsStream("htmlpdf/images/exif-orientation-6.jpg")) {
+        try (InputStream webp = HtmlPdfFixtures.class.getClassLoader().getResourceAsStream("htmlpdf/images/opaque-4x4.webp")) {
             TestImages.write(webRoot, "opaque.webp", webp.readAllBytes());
-            TestImages.write(webRoot, "phone.jpg", phone.readAllBytes());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+        // A scene with an obvious way up, stored sideways as a phone does: it must print upright.
+        TestImages.write(webRoot, "phone.jpg", TestImages.phonePhoto());
         TestImages.write(webRoot, "photo.heic", TestImages.heic());
         TestImages.write(webRoot, "attachment.pdf", TestImages.pdf());
         TestImages.write(webRoot, "outside.svg", TestImages.svgWithOutsideReference());

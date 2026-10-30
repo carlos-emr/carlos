@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager.htmlpdf.engine;
 
+import com.twelvemonkeys.imageio.metadata.CompoundDirectory;
 import com.twelvemonkeys.imageio.metadata.Directory;
 import com.twelvemonkeys.imageio.metadata.Entry;
 import com.twelvemonkeys.imageio.metadata.jpeg.JPEGSegment;
@@ -576,7 +577,12 @@ public final class ImageDecoding {
                 new ByteArrayInputStream(exif, tiffStart, exif.length - tiffStart))) {
             // EXIF is a TIFF structure; TwelveMonkeys' EXIFReader is a deprecated shim over this.
             Directory directory = new TIFFReader().read(tiff);
-            Entry entry = directory.getEntryById(TAG_ORIENTATION);
+            // Only the first IFD describes the picture. The thumbnail (the second IFD) can carry an Orientation of its
+            // own, and the compound directory would hand that one back when the first has none: a photo that is already
+            // upright, printed on its side.
+            Directory main = directory instanceof CompoundDirectory compound && compound.directoryCount() > 0
+                    ? compound.getDirectory(0) : directory;
+            Entry entry = main.getEntryById(TAG_ORIENTATION);
             if (entry != null && entry.getValue() instanceof Number number) {
                 int orientation = number.intValue();
                 if (orientation >= ORIENTATION_UPRIGHT && orientation <= MAX_ORIENTATION) {
