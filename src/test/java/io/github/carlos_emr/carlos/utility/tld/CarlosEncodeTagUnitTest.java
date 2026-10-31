@@ -11,8 +11,10 @@ package io.github.carlos_emr.carlos.utility.tld;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.ResourceBundle;
+import java.util.concurrent.TimeUnit;
 
 import jakarta.el.ELContext;
 import jakarta.el.ExpressionFactory;
@@ -33,7 +35,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.owasp.encoder.Encode;
-import org.apache.commons.text.StringEscapeUtils;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -195,7 +196,7 @@ class CarlosEncodeTagUnitTest {
         @ParameterizedTest
         @ValueSource(strings = {"en", "es", "fr", "pl", "pt-BR"})
         @DisplayName("should preserve quoted contact validation messages through the real JSP tag")
-        void shouldEncodeContactValidationMessages_forJavaScriptBlock(String language) throws JspException {
+        void shouldEncodeContactValidationMessages_forJavaScriptBlock(String language) throws Exception {
             ResourceBundle messages = ResourceBundle.getBundle("oscarResources", Locale.forLanguageTag(language));
             for (String key : new String[]{"demographic.contactForm.msgLastNameRequired",
                     "demographic.contactForm.msgFirstNameRequired"}) {
@@ -207,7 +208,26 @@ class CarlosEncodeTagUnitTest {
                 // The actual tag output must stay inside the JSP's double-quoted literal.
                 assertThat(encoded).doesNotContain("\r", "\n", "</script").contains("\\\"");
                 assertThat(encoded.replace("\\\"", "")).doesNotContain("\"");
-                assertThat(StringEscapeUtils.unescapeEcmaScript(encoded)).isEqualTo(message);
+                // Commons Text's unescapeEcmaScript does not decode JavaScript's hex escapes
+                // (including the new space escape). Execute the actual literal instead.
+                assertThat(evaluateStringLiteral(encoded)).isEqualTo(message);
+            }
+        }
+
+        private String evaluateStringLiteral(String encoded) throws Exception {
+            String executor = "const fs=require('node:fs'),vm=require('node:vm');"
+                    + "process.stdout.write(vm.runInNewContext(fs.readFileSync(0,'utf8'),{}, {timeout:1000}));";
+            Process process = new ProcessBuilder("node", "-e", executor).start();
+            try {
+                try (var input = process.getOutputStream()) {
+                    input.write(('\"' + encoded + '\"').getBytes(StandardCharsets.UTF_8));
+                }
+                assertThat(process.waitFor(10, TimeUnit.SECONDS)).as("JavaScript literal evaluation finished").isTrue();
+                String errors = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+                assertThat(process.exitValue()).as("JavaScript literal must parse: %s", errors).isZero();
+                return new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            } finally {
+                process.destroyForcibly();
             }
         }
 
