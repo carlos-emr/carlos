@@ -81,6 +81,14 @@ final class CdsRuntimeIdentity {
         };
     }
 
+    private static Path artifactPath(URL artifact) throws IOException {
+        try {
+            return Path.of(artifact.toURI()).toRealPath();
+        } catch (java.net.URISyntaxException _) {
+            throw unavailable();
+        }
+    }
+
     static FrozenRuntime addTo(MessageDigest result, ClassLoader loader, byte[] buffer)
             throws IOException {
         if (buffer.length != 65536)
@@ -94,12 +102,7 @@ final class CdsRuntimeIdentity {
                 var source = type.getProtectionDomain().getCodeSource();
                 URL artifact = source == null ? null : source.getLocation();
                 if (artifact == null || !artifact.getProtocol().equals("file")) throw unavailable();
-                Path path;
-                try {
-                    path = Path.of(artifact.toURI()).toRealPath();
-                } catch (java.net.URISyntaxException invalid) {
-                    throw unavailable();
-                }
+                Path path = artifactPath(artifact);
                 String hash = artifacts.get(path);
                 if (hash == null) {
                     hash = artifactHash(path, JAR_LIMIT, buffer);
@@ -215,7 +218,7 @@ final class CdsRuntimeIdentity {
                 try {
                     if (!rulesHash.equals(zoneRulesHash()))
                         throw new CdsImportException("IMPORT_FROZEN_RUNTIME_CHANGED");
-                } catch (IOException unavailable) {
+                } catch (IOException _) {
                     throw unavailable();
                 }
                 nextProbe = System.nanoTime() + 1_000_000_000L;

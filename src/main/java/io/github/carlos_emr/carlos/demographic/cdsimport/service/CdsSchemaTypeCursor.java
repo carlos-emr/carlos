@@ -49,7 +49,9 @@ final class CdsSchemaTypeCursor {
         CdsSchemaModel.Type parent = stack.isEmpty() ? null : stack.peek().type();
         boolean any = parent != null && XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(parent.getTypeNamespace())
                 && "anyType".equals(parent.getTypeName());
-        CdsSchemaModel.Type type = stack.isEmpty() || any ? model.element(namespace, local) : parent == null ? null : parent.child(namespace, local);
+        CdsSchemaModel.Type type = null;
+        if (stack.isEmpty() || any) type = model.element(namespace, local);
+        else if (parent != null) type = parent.child(namespace, local);
         // Follow global declarations even after invalid placement. Validation still rejects
         // the structure; known type metadata keeps invalid large values bounded as well.
         if (type == null) type = model.element(namespace, local);

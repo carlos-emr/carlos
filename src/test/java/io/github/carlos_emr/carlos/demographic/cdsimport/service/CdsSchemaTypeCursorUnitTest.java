@@ -96,8 +96,10 @@ class CdsSchemaTypeCursorUnitTest {
                 "<xs:complexType><xs:complexContent><xs:extension base='xs:anyType'/></xs:complexContent></xs:complexType>"}) {
             String schema = "<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' targetNamespace='cds'>"
                     + "<xs:element name='OmdCds'>" + content + "</xs:element></xs:schema>";
+            byte[] main = schema.getBytes(StandardCharsets.UTF_8);
+            byte[] datatypes = emptyDatatypes();
             assertThrows(IllegalStateException.class,
-                    () -> CdsSchemaModel.read(schema.getBytes(StandardCharsets.UTF_8), emptyDatatypes()));
+                    () -> CdsSchemaModel.read(main, datatypes));
         }
     }
 

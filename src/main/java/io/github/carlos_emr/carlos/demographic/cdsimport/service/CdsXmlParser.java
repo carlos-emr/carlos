@@ -83,6 +83,9 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class CdsXmlParser {
+    private static final String NUMERIC_LEXICAL_INVALID = "CDS_XML_NUMERIC_LEXICAL_INVALID";
+    private static final String POSITIVE_INTEGER = "positiveInteger";
+    private static final String NAME_SEPARATOR = "\u0000";
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final Set<String> SECTIONS = Set.of("Demographics", "PersonalHistory", "FamilyHistory",
             "PastHealth", "ProblemList", "RiskFactors", "AllergiesAndAdverseReactions",
@@ -278,7 +281,7 @@ public class CdsXmlParser {
                         throw new SAXException(CdsPaths.failure("CDS_CORRECTION_TARGET_NOT_SCALAR"));
                     }
                     for (int i = 0; i < attrs.getLength(); i++) {
-                        frame.attributeTypes.put(attrs.getURI(i) + "\u0000" + attrs.getLocalName(i),
+                        frame.attributeTypes.put(attrs.getURI(i) + NAME_SEPARATOR + attrs.getLocalName(i),
                                 types.attributeType(attrs.getURI(i), attrs.getLocalName(i)));
                     }
                 }
@@ -339,7 +342,7 @@ public class CdsXmlParser {
                 if (!stack.isEmpty()) {
                     Frame parent = stack.peek();
                     parent.child = true;
-                    String key = uri + "\u0000" + local;
+                    String key = uri + NAME_SEPARATOR + local;
                     if (!parent.children.containsKey(key) && parent.children.size() >= 128) fail("CDS_XML_CHILD_NAME_LIMIT");
                     ordinal = parent.children.merge(key, 1L, Math::addExact);
                     relative = parent.relative.isEmpty() ? local + "[" + ordinal + "]" : parent.relative + "/" + local + "[" + ordinal + "]";
@@ -383,7 +386,7 @@ public class CdsXmlParser {
                         valueWriter.write(value); valueWriter.flush();
                         String path = relative + (relative.isEmpty() ? "" : "/") + "@" + attrs.getLocalName(i);
                         writeField(frame, path, attrs.getURI(i), "ATTRIBUTE",
-                                frame.attributeTypes.get(attrs.getURI(i) + "\u0000" + attrs.getLocalName(i)));
+                                frame.attributeTypes.get(attrs.getURI(i) + NAME_SEPARATOR + attrs.getLocalName(i)));
                     }
                     frame.beginValue(valueOutput);
                 }
@@ -500,7 +503,7 @@ public class CdsXmlParser {
                     .put("column", failure.getColumnNumber()).put("protectedDetailPreview", detail)
                     .put("detailPreviewLimited", failure.getMessage() != null && failure.getMessage().length() > 4096);
             try { diagnosticOutput.write(JSON.writeValueAsBytes(row)); diagnosticOutput.write('\n'); }
-            catch (IOException unwritable) { throw new SAXException(CdsPaths.failure("CDS_DIAGNOSTIC_WRITE_FAILED")); }
+            catch (IOException _) { throw new SAXException(CdsPaths.failure("CDS_DIAGNOSTIC_WRITE_FAILED")); }
         }
 
         private void identity(Frame frame, char[] chars, int offset, int length) throws IOException {
@@ -639,7 +642,7 @@ public class CdsXmlParser {
                 mode = Mode.LENGTH_TEXT;
             }
             if (XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(info.getTypeNamespace())
-                    && Set.of("integer", "nonNegativeInteger", "positiveInteger").contains(info.getTypeName())) {
+                    && Set.of("integer", "nonNegativeInteger", POSITIVE_INTEGER).contains(info.getTypeName())) {
                 mode = Mode.INTEGER;
             }
         }
@@ -676,13 +679,13 @@ public class CdsXmlParser {
 
         void number(char c) throws IOException {
             if (xmlSpace(c)) { if (numberDigits || numberSign || numberDot) numberTrailingWhitespace = true; return; }
-            if (numberTrailingWhitespace) throw CdsPaths.failure("CDS_XML_NUMERIC_LEXICAL_INVALID");
+            if (numberTrailingWhitespace) throw CdsPaths.failure(NUMERIC_LEXICAL_INVALID);
             if ((c == '+' || c == '-') && !numberSign && !numberDigits && !numberDot) {
                 numberSign = true; numberNegative = c == '-'; return;
             }
             if (c >= '0' && c <= '9') { numberDigits = true; numberNonzero |= c != '0'; return; }
             if (mode == Mode.DECIMAL && c == '.' && !numberDot) { numberDot = true; return; }
-            throw CdsPaths.failure("CDS_XML_NUMERIC_LEXICAL_INVALID");
+            throw CdsPaths.failure(NUMERIC_LEXICAL_INVALID);
         }
 
         void base64(char[] chars, int offset, int length, OutputStream target, long maximum) throws IOException {
@@ -729,16 +732,16 @@ public class CdsXmlParser {
                 if (lengthWitness.length > 0) validator.characters(lengthWitness, 0, lengthWitness.length);
             }
             if (mode == Mode.INTEGER || mode == Mode.DECIMAL) {
-                if (!numberDigits) throw CdsPaths.failure("CDS_XML_NUMERIC_LEXICAL_INVALID");
+                if (!numberDigits) throw CdsPaths.failure(NUMERIC_LEXICAL_INVALID);
                 if (mode == Mode.INTEGER && type != null) {
-                    if (type.getTypeName().equals("positiveInteger") && (numberNegative || !numberNonzero)) {
+                    if (type.getTypeName().equals(POSITIVE_INTEGER) && (numberNegative || !numberNonzero)) {
                         throw CdsPaths.failure("CDS_XML_NUMERIC_RANGE_INVALID");
                     }
                     if (type.getTypeName().equals("nonNegativeInteger") && numberNegative && numberNonzero) {
                         throw CdsPaths.failure("CDS_XML_NUMERIC_RANGE_INVALID");
                     }
                 }
-                char[] value = (mode == Mode.INTEGER && type.getTypeName().equals("positiveInteger") ? "1" : "0").toCharArray();
+                char[] value = (mode == Mode.INTEGER && type.getTypeName().equals(POSITIVE_INTEGER) ? "1" : "0").toCharArray();
                 validator.characters(value, 0, value.length);
             }
         }

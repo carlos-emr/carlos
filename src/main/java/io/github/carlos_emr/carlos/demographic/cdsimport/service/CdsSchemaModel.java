@@ -81,7 +81,10 @@ final class CdsSchemaModel {
         private Map<Name, Type> children = Map.of();
         private Map<Name, Type> attributes = Map.of();
 
-        private Type(Name name, boolean simple) { this.name = name; this.simple = simple; }
+        private Type(Name name, boolean simple) {
+            this.name = name;
+            this.simple = simple;
+        }
         String getTypeName() { return name.local(); }
         String getTypeNamespace() { return name.namespace(); }
         boolean simple() { return simple; }
@@ -198,65 +201,86 @@ final class CdsSchemaModel {
                 if (type.simple) throw unsupported();
                 return type;
             }
-            if (type.simple) {
-                List<Element> content = children(declaration).stream().filter(e -> !e.getLocalName().equals("annotation")).toList();
-                if (content.size() != 1 || !content.getFirst().getLocalName().equals("restriction")) throw unsupported();
-                Element restriction = content.getFirst();
-                Name baseName = qname(restriction, restriction.getAttribute("base"));
-                Type base = required(baseName);
-                for (Element named : declarations) {
-                    if (declaredTypes.get(named) == base) { base = type(named); break; }
-                }
-                if (!base.simple) throw unsupported();
-                type.atomic = base.atomic; type.builtIn = base.builtIn; type.whitespace = base.whitespace;
-                type.lengthFacet = base.lengthFacet; type.otherFacet = base.otherFacet; type.identity = base.identity;
-                for (Element facet : children(restriction)) {
-                    switch (facet.getLocalName()) {
-                        case "annotation" -> { }
-                        case "whiteSpace" -> {
-                            String value = facet.getAttribute("value");
-                            if (!Set.of("preserve", "replace", "collapse").contains(value)) throw unsupported();
-                            type.whitespace = value;
-                        }
-                        case "length", "minLength", "maxLength" -> type.lengthFacet = true;
-                        case "pattern", "enumeration", "minInclusive", "maxInclusive", "minExclusive", "maxExclusive",
-                                "totalDigits", "fractionDigits" -> type.otherFacet = true;
-                        default -> throw unsupported();
-                    }
-                }
-            } else {
-                Map<Name, Type> elements = new HashMap<>(), attributes = new HashMap<>();
-                collect(declaration, elements, attributes);
-                type.children = Map.copyOf(elements); type.attributes = Map.copyOf(attributes);
-            }
-            completed.add(declaration); building.remove(declaration);
+            if (type.simple) readSimpleType(declaration, type);
+            else readComplexType(declaration, type);
+            completed.add(declaration);
+            building.remove(declaration);
             return type;
+        }
+
+        private void readSimpleType(Element declaration, Type type) {
+            List<Element> content = children(declaration).stream().filter(e -> !e.getLocalName().equals("annotation")).toList();
+            if (content.size() != 1 || !content.getFirst().getLocalName().equals("restriction")) throw unsupported();
+            Element restriction = content.getFirst();
+            Type base = baseType(restriction);
+            if (!base.simple) throw unsupported();
+            type.atomic = base.atomic;
+            type.builtIn = base.builtIn;
+            type.whitespace = base.whitespace;
+            type.lengthFacet = base.lengthFacet;
+            type.otherFacet = base.otherFacet;
+            type.identity = base.identity;
+            for (Element facet : children(restriction)) readFacet(facet, type);
+        }
+
+        private Type baseType(Element restriction) {
+            Type base = required(qname(restriction, restriction.getAttribute("base")));
+            for (Element named : declarations) {
+                if (declaredTypes.get(named) == base) return type(named);
+            }
+            return base;
+        }
+
+        private static void readFacet(Element facet, Type type) {
+            switch (facet.getLocalName()) {
+                case "annotation" -> { /* Documentation has no streaming classification. */ }
+                case "whiteSpace" -> {
+                    String value = facet.getAttribute("value");
+                    if (!Set.of("preserve", "replace", "collapse").contains(value)) throw unsupported();
+                    type.whitespace = value;
+                }
+                case "length", "minLength", "maxLength" -> type.lengthFacet = true;
+                case "pattern", "enumeration", "minInclusive", "maxInclusive", "minExclusive", "maxExclusive",
+                        "totalDigits", "fractionDigits" -> type.otherFacet = true;
+                default -> throw unsupported();
+            }
+        }
+
+        private void readComplexType(Element declaration, Type type) {
+            Map<Name, Type> elements = new HashMap<>();
+            Map<Name, Type> attributes = new HashMap<>();
+            collect(declaration, elements, attributes);
+            type.children = Map.copyOf(elements);
+            type.attributes = Map.copyOf(attributes);
         }
 
         private void collect(Element parent, Map<Name, Type> elements, Map<Name, Type> attributes) {
             for (Element child : children(parent)) {
                 switch (child.getLocalName()) {
                     case "sequence", "choice", "all" -> collect(child, elements, attributes);
-                    case "element", "attribute" -> {
-                        boolean attribute = child.getLocalName().equals("attribute");
-                        String ns = namespace(child);
-                        if (child.hasAttribute("ref")) ns = qname(child, child.getAttribute("ref")).namespace();
-                        else {
-                            Element schema = child.getOwnerDocument().getDocumentElement();
-                            String form = child.hasAttribute("form") ? child.getAttribute("form")
-                                    : schema.getAttribute(attribute ? "attributeFormDefault" : "elementFormDefault");
-                            if (!form.equals("qualified")) ns = "";
-                        }
-                        String local = child.hasAttribute("ref") ? qname(child, child.getAttribute("ref")).local()
-                                : child.getAttribute("name");
-                        Map<Name, Type> destination = attribute ? attributes : elements;
-                        Type declared = declaration(child), prior = destination.putIfAbsent(new Name(ns, local), declared);
-                        if (local.isEmpty() || prior != null && prior != declared) throw unsupported();
-                    }
-                    case "annotation" -> { }
+                    case "element", "attribute" -> collectDeclaration(child, elements, attributes);
+                    case "annotation" -> { /* Documentation does not declare fields. */ }
                     default -> throw unsupported();
                 }
             }
+        }
+
+        private void collectDeclaration(Element child, Map<Name, Type> elements, Map<Name, Type> attributes) {
+            Name name = declarationName(child);
+            Map<Name, Type> destination = child.getLocalName().equals("attribute") ? attributes : elements;
+            Type declared = declaration(child);
+            Type prior = destination.putIfAbsent(name, declared);
+            if (name.local().isEmpty() || prior != null && prior != declared) throw unsupported();
+        }
+
+        private static Name declarationName(Element child) {
+            if (child.hasAttribute("ref")) return qname(child, child.getAttribute("ref"));
+            Element schema = child.getOwnerDocument().getDocumentElement();
+            boolean attribute = child.getLocalName().equals("attribute");
+            String form = child.hasAttribute("form") ? child.getAttribute("form")
+                    : schema.getAttribute(attribute ? "attributeFormDefault" : "elementFormDefault");
+            String namespace = form.equals("qualified") ? namespace(child) : "";
+            return new Name(namespace, child.getAttribute("name"));
         }
 
         private static String anonymousName(Element type) {

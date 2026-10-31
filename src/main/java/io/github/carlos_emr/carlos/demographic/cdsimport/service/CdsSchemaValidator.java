@@ -111,7 +111,9 @@ public final class CdsSchemaValidator {
         private String systemId;
         private InputStream input;
         LocalInput(String publicId, String systemId, byte[] bytes) {
-            this.publicId = publicId; this.systemId = systemId; input = new ByteArrayInputStream(bytes);
+            this.publicId = publicId;
+            this.systemId = systemId;
+            input = new ByteArrayInputStream(bytes);
         }
         @Override public Reader getCharacterStream() { return null; }
         @Override public void setCharacterStream(Reader value) { throw new UnsupportedOperationException(); }
@@ -124,10 +126,10 @@ public final class CdsSchemaValidator {
         @Override public String getPublicId() { return publicId; }
         @Override public void setPublicId(String value) { publicId = value; }
         @Override public String getBaseURI() { return "cds-schema:/"; }
-        @Override public void setBaseURI(String value) { }
+        @Override public void setBaseURI(String value) { /* The pinned schema base URI is fixed. */ }
         @Override public String getEncoding() { return "UTF-8"; }
-        @Override public void setEncoding(String value) { }
+        @Override public void setEncoding(String value) { /* Hash-verified schema bytes use UTF-8. */ }
         @Override public boolean getCertifiedText() { return false; }
-        @Override public void setCertifiedText(boolean value) { }
+        @Override public void setCertifiedText(boolean value) { /* Certification cannot alter pinned schema bytes. */ }
     }
 }
