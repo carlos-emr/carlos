@@ -97,24 +97,8 @@ function isLoopbackHost(rawHost) {
 }
 
 function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  // Credentials in the URL would travel into Playwright navigations and can
-  // surface in request or failure logging, so reject them outright.
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not contain embedded credentials');
-  }
-  if (!isLocalHost(parsed.hostname) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${parsed.hostname}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  // This script logs in with real credentials, so anything that is not plainly
-  // loopback has to prove its certificate.
-  if (!isLoopbackHost(parsed.hostname) && parsed.protocol !== 'https:') {
-    throw new Error(`Non-loopback BASE_URL host ${parsed.hostname} must use https`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  // Delegate host/protocol/credential rules; this legacy caller retains its return shape.
+  const parsed = require('./lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl);
   return parsed;
 }
 
@@ -124,10 +108,7 @@ function validateBaseUrl(rawBaseUrl) {
  * an exported MYSQL_HOST must never reach a shared or production schema.
  */
 function validateMysqlHost(rawHost) {
-  if (!isExactLocalHost(rawHost) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
-    throw new Error(`Refusing to seed a provider and an admin role grant into non-local MYSQL_HOST ${rawHost}; set ALLOW_NON_LOCAL_MYSQL_HOST=true for a disposable test database`);
-  }
-  return rawHost;
+  return require('./lib/playwright-harness').validateMysqlHost(rawHost);
 }
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');

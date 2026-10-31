@@ -15,6 +15,7 @@ for (const launchFails of [false, true]) {
       process: { env: { PRESCRIPTION_SCRIPT_ID: '45' }, exitCode: 0 },
       console: { error() {}, log() {}, warn() {} },
       require(name) {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
         if (name === 'playwright') return { chromium: { async launch(value) {
           events.push('launch');
           options = value;
@@ -24,7 +25,9 @@ for (const launchFails of [false, true]) {
             async close() { events.push('close'); },
           };
         } } };
-        if (name === './lib/playwright-harness') return { shouldIgnoreHttpsErrors: () => true };
+        if (name === './lib/playwright-harness') return { shouldIgnoreHttpsErrors: () => true,
+          validateBaseUrl: raw => require('./lib/playwright-harness').validateBaseUrl(raw, {}),
+        };
         if (name === './graceful-signal-cancellation') return { createGracefulSignalCancellation() {
           events.push('register');
           return { throwIfCancelled() { events.push('check'); }, dispose() { events.push('dispose'); } };

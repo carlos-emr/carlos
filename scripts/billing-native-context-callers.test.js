@@ -16,6 +16,7 @@ const h = {assert:(ok,message)=>assert(ok,message),sqlString:value=>"'"+String(v
 function load(name, overrides={}, {entry=false, sandbox={}}={}) {
   const filename=path.join(__dirname,name), module={exports:{}};
   function req(id) {
+    if (id === './lib/authenticated-probe') return require('./lib/authenticated-probe');
     if(Object.hasOwn(overrides,id))return overrides[id];
     if(id==='./lib/playwright-harness'||id==='./playwright-harness')return h;
     if(id.startsWith('node:'))return require(id);

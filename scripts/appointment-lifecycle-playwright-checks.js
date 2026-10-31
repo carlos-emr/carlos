@@ -277,7 +277,7 @@ async function checkInvalidDuration(popup, button, label) {
 }
 
 /** Books the appointment this check then operates on, from an empty slot link. */
-async function bookFromSlot(context, daySheet) {
+async function openBookingForm(context, daySheet, {slotIndex = 0} = {}) {
   await monitorCleanup.remember(context);
   // Scoped to the target provider's COLUMN, not just the first slot on the sheet.
   // appointmentprovideradminday.jsp builds its columns from the logged-in provider's
@@ -290,7 +290,7 @@ async function bookFromSlot(context, daySheet) {
     `day sheet for ${targetDate} rendered no bookable slot link in provider ${providerNo}'s column`);
 
   const popupPromise = context.waitForEvent('page', { timeout: 45000 });
-  await slots.first().click();
+  await slots.nth(slotIndex).click();
   const popup = await popupPromise;
   wireStrictPage(popup, 'add-appointment', recorder, { baseline: [] });
   // The context's page event can fire while the popup is still about:blank.
@@ -331,6 +331,12 @@ async function bookFromSlot(context, daySheet) {
   assert(selected === demographicNo,
     `patient selection put demographic_no=${selected} on the booking form, expected ${demographicNo}`);
 
+  return popup;
+}
+
+async function bookFromSlot(context, daySheet, {configureAdd, slotIndex = 0} = {}) {
+  const existingIds = new Set(stampedAppointments().map(row => row.id));
+  const popup = await openBookingForm(context, daySheet, {slotIndex});
   const slotStart = await popup.locator('form#addappt input[name="start_time"]').inputValue();
   assert(/^\d{2}:\d{2}/.test(slotStart),
     `booking form start_time was not prefilled from the slot, got ${slotStart}`);
@@ -339,6 +345,7 @@ async function bookFromSlot(context, daySheet) {
   const intendedDuration = Number(await popup.locator('#duration').inputValue());
   assert(Number.isInteger(intendedDuration) && intendedDuration > 0,
     'the selected slot must provide a positive duration');
+  if (configureAdd) await configureAdd(popup);
   await checkInvalidDuration(popup, popup.locator('#addButton'), 'add appointment');
 
   const [response] = await Promise.all([
@@ -350,7 +357,7 @@ async function bookFromSlot(context, daySheet) {
   assert(response.status() < 400, `appointment AddRecord returned HTTP ${response.status()}`);
 
   const row2 = await waitFor(() => {
-    const rows = stampedAppointments();
+    const rows = stampedAppointments().filter(row => !existingIds.has(row.id));
     return rows.length === 1 ? rows[0] : null;
   }, `the booked ${stamp} appointment to reach the database`);
   assert(row2.date === targetDate, `booked appointment landed on ${row2.date}, expected ${targetDate}`);
@@ -813,4 +820,4 @@ if (require.main === module) main().catch((error) => {
 // Shared UI fixture: importing this module does not book or delete anything.
 module.exports = { config, recorder, targetDate, target, stamp, bookedReason, bookedNotes,
   initMysqlDefaults, cleanupMysqlDefaults, cleanupRows, sql, stampedAppointments, stampedArchiveRows,
-  openDaySheet, bookFromSlot, openEditPopup };
+  openDaySheet, openBookingForm, bookFromSlot, openEditPopup };

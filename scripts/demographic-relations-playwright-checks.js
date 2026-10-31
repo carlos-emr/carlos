@@ -25,6 +25,7 @@
  * and when caisi is on: the search results then pick with addNameCaisi, which fills a field of the
  * opener and closes the popup instead of opening the relation form.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { expectValue, runWorkflow } = require('./lib/workflow-session');
@@ -91,7 +92,7 @@ async function workflow(s) {
   });
 
   await s.step('a GET save is refused and writes nothing', async () => {
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl,
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl,
       `/demographic/AddRelation?origDemo=${patient}&linkingDemo=${relative}&relation=${encodeURIComponent(relation)}`), { maxRedirects: 0 });
     h.assert(response.status() === 405, `A GET save answered ${response.status()}, not 405`);
     h.assert(relations() === '0', 'A refused GET saved a relation');

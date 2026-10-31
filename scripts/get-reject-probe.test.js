@@ -18,6 +18,7 @@ function session(responses) {
   return {
     config: { baseUrl: new URL('https://localhost/carlos/') },
     context: {
+      cookies: async () => [{ name: 'JSESSIONID', value: 'synthetic', domain: 'localhost', path: '/carlos', expires: -1 }],
       request: {
         fetch: async () => {
           const next = queue.shift();

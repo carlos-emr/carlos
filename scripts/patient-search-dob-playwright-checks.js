@@ -100,24 +100,8 @@ function isPrivateIpv4(host) {
 }
 
 function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not contain embedded credentials');
-  }
-
-  const host = normalizedHostname(parsed);
-  const exactLocalHost = isExactLocalHost(host);
-  const privateIpv4 = isPrivateIpv4(host);
-  if (!exactLocalHost && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  if (!exactLocalHost && parsed.protocol !== 'https:') {
-    throw new Error('Non-local BASE_URL targets must use https');
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  // Delegate host/protocol/credential rules; this legacy caller retains its return shape.
+  const parsed = require('./lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl);
   parsed.search = '';
   parsed.hash = '';
   return parsed;

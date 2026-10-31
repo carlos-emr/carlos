@@ -44,6 +44,7 @@
  * asserted unchanged by MD5 (lib/consult-config-state.js). Cleanup removes every owned row by key and asserts it, so
  * this check must run with EXCLUSIVE=1.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const claims = require('./lib/form-claims');
@@ -364,7 +365,7 @@ async function workflow(s, { select = validatePin() } = {}) {
         const response = await claims.asPrecondition(async () => {
           const params = replayParams(captured[action.key].params, a.overrides(tag));
           const url = new URL(`${captured[action.key].path}?${params}`, s.config.baseUrl.origin).toString();
-          return s.context.request.fetch(url, { method, maxRedirects: 0, failOnStatusCode: false });
+          return authenticatedProbe(s, url, { method });
         }, `${action.title}: sending the ${method} replay`);
         console.log(`  probe ${NAME}: ${action.title} ${method} -> HTTP ${response.status()}`);
         answeredByApplication(action, `the ${method} replay`, response);

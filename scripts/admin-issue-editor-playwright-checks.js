@@ -23,6 +23,7 @@
  * Fixtures and cleanup: one marker-coded issue (PW<hex>) and the owned patient's note,
  * casemgmt_issue, CPP and eChart rows; all removed in cleanup and asserted gone.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
@@ -178,7 +179,7 @@ async function workflow(s) {
     const url = new URL(h.appUrl(s.config.baseUrl, '/issueAdmin'));
     url.search = new URLSearchParams({method: 'save', 'issueAdmin.code': probeCode,
       'issueAdmin.description': `${description} via GET`, 'issueAdmin.role': role}).toString();
-    const response = await s.context.request.get(url.href);
+    const response = await authenticatedProbe(s, url.href);
     h.assert(response.status() === 405, `Issue saves must reject GET; got HTTP ${response.status()}`);
     h.assert(issueCount(probeCode) === '0', 'A GET request created an issue');
   });

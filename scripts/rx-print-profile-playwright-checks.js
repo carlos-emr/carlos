@@ -50,6 +50,7 @@
  * Requires exclusive execution and MySQL CREATE/DROP TRIGGER permission for one owned,
  * uniquely named rollback probe; its exact definition is checked before DROP in finally.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const { execFileSync } = require('node:child_process');
 const { createHash } = require('node:crypto');
 const fs = require('node:fs');
@@ -405,7 +406,7 @@ async function workflow(s) {
 
   await s.step('a GET against rx/WriteToEncounter is refused before any write', async () => {
     const before = noteCount();
-    const rejected = await s.context.request.get(h.appUrl(s.config.baseUrl,
+    const rejected = await authenticatedProbe(s, h.appUrl(s.config.baseUrl,
       `/rx/WriteToEncounter?demographicNo=${patient}&expectedDemographicNo=${patient}`), { maxRedirects: 0 });
     h.assert(rejected.status() === 405 && rejected.headers()['x-carlos-encounter-write'] === 'not-written',
       `A GET encounter write answered HTTP ${rejected.status()} instead of 405 not-written`);

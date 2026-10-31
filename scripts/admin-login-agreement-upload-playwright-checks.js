@@ -20,6 +20,7 @@
  * agreement file is put back as it was, with its owner and mode (or removed if there was none, with
  * the login/ directory the upload created). EXCLUSIVE=1: the agreement settings are clinic-wide.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
@@ -100,7 +101,7 @@ async function workflow(s) {
     const saved = latest();
     const count = sql.value("SELECT COUNT(*) FROM property WHERE name LIKE 'aua\\_%'");
     const params = new URLSearchParams({ validDurationNumber: '9', validDurationPeriod: 'days' });
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/${ROUTE}?${params}`), { maxRedirects: 0 });
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, `/${ROUTE}?${params}`), { maxRedirects: 0 });
     h.assert(response.status() === 405, `A GET save answered ${response.status()}, not 405`);
     h.assert(latest() === saved && sql.value("SELECT COUNT(*) FROM property WHERE name LIKE 'aua\\_%'") === count,
       'A refused GET stored a validity');

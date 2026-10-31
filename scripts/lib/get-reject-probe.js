@@ -28,6 +28,7 @@
  * the ledger: unchanged rows alone never prove the application refused the request.
  */
 const h = require('./playwright-harness');
+const { authenticatedProbe } = require('./authenticated-probe');
 
 /** Parse the text fields of a multipart/form-data body (file parts are skipped). */
 function multipartFields(buffer, contentType) {
@@ -134,7 +135,7 @@ function createLedger(name) {
       h.assert(url.length < 7000, `${label}: the replayed GET is too long for a request line (${url.length})`);
       for (const method of methods) {
         const before = snapshot();
-        const response = await s.context.request.fetch(url, { method, maxRedirects: 0, failOnStatusCode: false });
+        const response = await authenticatedProbe(s, url, { method });
         const status = response.status();
         const body = method === 'GET' ? await response.text().catch(() => '') : '';
         const after = snapshot();

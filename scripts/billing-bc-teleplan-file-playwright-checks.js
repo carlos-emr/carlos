@@ -32,6 +32,7 @@
  * patient, made a BC patient. Cleanup deletes every BC billing row of the patient, then the
  * physician, and asserts each is gone. BC installs only (billregion=BC).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const { createHash } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -316,9 +317,9 @@ async function workflow(s) {
     const latest = sql.value('SELECT IFNULL(MAX(id),0) FROM billactivity');
     const year = frame.locator(`a[href*="${GEN_ROUTE}?year="]`).first();
     h.assert(await year.count() === 1, 'The Activity List has no year link back to the Teleplan file page');
-    const yearResponse = await s.context.request.get(new URL(await year.getAttribute('href'), frame.url()).toString(), { maxRedirects: 0 });
+    const yearResponse = await authenticatedProbe(s, new URL(await year.getAttribute('href'), frame.url()).toString(), { maxRedirects: 0 });
     h.assert(yearResponse.status() === 200, `A year link answered HTTP ${yearResponse.status()}`);
-    const getWithPhysician = await s.context.request.get(
+    const getWithPhysician = await authenticatedProbe(s,
       new URL(`${GEN_ROUTE.slice(1)}?providers=${encodeURIComponent(physician.ohipNo)}`, base).toString(), { maxRedirects: 0 });
     h.assert(getWithPhysician.status() === 405, `A GET naming the physician answered HTTP ${getWithPhysician.status()}, not 405`);
     const after = sql.value(`SELECT COUNT(*) FROM billactivity WHERE id > ${latest}`);

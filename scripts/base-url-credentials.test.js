@@ -17,8 +17,10 @@ const scripts = collectScripts(__dirname);
 
 function scheduleUrlContext() {
   const source = fs.readFileSync(path.join(__dirname, 'schedule-links-playwright-checks.js'), 'utf8');
-  const context = vm.createContext({ URL, process: { env: {} } });
-  for (const name of ['validateBaseUrl', 'appUrl', 'safeGoto', 'clickScheduleLink']) {
+  const context = vm.createContext({ URL, process: { env: {} },
+    validateBaseUrl: raw => require('./lib/playwright-harness').validateBaseUrl(raw, {}),
+  });
+  for (const name of ['appUrl', 'safeGoto', 'clickScheduleLink']) {
     const start = source.indexOf(`function ${name}(`);
     assert.ok(start >= 0, `Schedule URL helper ${name} is missing`);
     const declaration = source.slice(start - 6, start) === 'async ' ? start - 6 : start;
@@ -70,7 +72,9 @@ for (const name of scripts) {
   if (start < 0) continue;
   const end = source.indexOf('\n}', start) + 2;
   test(`${name}: URL credentials are rejected even with remote-target opt-in`, () => {
-    const context = vm.createContext({ URL, process: { env: { ALLOW_NON_LOCAL_BASE_URL: 'true' } } });
+    const context = vm.createContext({ URL, process: { env: { ALLOW_NON_LOCAL_BASE_URL: 'true' } },
+      require: () => ({validateCredentialBaseUrl: raw => require('./lib/playwright-harness').validateCredentialBaseUrl(raw, {ALLOW_NON_LOCAL_BASE_URL: 'true'})}),
+    });
     vm.runInContext(source.slice(start, end), context);
     for (const credentials of ['user:secret', 'user', ':secret', 'user:%73ecret']) {
       for (const host of ['127.0.0.1:8080', 'example.invalid']) {

@@ -21,6 +21,7 @@
  * Implements coverage-plan billing-on-reports-inr-eoy.
  */
 
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
@@ -274,7 +275,7 @@ async function workflow(s) {
 
   await s.step('GET against the INR generator is refused and writes nothing', async () => {
     const count = sql.value(`SELECT COUNT(*) FROM billing_on_cheader1 WHERE demographic_no=${patient}`);
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/billing/CA/ON/ViewInrOnGenINRbilling'), {
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/billing/CA/ON/ViewInrOnGenINRbilling'), {
       params: { [`inrbilling${ids.inr}`]: 'on', xml_appointment_date: today }, maxRedirects: 0,
     });
     h.assert(response.status() === 405 && response.headers().allow === 'POST', 'GET INR generation was not refused with 405');
@@ -413,7 +414,7 @@ async function workflow(s) {
     const saveUrl = await popup.locator('form[name="serviceform"]').evaluate(form => form.action);
     h.assert(new URL(saveUrl).pathname.endsWith('/billing/CA/ON/inr/DbUpdateINRbilling'),
       'The INR edit form points at an unmapped save action');
-    const rejected = await s.context.request.get(saveUrl, {
+    const rejected = await authenticatedProbe(s, saveUrl, {
       params: { billinginr_no: ids.inr, inraction: 'delete', service_code: INR_CODE, diag_code: INR_DX }, maxRedirects: 0,
     });
     h.assert(rejected.status() === 405 && rejected.headers().allow === 'POST', 'GET INR deletion was not refused');

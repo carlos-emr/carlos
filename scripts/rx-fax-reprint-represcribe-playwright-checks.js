@@ -153,25 +153,9 @@ let expectingCustomDrugConfirm = false;
 // --- config validation -------------------------------------------------------
 
 function validateBaseUrl(rawBaseUrl) {
-  let parsed;
-  try {
-    parsed = new URL(rawBaseUrl);
-  } catch (e) {
-    throw new Error(`BASE_URL is not a valid URL: ${rawBaseUrl}`);
-  }
-  // A non-HTTP scheme parses cleanly but is not a navigable target; reject it here rather than
-  // failing later with an opaque navigation error.
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed credentials');
-  }
-  if (!LOCAL_BASE_URL_HOSTS.has(normalizeHost(parsed.hostname))
-      && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`refusing non-local BASE_URL host ${parsed.hostname}; set ALLOW_NON_LOCAL_BASE_URL=true to override`);
-  }
-  return `${parsed.origin}${parsed.pathname.replace(/\/$/, '')}`;
+  // Delegate host/protocol/credential rules; this legacy caller retains its return shape.
+  const parsed = require('./lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl);
+  return `${parsed.origin}${parsed.pathname}`;
 }
 
 /** True when BASE_URL points at loopback, where the packaged self-signed certificate lives. */

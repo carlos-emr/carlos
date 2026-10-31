@@ -30,6 +30,7 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const h = require('./lib/playwright-harness');
 const { encounterForms, formListAsSeen } = require('./lib/encounter-form-list');
@@ -67,25 +68,6 @@ function isLocalHost(rawHost) {
   // them so bracketed loopback addresses match the same as their bare form.
   const host = rawHost.toLowerCase().replace(/^\[|\]$/g, '');
   return LOCAL_HOSTS.has(host);
-}
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  // Credentials in BASE_URL would ride along on every navigation and could surface
-  // in the badResponses diagnostics this script prints on failure.
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not contain embedded credentials');
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  if (!isLocalHost(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
 }
 
 function appUrl(appPath) {

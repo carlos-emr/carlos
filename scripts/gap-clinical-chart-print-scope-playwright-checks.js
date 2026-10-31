@@ -22,6 +22,7 @@
  * deletes every note/allergy/prevention row of that patient and asserts them gone.
  * Coverage plan §2.5 chart-print (gap-clinical). Needs pdftotext.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {runWorkflow} = require('./lib/workflow-session');
 const {requirePoppler} = require('./lib/stored-pdf-documents');
@@ -239,7 +240,7 @@ async function workflow(s) {
       form: {...fields, method: 'register', name: 'UnconfiguredAlias', bean: 'extPrintMeasurements'},
     });
     h.assert(rejected.status() === 400, 'An arbitrary alias could consume a registry slot');
-    const readOnly = await s.context.request.get(url);
+    const readOnly = await authenticatedProbe(s, url);
     h.assert(readOnly.status() === 405, 'GET could register a print extension');
   });
 

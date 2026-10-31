@@ -22,6 +22,7 @@
  * Lists (best effort, while the browser is open) before the SQL teardown.
  * Reordering (method=order) has no UI control and is not driven (reported).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
@@ -168,7 +169,7 @@ async function workflow(s) {
   });
   await s.step('a GET to the lookup list mutator is refused and changes nothing', async () => {
     const before = orderNow();
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/lookupListManagerAction'), {params: probe, maxRedirects: 0});
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/lookupListManagerAction'), {params: probe, maxRedirects: 0});
     h.assert(orderNow() === before, 'A GET changed the item display order');
     h.assert(response.status() === 405, `A GET to the lookup list mutator answered HTTP ${response.status()} instead of 405`);
   });

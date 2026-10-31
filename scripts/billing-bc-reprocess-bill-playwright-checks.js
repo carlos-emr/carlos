@@ -31,6 +31,7 @@
  * inactive billing physician (lib/bc-billing-fixture.js), removed and asserted gone. BC installs
  * only (billregion=BC).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { expectValue, runWorkflow } = require('./lib/workflow-session');
@@ -186,7 +187,7 @@ async function workflow(s) {
   }
 
   await s.step('a GET that carries a save parameter is refused and changes nothing', async () => {
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl,
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl,
       `/billing/CA/BC/reprocessBill?billingmasterNo=${billingmasterNo}&submit=Settle%20Bill`), { maxRedirects: 0 });
     h.assert(response.status() === 405, `A GET save answered ${response.status()}, not 405`);
     h.assert(sql.value(`SELECT billingstatus FROM billingmaster WHERE billingmaster_no=${billingmasterNo}`) === 'O',

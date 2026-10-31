@@ -111,6 +111,17 @@ function validateBaseUrl(rawBaseUrl, env = process.env) {
   return parsed;
 }
 
+/** Legacy credential-bearing checks additionally require TLS beyond loopback. */
+function validateCredentialBaseUrl(rawBaseUrl, env = process.env) {
+  const parsed = validateBaseUrl(rawBaseUrl, env);
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1'].includes(host)
+      && parsed.protocol !== 'https:') {
+    throw new Error('Non-loopback BASE_URL targets must use https');
+  }
+  return parsed;
+}
+
 /*
  * The fixture-writing checks seed and delete rows through the mysql client. A
  * mistyped MYSQL_HOST must not point that at a shared or production database,
@@ -1683,6 +1694,7 @@ module.exports = {
   unescapeMysqlBatchValue,
   validateBaseUrl,
   relabelStrictPage,
+  validateCredentialBaseUrl,
   validateMysqlHost,
   withExpectedDialogs,
   wirePage,
