@@ -85,6 +85,7 @@
  *   RX_FAX_JOURNAL_DIR (private directory for the pharmacy fixture's crash journal).
  */
 
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
@@ -146,30 +147,6 @@ let checkPhase = 'initialization';
 let expectingCustomDrugConfirm = false;
 const mysqlBin = resolveMysqlBinary();
 const mysqlDefaultsFile = createMysqlDefaultsFile();
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  // Reject userinfo (user:pass@host): this harness logs navigations and diagnostics with the URL,
-  // so embedded credentials would leak into test output. Pass auth through the app's login form.
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const octets = host.split('.');
-  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
-  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
-    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
-    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
 
 function appUrl(relativePath) {
   if (!relativePath.startsWith('/') || relativePath.startsWith('//')) {

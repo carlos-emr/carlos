@@ -55,6 +55,7 @@
  * every owned template, document, follow-up and PDF can be removed and verified after the run.
  */
 
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
@@ -82,22 +83,6 @@ function isPrivateIpv4(host) {
 function isLocalHost(rawHost) {
   const host = rawHost.toLowerCase().replace(/^\[|\]$/g, '');
   return LOCAL_HOSTS.has(host) || isPrivateIpv4(host);
-}
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  const host = parsed.hostname.toLowerCase();
-  if (!isLocalHost(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
 }
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
