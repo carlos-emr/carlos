@@ -984,7 +984,7 @@
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
-            <version>9.6.0</version>
+            <version>26.10.0</version>
         </dependency>
         <!-- Flyway schema migrations: flyway-core is the engine; flyway-mysql adds the
              MariaDB/MySQL database module required since Flyway 9. Both are Community edition. -->

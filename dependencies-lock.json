@@ -362,11 +362,11 @@
   }, {
     "groupId" : "com.google.protobuf",
     "artifactId" : "protobuf-java",
-    "version" : "4.31.1",
+    "version" : "4.36.1",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:AE+ivLW6wiKpbg0tZZD6fnaMK+Y/Gs0LjaDA5YNTm5Mtjfa9qZicZ5zyXll3vtz/OGaQ6KMFgWq0S53US6LRSQ=="
+    "integrity" : "sha512:gD5uPEv7T0qIoAKtixPQLc5K6KTmbJh2QMwdUnhoJHDOC57TSzblkMcRnhTtTeiFhNVmGwLftsckG0uAeLkGSA=="
   }, {
     "groupId" : "com.google.zxing",
     "artifactId" : "core",
@@ -410,11 +410,11 @@
   }, {
     "groupId" : "com.mysql",
     "artifactId" : "mysql-connector-j",
-    "version" : "9.6.0",
+    "version" : "26.10.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:AnGbS/ywYK27wa189C1hukmNR74DvHzJjcFyoBq/1oCkyUC/BrfiaHeieuQrLfv2Nk8sAp7/3Rg9v16+7MGAVQ=="
+    "integrity" : "sha512:ZittwV/BV3kyzXBKIS5/n4NTyzfjXph0jVecL/6tS+BHFL2N0YNohoTVuYC3Br2VSWMJnEpb37vTunjIIqST2A=="
   }, {
     "groupId" : "com.nimbusds",
     "artifactId" : "nimbus-jose-jwt",
