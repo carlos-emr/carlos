@@ -3868,7 +3868,7 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryNativeDto.java": "b72b9f8196864707d0477220e5b86392d25559c2fef70159ddc862111f6f14bc",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java": "7776e6473c96ec8b1828c2f14e9b07d3dd8e4e3a84e225e3cfdf33bb08bd8b7c",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyPersister.java": "8f02b2d4a928536d7f2619d60e78b69997c9f097749dd4706e88a89ea6157cdb",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAppointmentPersister.java": "89dcd31420d59f8e1afe5b3b0a03c7bd0f77225fe4368eed38b0be4011f07542",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAppointmentPersister.java": "eb24cf74e3f07d67af56974de3bbb930fe25cd79d41e99c7eaf98f6db680835e",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCareImportService.java": "09d47cf13789e22f07577d6962e41f69e79afbb2e7f5bd447dd7c016b07a6254",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCareNormalizationService.java": "c0ad80856b6d24adce5b78afce865a1f9a25dac2a988d7fcc50c38f5c55caf79",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCarePersister.java": "0b4fd1a8adcf31ae42a171a73bebc56d21fc4c41757405d302e4768c57b444ea",
@@ -3904,7 +3904,7 @@
     "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionData.java": "3954af39001d969d267d2832dd5c83319d5dd6ad3eb8ac5348b13803c45fea8c",
     "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionDateService.java": "18b51f8d5979549d64bb99860bb7de63abb38026f94ee0ddd9a753332bbe92c5",
     "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java": "77a3d84bda891dec0cb20e00df4a759b3e0e537a86a8cea23b3a070a35421d8e",
-    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/summary/RxSummary.java": "04e084e8e11c9865eb87b81038c273543d0720609a4487981e262e59ba0b30bf",
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/conversion/summary/RxSummary.java": "12edfb82b90fad9f53ecee01c6c101744425c74d802b79caf49ecff6c7b58c0c",
     "src/main/webapp/WEB-INF/jsp/demographic/cdsSourceFields.jsp": "c2499ea2a26f4ecc8946b2df1d1bcc3a503a85667931bc3ba53f2cb68be0bfce"
   },
   "schemaPins": {
