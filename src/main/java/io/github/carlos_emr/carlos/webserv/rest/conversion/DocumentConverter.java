@@ -59,6 +59,7 @@ public class DocumentConverter extends AbstractConverter<Document, DocumentTo1> 
         d.setUpdatedatetime(t.getUpdateDateTime());
         d.setStatus(t.getStatus());
         d.setContenttype(t.getContentType());
+        d.setCdsContentPrecision(t.getCdsContentPrecision());
         d.setContentdatetime(t.getContentDateTime());
         d.setReportMedia(t.getReportMedia());
         d.setSentDateTime(t.getSentDateTime());
@@ -113,6 +114,7 @@ public class DocumentConverter extends AbstractConverter<Document, DocumentTo1> 
         t.setStatus(d.getStatus());
         t.setContentType(d.getContenttype());
         t.setContentDateTime(d.getContentdatetime());
+        t.setCdsContentPrecision(d.getCdsContentPrecision());
         t.setReportMedia(d.getReportMedia());
         t.setSentDateTime(d.getSentDateTime());
         t.setPublic1(d.getPublic1());

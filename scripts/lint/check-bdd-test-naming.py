@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate BDD-style test method names in the billing migration and HTML-to-PDF module scopes."""
+"""Validate BDD-style test method names in billing, CDS import and HTML-to-PDF scopes."""
 
 from __future__ import annotations
 
@@ -23,6 +23,8 @@ DEFAULT_ROOTS = (
     "src/test/java/io/github/carlos_emr/carlos/billings/ca",
     "src/test/java/io/github/carlos_emr/carlos/commn/dao",
     "src/test/java/io/github/carlos_emr/carlos/commn/model",
+    # The CDS import feature (#5347) was written under the same rule from the start.
+    "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport",
     "src/test/java/io/github/carlos_emr/carlos/documentManager/htmlpdf",
 )
 
@@ -108,8 +110,14 @@ def collect_file_violations(path: Path, violations: list[tuple[Path, int, str]])
     lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
     pending_test_method = False
     for index, line in enumerate(lines, start=1):
-        if TEST_ANNOTATION.search(line):
-            pending_test_method = True
+        annotation = TEST_ANNOTATION.search(line)
+        if annotation:
+            # `@Test void shouldX_whenY() {` declares the method on the annotation's own line.
+            remainder = line[annotation.end():]
+            if _check_declaration(path, index, remainder, violations):
+                pending_test_method = False
+            else:
+                pending_test_method = True
             continue
         if not pending_test_method:
             continue
@@ -117,9 +125,19 @@ def collect_file_violations(path: Path, violations: list[tuple[Path, int, str]])
         if not stripped or stripped.startswith("@") or is_comment_line(stripped):
             continue
         pending_test_method = False
-        match = METHOD.search(line)
-        if match and not BDD_NAME.fullmatch(match.group(1)):
-            violations.append((path, index, match.group(1)))
+        _check_declaration(path, index, line, violations)
+
+
+def _check_declaration(
+    path: Path, index: int, text: str, violations: list[tuple[Path, int, str]]
+) -> bool:
+    """Record the test method declared in `text`, if any; return whether one was found."""
+    match = METHOD.search(text)
+    if not match:
+        return False
+    if not BDD_NAME.fullmatch(match.group(1)):
+        violations.append((path, index, match.group(1)))
+    return True
 
 
 def is_comment_line(stripped: str) -> bool:

@@ -18,6 +18,8 @@
  *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
+ *
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.prescript.data;
 
@@ -82,6 +84,12 @@ public final class UniqueMedicationList {
             if (drug == null || drug.isDeleted()) {
                 continue;
             }
+            // Imported NEW/SUSPENDED/UNKNOWN history stays visible in its category/history view,
+            // but must not become a "Current Medications" line through the legacy fallback.
+            if (drug.getCdsCurrentness() != null
+                    && (!"CURRENT".equals(drug.getCdsCurrentness()) || drug.isArchived())) {
+                continue;
+            }
             // An unidentified product is its own entry: equal blanks do not make two drugs the same.
             Object key = hasProductIdentity(drug) ? Entry.from(drug) : new Object();
             Drug current = chosen.get(key);
@@ -105,6 +113,9 @@ public final class UniqueMedicationList {
 
     /** Unarchived, and long-term or not yet past its end date. */
     private static boolean isActive(Drug drug) {
+        if (drug.getCdsCurrentness() != null) {
+            return !drug.isArchived() && "CURRENT".equals(drug.getCdsCurrentness());
+        }
         return !drug.isArchived() && (drug.isLongTerm() || drug.isCurrent());
     }
 

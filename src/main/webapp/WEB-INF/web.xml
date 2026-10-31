@@ -223,6 +223,21 @@
         <url-pattern>/*</url-pattern>
     </filter-mapping>
 
+    <!-- The maintenance/hold gate preserves login and the authorized import/recovery UI,
+         while denying chart/API/download reads and writes during a drained import window.
+         Physical JDBC admission independently covers background feeds and other app nodes. -->
+    <filter>
+        <filter-name>CdsImportMaintenanceFilter</filter-name>
+        <filter-class>io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsImportMaintenanceFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>CdsImportMaintenanceFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+        <dispatcher>REQUEST</dispatcher>
+        <dispatcher>FORWARD</dispatcher>
+        <dispatcher>ASYNC</dispatcher>
+    </filter-mapping>
+
     <!-- UserActivityFilter applies the session inactivity policy (autoRefresh=true and heartbeat
          polls are not user activity). It MUST precede Struts prepare/execute so it covers Struts
          actions, which never reach filters mapped after struts2-execute (issue #5305). It follows

@@ -37,6 +37,7 @@
     @since 2026-10-24 (restored chart fragment)
 --%>
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -66,7 +67,7 @@
 <%
     Map dxMap = (Map) request.getAttribute("dxMap");
 %>
-<b>Issue Filter Create Report View:</b>
+<b>Issue Filter Create Report View:</b> <source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="ProblemList"/>
 
 <table width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">

@@ -110,6 +110,28 @@ class EctDisplayPrevention2ActionUnitTest {
         return record;
     }
 
+    @Test
+    void shouldKeepNativeLatestRecordAndLink_whenPartialMetadataHasNoImportMarker() {
+        Map<String, Object> nativeRecord = history("41", java.sql.Date.valueOf("2019-01-01"));
+        nativeRecord.put("prevention_date_info", io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO
+                .from(java.sql.Date.valueOf("2019-01-01"), "YYYY"));
+        assertThat(EctDisplayPrevention2Action.hasUncertainTiming(List.of(nativeRecord))).isFalse();
+        assertThat(EctDisplayPrevention2Action.newestPrevention(List.of(nativeRecord))).isSameAs(nativeRecord);
+        assertThat(EctDisplayPrevention2Action.buildPreventionItemUrl("/carlos", "42", "Td", "Tetanus", null, "41", true))
+                .contains("id=41", "demographic_no=42");
+    }
+
+    @Test
+    void shouldRequireReview_whenLatestOrderingIncludesAPartialInterval() {
+        Map<String, Object> partial = history("41", null);
+        partial.put("cds_imported", true);
+        partial.put("prevention_date_info", io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO
+                .from(java.sql.Date.valueOf("2019-01-01"), "YYYY"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> EctDisplayPrevention2Action.newestPrevention(
+                List.of(partial, history("42", java.sql.Date.valueOf("2019-05-01")))))
+                .isInstanceOf(io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException.class);
+    }
+
     @Nested
     @DisplayName("form URL")
     class FormUrl {

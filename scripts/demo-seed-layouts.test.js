@@ -17,13 +17,15 @@ function literalRows(sql, table, headerCount, columnCount, key, positionalColumn
     pharmacyInfo: /^INSERT(?: IGNORE)? INTO `pharmacyInfo` \(([^)]+)\) VALUES\s*/gm,
     formRourke2020: /^INSERT(?: IGNORE)? INTO `formRourke2020` \(([^)]+)\) VALUES\s*/gm,
     prescription: /^INSERT(?: IGNORE)? INTO `prescription` VALUES\s*/gm,
-    drugs: /^INSERT(?: IGNORE)? INTO `drugs` VALUES\s*/gm,
+    drugs: /^INSERT(?: IGNORE)? INTO `drugs` \(([^)]+)\) VALUES\s*/gm,
+    document: /^INSERT(?: IGNORE)? INTO `document` \(([^)]+)\) VALUES\s*/gm,
+    demographicExt: /^INSERT(?: IGNORE)? INTO `demographicExt` \(([^)]+)\) VALUES\s*/gm,
   };
   const headers = [...sql.matchAll(patterns[table])];
   assert.equal(headers.length, headerCount, 'source layouts must declare their own columns');
   const rows = new Map();
   for (const header of headers) {
-    const columns = positionalColumns || header[1].split(',').map(value => value.trim().replaceAll('`', ''));
+    const columns = header[1] ? header[1].split(',').map(value => value.trim().replaceAll('`', '')) : positionalColumns;
     assert.equal(new Set(columns).size, columnCount);
     let quote = false, escaped = false, depth = 0, start = 0, fields = [];
     for (let i = header.index + header[0].length; i < sql.length; i++) {
@@ -161,4 +163,50 @@ test('legacy Rich Text Letter seed explicitly supplies its required display flag
   const seed = fs.readFileSync(path.join(root, 'database/mysql/updates/update-2012-07-12.sql'), 'utf8');
   assert.match(seed, /^INSERT INTO `eform` \(`showLatestFormOnly`,/);
   assert.match(seed, /VALUES\s*\(0,'Rich Text Letter'/);
+});
+
+
+test('forward native and generated columns never change legacy drug/document/extension seed positions', () => {
+  const schema = fs.readFileSync(path.join(root, 'database/mysql/migration/common/V1__baseline_schema.sql'), 'utf8');
+  const sql = fs.readFileSync(input, 'utf8');
+  for (const table of ['drugs', 'document', 'demographicExt']) {
+    const start = schema.indexOf(`CREATE TABLE \`${table}\` (`);
+    const end = schema.indexOf('\n) ENGINE=', start);
+    assert.ok(start >= 0 && end > start);
+    const columns = [...schema.slice(start, end).matchAll(/^  `([^`]+)`/gm)].map(match => match[1]);
+    const rows = literalRows(sql, table, 1, columns.length, columns[0], columns);
+    assert.ok(rows.size > 0);
+    for (const row of rows.values()) assert.deepEqual(Object.keys(row), columns);
+    assert.ok(!columns.includes('dashboard_single_value_key'));
+    assert.ok(!columns.some(column => column.startsWith('cds_')));
+  }
+});
+
+
+test('development and security migration discovery use Flyway numeric component order', () => {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-demo-migration-order-'));
+  const versions = ['9', '10', '59.8', '59.9', '59.10', '59.23', '60'];
+  try {
+    for (const location of ['common', 'on']) fs.mkdirSync(path.join(temporary, location));
+    for (const [index, version] of versions.entries()) {
+      const location = index % 2 ? 'on' : 'common';
+      fs.writeFileSync(path.join(temporary, location, `V1.0.${version}__probe.sql`), `-- secObjectName\nSELECT '${version}';\n`);
+    }
+    for (const name of ['V1__baseline.sql', 'V1.0.1__genesis.sql', 'V1.0.2__genesis.sql']) {
+      fs.writeFileSync(path.join(temporary, 'common', name), '-- excluded genesis\n');
+    }
+    const populate = fs.readFileSync(path.join(root, '.devcontainer/db/scripts/populate_db.sh'), 'utf8');
+    const discovery = populate.slice(populate.indexOf('FORWARD=$('), populate.indexOf('if [ -z "${FORWARD}" ]'));
+    assert.ok(discovery.startsWith('FORWARD=$('));
+    const names = execFileSync('sh', ['-c', discovery + '\nprintf "%s\n" "$FORWARD"'],
+      {env: {...process.env, MIG: temporary}, encoding: 'utf8'}).trim().split('\n').map(file => path.basename(file));
+    assert.deepEqual(names, versions.map(version => `V1.0.${version}__probe.sql`));
+    const bin = path.join(temporary, 'bin'); fs.mkdirSync(bin);
+    fs.writeFileSync(path.join(bin, 'mariadb'), '#!/bin/sh\ncat >> "$TRACE"\n', {mode: 0o700});
+    const trace = path.join(temporary, 'replayed.sql');
+    execFileSync('sh', [path.join(root, '.devcontainer/db/scripts/reapply_security_migrations.sh'), temporary, 'synthetic_only'],
+      {env: {...process.env, PATH: bin + path.delimiter + process.env.PATH, TRACE: trace}, encoding: 'utf8'});
+    const replayed = [...fs.readFileSync(trace, 'utf8').matchAll(/SELECT '([^']+)';/g)].map(match => match[1]);
+    assert.deepEqual(replayed, versions);
+  } finally { fs.rmSync(temporary, {recursive: true, force: true}); }
 });

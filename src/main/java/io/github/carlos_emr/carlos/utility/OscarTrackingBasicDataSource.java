@@ -23,6 +23,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.utility;
 
@@ -54,6 +55,7 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.WeakHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -62,6 +64,67 @@ import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.logging.log4j.Logger;
 
 public class OscarTrackingBasicDataSource extends BasicDataSource {
+    private final AtomicReference<io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState> cdsAdmissionState=new AtomicReference<>();
+    private volatile boolean cdsMetadataGuardReady;
+    private volatile boolean boundedCdsConnections;
+
+    /** Configure before the first pool borrow: opt-in CDS nodes also bound Flyway/JPA network I/O. */
+    public synchronized void setBoundedCdsConnections(boolean enabled) {
+        if (getConnectionPool()!=null) throw new IllegalStateException("CDS connection policy requires an uninitialized pool");
+        boundedCdsConnections=enabled;
+    }
+
+    public synchronized boolean isBoundedCdsConnections() { return boundedCdsConnections; }
+
+    @Override protected org.apache.commons.dbcp2.ConnectionFactory createConnectionFactory() throws SQLException {
+        var configured=super.createConnectionFactory();
+        return boundedCdsConnections
+                ? io.github.carlos_emr.carlos.utility.CdsJdbcConnectionTimeouts.bounded(configured)
+                : configured;
+    }
+
+    private org.apache.commons.dbcp2.ConnectionFactory controlledConnectionFactory() throws SQLException {
+        return io.github.carlos_emr.carlos.utility.CdsJdbcConnectionTimeouts.bounded(super.createConnectionFactory());
+    }
+
+    /** New CDS metadata stays lossless before maintenance activation; ordinary SQL is unchanged. */
+    public void enableCdsMetadataGuard() {
+        if (getNumActive()!=0) throw new IllegalStateException("CDS metadata guard initialization requires a drained connection pool");
+        cdsMetadataGuardReady=true;
+    }
+
+    /** Installed after the schema boot gate and before the EntityManagerFactory starts. */
+    public void installCdsAdmissionState(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState state) {
+        if (!cdsAdmissionState.compareAndSet(null, java.util.Objects.requireNonNull(state))) throw new IllegalStateException("CDS admission is already initialized");
+        if (getNumActive() != 0) throw new IllegalStateException("CDS admission initialization requires a drained connection pool");
+    }
+
+    public io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState getCdsAdmissionState() {
+        return cdsAdmissionState.get();
+    }
+
+    /** Uses the configured driver/credentials directly, never an abandoned-reclaimable pool lease. */
+    public Connection openUnpooledCdsMaintenanceConnection() throws SQLException {
+        return controlledConnectionFactory().createConnection();
+    }
+
+    /**
+     * Ordinary guarded admission for a bounded filesystem operation. Its single physical connection
+     * is outside DBCP abandoned reclamation; neither SQL nor maintenance privileges escape to callers.
+     */
+    public io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.OrdinaryAdmissionLease acquireOrdinaryAdmissionLease() throws SQLException {
+        if (isClosed()) throw new SQLException("Data source closed", "08003");
+        return io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.ordinaryLease(
+                controlledConnectionFactory().createConnection(), cdsAdmissionState.get());
+    }
+
+    private Connection cdsAdmission(Connection connection) {
+        var state = cdsAdmissionState.get();
+        if (state!=null) return io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.wrap(connection, state);
+        return cdsMetadataGuardReady
+                ? io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.wrapMetadataOnly(connection)
+                : connection;
+    }
 
     private String configuredUrl;
     private Boolean defaultUseInformationSchema;
@@ -193,7 +256,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
 
     public Connection getConnection() throws SQLException {
         try {
-            return trackConnection(super.getConnection());
+            return trackConnection(cdsAdmission(super.getConnection()));
         } catch (RuntimeException e) {
             logger.error("Error:", e);
             logDebugMapToError();
@@ -203,7 +266,7 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
 
     public Connection getConnection(String username, String password) throws SQLException {
         try {
-            return trackConnection(super.getConnection(username, password));
+            return trackConnection(cdsAdmission(super.getConnection(username, password)));
         } catch (RuntimeException e) {
             logger.error("Error:", e);
             logDebugMapToError();

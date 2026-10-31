@@ -99,10 +99,11 @@
                 </c:if>
     
                 <c:if test="${note.signed != true}">
-                    Saved by
-                    ${carlos:forHtml(note.provider.formattedName)}:
+                    <fmt:message key="casemgmt.showHistory.recordedProvider"/>:
+                    ${carlos:forHtml(note.provider.formattedName)}
                 </c:if>
-    
+
+                <br /><fmt:message key="casemgmt.showHistory.nativeRevisionTime"/>:
                 <fmt:formatDate value="${note.update_date}" pattern="dd-MMM-yyyy H:mm" />
             </div>
             <%-- In-place edits retain earlier versions in history, not separate note rows.

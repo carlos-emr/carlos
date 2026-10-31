@@ -203,6 +203,9 @@
                             <fmt:message key="oscarReport.RptByExample.MsgExecutionError"/>
                         </div>
                     </c:if>
+                    <c:if test="${queryPreventionDateReview}">
+                        <div class="alert alert-warning" role="alert">Prevention timing requires review before this report can run.</div>
+                    </c:if>
                     <c:if test="${queryHistoryError}">
                         <div class="alert alert-warning" role="alert">
                             <fmt:message key="oscarReport.RptByExample.MsgHistoryError"/>

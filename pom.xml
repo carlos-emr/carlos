@@ -71,7 +71,7 @@
             justification comment. The procedure for adding or dropping an entry is in
             docs/static-analysis-workflows.md ("SonarCloud path-traversal exclusions").
         -->
-        <sonar.issue.ignore.multicriteria>pvuSelf,s2083BillingsMSPDocumentTeleplanReportUploadServlet,s2083BillingsBcMSPDocumentTeleplanReportUploadServlet,s2083GenTa2Action,s2083TeleplanCodesManager,s2083TeleplanResponse,s2083DownloadBilling2Action,s2083ManageTeleplan2Action,s2083BillingOnRaService,s2083OhipClaimExtractService,s2083BillingDocumentErrorReportUpload2Action,s2083BillingLegacyReport2Action,s2083MoveMohFiles2Action,s2083ScheduleOfBenefitsUpload2Action,s2083CreateHRMFile,s2083ImportDemographicDataAction42Action,s2083ImportLogDownload2Action,s2083Util,s2083EDoc,s2083IncomingDocUtil,s2083IncomingDocumentMutationLock,s2083IncomingDocumentPublication,s2083IncomingDocumentScratch,s2083StoredDocumentRevision,s2083AddEditDocument2Action,s2083DocumentUpload2Action,s2083ManageDocument2Action,s2083DxResearchLoadAssociations2Action,s2083EFormExportZip,s2083DelImage2Action,s2083DisplayImage2Action,s2083ManageEForm2Action,s2083HtmlUpload2Action,s2083ImageUpload2Action,s2083EFormImageViewForPdfGenerationServlet,s2083MeasurementFlowSheet,s2083EctAddMeasurementStyleSheet2Action,s2083FaxImporter,s2083FrmSetupForm2Action,s2083FrmXmlUpload2Action,s2083FrmCustomedPDFServlet,s2083FrmPDFServlet,s2083PhsStarHandler,s2083Update2Action,s2083ActionUtils,s2083Download2Action,s2083Upload2Action,s2083FileUploadCheck,s2083LabAllLabUpload2Action,s2083DefaultHandler,s2083ExcellerisOntarioHandler,s2083FHIRCommunicationRequestHandler,s2083IHAPOIHandler,s2083MEDITECHHandler,s2083PDFHandler,s2083Utilities,s2083LabBcPathNetLabUpload2Action,s2083LabOnCMLUploadLabUpload2Action,pvuDocS6549,csrfTplS6638,csrfTplS3403,bcFormLabel,bcFormLabel2008,bcFormFont,bcFormFont2008</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria>pvuSelf,s2083BillingsMSPDocumentTeleplanReportUploadServlet,s2083BillingsBcMSPDocumentTeleplanReportUploadServlet,s2083GenTa2Action,s2083TeleplanCodesManager,s2083TeleplanResponse,s2083DownloadBilling2Action,s2083ManageTeleplan2Action,s2083BillingOnRaService,s2083OhipClaimExtractService,s2083BillingDocumentErrorReportUpload2Action,s2083BillingLegacyReport2Action,s2083MoveMohFiles2Action,s2083ScheduleOfBenefitsUpload2Action,s2083CreateHRMFile,s2083Util,s2083EDoc,s2083IncomingDocUtil,s2083IncomingDocumentMutationLock,s2083IncomingDocumentPublication,s2083IncomingDocumentScratch,s2083StoredDocumentRevision,s2083AddEditDocument2Action,s2083DocumentUpload2Action,s2083ManageDocument2Action,s2083DxResearchLoadAssociations2Action,s2083EFormExportZip,s2083DelImage2Action,s2083DisplayImage2Action,s2083ManageEForm2Action,s2083HtmlUpload2Action,s2083ImageUpload2Action,s2083EFormImageViewForPdfGenerationServlet,s2083MeasurementFlowSheet,s2083EctAddMeasurementStyleSheet2Action,s2083FaxImporter,s2083FrmSetupForm2Action,s2083FrmXmlUpload2Action,s2083FrmCustomedPDFServlet,s2083FrmPDFServlet,s2083PhsStarHandler,s2083Update2Action,s2083ActionUtils,s2083Download2Action,s2083Upload2Action,s2083FileUploadCheck,s2083LabAllLabUpload2Action,s2083DefaultHandler,s2083ExcellerisOntarioHandler,s2083FHIRCommunicationRequestHandler,s2083IHAPOIHandler,s2083MEDITECHHandler,s2083PDFHandler,s2083Utilities,s2083LabBcPathNetLabUpload2Action,s2083LabOnCMLUploadLabUpload2Action,pvuDocS6549,csrfTplS6638,csrfTplS3403,bcFormLabel,bcFormLabel2008,bcFormFont,bcFormFont2008</sonar.issue.ignore.multicriteria>
         <!-- PathValidationUtils itself: it IS the sanitizer, so its own file operations take the unvalidated input by design -->
         <sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>
         <sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>**/io/github/carlos_emr/carlos/utility/PathValidationUtils.java</sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>
@@ -117,12 +117,6 @@
         <!-- uploaded CDS report values -> validateGeneratedChildPath / validateExistingPath -> save -->
         <sonar.issue.ignore.multicriteria.s2083CreateHRMFile.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083CreateHRMFile.ruleKey>
         <sonar.issue.ignore.multicriteria.s2083CreateHRMFile.resourceKey>**/io/github/carlos_emr/carlos/demographic/pageUtil/CreateHRMFile.java</sonar.issue.ignore.multicriteria.s2083CreateHRMFile.resourceKey>
-        <!-- upload, ZIP entries and XML paths -> validateUploadContent / validateZipEntryPath / validateExistingPath / validateGeneratedChildPath -->
-        <sonar.issue.ignore.multicriteria.s2083ImportDemographicDataAction42Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083ImportDemographicDataAction42Action.ruleKey>
-        <sonar.issue.ignore.multicriteria.s2083ImportDemographicDataAction42Action.resourceKey>**/io/github/carlos_emr/carlos/demographic/pageUtil/ImportDemographicDataAction42Action.java</sonar.issue.ignore.multicriteria.s2083ImportDemographicDataAction42Action.resourceKey>
-        <!-- importlog parameter -> validateExistingPath(temp dir) -> FileInputStream -->
-        <sonar.issue.ignore.multicriteria.s2083ImportLogDownload2Action.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083ImportLogDownload2Action.ruleKey>
-        <sonar.issue.ignore.multicriteria.s2083ImportLogDownload2Action.resourceKey>**/io/github/carlos_emr/carlos/demographic/pageUtil/ImportLogDownload2Action.java</sonar.issue.ignore.multicriteria.s2083ImportLogDownload2Action.resourceKey>
         <!-- export zip name from patientSet -> validateGeneratedChildPath / validateExistingPath -> FileOutputStream -->
         <sonar.issue.ignore.multicriteria.s2083Util.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.s2083Util.ruleKey>
         <sonar.issue.ignore.multicriteria.s2083Util.resourceKey>**/io/github/carlos_emr/carlos/demographic/pageUtil/Util.java</sonar.issue.ignore.multicriteria.s2083Util.resourceKey>
@@ -900,6 +894,19 @@
         </dependency>
 
         <!-- ==================== Spring Framework ==================== -->
+        <!-- CDS streaming validation inspects pinned field types/facets to keep
+             unbounded XML values off heap; do not rely on an incidental transitive API. -->
+        <dependency>
+            <groupId>xerces</groupId>
+            <artifactId>xercesImpl</artifactId>
+            <exclusions>
+                <!-- The JDK supplies these APIs; keep the CDS validator's implementation only. -->
+                <exclusion>
+                    <groupId>xml-apis</groupId>
+                    <artifactId>xml-apis</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <!-- Jakarta EE 11 — versions managed by spring-framework-bom via ${spring.version} -->
         <dependency>
             <groupId>org.springframework</groupId>

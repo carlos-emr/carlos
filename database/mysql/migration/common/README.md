@@ -61,9 +61,9 @@ See the parent README for preparation and recovery instructions.
 Applied together with the selected province (`common` + `on`, or `common` + `bc`). Put **genuinely
 shared future schema changes** here as `V1.0.N__short_description.sql` (sequential, next free version number) so one migration
 covers both provinces. The version line is global across `common` + the selected province, so the
-next free number accounts for province deltas too. The highest version in this branch is `common/V1.0.52`.
-`V1.0.48`–`V1.0.51` are claimed by open pull requests, so the next unallocated version for ANY
-location is `V1.0.53` (see `../README.md`). Consult every active branch inventory before assigning a
+next free number accounts for province deltas too. The current high-water mark and next unallocated
+version are recorded in [the migration inventory](../README.md); the merge order is checked against
+`scripts/flyway-merge-order.txt`. Consult every active branch inventory before assigning a
 version. Never edit a published migration or silently enable out-of-order application during promotion.
 
 Messenger membership coordination (PR #3986, issue #3964) adds

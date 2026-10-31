@@ -3709,6 +3709,14 @@
     "optional" : false,
     "integrity" : "sha512:VID3izwPdi3AJZRFfUUUA4Z4Hxs9UzhFdAT4WKgK4gmI2/xDafGoN/ZohCStX488kQ/6sE/b9wuY46WOH/tzLg=="
   }, {
+    "groupId" : "xerces",
+    "artifactId" : "xercesImpl",
+    "version" : "2.12.2",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:v9IfI1C/C7VGpo0zA/KMahXO4eYwE4wWk0TD9l/jmhXmHG/05SOfOPLx+eSI7/TVVlpKB3QmMGSrajCqn8qu0w=="
+  }, {
     "groupId" : "xml-apis",
     "artifactId" : "xml-apis-ext",
     "version" : "1.3.04",

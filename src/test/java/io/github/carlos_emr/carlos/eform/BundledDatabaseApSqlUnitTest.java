@@ -203,6 +203,8 @@ class BundledDatabaseApSqlUnitTest extends CarlosUnitTestBase {
             loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
             loader.when(() -> EFormLoader.getAP("literal_output")).thenReturn(ap);
             util.when(() -> EFormUtil.getValuesOrNull(anyList(), any(ParameterizedSql.class))).thenReturn(values);
+            util.when(() -> EFormUtil.getValuesOrNull(anyList(), any(ParameterizedSql.class),
+                    org.mockito.ArgumentMatchers.eq(7))).thenReturn(values);
             util.when(() -> EFormUtil.getValues(anyList(), any(ParameterizedSql.class))).thenReturn(values);
             assertThat(new APExecute().execute("literal_output", "7")).isEqualTo(expected);
             assertThat(new APExecute().execute("literal_output", "7", 19)).isEqualTo(expected);

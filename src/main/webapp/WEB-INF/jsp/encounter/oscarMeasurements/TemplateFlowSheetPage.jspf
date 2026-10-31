@@ -936,6 +936,10 @@ value="<%= h.get("name")%>"/>
                     hider = "style=\"display:none;\"";
                 }
             }
+            if (hdata.get("prevention_date_info") instanceof io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO dateInfo
+                    && !dateInfo.isExact()) {
+                hider = ""; // Uncertain timing cannot be excluded by a date range or a latest-only limit.
+            }
     %>
     <div class="preventionProcedure" <%=hider%> onclick="javascript:fsPopup(465,635,'${ pageContext.request.contextPath }/prevention/AddPrevention?id=<carlos:encode value='<%= String.valueOf(hdata.get("id")) %>' context="javaScriptAttribute"/>&amp;demographic_no=<%= safeDemoNoJsUri %>','addPreventionData')" >
         <p <%=r(hdata.get("refused"))%> title="fade=[on] header=[<%= SafeEncode.forTooltipText(String.valueOf(hdata.get("age"))) %> -- Date:<%= SafeEncode.forTooltipText(String.valueOf(hdata.get("prevention_date"))) %>] body=[<%= SafeEncode.forTooltipText(com) %>]" >Age: <carlos:encode value='<%= String.valueOf(hdata.get("age")) %>' context="html"/> <br/>

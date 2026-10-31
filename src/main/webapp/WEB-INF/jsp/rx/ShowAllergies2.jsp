@@ -29,6 +29,7 @@
 
 --%>
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
@@ -511,6 +512,7 @@
 
     </head>
     <body>
+    <div><source:cdsSourceFields demographicNo="${pageScope.RxSessionBean.demographicNo}" category="AllergiesAndAdverseReactions"/></div>
     <%=WebUtils.popErrorAndInfoMessagesAsHtml(session)%>
 
     <table id="AutoNumber1">

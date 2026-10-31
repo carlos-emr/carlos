@@ -96,8 +96,9 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
                 (select min(cmn2.update_date) from casemgmt_note cmn2 where cmn2.uuid = cmn.uuid) as create_date
                 from casemgmt_note cmn
                 join (select max(note_id) as note_id from casemgmt_note
-                where demographic_no = :demographicNo and observation_date >= :staleDate group by uuid) recent on recent.note_id = cmn.note_id
-                order by cmn.observation_date asc
+                where demographic_no = :demographicNo group by uuid) recent on recent.note_id = cmn.note_id
+                where cmn.observation_date >= :staleDate or cmn.observation_date is null
+                order by cmn.observation_date is null asc, cmn.observation_date asc, cmn.note_id asc
                 """),
         @jakarta.persistence.NamedNativeQuery(name = "mostRecentDateRange", resultSetMapping = "CaseManagementNoteNativeMapping", query = """
                 select cmn.note_id as id, cmn.update_date as update_date, cmn.observation_date as observation_date,
@@ -543,7 +544,7 @@ public class CaseManagementNote extends BaseObject {
 
     public String getProviderName() {
         if (getProvider() == null) {
-            return "DELETED";
+            return providerNo == null || providerNo.isBlank() ? "UNKNOWN" : "DELETED";
         }
         return getProvider().getFormattedName();
     }
@@ -551,7 +552,7 @@ public class CaseManagementNote extends BaseObject {
 
     public String getProviderNameFirstLast() {
         if (getProvider() == null) {
-            return "DELETED";
+            return providerNo == null || providerNo.isBlank() ? "UNKNOWN" : "DELETED";
         }
         return getProvider().getFullName();
     }
@@ -593,16 +594,15 @@ public class CaseManagementNote extends BaseObject {
 
     }
 
-    public static Comparator<CaseManagementNote> noteObservationDateComparator = new Comparator<CaseManagementNote>() {
+    public static Comparator<CaseManagementNote> noteObservationDateComparator = observationDateComparator(false);
 
-        public int compare(CaseManagementNote note1, CaseManagementNote note2) {
-            if (note1 == null || note2 == null) {
-                return 0;
-            }
-
-            return note2.getObservation_date().compareTo(note1.getObservation_date());
-        }
-    };
+    /** Source dates can be unknown; changing chronological direction must never move them first. */
+    public static Comparator<CaseManagementNote> observationDateComparator(boolean ascending) {
+        Comparator<Date> dates = ascending ? Comparator.naturalOrder() : Comparator.reverseOrder();
+        return Comparator.nullsLast(Comparator.comparing(CaseManagementNote::getObservation_date,
+                        Comparator.nullsLast(dates))
+                .thenComparing(CaseManagementNote::getId, Comparator.nullsLast(Comparator.naturalOrder())));
+    }
 
     public static Comparator<CaseManagementNote> getPositionComparator() {
         return new Comparator<CaseManagementNote>() {

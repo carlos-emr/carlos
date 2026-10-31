@@ -37,6 +37,7 @@
     chart form supplies patient identity, chart context, and the method field.
     @since 2006-12-16
 --%>
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 
@@ -60,6 +61,7 @@
 
 <input type="hidden" name="cpp.reminders" value="${carlos:forHtmlAttribute(requestScope.cpp.reminders)}"/>
 <input type="hidden" name="cpp.ongoingConcerns" value="${carlos:forHtmlAttribute(requestScope.cpp.ongoingConcerns)}"/>
+<div>Risk factors: <source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="RiskFactors"/></div>
 <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">
     <%if (!CarlosProperties.getInstance().isTorontoRFQ()) { %>
@@ -90,8 +92,8 @@
 
 
     <tr class="title">
-        <td><label for="cpp.socialHistory">Social History</label></td>
-        <td><label for="cpp.familyHistory">Family History</label></td>
+        <td><label for="cpp.socialHistory">Social History</label> <source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="PersonalHistory"/></td>
+        <td><label for="cpp.familyHistory">Family History</label> <source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="FamilyHistory"/></td>
     </tr>
     <tr>
         <td bgcolor="white"><textarea id="cpp.socialHistory" name="cpp.socialHistory" rows="5" cols="45"><carlos:encode value="${requestScope.cpp.socialHistory}"/></textarea></td>
@@ -99,7 +101,7 @@
     </tr>
 
     <tr class="title">
-        <td><label for="cpp.medicalHistory">Medical History</label></td>
+        <td><label for="cpp.medicalHistory">Medical History</label> <source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="PastHealth"/></td>
         <td><label for="cpp.pastMedications">Past Medications</label></td>
     </tr>
     <tr>

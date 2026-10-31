@@ -365,6 +365,15 @@ public interface DemographicDao {
     public void save(Demographic demographic);
 
     /**
+     * Persists a new historical-import patient in the caller's writable transaction.
+     * The importer supplies its own durable audit and checkpoint; this operation
+     * does not emit registration events or outbound HL7 messages.
+     *
+     * @param demographic a new patient without an assigned demographic number
+     */
+    void persistImportedDemographic(Demographic demographic);
+
+    /**
      * Loads the patient row and locks it for update ({@code SELECT ... FOR UPDATE}) until the
      * caller's transaction ends, so a read-compare-write of the record cannot interleave with
      * another save of the same patient. Must be called inside an active transaction.

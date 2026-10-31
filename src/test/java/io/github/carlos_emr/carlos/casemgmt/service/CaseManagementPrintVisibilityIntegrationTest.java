@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.casemgmt.service;
 
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.PMmodule.dao.DefaultRoleAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramProviderDAO;
@@ -37,14 +36,12 @@ import io.github.carlos_emr.carlos.encounter.data.EctProgramManagerImpl;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
-import io.github.carlos_emr.carlos.commn.dao.CaisiAccessTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderDefaultProgramDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.model.security.Secrole;
-import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -69,7 +66,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 import org.apache.pdfbox.Loader;
-import org.apache.commons.collections4.map.MultiValueMap;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -115,6 +111,8 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
     private String facilitySetting;
     private String documentSetting;
     private final List<CacheField> originalCacheFields = new ArrayList<>();
+    private Object originalRoleSnapshot;
+    private boolean roleSnapshotSaved;
 
     @BeforeEach
     void configureRealReporterRoleRestrictions() {
@@ -177,6 +175,7 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
             restore("FILTER_ON_FACILITY", facilitySetting);
             restore("DOCUMENT_DIR", documentSetting);
         } finally {
+            if (roleSnapshotSaved) { roleSnapshots().set(originalRoleSnapshot); roleSnapshotSaved=false; }
             for (CacheField original : originalCacheFields.reversed()) {
                 ReflectionTestUtils.setField(original.owner(), original.name(), original.value());
                 assertThat(ReflectionTestUtils.getField(original.owner(), original.name())).isSameAs(original.value());
@@ -186,20 +185,21 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
     }
 
     /**
-     * These legacy caches capture Spring beans once per JVM. A preceding unit test may
-     * initialize them from its mocks, so bind this transaction's real DAOs and isolated
-     * maps. Restore the original objects rather than clearing or reloading another test's
-     * cache; authorization below continues through the real manager and real H2 data.
+     * RoleCache resolves this transaction's current Spring DAOs when reloaded; isolate
+     * only its published snapshot. ProgramAccessCache still captures its DAO and maps,
+     * so bind those to the real transaction and restore the original objects afterward.
+     * Authorization continues through the real manager and real H2 data.
      */
     private void bindRealAuthorizationCaches() {
-        bindCacheField(RoleCache.class, "secroleDao", applicationContext.getBean(SecroleDao.class));
-        bindCacheField(RoleCache.class, "defaultRoleAccessDAO", applicationContext.getBean(DefaultRoleAccessDAO.class));
-        bindCacheField(RoleCache.class, "accessTypeDao", applicationContext.getBean(CaisiAccessTypeDao.class));
-        bindCacheField(RoleCache.class, "roleMap", new HashMap<>());
-        bindCacheField(RoleCache.class, "accessTypeMap", new HashMap<>());
-        bindCacheField(RoleCache.class, "defaultRoleAccessMap", new MultiValueMap<>());
+        originalRoleSnapshot = roleSnapshots().getAndSet(null);
+        roleSnapshotSaved=true;
         bindCacheField(ProgramAccessCache.class, "programAccessDAO", applicationContext.getBean("programAccessDAO", ProgramAccessDAO.class));
         bindCacheField(ProgramAccessCache.class, "accessMaps", new HashMap<>());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static java.util.concurrent.atomic.AtomicReference<Object> roleSnapshots() {
+        return (java.util.concurrent.atomic.AtomicReference<Object>) ReflectionTestUtils.getField(RoleCache.class, "snapshot");
     }
 
     private void bindCacheField(Class<?> owner, String name, Object replacement) {
@@ -329,6 +329,10 @@ class CaseManagementPrintVisibilityIntegrationTest extends CarlosTestBase {
                 try (var beans = mockStatic(SpringUtils.class, CALLS_REAL_METHODS)) {
                     beans.when(() -> SpringUtils.getBean(ClientImageManager.class)).thenReturn(mock(ClientImageManager.class));
                     beans.when(() -> SpringUtils.getBean(ProviderManager.class)).thenReturn(mock(ProviderManager.class));
+                    // This ordinary-note fixture has no CDS source representation.
+                    beans.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class))
+                            .thenReturn(new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService(
+                                    mock(io.github.carlos_emr.carlos.commn.dao.CdsLegacyProjectionDao.class)));
                     CaseManagementEntry2Action action = new CaseManagementEntry2Action();
                     ReflectionTestUtils.setField(action, "securityInfoManager", readGrants());
                     try (var clinic = mockConstruction(ClinicData.class)) { action.print(); }

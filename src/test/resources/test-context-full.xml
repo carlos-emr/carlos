@@ -543,6 +543,8 @@
     -->
     <context:component-scan base-package="io.github.carlos_emr.carlos" use-default-filters="false">
         <context:include-filter type="annotation" expression="org.springframework.stereotype.Repository"/>
+        <!-- Physical advisory-lock coordination requires the production data source and MariaDB native tier. -->
+        <context:exclude-filter type="assignable" expression="io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDao"/>
     </context:component-scan>
 
     <!--

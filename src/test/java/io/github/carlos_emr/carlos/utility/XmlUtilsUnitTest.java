@@ -40,7 +40,6 @@ import java.io.ByteArrayInputStream;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Set;
@@ -59,6 +58,21 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("utility")
 @Tag("security")
 class XmlUtilsUnitTest {
+
+    @Test
+    void shouldUseJdkParserFactories_whenCdsXercesIsOnTheClasspath() throws Exception {
+        org.junit.jupiter.api.Assertions.assertAll(
+                () -> assertThat(XmlUtils.createSecureDocumentBuilderFactory().getClass())
+                        .isEqualTo(DocumentBuilderFactory.newDefaultInstance().getClass()),
+                () -> assertThat(XmlUtils.createSecureSAXParserFactory().getClass())
+                        .isEqualTo(javax.xml.parsers.SAXParserFactory.newDefaultInstance().getClass()));
+    }
+
+    @Test
+    void shouldRejectMissingXmlText_beforeAttemptingDocumentParsing() {
+        assertThatThrownBy(() -> XmlUtils.toDocument((String) null))
+                .isInstanceOf(SAXException.class);
+    }
 
     private Document createTestDocument() throws Exception {
         Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().newDocument();

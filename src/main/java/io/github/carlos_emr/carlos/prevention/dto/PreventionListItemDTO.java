@@ -31,6 +31,8 @@ import io.github.carlos_emr.carlos.commn.model.Prevention;
  * Lightweight data transfer object for immunization/prevention history list views,
  * optimized for JPQL constructor expression projection. Eliminates the EAGER-loaded
  * PreventionExt collection that is fetched on every Prevention entity load.
+ * Partial/unknown dates are available through {@link #getPreventionDateInfo()}; the
+ * legacy Date getter refuses uncertain imported records and preserves native Date payloads.
  *
  * <p>Omits: entire {@code preventionExts} EAGER collection (lot number, route,
  * dose, site, comments), {@code snomedId}, transient {@code preventionExtendedProperties}.</p>
@@ -45,6 +47,8 @@ public class PreventionListItemDTO implements Serializable {
     private Integer demographicNo;
     private String preventionType;
     private Date preventionDate;
+    private String preventionDateFormat;
+    private boolean cdsImported;
     private Date creationDate;
     private String providerNo;
     private String creatorProviderNo;
@@ -56,6 +60,15 @@ public class PreventionListItemDTO implements Serializable {
 
     /** Default constructor for serialization/framework binding. */
     public PreventionListItemDTO() {
+    }
+
+    /** Preserves the existing constructor for callers projecting native rows. */
+    public PreventionListItemDTO(Integer id, Integer demographicNo, String preventionType,
+                                 Date preventionDate, Date creationDate, String providerNo,
+                                 String creatorProviderNo, char deleted, char refused, char never,
+                                 Date nextDate, Date lastUpdateDate, String preventionDateFormat) {
+        this(id, demographicNo, preventionType, preventionDate, creationDate, providerNo,
+                creatorProviderNo, deleted, refused, never, nextDate, lastUpdateDate, preventionDateFormat, false);
     }
 
     /**
@@ -73,15 +86,19 @@ public class PreventionListItemDTO implements Serializable {
      * @param never char never-administer flag ('0'=active, '1'=never)
      * @param nextDate Date the next scheduled date
      * @param lastUpdateDate Date the last update timestamp
+     * @param preventionDateFormat String the latest native partial_date tag, or null for a full date
+     * @param cdsImported boolean whether this row has the importer's explicit precision marker
      */
     public PreventionListItemDTO(Integer id, Integer demographicNo, String preventionType,
                                  Date preventionDate, Date creationDate, String providerNo,
                                  String creatorProviderNo, char deleted, char refused, char never,
-                                 Date nextDate, Date lastUpdateDate) {
+                                 Date nextDate, Date lastUpdateDate, String preventionDateFormat, boolean cdsImported) {
         this.id = id;
         this.demographicNo = demographicNo;
         this.preventionType = preventionType;
         this.preventionDate = preventionDate;
+        this.preventionDateFormat = preventionDateFormat;
+        this.cdsImported = cdsImported;
         this.creationDate = creationDate;
         this.providerNo = providerNo;
         this.creatorProviderNo = creatorProviderNo;
@@ -99,10 +116,12 @@ public class PreventionListItemDTO implements Serializable {
      * '3' (completed externally) back to '0', which this helper avoids.
      *
      * @param p Prevention the entity to convert; must not be null
+     * @param preventionDateFormat String the latest native partial_date format, read for this record;
+     *                             do not infer it from the entity's storage anchor
      * @return PreventionListItemDTO a lightweight projection
      * @since 2026-04-12
      */
-    public static PreventionListItemDTO fromEntity(Prevention p) {
+    public static PreventionListItemDTO fromEntity(Prevention p, String preventionDateFormat) {
         Objects.requireNonNull(p, "Prevention entity must not be null for DTO conversion");
         int refusedRaw = p.getRefusedRawValue();
         char refused = (refusedRaw >= 0 && refusedRaw <= 3) ? (char) ('0' + refusedRaw) : '0';
@@ -113,7 +132,7 @@ public class PreventionListItemDTO implements Serializable {
                 p.isDeleted() ? '1' : '0',
                 refused,
                 p.isNever() ? '1' : '0',
-                p.getNextDate(), p.getLastUpdateDate()
+                p.getNextDate(), p.getLastUpdateDate(), preventionDateFormat, p.isCdsImported()
         );
     }
 
@@ -132,7 +151,9 @@ public class PreventionListItemDTO implements Serializable {
     public void setDemographicNo(Integer demographicNo) { this.demographicNo = demographicNo; }
     public String getPreventionType() { return preventionType; }
     public void setPreventionType(String preventionType) { this.preventionType = preventionType; }
-    public Date getPreventionDate() { return preventionDate; }
+    /** Imported uncertainty is refused; native rows retain their established Date-only representation. */
+    public Date getPreventionDate() { if (cdsImported) getPreventionDateInfo().requireExact(); return preventionDate; }
+    public PreventionDateDTO getPreventionDateInfo() { return PreventionDateDTO.from(preventionDate, preventionDateFormat); }
     public void setPreventionDate(Date preventionDate) { this.preventionDate = preventionDate; }
     public Date getCreationDate() { return creationDate; }
     public void setCreationDate(Date creationDate) { this.creationDate = creationDate; }

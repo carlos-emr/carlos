@@ -30,6 +30,7 @@
 --%>
 
 <%-- ========== PAGE IMPORTS ========== --%>
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.lab.service.LabPatientAccess" %>
 <%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
@@ -188,6 +189,7 @@
 </head>
 
 <body>
+<div><source:cdsSourceFields demographicNo="${pageScope.demographicNo}" category="LaboratoryResults"/></div>
 <div class="container-fluid mt-2">
 
     <form name="reassignForm" method="post" action="${ctx}/oscarMDS/ReportReassign" id="lab_form">
@@ -260,7 +262,7 @@
                 <thead>
                     <tr>
                         <c:if test="${hasLabsAndNoDemographicNo}">
-                            <th><input type="checkbox" id="checkA" name="checkA" onclick="checkAll('lab_form')"/></th>
+                            <th><label for="checkA" class="visually-hidden"><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.selectAll"/></label><input type="checkbox" id="checkA" name="checkA" onclick="checkAll('lab_form')"/></th>
                         </c:if>
                         <th><fmt:message key="oscarMDS.index.msgDateTest"/></th>
                         <th><fmt:message key="oscarMDS.index.msgLabel"/></th>
@@ -287,7 +289,7 @@
                         <%  if (demographicNo == null) { %>
                         <td>
                             <%-- data-lab-type: the picker posts each checked lab as "<id>:<type>" (issue #4558). --%>
-                            <label for="flaggedLab<%= i %>" class="visually-hidden"><carlos:encode value='<%= formattedDate %>'/></label>
+                            <label for="flaggedLab<%= i %>" class="visually-hidden"><fmt:message key="dms.incomingDocs.select"/> — <fmt:message key="oscarMDS.index.msgDateTest"/>: <carlos:encode value='<%= formattedDate %>'/></label>
                             <input type="checkbox" id="flaggedLab<%= i %>" name="flaggedLabs" value="<carlos:encode value='<%= segmentID %>' context='htmlAttribute'/>"
                                    data-lab-type="<carlos:encode value='<%= result.labType %>' context='htmlAttribute'/>"/>
                         </td>

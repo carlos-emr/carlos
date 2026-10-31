@@ -23,6 +23,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -65,18 +66,18 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     private static final String DEFAULT_FUTURE_DATE = "2100-01-01";
     public static final String ANONYMOUS = "ANONYMOUS";
     public static final String UNIQUE_ANONYMOUS = "UNIQUE_ANONYMOUS";
-    public static final int LAST_NAME_MAX_LENGTH = 30;
-    public static final int FIRST_NAME_MAX_LENGTH = 30;
+    public static final int LAST_NAME_MAX_LENGTH = 50;
+    public static final int FIRST_NAME_MAX_LENGTH = 50;
     public static final int MIDDLE_NAMES_MAX_LENGTH = 100;
     public static final int ALIAS_MAX_LENGTH = 70;
     /** The pref_name column ({@code varchar(30) NOT NULL}); see {@link #prefNameForNameUsed(String)}. */
     public static final int PREF_NAME_MAX_LENGTH = 30;
     public static final int ADDRESS_MAX_LENGTH = 60;
-    public static final int CITY_MAX_LENGTH = 50;
+    public static final int CITY_MAX_LENGTH = 80;
     public static final int PROVINCE_MAX_LENGTH = 20;
     public static final int POSTAL_MAX_LENGTH = 9;
     public static final int RESIDENTIAL_ADDRESS_MAX_LENGTH = 60;
-    public static final int RESIDENTIAL_CITY_MAX_LENGTH = 50;
+    public static final int RESIDENTIAL_CITY_MAX_LENGTH = 80;
     public static final int RESIDENTIAL_PROVINCE_MAX_LENGTH = 20;
     public static final int RESIDENTIAL_POSTAL_MAX_LENGTH = 9;
     public static final int EMAIL_MAX_LENGTH = 100;
@@ -89,8 +90,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public static final int YEAR_OF_BIRTH_MAX_LENGTH = 4;
     public static final int ROSTER_STATUS_MAX_LENGTH = 20;
     public static final int ROSTER_ENROLLED_TO_MAX_LENGTH = 20;
-    public static final int PATIENT_STATUS_MAX_LENGTH = 20;
-    public static final int CHART_NO_MAX_LENGTH = 10;
+    public static final int PATIENT_STATUS_MAX_LENGTH = 50;
+    public static final int CHART_NO_MAX_LENGTH = 15;
     public static final int PROVIDER_NO_MAX_LENGTH = 250;
     public static final int PCN_INDICATOR_MAX_LENGTH = 20;
     public static final int HC_TYPE_MAX_LENGTH = 20;
@@ -118,7 +119,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     @jakarta.persistence.Column(name = "phone", length = 20)
     private String phone = "";
     @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
-    @jakarta.persistence.Column(name = "patient_status", length = 20)
+    @jakarta.persistence.Column(name = "patient_status", length = 50)
     private String patientStatus = "";
     private Date patientStatusDate;
     @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
@@ -126,6 +127,14 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     private String rosterStatus = "";
     private String providerNo;
     private String hin;
+    /** Indexed search normalization; original HIN remains unchanged and independently auditable. */
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "cds_identity_hin", length = 20, insertable = false, updatable = false)
+    private String cdsIdentityHin;
+    /** Known health-card authority for indexed identity; sentinels and arbitrary legacy codes stay unknown. */
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "cds_identity_issuer", length = 5, insertable = false, updatable = false)
+    private String cdsIdentityIssuer;
     private String address;
     @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
     @jakarta.persistence.Column(name = "province", length = 20)
@@ -157,7 +166,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     private String lastName;
     private String hcType;
     @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
-    @jakarta.persistence.Column(name = "chart_no", length = 10)
+    @jakarta.persistence.Column(name = "chart_no", length = 15)
     private String chartNo = "";
     private String email;
     private Boolean consentToUseEmailForCare;
@@ -362,7 +371,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     }
 
     private static void addFieldLengthError(List<String> errors, String fieldName, String value, int maxLength) {
-        if (StringUtils.length(value) > maxLength) {
+        if (value != null && value.codePointCount(0, value.length()) > maxLength) {
             String unit = maxLength == 1 ? "character" : "characters";
             errors.add(fieldName + " exceeds maximum length of " + maxLength + " " + unit + ".");
         }
@@ -880,7 +889,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: city
      */
-    @jakarta.persistence.Column(name = "city", length = 50)
+    @jakarta.persistence.Column(name = "city", length = 80)
     public String getCity() {
         return city;
     }
@@ -897,7 +906,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: first_name
      */
-    @jakarta.persistence.Column(name = "first_name", length = 30, nullable = false)
+    @jakarta.persistence.Column(name = "first_name", length = 50, nullable = false)
     public String getFirstName() {
         return firstName;
     }
@@ -1049,7 +1058,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     /**
      * Return the value associated with the column: last_name
      */
-    @jakarta.persistence.Column(name = "last_name", length = 30, nullable = false)
+    @jakarta.persistence.Column(name = "last_name", length = 50, nullable = false)
     public String getLastName() {
         return lastName;
     }
@@ -2134,7 +2143,7 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public void setResidentialAddress(String residentialAddress) {
         this.residentialAddress = residentialAddress;
     }
-    @jakarta.persistence.Column(name = "residentialCity", length = 50)
+    @jakarta.persistence.Column(name = "residentialCity", length = 80)
 
     public String getResidentialCity() {
         return residentialCity;

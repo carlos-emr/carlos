@@ -52,6 +52,25 @@ migration/
            V1.0.59.6__align_clinical_text_and_status_collations.sql
            V1.0.59.7__reconcile_managed_performance_indexes.sql
            V1.0.59.8__widen_messagetbl_pdfattachment.sql
+           V1.0.59.8.1__cds_import_ledger.sql
+           V1.0.59.9__cds_upload_sessions.sql
+           V1.0.59.10__cds_laboratory_results.sql
+           V1.0.59.11__cds_contact_care_capacity.sql
+           V1.0.59.12__cds_preflight_identity.sql
+           V1.0.59.13__cds_import_review_history.sql
+           V1.0.59.14__cds_native_preparation.sql
+           V1.0.59.15__cds_file_verification_epoch.sql
+           V1.0.59.16__cds_provider_lookup_indexes.sql
+           V1.0.59.17__cds_review_source_provenance.sql
+           V1.0.59.18__cds_medication_projection_safety.sql
+           V1.0.59.19__cds_held_patient_lookup.sql
+           V1.0.59.20__cds_identity_authority.sql
+           V1.0.59.21__cds_note_unknown_observation_and_import_permission.sql
+           V1.0.59.22__cds_alphanumeric_prevention_creator.sql
+           V1.0.59.23__cds_report_content_precision.sql
+           V1.0.59.24__cds_durable_resume_intent.sql
+           V1.0.59.25__cds_review_kind_capacity.sql
+           V1.0.59.26__cds_measurements_deleted_capacity.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -70,14 +89,15 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.59.8`.
+`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.59.26`.
 `V1.0.48`–`V1.0.51` are claimed by open pull requests. `develop` already uses
 `V1.0.60` and above, so this release line stays below its floor (`scripts/flyway-released-migrations.txt`):
 `common/V1.0.59.2` is #5089's, the two BC migrations of #5062 and #5051 are `V1.0.59.3` and `V1.0.59.4`,
 #5067's appointment-name migration follows them at `common/V1.0.59.5`,
 and the collation/index corrections occupy `common/V1.0.59.6` and `common/V1.0.59.7`.
 The Messenger's PDF attachment column widening (#5444) is `common/V1.0.59.8`.
-The next unallocated number for ANY location — shared or province — is `V1.0.59.9`.
+The CDS import migrations occupy `V1.0.59.8.1` and `V1.0.59.9`–`V1.0.59.26`.
+The next unallocated number for ANY location — shared or province — is `V1.0.59.27`.
 `V1.0.59.1` is an intentional gap: #5067's migration was renumbered as release migrations merged first.
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.
@@ -246,7 +266,8 @@ changed any BC antenatal row in Select Forms. Full linked-patient appointment na
 `V1.0.59`, `V1.0.59.1` and `V1.0.59.3` as release migrations merged first. A point version keeps it below
 the `V1.0.60` floor. The collation and index corrections follow at `V1.0.59.6` and `V1.0.59.7`, and the
 widening of `messagetbl.pdfattachment` to `MEDIUMBLOB` (#5444) at `V1.0.59.8`.
-The next unallocated version is `V1.0.59.9`. Apply/merge these forward migrations in version order; if their merge
+The CDS import migrations follow at `V1.0.59.8.1` and `V1.0.59.9`–`V1.0.59.26`.
+The next unallocated version is `V1.0.59.27`. Apply/merge these forward migrations in version order; if their merge
 order changes after a release, renumber the still-unreleased migration before
 shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized

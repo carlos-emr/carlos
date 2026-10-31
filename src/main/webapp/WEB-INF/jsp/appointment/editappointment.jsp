@@ -33,6 +33,7 @@
 --%>
 <!DOCTYPE html>
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -871,6 +872,7 @@
         </script>
     </head>
     <body onload="setfocus();updateTime();locale()">
+    <div><source:cdsSourceFields demographicNo="${not empty pageScope.appointment ? pageScope.appointment.demographicNo : param.demographic_no}" category="Appointments"/></div>
 
 <div id="editAppointment" >
     <div class="container" >
@@ -1127,6 +1129,7 @@
                 </tr>
                 <tr>
             <td></td><td>
+				<label for="reason" class="visually-hidden"><fmt:message key="Appointment.formReason"/></label>
 				<textarea id="reason" class="form-control" name="reason" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getReason()) %>' context="htmlAttribute"/>" maxlength="80" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' context="html"/></textarea>
 
                     </td>
@@ -1135,7 +1138,7 @@
                     <td>
                         <%-- Only one of the three location controls below is rendered. Each has its own id and
                              hidden label so the ids stay unique in this source too; the caption is shared. --%>
-                        <label><fmt:message key="Appointment.formLocation"/>:</label>
+                        <span><fmt:message key="Appointment.formLocation"/>:</span>
                     </td>
                     <td>
                         <%
@@ -1150,7 +1153,7 @@
 
                             if (bMultisites) { %>
 				        <label for="location" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
-				        <select tabindex="4" name="location" id="location" class="form-select" style="background-color: <%=colo%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
+				        <select name="location" id="location" class="form-select" style="background-color: <%=colo%>" onchange='this.style.backgroundColor=this.options[this.selectedIndex].style.backgroundColor'>
                             <%
                                 StringBuilder sb = new StringBuilder();
                                 for (Site s : sites) {
@@ -1186,7 +1189,7 @@
                         </select>
                         <% } else { %>
 		        <label for="locationText" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
-		        <input type="text" class="form-control" name="location" id="locationText" tabindex="4"
+		        <input type="text" class="form-control" name="location" id="locationText"
                        value="<carlos:encode value='<%= bFirstDisp?appt.getLocation():(request.getParameter("location") != null ? request.getParameter("location") : "") %>' context="htmlAttribute"/>" >
                         <% } %>
                         <% } %>
@@ -1355,7 +1358,7 @@
                         <label for="notes"><fmt:message key="Appointment.formNotes"/>:</label>
                     </td>
                     <td>
-				<textarea id="notes" name="notes" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getNotes()) %>' context="htmlAttribute"/>" class="form-control" maxlength="255" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")) %>' context="html"/></textarea>
+				<textarea id="notes" name="notes" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getNotes()) %>' context="htmlAttribute"/>" class="form-control" maxlength="65536" data-max-codepoints="32768" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getNotes():request.getParameter("notes")) %>' context="html"/></textarea>
                     </td>
                 </tr>
                 <tr>

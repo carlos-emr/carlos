@@ -27,6 +27,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: add exact bounded source-provider lookups.
  */
 
 package io.github.carlos_emr.carlos.PMmodule.dao;
@@ -140,6 +141,11 @@ public interface ProviderDao {
     public List<Provider> getBillableProvidersOnTeam(Provider p);
 
     public List<Provider> getBillableProvidersByOHIPNo(String ohipNo);
+
+    /** Bounded exact source-author candidates, including inactive historical providers; maximum two IDs. */
+    List<String> findCdsProviderNosByOhip(String ohipNo);
+    List<String> findCdsProviderNosByCpso(String cpsoNo);
+    List<String> findCdsProviderNosByExactName(String firstName, String lastName);
 
     public List<Provider> getProvidersWithNonEmptyOhip(LoggedInInfo loggedInInfo);
 

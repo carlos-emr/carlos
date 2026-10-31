@@ -1366,7 +1366,7 @@ public class ManageDocument2Action extends ActionSupport {
             EDoc curDoc = EDocUtil.getDoc(doc_no);
             ResourceBundle props = ResourceBundle.getBundle("oscarResources", locale);
             out.println("<br>" + props.getString("dms.documentBrowser.DocumentUpdated") + ": " + Encode.forHtml(Objects.toString(curDoc.getDateTimeStamp(), "")));
-            out.println("<br>" + props.getString("dms.documentBrowser.ContentUpdated") + ": " + Encode.forHtml(Objects.toString(curDoc.getContentDateTime(), "")));
+            out.println("<br>" + props.getString("dms.documentBrowser.ContentUpdated") + ": " + Encode.forHtml(curDoc.getContentDateTimeDisplay()));
             out.println("<br>" + props.getString("dms.documentBrowser.ObservationDate") + ": " + Encode.forHtml(Objects.toString(curDoc.getObservationDate(), "")));
             out.println("<br>" + props.getString("dms.documentBrowser.Type") + ": " + Encode.forHtml(Objects.toString(curDoc.getType(), "")));
             out.println("<br>" + props.getString("dms.documentBrowser.Class") + ": " + Encode.forHtml(Objects.toString(curDoc.getDocClass(), "")));
