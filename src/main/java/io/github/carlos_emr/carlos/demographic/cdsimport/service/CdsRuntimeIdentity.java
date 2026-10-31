@@ -52,8 +52,7 @@ final class CdsRuntimeIdentity {
     /** Literal compile-time dependencies only: no source-controlled reflection or class instantiation. */
     private static Class<?>[] dependencies() {
         return new Class<?>[] {
-            org.apache.xerces.jaxp.SAXParserFactoryImpl.class,
-            org.apache.xerces.jaxp.validation.XMLSchemaFactory.class,
+            // JDK XML implementation bytes are covered by java.runtime.module-image below.
             org.jdom2.input.SAXBuilder.class,
             com.fasterxml.jackson.core.JsonFactory.class,
             com.fasterxml.jackson.databind.ObjectMapper.class,

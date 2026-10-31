@@ -59,10 +59,6 @@ import java.util.function.Consumer;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.SAXParserFactory;
 import javax.xml.validation.ValidatorHandler;
-import org.apache.xerces.jaxp.SAXParserFactoryImpl;
-import org.apache.xerces.xs.XSConstants;
-import org.apache.xerces.xs.XSSimpleTypeDefinition;
-import org.w3c.dom.TypeInfo;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.Locator;
@@ -182,10 +178,9 @@ public class CdsXmlParser {
     }
 
     static XMLReader xmlReader() throws javax.xml.parsers.ParserConfigurationException, SAXException {
-        // Pinned Xerces uses the PSVI-free handler and same-grammar type cursor below.
-        // Its JAXP DTD-access property is unavailable.
+        // Use the maintained JDK implementation with explicit external-resource controls.
         // Audit: throw-only resolver returns no InputSource and performs no I/O; DTD/entity controls remain fail-closed.
-        SAXParserFactory factory = new SAXParserFactoryImpl();
+        SAXParserFactory factory = SAXParserFactory.newDefaultInstance();
         factory.setNamespaceAware(true);
         factory.setXIncludeAware(false);
         factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
@@ -194,6 +189,7 @@ public class CdsXmlParser {
         factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
         factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         XMLReader reader = factory.newSAXParser().getXMLReader();
+        reader.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
         reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
         reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
@@ -367,7 +363,7 @@ public class CdsXmlParser {
                 }
                 types.start(uri, local, validatedAttrs);
                 for (int i = 0; i < validatedAttrs.getLength(); i++) {
-                    TypeInfo attributeType = types.attributeType(validatedAttrs.getURI(i), validatedAttrs.getLocalName(i));
+                    CdsSchemaModel.Type attributeType = types.attributeType(validatedAttrs.getURI(i), validatedAttrs.getLocalName(i));
                     if (CdsSchemaTypeCursor.identity(attributeType)) {
                         Frame identityAttribute = new Frame("", "", "");
                         identityAttribute.identity = true;
@@ -456,7 +452,7 @@ public class CdsXmlParser {
             } catch (IOException failed) { throw protectedFailure(failed); }
         }
 
-        private void writeField(Frame frame, String path, String namespace, String kind, TypeInfo type)
+        private void writeField(Frame frame, String path, String namespace, String kind, CdsSchemaModel.Type type)
                 throws IOException {
             CdsFieldDto field=descriptor(frame, path, namespace, kind, type);
             JsonNode change=reviewed.get(sourcePath(path));
@@ -472,7 +468,7 @@ public class CdsXmlParser {
             valueOutput.fieldDigest = CdsPaths.sha256();
         }
 
-        private CdsFieldDto descriptor(Frame frame, String path, String namespace, String kind, TypeInfo type) {
+        private CdsFieldDto descriptor(Frame frame, String path, String namespace, String kind, CdsSchemaModel.Type type) {
             String schemaType = type == null ? "" : "{" + type.getTypeNamespace() + "}" + type.getTypeName();
             return new CdsFieldDto(path, namespace, kind, frame.valueStart,
                     valueOutput.count - frame.valueStart, frame.completedDigest==null ? CdsPaths.hex(valueOutput.fieldDigest.digest()) : frame.completedDigest,
@@ -594,11 +590,11 @@ public class CdsXmlParser {
         private final String local;
         private final String relative;
         private final Map<String, Long> children = new HashMap<>();
-        private final Map<String, TypeInfo> attributeTypes = new HashMap<>();
+        private final Map<String, CdsSchemaModel.Type> attributeTypes = new HashMap<>();
         private boolean child;
         private boolean identity;
         private boolean identityToken;
-        private TypeInfo type;
+        private CdsSchemaModel.Type type;
         private JsonNode correction;
         private String completedDigest;
         private final StringBuilder schemaDefault=new StringBuilder(4);
@@ -623,48 +619,29 @@ public class CdsXmlParser {
 
         Frame(String namespace, String local, String relative) { this.namespace = namespace; this.local = local; this.relative = relative; }
 
-        void configure(TypeInfo info) {
+        void configure(CdsSchemaModel.Type info) {
             type = info; whitespace = whitespace(info);
             identity = CdsSchemaTypeCursor.identity(info);
-            if (!(info instanceof XSSimpleTypeDefinition simple)) { mode = Mode.COMPLEX; return; }
+            if (info == null || !info.simple()) { mode = Mode.COMPLEX; return; }
             mode = Mode.BOUNDED;
-            short relevant = (short) (simple.getDefinedFacets() & ~XSSimpleTypeDefinition.FACET_WHITESPACE);
-            if (simple.getVariety() == XSSimpleTypeDefinition.VARIETY_ATOMIC
-                    && simple.getPrimitiveType() != null && relevant == 0) {
-                if (plainString(simple)) mode = Mode.TEXT;
-                if (simple.getBuiltInKind() == XSConstants.BASE64BINARY_DT) { mode = Mode.BINARY; binaryBuffer = new byte[8192]; }
-                if (simple.getBuiltInKind() == XSConstants.DECIMAL_DT) mode = Mode.DECIMAL;
+            if (info.atomic() && !info.lengthFacet() && !info.otherFacet()) {
+                if (info.plainString()) mode = Mode.TEXT;
+                if (info.builtIn().equals("base64Binary")) { mode = Mode.BINARY; binaryBuffer = new byte[8192]; }
+                if (info.builtIn().equals("decimal")) mode = Mode.DECIMAL;
             }
-            short lengthFacets = XSSimpleTypeDefinition.FACET_LENGTH | XSSimpleTypeDefinition.FACET_MINLENGTH
-                    | XSSimpleTypeDefinition.FACET_MAXLENGTH;
-            if (simple.getVariety() == XSSimpleTypeDefinition.VARIETY_ATOMIC
-                    && simple.getPrimitiveType() != null
-                    && plainString(simple)
-                    && relevant != 0 && (relevant & ~lengthFacets) == 0) {
-                // Xerces2.12 counts UTF16 units for string-length facets. XML Schema counts
-                // Unicode characters. Only pure length/whitespace restrictions can use this
-                // equivalent BMP witness; patterns/enumerations must see their actual value.
+            if (info.atomic() && info.plainString() && info.lengthFacet() && !info.otherFacet()) {
+                // Feed a BMP witness of the exact normalized Unicode-character length.
+                // Pattern/enumeration restrictions always receive their actual bounded value.
                 mode = Mode.LENGTH_TEXT;
             }
-            if (XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(simple.getNamespace())
-                    && Set.of("integer", "nonNegativeInteger", "positiveInteger").contains(simple.getName())) {
+            if (XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(info.getTypeNamespace())
+                    && Set.of("integer", "nonNegativeInteger", "positiveInteger").contains(info.getTypeName())) {
                 mode = Mode.INTEGER;
             }
         }
 
-        private static boolean plainString(XSSimpleTypeDefinition type) {
-            // NCName/ID/IDREF and other intrinsic string-derived types still
-            // require their real lexical values and document identity checks.
-            short kind = type.getBuiltInKind();
-            return kind == XSConstants.STRING_DT || kind == XSConstants.NORMALIZEDSTRING_DT || kind == XSConstants.TOKEN_DT;
-        }
-
-        static String whitespace(TypeInfo info) {
-            if (info instanceof XSSimpleTypeDefinition simple) {
-                String value = simple.getLexicalFacetValue(XSSimpleTypeDefinition.FACET_WHITESPACE);
-                if (value != null && Set.of("preserve", "replace", "collapse").contains(value)) return value;
-            }
-            return "preserve";
+        static String whitespace(CdsSchemaModel.Type info) {
+            return info == null || !info.simple() ? "preserve" : info.whitespace();
         }
 
         void beginValue(ValueOutput output) { valueStart = output.count; output.fieldDigest = CdsPaths.sha256(); }

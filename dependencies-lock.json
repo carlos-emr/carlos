@@ -697,14 +697,6 @@
     "optional" : false,
     "integrity" : "sha512:sxB17TYb8HS0bfYPvCJ6VyHOAXkJbr7yDzA6gMcmeWM9rm6LmXbwnsx4NMuCWU6J5uNYxeXeJnFaZ5SdKlwSBg=="
   }, {
-    "groupId" : "io.github.carlos-emr.thirdparty",
-    "artifactId" : "xercesImpl-cds",
-    "version" : "2.12.2-carlos1",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:xVQx0gFwS0VNhAS16+SMlAlYyVXly/b/TL3GgeAU7pc+gXA/jLzwd2+FSNUuntPfcmdzrEN1MwxHDdOnmodnIg=="
-  }, {
     "groupId" : "io.micrometer",
     "artifactId" : "micrometer-commons",
     "version" : "1.17.2",

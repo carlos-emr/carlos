@@ -1,9 +1,27 @@
-/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 package io.github.carlos_emr.carlos.utility;
 
-import java.nio.file.Path;
 import java.util.Collections;
-import java.util.jar.JarFile;
 import javax.xml.XMLConstants;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -18,9 +36,9 @@ import org.w3c.dom.ls.DOMImplementationLS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-/** Verify discovery on the complete application classpath, including CDS's private-use Xerces. */
+/** Verify JDK XML discovery and absence of standalone Xerces on the application classpath. */
 @Tag("unit")
-class XercesProviderIsolationUnitTest {
+class JdkXmlProviderUnitTest {
     @Test
     void shouldUseJdkFactories_whenOrdinaryXmlConsumersDiscoverProviders() throws Exception {
         assertAll(
@@ -35,7 +53,7 @@ class XercesProviderIsolationUnitTest {
     }
 
     @Test
-    void shouldRetainWoodstoxEvents_whenRemovingTheXercesEventRegistration() {
+    void shouldRetainWoodstoxEvents_whenStandaloneXercesIsRemoved() {
         assertThat(XMLEventFactory.newFactory())
                 .isInstanceOf(com.ctc.wstx.stax.WstxEventFactory.class);
     }
@@ -48,22 +66,13 @@ class XercesProviderIsolationUnitTest {
     }
 
     @Test
-    void shouldRetainOnlyOneExplicitXercesImplementation_withoutAutomaticRegistrations() throws Exception {
-        var factoryClass = org.apache.xerces.jaxp.SAXParserFactoryImpl.class;
-        assertThat(Collections.list(factoryClass.getClassLoader()
-                .getResources("org/apache/xerces/jaxp/SAXParserFactoryImpl.class"))).hasSize(1);
-        Path artifact = Path.of(factoryClass.getProtectionDomain().getCodeSource().getLocation().toURI());
-        try (JarFile jar = new JarFile(artifact.toFile())) {
-            assertThat(jar.stream().map(entry -> entry.getName())
-                    .filter(name -> name.startsWith("META-INF/services/"))).isEmpty();
-            assertThat(jar.getJarEntry("META-INF/LICENSE")).isNotNull();
-            assertThat(jar.getJarEntry("META-INF/NOTICE")).isNotNull();
-            assertThat(jar.getJarEntry("META-INF/CARLOS-MODIFICATIONS.txt")).isNotNull();
+    void shouldExcludeStandaloneXerces_fromTheApplicationClasspath() throws Exception {
+        ClassLoader loader = JdkXmlProviderUnitTest.class.getClassLoader();
+        for (String resource : new String[] {"org/apache/xerces/jaxp/SAXParserFactoryImpl.class",
+                "org/apache/xerces/jaxp/validation/XMLSchemaFactory.class", "org/apache/xerces/xs/XSModel.class"}) {
+            assertThat(Collections.list(loader.getResources(resource))).as(resource).isEmpty();
         }
-        // CDS constructs these explicitly; removing registrations must preserve the API.
-        assertThat(new org.apache.xerces.jaxp.SAXParserFactoryImpl()
-                .newSAXParser().getXMLReader().getClass().getModule().isNamed()).isFalse();
-        assertThat(new org.apache.xerces.jaxp.validation.XMLSchemaFactory()
-                .isSchemaLanguageSupported(XMLConstants.W3C_XML_SCHEMA_NS_URI)).isTrue();
+        assertThat(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsSchemaValidator.newValidator()
+                .getClass().getModule().getName()).isEqualTo("java.xml");
     }
 }

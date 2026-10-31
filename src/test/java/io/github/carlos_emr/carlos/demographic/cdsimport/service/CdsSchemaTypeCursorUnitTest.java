@@ -40,10 +40,46 @@ import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
-/** Compare against Xerces' independent PSVI metadata rather than reproducing the cursor algorithm. */
+/** Compare owned metadata against the JDK validator's independent PSVI metadata. */
 @Tag("unit")
 class CdsSchemaTypeCursorUnitTest {
     @TempDir Path temp;
+
+    @Test
+    void shouldUseJdkImplementations_forCdsParsingAndValidation() throws Exception {
+        assertEquals("java.xml", CdsXmlParser.xmlReader().getClass().getModule().getName());
+        assertEquals("java.xml", CdsSchemaValidator.newValidator().getClass().getModule().getName());
+    }
+
+    @Test
+    void shouldRejectUnsupportedMetadataConstructs_insteadOfGuessingStreamingSafety() {
+        for (String content : new String[] {
+                "<xs:simpleType><xs:list itemType='xs:string'/></xs:simpleType>",
+                "<xs:simpleType><xs:union memberTypes='xs:string xs:integer'/></xs:simpleType>",
+                "<xs:complexType><xs:sequence><xs:any processContents='lax'/></xs:sequence></xs:complexType>",
+                "<xs:complexType><xs:complexContent><xs:extension base='xs:anyType'/></xs:complexContent></xs:complexType>"}) {
+            String schema = "<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' targetNamespace='cds'>"
+                    + "<xs:element name='OmdCds'>" + content + "</xs:element></xs:schema>";
+            assertThrows(IllegalStateException.class,
+                    () -> CdsSchemaModel.read(schema.getBytes(StandardCharsets.UTF_8), emptyDatatypes()));
+        }
+    }
+
+    @Test
+    void shouldRefuseDtds_whenReadingSchemaMetadata() throws Exception {
+        Path marker = Files.writeString(temp.resolve("synthetic-marker.txt"), "synthetic metadata marker");
+        String schema = "<!DOCTYPE xs:schema [<!ENTITY marker SYSTEM '" + marker.toUri() + "'>]>"
+                + "<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' targetNamespace='cds'>"
+                + "<xs:annotation><xs:documentation>&marker;</xs:documentation></xs:annotation></xs:schema>";
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> CdsSchemaModel.read(schema.getBytes(StandardCharsets.UTF_8), emptyDatatypes()));
+        assertInstanceOf(org.xml.sax.SAXParseException.class, failure.getCause());
+    }
+
+    private static byte[] emptyDatatypes() {
+        return "<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' targetNamespace='cds_dt'/>"
+                .getBytes(StandardCharsets.UTF_8);
+    }
 
     @Test
     void shouldMatchPsviTypesInEveryFixtureContext_andAllDeclaredAttributes() throws Exception {
@@ -181,6 +217,13 @@ class CdsSchemaTypeCursorUnitTest {
         }
     }
 
+    private static void assertType(org.w3c.dom.TypeInfo actual, CdsSchemaModel.Type metadata, String context) {
+        assertNotNull(actual, context);
+        assertNotNull(metadata, context);
+        assertEquals(actual.getTypeNamespace(), metadata.getTypeNamespace(), context);
+        assertEquals(actual.getTypeName(), metadata.getTypeName(), context);
+    }
+
     private static void assertMetadata(String xml) throws Exception {
         assertMetadata(xml, true);
     }
@@ -198,9 +241,9 @@ class CdsSchemaTypeCursorUnitTest {
         });
         validator.setContentHandler(new DefaultHandler() {
             @Override public void startElement(String uri, String local, String qualified, Attributes attributes) {
-                assertSame(reference.getElementTypeInfo(), cursor.elementType(), uri + ":" + local);
+                assertType(reference.getElementTypeInfo(), cursor.elementType(), uri + ":" + local);
                 for (int i = 0; i < attributes.getLength(); i++) {
-                    assertSame(reference.getAttributeTypeInfo(i), cursor.attributeType(attributes.getURI(i), attributes.getLocalName(i)),
+                    assertType(reference.getAttributeTypeInfo(i), cursor.attributeType(attributes.getURI(i), attributes.getLocalName(i)),
                             qualified + "/@" + attributes.getQName(i));
                 }
                 elements.incrementAndGet();
