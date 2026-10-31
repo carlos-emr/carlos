@@ -29,7 +29,6 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
-import org.owasp.encoder.Encode;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.casemgmt.common.Colour;
@@ -468,7 +467,8 @@ public class CaseManagementViewAction {
                 if (key.contains(" Date")) {
                     val = UtilDateUtilities.DateToString(cme.getDateValue(), "yyyy-MM-dd");
                 } else {
-                    val = Encode.forJavaScript(cme.getValue());
+                    // The caller HTML-encodes the complete note; keep its metadata as text.
+                    val = cme.getValue();
                 }
                 return val;
             }

@@ -230,7 +230,7 @@
         StringBuilder checkedJson = new StringBuilder("[");
         for (int ci = 0; ci < checkedFieldNames.size(); ci++) {
             if (ci > 0) checkedJson.append(",");
-            checkedJson.append("\"").append(SafeEncode.forJavaScript(checkedFieldNames.get(ci))).append("\"");
+            checkedJson.append("\"").append(SafeEncode.forJson(checkedFieldNames.get(ci))).append("\"");
         }
         checkedJson.append("]");
     %>

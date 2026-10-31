@@ -3366,19 +3366,19 @@
   }, {
     "groupId" : "org.owasp.encoder",
     "artifactId" : "encoder-jakarta-jsp",
-    "version" : "1.4.1",
+    "version" : "1.6.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:jxYX1pPh6Ho9scfBr69l+3qajcp+MHKRbHaVvYIwJmoitba1vBkW7ue7h9ywAxZw4m9VSrw/cVPkotTaYABtRQ=="
+    "integrity" : "sha512:136a9jdhsHlUQBO2Jbz7m9pwqk1cy5rbgUlq9Gas9W65Pmzdu4NJTDKoiUQiYu+OrlTIjdM1he/WLnuc98QcsQ=="
   }, {
     "groupId" : "org.owasp.encoder",
     "artifactId" : "encoder",
-    "version" : "1.4.1",
+    "version" : "1.6.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:MVDx7pS11ssDnVQTEWN4kZ550Pweui5u9r63Wj4uxI6Gp9A/DX7TUeJmwNC2qmn4GqZc7eBvKX8Q+EcThz+Ilw=="
+    "integrity" : "sha512:Bf08ZvEKaDdvwuoO/c2DNRNGWgQhT1AwLIFaUR7WuS8/h8/N89tMM3AEhiGzEawHDzzSeB9iwqzJOf5sGvKTUw=="
   }, {
     "groupId" : "org.owasp",
     "artifactId" : "csrfguard-extension-session",

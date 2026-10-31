@@ -75,8 +75,8 @@ class ProfessionalContactFormJspUnitTest {
     @Test
     void shouldQuoteNoValueInThePageScript_withoutTheJavaScriptEncoder() throws IOException {
         List<String> values = quotedScriptValues();
-        assertThat(values).as("the values the page's script quotes").hasSizeGreaterThanOrEqualTo(8);
-        assertThat(values).allSatisfy(value -> assertThat(value).startsWith("${carlos:forJavaScript("));
+        assertThat(values).as("the values the page's script quotes").hasSizeGreaterThanOrEqualTo(8)
+                .allSatisfy(value -> assertThat(value).startsWith("${carlos:forJavaScript("));
     }
 
     @Test
@@ -87,8 +87,8 @@ class ProfessionalContactFormJspUnitTest {
                 "${carlos:forJavaScript(param.parentElementId)}",
                 "${carlos:forJavaScript(param.parentElementName)}");
         String page = Files.readString(PAGE, StandardCharsets.UTF_8);
-        assertThat(page).contains("typeof opener.popUpData === 'function'", "fillParentFields(contactId, contactName, contactType)");
-        assertThat(page).contains(
+        assertThat(page).contains("typeof opener.popUpData === 'function'", "fillParentFields(contactId, contactName, contactType)")
+                .contains(
                 "name=\"parentForm\" value=\"${carlos:forHtmlAttribute(param.parentForm)}\"",
                 "name=\"parentElementId\" value=\"${carlos:forHtmlAttribute(param.parentElementId)}\"",
                 "name=\"parentElementName\" value=\"${carlos:forHtmlAttribute(param.parentElementName)}\"");
@@ -96,6 +96,7 @@ class ProfessionalContactFormJspUnitTest {
 
     @Test
     void shouldKeepANameWithAnApostrophe_inOneScriptString() {
-        assertThat(SafeEncode.forJavaScript("O'Brien, Team")).doesNotContain("'").contains("Brien, Team");
+        assertThat(SafeEncode.forJavaScript("O'Brien, Team"))
+                .doesNotContain("'").isEqualTo("O\\x27Brien,\\x20Team");
     }
 }

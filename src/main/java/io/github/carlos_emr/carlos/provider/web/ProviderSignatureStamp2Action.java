@@ -41,7 +41,7 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 
-import org.owasp.encoder.Encode;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
@@ -342,13 +342,13 @@ public class ProviderSignatureStamp2Action extends ActionSupport implements Uplo
         }
 
         writeJson(response, "{\"exists\":" + exists + ",\"imageUrl\":\""
-                + Encode.forJavaScript(imageUrl) + "\"}");
+                + SafeEncode.forJson(imageUrl) + "\"}");
         return NONE;
     }
 
     private static String buildSuccessJson(HttpServletRequest req) {
         String imageUrl = req.getContextPath() + "/provider/providerSignatureImage";
-        return "{\"success\":true,\"imageUrl\":\"" + Encode.forJavaScript(imageUrl) + "\"}";
+        return "{\"success\":true,\"imageUrl\":\"" + SafeEncode.forJson(imageUrl) + "\"}";
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
