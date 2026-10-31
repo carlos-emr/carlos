@@ -102,7 +102,7 @@ function loadDriver(native) {
     process: { env: native ? { O19_NATIVE_CLINICIAN_CREDENTIALS: '/private/native.json' } : {}, on: () => {}, getuid: () => process.getuid() },
     require: name => {
       if (name === 'playwright') return { chromium: {} };
-      if (name === './lib/playwright-harness') return { shouldIgnoreHttpsErrors: () => true, EXIT_SKIP: 2 };
+      if (name === './lib/playwright-harness') return { ...require('./lib/playwright-harness'), shouldIgnoreHttpsErrors: () => true, EXIT_SKIP: 2 };
       if (name === './lib/o19-native-auth') return require('./lib/o19-native-auth');
       if (name === './lib/deb-login-navigation') return {};
       if (name === 'child_process') return { execFileSync: (cmd, args, options) => { queries.push(args.at(-1)); return ''; } };
@@ -138,7 +138,7 @@ test('native file or require-native mode refuses absent genuine P4 credentials b
       process: { env: { ...native, O19_ADMIN_CREDENTIALS: fixture(t) + '.missing' }, on: () => {}, getuid: () => process.getuid(), exit: code => exits.push(code) },
       require: name => {
         if (name === 'playwright') return { chromium: { launch: () => { browserCalls.push(1); throw new Error('Browser must not launch'); } } };
-        if (name === './lib/playwright-harness') return { shouldIgnoreHttpsErrors: () => true, EXIT_SKIP: 2 };
+        if (name === './lib/playwright-harness') return { ...require('./lib/playwright-harness'), shouldIgnoreHttpsErrors: () => true, EXIT_SKIP: 2 };
         if (name === './lib/o19-native-auth') return require('./lib/o19-native-auth');
         if (name === './lib/deb-login-navigation') return {};
         if (name === 'child_process') return { execFileSync: () => { queries.push(1); throw new Error('SQL must not execute'); } };

@@ -140,27 +140,8 @@ const { PROSE_CORPUS } = require('./lib/clinical-prose-corpus');
  * the fixture-teardown guards in edoc-schedule-navigation and assign-role.
  */
 function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  // Credentials in the URL would travel into Playwright navigations and can
-  // surface in request or failure logging, so reject them outright.
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not contain embedded credentials');
-  }
-
-  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
-  if (!isLoopback(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}: this check overwrites clinical free text and files `
-      + 'consultation requests. Set ALLOW_NON_LOCAL_BASE_URL=true only for a disposable test install');
-  }
-  // The login sends TEST_USER and TEST_PASSWORD. Off this machine that has to be
-  // over TLS; the opt-in above covers the target, not a cleartext hop to it.
-  if (!isLoopback(host) && parsed.protocol !== 'https:') {
-    throw new Error(`Refusing plain-http BASE_URL to non-loopback host ${host}: the login would send credentials in cleartext`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  // Delegate host/protocol/credential rules; this legacy caller retains its return shape.
+  const parsed = require('./lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl);
   return parsed;
 }
 

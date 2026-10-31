@@ -20,6 +20,7 @@
  * Env: DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR), the installed document directory; the check SKIPs
  * without it.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
@@ -245,7 +246,7 @@ async function workflow(s) {
     const fields = { checkbox: tickler.third, submit_form: 'Delete', demoview: patient, updateParent: 'true' };
     const route = h.appUrl(s.config.baseUrl, '/tickler/DbTicklerDemoMain');
     await h.assertRefused(s, { label: 'GET DbTicklerDemoMain', table: 'tickler', where, before: '1',
-      response: await s.context.request.get(route, { params: fields, maxRedirects: 0 }) });
+      response: await authenticatedProbe(s, route, { params: fields, maxRedirects: 0 }) });
     await h.assertRefused(s, { label: 'POST DbTicklerDemoMain without a CSRF token', table: 'tickler', where, before: '1',
       response: await s.context.request.post(route, { form: fields, maxRedirects: 0 }) });
     h.assert(statuses() === 'DDC', `A refused request changed a tickler (first/second/third: ${statuses()})`);

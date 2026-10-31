@@ -38,7 +38,11 @@ test('rejects missing session, foreign origins and mutating methods before sendi
 });
 test('rejects login redirects even for callers checking only unchanged rows', async () => {
   const { session } = fixture([cookie], 302);
-  await assert.rejects(authenticatedProbe(session, '/carlos/save'), /redirected/);
+  await assert.rejects(authenticatedProbe(session, '/carlos/save?secret=private', {method: 'HEAD'}), error => {
+    assert.match(error.message, /HEAD \/carlos\/save \(HTTP 302\)/);
+    assert.doesNotMatch(error.message, /secret|private/);
+    return true;
+  });
 });
 
 test('real Playwright HTTP transport sends the Secure cookie to a local refusal endpoint', async t => {

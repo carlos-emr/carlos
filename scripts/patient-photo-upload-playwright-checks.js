@@ -357,23 +357,41 @@ async function workflow(s) {
     const login = fixture.addLogin('doctor');
     h.assert(fixture.lockPatient(login, patientB).length === 2, 'The patient lock rows were not written');
     doctor = await signIn(s, login);
-    const manager = await doctor.context.newPage();
-    await h.gotoApp(manager, s.config.baseUrl, `/casemgmt/ViewUploadimage?demographicNo=${patientB}`);
-    h.assert(await postedPatient(manager, 'deleteImage') === patientB,
-      'The locked login\'s photo manager does not post the second patient');
+    const deniedPage = await doctor.context.newPage();
     const before = sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no=${patientB}`);
-    const dialogs = acceptDialogs(manager);
-    const [post] = await Promise.all([
-      manager.waitForResponse(isClientImagePost),
-      manager.locator('button[type="submit"]', { hasText: 'Clear Photo' }).click(),
-    ]);
-    h.assert(dialogs.length === 1 && dialogs[0] === 'confirm', 'Clear Photo did not ask exactly once to confirm');
-    await h.assertRefused(s, {
-      response: post, table: 'client_image', where: `demographic_no=${patientB}`, before,
-      label: 'Clear Photo by a login locked out of the patient',
-    });
-    h.assert(JSON.stringify(storedFor(patientB)) === JSON.stringify([['jpeg', sha(bPhoto)]]),
-      'Clear Photo by a login locked out of the patient changed that patient photo');
+    const view = await h.gotoApp(deniedPage, s.config.baseUrl, `/casemgmt/ViewUploadimage?demographicNo=${patientB}`);
+    await h.assertRefused(s, {response: view, table: 'client_image', where: `demographic_no=${patientB}`, before,
+      label: 'Opening the locked patient photo manager'});
+    await deniedPage.close();
+
+    // The clinical view gate now refuses the manager itself. Capture real forms
+    // from the same doctor's permitted patient, then replay only their patient
+    // parameter. Requiring a forbidden page to render a form never reaches the
+    // mutation boundary and used to misreport this as a missing fixture (#5378).
+    const manager = await doctor.context.newPage();
+    await h.gotoApp(manager, s.config.baseUrl, `/casemgmt/ViewUploadimage?demographicNo=${patient}`);
+    for (const method of ['deleteImage', 'saveImage']) {
+      h.assert(await postedPatient(manager, method) === patient,
+        'The allowed control manager must post its own patient');
+      if (method === 'saveImage') await manager.locator('#clientImage').setInputFiles({
+        name: 'locked-patient-probe.jpg', mimeType: 'image/jpeg', buffer: markedJpeg(marker),
+      });
+      const [post] = await Promise.all([
+        manager.waitForResponse(isClientImagePost),
+        manager.evaluate(async ({method, patientB}) => { // nosemgrep: javascript.playwright.security.audit.page-evaluate -- intentional denied-target replay of the real permitted form
+          const form = [...document.forms].find(form => form.querySelector('input[name="method"]')?.value === method);
+          if (!form) throw new Error('The permitted photo manager form is missing');
+          const data = new FormData(form);
+          data.set('demographicNo', patientB);
+          const response = await fetch(form.action, {method: 'POST', credentials: 'same-origin', body: data});
+          await response.arrayBuffer();
+        }, {method, patientB}),
+      ]);
+      await h.assertRefused(s, {response: post, table: 'client_image', where: `demographic_no=${patientB}`, before,
+        label: `${method} by a login locked out of the patient`});
+      h.assert(JSON.stringify(storedFor(patientB)) === JSON.stringify([['jpeg', sha(bPhoto)]]),
+        `${method} by the locked doctor changed the patient's photo`);
+    }
     await manager.close();
   });
 

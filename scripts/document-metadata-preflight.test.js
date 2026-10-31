@@ -15,6 +15,7 @@ function fixture() {
     sqlString: value => "'" + value + "'", createRecorder: () => ({}),
     runCheck: ({run}) => run({cancellation: {}}), launchBrowser: async () => {events.push('browser'); throw new Error('stop after insertion');}};
   const context = {module: {exports: {}}, console, require(name) {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
     if (name === 'node:crypto') return require(name);
     if (name === './playwright-harness') return harness;
     return {};

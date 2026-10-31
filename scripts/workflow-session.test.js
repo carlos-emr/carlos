@@ -163,6 +163,7 @@ async function runChartSession(t, { options, navbarError, navigationError } = {}
   t.mock.method(console, 'log', () => {});
   t.mock.method(console, 'error', () => {});
   const sandbox = { module: { exports: {} }, console, URL, setTimeout, require(name) {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
     if (name === 'node:crypto') return require(name);
     if (name === './playwright-harness') return h;
     if (name === './playwright-ui') return require('./lib/playwright-ui');

@@ -43,8 +43,10 @@ async function authenticatedProbe(session, target, options = {}) {
     failOnStatusCode: false,
   });
   // Even no-write/include assertions must not accept a logged-out redirect.
-  if (response.status() >= 300 && response.status() < 400) {
-    throw new Error('Authenticated probe redirected; session/refusal evidence is inconclusive');
+  const status = response.status();
+  if (status >= 300 && status < 400) {
+    throw new Error(`Authenticated probe redirected for ${options.method || 'GET'} ${url.pathname} `
+      + `(HTTP ${status}); session/refusal evidence is inconclusive`);
   }
   return response;
 }

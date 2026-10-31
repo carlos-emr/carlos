@@ -17,6 +17,7 @@
  * the way are asserted in the last step. Fixtures: role, throwaway login and mygroup named by the marker;
  * no role delete exists in the UI, so cleanup deletes every marker row and asserts they are gone.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const { randomBytes } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
@@ -428,7 +429,7 @@ async function workflow(s) {
   });
   await s.step('a GET carrying the Access Control save is refused with 405 and stores nothing', async () => {
     const params = new URLSearchParams({ method: 'save', chosen_group: group, data: s.provider });
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/admin/GroupNoAcl?${params}`), { maxRedirects: 0 });
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, `/admin/GroupNoAcl?${params}`), { maxRedirects: 0 });
     h.assert(response.status() === 405, `A GET Access Control save answered ${response.status()}, not 405`);
     h.assert(restrictions().length === 0, 'A refused GET stored a restriction');
   });

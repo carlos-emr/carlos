@@ -101,7 +101,9 @@ const { providerNavigationFixture } = require('./lib/provider-navigation-fixture
 const MANIFEST_PATH = path.join(__dirname, 'playwright-suite.json');
 
 /** Install configurations a check can need, and how to switch a validation container to each. */
+const PROPERTY_PROFILES = require('./lib/property-profiles');
 const PROFILES = Object.freeze({
+  ...Object.fromEntries(Object.keys(PROPERTY_PROFILES.PROFILES).map(name => [name, `disposable ${name} configuration (restored after the run)`])),
   // Issue #4439: BC remittances are imported through Upload Remittance Files only with NEW_BC_TELEPLAN=no.
   'legacy-teleplan': 'a BC install with NEW_BC_TELEPLAN=no (scripts/deb-docker-validation.sh profile legacy-teleplan)',
 });
@@ -774,7 +776,14 @@ function main(argv = process.argv.slice(2), env = process.env, out = console, de
 }
 
 if (require.main === module) {
-  process.exitCode = main();
+  let selectedProfile;
+  try {selectedProfile = parseArguments(process.argv.slice(2));}
+  catch {process.exitCode = main();}
+  if (selectedProfile && Object.hasOwn(PROPERTY_PROFILES.PROFILES, selectedProfile.profile)
+      && !selectedProfile.list && !selectedProfile.dryRun && !selectedProfile.help) {
+    PROPERTY_PROFILES.withPropertyProfile(selectedProfile.profile, () => main()).then(
+      code => {process.exitCode = code;}, error => {console.error(error.message); process.exitCode = EXIT_FAIL;});
+  } else if (selectedProfile) process.exitCode = main();
 }
 
 module.exports = {

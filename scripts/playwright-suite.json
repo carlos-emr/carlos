@@ -17032,6 +17032,590 @@
       ],
       "fixtures": "Seven pharmacies named after the run marker are in the clinic-wide pharmacy list while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "Issue #5308: AbstractDaoImpl.findAll orders every page by the entity identifier. The session REST pharmacy list pages through it: a maximum-size first page holds exactly the first database rows in id order, small pages concatenate to the whole directory with no repeat or gap (a directory larger than one 5000-row page included), a re-read page is identical, an offset past the end is empty and a limit above the 5000-row maximum is refused."
+    },
+    {
+      "name": "appointment-options-roundtrip",
+      "script": "scripts/appointment-options-roundtrip-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Critical, reason-code and MC-number UI round trips with cancellation, unrelated-edit preservation, control appointment and exact extension cleanup (#5265–#5267). Requires automatic appointment-options profile.",
+      "profile": "appointment-options"
+    },
+    {
+      "name": "demographic-status-midwife",
+      "script": "scripts/demographic-status-midwife-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [],
+      "notes": "Owned status/date archives, active/inactive/all searches, reactivation and individual midwife eligibility/assignment/cancellation/clearing (#5280)."
+    },
+    {
+      "name": "appointment-calendar-recurrence",
+      "script": "scripts/appointment-calendar-recurrence-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 1800,
+      "env": [],
+      "notes": "Original-date monthly/yearly boundaries for new and saved bookings, leap years, inclusive range/retry, duplicate prevention and owned cleanup (#5264)."
+    },
+    {
+      "name": "fracture-paste-persistence",
+      "script": "scripts/fracture-paste-persistence-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Fracture-calculator Paste through exact saved/reopened note text; two patient windows, cancellation, invalid-input refusal and owned cleanup (#5269)."
+    },
+    {
+      "name": "rx-renal-input-matrix",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "male-valid"
+      },
+      "notes": "Independent renal input/source/threshold matrix case male-valid (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-female-valid",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "female-valid"
+      },
+      "notes": "Independent renal input/source/threshold matrix case female-valid (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-older-low-weight",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "older-low-weight"
+      },
+      "notes": "Independent renal input/source/threshold matrix case older-low-weight (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-younger-high-weight",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "younger-high-weight"
+      },
+      "notes": "Independent renal input/source/threshold matrix case younger-high-weight (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-missing-weight",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "missing-weight"
+      },
+      "notes": "Independent renal input/source/threshold matrix case missing-weight (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-missing-cr",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "missing-cr"
+      },
+      "notes": "Independent renal input/source/threshold matrix case missing-cr (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-missing-both",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "missing-both"
+      },
+      "notes": "Independent renal input/source/threshold matrix case missing-both (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-future-age",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "future-age"
+      },
+      "notes": "Independent renal input/source/threshold matrix case future-age (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-lab-only",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "lab-only"
+      },
+      "notes": "Independent renal input/source/threshold matrix case lab-only (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-lab-newer",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "lab-newer"
+      },
+      "notes": "Independent renal input/source/threshold matrix case lab-newer (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-measurement-newer",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "measurement-newer"
+      },
+      "notes": "Independent renal input/source/threshold matrix case measurement-newer (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-equal-date-lab",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "equal-date-lab"
+      },
+      "notes": "Independent renal input/source/threshold matrix case equal-date-lab (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-newer-unusable-source",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "newer-unusable-source"
+      },
+      "notes": "Independent renal input/source/threshold matrix case newer-unusable-source (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-weight-blank",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "weight-blank"
+      },
+      "notes": "Independent renal input/source/threshold matrix case weight-blank (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-cr-blank",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "cr-blank"
+      },
+      "notes": "Independent renal input/source/threshold matrix case cr-blank (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-weight-text",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "weight-text"
+      },
+      "notes": "Independent renal input/source/threshold matrix case weight-text (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-cr-text",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "cr-text"
+      },
+      "notes": "Independent renal input/source/threshold matrix case cr-text (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-weight-zero",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "weight-zero"
+      },
+      "notes": "Independent renal input/source/threshold matrix case weight-zero (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-cr-zero",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "cr-zero"
+      },
+      "notes": "Independent renal input/source/threshold matrix case cr-zero (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-weight-negative",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "weight-negative"
+      },
+      "notes": "Independent renal input/source/threshold matrix case weight-negative (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-cr-negative",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "cr-negative"
+      },
+      "notes": "Independent renal input/source/threshold matrix case cr-negative (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-weight-nan",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "weight-nan"
+      },
+      "notes": "Independent renal input/source/threshold matrix case weight-nan (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-cr-nan",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "cr-nan"
+      },
+      "notes": "Independent renal input/source/threshold matrix case cr-nan (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-weight-infinity",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "weight-infinity"
+      },
+      "notes": "Independent renal input/source/threshold matrix case weight-infinity (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-cr-infinity",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "cr-infinity"
+      },
+      "notes": "Independent renal input/source/threshold matrix case cr-infinity (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-boundary-4",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "boundary-4"
+      },
+      "notes": "Independent renal input/source/threshold matrix case boundary-4 (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-boundary-5",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "boundary-5"
+      },
+      "notes": "Independent renal input/source/threshold matrix case boundary-5 (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-boundary-6",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "boundary-6"
+      },
+      "notes": "Independent renal input/source/threshold matrix case boundary-6 (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-boundary-29",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "boundary-29"
+      },
+      "notes": "Independent renal input/source/threshold matrix case boundary-29 (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-boundary-30",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "boundary-30"
+      },
+      "notes": "Independent renal input/source/threshold matrix case boundary-30 (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-renal-input-boundary-31",
+      "script": "scripts/rx-renal-input-matrix-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "envSet": {
+        "RX_RENAL_CASE": "boundary-31"
+      },
+      "notes": "Independent renal input/source/threshold matrix case boundary-31 (#5263); isolated outcome and owned cleanup."
     }
   ]
 }

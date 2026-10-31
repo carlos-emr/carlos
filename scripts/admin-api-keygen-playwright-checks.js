@@ -19,6 +19,7 @@
  * fresh RSA-2048 pair (Create New Key has no working entry). Cleanup deletes only the
  * marker rows (ServiceClient, publicKeys incl. the one a GET may create, their audit rows) and asserts they are gone.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const crypto = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
@@ -136,7 +137,7 @@ async function workflow(s) {
   });
   await s.step('a GET delete is refused with 405 and leaves the client', async () => {
     // Negative probe only, after the positive path ran through the UI.
-    const response = await s.context.request.get(`${s.config.baseUrl}/admin/api/clientManage?method=delete&id=${clientId}`,
+    const response = await authenticatedProbe(s, `${s.config.baseUrl}/admin/api/clientManage?method=delete&id=${clientId}`,
       {maxRedirects: 0, failOnStatusCode: false});
     h.assert(response.status() === 405, `A GET delete answered HTTP ${response.status()}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM ServiceClient WHERE id=${clientId}`) === '1', 'A GET delete removed the client');
@@ -271,7 +272,7 @@ async function workflow(s) {
   await s.step('a GET of Create Key that names a service is refused and registers no key pair', async () => {
     const owned = `service=${h.sqlString(probeService)}`;
     const before = sql.value(`SELECT COUNT(*) FROM publicKeys WHERE ${owned}`);
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/admin/ViewKeygenCreateKey'),
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/admin/ViewKeygenCreateKey'),
       {params: {name: probeService, type: 'FAKEPW'}, maxRedirects: 0, failOnStatusCode: false});
     await h.assertRefused(s, {response, table: 'publicKeys', where: owned, before,
       label: 'GET admin/ViewKeygenCreateKey?name='});

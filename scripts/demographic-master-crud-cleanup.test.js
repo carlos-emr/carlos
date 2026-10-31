@@ -29,6 +29,7 @@ for (const cleanupFails of [false, true]) {
       process: { env: {} },
       console: { log() {} },
       require(name) {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
         if (name === 'playwright') return { chromium: { async launch() { return {
           async newContext() { return { setDefaultTimeout() {}, on() {}, async newPage() { return {}; } }; },
           async close() { events.push('browser close attempted'); throw closeError; },

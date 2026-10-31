@@ -15,6 +15,7 @@ for (const launchFails of [false, true]) {
       process: { env: { PRESCRIPTION_SCRIPT_ID: '45' }, exitCode: 0 },
       console: { error() {}, log() {}, warn() {} },
       require(name) {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
         if (name === 'playwright') return { chromium: { async launch(value) {
           events.push('launch');
           options = value;

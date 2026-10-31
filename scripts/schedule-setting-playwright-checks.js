@@ -91,37 +91,8 @@ function isLocalHttpHost(rawHost) {
 }
 
 function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  // Credentials in the URL would ride every navigation and surface in the
-  // diagnostics this check prints; it logs in through the form instead.
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-
-  const host = normalizeHost(parsed.hostname);
-  // Reachability is the loosest tier: everything the two sets above allow, plus
-  // the bind-any address and the Docker host alias. Derived from LOCAL_HTTP_HOSTS
-  // rather than restated, so a host added there cannot end up refused here.
-  const localHosts = new Set([...LOCAL_HTTP_HOSTS, '0.0.0.0', 'host.docker.internal']);
-  const octets = host.split('.');
-  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
-  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
-    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
-    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  // This check logs in with real credentials, so anything outside this machine
-  // must at least carry them over TLS — and, per the context below, prove its
-  // certificate while doing it. Same rule as
-  // scripts/flu-billing-report-playwright-checks.js.
-  if (!isLocalHttpHost(host) && parsed.protocol !== 'https:') {
-    throw new Error(`Non-local BASE_URL host ${host} must use https`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  // Delegate host/protocol/credential rules; this legacy caller retains its return shape.
+  const parsed = require('./lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl);
   return parsed;
 }
 

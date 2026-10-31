@@ -103,8 +103,15 @@ if (measurementHash != null &&
 
     measurementHash = EctMeasurementsDataBeanHandler.getLast(demographicNo, "sCr");
     if (measurementHash != null && measurementHash.get("value") != null) {
-        measurementsCr = Double.parseDouble((String) measurementHash.get("value"));
+        // Preserve the observation date even for unusable imported data: a
+        // newer invalid observation must not silently expose an older value as current.
         measurementsCrDate = (Date) measurementHash.get("dateObserved_date");
+        try {
+            double value = Double.parseDouble((String) measurementHash.get("value"));
+            if (Double.isFinite(value)) measurementsCr = value;
+        } catch (NumberFormatException ignored) {
+            // Render the unavailable state below; never log the stored clinical text.
+        }
     }
 
 
@@ -119,9 +126,10 @@ if (measurementHash != null &&
         String sCrStr = (String) hash.get("result");
         sCrDate = (Date) hash.get("collDateDate");
         try {
-            sCr = Double.parseDouble(sCrStr);
-        } catch (Exception e) {
-            MiscUtils.getLogger().debug("No idea if this is ok or not, some one else left the block blank", e);
+            double value = sCrStr == null ? -1 : Double.parseDouble(sCrStr);
+            if (Double.isFinite(value)) sCr = value;
+        } catch (NumberFormatException ignored) {
+            // Keep the selected lab date and show unavailable, not stale data.
         }
     }
 
@@ -212,7 +220,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
 </style>
 <div style="float:left; margin-left:10px; margin-right: 10px;">
     <h3>Dosing Information <small><a href="javascript: function myFunction() {return false; }"
-                                     onclick="getRenalDosingInformation();">Refresh</a></small></h3>
+                                     onclick="getRenalDosingInformation('<carlos:encode value='<%= StringUtils.noNull(request.getParameter("divId")) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= atc %>' context="javaScriptAttribute"/>'); return false;">Refresh</a></small></h3>
     <table class="sofT">
         <tr class="heading">
             <th>Clcr</th>

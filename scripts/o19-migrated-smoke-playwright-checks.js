@@ -81,6 +81,7 @@ const credentialsPath = process.env.O19_ADMIN_CREDENTIALS || path.join(stateDir,
 const screenshotDir = process.env.O19_SMOKE_SCREENSHOT_DIR || '';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const mysqlUser = process.env.MYSQL_USER || 'root';
+// Intentional exception: this check has a stricter loopback-only/import preflight below.
 const mysqlHost = process.env.MYSQL_HOST || '';
 const mysqlSocket = process.env.MYSQL_SOCKET || '';
 const mysqlPassword = process.env.MYSQL_PASSWORD || '';
@@ -150,35 +151,8 @@ function skip(name, reason) {
 }
 
 function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  // Playwright sends a URL's userinfo as Basic Auth and repeats the whole
-  // URL in navigation diagnostics, so a credential embedded here would be
-  // both transmitted and logged.
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not contain embedded credentials');
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const octets = host.split('.');
-  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
-  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
-    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
-    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
-  if (!isLoopbackHost(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  // Cleartext only to loopback. This script types the MIGRATED passwords
-  // of a real clinic's administrator and clinician into a login form; on
-  // anything but the local host that is a credential on the wire, and
-  // opting into a non-local target is not opting into that.
-  if (parsed.protocol === 'http:' && !isLoopbackHost(host)) {
-    throw new Error(`BASE_URL ${host} is not loopback, so it must use https: this smoke sends migrated account passwords`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  // Delegate host/protocol/credential rules; this legacy caller retains its return shape.
+  const parsed = require('./lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl);
   return parsed;
 }
 
