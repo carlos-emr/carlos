@@ -150,7 +150,7 @@ public class CdsXmlParser {
                     Reader text = CdsXmlText.reader(hashed, limits.maxBoundedScalarCharacters())) {
                 XMLReader reader;
                 try {
-                    reader=xmlReader();
+                    reader=xmlReader(limits);
                     reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
                     reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
                     reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
@@ -177,7 +177,7 @@ public class CdsXmlParser {
         }
     }
 
-    static XMLReader xmlReader() throws javax.xml.parsers.ParserConfigurationException, SAXException {
+    static XMLReader xmlReader(CdsInputLimitsDto limits) throws javax.xml.parsers.ParserConfigurationException, SAXException {
         // Use the maintained JDK implementation with explicit external-resource controls.
         // Audit: throw-only resolver returns no InputSource and performs no I/O; DTD/entity controls remain fail-closed.
         SAXParserFactory factory = SAXParserFactory.newDefaultInstance();
@@ -189,6 +189,10 @@ public class CdsXmlParser {
         factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
         factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         XMLReader reader = factory.newSAXParser().getXMLReader();
+        // Let CDS classify the first policy violation before the JDK's finite backstop.
+        reader.setProperty("jdk.xml.maxXMLNameLimit", String.valueOf(Math.min(Integer.MAX_VALUE,
+                1L + Math.max(limits.maxXmlNameCharacters(), limits.maxNamespaceUriCharacters()))));
+        reader.setProperty("jdk.xml.maxElementDepth", String.valueOf(Math.min(Integer.MAX_VALUE, 1L + limits.maxXmlDepth())));
         reader.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
         reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         reader.setFeature("http://xml.org/sax/features/external-general-entities", false);

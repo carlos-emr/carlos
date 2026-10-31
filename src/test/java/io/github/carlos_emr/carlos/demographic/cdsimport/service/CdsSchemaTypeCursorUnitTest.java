@@ -47,8 +47,44 @@ class CdsSchemaTypeCursorUnitTest {
 
     @Test
     void shouldUseJdkImplementations_forCdsParsingAndValidation() throws Exception {
-        assertEquals("java.xml", CdsXmlParser.xmlReader().getClass().getModule().getName());
+        assertEquals("java.xml", CdsXmlParser.xmlReader(CdsInputLimitsDto.defaults()).getClass().getModule().getName());
         assertEquals("java.xml", CdsSchemaValidator.newValidator().getClass().getModule().getName());
+    }
+
+    @Test
+    void shouldReachConfiguredCdsBoundaries_beforeJdkDefaultsRejectInput() throws Exception {
+        var limits = CdsInputLimitsDto.defaults();
+        for (String xml : new String[] {
+                "<e>".repeat(limits.maxXmlDepth()) + "</e>".repeat(limits.maxXmlDepth()),
+                "<" + "n".repeat(limits.maxXmlNameCharacters()) + "/>",
+                "<e xmlns:p='urn:" + "n".repeat(limits.maxNamespaceUriCharacters() - 4) + "'/>"}) {
+            var reader = CdsXmlParser.xmlReader(limits);
+            AtomicInteger starts = new AtomicInteger();
+            reader.setContentHandler(new DefaultHandler() {
+                @Override public void startElement(String uri, String local, String name, Attributes attributes) {
+                    starts.incrementAndGet();
+                }
+            });
+            reader.parse(new InputSource(new StringReader(xml)));
+            assertTrue(starts.get() > 0);
+        }
+    }
+
+    @Test
+    void shouldReportCdsResourceCodes_whenFirstXmlBoundaryIsExceeded() throws Exception {
+        var limits = CdsInputLimitsDto.defaults();
+        String fixture = resource("/demographic/cds-import-summary.xml");
+        String[] values = {
+                "<cdsd:Content><" + "n".repeat(limits.maxXmlNameCharacters() + 1) + "/></cdsd:Content>",
+                "<cdsd:Content xmlns:p='urn:" + "n".repeat(limits.maxNamespaceUriCharacters() - 3) + "'/>",
+                "<cdsd:Content>" + "<e>".repeat(limits.maxXmlDepth())
+                        + "</e>".repeat(limits.maxXmlDepth()) + "</cdsd:Content>"};
+        String[] codes = {"CDS_XML_NAME_RESOURCE_LIMIT", "CDS_XML_NAMESPACE_RESOURCE_LIMIT", "CDS_XML_DEPTH_LIMIT"};
+        for (int i = 0; i < values.length; i++) {
+            String xml = beforeNotes(fixture, residual(values[i]));
+            CdsInputException failure = assertThrows(CdsInputException.class, () -> parse(xml));
+            assertEquals(codes[i], failure.code());
+        }
     }
 
     @Test
@@ -249,7 +285,7 @@ class CdsSchemaTypeCursorUnitTest {
                 elements.incrementAndGet();
             }
         });
-        var reader = CdsXmlParser.xmlReader();
+        var reader = CdsXmlParser.xmlReader(CdsInputLimitsDto.defaults());
         reader.setContentHandler(new DefaultHandler() {
             @Override public void setDocumentLocator(Locator locator) { validator.setDocumentLocator(locator); }
             @Override public void startDocument() throws SAXException { validator.startDocument(); }

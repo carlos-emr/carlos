@@ -497,7 +497,7 @@ public class CdsSnapshotService {
                     }
                 };
                 Reader text = CdsXmlText.reader(input, limits.maxBoundedScalarCharacters())) {
-            var reader = CdsXmlParser.xmlReader();
+            var reader = CdsXmlParser.xmlReader(limits);
             reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
             reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
@@ -531,7 +531,7 @@ public class CdsSnapshotService {
         try (InputStream raw = Files.newInputStream(copied, LinkOption.NOFOLLOW_LINKS);
                 InputStream input = new CountingSource(raw, inventory.limits.maxSourceBytes(), inventory::check);
                 Reader text = CdsXmlText.reader(input, inventory.limits.maxBoundedScalarCharacters())) {
-            var reader = CdsXmlParser.xmlReader();
+            var reader = CdsXmlParser.xmlReader(inventory.limits);
             reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
             reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);

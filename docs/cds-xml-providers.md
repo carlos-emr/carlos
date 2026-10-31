@@ -41,7 +41,9 @@ CDS explicitly selects `SAXParserFactory.newDefaultInstance()` and
 `SchemaFactory.newDefaultInstance()`. DTDs and external entities are disabled;
 external DTD/schema access is denied. The schema resolver accepts only the expected
 local, hash-verified datatype schema. Metadata DOM construction also rejects DTDs
-and external resources. Runtime identity already hashes the JDK module image,
+and external resources. Each reader sets finite JDK name/depth ceilings just above
+its configured CDS limits so CDS can classify the first boundary violation.
+Runtime identity already hashes the JDK module image,
 covering the XML implementation along with the existing runtime compatibility
 checks for prepared imports.
 
