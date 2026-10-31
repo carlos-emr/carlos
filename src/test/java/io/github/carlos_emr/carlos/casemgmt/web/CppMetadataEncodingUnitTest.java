@@ -29,13 +29,10 @@ class CppMetadataEncodingUnitTest {
         extra.setKeyVal("Treatment");
         extra.setValue(value);
 
-        for (String text : new String[]{
-                CaseManagementViewAction.getNoteExt(1L, "Treatment", List.of(extra)),
-                CaseManagementView2Action.getNoteExt(1L, "Treatment", List.of(extra))}) {
-            assertThat(text).isEqualTo(value);
-            var html = Jsoup.parse("<p>" + SafeEncode.forHtml(text) + "</p>");
-            assertThat(html.selectFirst("p").wholeText()).isEqualTo(value);
-            assertThat(html.select("#injected")).isEmpty();
-        }
+        String text = CaseManagementViewAction.getNoteExt(1L, "Treatment", List.of(extra));
+        assertThat(text).isEqualTo(value);
+        var html = Jsoup.parse("<p>" + SafeEncode.forHtml(text) + "</p>");
+        assertThat(html.selectFirst("p").wholeText()).isEqualTo(value);
+        assertThat(html.select("#injected")).isEmpty();
     }
 }

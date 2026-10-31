@@ -48,6 +48,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.StringUtils;
+import org.owasp.encoder.Encode;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -1678,8 +1679,7 @@ public class CaseManagementView2Action extends ActionSupport {
                 if (key.contains(" Date")) {
                     val = UtilDateUtilities.DateToString(cme.getDateValue(), "yyyy-MM-dd");
                 } else {
-                    // The caller HTML-encodes the complete note; keep its metadata as text.
-                    val = cme.getValue();
+                    val = Encode.forJavaScript(cme.getValue());
                 }
                 return val;
             }
