@@ -33,6 +33,11 @@ parser, wrapper, tag, browser, build, and CI validation.
   `unescapeEcmaScript`, which does not decode `\xNN`. It now evaluates the real
   JavaScript literal in Node's isolated VM and retains its quote/line-break
   checks. Existing null and OWASP delegation tests remain in place.
+- The third-party AJAX login response had JavaScript-encoded a provider name
+  before placing it in a Jackson JSON object. Hex escapes then survived JSON
+  parsing as visible text. Jackson now serializes the original name, and the
+  existing `textContent` consumer keeps markup inert. Response round-trip tests
+  cover spaces, quotes, backslashes, Unicode, and markup-like names.
 - CDATA preserves parsed text but can expand 13× and split parser events.
   XML-comment hyphens become `~`, a documented lossy policy. On the starting
   release branch, these contexts have no production consumers outside wrapper,
@@ -58,10 +63,15 @@ page errors. The same check fails with the original 1.4.1 core on its first
 split closing-script fixture. This is parser-fixture validation, not a full
 clinical-workflow browser run.
 
+Five actual `Login2Action` JSON responses also passed through the third-party
+JSP's submit handler in Playwright. Provider names retained spaces, quotes,
+backslashes, Unicode, and markup-like text, with no injected elements or page
+errors. The five JSON round-trip unit cases fail against the original producer.
+
 Reproduce the permanent focused tests with JDK 25, Maven, and Node installed:
 
 ```sh
-mvn -B -ntp -Dtest=EncoderBoundaryUnitTest,SafeEncodeUnitTest,CarlosEncodeTagUnitTest test
+mvn -B -ntp -Dtest=EncoderBoundaryUnitTest,SafeEncodeUnitTest,CarlosEncodeTagUnitTest,Login2ActionForcedPasswordResetUnitTest test
 ```
 
 The Maven lock goal changes only the versions and SHA-512 integrity values of
