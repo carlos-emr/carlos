@@ -65,10 +65,10 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("FAKE Patient");
         when(emailComposeManager.getRecipients(any(), anyInt())).thenReturn(new List<?>[]{List.of(), List.of()});
         when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
-        when(emailComposeManager.prepareEFormAttachments(any(), any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareEDocAttachments(any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareLabAttachments(any(), any())).thenReturn(List.of());
-        when(emailComposeManager.prepareHRMAttachments(any(), any())).thenReturn(List.of());
+        when(emailComposeManager.prepareEFormAttachments(any(), any(), any(), any())).thenReturn(List.of());
+        when(emailComposeManager.prepareEDocAttachments(any(), any(), any())).thenReturn(List.of());
+        when(emailComposeManager.prepareLabAttachments(any(), any(), any())).thenReturn(List.of());
+        when(emailComposeManager.prepareHRMAttachments(any(), any(), any())).thenReturn(List.of());
         when(emailComposeManager.prepareFormAttachments(any(), any(), any(), anyInt())).thenReturn(List.of());
         servletActionContext = mockStatic(ServletActionContext.class);
     }
@@ -132,8 +132,8 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
 
         assertShowsWindow(windowA, "10001", "20001", false, "A");
         assertShowsWindow(windowB, "10002", "20002", true, "B");
-        verify(emailComposeManager).prepareEFormAttachments(any(), eq("20001"), eq(new String[]{"510001"}));
-        verify(emailComposeManager).prepareEFormAttachments(any(), eq("20002"), eq(new String[]{"510002"}));
+        verify(emailComposeManager).prepareEFormAttachments(any(), eq("20001"), eq(new String[]{"510001"}), eq(10001));
+        verify(emailComposeManager).prepareEFormAttachments(any(), eq("20002"), eq(new String[]{"510002"}), eq(10002));
     }
 
     @Test
@@ -141,7 +141,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     void shouldKeepWholeDraft_whenAnotherSaveLandsDuringAttachmentRendering() throws Exception {
         String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
         String[] keyB = new String[1];
-        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any())).thenAnswer(invocation -> {
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any(), any())).thenAnswer(invocation -> {
             // Window B saves its eForm while window A's PDFs are being rendered.
             keyB[0] = EmailComposeStaging.stage(session, "40002", draft("10002", "20002", true, "B"));
             return file("A");
@@ -159,8 +159,8 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should stage each window's attachments under its own key, bound to its own patient")
     void shouldStageEachWindowsAttachments_underItsOwnPatientBoundKey() throws Exception {
-        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any())).thenReturn(file("A"));
-        when(emailComposeManager.prepareEFormAttachments(any(), eq("20002"), any())).thenReturn(file("B"));
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any(), any())).thenReturn(file("A"));
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20002"), any(), any())).thenReturn(file("B"));
         String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
         String keyB = EmailComposeStaging.stage(session, "40002", draft("10002", "20002", true, "B"));
 
@@ -207,7 +207,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         for (String key : new String[]{null, "not-a-key", "AAAAAAAAAAAAAAAAAAAAAA", keyA}) {
             assertShowsDraftExpired(prepare(key), String.valueOf(key));
         }
-        verify(emailComposeManager, never()).prepareEFormAttachments(any(), eq("20002"), any());
+        verify(emailComposeManager, never()).prepareEFormAttachments(any(), eq("20002"), any(), any());
     }
 
     @Test
@@ -219,7 +219,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         }
 
         assertShowsDraftExpired(prepare(oldest), "dropped");
-        verify(emailComposeManager, never()).prepareEFormAttachments(any(), eq("20001"), any());
+        verify(emailComposeManager, never()).prepareEFormAttachments(any(), eq("20001"), any(), any());
     }
 
     /** The draft-expired page: its own result, 410, and nothing about any patient, eForm or draft. */
@@ -236,7 +236,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should give the window its draft back when preparing its attachments fails, so a refresh retries")
     void shouldRestoreDraft_whenAttachmentPreparationFails() throws Exception {
         String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
-        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any()))
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any(), any()))
                 .thenThrow(new PDFGenerationException("FAKE render failure"))
                 .thenReturn(file("A"));
 
@@ -265,8 +265,8 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should refuse to the access-denied page, not the retry message, when an attachment privilege is missing")
     void shouldRethrowRefusal_whenAttachmentPrivilegeMissing() throws Exception {
         String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
-        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any())).thenReturn(file("A"));
-        when(emailComposeManager.prepareEDocAttachments(any(), any()))
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any(), any())).thenReturn(file("A"));
+        when(emailComposeManager.prepareEDocAttachments(any(), any(), any()))
                 .thenThrow(new SecurityException("missing required sec object (_edoc)"))
                 .thenReturn(List.of());
 
@@ -279,7 +279,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should show the generic message, not the error's text, when attachment preparation throws unexpectedly")
     void shouldShowGenericMessage_whenAttachmentPreparationThrowsUnexpectedly() throws Exception {
         String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
-        when(emailComposeManager.prepareEDocAttachments(any(), any()))
+        when(emailComposeManager.prepareEDocAttachments(any(), any(), any()))
                 .thenThrow(new IllegalStateException("FAKE-Smith /var/FAKE-path/scan.pdf"));
 
         MockHttpServletRequest request = prepare(keyA);
@@ -295,7 +295,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     void shouldShowGenericMessageAndLogNoDetail_whenAttachmentPreparationFails() throws Exception {
         String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
         // Stands for an exception whose text names a file and repeats document content.
-        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any()))
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any(), any()))
                 .thenThrow(new PDFGenerationException("FAKE-Smith /var/FAKE-path/report.pdf"));
 
         MockHttpServletRequest request;

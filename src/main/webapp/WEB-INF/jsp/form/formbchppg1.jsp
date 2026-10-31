@@ -114,8 +114,9 @@
             String oldDateFormat = "yyyy-MM-dd";
             String newDateFormat = "dd/MM/yyyy";
 
-            Date date = UtilDateUtilities.StringToDate((String) vacHash.get("prevention_date"), oldDateFormat);
-            String vacDate = UtilDateUtilities.DateToString(date, newDateFormat);
+            Date date = (Date) vacHash.get("prevention_date_asDate");
+            String vacDate = date == null ? (String) vacHash.get("prevention_date_no_time")
+                    : UtilDateUtilities.DateToString(date, newDateFormat);
 
             if (type.equals("Flu")) {
                 fluCount++;

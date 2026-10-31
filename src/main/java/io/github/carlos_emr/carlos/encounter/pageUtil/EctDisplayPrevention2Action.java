@@ -151,7 +151,12 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
                     String colour;
                     String newestRecordId = null;
 
-                    if (alist.size() > 0) {
+                    boolean timingReview = hasUncertainTiming(alist);
+                    if (timingReview) {
+                        item.setDate(null);
+                        prefix = PREFIX_WARNING;
+                        colour = COLOUR_HIGHLIGHT;
+                    } else if (alist.size() > 0) {
                         // Newest record: the same one whose date and status this row shows.
                         Map<String, Object> hdata = newestPrevention(alist);
                         newestRecordId = (String) hdata.get("id");
@@ -182,7 +187,7 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
                         colour = COLOUR_NOT_DOCUMENTED;
                     }
 
-                    boolean isWarning = warningTable.containsKey(prevName);
+                    boolean isWarning = timingReview || warningTable.containsKey(prevName);
                     if (isWarning) {
                         prefix = PREFIX_WARNING;
                         colour = COLOUR_HIGHLIGHT;
@@ -191,8 +196,8 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
                     String title = StringUtils.maxLenString(h.get("name"), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
                     item.setTitle(prefix + title);
                     item.setColour(colour);
-                    item.setLinkTitle(h.get("desc"));
-                    item.setURL(canWritePrevention ? buildItemHandler(request.getContextPath(), bean.demographicNo, h, newestRecordId) : url);
+                    item.setLinkTitle(timingReview ? h.get("desc") + " — Timing requires review" : h.get("desc"));
+                    item.setURL(canWritePrevention && !timingReview ? buildItemHandler(request.getContextPath(), bean.demographicNo, h, newestRecordId) : url);
 
                     if (isWarning) {
                         warnings.add(item);
@@ -227,10 +232,18 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
      * @return the newest record, or null for an empty history
      */
     static Map<String, Object> newestPrevention(List<Map<String, Object>> records) {
+        if (hasUncertainTiming(records)) {
+            throw new io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException();
+        }
         Comparator<Map<String, Object>> order = Comparator.comparing(
                 EctDisplayPrevention2Action::preventionDate, Comparator.nullsFirst(Comparator.naturalOrder()));
         return records.stream().max(order.thenComparingLong(record -> Long.parseLong(record.get("id").toString())))
                 .orElse(null);
+    }
+
+    static boolean hasUncertainTiming(List<Map<String, Object>> records) {
+        return records.stream().anyMatch(row -> Boolean.TRUE.equals(row.get("cds_imported")) && row.get("prevention_date_info")
+                instanceof io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO date && !date.isExact());
     }
 
     /** Returns the clinical date from either legacy date representation, or null if it is absent. */

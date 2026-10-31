@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.commn.model;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 import jakarta.persistence.Column;
@@ -42,6 +43,28 @@ import jakarta.persistence.TemporalType;
 @Entity
 @Table(name = "messagetbl")
 public class MessageTbl extends AbstractModel<Integer> {
+
+    /**
+     * The most bytes the {@code pdfattachment} column holds: it is a {@code MEDIUMBLOB}, 16,777,215 bytes, since
+     * migration {@code V1.0.59.8} (it was a {@code BLOB} of 65,535 bytes, which held one chart PDF and cut a second off
+     * in the middle). MariaDB cuts anything longer off without a word when {@code sql_mode} is not strict, which it is
+     * not on a packaged install. The text of the chart PDFs of a message (the {@code <PDF>} records, which hold each
+     * PDF as base64) is held to it where it is attached and where it is stored, so that a message never goes out with
+     * a PDF cut in two. A PDF with its fonts embedded is some 40 KB, 55 KB as base64. Change it only with the column.
+     */
+    public static final int PDF_ATTACHMENT_MAX_BYTES = 16_777_215;
+
+    /**
+     * Whether the chart PDF records of a message fit the {@code pdfattachment} column, measured as they are stored
+     * (UTF-8). The Messenger quotes records before it stores them, so records that are only staged are judged with
+     * {@code MsgMessageData.pdfAttachmentFits} instead.
+     *
+     * @param pdfRecords the records as stored, or {@code null} when the message carries none
+     * @return {@code true} for no records, or records of at most {@link #PDF_ATTACHMENT_MAX_BYTES} bytes
+     */
+    public static boolean pdfAttachmentFits(String pdfRecords) {
+        return pdfRecords == null || pdfRecords.getBytes(StandardCharsets.UTF_8).length <= PDF_ATTACHMENT_MAX_BYTES;
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -23,9 +23,12 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: render native medication precision.
  */
 
 package io.github.carlos_emr.carlos.casemgmt.web;
+
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService;
 
 import io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext;
 
@@ -493,6 +496,8 @@ public class CaseManagementView2Action extends ActionSupport {
         logger.debug("Get Allergies");
         List<Allergy> allergies = this.caseManagementMgr.getAllergies(demoNo);
         request.setAttribute("Allergies", allergies);
+        request.setAttribute("AllergyRecordedLabels", SpringUtils.getBean(CdsTemporalReadService.class)
+                .allergyRecordedLabels(allergies));
         current = System.currentTimeMillis();
         logger.debug("Get Allergies {}", current - start);
         start = current;
@@ -504,6 +509,9 @@ public class CaseManagementView2Action extends ActionSupport {
             prescriptions = caseManagementMgr.getPrescriptions(loggedInInfo, Integer.parseInt(demoNo), viewAll);
 
             request.setAttribute("Prescriptions", prescriptions);
+            request.setAttribute("PrescriptionDateLabels", SpringUtils.getBean(
+                    CdsTemporalReadService.class)
+                    .medicationStartLabels(prescriptions));
 
             // Setup RX bean start
             // Make sure this patient has an Rx bean without replacing it (#3875): rendering the
@@ -1356,8 +1364,7 @@ public class CaseManagementView2Action extends ActionSupport {
             Collections.sort(resultsSorted, CaseManagementNote.getRoleComparator());
         }
         if (field.equals("observation_date_asc")) {
-            Collections.sort(resultsSorted, CaseManagementNote.noteObservationDateComparator);
-            Collections.reverse(resultsSorted);
+            Collections.sort(resultsSorted, CaseManagementNote.observationDateComparator(true));
         }
         if (field.equals("observation_date_desc")) {
             Collections.sort(resultsSorted, CaseManagementNote.noteObservationDateComparator);
@@ -1380,8 +1387,7 @@ public class CaseManagementView2Action extends ActionSupport {
             Collections.sort(notes, NoteDisplay.noteRoleComparator);
         }
         if (field.equals("observation_date_asc")) {
-            Collections.sort(notes, NoteDisplay.noteObservationDateComparator);
-            Collections.reverse(notes);
+            Collections.sort(notes, NoteDisplay.observationDateComparator(true));
         }
         if (field.equals("observation_date_desc")) {
             Collections.sort(notes, NoteDisplay.noteObservationDateComparator);

@@ -185,14 +185,15 @@ class MeasurementPatientMatchMariaDbIntegrationTest {
         int id = seed("lab_no", LAB);
         transaction(em -> {
             Measurement measurement = em.find(Measurement.class, id);
+            MeasurementDaoImpl measurements = dao(em);
             for (int invalid : new int[]{0, -1}) {
-                assertThatThrownBy(() -> dao(em).reassignLabPatient(measurement, LAB, invalid))
+                assertThatThrownBy(() -> measurements.reassignLabPatient(measurement, LAB, invalid))
                         .isInstanceOf(IllegalArgumentException.class);
             }
-            assertThatThrownBy(() -> dao(em).reassignLabPatient(null, LAB, PATIENT))
+            assertThatThrownBy(() -> measurements.reassignLabPatient(null, LAB, PATIENT))
                     .isInstanceOf(IllegalArgumentException.class);
             em.detach(measurement);
-            assertThatThrownBy(() -> dao(em).reassignLabPatient(measurement, LAB, PATIENT))
+            assertThatThrownBy(() -> measurements.reassignLabPatient(measurement, LAB, PATIENT))
                     .isInstanceOf(IllegalArgumentException.class);
             return null;
         });

@@ -25,14 +25,31 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: add explicit native temporal precision.
  */
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
+
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalNativeDateDto;
 
 import java.util.Date;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 public class AllergyTo1 {
+    private String reactionType;
+    private Boolean nonDrug;
+    private CdsTemporalNativeDateDto startDateInfo;
+    private CdsTemporalNativeDateDto entryDateInfo;
+
+    public String getReactionType() { return reactionType; }
+    public void setReactionType(String value) { reactionType = value; }
+    public Boolean getNonDrug() { return nonDrug; }
+    public void setNonDrug(Boolean value) { nonDrug = value; }
+    public CdsTemporalNativeDateDto getStartDateInfo() { return startDateInfo; }
+    public void setStartDateInfo(CdsTemporalNativeDateDto value) { startDateInfo = value; }
+    public CdsTemporalNativeDateDto getEntryDateInfo() { return entryDateInfo; }
+    public void setEntryDateInfo(CdsTemporalNativeDateDto value) { entryDateInfo = value; }
+
 
     private Integer id;
     private Integer demographicNo;

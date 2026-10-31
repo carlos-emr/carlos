@@ -1740,7 +1740,8 @@
                                                    onClick="goSearchView('<%=curProvider_no[nProvider]%>')"
                                                    title="<fmt:message key="provider.appointmentProviderAdminDay.searchView"/>"
                                                    style="color:black" class="noprint">
-                                            <input type='radio' name='flipview' class="noprint"
+                                            <label for="flipview<%=nProvider%>" class="visually-hidden"><fmt:message key="schedule.scheduleflipview.title"/> — <carlos:encode value='<%= curProviderName[nProvider] %>' context="html"/></label>
+                                            <input type='radio' name='flipview' id="flipview<%=nProvider%>" class="noprint"
                                                    onClick="goFilpView('<%=curProvider_no[nProvider]%>')"
                                                    title="<fmt:message key="schedule.scheduleflipview.title"/>"
                                                    aria-label="<fmt:message key="schedule.scheduleflipview.title"/>">
@@ -2010,7 +2011,7 @@
 
                                                                   String demographicAlert = dCust != null && dCust.getAlert() != null ? dCust.getAlert() : "";
                                                                   String demographicNotes = dCust != null && dCust.getNotes() != null
-                                                                          ? SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>")
+                                                                          ? io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(dCust.getNotes())
                                                                           : "";
 
                                                                   String timeRange = iS + ":" + (iSm >= 10 ? "" : "0") + iSm + "-" + iE + ":" + (iEm >= 10 ? "" : "0") + iEm;
@@ -2146,10 +2147,10 @@
 
                                                         <!--  notes -->
                                                         <% if (CarlosProperties.getInstance().getProperty("displayNotesOnScheduleScreen", "").equals("true")) { %>
-                                                        <% if (dCust != null && dCust.getNotes() != null && !SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>").isEmpty()) { %>
+                                                        <% if (dCust != null && dCust.getNotes() != null && !io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(dCust.getNotes()).isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
-                                                           title="<carlos:encode value='<%= SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>") %>' context="htmlAttribute"/>">N</a>
+                                                           title="<carlos:encode value='<%= io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(dCust.getNotes()) %>' context="htmlAttribute"/>">N</a>
 
                                                         <%
                                                                 }
@@ -2204,10 +2205,10 @@
 
                                                         <!--  notes -->
                                                         <% if (CarlosProperties.getInstance().getProperty("displayNotesOnScheduleScreen", "").equals("true")) {%>
-                                                        <% if (dCust != null && dCust.getNotes() != null && !SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>").isEmpty()) { %>
+                                                        <% if (dCust != null && dCust.getNotes() != null && !io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(dCust.getNotes()).isEmpty()) { %>
                                                         <a href="#" onClick="return false;"
 
-                                                           title="<carlos:encode value='<%= SxmlMisc.getXmlContent(dCust.getNotes(), "<unotes>", "</unotes>") %>' context="htmlAttribute"/>">N</a>
+                                                           title="<carlos:encode value='<%= io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(dCust.getNotes()) %>' context="htmlAttribute"/>">N</a>
 
                                                         <%
                                                                 }

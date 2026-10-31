@@ -691,13 +691,14 @@ NOT_RENAMES = {
     # itself was ruled on when it was added to B3_COLUMNS.
     ("document", "fileSignature"): (
         "curated B3 drop; CARLOS's abnormal/report_media/sent_date_time "
-        "are additions",
-        ("abnormal", "report_media", "sent_date_time")),
+        "and CDS source content-precision metadata are additions, not file signatures",
+        ("abnormal", "report_media", "sent_date_time", "cds_content_precision")),
     ("drugs", "dispensingUnits"): (
         "curated B3 drop; CARLOS's demographic_contact_id/protocol/"
-        "priorRxProtocol/pharmacyId are additions",
+        "priorRxProtocol/pharmacyId and CDS currentness, exact dose text and "
+        "projection-completeness metadata are additions, not dispensing units",
         ("demographic_contact_id", "protocol", "priorRxProtocol",
-         "pharmacyId")),
+         "pharmacyId", "cds_currentness", "cds_dose_text", "cds_projection_incomplete")),
 
     # The eRx module CARLOS removed. CARLOS's defaultBillingLocation and
     # defaultSliCode are unrelated additions.

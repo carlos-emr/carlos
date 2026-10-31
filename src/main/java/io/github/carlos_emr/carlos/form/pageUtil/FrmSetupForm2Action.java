@@ -66,6 +66,7 @@ import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 /*
@@ -83,8 +84,21 @@ public final class FrmSetupForm2Action extends ActionSupport {
 
 
     private String _dateFormat = "yyyy-MM-dd";
-    private transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private transient EncounterFormDao encounterFormDao = SpringUtils.getBean(EncounterFormDao.class);
+    private transient SecurityInfoManager securityInfoManager;
+    private transient EncounterFormDao encounterFormDao;
+    private final transient CdsTemporalReadService medicationDates;
+
+    public FrmSetupForm2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(EncounterFormDao.class),
+                SpringUtils.getBean(CdsTemporalReadService.class));
+    }
+
+    FrmSetupForm2Action(SecurityInfoManager securityInfoManager, EncounterFormDao encounterFormDao,
+            CdsTemporalReadService medicationDates) {
+        this.securityInfoManager = securityInfoManager;
+        this.encounterFormDao = encounterFormDao;
+        this.medicationDates = medicationDates;
+    }
     
     // Pattern to validate form names - only alphanumeric characters and underscores allowed
     private static final Pattern VALID_FORM_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]+$");
@@ -278,10 +292,19 @@ public final class FrmSetupForm2Action extends ActionSupport {
         RxPrescriptionData.Prescription[] prescribedDrugs = p.getPrescribedDrugsUnique();
         if (prescribedDrugs.length == 0 && fluShot == null) drugs = null;
         for (int i = 0; i < prescribedDrugs.length; i++) {
-            drugs.add(prescribedDrugs[i].getRxDate().toString() + "    " + prescribedDrugs[i].getRxDisplay());
+            drugs.add(medicationLine(prescribedDrugs[i]));
         }
 
         return drugs;
+    }
+
+    String medicationLine(RxPrescriptionData.Prescription medication) {
+        if (medication.getCdsCurrentness() == null)
+            return (medication.getRxDate() == null ? "" : medication.getRxDate().toString())
+                    + "    " + medication.getRxDisplay();
+        String date = medicationDates.medicationStart(medication.getDrugId(), medication.getRxDate(),
+                medication.getStartDateUnknown()).display();
+        return date + "    " + RxPrescriptionData.getFullOutLine(medication.getSpecial());
     }
 
     private List getDrugAllegyList(LoggedInInfo loggedInInfo, String demographicNo) {

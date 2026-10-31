@@ -1762,7 +1762,19 @@
         </script>
     </oscar:oscarPropertiesCheck>
 
+    <fmt:message var="consultRefDateLabel" key="encounter.oscarConsultationRequest.ConsultationFormRequest.formRefDate"/>
+    <fmt:message var="consultApptDateLabel" key="encounter.oscarConsultationRequest.ConsultationFormRequest.btnAppointmentDate"/>
+    <fmt:message var="consultFollowUpLabel" key="encounter.oscarConsultationRequest.ConsultationFormRequest.formLastFollowup"/>
+    <fmt:message var="consultInvalidDateMessage" key="encounter.oscarConsultationRequest.ConsultationFormRequest.msgInvalidDate">
+        <fmt:param value="__FIELD__"/>
+    </fmt:message>
     <script type="text/javascript">
+        var consultDateLabels = {
+            referalDate: '${carlos:forJavaScript(consultRefDateLabel)}',
+            appointmentDate: '${carlos:forJavaScript(consultApptDateLabel)}',
+            followUpDate: '${carlos:forJavaScript(consultFollowUpLabel)}'
+        };
+        var consultDateMessage = '${carlos:forJavaScript(consultInvalidDateMessage)}';
 
         function checkForm(submissionVal, formName) {
             // A typed name is not a directory selection. Validate the posted id on both pickers.
@@ -1771,6 +1783,22 @@
                 alert('Please select an active consultant from the consultant directory before saving.');
                 (document.getElementById('specialistInput') || consultant).focus();
                 return false;
+            }
+            // A date the browser cannot read (an impossible day such as 30 February) posts as an
+            // empty value, which would save the referral without that date or, on Update, clear the
+            // stored one, and an unsaved Print Preview would print without it. Refuse it and name the
+            // field instead (issue #5272).
+            if (/^(Submit|Update)/.test(submissionVal) || submissionVal === 'And Print Preview') {
+                var unreadableDate = ['referalDate', 'appointmentDate', 'followUpDate'].map(function (id) {
+                    return document.getElementById(id);
+                }).filter(function (input) {
+                    return input && !input.disabled && input.validity && input.validity.badInput;
+                })[0];
+                if (unreadableDate) {
+                    alert(consultDateMessage.replace('__FIELD__', consultDateLabels[unreadableDate.id]));
+                    unreadableDate.focus();
+                    return false;
+                }
             }
             ShowSpin(true);
             var success = true;
@@ -2433,6 +2461,9 @@ if (userAgent != null) {
                 // Overlay posted fields after loading patient/legacy metadata and defaults.
                 new org.springframework.beans.BeanWrapperImpl(thisForm).setPropertyValues((Map) request.getAttribute("consultationSubmittedValues"));
                 thisForm.setSpecialist(""); // force a fresh active directory selection
+                if (bMultisites && thisForm.getSiteName() != null && !thisForm.getSiteName().isEmpty()) {
+                    defaultSiteName = thisForm.getSiteName(); // redisplay the site the clinician chose
+                }
             }
 
             if (thisForm.iseReferral()) {
@@ -3040,17 +3071,32 @@ if (userAgent != null) {
                                             <fmt:message key="encounter.oscarConsultationRequest.ConsultationFormRequest.siteName"/>
                                         </td>
                                         <td>
+                                            <%-- The saved site (or, for a new request, the site of the appointment
+                                                 the chart was opened from) must render selected. A plain <select>
+                                                 does not pick it from the form bean the way the old Struts
+                                                 html:select did, so without "selected" every request reopened on
+                                                 the first site and its next Update silently moved it there
+                                                 (issue #5274). A saved site this login is not linked to, or that
+                                                 is no longer active, is kept as an option rather than replaced. --%>
                                             <select name="siteName" id="siteName" class="form-select form-select-sm">
-                                                <% for (int i = 0; i < vecAddressName.size(); i++) {
+                                                <% boolean savedSiteOffered = defaultSiteName == null || defaultSiteName.isEmpty();
+                                                   for (int i = 0; i < vecAddressName.size(); i++) {
                                                     String te = vecAddressName.get(i);
                                                     String bg = bgColor.get(i);
-                                                    if (te.equals(defaultSiteName))
+                                                    boolean selectedSite = te.equals(defaultSiteName);
+                                                    if (selectedSite) {
                                                         defaultSiteId = siteIds.get(i);
+                                                        savedSiteOffered = true;
+                                                    }
                                                 %>
                                                 <option value="<carlos:encode value='<%= te %>' context="htmlAttribute"/>"
-                                                             style="background-color:<carlos:encode value='<%= bg %>' context="cssString"/>"><carlos:encode value='<%= te %>' context="html"/>
+                                                             style="background-color:<carlos:encode value='<%= bg %>' context="cssString"/>"<%= selectedSite ? " selected" : "" %>><carlos:encode value='<%= te %>' context="html"/>
                                                 </option>
-                                                <% }%>
+                                                <% }
+                                                   if (!savedSiteOffered) { %>
+                                                <option value="<carlos:encode value='<%= defaultSiteName %>' context="htmlAttribute"/>" selected><carlos:encode value='<%= defaultSiteName %>' context="html"/>
+                                                </option>
+                                                <% } %>
                                             </select>
                                         </td>
                                     </tr>

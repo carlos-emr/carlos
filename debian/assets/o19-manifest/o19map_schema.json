@@ -14187,7 +14187,9 @@
    "pronoun",
    "pronounId",
    "gender",
-   "pref_name"
+   "pref_name",
+   "cds_identity_hin",
+   "cds_identity_issuer"
   ],
   "demographicArchive": [
    "id",
@@ -14389,7 +14391,8 @@
    "abnormal",
    "receivedDate",
    "report_media",
-   "sent_date_time"
+   "sent_date_time",
+   "cds_content_precision"
   ],
   "document_storage": [
    "id",
@@ -14471,7 +14474,10 @@
    "demographic_contact_id",
    "protocol",
    "priorRxProtocol",
-   "pharmacyId"
+   "pharmacyId",
+   "cds_currentness",
+   "cds_dose_text",
+   "cds_projection_incomplete"
   ],
   "dsGuidelineProviderMap": [
    "mapid",
@@ -23404,7 +23410,6 @@
    "archived",
    "custom_instructions",
    "hide_cpp",
-   "nosubs",
    "prn",
    "start_date_unknown",
    "takemax",
@@ -44202,7 +44207,9 @@
      "pronoun",
      "pronounId",
      "gender",
-     "pref_name"
+     "pref_name",
+     "cds_identity_hin",
+     "cds_identity_issuer"
     ],
     "demographicArchive": [
      "id",
@@ -44404,7 +44411,8 @@
      "abnormal",
      "receivedDate",
      "report_media",
-     "sent_date_time"
+     "sent_date_time",
+     "cds_content_precision"
     ],
     "document_storage": [
      "id",
@@ -44486,7 +44494,10 @@
      "demographic_contact_id",
      "protocol",
      "priorRxProtocol",
-     "pharmacyId"
+     "pharmacyId",
+     "cds_currentness",
+     "cds_dose_text",
+     "cds_projection_incomplete"
     ],
     "dsGuidelineProviderMap": [
      "mapid",
@@ -57624,7 +57635,6 @@
      "archived",
      "custom_instructions",
      "hide_cpp",
-     "nosubs",
      "prn",
      "start_date_unknown",
      "takemax",

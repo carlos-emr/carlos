@@ -37,6 +37,8 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.Prescription;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
@@ -45,6 +47,10 @@ import java.util.Locale;
 
 public class EctDisplayRx2Action extends EctDisplayAction {
     private String cmd = "Rx";
+    private final transient CdsTemporalReadService medicationDates;
+
+    public EctDisplayRx2Action() { this(SpringUtils.getBean(CdsTemporalReadService.class)); }
+    EctDisplayRx2Action(CdsTemporalReadService medicationDates) { this.medicationDates = medicationDates; }
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
 
@@ -101,15 +107,16 @@ public class EctDisplayRx2Action extends EctDisplayAction {
                     }
 
                     if (prefsBean != null && "on".equals(prefsBean.getMedicationStartDate())) {
-                        descr += " Start Date:" + DateUtils.formatDate(drug.getRxDate(), locale);
+                        descr += " Start Date:" + startDateDisplay(drug, locale);
                     }
                     if (prefsBean != null && "on".equals(prefsBean.getMedicationEndDate()) && !drug.isLongTerm()) {
-                        descr += " End Date:" + DateUtils.formatDate(drug.getEndDate(), locale);
+                        descr += " End Date:" + (drug.getCdsCurrentness() != null && drug.getEndDate() == null
+                                ? "Unknown" : DateUtils.formatDate(drug.getEndDate(), locale));
                     }
                     String tmp = "";
                     if (drug.getFullOutLine() != null)
                         tmp = drug.getFullOutLine().replaceAll(";", " ");
-                    tmp = stripQtyRepeats(tmp);
+                    if (drug.getCdsCurrentness() == null) tmp = stripQtyRepeats(tmp);
 
                     item.setTitle(titleSpan(getClassColour(drug, now, month), descr));
                     item.setLinkTitle(tmp);
@@ -118,7 +125,7 @@ public class EctDisplayRx2Action extends EctDisplayAction {
                     String tmp = "";
                     if (drug.getFullOutLine() != null)
                         tmp = drug.getFullOutLine().replaceAll(";", " ");
-                    tmp = stripQtyRepeats(tmp);
+                    if (drug.getCdsCurrentness() == null) tmp = stripQtyRepeats(tmp);
 
                     String strTitle = StringUtils.maxLenString(tmp, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
                     item.setTitle(titleSpan(getClassColour(drug, now, month), strTitle));
@@ -131,6 +138,12 @@ public class EctDisplayRx2Action extends EctDisplayAction {
 
             return true;
         }
+    }
+
+    String startDateDisplay(Prescription medication, Locale locale) {
+        if (medication.getCdsCurrentness() == null) return DateUtils.formatDate(medication.getRxDate(), locale);
+        return medicationDates.medicationStart(medication.getDrugId(), medication.getRxDate(),
+                medication.getStartDateUnknown()).display();
     }
 
     /**

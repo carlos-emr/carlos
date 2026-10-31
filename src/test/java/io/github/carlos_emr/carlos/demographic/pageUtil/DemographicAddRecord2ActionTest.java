@@ -145,8 +145,8 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should return validationError when last name exceeds thirty characters")
-    void shouldReturnValidationError_whenLastNameExceedsThirtyCharacters() throws Exception {
+    @DisplayName("should return validationError when last name exceeds fifty characters")
+    void shouldReturnValidationError_whenLastNameExceedsFiftyCharacters() throws Exception {
         allowPrivilege("_demographic", "w");
         mockRequest.setMethod("POST");
         addRequestParameter("last_name", "X".repeat(Demographic.LAST_NAME_MAX_LENGTH + 1));
@@ -159,7 +159,7 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
         List<String> fieldLengthValidationErrors =
                 (List<String>) mockRequest.getAttribute("fieldLengthValidationErrors");
         assertThat(fieldLengthValidationErrors)
-                .contains("Last name exceeds maximum length of 30 characters.");
+                .contains("Last name exceeds maximum length of 50 characters.");
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
 }

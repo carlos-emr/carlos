@@ -132,6 +132,56 @@ public class DrugDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldExcludeUncertainImportedHistoryFromActiveQueries_whenAllHistoryRemainsAvailable() {
+        int patient = 821004;
+        Drug legacy = createDrug(patient, "Synthetic native medication", "", false);
+        Drug active = createDrug(patient, "Synthetic imported active", "", false);
+        active.setCdsCurrentness("CURRENT");
+        Drug uncertain = createDrug(patient, "Synthetic imported unknown", "", false);
+        uncertain.setCdsCurrentness("UNKNOWN");
+        uncertain.setLongTerm(true);
+        Drug suspended = createDrug(patient, "Synthetic imported suspended", "", false);
+        suspended.setCdsCurrentness("SUSPENDED");
+        for (Drug drug : List.of(legacy, active, uncertain, suspended)) entityManager.persist(drug);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(drugDao.findByDemographicId(patient, false)).extracting(Drug::getId)
+                .containsExactlyInAnyOrder(legacy.getId(), active.getId());
+        assertThat(drugDao.findByDemographicIdOrderByPosition(patient, false)).extracting(Drug::getId)
+                .containsExactlyInAnyOrder(legacy.getId(), active.getId());
+        assertThat(drugDao.findLongTermDrugsByDemographic(patient)).isEmpty();
+        assertThat(drugDao.findByDemographicId(patient, null)).extracting(Drug::getId)
+                .containsExactlyInAnyOrder(legacy.getId(), active.getId(), uncertain.getId(), suspended.getId());
+        assertThat(drugDao.findByDemographicIdOrderByPositionForExport(patient, null)).hasSize(4);
+    }
+
+    @Test
+    void shouldPersistUnknownSourceIndicatorsAndDates_whenImportDoesNotSupplyThem() {
+        Drug drug = createDrug(821005, "Synthetic unknown clinical history", "", false);
+        drug.setCdsCurrentness("UNKNOWN");
+        drug.setCdsDoseText("1/2–1");
+        drug.setNoSubs((Boolean) null);
+        drug.setNonAuthoritative(null);
+        drug.setRxDate(null);
+        drug.setEndDate(null);
+        drug.setWrittenDate(null);
+        entityManager.persist(drug);
+        entityManager.flush();
+        int id = drug.getId();
+        entityManager.clear();
+
+        Drug loaded = drugDao.find(id);
+        assertThat(loaded.getNoSubs()).isNull();
+        assertThat(loaded.getNonAuthoritative()).isNull();
+        assertThat(loaded.getRxDate()).isNull();
+        assertThat(loaded.getEndDate()).isNull();
+        assertThat(loaded.getWrittenDate()).isNull();
+        assertThat(loaded.getDosageDisplay()).isEqualTo("1/2–1");
+        assertThat(loaded.isCurrent()).isFalse();
+    }
+
+    @Test
     void shouldPreserveTheFirstDiscontinuation_whenAStaleRequestRetries() {
         Drug drug = createAndPersist(DEMO_NO, "Synthetic medication", "J01CA04", false);
         int id = drug.getId();

@@ -83,6 +83,14 @@ mvn -B -ntp test \
   '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=3
 ```
 
+The generated lane also requires `AbstractDaoFindAllOrderingIntegrationTest` (issue
+[#5308](https://github.com/carlos-emr/carlos/issues/5308)). Its synthetic
+`carlos_test_paged_*` tables give the only non-key column an index that covers the table, so
+MariaDB answers an unordered query in index order; the suite proves `findAll` pages still come back
+in identifier order. Those tables exist only in the generated schema, so the suite is disabled
+under `CARLOS_TEST_MARIADB_SCHEMA=flyway`. See
+[Stable ordering for generic DAO paging](../architecture/dao-findall-ordering.md).
+
 To verify a critical path against the installed schema, set the schema mode to
 `flyway` and pass `-Dcarlos.test.schema.expected=flyway`, select one of the listed
 critical suites plus `MariaDbDaoHarnessIntegrationTest`, and use one fork.

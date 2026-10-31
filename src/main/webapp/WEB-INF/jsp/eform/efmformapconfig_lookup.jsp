@@ -85,7 +85,7 @@
                     // as an empty list, indistinguishable from a healthy query over a patient with
                     // no matching data. Read as "no data" it blanked the field silently, which is
                     // exactly the case this notice exists to surface.
-                    ArrayList<String> values = EFormUtil.getValuesOrNull(names, query);
+                    ArrayList<String> values = EFormUtil.getValuesOrNull(names, query, demographic_no == null ? null : Integer.valueOf(demographic_no));
                     if (values == null) {
                         io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error(
                                 "AP config lookup query failed for key=" + LogSafe.sanitize(key) + " fid=" + fid);
@@ -114,6 +114,9 @@
                     }
                 }
 %><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value="<carlos:encode value='<%= output %>' context="htmlAttribute"/>"/><%
+} catch (io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException review) {
+    unresolvedKeys.add(key);
+%><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value="Prevention timing requires review"/><%
 } catch (Exception e) {
     io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("AP config lookup failed for key=" + LogSafe.sanitize(key) + " fid=" + fid, e);
     unresolvedKeys.add(key);

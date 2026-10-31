@@ -1554,7 +1554,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         note.setRevision(String.valueOf(revision));
         Date now = new Date();
-        if (note.getObservation_date() == null) {
+        if (newNote && note.getObservation_date() == null) {
             note.setObservation_date(now);
         }
 
@@ -1915,7 +1915,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         ResourceBundle props = ResourceBundle.getBundle("oscarResources", request.getLocale());
         if (dateObserve != null) {
             note.setObservation_date(dateObserve);
-        } else if (note.getObservation_date() == null) {
+        } else if ((note.getId() == null || note.getId() <= 0) && note.getObservation_date() == null) {
             note.setObservation_date(now);
         }
 
@@ -2251,7 +2251,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         note.setDemographic_no(demo);
         bindNoteAppointment(note);
         if (dateObserve != null) note.setObservation_date(dateObserve);
-        else if (note.getObservation_date() == null) note.setObservation_date(now);
+        else if (newNote && note.getObservation_date() == null) note.setObservation_date(now);
         String history = newNote ? "" : "---------History Record---------" + StringUtils.defaultString(source.getHistory());
         note.setNote(noteTxt);
         note.setHistory(noteTxt + "[[" + now + "]]" + history);
@@ -3644,7 +3644,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         for (CaseManagementNote note : selectedNotes) {
             if (note.isLocked()) {
-                textStr = note.getObservation_date().toString() + " " + note.getProviderName() + " " + props.getString("encounter.noteBrowser.msgNoteLocked");
+                String observation = NoteObservationDate.format(note.getObservation_date());
+                if (observation.isEmpty()) observation = props.getString("provider.providerencountersingle.unknown");
+                textStr = observation + " " + note.getProviderName() + " " + props.getString("encounter.noteBrowser.msgNoteLocked");
             } else {
                 textStr = note.getNote();
             }
@@ -3707,6 +3709,27 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         boolean printLabs = request.getParameter("printLabs") != null && request.getParameter("printLabs").equalsIgnoreCase("true");
         boolean printPreventions = request.getParameter("printPreventions") != null && request.getParameter("printPreventions").equalsIgnoreCase("true");
         boolean printAllergies = request.getParameter("printAllergies") != null && request.getParameter("printAllergies").equalsIgnoreCase("true");
+
+        java.util.Set<String> projectedCategories = new java.util.HashSet<>();
+        if (printAllNotes || noteIds.length>0) projectedCategories.add("ClinicalNotes");
+        if (printCPP) projectedCategories.addAll(java.util.Set.of("PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList", "RiskFactors", "AlertsAndSpecialNeeds"));
+        if (printRx) projectedCategories.add("MedicationsAndTreatments");
+        if (printLabs) projectedCategories.add("LaboratoryResults");
+        if (printPreventions) projectedCategories.add("Immunizations");
+        if (printAllergies) projectedCategories.add("AllergiesAndAdverseReactions");
+        if (!projectedCategories.isEmpty()) {
+            try {
+                SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class)
+                        .requireSupported(demographicNo, projectedCategories);
+            } catch (io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException unsupported) {
+                response.setHeader("Content-Disposition", null);
+                response.setStatus(HttpServletResponse.SC_CONFLICT);
+                response.setContentType("text/plain;charset=UTF-8");
+                response.setHeader("Cache-Control", "no-store");
+                response.getWriter().write(unsupported.getMessage());
+                return NONE;
+            }
+        }
 
         CaseManagementPrint cmp = new CaseManagementPrint();
         try {
@@ -4114,8 +4137,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             hashMap.put("noteId", note.getId().toString());
             hashMap.put("note", note.getNote());
             hashMap.put("revision", note.getRevision());
-            hashMap.put("obsDate", CachedDateFormats.format(note.getObservation_date(), YYYY_MM_DD_HHMM_PATTERN));
-            hashMap.put("editor", this.providerMgr.getProvider(note.getProviderNo()).getFormattedName());
+            hashMap.put("obsDate", note.getObservation_date() == null ? ""
+                    : CachedDateFormats.format(note.getObservation_date(), YYYY_MM_DD_HHMM_PATTERN));
+            hashMap.put("editor", note.getProviderName());
             json = objectMapper.valueToTree(hashMap);
         }
         response.setContentType("application/json");

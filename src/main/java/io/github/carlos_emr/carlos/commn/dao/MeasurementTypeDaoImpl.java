@@ -38,43 +38,124 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.config.CacheConfig;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
 
 @Repository
 @SuppressWarnings("unchecked")
 public class MeasurementTypeDaoImpl extends AbstractDaoImpl<MeasurementType> implements MeasurementTypeDao {
+    private static final String ALL_BY_TYPE_KEY = "allByType";
+    private static final String ALL_BY_NAME_KEY = "allByName";
+    private static final String ALL_BY_ID_KEY = "allById";
+    private static final String FIND_ALL_BY_TYPE = "select x from MeasurementType x order by x.type";
+    private static final String FIND_ALL_BY_NAME = "select x from MeasurementType x order by x.typeDisplayName";
+    private static final String FIND_ALL_BY_ID = "select x from MeasurementType x order by x.id";
 
-    public MeasurementTypeDaoImpl() {
+    /*
+     * Reads use CacheManager directly instead of @Cacheable so the cache holds private copies
+     * and every read, hit or miss, returns fresh copies (issue #5304). @Cacheable would hand
+     * every caller the same cached entity instances, so one caller's change would be seen by
+     * all readers until the cache expired. Keys, bounds (CacheConfig) and the transaction-aware
+     * put/evict behaviour are unchanged; every write still evicts through the @CacheEvict
+     * overrides below.
+     */
+    private final CacheManager cacheManager;
+
+    /**
+     * @param cacheManager the application's transaction-aware cache manager ({@code CacheConfig}),
+     *                     which must define the {@code measurementTypes} cache
+     */
+    @Autowired
+    public MeasurementTypeDaoImpl(CacheManager cacheManager) {
         super(MeasurementType.class);
+        this.cacheManager = cacheManager;
     }
 
-    @Cacheable(value = CacheConfig.MEASUREMENT_TYPES, key = "'allByType'")
+    /**
+     * Returns every measurement type ordered by type code.
+     *
+     * @return an unmodifiable list of detached copies; changing an element affects only this
+     *         caller's copy and writes nothing to the database
+     */
     @Override
     public List<MeasurementType> findAll() {
-        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x order by x.type";
-        Query query = entityManager.createQuery(sqlCommand);
-        List<MeasurementType> results = query.getResultList();
-        return Collections.unmodifiableList(new ArrayList<>(results));
+        return findAllCached(ALL_BY_TYPE_KEY, FIND_ALL_BY_TYPE);
     }
 
-    @Cacheable(value = CacheConfig.MEASUREMENT_TYPES, key = "'allByName'")
+    /**
+     * Returns every measurement type ordered by display name.
+     *
+     * @return an unmodifiable list of detached copies; changing an element affects only this
+     *         caller's copy and writes nothing to the database
+     */
     @Override
     public List<MeasurementType> findAllOrderByName() {
-        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x order by x.typeDisplayName";
-        Query query = entityManager.createQuery(sqlCommand);
-        List<MeasurementType> results = query.getResultList();
-        return Collections.unmodifiableList(new ArrayList<>(results));
+        return findAllCached(ALL_BY_NAME_KEY, FIND_ALL_BY_NAME);
     }
 
-    @Cacheable(value = CacheConfig.MEASUREMENT_TYPES, key = "'allById'")
+    /**
+     * Returns every measurement type ordered by id.
+     *
+     * @return an unmodifiable list of detached copies; changing an element affects only this
+     *         caller's copy and writes nothing to the database
+     */
     @Override
     public List<MeasurementType> findAllOrderById() {
-        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x order by x.id";
-        Query query = entityManager.createQuery(sqlCommand);
+        return findAllCached(ALL_BY_ID_KEY, FIND_ALL_BY_ID);
+    }
+
+    private List<MeasurementType> findAllCached(String cacheKey, String jpql) {
+        List<MeasurementType> cached = getCachedList(cacheKey);
+        if (cached != null) {
+            return copyMeasurementTypes(cached);
+        }
+
+        Query query = entityManager.createQuery(jpql);
         List<MeasurementType> results = query.getResultList();
-        return Collections.unmodifiableList(new ArrayList<>(results));
+
+        cache().put(cacheKey, copyMeasurementTypes(results));
+        return copyMeasurementTypes(results);
+    }
+
+    private Cache cache() {
+        Cache cache = cacheManager.getCache(CacheConfig.MEASUREMENT_TYPES);
+        if (cache == null) {
+            throw new IllegalStateException("Cache not configured: " + CacheConfig.MEASUREMENT_TYPES);
+        }
+        return cache;
+    }
+
+    private List<MeasurementType> getCachedList(String key) {
+        Cache.ValueWrapper wrapper = cache().get(key);
+        return wrapper == null ? null : (List<MeasurementType>) wrapper.get();
+    }
+
+    /*
+     * Unmodifiable, as these lists always were; the elements are new copies on every call.
+     */
+    private static List<MeasurementType> copyMeasurementTypes(List<MeasurementType> source) {
+        List<MeasurementType> copies = new ArrayList<>(source.size());
+        for (MeasurementType measurementType : source) {
+            copies.add(MeasurementType.copyOf(measurementType));
+        }
+        return Collections.unmodifiableList(copies);
+    }
+
+    @Override
+    public boolean hasCdsImportType(String type, String expectedInstruction) {
+        return !entityManager.createQuery("select x.id from MeasurementType x where x.type=:type "
+                + "and (:requireInstruction=false or x.measuringInstruction=:instruction) "
+                + "and (:requireValidation=false or exists (select v.id from Validations v where x.validation=cast(v.id as string) "
+                + "and v.name='CDS source text (no numeric inference)' and v.regularExp is null "
+                + "and v.minValue is null and v.maxValue is null and v.minLength is null and v.maxLength is null "
+                + "and v.isNumeric is null and v.isTrue is null and v.isDate is null))", Integer.class)
+                .setParameter("type", type).setParameter("requireInstruction", expectedInstruction != null)
+                .setParameter("instruction", expectedInstruction)
+                .setParameter("requireValidation", java.util.Set.of("CDS_GOALS", "CDS_EXAM", "CDS_CARE_VALUE").contains(type))
+                .setMaxResults(1).getResultList().isEmpty();
     }
 
     @Override

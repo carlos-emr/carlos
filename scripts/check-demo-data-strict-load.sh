@@ -167,6 +167,15 @@ fi
 n="$(sql "$MAIN" "SELECT COUNT(*) FROM carlos.security WHERE user_name='carlosdoc'")"
 expect "carlosdoc login row present" "carlosdoc login rows: ${n} (expected 1)" test "$n" = 1
 
+# Forward CDS fields remain absent on legacy demo rows; positional replay must not synthesize
+# source provenance. The post-snapshot replay must also retain the dedicated nonnumeric care types.
+n="$(sql "$MAIN" 'SELECT COUNT(*) FROM carlos.drugs WHERE cds_currentness IS NOT NULL OR cds_dose_text IS NOT NULL OR cds_projection_incomplete IS NOT NULL')"
+expect "legacy medications retain absent CDS provenance" "${n} legacy demo medications have CDS provenance" test "$n" = 0
+n="$(sql "$MAIN" 'SELECT COUNT(*) FROM carlos.document WHERE cds_content_precision IS NOT NULL')"
+expect "legacy documents retain absent CDS precision" "${n} legacy demo documents have CDS precision" test "$n" = 0
+n="$(sql "$MAIN" "SELECT COUNT(*) FROM carlos.measurementType WHERE type IN ('CDS_GOALS','CDS_EXAM','CDS_CARE_VALUE')")"
+expect "all three CDS care reference types survive snapshot replay" "${n} CDS care reference types found (expected 3)" test "$n" = 3
+
 # A coerced name leaves a numeric-only preferred name behind, and a shifted gender column stops
 # matching sex. Neither can be produced by the intended data.
 n="$(sql "$MAIN" "SELECT COUNT(*) FROM carlos.demographic WHERE pref_name REGEXP '^[0-9]+\$'")"

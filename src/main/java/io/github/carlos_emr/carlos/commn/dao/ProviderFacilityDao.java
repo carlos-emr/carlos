@@ -38,4 +38,7 @@ import io.github.carlos_emr.carlos.commn.model.ProviderFacility;
 
 public interface ProviderFacilityDao extends AbstractDao<ProviderFacility> {
     List<ProviderFacility> findByProviderNoAndFacilityId(String providerNo, int facilityId);
+
+    /** Fresh scalar membership evidence; no entity identity or cross-request cache. */
+    long countByProviderAndFacility(String providerNo, int facilityId);
 }

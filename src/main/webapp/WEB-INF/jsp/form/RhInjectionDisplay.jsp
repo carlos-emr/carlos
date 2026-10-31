@@ -77,7 +77,7 @@
             Date injectionDate = (Date) hdata.get("prevention_date_asDate");
             Date dueDate = UtilDateUtilities.StringToDate(date);
             String weeks = injectionDate != null && dueDate != null
-                    ? String.valueOf(UtilDateUtilities.calculateGestationAge(injectionDate, dueDate)) : "";
+                    ? String.valueOf(UtilDateUtilities.calculateGestationAge(injectionDate, dueDate)) : "Unknown";
 %>
 <fieldset>
     <legend><fmt:message key="form.rhInjectionDisplay.legendTitle"/> <%= shown %> &nbsp;

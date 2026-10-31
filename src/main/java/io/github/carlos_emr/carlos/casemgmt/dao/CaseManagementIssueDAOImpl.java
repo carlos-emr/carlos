@@ -56,6 +56,14 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
 
     private static Logger log = MiscUtils.getLogger();
 
+    @Override
+    public List<CaseManagementIssue> findCandidatesByDemographicAndIssue(int demographicNo, Long issueId) {
+        return entityManager().createQuery("select i from CaseManagementIssue i where"
+                        + " i.demographic_no=:patient and i.issue_id=:issue order by i.id", CaseManagementIssue.class)
+                .setParameter("patient", demographicNo).setParameter("issue", issueId)
+                .setMaxResults(2).getResultList();
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByDemographic(String demographic_no) {

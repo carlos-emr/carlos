@@ -506,14 +506,19 @@ public class EmailManager {
      *
      * @param emailData EmailData containing the encrypted message text
      * @return EmailAttachment a new attachment with the message PDF, or null if message is empty
+     * @throws EmailSendingException if the message cannot be converted to PDF
      */
-    private EmailAttachment createMessageAttachment(EmailData emailData) {
+    private EmailAttachment createMessageAttachment(EmailData emailData) throws EmailSendingException {
         if (StringUtils.isNullOrEmpty(emailData.getEncryptedMessage())) {
             return null;
         }
         String htmlSafeMessage = Encode.forHtmlContent(emailData.getEncryptedMessage()).replace("\n", "<br>");
         emailData.setEncryptedMessage(htmlSafeMessage);
         Path encryptedMessagePDF = ConvertToEdoc.saveAsTempPDF(emailData);
+        if (encryptedMessagePDF == null) {
+            // saveAsTempPDF returns null when the conversion fails. This message is stored in the email log, so it names no content.
+            throw new EmailSendingException("Encrypted message could not be converted to PDF");
+        }
         EmailAttachment emailAttachment = new EmailAttachment("message.pdf", encryptedMessagePDF.toString(), DocumentType.DOC, -1);
         return emailAttachment;
     }

@@ -29,6 +29,7 @@
 
 --%>
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 
@@ -199,6 +200,7 @@
 <h4 style="margin-bottom:1px;margin-top:3px;"><carlos:encode value='<%= heading %>' context="html"/></h4>
 <%}%>
 <fmt:message key="SearchDrug.msgHideCPPSaveFailed" var="msg_hideCppSaveFailed"/>
+<div><source:cdsSourceFields demographicNo="${pageScope.RxSessionBean.demographicNo}" category="MedicationsAndTreatments"/></div>
 <div class="drugProfileText" style="">
     <table class="list-drugs sortable" id="Drug_table<carlos:encode value='<%= heading %>' context="htmlAttribute"/>">
         <tr>

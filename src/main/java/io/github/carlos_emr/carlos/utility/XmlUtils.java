@@ -150,7 +150,7 @@ public final class XmlUtils {
      * @throws ParserConfigurationException if the critical disallow-doctype-decl protection cannot be enabled
      */
     public static DocumentBuilderFactory createSecureDocumentBuilderFactory() throws ParserConfigurationException {
-        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newDefaultInstance();
         // Critical protection — fail closed if it cannot be applied
         dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         // Defense-in-depth features — warn individually if unavailable
@@ -217,7 +217,7 @@ public final class XmlUtils {
      * @throws SAXException if the critical disallow-doctype-decl protection cannot be enabled
      */
     public static SAXParserFactory createSecureSAXParserFactory() throws ParserConfigurationException, SAXException {
-        SAXParserFactory spf = SAXParserFactory.newInstance();
+        SAXParserFactory spf = SAXParserFactory.newDefaultInstance();
         // Critical protection — fail closed if it cannot be applied
         spf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         // Defense-in-depth features — warn individually if unavailable
@@ -261,7 +261,11 @@ public final class XmlUtils {
      * @throws SAXException if the required security features or external-access properties cannot be set
      */
     public static javax.xml.validation.SchemaFactory createSecureSchemaFactory(String schemaLanguage) throws SAXException {
-        javax.xml.validation.SchemaFactory sf = createSchemaFactoryInstance(schemaLanguage);
+        // Keep provider selection beside the mandatory hardening: no unsecured factory escapes.
+        // The JDK default recognizes these properties even when legacy Xerces is on the classpath.
+        javax.xml.validation.SchemaFactory sf = XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(schemaLanguage)
+                ? javax.xml.validation.SchemaFactory.newDefaultInstance()
+                : javax.xml.validation.SchemaFactory.newInstance(schemaLanguage);
         try {
             sf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
         } catch (SAXException ex) {
@@ -278,22 +282,6 @@ public final class XmlUtils {
             throw new SAXException("Failed to restrict external schema access on SchemaFactory", ex);
         }
         return sf;
-    }
-
-    /**
-     * Selects the JDK W3C XML Schema factory so required JAXP external-access
-     * security properties are recognized even when an older classpath Xerces
-     * provider is present. Non-W3C schema languages still use the standard JAXP
-     * provider lookup because the JDK default factory only supports W3C XML Schema.
-     *
-     * @param schemaLanguage the schema language URI
-     * @return SchemaFactory instance for the requested schema language
-     */
-    private static javax.xml.validation.SchemaFactory createSchemaFactoryInstance(String schemaLanguage) {
-        if (XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(schemaLanguage)) {
-            return javax.xml.validation.SchemaFactory.newDefaultInstance();
-        }
-        return javax.xml.validation.SchemaFactory.newInstance(schemaLanguage);
     }
 
     /**
@@ -570,7 +558,8 @@ public final class XmlUtils {
     }
 
     public static Document toDocument(String s) throws IOException, SAXException, ParserConfigurationException {
-        return toDocument(s.getBytes("UTF-8"));
+        if (s == null) throw new SAXException("XML document text is required");
+        return toDocument(s.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     public static Document toDocument(byte[] x) throws IOException, SAXException, ParserConfigurationException {

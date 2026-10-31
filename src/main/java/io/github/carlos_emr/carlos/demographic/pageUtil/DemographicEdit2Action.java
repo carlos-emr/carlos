@@ -287,7 +287,7 @@ public class DemographicEdit2Action extends ActionSupport {
             nurse = StringUtils.defaultString(demographicCust.getNurse());
             alert = StringUtils.defaultString(demographicCust.getAlert());
             midwife = StringUtils.defaultString(demographicCust.getMidwife());
-            notes = SxmlMisc.getXmlContent(demographicCust.getNotes(), "unotes");
+            notes = io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(demographicCust.getNotes());
             notes = notes == null ? "" : notes;
         }
 

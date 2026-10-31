@@ -643,7 +643,7 @@
                                 EDoc cmicurdoc = docs.get(i2);
                         %>
                         <option VALUE="<carlos:encode value='<%= cmicurdoc.getDocId() %>' context="htmlAttribute"/>-<carlos:encode value='<%= cmicurdoc.getContentType() %>' context="htmlAttribute"/>"
-                                title="<carlos:encode value='<%= cmicurdoc.getDescription() %>' context="htmlAttribute"/>"><carlos:encode value='<%= sortorder.equals("Content") ? UtilDateUtilities.DateToString(cmicurdoc.getContentDateTime(), "yyyy-MM-dd") : cmicurdoc.getDateTimeStamp() %>' context="html"/>&nbsp;&nbsp; <carlos:encode value='<%= cmicurdoc.getObservationDate() %>' context="html"/>
+                                title="<carlos:encode value='<%= cmicurdoc.getDescription() %>' context="htmlAttribute"/>"><carlos:encode value='<%= sortorder.equals("Content") ? cmicurdoc.getContentDateTimeDisplay("yyyy-MM-dd") : cmicurdoc.getDateTimeStamp() %>' context="html"/>&nbsp;&nbsp; <carlos:encode value='<%= cmicurdoc.getObservationDate() %>' context="html"/>
                             [<carlos:encode value='<%= cmicurdoc.getType() %>' context="html"/>
                             ] <carlos:encode value='<%= cmicurdoc.getDescription().length() < 30 ? cmicurdoc.getDescription() : cmicurdoc.getDescription().substring(0, 30) + "..." %>' context="html"/>
                         </option>

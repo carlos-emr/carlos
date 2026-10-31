@@ -54,6 +54,9 @@ public class MeasurementTypeDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private MeasurementTypeDao measurementTypeDao;
 
+    @Autowired
+    private ValidationsDao validationsDao;
+
     private MeasurementType createType(String type, String typeDisplayName, String measuringInstruction) {
         MeasurementType mt = new MeasurementType();
         mt.setType(type);
@@ -62,6 +65,32 @@ public class MeasurementTypeDaoIntegrationTest extends CarlosTestBase {
         mt.setTypeDescription("Test description for " + type);
         measurementTypeDao.persist(mt);
         return mt;
+    }
+
+    @Test
+    void shouldRequireDedicatedUnconstrainedTextValidation_forImportedSourceOnlyValues() {
+        for (MeasurementType existing : measurementTypeDao.findByType("CDS_CARE_VALUE")) measurementTypeDao.remove(existing.getId());
+        measurementTypeDao.flush();
+        var rule = new io.github.carlos_emr.carlos.commn.model.Validations();
+        rule.setName("CDS source text (no numeric inference)"); rule.setMaxLength(null);
+        validationsDao.persist(rule); validationsDao.flush();
+        MeasurementType type = createType("CDS_CARE_VALUE", "Source care value", "Uninterpreted source care value");
+        type.setValidation(rule.getId().toString()); measurementTypeDao.merge(type); measurementTypeDao.flush();
+        assertThat(measurementTypeDao.hasCdsImportType("CDS_CARE_VALUE", "Uninterpreted source care value")).isTrue();
+        assertThat(measurementTypeDao.hasCdsImportType("CDS_CARE_VALUE", null)).isTrue();
+        assertThat(measurementTypeDao.hasCdsImportType("CDS_CARE_VALUE", "Different clinical interpretation")).isFalse();
+        rule.setNumeric(Boolean.TRUE); validationsDao.merge(rule); validationsDao.flush();
+        assertThat(measurementTypeDao.hasCdsImportType("CDS_CARE_VALUE", "Uninterpreted source care value")).isFalse();
+        assertThat(measurementTypeDao.hasCdsImportType("CDS_CARE_VALUE", null)).isFalse();
+    }
+
+    @Test
+    void shouldRequireCompatibleNativeUnit_forFiniteCareMeasurements() {
+        String unique = "T" + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        createType(unique, "Synthetic measurement", "in kg");
+        assertThat(measurementTypeDao.hasCdsImportType(unique, "in kg")).isTrue();
+        assertThat(measurementTypeDao.hasCdsImportType(unique, null)).isTrue();
+        assertThat(measurementTypeDao.hasCdsImportType(unique, "in cm")).isFalse();
     }
 
     @Nested

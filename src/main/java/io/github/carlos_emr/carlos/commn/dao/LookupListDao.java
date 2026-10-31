@@ -37,7 +37,27 @@ import io.github.carlos_emr.carlos.commn.model.LookupList;
 
 public interface LookupListDao extends AbstractDao<LookupList> {
 
+    /**
+     * Returns the active lookup lists ordered by name, each with its items.
+     *
+     * <p>Served from the shared {@code lookupLists} cache. Every call returns an unmodifiable
+     * list of new detached deep copies (each list's items are copied too), so changing a list,
+     * its item list or an item affects only the caller's copy, never another reader or the
+     * cache, and writes nothing to the database.</p>
+     *
+     * @return the active lookup lists, as detached copies
+     */
     public List<LookupList> findAllActive();
 
+    /**
+     * Finds a lookup list, with its items, by its unique name.
+     *
+     * <p>Served from the shared {@code lookupLists} cache (except for a null or empty name).
+     * Every call returns a new detached deep copy, so changing the list, its item list or an
+     * item affects only the caller's copy and writes nothing to the database.</p>
+     *
+     * @param name the list name
+     * @return a detached copy of the list, or {@code null} when no list has that name
+     */
     public LookupList findByName(String name);
 }

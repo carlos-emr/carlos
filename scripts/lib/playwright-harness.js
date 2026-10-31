@@ -34,6 +34,7 @@
  */
 
 const fs = require('node:fs');
+const {isQualifiedCdsMetadataFailure,cdsMetadataQualification} = require('./cds-metadata-transport');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
@@ -334,7 +335,7 @@ function createSqlRunner(mysqlConfig, options = {}) {
   const quoted = String(password).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   (options.writeFile || fs.writeFileSync)(optionFile, `[client]\npassword="${quoted}"\n`, { mode: 0o600 });
 
-  function run(query, parameters) {
+  function run(query, parameters, returnInsertId = false) {
     let statement = query;
     if (parameters !== undefined) {
       assert(typeof query === 'string' && Array.isArray(parameters), 'Bound SQL requires a query string and a parameter array');
@@ -358,6 +359,7 @@ function createSqlRunner(mysqlConfig, options = {}) {
         'DEALLOCATE PREPARE carlos_pw_statement',
       ].join('; ');
     }
+    if (returnInsertId) statement += '; SELECT LAST_INSERT_ID()';
     try {
       return exec('mysql', [
         `--defaults-extra-file=${optionFile}`,
@@ -401,6 +403,11 @@ function createSqlRunner(mysqlConfig, options = {}) {
     execute(query, parameters) {
       run(query, parameters);
     },
+    /** Generated key from a bound INSERT, read in the INSERT's own connection. */
+    insertId(query, parameters) {
+      const rows = parseMysqlBatchOutput(run(query, parameters, true));
+      return rows.length ? rows.at(-1)[0] : '';
+    },
     dispose() {
       (options.rm || fs.rmSync)(directory, { recursive: true, force: true, maxRetries: 2, retryDelay: 50 });
     },
@@ -417,8 +424,10 @@ function sqlString(value) {
  * session. Throws unless the id is a positive integer, so a check never builds
  * later SQL or cleanup from an empty or malformed id.
  */
-function insertId(sql, statement, what) {
-  const id = sql.value(`${statement}; SELECT LAST_INSERT_ID()`);
+function insertId(sql, statement, what, parameters) {
+  const id = parameters === undefined
+    ? sql.value(`${statement}; SELECT LAST_INSERT_ID()`)
+    : sql.insertId(statement, parameters);
   assert(/^[1-9]\d*$/.test(String(id)), `The owned ${what} fixture was not created`);
   return String(id);
 }
@@ -708,6 +717,7 @@ function wireStrictPage(page, label, recorder, options = {}) {
     const entry = {
       label: wiring.label, url, resourceType: request.resourceType(), errorText: failure ? failure.errorText : 'unknown',
     };
+    Object.defineProperty(entry, 'requestRef', {enumerable:false, value:new WeakRef(request)});
     const origin = issuedFrom.get(request);
     // Non-enumerable: the entry's data shape (compared and serialised elsewhere) is unchanged. False when the
     // issuing document is unknown, so only a proven abandonment can be treated as one.
@@ -772,6 +782,7 @@ function assertStrictPage(recorder, labels = null) {
     problems.push(`[${entry.label}] console ${entry.type}: ${entry.text.split('\n')[0]}`);
   }
   for (const entry of scoped(recorder.requestFailures)) {
+    if (isQualifiedCdsMetadataFailure(entry)) continue;
     problems.push(`[${entry.label}] ${entry.resourceType} request failed (${entry.errorText})`);
   }
   for (const entry of scoped(recorder.badResponses)) {
@@ -908,7 +919,10 @@ function buildFailureDetails(recorder) {
     badResponses: clean(recorder.badResponses),
     consoleIssues: clean(recorder.consoleIssues),
     pageErrors: clean(recorder.pageErrors),
-    requestFailures: clean(recorder.requestFailures),
+    requestFailures: clean(recorder.requestFailures.map(entry => {
+      const evidence = cdsMetadataQualification(entry);
+      return evidence ? {...entry, cdsMetadataEofEvidence:evidence} : entry;
+    })),
     dialogs: clean(recorder.dialogs),
   };
 }

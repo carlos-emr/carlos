@@ -89,6 +89,22 @@
         <Logger name="org.apache.struts2.dispatcher.Dispatcher">
             <RegexFilter regex="(?s)Could not find action or result.*" onMatch="DENY" onMismatch="NEUTRAL"/>
         </Logger>
+        <!-- Flying Saucer, the HTML-to-PDF renderer, can log the text it is printing: with
+             xr.renderer.replace-missing-characters on, every line that has a character missing from
+             its font is logged at INFO. The documents are patients' records. CARLOS never sets that
+             switch, and this keeps the library at WARN whatever LOG_VERBOSITY is, so raising the
+             verbosity for troubleshooting (debug-on) cannot turn its INFO and DEBUG output on.
+             A log4j.override.configuration file REPLACES this whole configuration
+             (MiscUtils.addLoggingOverrideConfiguration), so an operator's override must carry this
+             line too. -->
+        <Logger name="org.xhtmlrenderer" level="warn"/>
+        <!-- Flying Saucer's SVG support logs "Error while rendering SVG" at WARN with the exception Batik
+             threw, and Batik's message quotes the reference it could not follow: a fragment id the
+             document chose or a whole data: URI, which is the picture in a patient's record. The
+             pipeline leaves a failed SVG out of the page and logs the class of the exception itself
+             (BoundedOutputDevice), so the library's line adds nothing but the quotation.
+             Same override rule as above. -->
+        <Logger name="org.xhtmlrenderer.pdf.SvgImage" level="error"/>
         <Logger name="org.apache.log4j.xml" level="error">
             <AppenderRef ref="Console"/>
         </Logger>

@@ -63,6 +63,8 @@ public final class DocumentTransfer {
     private Date updatedatetime;
     private char status;
     private String contenttype;
+    private Date contentdatetime;
+    private String cdsContentPrecision;
     private int public1;
     private Date observationdate;
     private String reviewer;
@@ -196,6 +198,12 @@ public final class DocumentTransfer {
         this.contenttype = contenttype;
     }
 
+    public Date getContentdatetime() { return contentdatetime; }
+    public void setContentdatetime(Date value) { contentdatetime=value; }
+    /** Imported source precision; no timestamp is inferred for an absent source clock. */
+    public String getCdsContentPrecision() { return cdsContentPrecision; }
+    public void setCdsContentPrecision(String value) { cdsContentPrecision=value; }
+
     public int getPublic1() {
         return (public1);
     }
@@ -286,6 +294,7 @@ public final class DocumentTransfer {
                     "known CARLOS types; no user-controlled property name reaches the sink")
     public static DocumentTransfer toTransfer(Document document, CtlDocument ctlDocument) throws IOException {
         if (document == null) return (null);
+        requireLegacyProjection(document);
 
         DocumentTransfer documentTransfer = new DocumentTransfer();
 
@@ -303,6 +312,8 @@ public final class DocumentTransfer {
     }
 
     public static DocumentTransfer[] getTransfers(LoggedInInfo loggedInInfo, List<Document> documents) {
+        // Refuse the whole selected page before allocating any file byte arrays.
+        for (Document document:documents) requireLegacyProjection(document);
         DocumentManager documentManager = SpringUtils.getBean(DocumentManager.class);
 
         ArrayList<DocumentTransfer> results = new ArrayList<DocumentTransfer>();
@@ -318,6 +329,14 @@ public final class DocumentTransfer {
         }
 
         return (results.toArray(new DocumentTransfer[0]));
+    }
+
+    private static void requireLegacyProjection(Document document) {
+        if (document != null && document.getCdsContentPrecision()!=null) {
+            throw new org.apache.cxf.binding.soap.SoapFault(
+                    new io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException().getMessage(),
+                    org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_CLIENT);
+        }
     }
 
     @Override

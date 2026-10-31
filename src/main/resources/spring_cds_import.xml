@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. -->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd">
+    <!-- The shared import services consume the effective deployment configuration,
+         not request parameters or a second copy of development defaults. -->
+    <bean id="cdsImportProperties" class="io.github.carlos_emr.CarlosProperties" factory-method="getInstance"/>
+</beans>

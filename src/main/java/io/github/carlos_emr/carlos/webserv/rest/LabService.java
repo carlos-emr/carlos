@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
@@ -82,6 +83,14 @@ public class LabService extends AbstractServiceImpl {
 	@Autowired
 	private SecurityInfoManager securityInfoManager;
 
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
+
+    /** Keeps the framework's public no-argument endpoint lifecycle and requires its projection guard. */
+    @Autowired
+    public void setCdsLegacyProjectionService(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService service) {
+        this.projections = java.util.Objects.requireNonNull(service);
+    }
+
     @GET
     @Path("/hl7LabsByDemographicNo")
     @Produces("application/json")
@@ -92,6 +101,7 @@ public class LabService extends AbstractServiceImpl {
 
         List<Hl7TextMessage> hl7TextMessages = labManager.getHl7Messages(getLoggedInInfo(), demographicNo, offset, limit);
 
+        projections.requireRestSupported(demographicNo, java.util.Set.of("LaboratoryResults"));
         Hl7TextMessageConverter converter = new Hl7TextMessageConverter();
         response.setMessages(converter.getAllAsTransferObjects(getLoggedInInfo(), hl7TextMessages));
 

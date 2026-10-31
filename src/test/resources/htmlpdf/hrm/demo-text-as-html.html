@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>FAKE-Hospital Report</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; margin: 18px }
+  h1 { font-size: 16pt; margin: 0 0 6px 0 }
+  h2 { font-size: 12pt; border-bottom: 1px solid #444; margin: 14px 0 4px 0 }
+  table.meta { width: 100%; border-collapse: collapse }
+  table.meta td { padding: 2px 6px; border: 1px solid #999 }
+  table.labs { border-collapse: collapse; width: 100% }
+  table.labs th { background: #e8e8e8; text-align: left }
+  table.labs th, table.labs td { border: 1px solid #777; padding: 2px 5px }
+  .abnormal { font-weight: bold; color: #a00 }
+  .small { font-size: 8pt; color: #444 }
+</style>
+</head>
+<body>
+<h1>FAKE-Hospital &mdash; Discharge Summary</h1>
+<p class="small">Report received through the Hospital Report Manager. FAKE data only.</p>
+<table class="meta">
+  <tr><td><b>Patient</b></td><td>FAKE-Patient, Alice</td><td><b>Date of birth</b></td><td>1984-03-12</td></tr>
+  <tr><td><b>Health card</b></td><td>9999-999-999 FAKE</td><td><b>Admitted</b></td><td>2026-10-02</td></tr>
+  <tr><td><b>Attending</b></td><td>Dr. FAKE-Provider</td><td><b>Discharged</b></td><td>2026-10-06</td></tr>
+</table>
+<h2>Diagnosis</h2>
+<p>Community-acquired pneumonia, right lower lobe. Mild dehydration. No complications. Follow-up of the chest X-ray in six weeks.</p>
+<h2>Hospital course</h2>
+<p>The patient presented with three days of fever, productive cough and pleuritic chest pain. Oxygen saturation on arrival was 92% on room air and
+improved to 97% with 2&nbsp;L/min by nasal prongs. Intravenous fluids and antibiotics were started on admission, and the fever settled on the second day.
+Her appetite and mobility returned to baseline by discharge. A caf&eacute; d&eacute;j&agrave; vu of the previous admission (2024) was ruled out.</p>
+<h2>Laboratory results</h2>
+<table class="labs">
+  <thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Reference</th><th>Flag</th></tr></thead>
+  <tbody>
+  <tr><td>Hemoglobin</td><td>128</td><td>g/L</td><td>120 &ndash; 160</td><td></td></tr>
+  <tr><td>White cell count</td><td class="abnormal">14.2</td><td>x10<sup>9</sup>/L</td><td>4.0 &ndash; 11.0</td><td class="abnormal">H</td></tr>
+  <tr><td>C-reactive protein</td><td class="abnormal">86</td><td>mg/L</td><td>&lt; 5</td><td class="abnormal">H</td></tr>
+  <tr><td>Creatinine</td><td>71</td><td>&micro;mol/L</td><td>45 &ndash; 90</td><td></td></tr>
+  <tr><td>eGFR</td><td>&ge; 90</td><td>mL/min</td><td>&ge; 60</td><td></td></tr>
+  <tr><td>Sodium</td><td>138</td><td>mmol/L</td><td>135 &ndash; 145</td><td></td></tr>
+  <tr><td>Potassium</td><td>4.1</td><td>mmol/L</td><td>3.5 &ndash; 5.0</td><td></td></tr>
+  </tbody>
+</table>
+<h2>Medications at discharge</h2>
+<ul>
+  <li>Amoxicillin-clavulanate 875/125&nbsp;mg by mouth twice daily for 7 days</li>
+  <li>Acetaminophen 500&nbsp;mg by mouth every 6 hours as needed</li>
+  <li>Salbutamol 100&nbsp;&micro;g/dose inhaler, two puffs as needed</li>
+</ul>
+<h2>Follow-up</h2>
+<ol type="a">
+  <li>Family physician within one week.</li>
+  <li>Repeat chest X-ray in six weeks.</li>
+  <li>Return to the emergency department for worsening shortness of breath, confusion or a persistent fever.</li>
+</ol>
+<p class="small">Dictated by Dr. FAKE-Provider. Transcribed 2026-10-07. This is a FAKE report used only for software tests.</p>
+</body>
+</html>

@@ -310,7 +310,13 @@ public class ReportingService extends AbstractServiceImpl {
      * static dependencies (resolved via {@code SpringUtils}) require a running Spring context.
      */
     protected Report buildPreventionReport(LoggedInInfo loggedInInfo, String providerNo, PreventionSearchTo1 search) {
-        return new ReportBuilder().runReport(loggedInInfo, providerNo, search);
+        try {
+            return new ReportBuilder().runReport(loggedInInfo, providerNo, search);
+        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException review) {
+            throw new jakarta.ws.rs.WebApplicationException(jakarta.ws.rs.core.Response.status(409)
+                    .type(jakarta.ws.rs.core.MediaType.TEXT_PLAIN_TYPE)
+                    .entity("Prevention timing requires review before this report can run.").build());
+        }
     }
 
     @POST

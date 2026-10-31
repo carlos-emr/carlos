@@ -503,6 +503,60 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
     @DisplayName("Inactivity timeout")
     class InactivityTimeout {
 
+        @ParameterizedTest
+        @ValueSource(strings = {"true", "false"})
+        void shouldRefreshOnlyManualCdsStatusRequests_byAutoRefreshFlag(String background) throws Exception {
+            var request=authenticatedRequest();
+            request.setRequestURI(CONTEXT_PATH+"/form/cdsImportStatus");
+            request.setParameter("autoRefresh",background);
+            var session=request.getSession(false);
+            var previous=new Date(System.currentTimeMillis()-30_000);
+            session.setAttribute("last_request_time",previous);
+            var response=new MockHttpServletResponse();var chain=new MockFilterChain();
+            try(var statics=mockStatic(CarlosProperties.class)) {
+                var properties=mock(CarlosProperties.class);
+                statics.when(CarlosProperties::getInstance).thenReturn(properties);
+                when(properties.getProperty("INACTIVITY_LIMIT_MINS")).thenReturn("60");
+                filter.doFilter(request,response,chain);
+                assertThat(chain.getRequest()).isNotNull();
+                if (Boolean.parseBoolean(background)) assertThat(session.getAttribute("last_request_time")).isSameAs(previous);
+                else assertThat((Date)session.getAttribute("last_request_time")).isAfter(previous);
+            }
+        }
+
+        @Test void shouldInitializeTimer_forFirstCdsBackgroundRequest() throws Exception {
+            var request=authenticatedRequest();
+            request.setRequestURI(CONTEXT_PATH+"/form/cdsImportStatus");
+            request.setParameter("autoRefresh","true");
+            var chain=new MockFilterChain();
+            try(var statics=mockStatic(CarlosProperties.class)) {
+                var properties=mock(CarlosProperties.class);
+                statics.when(CarlosProperties::getInstance).thenReturn(properties);
+                when(properties.getProperty("INACTIVITY_LIMIT_MINS")).thenReturn("60");
+                filter.doFilter(request,new MockHttpServletResponse(),chain);
+                assertThat(chain.getRequest()).isNotNull();
+                assertThat(request.getSession(false).getAttribute("last_request_time")).isInstanceOf(Date.class);
+            }
+        }
+
+        @Test void shouldRejectExpiredCdsBackgroundRequests_beforeAnyTimerReset() throws Exception {
+            var request=authenticatedRequest();
+            request.setRequestURI(CONTEXT_PATH+"/form/cdsImportStatus");
+            request.setParameter("autoRefresh","true");
+            var previous=new Date(System.currentTimeMillis()-7_200_000);
+            request.getSession(false).setAttribute("last_request_time",previous);
+            var response=new MockHttpServletResponse();var chain=new MockFilterChain();
+            try(var statics=mockStatic(CarlosProperties.class)) {
+                var properties=mock(CarlosProperties.class);
+                statics.when(CarlosProperties::getInstance).thenReturn(properties);
+                when(properties.getProperty("INACTIVITY_LIMIT_MINS")).thenReturn("60");
+                filter.doFilter(request,response,chain);
+                assertThat(chain.getRequest()).isNull();
+                assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH+"/logoutPage");
+                assertThat(request.getSession(false).getAttribute("last_request_time")).isSameAs(previous);
+            }
+        }
+
         @Test
         @DisplayName("should fail closed when inactivity limit is malformed")
         void shouldFailClosed_whenInactivityLimitIsMalformed()
@@ -699,6 +753,27 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getRedirectedUrl()).isNull();
             assertThat(chain.getRequest()).isSameAs(request);
+        }
+    }
+
+    @Nested
+    @DisplayName("Inactivity-timer exemptions shared with UserActivityFilter (#5305)")
+    class InactivityTimerExemptions {
+
+        @Test
+        @DisplayName("should exempt background polls and the heartbeat from the inactivity timer")
+        void shouldExemptBackgroundPolls_fromInactivityTimer() {
+            assertThat(LoginFilter.isExemptFromInactivityTimer(CONTEXT_PATH + "/provider/ViewTabAlertsRefresh", CONTEXT_PATH)).isTrue();
+            assertThat(LoginFilter.isExemptFromInactivityTimer(CONTEXT_PATH + "/status/SessionHeartbeat", CONTEXT_PATH)).isTrue();
+            assertThat(LoginFilter.isExemptFromInactivityTimer(CONTEXT_PATH + "/provider/providercontrol;jsessionid=abc", CONTEXT_PATH)).isTrue();
+        }
+
+        @Test
+        @DisplayName("should count ordinary clinical routes as user activity")
+        void shouldNotExemptClinicalRoutes_fromInactivityTimer() {
+            assertThat(LoginFilter.isExemptFromInactivityTimer(CONTEXT_PATH + "/tickler/ticklerMain", CONTEXT_PATH)).isFalse();
+            assertThat(LoginFilter.isExemptFromInactivityTimer(CONTEXT_PATH + "/provider/providercontrolEvil", CONTEXT_PATH)).isFalse();
+            assertThat(LoginFilter.isExemptFromInactivityTimer(null, CONTEXT_PATH)).isFalse();
         }
     }
 

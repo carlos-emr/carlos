@@ -53,6 +53,45 @@ public class LookupListItem extends AbstractModel<Integer> {
     @Temporal(TemporalType.TIMESTAMP)
     private Date dateCreated = new Date();
 
+    /**
+     * Creates an empty instance, as JPA and the existing callers do. Declared explicitly
+     * because the private copy constructor behind {@link #copyOf(LookupListItem)} would
+     * otherwise remove the implicit no-argument constructor JPA requires.
+     */
+    public LookupListItem() {
+    }
+
+    /*
+     * Copies the label field directly: getLabel() turns null into "", and a copy must hold
+     * exactly what the row holds.
+     */
+    private LookupListItem(LookupListItem source) {
+        this.id = source.id;
+        this.lookupListId = source.lookupListId;
+        this.value = source.value;
+        this.label = source.label;
+        this.active = source.active;
+        this.displayOrder = source.displayOrder;
+        this.createdBy = source.createdBy;
+        this.dateCreated = source.dateCreated == null ? null : (Date) source.dateCreated.clone();
+    }
+
+    /**
+     * Returns a detached copy that shares no mutable state with {@code source}.
+     *
+     * <p>Used by {@link LookupList#copyOf(LookupList)} so a cached lookup list's items are
+     * copied along with the list. The creation date is cloned (keeping its runtime type, such
+     * as {@link java.sql.Timestamp}). The copy keeps the database id, so
+     * {@code equals}/{@code hashCode} still match the row, but it is not managed by any
+     * persistence context: changing it writes nothing.</p>
+     *
+     * @param source the item to copy; may be {@code null}
+     * @return a new detached copy, or {@code null} when {@code source} is {@code null}
+     */
+    public static LookupListItem copyOf(LookupListItem source) {
+        return source == null ? null : new LookupListItem(source);
+    }
+
     public Integer getId() {
         return id;
     }

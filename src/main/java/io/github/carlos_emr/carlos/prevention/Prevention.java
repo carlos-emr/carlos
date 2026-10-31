@@ -44,6 +44,7 @@ import java.util.Vector;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException;
 
 /**
  * @author Jay Gallagher
@@ -154,6 +155,42 @@ public class Prevention {
         }
     }
 
+    /** A Date-only rule set cannot prove timing, spacing or latest status for this history. */
+    public boolean isDateReviewRequired() {
+        for (Object value : preventionTypes.values()) {
+            for (Object item : (Vector) value) {
+                if (((PreventionItem) item).requiresDateReview()) return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean isDateReviewRequired(String preventionType) {
+        Vector items = (Vector) preventionTypes.get(preventionType);
+        if (items != null) {
+            for (Object item : items) {
+                if (((PreventionItem) item).requiresDateReview()) return true;
+            }
+        }
+        return false;
+    }
+
+    private void requireExactHistory(String preventionType) {
+        if (isDateReviewRequired(preventionType)) throw new PreventionDatePrecisionException();
+    }
+
+    public void addDateReviewWarnings() {
+        for (Object key : preventionTypes.keySet()) {
+            Vector items = (Vector) preventionTypes.get(key);
+            for (Object item : items) {
+                if (((PreventionItem) item).requiresDateReview()) {
+                    addWarning((String) key, "Prevention timing is partial or unknown; review history before applying due or dose rules.");
+                    break;
+                }
+            }
+        }
+    }
+
     public int getAgeInMonths(Date DOB) {
         if (DOB != null)
             return getNumMonths(DOB, Calendar.getInstance().getTime());
@@ -193,6 +230,7 @@ public class Prevention {
     }
 
     public boolean isLastPreventionWithinRange(String preventionType, String startDate, String endDate) {
+        requireExactHistory(preventionType);
         boolean withinRange = false;
         Date lastdate = getLastPreventionDate(preventionType);
         try {
@@ -217,9 +255,13 @@ public class Prevention {
         Date lastDate = null;
         Vector vec = (Vector) preventionTypes.get(preventionType);
         if (vec != null) {
+            for (Object item : vec) {
+                // A synthetic anchor cannot establish which event happened last.
+                if (((PreventionItem) item).requiresDateReview()) return null;
+            }
             PreventionItem p = (PreventionItem) vec.get(vec.size() - 1);  // Get date from return object
             lastDate = p.getDatePreformed();
-            log.debug("getting last date preformed of a " + preventionType + " :" + lastDate.toString());
+            log.debug("getting last date preformed of a " + preventionType + " :" + lastDate);
         }
 
         return lastDate; //
@@ -257,6 +299,7 @@ public class Prevention {
     }
 
     public Date getNextPreventionDate(String preventionType) {
+        requireExactHistory(preventionType);
         Date nextDate = null;
         Vector vec = (Vector) preventionTypes.get(preventionType);
         if (vec != null) {
@@ -268,6 +311,7 @@ public class Prevention {
     }
 
     public boolean isPreventionNever(String preventionType) {
+        requireExactHistory(preventionType);
         boolean ispreventionnever = false;
         Vector vec = (Vector) preventionTypes.get(preventionType);
         if (vec != null) {
@@ -329,6 +373,9 @@ public class Prevention {
         int status = -1;
         Vector vec = (Vector) preventionTypes.get(preventionType);
         if (vec != null && !vec.isEmpty()) {
+            for (Object item : vec) {
+                if (((PreventionItem) item).requiresDateReview()) return -1;
+            }
             PreventionItem p = (PreventionItem) vec.get(vec.size() - 1);
             status = p.getRefusedStatus();
         }
@@ -358,6 +405,7 @@ public class Prevention {
         if (!"Smoking".equals(preventionType)) {
             return false;
         }
+        requireExactHistory(preventionType);
         return getRefusedStatus(preventionType) == 0;
     }
 
