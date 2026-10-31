@@ -31,7 +31,9 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -61,6 +63,7 @@ public class CdsAppointmentPersister {
     private final CdsNativePreparationService preparation;
 
     private final OscarAppointmentDao appointments;
+    private final DemographicDao demographics;
 
     public CdsAppointmentPersister(
             CdsFieldParser fields,
@@ -68,13 +71,15 @@ public class CdsAppointmentPersister {
             CdsImportConfigurationService configuration,
             CdsProviderResolver providers,
             CdsNativePreparationService preparation,
-            OscarAppointmentDao appointments) {
+            OscarAppointmentDao appointments,
+            DemographicDao demographics) {
         this.fields = fields;
         this.normalization = normalization;
         this.configuration = configuration;
         this.providers = providers;
         this.preparation = preparation;
         this.appointments = Objects.requireNonNull(appointments);
+        this.demographics = Objects.requireNonNull(demographics);
     }
 
     public void validate(CdsRecordDto record, CdsImportCommand command) throws IOException {
@@ -269,7 +274,7 @@ public class CdsAppointmentPersister {
         appointment.setStartTime(Time.valueOf(LocalTime.parse(dto.start())));
         appointment.setEndTime(Time.valueOf(LocalTime.parse(dto.end())));
         appointment.setProviderNo(dto.providerNo() == null ? "" : dto.providerNo());
-        appointment.setName("");
+        appointment.setName(appointmentName(patient));
         appointment.setProgramId(command.programId() == null ? 0 : command.programId());
         appointment.setReason(dto.purpose());
         appointment.setNotes(dto.notes());
@@ -282,6 +287,16 @@ public class CdsAppointmentPersister {
         if (appointment.getId() == null || appointment.getId() < 1)
             throw new CdsImportException("APPOINTMENT_NATIVE_ID_MISSING");
         return Map.of("appointment", appointment.getId().toString());
+    }
+
+    /**
+     * Receipts and appointment cards print {@code appointment.name} as stored, so imported
+     * bookings carry the patient's name in the same "Last,First" form the scheduler writes
+     * (AppointmentAddRecord2Action).
+     */
+    private String appointmentName(int patient) {
+        Demographic demographic = demographics.getDemographicById(patient);
+        return demographic == null ? "" : demographic.getLastName() + "," + demographic.getFirstName();
     }
 
     private String bounded(
