@@ -22,6 +22,7 @@
  * Implements coverage-plan §2.7 billing-on-admin-config.
  */
 
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
@@ -214,7 +215,7 @@ async function workflow(s) {
     await add.waitFor({ state: 'visible' });
     const dialogs = await h.withExpectedDialogs(admin, () => add.locator('input[name="addForm"]').click());
     h.assert(dialogs.length === 1 && dialogs[0].type === 'alert', 'An empty service type id did not raise the required-field alert');
-    const refused = await s.context.request.get(h.appUrl(s.config.baseUrl, '/billing/CA/ON/DbManageBillingformAdd'), {
+    const refused = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/billing/CA/ON/DbManageBillingformAdd'), {
       params: { typeid: typeId2, type: formName2, group1: 'G1', group2: 'G2', group3: 'G3', billtype: 'ODP' }, maxRedirects: 0,
     });
     h.assert(refused.status() === 405, 'DbManageBillingformAdd must reject GET');

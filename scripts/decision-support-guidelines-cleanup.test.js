@@ -55,6 +55,7 @@ function setup(t, options = {}) {
   vm.runInNewContext(composedSource, {
     module, exports: module.exports, __dirname, process: {env: {ARTIFACT_DIR: directory}},
     require(name) {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
       if (name === './lib/playwright-harness') return h;
       if (name === './lib/throwaway-login-fixture') return {throwawayLoginFixture: () => login};
       if (name.startsWith('node:')) {

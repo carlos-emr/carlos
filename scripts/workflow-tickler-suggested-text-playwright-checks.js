@@ -15,6 +15,7 @@
  * Coverage plan: workflow-tickler-suggested-text (tickler suggested text, patient tickler list,
  * WorkFlow). Env: DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
@@ -158,7 +159,7 @@ async function workflow(s) {
 
   await s.step('EditTicklerTextSuggest refuses GET with 405 and changes nothing', async () => {
     const id = sql.value(`SELECT id FROM tickler_text_suggest WHERE suggested_text=${S} AND id>${baselineMax}`);
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl,
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl,
       `/tickler/EditTicklerTextSuggest?method=updateTextSuggest&activeText=${id}&inactiveText=0`), { maxRedirects: 0 });
     h.assert(response.status() === 405, `GET EditTicklerTextSuggest answered HTTP ${response.status()}`);
     h.assert(sql.value(ownedSuggestion) === '1:0' && existing() === before, 'A refused GET changed suggestions');

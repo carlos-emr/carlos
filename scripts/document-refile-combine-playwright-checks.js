@@ -20,6 +20,7 @@
  * (document-refile-combine). Env: DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR), INCOMINGDOCUMENT_DIR,
  * plus the harness contract; needs pdfinfo/pdftotext.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -160,7 +161,7 @@ async function workflow(s) {
   await s.step('DocumentRefile refuses GET and copies nothing', async () => {
     fs.unlinkSync(refiled);
     const query = new URLSearchParams({ refileDocumentNo: docA.id, queueId: '1' }).toString();
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/documentManager/DocumentRefile?${query}`), { maxRedirects: 0, failOnStatusCode: false });
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, `/documentManager/DocumentRefile?${query}`), { maxRedirects: 0, failOnStatusCode: false });
     h.assert(response.status() === 405, `GET DocumentRefile answered HTTP ${response.status()}, expected 405`);
     h.assert(!fs.existsSync(refiled), 'GET DocumentRefile copied the document');
   });

@@ -31,6 +31,7 @@
  * made a BC patient. Cleanup deletes every BC billing row of that patient, its billing_history,
  * billingnote and bill_recipients rows, and asserts none is left. BC installs only (billregion=BC).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { expectValue, runWorkflow } = require('./lib/workflow-session');
@@ -71,7 +72,7 @@ async function workflow(s) {
   });
 
   await s.step('a GET to Update Invoice is refused and writes nothing', async () => {
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl,
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl,
       `/billing/CA/BC/UpdateBilling?billingNo=${billingNo}&recipientName=${encodeURIComponent(recipient.name)}`
       + `&messageNotes=${encodeURIComponent(note)}&submit=Update%20Invoice`), { maxRedirects: 0 });
     h.assert(response.status() === 405, `A GET Update Invoice answered ${response.status()}, not 405`);

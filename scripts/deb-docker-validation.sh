@@ -173,21 +173,19 @@ build_image() {
     [ -r "$BUILD_CA_BUNDLE" ] || die "BUILD_CA_BUNDLE is not readable: $BUILD_CA_BUNDLE"
     cp "$BUILD_CA_BUNDLE" "$ctx/extra-ca.crt"
   else
-    : > "$ctx/extra-ca.crt"
+    cp /etc/ssl/certs/ca-certificates.crt "$ctx/extra-ca.crt"
   fi
   cat > "$ctx/Dockerfile" <<'EOF'
+# syntax=docker/dockerfile:1
 ARG BASE_IMAGE=ubuntu:26.04
 FROM ${BASE_IMAGE}
 ARG BUILD_PROXY=
 ARG APT_FORCE_HTTPS=false
 ARG PLAYWRIGHT_VERSION
-COPY extra-ca.crt /usr/local/share/ca-certificates/carlos-validation-extra-ca.crt
-RUN set -e; \
+RUN --mount=type=secret,id=validation_ca,required=true,mode=0444 set -e; \
     if [ "$APT_FORCE_HTTPS" = true ]; then sed -i 's#http://#https://#g' /etc/apt/sources.list.d/*.sources; fi; \
     if [ -n "$BUILD_PROXY" ]; then printf 'Acquire::http::Proxy "%s";\nAcquire::https::Proxy "%s";\n' "$BUILD_PROXY" "$BUILD_PROXY" > /etc/apt/apt.conf.d/99carlos-validation-proxy; fi; \
-    if [ -s /usr/local/share/ca-certificates/carlos-validation-extra-ca.crt ]; then \
-      printf 'Acquire::https::CaInfo "/usr/local/share/ca-certificates/carlos-validation-extra-ca.crt";\n' > /etc/apt/apt.conf.d/98carlos-validation-ca; \
-    else rm -f /usr/local/share/ca-certificates/carlos-validation-extra-ca.crt; fi; \
+    printf 'Acquire::https::CaInfo "/run/secrets/validation_ca";\n' > /etc/apt/apt.conf.d/98carlos-validation-ca; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ca-certificates systemd systemd-sysv dbus iproute2 procps curl \
@@ -200,14 +198,14 @@ RUN set -e; \
       getty@tty1.service console-getty.service systemd-networkd-wait-online.service; \
     cd /root && npm init -y >/dev/null; \
     if [ -n "$BUILD_PROXY" ]; then export HTTPS_PROXY="$BUILD_PROXY"; fi; \
-    export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt; \
+    export NODE_EXTRA_CA_CERTS=/run/secrets/validation_ca; \
     npm install --save-exact --no-audit --no-fund "playwright@${PLAYWRIGHT_VERSION}"
 ENV container=docker
 STOPSIGNAL SIGRTMIN+3
 CMD ["/sbin/init"]
 EOF
   say "building image $IMAGE from $BASE_IMAGE"
-  docker build --network host -t "$IMAGE" \
+  docker build --secret "id=validation_ca,src=$ctx/extra-ca.crt" -t "$IMAGE" \
     --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg BUILD_PROXY="$BUILD_PROXY" \
     --build-arg APT_FORCE_HTTPS="$APT_FORCE_HTTPS" --build-arg PLAYWRIGHT_VERSION="$PLAYWRIGHT_VERSION" \
     "$ctx" >"$LOG_DIR/image-build.log" 2>&1 || { rm -rf "$ctx"; die "image build failed; see $LOG_DIR/image-build.log"; }
@@ -245,10 +243,13 @@ cmd_up() {
   build_image
 
   say "starting $CONTAINER (cgroup mode: $(cgroup_mode))"
+  local validation_ca="${BUILD_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}"
   # shellcheck disable=SC2086 # cgroup_args is a deliberate word list
   docker run -d --name "$CONTAINER" --hostname "$CONTAINER" --privileged --network host \
     $cgroup_args "${extra[@]}" --tmpfs /run --tmpfs /run/lock \
-    -v "$REPO_ROOT:/root/carlos:ro" -v "$DEBS_DIR:/debs:ro" "$IMAGE" >/dev/null
+    -v "$REPO_ROOT:/root/carlos:ro" -v "$DEBS_DIR:/debs:ro" \
+    -v "$validation_ca:/run/carlos-validation-ca.pem:ro" \
+    -e NODE_EXTRA_CA_CERTS=/run/carlos-validation-ca.pem -e CURL_CA_BUNDLE=/run/carlos-validation-ca.pem "$IMAGE" >/dev/null
   local state="" i
   for i in $(seq 1 60); do
     state=$(docker exec "$CONTAINER" systemctl is-system-running 2>/dev/null || true)
@@ -265,6 +266,7 @@ cmd_up() {
       if [ -n '$BUILD_PROXY' ]; then
         printf 'Acquire::http::Proxy \"%s\";\nAcquire::https::Proxy \"%s\";\n' '$BUILD_PROXY' '$BUILD_PROXY' > /etc/apt/apt.conf.d/99carlos-validation-proxy
       fi
+      printf 'Acquire::https::CaInfo \"/run/carlos-validation-ca.pem\";\\n' > /etc/apt/apt.conf.d/98carlos-validation-ca
       apt-get update
       apt-get install -y --no-remove /debs/$emr /debs/$drugref /debs/$ctl" >"$LOG_DIR/install.log" 2>&1; then
     die "apt-get install failed; see $LOG_DIR/install.log"
@@ -479,8 +481,14 @@ cmd_suite() {
   local active requested='' prev='' arg
   active=$(active_profile)
   for arg in "$@"; do [ "$prev" = --profile ] && requested=$arg; prev=$arg; done
+  local managed=false
+  case "$requested" in address-lock|no-pin|multisite|caisi-admin|legacy-contacts|private-consent|appointment-options) managed=true ;; esac
+  if [ "$managed" = true ]; then
+    [ -z "$active" ] || die "restore the manual profile before running an automatic profile"
+  else
   [ "${active:-default}" = "${requested:-default}" ] \
     || die "the install is in profile '${active:-default}' but the run asks for '${requested:-default}': run 'suite --profile ${active:-default}' or 'profile ${requested:-default}' first"
+  fi
   # Select only checks for the installed province (and province-neutral ones),
   # unless the caller chose a province.
   local province
@@ -493,13 +501,13 @@ cmd_suite() {
   quoted=$(printf '%q ' "$@")
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
   before=$(in_container 'systemctl show carlos-emr -p NRestarts --value')
-  in_container ". /root/suite-env.sh; node scripts/run-playwright-suite.js $quoted --junit /root/suite-$stamp.xml" \
+  in_container ". /root/suite-env.sh; CARLOS_DISPOSABLE_HOST=true node scripts/run-playwright-suite.js $quoted --junit /root/suite-$stamp.xml" \
     2>&1 | tee "$LOG_DIR/suite-$stamp.log" || rc=$?
   docker cp "$CONTAINER:/root/suite-$stamp.xml" "$LOG_DIR/" >/dev/null 2>&1 || true
   after=$(in_container 'systemctl show carlos-emr -p NRestarts --value')
   # A browser failure can be the first symptom of the JVM being killed and
   # restarted; a run that tested two processes must not finish green.
-  if [ "$before" != "$after" ]; then
+  if [ "$managed" = false ] && [ "$before" != "$after" ]; then
     echo "FAIL carlos-emr restarted during the suite ($before -> $after)"
     rc=1
   fi

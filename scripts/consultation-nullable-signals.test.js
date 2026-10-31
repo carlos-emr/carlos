@@ -69,6 +69,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     await vm.runInNewContext(source, {
       URL, Buffer, process: signalProcess, console: { log() {}, error() {} },
       require(name) {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
         if (name === 'playwright') return { chromium: { async launch(options) {
           launchOptions = options;
           return { async newContext() { return context; }, async close() { events.push('close'); } };

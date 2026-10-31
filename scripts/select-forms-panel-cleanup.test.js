@@ -36,6 +36,7 @@ for (const failure of ['snapshot', 'launch', 'context', 'page', 'cleanup']) {
       process: { env: {}, exit(code) { events.push(`exit ${code}`); } },
       console: { log() {}, error(message) { errors.push(message); } },
       require(name) {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
         if (name === 'playwright') return { chromium: { async launch() {
           assert.ok(fs.existsSync(optionFile), 'startup has already created the SQL credential file');
           if (failure === 'launch') throw new Error('launch failed');

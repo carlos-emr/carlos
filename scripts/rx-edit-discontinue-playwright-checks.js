@@ -24,6 +24,7 @@
  * and removed by patient/drug id in cleanup, which asserts nothing remains. Needs DrugRef data
  * for RX_EDIT_DRUG_TERM / RX_EDIT_DRUG_NAME (default LIPITOR 20MG).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
@@ -294,7 +295,7 @@ async function workflow(s) {
       `/rx/UpdateScript?parameterValue=updateDrug&action=parseInstructions&randomId=1&instruction=x&demographicNo=${patient}`,
       `/rx/deleteRx?parameterValue=Discontinue&drugId=${drug}&reason=other&demoNo=${patient}`,
     ]) {
-      const response = await s.context.request.get(h.appUrl(s.config.baseUrl, path), { maxRedirects: 0 });
+      const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, path), { maxRedirects: 0 });
       h.assert(response.status() === 405, `GET ${path.split('?')[0]} answered HTTP ${response.status()} instead of 405`);
     }
     h.assert(snapshot() === before, 'A refused GET changed the chart');

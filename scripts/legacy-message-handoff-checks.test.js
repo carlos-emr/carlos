@@ -183,7 +183,8 @@ function harness({ missingProbe = 'success' } = {}) {
   const module = { exports: {} };
   vm.runInNewContext(fs.readFileSync(helperFile, 'utf8'), {
     module, exports: module.exports, URLSearchParams,
-    require(name) { assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency ${name}`); return dependencies[name]; },
+    require(name) {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe'); assert.ok(Object.hasOwn(dependencies, name), `Unexpected dependency ${name}`); return dependencies[name]; },
   }, { filename: helperFile });
   const s = {
     sql, marker, provider, config: { baseUrl: 'https://fixture.invalid', testUser: 'FAKE-unit' },

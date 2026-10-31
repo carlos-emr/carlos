@@ -948,7 +948,12 @@
     "test:consultation-specialist-details-playwright": "node scripts/consultation-specialist-details-playwright-checks.js",
     "test:echart-left-modules-list-owned-rows-playwright": "node scripts/echart-left-modules-list-owned-rows-playwright-checks.js",
     "test:echart-right-modules-list-owned-rows-playwright": "node scripts/echart-right-modules-list-owned-rows-playwright-checks.js",
-    "test:group-note-selection-playwright": "node scripts/group-note-selection-playwright-checks.js"
+    "test:group-note-selection-playwright": "node scripts/group-note-selection-playwright-checks.js",
+    "test:appointment-options-roundtrip-playwright": "node scripts/appointment-options-roundtrip-playwright-checks.js",
+    "test:demographic-status-midwife-playwright": "node scripts/demographic-status-midwife-playwright-checks.js",
+    "test:appointment-calendar-recurrence-playwright": "node scripts/appointment-calendar-recurrence-playwright-checks.js",
+    "test:fracture-paste-persistence-playwright": "node scripts/fracture-paste-persistence-playwright-checks.js",
+    "test:rx-renal-input-matrix-playwright": "node scripts/rx-renal-input-matrix-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

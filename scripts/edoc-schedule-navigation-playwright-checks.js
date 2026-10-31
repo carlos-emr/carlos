@@ -108,11 +108,7 @@ function isLoopbackHost(rawHost) {
 
 /** Refuses to point the fixture teardown's DELETEs at a database that is not plainly local. */
 function validateMysqlHost(rawHost) {
-  if (!isExactLocalHost(rawHost) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
-    throw new Error(`Refusing to delete probe document rows from non-local MYSQL_HOST ${rawHost};`
-      + ' set ALLOW_NON_LOCAL_MYSQL_HOST=true for a disposable test database');
-  }
-  return rawHost;
+  return require('./lib/playwright-harness').validateMysqlHost(rawHost);
 }
 
 const config = {
