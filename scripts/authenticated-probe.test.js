@@ -67,3 +67,16 @@ test('real Playwright HTTP transport sends the Secure cookie to a local refusal 
   }
   assert.deepEqual(seen, ['GET', 'HEAD'].map(method => ({method, cookie: 'JSESSIONID=synthetic'})));
 });
+
+
+test('never sends a Secure cookie to a non-loopback HTTP target', async () => {
+  const { session, calls } = fixture();
+  session.config.baseUrl = new URL('http://192.168.1.2/carlos');
+  await assert.rejects(authenticatedProbe(session, '/carlos/save'), /HTTPS outside loopback/);
+  assert.equal(calls.length, 0);
+});
+test('replaces caller Cookie headers regardless of casing', async () => {
+  const { session, calls } = fixture();
+  await authenticatedProbe(session, '/carlos/save', {headers: {cookie: 'wrong', COOKIE: 'also-wrong', Accept: 'text/html'}});
+  assert.deepEqual(calls[0][1].headers, {Accept: 'text/html', Cookie: 'JSESSIONID=synthetic'});
+});
