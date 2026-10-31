@@ -45,6 +45,7 @@ class RxWebServiceSecurityUnitTest extends CarlosUnitTestBase {
             @Override public LoggedInInfo getLoggedInInfo() { return info; }
         };
         service.securityInfoManager = mock(SecurityInfoManager.class);
+        service.legacyProjection = mock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class);
         service.prescriptionManager = mock(PrescriptionManager.class);
         service.demographicManager = mock(DemographicManager.class);
         service.prescriptionConverter = mock(PrescriptionConverter.class);

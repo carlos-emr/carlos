@@ -110,7 +110,7 @@ class WebServiceLoggingAdviceUnitTest {
         WebServiceLoggingAdvice advice = new WebServiceLoggingAdvice();
 
         try (LogCapture capture = LogCapture.forLogger(WebServiceLoggingAdvice.class);
-             MockedStatic<PhaseInterceptorChain> ignoredChain = stubCurrentRequest();
+             MockedStatic<PhaseInterceptorChain> _ = stubCurrentRequest();
              MockedStatic<LogAction> ignoredLog = mockStatic(LogAction.class)) {
 
             Object result = advice.logAccess(joinpoint);
@@ -137,7 +137,7 @@ class WebServiceLoggingAdviceUnitTest {
 
         WebServiceLoggingAdvice advice = new WebServiceLoggingAdvice();
 
-        try (MockedStatic<PhaseInterceptorChain> ignoredChain = stubCurrentRequest();
+        try (MockedStatic<PhaseInterceptorChain> _ = stubCurrentRequest();
              MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
 
             advice.logAccess(joinpoint);
@@ -158,7 +158,7 @@ class WebServiceLoggingAdviceUnitTest {
         WebServiceLoggingAdvice advice = new WebServiceLoggingAdvice();
 
         try (LogCapture capture = LogCapture.forLogger(WebServiceLoggingAdvice.class);
-             MockedStatic<PhaseInterceptorChain> ignoredChain = stubCurrentRequest();
+             MockedStatic<PhaseInterceptorChain> _ = stubCurrentRequest();
              MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
 
             assertThatThrownBy(() -> advice.logAccess(joinpoint)).isSameAs(boom);
@@ -195,7 +195,7 @@ class WebServiceLoggingAdviceUnitTest {
         ProceedingJoinPoint joinpoint = mockJoinPoint("getPharmacies");
         when(joinpoint.proceed()).thenReturn("ok");
 
-        try (MockedStatic<PhaseInterceptorChain> ignoredChain = stubCurrentRequest(request);
+        try (MockedStatic<PhaseInterceptorChain> _ = stubCurrentRequest(request);
              MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
 
             assertThat(new WebServiceLoggingAdvice().logAccess(joinpoint)).isEqualTo("ok");
@@ -255,7 +255,7 @@ class WebServiceLoggingAdviceUnitTest {
         RuntimeException boom = new RuntimeException("boom");
         when(joinpoint.proceed()).thenThrow(boom);
 
-        try (MockedStatic<PhaseInterceptorChain> ignoredChain = stubCurrentRequest(request);
+        try (MockedStatic<PhaseInterceptorChain> _ = stubCurrentRequest(request);
              MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
 
             assertThatThrownBy(() -> new WebServiceLoggingAdvice().logAccess(joinpoint)).isSameAs(boom);
@@ -277,9 +277,9 @@ class WebServiceLoggingAdviceUnitTest {
         when(request.getSession(false)).thenReturn(session);
 
         // auditRecordForSuccessfulCall asserts the "ok" result and exactly one audit record.
-        OscarLog record = auditRecordForSuccessfulCall(request);
-        assertThat(record.getAction()).isEqualTo("REST WS: PharmacyService.getPharmacies");
-        assertThat(record.getProviderNo()).isEqualTo("N/A");
+        OscarLog auditRecord = auditRecordForSuccessfulCall(request);
+        assertThat(auditRecord.getAction()).isEqualTo("REST WS: PharmacyService.getPharmacies");
+        assertThat(auditRecord.getProviderNo()).isEqualTo("N/A");
     }
 
     @ParameterizedTest(name = "providerNo = [{0}]")

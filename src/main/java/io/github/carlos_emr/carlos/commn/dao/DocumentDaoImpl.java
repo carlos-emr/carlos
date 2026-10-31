@@ -562,7 +562,7 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
                     d.documentNo, d.doctype, d.docClass, d.docSubClass, d.docdesc,
                     d.docfilename, d.doccreator, d.responsible, d.source, d.status,
                     d.contenttype, d.contentdatetime, d.observationdate, d.reviewer,
-                    d.reviewdatetime, d.numberofpages, d.appointmentNo, d.abnormal)
+                    d.reviewdatetime, d.numberofpages, d.appointmentNo, d.abnormal, d.cdsContentPrecision)
                 FROM Document d
                 WHERE d.documentNo IN (
                     SELECT c.id.documentNo FROM CtlDocument c

@@ -54,7 +54,7 @@ public class MeasurementsDeleted extends AbstractModel<Integer> implements Seria
 
     private String providerNo = null;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "MEDIUMTEXT")
     private String dataField = null;
 
     private String measuringInstruction = null;

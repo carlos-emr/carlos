@@ -76,6 +76,29 @@ class OscarChartPrinterUnicodeUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldPrintNativePrecision_whenPreventionTimingIsPartialOrUnknown() throws Exception {
+        var dates = mock(io.github.carlos_emr.carlos.commn.dao.PartialDateDao.class);
+        when(dates.getFormat(4, 41, 7)).thenReturn("YYYY-MM");
+        var partial = new io.github.carlos_emr.carlos.commn.model.Prevention();
+        org.springframework.test.util.ReflectionTestUtils.setField(partial, "id", 41);
+        partial.setPreventionType("Td");
+        partial.setPreventionDate(java.sql.Date.valueOf("2020-02-01"));
+        var unknown = new io.github.carlos_emr.carlos.commn.model.Prevention();
+        unknown.setPreventionType("MMR");
+        var dao = createAndRegisterMock(PreventionDao.class);
+        when(dao.findNotDeletedByDemographicId(7)).thenReturn(List.of(partial, unknown));
+        var patient = new Demographic();
+        patient.setDemographicNo(7);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (OscarChartPrinter printer = new OscarChartPrinter(mock(HttpServletRequest.class), output,
+                () -> new io.github.carlos_emr.carlos.prevention.PreventionDateService(dates))) {
+            printer.setDemographic(patient);
+            printer.printPreventions();
+        }
+        assertThat(text(output)).contains("Td 2020-02", "MMR Unknown").doesNotContain("2020-02-01");
+    }
+
+    @Test
     @DisplayName("should print notes, CPP items and the allergies after them in Chinese, Japanese and Korean")
     void shouldPrintClinicalSections_inChineseJapaneseAndKorean() throws Exception {
         Allergy allergy = new Allergy();

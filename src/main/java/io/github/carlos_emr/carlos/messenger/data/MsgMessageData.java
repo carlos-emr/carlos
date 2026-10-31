@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.messenger.data;
 
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -314,7 +315,7 @@ public class MsgMessageData {
         }
 
         if (pdfAttach != null) {
-            pdfAttach = str.q(pdfAttach);
+            pdfAttach = quotedPdfRecords(pdfAttach);
         }
 
         MessageTbl mt = new MessageTbl();
@@ -330,7 +331,7 @@ public class MsgMessageData {
         mt.setType(type);
         mt.setType_link(typeLink);
         if (pdfAttach != null) {
-            mt.setPdfAttachment(pdfAttach.getBytes());
+            mt.setPdfAttachment(pdfAttachmentBytes(pdfAttach));
         }
         messageTblDao.persist(mt);
 
@@ -352,6 +353,40 @@ public class MsgMessageData {
 
     }
 
+    /**
+     * Whether staged chart PDF records fit a message once {@link #sendMessage2} or {@link #sendMessageReview} stores them.
+     * Those quote the records first, as they do the other text of a message, which puts a backslash before each backslash
+     * (a title can hold one), so a record can fit the column as it was staged and not as it is stored: the size is
+     * judged on the quoted text, here and where the records are attached, so that every refusal is made up front.
+     *
+     * @param pdfRecords the records as staged, or {@code null} when the message carries none
+     * @return {@code true} for no records, or records that fit {@link MessageTbl#PDF_ATTACHMENT_MAX_BYTES} when stored
+     */
+    public static boolean pdfAttachmentFits(String pdfRecords) {
+        return pdfRecords == null || MessageTbl.pdfAttachmentFits(quotedPdfRecords(pdfRecords));
+    }
+
+    /** The one place the records are quoted, so that what is checked and what is stored cannot differ. */
+    private static String quotedPdfRecords(String pdfRecords) {
+        return new MsgStringQuote().q(pdfRecords);
+    }
+
+    /**
+     * The chart PDF records as they are stored: UTF-8, as the viewers read them. The column holds
+     * {@link MessageTbl#PDF_ATTACHMENT_MAX_BYTES} bytes and cuts a longer text off without a word, which leaves the last PDF
+     * in two, so a text that does not fit is refused here for whoever did not check it first.
+     *
+     * @throws IllegalArgumentException if the records are longer than the column holds
+     */
+    private static byte[] pdfAttachmentBytes(String pdfRecords) {
+        byte[] bytes = pdfRecords.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > MessageTbl.PDF_ATTACHMENT_MAX_BYTES) {
+            throw new IllegalArgumentException("The PDF attachments of a message are longer than a message holds ("
+                    + bytes.length + " bytes)");
+        }
+        return bytes;
+    }
+
     ////////////////////////////////////////////////////////////////////////////
     public String sendMessage2(String message, String subject, String userName, String sentToWho, String userNo, ArrayList<MsgProviderData> providers, String attach, String pdfAttach, Integer type) {
 
@@ -363,7 +398,7 @@ public class MsgMessageData {
         }
 
         if (pdfAttach != null) {
-            pdfAttach = str.q(pdfAttach);
+            pdfAttach = quotedPdfRecords(pdfAttach);
         }
 
         MessageTbl mt = new MessageTbl();
@@ -378,7 +413,7 @@ public class MsgMessageData {
         mt.setAttachment(attach);
         mt.setType(type);
         if (pdfAttach != null) {
-            mt.setPdfAttachment(pdfAttach.getBytes());
+            mt.setPdfAttachment(pdfAttachmentBytes(pdfAttach));
         }
         messageTblDao.persist(mt);
 

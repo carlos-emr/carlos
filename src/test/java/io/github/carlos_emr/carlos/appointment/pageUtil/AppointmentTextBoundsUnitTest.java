@@ -98,7 +98,7 @@ class AppointmentTextBoundsUnitTest extends CarlosUnitTestBase {
   String name="😀".repeat(255);request.setParameter("keyword",name);new AppointmentAddRecord2Action().execute();assertThat(written.get().getName()).isEqualTo(name);
  }
  static Stream<Arguments> fields(){
-  return Stream.of(false,true).flatMap(update->Stream.of(new Object[]{"keyword",255},new Object[]{"reason",80},new Object[]{"notes",255},new Object[]{"resources",255})
+  return Stream.of(false,true).flatMap(update->Stream.of(new Object[]{"keyword",255},new Object[]{"reason",80},new Object[]{"notes",32768},new Object[]{"resources",255})
    .map(field->Arguments.of(update,field[0],field[1])));
  }
  private String execute(boolean update)throws Exception{return update?new AppointmentUpdateRecord2Action().execute():new AppointmentAddRecord2Action().execute();}

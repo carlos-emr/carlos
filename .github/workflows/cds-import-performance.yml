@@ -1,0 +1,93 @@
+# Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later.
+name: CDS installed resource contracts
+
+on:
+  pull_request:
+    branches: [main, develop, experimental, 'release/*', 'staging/*', 'hotfix/*']
+    paths:
+      - 'src/main/**'
+      - 'src/test/java/**/cdsimport/**'
+      - 'src/test/resources/demographic/cds-import-*.xml'
+      - 'src/test/resources/demographic/cds-performance-proof-shape.json'
+      - 'database/mysql/migration/**'
+      - 'scripts/ci/*cds*performance*'
+      - 'scripts/ci/*cds*disk*'
+      - 'scripts/ci/cds_war_manifest.py'
+      - 'scripts/ci/test_cds_war_manifest.py'
+      - 'scripts/ci/run-cds-container-recovery.py'
+      - 'scripts/ci/test_cds_container_recovery.py'
+      - 'scripts/ci/CdsImportMariaDbBootstrap.java'
+      - 'scripts/ci/CdsWorkloadValidator.java'
+      - 'scripts/ci/cds-performance-runtime.Dockerfile'
+      - 'debian/carlos-ctl.pin'
+      - 'pom.xml'
+      - '.github/workflows/cds-import-performance.yml'
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: cds-import-performance-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  installed-resource-profile:
+    name: Installed CDS ${{ matrix.profile }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [scaling, aggregate20, zip64, disk-reserve, disk-enospc]
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - name: Verify bounded WAR content evidence tooling
+        run: python3 scripts/ci/test_cds_war_manifest.py
+      - name: Free unused SDKs only on the job's ephemeral hosted runner
+        run: |
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$RUNNER_OS" = Linux
+          sudo rm -rf -- /usr/local/lib/android /opt/ghc /usr/share/dotnet
+          df -h "$GITHUB_WORKSPACE"
+      - name: Resolve exact paired CLI source
+        id: cli
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re
+          rows = dict(line.split('=',1) for line in pathlib.Path('debian/carlos-ctl.pin').read_text().splitlines()
+                      if line and not line.startswith('#'))
+          ref = rows.get('fallback','')
+          if not re.fullmatch(r'[0-9a-f]{40}',ref):
+              raise SystemExit('This installed candidate gate requires an exact pinned companion source commit')
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+              output.write('ref='+ref+'\n')
+          PY
+      - name: Checkout paired CLI
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: carlos-emr/carlos-ctl
+          ref: ${{ steps.cli.outputs.ref }}
+          path: target/cds-ctl-source
+          persist-credentials: false
+      - name: Start Java25 build container
+        uses: ./.github/actions/dev-container
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          maven-cache: restore
+      - name: Build and verify the actual installed resource profile
+        run: >-
+          python3 scripts/ci/run-cds-performance-ci.py
+          --profile '${{ matrix.profile }}'
+          --cli-source target/cds-ctl-source
+      - name: Preserve bounded sanitized resource and prerequisite evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cds-installed-${{ matrix.profile }}-evidence
+          path: target/cds-performance-*/public/*
+          if-no-files-found: error
+          retention-days: 14

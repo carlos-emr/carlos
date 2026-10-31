@@ -20,73 +20,87 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+ *
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
+ * Modifications by CARLOS Contributors, 2026.
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 package io.github.carlos_emr.carlos.PMmodule.utility;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-
-import org.apache.commons.collections4.map.MultiValueMap;
 import io.github.carlos_emr.carlos.PMmodule.dao.DefaultRoleAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.model.DefaultRoleAccess;
 import io.github.carlos_emr.carlos.commn.dao.CaisiAccessTypeDao;
 import io.github.carlos_emr.carlos.commn.model.CaisiAccessType;
+import io.github.carlos_emr.carlos.daos.security.SecroleDao;
+import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.daos.security.SecroleDao;
-import io.github.carlos_emr.carlos.model.security.Secrole;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class RoleCache {
 
-    static SecroleDao secroleDao = (SecroleDao) SpringUtils.getBean(SecroleDao.class);
-    static DefaultRoleAccessDAO defaultRoleAccessDAO = (DefaultRoleAccessDAO) SpringUtils.getBean(DefaultRoleAccessDAO.class);
-    static CaisiAccessTypeDao accessTypeDao = (CaisiAccessTypeDao) SpringUtils.getBean(CaisiAccessTypeDao.class);
+    private record Snapshot(
+            Map<Long, Secrole> roles,
+            Map<String, Integer> accessTypes,
+            Map<Long, Set<Long>> defaultAccess) {}
 
-    static Map<Long, Secrole> roleMap = new HashMap<Long, Secrole>();
-    static Map<String, Integer> accessTypeMap = new HashMap<String, Integer>();
-    static MultiValueMap defaultRoleAccessMap = new MultiValueMap();
+    private static final AtomicReference<Snapshot> snapshot = new AtomicReference<>();
 
-    public static void reload() {
-        accessTypeMap.clear();
-        for (CaisiAccessType at : accessTypeDao.findAll()) {
-            accessTypeMap.put(at.getName(), at.getId());
+    /** A failed or held reload must preserve the previous complete policy, never publish partial maps. */
+    public static synchronized void reload() {
+        SecroleDao secroleDao = SpringUtils.getBean(SecroleDao.class);
+        DefaultRoleAccessDAO defaultRoleAccessDAO = SpringUtils.getBean(DefaultRoleAccessDAO.class);
+        CaisiAccessTypeDao accessTypeDao = SpringUtils.getBean(CaisiAccessTypeDao.class);
+        Map<String, Integer> accessTypes = new HashMap<>();
+        for (CaisiAccessType at : accessTypeDao.findAll())
+            accessTypes.put(at.getName(), at.getId());
+        Map<Long, Secrole> roles = new HashMap<>();
+        for (Secrole role : secroleDao.getRoles()) roles.put(role.getId(), role);
+        Map<Long, Set<Long>> defaults = new HashMap<>();
+        for (DefaultRoleAccess access : defaultRoleAccessDAO.findAll()) {
+            defaults.computeIfAbsent(access.getAccessTypeId(), ignored -> new HashSet<>())
+                    .add(access.getRoleId());
         }
-        roleMap.clear();
-        for (Secrole role : secroleDao.getRoles()) {
-            setRole(role.getId(), role);
-        }
-        defaultRoleAccessMap.clear();
-        for (DefaultRoleAccess dra : defaultRoleAccessDAO.findAll()) {
-            long roleId = dra.getRoleId();
-            long accessTypeId = dra.getAccessTypeId();
-            defaultRoleAccessMap.put(accessTypeId, roleId);
-        }
+        Map<Long, Set<Long>> frozenDefaults = new HashMap<>();
+        defaults.forEach((type, selected) -> frozenDefaults.put(type, Set.copyOf(selected)));
+        snapshot.set(
+                new Snapshot(
+                        Map.copyOf(roles), Map.copyOf(accessTypes), Map.copyOf(frozenDefaults)));
     }
 
     public static boolean hasAccess(String accessTypeName, long roleId) {
-        Integer accessTypeId = accessTypeMap.get(accessTypeName);
+        Snapshot current = requiredSnapshot();
+        Integer accessTypeId = current.accessTypes().get(accessTypeName);
         if (accessTypeId == null) {
             MiscUtils.getLogger().warn("Access Type not found:" + accessTypeName);
             return false;
         }
-        Collection<Long> roles = defaultRoleAccessMap.getCollection(accessTypeId.longValue());
-        if (roles != null && roles.contains(roleId))
-            return true;
-        return false;
+        Set<Long> roles = current.defaultAccess().get(accessTypeId.longValue());
+        return roles != null && roles.contains(roleId);
     }
 
     public static Secrole getRole(Long id) {
-        return roleMap.get(id);
+        return requiredSnapshot().roles().get(id);
     }
 
-    public static void setRole(Long roleId, Secrole role) {
-        roleMap.put(roleId, role);
+    public static synchronized void setRole(Long roleId, Secrole role) {
+        Snapshot current = requiredSnapshot();
+        Map<Long, Secrole> roles = new HashMap<>(current.roles());
+        roles.put(roleId, role);
+        snapshot.set(
+                new Snapshot(Map.copyOf(roles), current.accessTypes(), current.defaultAccess()));
+    }
+
+    private static Snapshot requiredSnapshot() {
+        Snapshot current = snapshot.get();
+        if (current == null) throw new IllegalStateException("ROLE_CACHE_NOT_INITIALIZED");
+        return current;
     }
 }

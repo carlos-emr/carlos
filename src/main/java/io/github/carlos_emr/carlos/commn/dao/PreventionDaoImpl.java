@@ -38,8 +38,21 @@ import jakarta.persistence.Query;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.prevention.dto.PreventionListItemDTO;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException;
 
 public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements PreventionDao {
+
+    private enum DateScope { TYPE, PATIENT }
+    private static final String UNCERTAIN_DATE_CONDITION = """
+            AND EXISTS (SELECT provenance.id FROM PreventionExt provenance
+                        WHERE provenance.preventionId = p.id AND provenance.keyval = 'cdsDatePrecision')
+            AND (p.preventionDate IS NULL OR EXISTS (
+                SELECT pd.id FROM PartialDate pd
+                WHERE pd.tableName = 4 AND pd.fieldName = 7 AND pd.tableId = p.id
+                AND pd.id = (SELECT MAX(latest.id) FROM PartialDate latest
+                             WHERE latest.tableName = 4 AND latest.fieldName = 7 AND latest.tableId = p.id)
+                AND pd.format IS NOT NULL AND TRIM(pd.format) <> ''))
+            """;
 
     public PreventionDaoImpl() {
         super(Prevention.class);
@@ -174,6 +187,9 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
 
     @Override
     public List<Prevention> findByTypeAndDate(String preventionType, Date startDate, Date endDate) {
+        // This legacy query cannot account for unknown membership in a date interval.
+        // Check the full type scope before filtering; otherwise undated records disappear.
+        requireExactDates(DateScope.TYPE, preventionType);
         String sqlCommand = "select x from " + modelClass.getSimpleName() + " x where preventionType=?1 and preventionDate>=?2 and preventionDate<=?3 and deleted='0' and refused='0' order by preventionDate";
 
         Query query = entityManager.createQuery(sqlCommand);
@@ -213,12 +229,35 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
 
     @Override
     public List<Prevention> findUniqueByDemographicId(Integer demographicId) {
+        // Selecting one row by storage anchors would invent a latest event when intervals overlap.
+        requireExactDates(DateScope.PATIENT, demographicId);
         Query query = entityManager.createNativeQuery("SELECT p1.* FROM preventions p1 left join preventions as p2 on p1.prevention_type = p2.prevention_type and p1.demographic_no = p2.demographic_no and p2.deleted='0' and (p1.prevention_date < p2.prevention_date OR (p1.prevention_date = p2.prevention_date and p1.id < p2.id)) where p1.demographic_no = ?1 AND p1.deleted='0' AND p2.id is null ORDER BY p1.prevention_date DESC", Prevention.class);
         query.setParameter(1, demographicId);
 
         @SuppressWarnings("unchecked")
         List<Prevention> results = query.getResultList();
         return results;
+    }
+
+    private void requireExactDates(DateScope scope, Object value) {
+        if (hasUncertainDates(scope, value)) throw new PreventionDatePrecisionException();
+    }
+
+    @Override
+    public boolean hasUncertainPreventionDates(Integer demographicId) {
+        return demographicId != null && hasUncertainDates(DateScope.PATIENT, demographicId);
+    }
+
+    private boolean hasUncertainDates(DateScope scope, Object value) {
+        Query uncertain = switch (scope) {
+            case TYPE -> entityManager.createQuery("SELECT p.id FROM Prevention p "
+                    + "WHERE p.preventionType = ?1 AND p.deleted = '0' AND p.refused = '0' " + UNCERTAIN_DATE_CONDITION);
+            case PATIENT -> entityManager.createQuery("SELECT p.id FROM Prevention p "
+                    + "WHERE p.demographicId = ?1 AND p.deleted = '0' " + UNCERTAIN_DATE_CONDITION);
+        };
+        uncertain.setParameter(1, value);
+        uncertain.setMaxResults(1);
+        return !uncertain.getResultList().isEmpty();
     }
 
     @NativeSql("preventions")
@@ -247,7 +286,14 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
                     p.id, p.demographicId, p.preventionType, p.preventionDate,
                     p.creationDate, p.providerNo, p.creatorProviderNo,
                     p.deleted, p.refused, p.never,
-                    p.nextDate, p.lastUpdateDate)
+                    p.nextDate, p.lastUpdateDate,
+                    (SELECT pd.format FROM PartialDate pd
+                     WHERE pd.tableName = 4 AND pd.fieldName = 7 AND pd.tableId = p.id
+                     AND pd.id = (SELECT MAX(latest.id) FROM PartialDate latest
+                                  WHERE latest.tableName = 4 AND latest.fieldName = 7
+                                  AND latest.tableId = p.id)),
+                    EXISTS (SELECT provenance.id FROM PreventionExt provenance
+                            WHERE provenance.preventionId = p.id AND provenance.keyval = 'cdsDatePrecision'))
                 FROM Prevention p
                 WHERE p.demographicId = :demoId
                 ORDER BY p.preventionDate DESC

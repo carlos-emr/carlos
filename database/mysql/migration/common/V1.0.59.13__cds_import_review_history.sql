@@ -1,0 +1,31 @@
+-- Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
+-- Protected, versioned review evidence. Original source/spools are never updated by a review.
+CREATE TABLE cds_import_review (
+    id VARCHAR(36) NOT NULL,
+    run_id VARCHAR(36) NOT NULL,
+    review_version BIGINT NOT NULL,
+    kind VARCHAR(24) NOT NULL,
+    diagnostic_id BIGINT NOT NULL,
+    patient_key VARCHAR(64) NULL,
+    source_key VARCHAR(64) NULL,
+    source_xml_sha256 VARCHAR(64) NULL,
+    state VARCHAR(32) NOT NULL,
+    operator_name VARCHAR(128) NOT NULL,
+    provider_no VARCHAR(16) NOT NULL,
+    security_no INT NULL,
+    created_at TIMESTAMP(6) NOT NULL,
+    payload MEDIUMTEXT NOT NULL,
+    payload_sha256 VARCHAR(64) NOT NULL,
+    manifest_location VARCHAR(1024) NULL,
+    manifest_sha256 VARCHAR(64) NULL,
+    plan_location VARCHAR(1024) NOT NULL,
+    plan_sha256 VARCHAR(64) NOT NULL,
+    plan_bytes BIGINT NOT NULL,
+    revalidation_sha256 VARCHAR(64) NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY cds_review_run_version (run_id, review_version),
+    KEY cds_review_source (run_id, source_key, review_version),
+    KEY cds_review_patient (run_id, patient_key, review_version),
+    CONSTRAINT cds_review_run_fk FOREIGN KEY (run_id) REFERENCES cds_import_run (id),
+    CONSTRAINT cds_review_diagnostic_fk FOREIGN KEY (diagnostic_id) REFERENCES cds_import_diagnostic (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;

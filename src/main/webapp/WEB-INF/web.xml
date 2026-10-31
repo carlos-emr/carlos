@@ -112,6 +112,21 @@
         <url-pattern>/*</url-pattern>
     </filter-mapping>
 
+    <!-- DbConnectionFilter is the request boundary for legacy JDBC cleanup (issue #5305). It MUST
+         be the first application filter: every filter below it, the Struts action, the JSP it
+         forwards to and any servlet run inside its try/finally, so the thread's legacy connection,
+         LegacyJdbcQuery resources and tracked connections are released once, after all of them
+         return, whether the request succeeds or throws. Struts executes an action without calling
+         the rest of the chain, so a mapping after struts2-execute never runs for actions.
+         Keep the default REQUEST dispatcher only: a FORWARD/INCLUDE/ERROR mapping would run the
+         cleanup inside a forward, while the action that forwarded can still hold its resources.
+         No filter between here and the servlet may hold a transaction open around chain.doFilter;
+         the cleanup closes tracked connections and must only run once that work has finished. -->
+    <filter-mapping>
+        <filter-name>DbConnectionFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
     <!-- ResponseDefaultsFilter MUST be ordered before Struts execution. Struts action requests
          do not reach later filters once Struts executes them, so this filter must stay ahead of
          the Struts prepare/execute pair to guarantee encoding, caching, and security headers on
@@ -205,6 +220,31 @@
          checks remain as defence-in-depth for direct unit tests and future filter-order changes. -->
     <filter-mapping>
         <filter-name>LoginFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <!-- The maintenance/hold gate preserves login and the authorized import/recovery UI,
+         while denying chart/API/download reads and writes during a drained import window.
+         Physical JDBC admission independently covers background feeds and other app nodes. -->
+    <filter>
+        <filter-name>CdsImportMaintenanceFilter</filter-name>
+        <filter-class>io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsImportMaintenanceFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>CdsImportMaintenanceFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+        <dispatcher>REQUEST</dispatcher>
+        <dispatcher>FORWARD</dispatcher>
+        <dispatcher>ASYNC</dispatcher>
+    </filter-mapping>
+
+    <!-- UserActivityFilter applies the session inactivity policy (autoRefresh=true and heartbeat
+         polls are not user activity). It MUST precede Struts prepare/execute so it covers Struts
+         actions, which never reach filters mapped after struts2-execute (issue #5305). It follows
+         LoginFilter, so only requests LoginFilter let through are judged. REQUEST only: one
+         decision per browser request, not one per JSP forward. -->
+    <filter-mapping>
+        <filter-name>UserActivityFilter</filter-name>
         <url-pattern>/*</url-pattern>
     </filter-mapping>
 
@@ -306,10 +346,8 @@
         <filter-name>UserActivityFilter</filter-name>
         <filter-class>io.github.carlos_emr.carlos.utility.UserActivityFilter</filter-class>
     </filter>
-    <filter-mapping>
-        <filter-name>UserActivityFilter</filter-name>
-        <url-pattern>/*</url-pattern>
-    </filter-mapping>
+    <!-- filter-mapping for UserActivityFilter is declared earlier in the file, after LoginFilter
+         and before struts2-prepare, so the inactivity policy also covers Struts actions. -->
 
 	<filter>
 		<filter-name>DbConnectionFilter</filter-name>
@@ -336,10 +374,8 @@
 		<filter-class>io.github.carlos_emr.carlos.PMmodule.web.PMMFilter</filter-class>
 	</filter>
 
-  <filter-mapping>
-    <filter-name>DbConnectionFilter</filter-name>
-    <url-pattern>/*</url-pattern>
-  </filter-mapping>
+  <!-- filter-mapping for DbConnectionFilter is declared earlier in the file, as the first
+       application filter, so its cleanup encloses Struts actions and their JSP forwards. -->
   <filter-mapping>
     <filter-name>ResponseOverrideFilter</filter-name>
     <url-pattern>/*</url-pattern>

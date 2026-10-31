@@ -159,6 +159,11 @@ Principles:
   per row, gated by `--accept charset-repair`. Text that looks double-encoded
   but does not round-trip is B8, and no flag overrides it.
 
+The reported ISO-8859-1 C1 sequences in `drugs.special` need a separate,
+scoped repair. See the [investigation and implementation plan](o19-drugs-special-encoding-plan.md)
+for reproduced behavior, the collation-dependent detection gap, and release
+validation gates. That plan proposes future behavior; it does not change B8.
+
 ### 4.5 Seed-row reconciliation (fresh CARLOS DB vs incoming dump)
 
 Both systems seed a default doctor at `provider_no 999998` (O19 `oscardoc`,

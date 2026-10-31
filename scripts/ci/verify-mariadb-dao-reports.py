@@ -16,8 +16,11 @@ critical = {
     "ProviderLabRoutingDaoIntegrationTest": 1,
     "BillingONCHeader1DaoIntegrationTest": 1,
 }
+# AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
+# unordered page in secondary-index order, so its paging cases must execute on the physical server.
 required = {"generated": {**critical, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
-                          "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1}, "flyway": critical}
+                          "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
+                          "AbstractDaoFindAllOrderingIntegrationTest": 6}, "flyway": critical}
 counts = {mode: dict(tests=0, failures=0, errors=0, skipped=0) for mode in required}
 families = {mode: dict.fromkeys(required[mode], 0) for mode in required}
 lines = []

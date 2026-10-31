@@ -1,0 +1,112 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsimport.web;
+
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportService;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadService;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsUploadException;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import org.apache.struts2.ActionSupport;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
+
+/** Bounded owner-authorized reads; DTO projections deliberately exclude physical report/detail locations. */
+@Component("cdsImportStatus2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+public class CdsImportStatus2Action extends ActionSupport {
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient CdsWebService web;
+    private final transient CdsImportService imports;
+    private final transient CdsUploadService uploads;
+    private String section = "job", runId, uploadId, afterKey = "";
+    private long afterId;
+    private int limit = 50;
+    public CdsImportStatus2Action(CdsWebService web, CdsImportService imports, CdsUploadService uploads, SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+        this.web = web; this.imports = imports; this.uploads = uploads;
+    }
+    @Override public String execute() throws Exception {
+        HttpServletRequest request = ServletActionContext.getRequest();
+        HttpServletResponse response = ServletActionContext.getResponse();
+        if (!("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))) {
+            response.setHeader("Allow", "GET, HEAD"); response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED); return NONE;
+        }
+        LoggedInInfo loggedInInfo = request.getSession(false) == null ? null
+                : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", (String) null)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", (String) null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_cds_import", "w", (String) null)) {
+            throw new SecurityException("missing required sec object (_cds_import)");
+        }
+        try {
+            var actor = web.authorize(request);
+            web.parameters(request, Set.of("section", "runId", "uploadId", "afterKey", "afterId", "limit", "autoRefresh"));
+            String background = request.getParameter("autoRefresh");
+            if (background != null && !Set.of("true", "false").contains(background)) {
+                throw new CdsUploadException("IMPORT_PARAMETERS_INVALID", 400);
+            }
+            if (limit < 1 || limit > 100 || afterId < 0) throw new CdsUploadException("IMPORT_PAGE_INVALID", 400);
+            Map<String, Object> result = new LinkedHashMap<>(); result.put("ok", true);
+            switch (section) {
+                case "job" -> {
+                    var observed = imports.observe(actor, runId);
+                    result.put("job", web.job(observed.job()));
+                    result.put("summary", web.summary(observed.summary()));
+                }
+                case "patients" -> {
+                    var rows = imports.patients(actor, runId, afterKey, limit);
+                    result.put("rows", rows.stream().map(web::patient).toList());
+                    result.put("nextCursor", rows.isEmpty() ? null : rows.get(rows.size() - 1).patientKey());
+                    result.put("pageLimit", limit);
+                }
+                case "diagnostics" -> {
+                    var rows = imports.diagnostics(actor, runId, afterId, limit);
+                    result.put("rows", rows.stream().map(web::diagnostic).toList());
+                    result.put("nextCursor", rows.isEmpty() ? null : rows.get(rows.size() - 1).id());
+                    result.put("pageLimit", limit);
+                }
+                case "uploads" -> result.put("rows", uploads.pending(web.operator(actor), afterKey, limit));
+                case "upload" -> result.put("upload", uploads.status(web.operator(actor), uploadId));
+                case "chunks" -> result.put("rows", uploads.chunks(web.operator(actor), uploadId, afterId, limit));
+                default -> throw new CdsUploadException("IMPORT_SECTION_INVALID", 400);
+            }
+            web.json(response, 200, result);
+        } catch (Exception failure) { web.failure(response, failure); }
+        return NONE;
+    }
+    @StrutsParameter public void setSection(String value) { section = value; }
+    @StrutsParameter public void setRunId(String value) { runId = value; }
+    @StrutsParameter public void setUploadId(String value) { uploadId = value; }
+    @StrutsParameter public void setAfterKey(String value) { afterKey = value; }
+    @StrutsParameter public void setAfterId(long value) { afterId = value; }
+    @StrutsParameter public void setLimit(int value) { limit = value; }
+}

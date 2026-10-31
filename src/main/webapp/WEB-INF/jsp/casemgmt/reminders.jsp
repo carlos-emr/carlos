@@ -29,6 +29,7 @@
 --%>
 
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@ include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -63,7 +64,7 @@
 <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="1"
        bgcolor="#C0C0C0">
     <tr class="title">
-        <td><label for="cpp.reminders">Reminders</label></td>
+        <td><label for="cpp.reminders">Reminders</label> <source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="AlertsAndSpecialNeeds"/></td>
     </tr>
     <tr>
         <td bgcolor="white"><textarea id="cpp.reminders" name="cpp.reminders" rows="4" cols="85"><carlos:encode value="${requestScope.cpp.reminders}"/></textarea></td>

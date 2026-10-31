@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
@@ -432,6 +433,31 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         } else {
             list.add(demographicNo);
+        }
+
+        try {
+            var projection = SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class);
+            for (String patient : list) projection.requireWholeChartSupported(Integer.parseInt(patient));
+        } catch (io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException unsupported) {
+            writeExportAuditLog(loggedInInfo, list.size(), "unsupported_structured_projection", "<unavailable>", null);
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            response.setContentType("text/plain;charset=UTF-8");
+            response.setHeader("Cache-Control", "no-store");
+            response.getWriter().write(unsupported.getMessage());
+            return NONE;
+        }
+
+        // This legacy export performs Date-only native prevention calculations. Refuse before
+        // creating an archive rather than inventing a day or publishing a partial package.
+        if (exImmunizations || exPastHealth) {
+            try {
+                for (String patient : list) PreventionData.requireExactDates(Integer.valueOf(patient));
+            } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException review) {
+                writeExportAuditLog(loggedInInfo, list.size(), "precision_review_required", "<unavailable>", null);
+                response.sendError(HttpServletResponse.SC_CONFLICT,
+                        "Prevention timing requires review before this legacy export can run.");
+                return NONE;
+            }
         }
 
         String ffwd = "fail";

@@ -57,6 +57,7 @@ public class DocumentTo1 implements Serializable {
     @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date contentDateTime = new Date();
     private String reportMedia;
+    private String cdsContentPrecision;
     @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date sentDateTime;
     private int public1 = 0;
@@ -201,6 +202,12 @@ public class DocumentTo1 implements Serializable {
     public void setContentDateTime(Date contentDateTime) {
         this.contentDateTime = contentDateTime;
     }
+
+    /** Immutable imported-source precision, independent of current native observations. */
+    @com.fasterxml.jackson.annotation.JsonProperty(access=com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    public String getCdsContentPrecision() { return cdsContentPrecision; }
+
+    public void setCdsContentPrecision(String value) { cdsContentPrecision=value; }
 
     public String getReportMedia() {
         return reportMedia;

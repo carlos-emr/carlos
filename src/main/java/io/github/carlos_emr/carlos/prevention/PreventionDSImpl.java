@@ -266,6 +266,12 @@ public class PreventionDSImpl implements PreventionDS {
      *                   {@code "Failed to evaluate prevention Drools rules"} message
      */
     public Prevention getMessages(Prevention p) throws Exception {
+        // Existing rules assume exact dates and ordered history. Refuse to turn an interval
+        // or an undated event into a definite due/age/spacing decision. Records remain visible.
+        if (p.isDateReviewRequired()) {
+            p.addDateReviewWarnings();
+            return p;
+        }
         if (kieBase == null) {
             throw new IllegalStateException("Prevention KieBase is not initialized; rule base loading may have failed.");
         }

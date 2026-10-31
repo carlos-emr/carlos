@@ -15,6 +15,12 @@ migration rehearsals (no Bitbucket checkout needed to run the fixture flow):
 Everything else under `fixtures/` is synthetic CARLOS-authored fixture
 content (clearly-fake values only — no real clinic or patient data):
 
+- `drug-special.sql` — isolated-schema encoding regression data for the
+  SQL semantics verifier. It includes the two reported C1 byte sequences,
+  correct Unicode/NULL/empty controls and unknown, mixed, extra-layer and
+  partial sequences that must stay blocked. The fixture uses synthetic
+  drug IDs and a binary source collation; it is not a clinic UPDATE recipe
+  or part of the vendored demo database.
 - `properties/oscar-clinic-example.properties` — a fabricated
   "clinic-modified" O19 properties file driving the props-phase tests.
 - `demo-data/roles.sql` — synthetic role/privilege and legacy-data cases for

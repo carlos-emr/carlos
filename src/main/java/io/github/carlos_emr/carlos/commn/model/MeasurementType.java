@@ -119,6 +119,46 @@ public class MeasurementType extends AbstractModel<Integer> implements Serializa
     @Temporal(TemporalType.TIMESTAMP)
     private Date createDate = new Date();
 
+    /**
+     * Creates an empty instance, as JPA and the existing callers do. Declared explicitly
+     * because the private copy constructor behind {@link #copyOf(MeasurementType)} would
+     * otherwise remove the implicit no-argument constructor JPA requires.
+     */
+    public MeasurementType() {
+    }
+
+    /*
+     * Copies fields directly rather than through the setters: the setters trim and turn blanks
+     * into null (or, for measuringInstruction, null into ""), and a copy must hold exactly what
+     * the row holds.
+     */
+    private MeasurementType(MeasurementType source) {
+        this.id = source.id;
+        this.type = source.type;
+        this.typeDisplayName = source.typeDisplayName;
+        this.typeDescription = source.typeDescription;
+        this.measuringInstruction = source.measuringInstruction;
+        this.validation = source.validation;
+        this.createDate = source.createDate == null ? null : (Date) source.createDate.clone();
+    }
+
+    /**
+     * Returns a detached copy that shares no mutable state with {@code source}.
+     *
+     * <p>{@code MeasurementTypeDaoImpl} keeps copies in the shared {@code measurementTypes}
+     * cache and hands each caller its own copy, so one caller changing a type cannot change
+     * what every other reader sees until the cache expires. The creation date is cloned
+     * (keeping its runtime type, such as {@link java.sql.Timestamp}). The copy keeps the
+     * database id, so {@code equals}/{@code hashCode} still match the row, but it is not
+     * managed by any persistence context: changing it writes nothing.</p>
+     *
+     * @param source the measurement type to copy; may be {@code null}
+     * @return a new detached copy, or {@code null} when {@code source} is {@code null}
+     */
+    public static MeasurementType copyOf(MeasurementType source) {
+        return source == null ? null : new MeasurementType(source);
+    }
+
 
     /**
      * Gets the primary key identifier for this measurement type.

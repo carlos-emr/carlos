@@ -1618,8 +1618,9 @@ function positionToolbarAfterForm(wrapper) {
     // Leaving print media changes no element or size the observers above see, so re-place the toolbar
     // explicitly: a change made while it was hidden for printing has not been measured yet.
     const printMedia = window.matchMedia ? window.matchMedia('print') : null;
-    if (printMedia && printMedia.addEventListener) printMedia.addEventListener('change', schedule);
-    else if (printMedia && printMedia.addListener) printMedia.addListener(schedule);
+    // A browser without MediaQueryList.addEventListener (Safari before 14) still re-places the
+    // toolbar through the afterprint listener below.
+    printMedia?.addEventListener?.('change', schedule);
     window.addEventListener('afterprint', schedule);
     schedule();
 }

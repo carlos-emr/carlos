@@ -27,10 +27,10 @@
 
 package io.github.carlos_emr.carlos.commn.web;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -58,7 +58,8 @@ public class PopulationReport2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private static final DateFormat DATE_FORMAT = new SimpleDateFormat("dd/MM/yyyy");
+    // Immutable, so every request can format the cached figures' date with it at once (issue #5301).
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd/MM/uuuu", Locale.ROOT);
 
     // Forwards
     private static final String REPORT = "report";
@@ -82,6 +83,9 @@ public class PopulationReport2Action extends ActionSupport {
 
     private static final AtomicReference<Figures> CACHED_FIGURES = new AtomicReference<>();
 
+    /** Held while one request refreshes the figures, so concurrent cache misses compute them once. */
+    private static final Object REFRESH_LOCK = new Object();
+
     @Override
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -99,7 +103,7 @@ public class PopulationReport2Action extends ActionSupport {
         if (figures == null || System.currentTimeMillis() - figures.retrievedAt() > DateUtils.MILLIS_PER_HOUR) {
             // Keep one refresh in flight. Atomic publication alone lets every concurrent cache
             // miss run all of the report's expensive queries before any result has been cached.
-            synchronized (CACHED_FIGURES) {
+            synchronized (REFRESH_LOCK) {
                 figures = CACHED_FIGURES.get();
                 if (figures == null || System.currentTimeMillis() - figures.retrievedAt() > DateUtils.MILLIS_PER_HOUR) {
                     // Arguments are evaluated left to right: the cache time is taken after every

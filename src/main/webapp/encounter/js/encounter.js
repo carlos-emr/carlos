@@ -155,7 +155,9 @@ function legacyChartUrl(url) {
     var hashIndex = url.indexOf('#');
     var hash = hashIndex < 0 ? '' : url.substring(hashIndex);
     var base = hashIndex < 0 ? url : url.substring(0, hashIndex);
-    var separator = base.indexOf('?') < 0 ? '?' : (/[?&]$/.test(base) ? '' : '&');
+    var separator = '&';
+    if (!base.includes('?')) separator = '?';
+    else if (/[?&]$/.test(base)) separator = '';
     return base + separator + 'chartContext=' + encodeURIComponent(encounterConfig.chartContext) + hash;
 }
 
@@ -411,20 +413,7 @@ function listDisplay(Id, threshold) {
     var topImage = document.getElementById(topName);
     var midImage = document.getElementById(midName);
     var lastImage = document.getElementById(lastName);
-    var expand;
-
-    for (var idx = threshold; idx < items.length; ++idx) {
-        // LeftNavBarDisplay renders flex rows; a visible row is not always block.
-        if (items[idx].style.display != 'none') {
-            items[idx].carlosExpandedDisplay = items[idx].style.display;
-            items[idx].style.display = 'none';
-            expand = true;
-        } else {
-            items[idx].style.display = items[idx].carlosExpandedDisplay !== undefined
-                ? items[idx].carlosExpandedDisplay : 'flex';
-            expand = false;
-        }
-    }
+    var expand = toggleItemsPastThreshold(items, threshold);
 
     if (expand) {
         topImage.src = encounterConfig.images.transparent;
@@ -446,6 +435,25 @@ function listDisplay(Id, threshold) {
         imgfunc[lastName] = function(event) { return clickListDisplay.call(obj, event, Id, threshold); };
         lastImage.addEventListener("click", imgfunc[lastName]);
     }
+}
+
+// Hides the items past the threshold, or shows them again. Returns true when the last item it
+// touched was hidden (the list is now collapsed), false when shown or when there was nothing to toggle.
+function toggleItemsPastThreshold(items, threshold) {
+    var expand = false;
+    for (var idx = threshold; idx < items.length; ++idx) {
+        // LeftNavBarDisplay renders flex rows; a visible row is not always block.
+        if (items[idx].style.display != 'none') {
+            items[idx].carlosExpandedDisplay = items[idx].style.display;
+            items[idx].style.display = 'none';
+            expand = true;
+        } else {
+            items[idx].style.display = items[idx].carlosExpandedDisplay !== undefined
+                ? items[idx].carlosExpandedDisplay : 'flex';
+            expand = false;
+        }
+    }
+    return expand;
 }
 
 function clickListDisplay(e) {
@@ -652,7 +660,7 @@ function menuAction() {
         var formArgs;
         try {
             formArgs = JSON.parse(action.slice("openEncounterForm.apply(null,".length, -2));
-        } catch (ignored) {
+        } catch {
             return;
         }
         if (Array.isArray(formArgs) && formArgs.length === 3 && formArgs.every(function (value) {

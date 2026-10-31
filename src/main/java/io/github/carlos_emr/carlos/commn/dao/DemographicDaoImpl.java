@@ -1779,6 +1779,20 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
     }
 
+    /** Historical migration participates in the import unit, including its receipt and audit. */
+    @Override
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void persistImportedDemographic(Demographic demographic) {
+        if (demographic == null || demographic.getDemographicNo() != null) {
+            throw new IllegalArgumentException("Historical import requires a new demographic");
+        }
+        if (TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+            throw new IllegalStateException("Historical import requires a writable transaction");
+        }
+        entityManager().persist(demographic);
+        entityManager().flush();
+    }
+
     @Override
     public String getOrderField(String orderBy, boolean nativeQuery) {
         if (!nativeQuery) {
