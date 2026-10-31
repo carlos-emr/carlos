@@ -885,8 +885,9 @@
             <version>${hapi-hl7.version}</version>
         </dependency>
 
-        <!-- JDOM 2 for CARLOS's own XML helpers (XmlUtils.createSecureSAXBuilder); jdom v1,
-             which hapi-base 1.0.1 pulled in, is no longer on the classpath -->
+        <!-- Retain the latest JDOM 2 release for CARLOS's XML helpers; all parsing goes
+             through XmlUtils.createSecureSAXBuilder. Maintenance assessment and migration
+             criteria: docs/jdom2-maintenance.md. JDOM 1 is no longer on the classpath. -->
         <dependency>
             <groupId>org.jdom</groupId>
             <artifactId>jdom2</artifactId>
@@ -2248,6 +2249,24 @@
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <version>3.6.3</version>
                 <executions>
+                    <execution>
+                        <id>ban-obsolete-jdom</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>jdom:jdom</exclude>
+                                        <exclude>org.jdom:jdom</exclude>
+                                        <exclude>org.jdom:jdom2:(,2.0.6.1)</exclude>
+                                    </excludes>
+                                    <message>CARLOS retains JDOM 2.0.6.1 or later with mandatory parser hardening. Do not reintroduce JDOM 1 or versions affected by CVE-2021-33813; see docs/jdom2-maintenance.md.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
                     <execution>
                         <id>ban-duplicate-commons-logging</id>
                         <goals>
