@@ -97,7 +97,7 @@ class PerformanceEvidenceTest(unittest.TestCase):
             self.assertIsNone(GATE.service_sample(123456))
 
     def test_memory_disappearing_before_zombie_state_requires_confirmed_exit(self):
-        def stat(flags, started='7'):
+        def stat(flags: int, started: str = '7') -> str:
             fields=['R','1','0','0','0','0',str(flags)]+['0']*12+[started]
             return '123456 (java) '+' '.join(fields)
         missing='State:\tR (running)\nUid:\t999\n'
