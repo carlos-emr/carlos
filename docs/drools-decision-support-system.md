@@ -36,7 +36,7 @@ Comprehensive documentation of the Drools Rule Language (DRL) decision support s
 
 ## Overview
 
-CARLOS EMR uses the [Drools](https://www.drools.org/) rule engine (version 10.1.0, executable model) for clinical decision support. The system evaluates patient data against evidence-based clinical rules to generate warnings, recommendations, and colour-coded indicators that help healthcare providers identify patients who need attention.
+CARLOS EMR uses the [Drools](https://www.drools.org/) rule engine (version 10.2.0) for clinical decision support. The system evaluates patient data against evidence-based clinical rules to generate warnings, recommendations, and colour-coded indicators that help healthcare providers identify patients who need attention.
 
 The Drools system was originally written for the Drools 2.0 API (XML rule format) and was migrated to the modern KIE API (DRL text format) as part of PR #423 in February 2026.
 
@@ -657,6 +657,20 @@ For the full Drools DRL language reference, see the [Drools Documentation](https
 ---
 
 ## Migration Notes (Drools 2.0 → 7.x → 10.0)
+
+### Drools 10.1.0 → 10.2.0
+
+The shared `drools.version` property upgrades both `drools-engine` and
+`drools-mvel` to [10.2.0](https://github.com/apache/incubator-kie-drools/releases/tag/10.2.0).
+Keep the explicit `drools-mvel` dependency: CARLOS uses the standard KIE DRL
+compiler path described below. Regenerate `dependencies-lock.json` with
+`mvn se.vandmo:dependency-lock-maven-plugin:lock` so the transitive Drools/KIE
+artifacts and their integrity hashes match the upgrade.
+
+Validate with the existing DRL compilation and rule execution tests, including
+prevention eligibility, flowsheet rules, clinical guidelines, reporting, and
+workflow rules. These exercise the application compiler path and clinical
+behavior without requiring changes to the DRL files.
 
 ### Drools 7.74.1 → 10.1.0 (Jakarta EE Migration)
 
