@@ -28,6 +28,7 @@ import org.apache.cxf.ext.logging.LoggingInInterceptor;
 import org.apache.cxf.jaxws.JaxWsProxyFactoryBean;
 import org.apache.cxf.transport.http.HTTPConduit;
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
+import org.apache.cxf.ws.security.SecurityConstants;
 import org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor;
 import org.apache.wss4j.dom.WSConstants;
 import org.apache.wss4j.dom.handler.WSHandlerConstants;
@@ -185,6 +186,8 @@ public class EdtClientBuilder {
 
         // Point WS-Security signature properties to our keystore
         bp.getRequestContext().put("signaturePropFile", clientKeystore);
+        bp.getRequestContext().put(SecurityConstants.PASSWORD_ENCRYPTOR_INSTANCE,
+                PlaintextCryptoPasswordEncryptor.INSTANCE);
 
         // Add EBS/IDP SOAP headers
         try {
@@ -260,6 +263,7 @@ public class EdtClientBuilder {
         Map<String, Object> props = new HashMap<>();
         props.put(WSHandlerConstants.ACTION, getCxfInHandlerDirectives());
         props.put(WSHandlerConstants.PW_CALLBACK_REF, newCallback());
+        props.put(WSHandlerConstants.PASSWORD_ENCRYPTOR_INSTANCE, PlaintextCryptoPasswordEncryptor.INSTANCE);
         
         // Decryption properties - more explicit in CXF 3.5+
         props.put(WSHandlerConstants.DEC_PROP_FILE, clientKeystore);
@@ -301,8 +305,13 @@ public class EdtClientBuilder {
         props.put(WSHandlerConstants.USER, getConfig().getKeystoreUser());
         props.put(WSHandlerConstants.PASSWORD_TYPE, WSConstants.PW_TEXT);
         props.put(WSHandlerConstants.PW_CALLBACK_REF, newCallback());
+        props.put(WSHandlerConstants.PASSWORD_ENCRYPTOR_INSTANCE, PlaintextCryptoPasswordEncryptor.INSTANCE);
         props.put(WSHandlerConstants.SIGNATURE_PARTS, SIGNED_MESSAGE_ELEMENTS);
         props.put(WSHandlerConstants.SIG_PROP_FILE, clientKeystore);
+        // Use the same explicit properties path as inbound. CXF's file-loading fallback
+        // can discard the configured PasswordEncryptor after a Crypto-loading failure.
+        props.put(WSHandlerConstants.SIG_PROP_REF_ID, "signatureProperties");
+        props.put("signatureProperties", loadKeystoreProperties());
         props.put(WSHandlerConstants.SIG_KEY_ID, "DirectReference");
         props.put(WSHandlerConstants.STORE_BYTES_IN_ATTACHMENT, "0");
         props.put(WSHandlerConstants.EXPAND_XOP_INCLUDE, "0");
