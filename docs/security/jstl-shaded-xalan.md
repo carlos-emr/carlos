@@ -31,8 +31,8 @@ potentially allowing arbitrary Java bytecode execution. Xalan 2.7.3 fixes it;
 the shaded 2.7.2 copy remains present and affected.
 
 Observed exposure through CARLOS's checked-in JSPs is low: a scan of `src/`
-found no JSTL XML tag-library URIs (`jakarta.tags.xml` or the legacy
-`http://java.sun.com/jsp/jstl/xml` forms), no direct use of the JSTL XML tag
+found no JSTL XML tag-library URIs (`jakarta.tags.xml`,
+`http://java.sun.com/jsp/jstl/xml`, or `http://java.sun.com/jstl/xml`), no direct use of the JSTL XML tag
 handler packages, and no references to `org.eclipse.tags.shaded`. The JAR also
 has no `META-INF/services/` entries registering its relocated transformer
 factories as default JAXP providers. These observations support a low-risk
@@ -57,7 +57,7 @@ curl -fSLO https://repo.maven.apache.org/maven2/org/glassfish/web/jakarta.servle
 java -cp jakarta.servlet.jsp.jstl-3.0.1.jar org.eclipse.tags.shaded.org.apache.xalan.Version
 jar tf jakarta.servlet.jsp.jstl-3.0.1.jar | rg 'shaded/org/apache/xalan/(Version|xsltc/compiler/XSLTC)\.class'
 unzip -p jakarta.servlet.jsp.jstl-3.0.1.jar META-INF/maven/org.glassfish.web/jakarta.servlet.jsp.jstl/pom.xml
-rg -n 'jakarta\.tags\.xml|java\.sun\.com/jsp/jstl/xml|org\.apache\.taglibs\.standard\.tag\.(common|rt|el)\.xml|org\.eclipse\.tags\.shaded' src
+rg -n 'jakarta\.tags\.xml|java\.sun\.com/(jsp/)?jstl/xml|org\.apache\.taglibs\.standard\.tag\.(common|rt|el)\.xml|org\.eclipse\.tags\.shaded' src
 mvn --batch-mode --no-transfer-progress dependency:tree -Dincludes=xalan:*,org.glassfish.web:jakarta.servlet.jsp.jstl
 ```
 
