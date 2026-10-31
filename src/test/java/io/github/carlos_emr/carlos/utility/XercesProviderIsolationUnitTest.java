@@ -31,9 +31,13 @@ class XercesProviderIsolationUnitTest {
                 () -> assertThat(SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI).getClass())
                         .isEqualTo(SchemaFactory.newDefaultInstance().getClass()),
                 () -> assertThat(DatatypeFactory.newInstance().getClass())
-                        .isEqualTo(DatatypeFactory.newDefaultInstance().getClass()),
-                () -> assertThat(XMLEventFactory.newFactory().getClass())
-                        .isEqualTo(XMLEventFactory.newDefaultFactory().getClass()));
+                        .isEqualTo(DatatypeFactory.newDefaultInstance().getClass()));
+    }
+
+    @Test
+    void shouldRetainWoodstoxEvents_whenRemovingTheXercesEventRegistration() {
+        assertThat(XMLEventFactory.newFactory())
+                .isInstanceOf(com.ctc.wstx.stax.WstxEventFactory.class);
     }
 
     @Test
