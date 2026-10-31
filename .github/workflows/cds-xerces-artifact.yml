@@ -1,0 +1,46 @@
+# Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
+name: Verify CDS Xerces artifact
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/cds-xerces-artifact.yml'
+      - 'scripts/build-cds-xerces.py'
+      - 'local_repo/io/github/carlos-emr/thirdparty/xercesImpl-cds/**'
+      - 'pom.xml'
+  workflow_dispatch:
+
+concurrency:
+  group: cds-xerces-artifact-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Reproduce the provider-free artifact from verified upstream bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work/xerces
+          curl --fail --location --retry 3 --max-time 60 \
+            --output work/xerces/upstream.jar \
+            https://repo.maven.apache.org/maven2/xerces/xercesImpl/2.12.2/xercesImpl-2.12.2.jar
+          python3 scripts/build-cds-xerces.py work/xerces/upstream.jar work/xerces/rebuilt.jar
+          cmp work/xerces/rebuilt.jar \
+            local_repo/io/github/carlos-emr/thirdparty/xercesImpl-cds/2.12.2-carlos1/xercesImpl-cds-2.12.2-carlos1.jar
+          # Reject a corrupted source before touching an existing output.
+          printf 'invalid upstream' > work/xerces/invalid.jar
+          if python3 scripts/build-cds-xerces.py work/xerces/invalid.jar work/xerces/rebuilt.jar; then
+            echo 'Corrupted upstream was accepted' >&2
+            exit 1
+          fi
+          cmp work/xerces/rebuilt.jar \
+            local_repo/io/github/carlos-emr/thirdparty/xercesImpl-cds/2.12.2-carlos1/xercesImpl-cds-2.12.2-carlos1.jar
