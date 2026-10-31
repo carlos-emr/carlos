@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -22,16 +23,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.crypto.KeyGenerator;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import jakarta.jws.WebMethod;
 import jakarta.jws.WebService;
+import jakarta.xml.soap.SOAPMessage;
 import jakarta.xml.ws.BindingProvider;
 import org.apache.cxf.frontend.ClientProxy;
 import org.apache.cxf.binding.soap.Soap11;
 import org.apache.cxf.binding.soap.SoapMessage;
+import org.apache.cxf.binding.soap.interceptor.AbstractSoapInterceptor;
+import org.apache.cxf.interceptor.Fault;
+import org.apache.cxf.phase.Phase;
 import org.apache.cxf.ws.security.SecurityConstants;
 import org.apache.cxf.ws.security.wss4j.WSS4JInInterceptor;
 import org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor;
@@ -58,6 +64,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.w3c.dom.Document;
 
 /** Exercises the EBS Crypto-loading paths, including the legacy property prefix. */
 @Tag("unit")
@@ -147,10 +154,7 @@ class EdtWsSecurityWithoutJasyptUnitTest {
 
     @Test
     void shouldConfigureContextEncryptor_whenBuildingEbsProxy() throws Exception {
-        EdtClientBuilder builder = builder(Merlin.PREFIX, PASSWORD);
-        builder.getConfig().setServiceUrl("http://localhost:1/synthetic-ebs");
-        builder.getConfig().setConformanceKey("synthetic-conformance");
-        builder.getConfig().setServiceId("synthetic-service");
+        EdtClientBuilder builder = proxyBuilder();
         SyntheticService proxy = builder.build(SyntheticService.class);
         try {
             assertThat(((BindingProvider) proxy).getRequestContext())
@@ -158,6 +162,37 @@ class EdtWsSecurityWithoutJasyptUnitTest {
                             PlaintextCryptoPasswordEncryptor.INSTANCE);
         } finally {
             ClientProxy.getClient(proxy).destroy();
+        }
+    }
+
+    @Test
+    void shouldSignMessage_whenUsingConfiguredEbsProxy() throws Exception {
+        SyntheticService proxy = proxyBuilder().build(SyntheticService.class);
+        var client = ClientProxy.getClient(proxy);
+        var captured = new AtomicReference<Document>();
+        client.getEndpoint().getOutInterceptors().add(new AbstractSoapInterceptor(Phase.POST_PROTOCOL) {
+            {
+                // WSS4J performs signing in its internal POST_PROTOCOL interceptor.
+                getAfter().add(WSS4JOutInterceptor.class.getName() + "$WSS4JOutInterceptorInternal");
+            }
+
+            @Override
+            public void handleMessage(SoapMessage message) {
+                SOAPMessage soap = message.getContent(SOAPMessage.class);
+                if (soap != null) {
+                    captured.set(soap.getSOAPPart());
+                }
+                throw new Fault(new IOException("Synthetic stop after WS-Security signing"));
+            }
+        });
+        try {
+            assertThatThrownBy(() -> proxy.echo("synthetic request"))
+                    .hasStackTraceContaining("Synthetic stop after WS-Security signing");
+            assertThat(captured.get()).isNotNull();
+            assertThat(captured.get().getElementsByTagNameNS(WSConstants.SIG_NS, WSConstants.SIG_LN)
+                    .getLength()).isEqualTo(1);
+        } finally {
+            client.destroy();
         }
     }
 
@@ -224,6 +259,14 @@ class EdtWsSecurityWithoutJasyptUnitTest {
 
     private static EdtClientBuilder builder(String prefix, String storePassword) throws Exception {
         return builder(prefix, storePassword, DEFAULT_STORE_TYPE);
+    }
+
+    private static EdtClientBuilder proxyBuilder() throws Exception {
+        EdtClientBuilder builder = builder(Merlin.PREFIX, PASSWORD);
+        builder.getConfig().setServiceUrl("http://localhost:1/synthetic-ebs");
+        builder.getConfig().setConformanceKey("synthetic-conformance");
+        builder.getConfig().setServiceId("synthetic-service");
+        return builder;
     }
 
     private static EdtClientBuilder builder(String prefix, String storePassword, String storeType) throws Exception {

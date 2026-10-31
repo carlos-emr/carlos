@@ -72,6 +72,8 @@ contract. Do not add Jasypt back or substitute the dashboard ciphertext format.
 property maps with synthetic PKCS12 and JKS keystores, real WSS4J signing/decryption, and
 checks that Jasypt classes are absent. The MCEDT encrypted-response and attachment
 regressions also run without Jasypt. No live Ministry credentials are used.
+An additional proxy-path test invokes the configured client, captures the signed
+SOAP envelope after WSS4J, and stops the request before transport.
 Regression tests also preserve signature-file provisioning and updates between
 client construction and first use. These lifecycle checks and the signing/decryption
 checks were compared with the release implementation using its original Jasypt JAR.
