@@ -308,10 +308,6 @@ public class EdtClientBuilder {
         props.put(WSHandlerConstants.PASSWORD_ENCRYPTOR_INSTANCE, PlaintextCryptoPasswordEncryptor.INSTANCE);
         props.put(WSHandlerConstants.SIGNATURE_PARTS, SIGNED_MESSAGE_ELEMENTS);
         props.put(WSHandlerConstants.SIG_PROP_FILE, clientKeystore);
-        // Use the same explicit properties path as inbound. CXF's file-loading fallback
-        // can discard the configured PasswordEncryptor after a Crypto-loading failure.
-        props.put(WSHandlerConstants.SIG_PROP_REF_ID, "signatureProperties");
-        props.put("signatureProperties", loadKeystoreProperties());
         props.put(WSHandlerConstants.SIG_KEY_ID, "DirectReference");
         props.put(WSHandlerConstants.STORE_BYTES_IN_ATTACHMENT, "0");
         props.put(WSHandlerConstants.EXPAND_XOP_INCLUDE, "0");
