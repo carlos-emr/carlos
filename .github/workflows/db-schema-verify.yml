@@ -60,11 +60,11 @@ jobs:
       - name: Install MariaDB client and Flyway CLI
         run: |
           sudo apt-get update && sudo apt-get install -y mariadb-client
-          FLYWAY_VERSION=11.14.0
-          # Pinned SHA256 (same pin as release/make_CARLOS_deb.sh) — update together with the version.
-          FLYWAY_SHA256=310af67e104e128e93cfe7fa7a59570024f0bb2c03bfdc70137acbe03d5cf5d0
-          # The bundled linux CLI tarball is on Red Gate's mirror; Maven Central only has the jar.
-          curl -fsSL "https://download.red-gate.com/maven/release/com/redgate/flyway/flyway-commandline/${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
+          # Keep the CLI aligned with flyway.version in pom.xml (also used by the Debian launcher).
+          FLYWAY_VERSION=13.12.0
+          # SHA256 published with the upstream GitHub release asset; update with the version.
+          FLYWAY_SHA256=e332704f4bbb16baba4ac565a822ccb24354003a284deaa11668c1be77013c34
+          curl -fsSL "https://github.com/flyway/flyway/releases/download/flyway-${FLYWAY_VERSION}/flyway-commandline-${FLYWAY_VERSION}-linux-x64.tar.gz" \
             -o /tmp/flyway.tgz
           echo "${FLYWAY_SHA256}  /tmp/flyway.tgz" | sha256sum -c -
           tar xzf /tmp/flyway.tgz

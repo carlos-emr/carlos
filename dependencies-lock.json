@@ -2798,19 +2798,19 @@
   }, {
     "groupId" : "org.flywaydb",
     "artifactId" : "flyway-core",
-    "version" : "11.14.1",
+    "version" : "13.12.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:2NgFtXB9HLrRoAMGnJAfv2UAxPGTviALF5ULTl9hdqcOBVukuQz+Q4CdJVUVyy7S0LNTcokD89/142ucgRcJ1w=="
+    "integrity" : "sha512:jP36iHZwI8bX/IYW3rN0r/q/SeFKpga9CjkvvCi7+Gek91vlE+6esIkW/6NBj/f3d22Cs4G2YGciu3eHL18nCg=="
   }, {
     "groupId" : "org.flywaydb",
     "artifactId" : "flyway-mysql",
-    "version" : "11.14.1",
+    "version" : "13.12.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:YHhY/DHCxdWci6o0PhJLaH02WG6zCE3uZNy1wc46ixNj+bFn1oeUxVPYQ+Cnf2WsWTsPpPQ+G4WHJL2QYwmu3w=="
+    "integrity" : "sha512:ztth98mwc1bHGtlZqs7AzYR4Ire6s/Bnmsx02xP63mc5DNGthXj1y6gRnXsE9dETWqb8OsFNts/GqLumK4n4Rw=="
   }, {
     "groupId" : "org.freemarker",
     "artifactId" : "freemarker",

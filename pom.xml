@@ -334,7 +334,7 @@
              its XML parser (1.0.1 did; see docs/hapi-hl7v2-xml-hardening.md). -->
         <hapi-hl7.version>2.6.0</hapi-hl7.version>
         <!-- Flyway schema migrations (Community edition covers MariaDB/MySQL) -->
-        <flyway.version>11.14.1</flyway.version>
+        <flyway.version>13.12.0</flyway.version>
         <!-- Selenium: drives the pinned headless Chromium for eForm browser PDF rendering -->
         <selenium.version>4.46.0</selenium.version>
         <!-- Testing -->
