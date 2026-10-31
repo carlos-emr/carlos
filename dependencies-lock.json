@@ -697,6 +697,14 @@
     "optional" : false,
     "integrity" : "sha512:sxB17TYb8HS0bfYPvCJ6VyHOAXkJbr7yDzA6gMcmeWM9rm6LmXbwnsx4NMuCWU6J5uNYxeXeJnFaZ5SdKlwSBg=="
   }, {
+    "groupId" : "io.github.carlos-emr.thirdparty",
+    "artifactId" : "xercesImpl-cds",
+    "version" : "2.12.2-carlos1",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:xVQx0gFwS0VNhAS16+SMlAlYyVXly/b/TL3GgeAU7pc+gXA/jLzwd2+FSNUuntPfcmdzrEN1MwxHDdOnmodnIg=="
+  }, {
     "groupId" : "io.micrometer",
     "artifactId" : "micrometer-commons",
     "version" : "1.17.2",
@@ -3708,14 +3716,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:VID3izwPdi3AJZRFfUUUA4Z4Hxs9UzhFdAT4WKgK4gmI2/xDafGoN/ZohCStX488kQ/6sE/b9wuY46WOH/tzLg=="
-  }, {
-    "groupId" : "xerces",
-    "artifactId" : "xercesImpl",
-    "version" : "2.12.2",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:v9IfI1C/C7VGpo0zA/KMahXO4eYwE4wWk0TD9l/jmhXmHG/05SOfOPLx+eSI7/TVVlpKB3QmMGSrajCqn8qu0w=="
   }, {
     "groupId" : "xml-apis",
     "artifactId" : "xml-apis-ext",

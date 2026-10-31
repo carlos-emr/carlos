@@ -438,12 +438,6 @@
                 <artifactId>jaxb-core</artifactId>
                 <version>4.0.9</version>
             </dependency>
-            <!-- Override transitive xercesImpl to fix CVE-2022-23437 and CVE-2020-14338 -->
-            <dependency>
-                <groupId>xerces</groupId>
-                <artifactId>xercesImpl</artifactId>
-                <version>2.12.2</version>
-            </dependency>
             <dependency>
                 <groupId>org.springframework</groupId>
                 <artifactId>spring-framework-bom</artifactId>
@@ -894,18 +888,13 @@
         </dependency>
 
         <!-- ==================== Spring Framework ==================== -->
-        <!-- CDS streaming validation inspects pinned field types/facets to keep
-             unbounded XML values off heap; do not rely on an incidental transitive API. -->
+        <!-- CDS requires Xerces' XSModel/facet APIs. This verified repack keeps those
+             APIs but removes automatic XML provider registrations so ordinary JAXP
+             discovery uses the JDK. See docs/cds-xml-providers.md and #5464. -->
         <dependency>
-            <groupId>xerces</groupId>
-            <artifactId>xercesImpl</artifactId>
-            <exclusions>
-                <!-- The JDK supplies these APIs; keep the CDS validator's implementation only. -->
-                <exclusion>
-                    <groupId>xml-apis</groupId>
-                    <artifactId>xml-apis</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>io.github.carlos-emr.thirdparty</groupId>
+            <artifactId>xercesImpl-cds</artifactId>
+            <version>2.12.2-carlos1</version>
         </dependency>
         <!-- Jakarta EE 11 — versions managed by spring-framework-bom via ${spring.version} -->
         <dependency>
@@ -2248,6 +2237,22 @@
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <version>3.6.3</version>
                 <executions>
+                    <execution>
+                        <id>ban-global-xerces-providers</id>
+                        <goals><goal>enforce</goal></goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>xerces:xercesImpl</exclude>
+                                        <exclude>xerces:xmlParserAPIs</exclude>
+                                        <exclude>xml-apis:xml-apis</exclude>
+                                    </excludes>
+                                    <message>Use the provider-free xercesImpl-cds artifact for explicit CDS validation; ordinary XML factories must use JDK defaults. See docs/cds-xml-providers.md (#5464).</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
                     <execution>
                         <id>ban-duplicate-commons-logging</id>
                         <goals>
