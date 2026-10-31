@@ -96,6 +96,29 @@ class PerformanceEvidenceTest(unittest.TestCase):
         with patch.object(Path,'read_text',side_effect=[stat,'State:\tZ (zombie)\nUid:\t999\n']):
             self.assertIsNone(GATE.service_sample(123456))
 
+    def test_memory_disappearing_before_zombie_state_requires_confirmed_exit(self):
+        def stat(flags, started='7'):
+            fields=['R','1','0','0','0','0',str(flags)]+['0']*12+[started]
+            return '123456 (java) '+' '.join(fields)
+        missing='State:\tR (running)\nUid:\t999\n'
+        for final in (stat(4), FileNotFoundError()):
+            with self.subTest(final=final):
+                with patch.object(Path,'read_text',side_effect=[stat(0),missing,final]):
+                    self.assertIsNone(GATE.service_sample(123456))
+        with patch.object(Path,'read_text',side_effect=[stat(0),missing,stat(0)]):
+            with self.assertRaisesRegex(RuntimeError,'live service JVM'):
+                GATE.service_sample(123456)
+        with patch.object(Path,'read_text',side_effect=[stat(0),missing,stat(4,started='8')]):
+            with self.assertRaisesRegex(RuntimeError,'identity changed'):
+                GATE.service_sample(123456)
+        with patch.object(Path,'read_text',side_effect=[stat(0),missing,PermissionError()]):
+            with self.assertRaises(PermissionError):
+                GATE.service_sample(123456)
+        complete=missing+'VmRSS:\t23 kB\nVmHWM:\t34 kB\n'
+        with patch.object(Path,'read_text',side_effect=[stat(0),complete]):
+            self.assertEqual(GATE.service_sample(123456),
+                             {'started':'7','uid':999,'rss':23*1024,'highWater':34*1024})
+
     def test_large_pdf_shape_uses_bounded_stream_lengths_and_complete_dynamic_xref(self):
         file=self.root/'multiple.pdf'
         GATE.pdf(file,5000,'multi',max_stream_bytes=1024)
