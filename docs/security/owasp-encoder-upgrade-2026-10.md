@@ -82,7 +82,7 @@ failures or skips, including signature-status/upload JSON and CPP metadata.
 Reproduce the permanent focused tests with JDK 25, Maven, and Node installed:
 
 ```sh
-mvn -B -ntp -Dtest=EncoderBoundaryUnitTest,SafeEncodeUnitTest,CarlosEncodeTagUnitTest,Login2ActionForcedPasswordResetUnitTest test
+mvn -B -ntp -Dtest=EncoderBoundaryUnitTest,SafeEncodeUnitTest,CarlosEncodeTagUnitTest,Login2ActionForcedPasswordResetUnitTest,CppMetadataEncodingUnitTest,ProviderSignatureStampJsonUnitTest test
 ```
 
 The Maven lock goal changes only the versions and SHA-512 integrity values of

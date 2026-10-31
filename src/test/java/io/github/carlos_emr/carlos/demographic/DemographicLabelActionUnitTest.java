@@ -240,7 +240,7 @@ class DemographicLabelActionUnitTest extends CarlosUnitTestBase {
                     String javascript = invocation.getArgument(3);
                     if (silent == null) assertThat(javascript).isNull();
                     else {
-                        assertThat(javascript).contains("this.print(params)", "Test printer");
+                        assertThat(javascript).contains("this.print(params)", "params.printerName='Test\\x20printe\\x72';");
                         if (silent) assertThat(javascript).contains("interactionLevel.silent");
                         else assertThat(javascript).doesNotContain("interactionLevel.silent");
                     }

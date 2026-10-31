@@ -96,6 +96,7 @@ class ProfessionalContactFormJspUnitTest {
 
     @Test
     void shouldKeepANameWithAnApostrophe_inOneScriptString() {
-        assertThat(SafeEncode.forJavaScript("O'Brien, Team")).doesNotContain("'").contains("Brien, Team");
+        assertThat(SafeEncode.forJavaScript("O'Brien, Team"))
+                .doesNotContain("'").isEqualTo("O\\x27Brien,\\x20Team");
     }
 }
