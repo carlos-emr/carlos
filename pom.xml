@@ -286,8 +286,6 @@
         <hapifhir.version>8.4.3</hapifhir.version>
         <!-- Apache CXF Version -->
         <cxf.version>4.1.9</cxf.version>
-        <!-- Netty Version (for transitive dependency security fixes) -->
-        <netty.version>4.1.139.Final</netty.version>
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
         <drools.version>10.1.0</drools.version>
         <!-- Spring -->
@@ -451,7 +449,7 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            <!-- Align Spring observation and CXF/Artemis metrics with the
+            <!-- Align Spring observation with the
                  Micrometer baseline used by Spring Security 7.1.2. -->
             <dependency>
                 <groupId>io.micrometer</groupId>
@@ -470,19 +468,6 @@
                  excluded everywhere and banned by maven-enforcer-plugin
                  (ban-duplicate-commons-logging), because commons-logging is the
                  one Commons Logging implementation (#5413). -->
-            <!-- Force secure versions of ALL Netty modules to fix multiple CVEs:
-                 - HTTP/2 DDoS (MadeYouReset) in netty-codec-http2
-                 - DoS via zip bomb in netty-codec
-                 - CRLF Injection and request smuggling in netty-codec-http
-                 Transitive from apache-cxf and webdrivermanager -->
-            <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-bom</artifactId>
-                <version>${netty.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-          
             <!-- Transitive Hibernate/JPA dependencies -->
             <dependency>
                 <groupId>net.bytebuddy</groupId>
@@ -584,16 +569,11 @@
                 <version>5.4.4</version>
             </dependency>
             <!-- Maintenance pins for selected transitive libraries. -->
-            <!-- DBCP connection pooling and CXF's legacy HttpClient transport. -->
+            <!-- DBCP connection pooling. -->
             <dependency>
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-pool2</artifactId>
                 <version>2.13.1</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpclient</artifactId>
-                <version>4.5.14</version>
             </dependency>
             <!-- StAX helpers used by Jackson XML and Woodstox. -->
             <dependency>
@@ -601,7 +581,7 @@
                 <artifactId>stax2-api</artifactId>
                 <version>4.3.2</version>
             </dependency>
-            <!-- Drools parsing/code generation and Artemis queue support. -->
+            <!-- Drools parsing/code generation. -->
             <dependency>
                 <groupId>com.github.javaparser</groupId>
                 <artifactId>javaparser-core</artifactId>
@@ -611,11 +591,6 @@
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr-runtime</artifactId>
                 <version>3.5.3</version>
-            </dependency>
-            <dependency>
-                <groupId>org.jctools</groupId>
-                <artifactId>jctools-core</artifactId>
-                <version>4.0.7</version>
             </dependency>
             <!-- JAX-WS attachment processing and Jakarta API maintenance releases. -->
             <dependency>
@@ -701,17 +676,15 @@
              provider of the org.apache.commons.logging classes. Spring 7 depends
              on it directly (spring-jcl is gone), and since 1.3 its LogFactory
              finds the Log4j API on the classpath and binds to Log4jApiLogFactory,
-             so JCL calls (Spring, the HttpClient 4 under CXF's HTTP transport,
-             PDFBox, JasperReports, the Commons libraries, the JSPs) go straight
-             to the Log4j 2 backend and its log4j2.xml.
+             so JCL calls (Spring, PDFBox, JasperReports, the Commons libraries,
+             the JSPs) go straight to the Log4j 2 backend and its log4j2.xml.
 
              org.slf4j:jcl-over-slf4j redefines the same classes and adds a
              META-INF/services entry that reroutes JCL through SLF4J. Shipping
              both left the winning LogFactory to class-loader order, so it is
-             excluded from both dependencies that declare it (apache-cxf, also
-             through cxf-rt-transports-http-hc, and hapi-fhir-base; the poi,
-             displaytag and javamelody-core exclusions date from older releases
-             of those libraries and are kept as defence in depth) and banned
+             excluded from hapi-fhir-base; the poi, displaytag and javamelody-core
+             exclusions date from older releases of those libraries and are kept
+             as defence in depth. It is banned
              outright by maven-enforcer-plugin (ban-duplicate-commons-logging).
              Do not add org.apache.logging.log4j:log4j-to-slf4j either: it would
              make commons-logging pick its SLF4J factory and loop SLF4J back to
@@ -1388,165 +1361,43 @@
 
         <!-- ==================== Web Services (CXF) ==================== -->
 
-        <!-- CXF (used at runtime for SOAP/REST web services) -->
-        <dependency>
-            <groupId>org.apache.cxf</groupId>
-            <artifactId>apache-cxf</artifactId>
-            <version>${cxf.version}</version>
-            <type>pom</type>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.springframework</groupId>
-                    <artifactId>spring-asm</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.geronimo.specs</groupId>
-                    <artifactId>geronimo-servlet_2.5_spec</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.geronimo.specs</groupId>
-                    <artifactId>geronimo-servlet_3.0_spec</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.cxf.services.ws-discovery</groupId>
-                    <artifactId>cxf-services-ws-discovery-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.cxf.services.ws-discovery</groupId>
-                    <artifactId>cxf-services-ws-discovery-service</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-jdk14</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-api</artifactId>
-                </exclusion>
-                <!-- apache-cxf and cxf-rt-transports-http-hc declare the SLF4J
-                     Commons Logging bridge; commons-logging is the one JCL
-                     implementation (#5413, see the Logging section). -->
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>jcl-over-slf4j</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.woodstox</groupId>
-                    <artifactId>woodstox-core</artifactId>
-                </exclusion>
-                <!-- Not being used, excluded to avoid triggering security issue -->
-                <exclusion>
-                    <groupId>org.eclipse.jetty</groupId>
-                    <artifactId>jetty-server</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.eclipse.jetty</groupId>
-                    <artifactId>jetty-http</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.undertow</groupId>
-                    <artifactId>undertow-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-common</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-handler</artifactId>
-                </exclusion>
-                <!-- Excluded this low version to avoid triggering security issue -->
-                <exclusion>
-                    <groupId>org.codehaus.jettison</groupId>
-                    <artifactId>jettison</artifactId>
-                </exclusion>
-                <!-- 
-                    Not being used, excluded to avoid triggering security issue,
-                    these libraries are part of apache-cxf, 
-                    but excluding them won't impact our project  
-                -->
-                <exclusion>
-                    <groupId>org.apache.mina</groupId>
-                    <artifactId>mina-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.activemq</groupId>
-                    <artifactId>activemq-openwire-legacy</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.activemq</groupId>
-                    <artifactId>activemq-client</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.cxf</groupId>
-                    <artifactId>cxf-rt-rs-security-jose</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.cxf</groupId>
-                    <artifactId>cxf-rt-rs-service-description</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.cxf</groupId>
-                    <artifactId>cxf-rt-management</artifactId>
-                </exclusion>
-                <!-- 
-                    Switched from Jettison (org.codehaus.jettison) to FasterXML Jackson 
-                    for JSON handling in CXF JAX-RS providers. 
-                    This ensures better compatibility and consistency of REST API 
-                    request/response serialization and deserialization. 
-                    Also excluded cxf-rt-rs-extension-providers to avoid Jettison being pulled in transitively.
-                -->
-                <exclusion>
-                    <groupId>org.apache.cxf</groupId>
-                    <artifactId>cxf-rt-rs-extension-providers</artifactId>
-                </exclusion>
-                <!-- Not used, excluded to fix CVE (RCE via untrusted JMS config) -->
-                <exclusion>
-                    <groupId>org.apache.cxf</groupId>
-                    <artifactId>cxf-rt-transports-jms</artifactId>
-                </exclusion>
-                <!-- Not used, excluded to fix CVE (DoS via Rhino toFixed) -->
-                <exclusion>
-                    <groupId>org.apache.cxf</groupId>
-                    <artifactId>cxf-rt-frontend-js</artifactId>
-                </exclusion>
-                <!-- Not used, excluded to avoid pulling in embedded Jetty server -->
-                <exclusion>
-                    <groupId>org.apache.cxf</groupId>
-                    <artifactId>cxf-rt-transports-http-jetty</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
+        <!-- Keep the servlet-hosted SOAP/REST stack explicit (#3445).
+             JAX-WS includes CXF core, SOAP bindings, JAXB and WS-Policy;
+             JAX-RS uses CARLOS's Jackson providers and OAuth 1.0a implementation. -->
         <dependency>
             <groupId>org.apache.cxf</groupId>
             <artifactId>cxf-rt-frontend-jaxws</artifactId>
             <version>${cxf.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.codehaus.woodstox</groupId>
-                    <artifactId>woodstox-core-asl</artifactId>
-                </exclusion>
-                <!-- Exclude Jettison — using Jackson instead (see apache-cxf exclusions above) -->
-                <exclusion>
-                    <groupId>org.apache.cxf</groupId>
-                    <artifactId>cxf-rt-rs-extension-providers</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-frontend-jaxrs</artifactId>
+            <version>${cxf.version}</version>
+        </dependency>
+        <!-- Tomcat supplies the server; CXF's HTTP transport also serves SOAP clients. -->
         <dependency>
             <groupId>org.apache.cxf</groupId>
             <artifactId>cxf-rt-transports-http</artifactId>
             <version>${cxf.version}</version>
         </dependency>
+        <!-- UsernameToken authentication and EBS/MCEDT signing/encryption. -->
         <dependency>
             <groupId>org.apache.cxf</groupId>
-            <artifactId>cxf-core</artifactId>
+            <artifactId>cxf-rt-ws-security</artifactId>
             <version>${cxf.version}</version>
         </dependency>
+        <!-- LoggingIn/OutInterceptor beans in spring_ws.xml and cxf.xml. -->
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-features-logging</artifactId>
+            <version>${cxf.version}</version>
+        </dependency>
+        <!-- In-process SOAP/REST endpoint tests; neither module ships in the WAR. -->
         <dependency>
             <groupId>org.apache.cxf</groupId>
             <artifactId>cxf-rt-rs-client</artifactId>
             <version>${cxf.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.cxf</groupId>
