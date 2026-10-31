@@ -490,27 +490,11 @@ public class CdsSnapshotService {
     }
 
     private static boolean patientCandidate(Path source, CdsInputLimitsDto limits, CdsZipDirectory.Check checkpoint) throws IOException {
-        boolean[] candidate = {true};
         try (InputStream raw=Files.newInputStream(source, LinkOption.NOFOLLOW_LINKS);
                 InputStream checked=new CountingSource(raw, limits.maxSourceBytes(), checkpoint);
                 InputStream input = new ProbeInput(checked);
                 Reader text = CdsXmlText.reader(input, limits.maxBoundedScalarCharacters())) {
-            var reader = CdsXmlParser.xmlReader(limits);
-            reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            reader.setContentHandler(new DefaultHandler() {
-                @Override public void startElement(String uri, String local, String qualified, Attributes attrs) throws SAXException {
-                    candidate[0] = "cds".equals(uri) || Set.of("OmdCds", "PatientRecord", "Demographics", "Reports").contains(local);
-                    throw new RootFound();
-                }
-            });
-            reader.setErrorHandler(new DefaultHandler() {
-                @Override public void error(SAXParseException failure) throws SAXException { throw failure; }
-                @Override public void fatalError(SAXParseException failure) throws SAXException { throw failure; }
-            });
-            return probeCandidate(reader, text, candidate);
+            return probeCandidate(text, limits);
         } catch (javax.xml.parsers.ParserConfigurationException | SAXException configuration) {
             throw CdsPaths.failure("CDS_SECURE_XML_PARSER_UNAVAILABLE");
         } catch (CdsInputException stopped) {
@@ -521,7 +505,24 @@ public class CdsSnapshotService {
         }
     }
 
-    private static boolean probeCandidate(org.xml.sax.XMLReader reader, Reader text, boolean[] candidate) throws IOException {
+    private static boolean probeCandidate(Reader text, CdsInputLimitsDto limits)
+            throws IOException, javax.xml.parsers.ParserConfigurationException, SAXException {
+        boolean[] candidate = {true};
+        var reader = CdsXmlParser.xmlReader(limits);
+        reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        reader.setContentHandler(new DefaultHandler() {
+            @Override public void startElement(String uri, String local, String qualified, Attributes attrs) throws SAXException {
+                candidate[0] = "cds".equals(uri) || Set.of("OmdCds", "PatientRecord", "Demographics", "Reports").contains(local);
+                throw new RootFound();
+            }
+        });
+        reader.setErrorHandler(new DefaultHandler() {
+            @Override public void error(SAXParseException failure) throws SAXException { throw failure; }
+            @Override public void fatalError(SAXParseException failure) throws SAXException { throw failure; }
+        });
         try {
             reader.parse(new InputSource(text));
         } catch (RootFound _) {
@@ -558,23 +559,24 @@ public class CdsSnapshotService {
         try (InputStream raw = Files.newInputStream(copied, LinkOption.NOFOLLOW_LINKS);
                 InputStream input = new CountingSource(raw, inventory.limits.maxSourceBytes(), inventory::check);
                 Reader text = CdsXmlText.reader(input, inventory.limits.maxBoundedScalarCharacters())) {
-            var reader = CdsXmlParser.xmlReader(inventory.limits);
-            reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            reader.setContentHandler(new ReferencedFilesHandler(originalXml, inventory));
-            reader.setErrorHandler(new DefaultHandler() {
-                @Override public void error(SAXParseException failure) throws SAXException { throw failure; }
-                @Override public void fatalError(SAXParseException failure) throws SAXException { throw failure; }
-            });
-            parseReferences(reader, text);
+            parseReferences(text, originalXml, inventory);
         } catch (javax.xml.parsers.ParserConfigurationException | SAXException configuration) {
             throw CdsPaths.failure("CDS_SECURE_XML_PARSER_UNAVAILABLE");
         }
     }
 
-    private static void parseReferences(org.xml.sax.XMLReader reader, Reader text) throws IOException {
+    private static void parseReferences(Reader text, Path originalXml, Inventory inventory)
+            throws IOException, javax.xml.parsers.ParserConfigurationException, SAXException {
+        var reader = CdsXmlParser.xmlReader(inventory.limits);
+        reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        reader.setContentHandler(new ReferencedFilesHandler(originalXml, inventory));
+        reader.setErrorHandler(new DefaultHandler() {
+            @Override public void error(SAXParseException failure) throws SAXException { throw failure; }
+            @Override public void fatalError(SAXParseException failure) throws SAXException { throw failure; }
+        });
         try {
             reader.parse(new InputSource(text));
         } catch (SAXException failed) {
