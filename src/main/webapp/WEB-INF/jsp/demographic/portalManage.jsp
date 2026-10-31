@@ -61,6 +61,7 @@
     <title><fmt:message key="demographic.portal.title"/></title>
     <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
     <link href="${carlos:forHtmlAttribute(ctx)}/share/css/portal-manage.css" rel="stylesheet">
+    <c:if test="${portalCanReadDevices}"><link href="${carlos:forHtmlAttribute(ctx)}/share/css/mycarlos-devices.css" rel="stylesheet"></c:if>
 </head>
 <body class="portal-page">
 <%@ include file="/WEB-INF/jspf/csrf-token.jspf" %>
@@ -109,6 +110,27 @@
             </div>
 
             <div id="portal-status" class="portal-status" role="status" aria-live="polite" hidden></div>
+
+            <c:if test="${portalCanReadDevices}">
+                <section id="mycarlos-devices" class="portal-card" aria-labelledby="mycarlos-devices-heading"
+                         data-patient="${carlos:forHtmlAttribute(portalDemographicNo)}"
+                         data-endpoint="${carlos:forHtmlAttribute(ctx)}/demographic/portalDeviceApproval"
+                         data-write="${portalCanApproveDevices}">
+                    <h2 id="mycarlos-devices-heading"><fmt:message key="mycarlos.approval.title"/></h2>
+                    <div class="portal-card__body">
+                        <c:if test="${portalCanApproveDevices}">
+                            <button type="button" class="portal-button" id="mycarlos-devices-check"><fmt:message key="demographic.portal.refresh"/></button>
+                        </c:if>
+                        <p id="mycarlos-devices-status" role="status" aria-live="polite"></p>
+                        <div id="mycarlos-devices-list"></div>
+                        <ul id="mycarlos-device-labels" hidden>
+                            <c:forTokens var="label" delims="," items="none,first.body,first.confirm,first.action,device.fingerprint,later.hint,status.accepted,status.removed,status.expired,status.unavailable,error.changed">
+                                <li data-key="${carlos:forHtmlAttribute(label)}"><fmt:message key="mycarlos.approval.${label}"/></li>
+                            </c:forTokens>
+                        </ul>
+                    </div>
+                </section>
+            </c:if>
 
             <section class="portal-card" aria-labelledby="portal-account-heading">
                 <h2 id="portal-account-heading"><fmt:message key="demographic.portal.account.heading"/></h2>
@@ -208,5 +230,6 @@
     </ul>
 </div>
 <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/demographic/portal-manage.js"></script>
+<c:if test="${portalCanReadDevices}"><script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/demographic/mycarlos-devices.js"></script></c:if>
 </body>
 </html>

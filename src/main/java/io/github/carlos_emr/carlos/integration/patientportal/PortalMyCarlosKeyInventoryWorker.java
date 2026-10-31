@@ -88,6 +88,13 @@ class PortalMyCarlosKeyInventoryWorker {
         return load(false).map(Stored::catalogue);
     }
 
+    /** Current immutable catalogue under the complete owning scope, never a snapshot authority. */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Optional<PortalMyCarlosKeyInventory> currentForUpdate() {
+        PortalMyCarlosInventoryTransactions.requireOwnedTransaction();
+        return load(true).map(Stored::catalogue);
+    }
+
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY, readOnly = true)
     public boolean isPublished(PortalMyCarlosPublicationState.Target effectiveTargetNow) {
         return load(false).map(stored -> stored.publication() != null

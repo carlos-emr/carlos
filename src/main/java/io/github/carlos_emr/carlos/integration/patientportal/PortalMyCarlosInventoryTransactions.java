@@ -42,6 +42,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 class PortalMyCarlosInventoryTransactions {
     static final int MAX_ATTEMPTS = 3;
+    private enum Scope { INVENTORY_ONLY, SIGNING_APPROVAL, APPROVAL_ONLY }
     private static final ThreadLocal<Completion> OWNED = new ThreadLocal<>();
     private final TransactionTemplate transactions;
     private final EntityManagerFactory factory;
@@ -66,8 +67,18 @@ class PortalMyCarlosInventoryTransactions {
     }
 
     static void requireOwnedTransaction() {
-        if (OWNED.get() == null || !TransactionSynchronizationManager.isActualTransactionActive()) {
+        Completion completion = OWNED.get();
+        if (completion == null || !completion.coordinationComplete || completion.scope == Scope.APPROVAL_ONLY
+                || !TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("inventory worker requires the whole operation's owning transaction");
+        }
+    }
+
+    static void requireApprovalOwnedTransaction() {
+        Completion completion = OWNED.get();
+        if (completion == null || !completion.coordinationComplete || completion.scope == Scope.INVENTORY_ONLY
+                || !TransactionSynchronizationManager.isActualTransactionActive()) {
+            throw new IllegalStateException("device approval worker requires the whole operation's owning transaction");
         }
     }
 
@@ -78,12 +89,24 @@ class PortalMyCarlosInventoryTransactions {
     }
 
     <T> T execute(Supplier<T> operation) {
+        return executeScope(Scope.INVENTORY_ONLY, operation);
+    }
+
+    <T> T executeSigningApproval(Supplier<T> operation) {
+        return executeScope(Scope.SIGNING_APPROVAL, operation);
+    }
+
+    <T> T executeApprovalOnly(Supplier<T> operation) {
+        return executeScope(Scope.APPROVAL_ONLY, operation);
+    }
+
+    private <T> T executeScope(Scope scope, Supplier<T> operation) {
         requireStandalone();
         Objects.requireNonNull(operation);
         Set<EntityManager> previousManagers = Collections.newSetFromMap(new IdentityHashMap<>());
         for (int attempt = 1; ; attempt++) {
             requireStandalone();
-            Completion completion = new Completion();
+            Completion completion = new Completion(scope);
             try {
                 return transactions.execute(status -> {
                     if (!status.isNewTransaction() || !TransactionSynchronizationManager.isActualTransactionActive()
@@ -100,7 +123,7 @@ class PortalMyCarlosInventoryTransactions {
                     OWNED.set(completion);
                     try {
                         // First database operation: an older security/catalogue snapshot cannot precede it.
-                        coordination.lockRoutingReport(PortalMyCarlosKeyInventoryService.COORDINATION_KEY);
+                        acquireCoordination(completion);
                         return operation.get();
                     } finally {
                         OWNED.remove();
@@ -116,6 +139,17 @@ class PortalMyCarlosInventoryTransactions {
                         || !isRollbackConflict(failure)) throw failure;
             }
         }
+    }
+
+    private void acquireCoordination(Completion completion) {
+        if (completion.scope != Scope.APPROVAL_ONLY) {
+            coordination.lockRoutingReport(PortalMyCarlosKeyInventoryService.COORDINATION_KEY);
+        }
+        if (completion.scope != Scope.INVENTORY_ONLY) {
+            coordination.lockRoutingReport(PortalMyCarlosDeviceApprovalTransactions.COORDINATION_KEY);
+        }
+        // In combined scope, even an inventory guard stays closed until BOTH locks return.
+        completion.coordinationComplete = true;
     }
 
     private static boolean isRollbackConflict(Throwable error) {
@@ -136,10 +170,16 @@ class PortalMyCarlosInventoryTransactions {
     }
 
     private static final class Completion implements TransactionSynchronization {
+        private final Scope scope;
+        private boolean coordinationComplete;
         private int status = STATUS_UNKNOWN;
         private boolean callbackReceived;
         private boolean commitStarted;
         private boolean replaySafe = true;
+
+        private Completion(Scope scope) {
+            this.scope = scope;
+        }
         @Override public void beforeCommit(boolean readOnly) { commitStarted = true; }
         @Override public void afterCommit() { status = STATUS_COMMITTED; }
         @Override

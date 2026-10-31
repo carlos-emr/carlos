@@ -290,6 +290,12 @@ function flywayState(province) {
 
 let reapplied = null;
 
+// The migrations reapply_security_migrations.sh replays through their security seed only (its case list).
+const SEED_ONLY_REPLAYS = new Set([
+  'V1.0.81__mycarlos_accepted_device_approval.sql',
+  'V1.0.82__mycarlos_sender_outbox.sql',
+]);
+
 /**
  * The migrations reapply_security_migrations.sh feeds to `mariadb`, in its order. The script is
  * run, not re-implemented: a stand-in `mariadb` first on PATH saves each stdin it receives, and
@@ -318,8 +324,28 @@ function reappliedSecurityMigrations() {
     reapplied = names.map((name, i) => {
       const candidates = ['common', 'on'].map((location) => path.join(MIGRATION_DIR, location, name)).filter((file) => fs.existsSync(file));
       assert.equal(candidates.length, 1, `reapply_security_migrations.sh named ${name}, found in ${candidates.length} of common/ and on/`);
-      assert.equal(fs.readFileSync(path.join(captured, streams[i]), 'utf8'), fs.readFileSync(candidates[0], 'utf8'),
-        `reapply_security_migrations.sh fed mariadb something other than ${name}`);
+      const stream = fs.readFileSync(path.join(captured, streams[i]), 'utf8');
+      const migration = fs.readFileSync(candidates[0], 'utf8');
+      if (stream !== migration) {
+        // The two myCarlos migrations (V1.0.81, V1.0.82) refuse tables that already exist, so the
+        // script replays only their closing security seed: the file's non-blank lines from the first
+        // `INSERT INTO secObjectName` on (#5292). Accept exactly that, only for the migrations the
+        // script's case list names (listed here on purpose: another partial replay must change this
+        // test too), and only when it grants what the whole file grants, so replaying the file below
+        // stands for what mariadb was given.
+        assert.ok(SEED_ONLY_REPLAYS.has(name),
+          `reapply_security_migrations.sh fed mariadb something other than ${name}`);
+        const lines = migration.split('\n');
+        const start = lines.findIndex((line) => line.startsWith('INSERT INTO secObjectName '));
+        const seed = start < 0 ? null : `${lines.slice(start).filter((line) => line.trim()).join('\n')}\n`;
+        const grants = (sql) => {
+          const table = new Map();
+          applyPrivilegeStatements(table, sql, name);
+          return JSON.stringify([...table].sort());
+        };
+        assert.ok(stream === seed && grants(stream) === grants(migration),
+          `reapply_security_migrations.sh fed mariadb something other than ${name} or its security seed`);
+      }
       return candidates[0];
     });
     return reapplied;
