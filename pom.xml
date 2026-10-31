@@ -678,11 +678,12 @@
 
         <!-- ==================== Monitoring ==================== -->
 
-        <!-- JavaMelody monitoring (2.x = Jakarta EE) -->
+        <!-- JavaMelody monitoring (2.x = Jakarta EE); 2.9.0 fixes forwarded writer
+             response truncation on Tomcat 11 (javamelody/javamelody#1306). -->
         <dependency>
             <groupId>net.bull.javamelody</groupId>
             <artifactId>javamelody-core</artifactId>
-            <version>2.6.0</version>
+            <version>2.9.0</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
