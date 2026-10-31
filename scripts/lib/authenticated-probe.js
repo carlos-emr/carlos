@@ -12,6 +12,11 @@ async function authenticatedProbe(session, target, options = {}) {
   if (url.origin !== base.origin || url.username || url.password) {
     throw new Error('Authenticated probe must stay on the application origin');
   }
+  const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  const loopback = ['localhost', '127.0.0.1', '::1'].includes(host);
+  if (!['http:', 'https:'].includes(url.protocol) || (url.protocol === 'http:' && !loopback)) {
+    throw new Error('Authenticated probes require HTTPS outside loopback');
+  }
   if (!['GET', 'HEAD'].includes(options.method || 'GET')) {
     throw new Error('Authenticated refusal probes support only GET and HEAD');
   }
@@ -26,13 +31,14 @@ async function authenticatedProbe(session, target, options = {}) {
     const pathMatches = url.pathname === path || (url.pathname.startsWith(path)
       && (path.endsWith('/') || url.pathname[path.length] === '/'));
     return domainMatches && pathMatches && (cookie.expires === -1 || cookie.expires > now);
-  }).sort((a, b) => b.path.length - a.path.length);
+  }).sort((a, b) => (b.path || '/').length - (a.path || '/').length);
   if (!cookies.some(cookie => cookie.name === 'JSESSIONID' && cookie.value)) {
     throw new Error('Authenticated probe requires an application session cookie');
   }
   const response = await session.context.request.fetch(url.href, {
     ...options,
-    headers: { ...options.headers, Cookie: cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ') },
+    headers: { ...Object.fromEntries(Object.entries(options.headers || {}).filter(([name]) => name.toLowerCase() !== 'cookie')),
+      Cookie: cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ') },
     maxRedirects: 0,
     failOnStatusCode: false,
   });
