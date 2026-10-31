@@ -520,13 +520,6 @@
                 <artifactId>jakarta.transaction-api</artifactId>
                 <version>2.0.1</version>
             </dependency>
-            <!-- Override transitive Xalan from jakarta.servlet.jsp.jstl to fix CVE-2022-34169
-                 (integer truncation in XSLTC compiler allows arbitrary bytecode execution) -->
-            <dependency>
-                <groupId>xalan</groupId>
-                <artifactId>xalan</artifactId>
-                <version>2.7.3</version>
-            </dependency>
             <!-- Xalan 2.7.3 requires its companion serializer artifact (provides
                  org.apache.xml.serializer.OutputPropertiesFactory used by Struts) -->
             <dependency>
@@ -942,8 +935,9 @@
         </dependency>
         <!-- Required for @Aspect, @Transactional, and @Cacheable proxy weaving -->
         <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-aspects</artifactId>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+            <version>1.9.25.1</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
@@ -1203,11 +1197,12 @@
             <version>${jasperreports.version}</version>
         </dependency>
 
-        <!-- JasperReports Excel/POI exporter (split from core in JR7) -->
+        <!-- poi-ooxml: tests read Jasper's XLSX output back (SpreadsheetRuntimeIntegrationTest).
+             Production XLSX export is Jasper core's JRXlsxExporter, which does not use POI. -->
         <dependency>
-            <groupId>net.sf.jasperreports</groupId>
-            <artifactId>jasperreports-excel-poi</artifactId>
-            <version>${jasperreports.version}</version>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <!-- ==================== Jackson / JSON ==================== -->
@@ -1399,131 +1394,18 @@
         <!-- CXF (used at runtime for SOAP/REST web services) -->
         <dependency>
             <groupId>org.apache.cxf</groupId>
-            <artifactId>apache-cxf</artifactId>
+            <artifactId>cxf-rt-frontend-jaxrs</artifactId>
             <version>${cxf.version}</version>
-            <type>pom</type>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.springframework</groupId>
-                    <artifactId>spring-asm</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.geronimo.specs</groupId>
-                    <artifactId>geronimo-servlet_2.5_spec</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.geronimo.specs</groupId>
-                    <artifactId>geronimo-servlet_3.0_spec</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.cxf.services.ws-discovery</groupId>
-                    <artifactId>cxf-services-ws-discovery-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.cxf.services.ws-discovery</groupId>
-                    <artifactId>cxf-services-ws-discovery-service</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-jdk14</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-api</artifactId>
-                </exclusion>
-                <!-- apache-cxf and cxf-rt-transports-http-hc declare the SLF4J
-                     Commons Logging bridge; commons-logging is the one JCL
-                     implementation (#5413, see the Logging section). -->
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>jcl-over-slf4j</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.woodstox</groupId>
-                    <artifactId>woodstox-core</artifactId>
-                </exclusion>
-                <!-- Not being used, excluded to avoid triggering security issue -->
-                <exclusion>
-                    <groupId>org.eclipse.jetty</groupId>
-                    <artifactId>jetty-server</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.eclipse.jetty</groupId>
-                    <artifactId>jetty-http</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.undertow</groupId>
-                    <artifactId>undertow-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-common</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-handler</artifactId>
-                </exclusion>
-                <!-- Excluded this low version to avoid triggering security issue -->
-                <exclusion>
-                    <groupId>org.codehaus.jettison</groupId>
-                    <artifactId>jettison</artifactId>
-                </exclusion>
-                <!-- 
-                    Not being used, excluded to avoid triggering security issue,
-                    these libraries are part of apache-cxf, 
-                    but excluding them won't impact our project  
-                -->
-                <exclusion>
-                    <groupId>org.apache.mina</groupId>
-                    <artifactId>mina-core</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.activemq</groupId>
-                    <artifactId>activemq-openwire-legacy</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.activemq</groupId>
-                    <artifactId>activemq-client</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.cxf</groupId>
-                    <artifactId>cxf-rt-rs-security-jose</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.cxf</groupId>
-                    <artifactId>cxf-rt-rs-service-description</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.cxf</groupId>
-                    <artifactId>cxf-rt-management</artifactId>
-                </exclusion>
-                <!-- 
-                    Switched from Jettison (org.codehaus.jettison) to FasterXML Jackson 
-                    for JSON handling in CXF JAX-RS providers. 
-                    This ensures better compatibility and consistency of REST API 
-                    request/response serialization and deserialization. 
-                    Also excluded cxf-rt-rs-extension-providers to avoid Jettison being pulled in transitively.
-                -->
-                <exclusion>
-                    <groupId>org.apache.cxf</groupId>
-                    <artifactId>cxf-rt-rs-extension-providers</artifactId>
-                </exclusion>
-                <!-- Not used, excluded to fix CVE (RCE via untrusted JMS config) -->
-                <exclusion>
-                    <groupId>org.apache.cxf</groupId>
-                    <artifactId>cxf-rt-transports-jms</artifactId>
-                </exclusion>
-                <!-- Not used, excluded to fix CVE (DoS via Rhino toFixed) -->
-                <exclusion>
-                    <groupId>org.apache.cxf</groupId>
-                    <artifactId>cxf-rt-frontend-js</artifactId>
-                </exclusion>
-                <!-- Not used, excluded to avoid pulling in embedded Jetty server -->
-                <exclusion>
-                    <groupId>org.apache.cxf</groupId>
-                    <artifactId>cxf-rt-transports-http-jetty</artifactId>
-                </exclusion>
-            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-ws-security</artifactId>
+            <version>${cxf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-features-logging</artifactId>
+            <version>${cxf.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.cxf</groupId>
@@ -1555,6 +1437,7 @@
             <groupId>org.apache.cxf</groupId>
             <artifactId>cxf-rt-rs-client</artifactId>
             <version>${cxf.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.cxf</groupId>
@@ -1606,12 +1489,6 @@
             <version>${csrfguard.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <version>26.1.0</version>
-            <scope>compile</scope>
-        </dependency>
 
         <!-- ==================== Testing ==================== -->
 
@@ -1730,20 +1607,6 @@
             <version>${hapifhir.version}</version>
         </dependency>
 
-        <!-- JAX-WS RI (used at runtime for SOAP web services) -->
-        <dependency>
-           <groupId>com.sun.xml.ws</groupId>
-           <artifactId>jaxws-ri</artifactId>
-           <version>4.0.5</version>
-           <type>pom</type>
-           <exclusions>
-                <!-- Not being used, excluded to avoid triggering security issue -->
-                <exclusion>
-                    <groupId>com.fasterxml.woodstox</groupId>
-                    <artifactId>woodstox-core</artifactId>
-                </exclusion>
-           </exclusions>
-        </dependency>
         <!-- Annotations 3.0 (@PostConstruct, @Resource, @Nonnull): Tomcat 11 always
              loads jakarta.annotation.* from its own lib/annotations-api.jar, so a WAR
              copy was dead weight. Provided, like the other container APIs above. -->
@@ -1808,11 +1671,42 @@
             <groupId>org.seleniumhq.selenium</groupId>
             <artifactId>selenium-chrome-driver</artifactId>
             <version>${selenium.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.seleniumhq.selenium</groupId>
-            <artifactId>selenium-support</artifactId>
-            <version>${selenium.version}</version>
+            <!-- Selenium needs only the OpenTelemetry API. CARLOS configures no exporter, so the SDK,
+                 autoconfigure and logging exporter are dead weight in the WAR. -->
+            <exclusions>
+                <exclusion>
+                    <groupId>io.opentelemetry</groupId>
+                    <artifactId>opentelemetry-sdk</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.opentelemetry</groupId>
+                    <artifactId>opentelemetry-sdk-common</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.opentelemetry</groupId>
+                    <artifactId>opentelemetry-sdk-trace</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.opentelemetry</groupId>
+                    <artifactId>opentelemetry-sdk-metrics</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.opentelemetry</groupId>
+                    <artifactId>opentelemetry-sdk-logs</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.opentelemetry</groupId>
+                    <artifactId>opentelemetry-sdk-extension-autoconfigure</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.opentelemetry</groupId>
+                    <artifactId>opentelemetry-sdk-extension-autoconfigure-spi</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.opentelemetry</groupId>
+                    <artifactId>opentelemetry-exporter-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- TOTP/HOTP library for MFA -->
         <dependency>

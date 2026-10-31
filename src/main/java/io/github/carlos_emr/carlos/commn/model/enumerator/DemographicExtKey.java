@@ -11,7 +11,6 @@
  */
 package io.github.carlos_emr.carlos.commn.model.enumerator;
 
-import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -136,7 +135,6 @@ public enum DemographicExtKey {
     }
 
 
-    @NotNull
     public static Map<String, DemographicExtKey> demographicExtKeyMap() {
         Map map = new HashMap<String, DemographicExtKey>();
         for (DemographicExtKey key : DemographicExtKey.values()) {
