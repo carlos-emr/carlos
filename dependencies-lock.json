@@ -1772,14 +1772,6 @@
     "integrity" : "sha512:RHbCTPxkYfSbz+XiIs1I8C9NdRerooqU/Jcjlxw/DYaBNcZrNiBMh4q4nxB+I+iYBLwH0en4shpITe1NIUYKWg=="
   }, {
     "groupId" : "org.apache.cxf",
-    "artifactId" : "cxf-rt-transports-http-hc",
-    "version" : "4.1.9",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:3XBS3b781JTLrTT2ZF1ge4iUELE8fMa9JDNqx3JusKc3SGDH+QuZLffGrFF/tnmtnWjCGsQ2bwLRr0hJ3KpW5w=="
-  }, {
-    "groupId" : "org.apache.cxf",
     "artifactId" : "cxf-rt-transports-http-netty-client",
     "version" : "4.1.9",
     "scope" : "compile",
@@ -2018,38 +2010,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:nDQbVSlwXVbhPXTE7ZGzs6/dKt1bR4PrwEiPfFwSmbEuqoJ7krHrzt9P0lFvtcrpb4vsvmBHSfpHqSjUK5mbqw=="
-  }, {
-    "groupId" : "org.apache.httpcomponents",
-    "artifactId" : "httpasyncclient",
-    "version" : "4.1.5",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:HjPH/fpj83fsSES3dE0vjsMNx4ZxNpBf9aWm5flO+luBWbog6B8ASPSEMM9jradBGjl0pBiu+kl9K0+rNQH1ug=="
-  }, {
-    "groupId" : "org.apache.httpcomponents",
-    "artifactId" : "httpclient",
-    "version" : "4.5.14",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:oITvMPsKKiU5fY+rQ5/mj2filL9TFT4uE1W435KIbUD+ar413ITwFCRfcVjpJkG8vZgBm0+72eWg20lbFgtM7Q=="
-  }, {
-    "groupId" : "org.apache.httpcomponents",
-    "artifactId" : "httpcore-nio",
-    "version" : "4.4.16",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:GXy09DQ6AtOdYdscGb8QdXrrIHj1HErOd6cqJQttA7MfofxR+Yn0PfjCoM+BYqNmZKipNfS764YMNXcKOr0YmQ=="
-  }, {
-    "groupId" : "org.apache.httpcomponents",
-    "artifactId" : "httpcore",
-    "version" : "4.4.16",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:FoAmQ2prz16WwMWWBmOKu9ww3ktAWuVa/ecP3yiV4mej1Iu6a9rcWonzjjHaPZqdyR4cq36nb14EMizx7GO4OA=="
   }, {
     "groupId" : "org.apache.logging.log4j",
     "artifactId" : "log4j-api",
