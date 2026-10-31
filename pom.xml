@@ -1395,6 +1395,13 @@
             <version>${cxf.version}</version>
             <type>pom</type>
             <exclusions>
+                <!-- WSS4J's optional ENC(...) Crypto-property implementation is unmaintained.
+                     EBS supplies an explicit PasswordEncryptor instead; SOAP signing and
+                     decryption continue to use WSS4J/JCA. See docs/migration/ebs-without-jasypt.md. -->
+                <exclusion>
+                    <groupId>org.jasypt</groupId>
+                    <artifactId>jasypt</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>org.springframework</groupId>
                     <artifactId>spring-asm</artifactId>
@@ -2248,6 +2255,23 @@
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <version>3.6.3</version>
                 <executions>
+                    <execution>
+                        <id>ban-unmaintained-jasypt</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>org.jasypt:*</exclude>
+                                        <exclude>com.melloware:jasypt</exclude>
+                                    </excludes>
+                                    <message>Jasypt is unmaintained. EBS uses deployment-managed Crypto passwords and an explicit PasswordEncryptor; see docs/migration/ebs-without-jasypt.md.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
                     <execution>
                         <id>ban-duplicate-commons-logging</id>
                         <goals>
