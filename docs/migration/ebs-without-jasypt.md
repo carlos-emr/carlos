@@ -27,6 +27,8 @@ EBS now supplies `PlaintextCryptoPasswordEncryptor` in both interceptor maps and
 the CXF request context. Merlin still loads ordinary passwords itself; the
 explicit SPI rejects `ENC(...)` values without logging their contents. Jasypt
 is excluded from CXF and banned by Maven Enforcer to prevent reintroduction.
+Outbound signature properties keep CXF's existing resource resolution and lazy
+loading: the file is read when first needed, not while constructing the client.
 
 ## Existing MCEDT and HCV deployments
 
@@ -44,7 +46,9 @@ is not an interoperable replacement.
 
 The EBS `ClientPasswordCallback` has never supplied WSS4J's
 `PASSWORD_ENCRYPTOR_PASSWORD` callback, so `ENC(...)` properties were not a
-supported EBS configuration. They now fail with an explicit migration message.
+supported EBS configuration. They continue to fail. Inbound loading reports an
+explicit migration message; CXF's existing outbound fallback can instead report
+a keystore-loading error.
 They are never passed through as plaintext or decrypted using a guessed key.
 
 Before upgrading any locally customized deployment that does use `ENC(...)`:
@@ -65,9 +69,12 @@ contract. Do not add Jasypt back or substitute the dashboard ciphertext format.
 ## Verification
 
 `EdtWsSecurityWithoutJasyptUnitTest` exercises the production inbound and outbound
-property maps with a synthetic PKCS12 keystore, real WSS4J signing/decryption, and
+property maps with synthetic PKCS12 and JKS keystores, real WSS4J signing/decryption, and
 checks that Jasypt classes are absent. The MCEDT encrypted-response and attachment
 regressions also run without Jasypt. No live Ministry credentials are used.
+Regression tests also preserve signature-file provisioning and updates between
+client construction and first use. These lifecycle checks and the signing/decryption
+checks were compared with the release implementation using its original Jasypt JAR.
 
 ```bash
 mvn test -Dtest=EdtWsSecurityWithoutJasyptUnitTest,DynamicWSS4JInInterceptorUnitTest,DynamicWSS4JEncryptionResultsUnitTest

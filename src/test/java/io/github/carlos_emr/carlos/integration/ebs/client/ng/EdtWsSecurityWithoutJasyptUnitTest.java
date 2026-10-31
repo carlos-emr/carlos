@@ -6,6 +6,7 @@ package io.github.carlos_emr.carlos.integration.ebs.client.ng;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import java.io.ByteArrayInputStream;
 import java.io.OutputStream;
@@ -17,6 +18,8 @@ import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.time.Instant;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -39,6 +42,7 @@ import org.apache.wss4j.dom.WSConstants;
 import org.apache.wss4j.dom.engine.WSSConfig;
 import org.apache.wss4j.dom.engine.WSSecurityEngine;
 import org.apache.wss4j.dom.handler.RequestData;
+import org.apache.wss4j.dom.handler.WSHandlerConstants;
 import org.apache.wss4j.dom.message.WSSecEncrypt;
 import org.apache.wss4j.dom.message.WSSecHeader;
 import org.apache.wss4j.dom.message.WSSecSignature;
@@ -52,6 +56,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** Exercises the EBS Crypto-loading paths, including the legacy property prefix. */
@@ -62,7 +67,7 @@ class EdtWsSecurityWithoutJasyptUnitTest {
     private static final String PASSWORD = "synthetic-keystore-password";
     @TempDir
     static Path directory;
-    private static Path keystore;
+    private static final Map<String, Path> KEYSTORES = new HashMap<>();
 
     @BeforeAll
     static void createKeystore() throws Exception {
@@ -77,13 +82,16 @@ class EdtWsSecurityWithoutJasyptUnitTest {
                         Date.from(now.minusSeconds(60)), Date.from(now.plusSeconds(86400)),
                         subject, pair.getPublic())
                         .build(new JcaContentSignerBuilder("SHA256withRSA").build(pair.getPrivate())));
-        KeyStore store = KeyStore.getInstance("PKCS12");
-        store.load(null, null);
-        store.setKeyEntry(ALIAS, pair.getPrivate(), PASSWORD.toCharArray(),
-                new java.security.cert.Certificate[]{certificate});
-        keystore = directory.resolve("synthetic.p12");
-        try (OutputStream out = Files.newOutputStream(keystore)) {
-            store.store(out, PASSWORD.toCharArray());
+        for (String type : List.of("PKCS12", "JKS")) {
+            KeyStore store = KeyStore.getInstance(type);
+            store.load(null, null);
+            store.setKeyEntry(ALIAS, pair.getPrivate(), PASSWORD.toCharArray(),
+                    new java.security.cert.Certificate[]{certificate});
+            Path file = directory.resolve("synthetic-" + type + ".keystore");
+            try (OutputStream out = Files.newOutputStream(file)) {
+                store.store(out, PASSWORD.toCharArray());
+            }
+            KEYSTORES.put(type, file);
         }
     }
 
@@ -94,9 +102,10 @@ class EdtWsSecurityWithoutJasyptUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {Merlin.OLD_PREFIX, Merlin.PREFIX})
-    void shouldSignAndDecrypt_withProductionCryptoConfiguration(String prefix) throws Exception {
-        EdtClientBuilder builder = builder(prefix, PASSWORD);
+    @CsvSource({Merlin.OLD_PREFIX + ",PKCS12", Merlin.PREFIX + ",PKCS12",
+            Merlin.OLD_PREFIX + ",JKS", Merlin.PREFIX + ",JKS"})
+    void shouldSignAndDecrypt_withProductionCryptoConfiguration(String prefix, String storeType) throws Exception {
+        EdtClientBuilder builder = builder(prefix, PASSWORD, storeType);
         var outbound = new WSS4JOutInterceptor(builder.newWSSOutInterceptorConfiguration());
         Crypto signing = outbound.loadSignatureCrypto(request(builder));
         var inbound = new CryptoLoadingInInterceptor(builder.newWSSInInterceptorConfiguration());
@@ -151,12 +160,47 @@ class EdtWsSecurityWithoutJasyptUnitTest {
         }
     }
 
+    @Test
+    void shouldDeferSignatureProperties_untilFirstUse() throws Exception {
+        EdtClientBuilder builder = builder(Merlin.PREFIX, PASSWORD);
+        Path existingFile = Path.of((String) builder.newWSSOutInterceptorConfiguration()
+                .get(WSHandlerConstants.SIG_PROP_FILE));
+        Path provisionedLater = directory.resolve("provisioned-later.properties");
+        builder.setClientKeystoreFilename(provisionedLater.toString());
+
+        // Building the client must not require the signature file to exist yet.
+        var properties = builder.newWSSOutInterceptorConfiguration();
+        Files.copy(existingFile, provisionedLater);
+
+        Crypto crypto = new WSS4JOutInterceptor(properties).loadSignatureCrypto(request(builder));
+        assertThat(crypto.getPrivateKey(ALIAS, PASSWORD)).isNotNull();
+    }
+
+    @Test
+    void shouldReadSignatureProperties_atFirstUseRatherThanClientCreation() throws Exception {
+        EdtClientBuilder builder = builder(Merlin.PREFIX, "incorrect-initial-password");
+        var properties = builder.newWSSOutInterceptorConfiguration();
+        Path configFile = Path.of((String) properties
+                .get(WSHandlerConstants.SIG_PROP_FILE));
+        Properties updated = new Properties();
+        try (var in = Files.newInputStream(configFile)) {
+            updated.load(in);
+        }
+        updated.setProperty(Merlin.PREFIX + Merlin.KEYSTORE_PASSWORD, PASSWORD);
+        try (var out = Files.newOutputStream(configFile)) {
+            updated.store(out, "Synthetic fixture updated before first use");
+        }
+
+        Crypto crypto = new WSS4JOutInterceptor(properties).loadSignatureCrypto(request(builder));
+        assertThat(crypto.getPrivateKey(ALIAS, PASSWORD)).isNotNull();
+    }
+
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void shouldRejectEncryptedProperties_withoutExposingCiphertext(boolean inbound) throws Exception {
         String ciphertext = "synthetic-secret-ciphertext";
         EdtClientBuilder builder = builder(Merlin.PREFIX, "ENC(" + ciphertext + ")");
-        assertThatThrownBy(() -> {
+        Throwable failure = catchThrowable(() -> {
             if (inbound) {
                 new CryptoLoadingInInterceptor(builder.newWSSInInterceptorConfiguration())
                         .loadDecryptionCrypto(request(builder));
@@ -164,20 +208,30 @@ class EdtWsSecurityWithoutJasyptUnitTest {
                 new WSS4JOutInterceptor(builder.newWSSOutInterceptorConfiguration())
                         .loadSignatureCrypto(request(builder));
             }
-        }).hasRootCauseInstanceOf(UnsupportedOperationException.class)
-                .hasStackTraceContaining("deployment-managed Crypto properties")
-                .hasStackTraceContaining("ebs-without-jasypt.md")
-                .hasStackTraceContaining("ENC(...)")
-                .satisfies(error -> assertThat(org.apache.commons.lang3.exception.ExceptionUtils.getStackTrace(error))
-                        .doesNotContain(ciphertext));
+        });
+        assertThat(failure).isInstanceOf(WSSecurityException.class);
+        assertThat(org.apache.commons.lang3.exception.ExceptionUtils.getStackTrace(failure))
+                .doesNotContain(ciphertext);
+        // Preserve CXF's existing outbound file-loading fallback, which wraps load errors.
+        if (inbound) {
+            assertThat(failure).hasRootCauseInstanceOf(UnsupportedOperationException.class)
+                    .hasStackTraceContaining("deployment-managed Crypto properties")
+                    .hasStackTraceContaining("ebs-without-jasypt.md")
+                    .hasStackTraceContaining("ENC(...)");
+        }
     }
 
     private static EdtClientBuilder builder(String prefix, String storePassword) throws Exception {
+        return builder(prefix, storePassword, "PKCS12");
+    }
+
+    private static EdtClientBuilder builder(String prefix, String storePassword, String storeType) throws Exception {
+        Path keystore = KEYSTORES.get(storeType);
         Properties properties = new Properties();
-        properties.setProperty(prefix + Merlin.KEYSTORE_TYPE, "PKCS12");
+        properties.setProperty(prefix + Merlin.KEYSTORE_TYPE, storeType);
         properties.setProperty(prefix + Merlin.KEYSTORE_FILE, keystore.toString());
         properties.setProperty(prefix + Merlin.KEYSTORE_PASSWORD, storePassword);
-        properties.setProperty(prefix + Merlin.TRUSTSTORE_TYPE, "PKCS12");
+        properties.setProperty(prefix + Merlin.TRUSTSTORE_TYPE, storeType);
         properties.setProperty(prefix + Merlin.TRUSTSTORE_FILE, keystore.toString());
         properties.setProperty(prefix + Merlin.TRUSTSTORE_PASSWORD, PASSWORD);
         Path configFile = Files.createTempFile(directory, "crypto-", ".properties");
