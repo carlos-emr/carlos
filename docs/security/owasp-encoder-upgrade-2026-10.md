@@ -45,6 +45,10 @@ parser, wrapper, tag, browser, build, and CI validation.
 - CPP note metadata remains raw text until `viewNotes.jsp` HTML-encodes the
   complete note. Pre-encoding metadata as JavaScript would expose hex escapes
   in ordinary text such as treatment and family-history details.
+- CPP edit payloads URI-component encode each value before joining the
+  semicolon-delimited transport, retain the outer JavaScript-attribute encoder,
+  and decode once after splitting on the client. Editing and saving therefore
+  preserves literal percent escapes, semicolons, plus signs, quotes, and Unicode.
 - CDATA preserves parsed text but can expand 13× and split parser events.
   XML-comment hyphens become `~`, a documented lossy policy. On the starting
   release branch, these contexts have no production consumers outside wrapper,
@@ -78,6 +82,14 @@ Both actual annual-review JSP JSON builders also passed a Chromium check of
 `JSON.parse` and checkbox restoration; their previous JavaScript-encoding
 builders fail this check. The expanded focused set passes 184 tests without
 failures or skips, including signature-status/upload JSON and CPP metadata.
+
+After review, seven actual CPP JSP/tag payloads also passed Chromium Edit and
+Save checks using the production client functions. Treatment, relationship,
+and partial-date values survived form submission unchanged, with no injected
+elements or page errors. The previous transport fails on `cat`, which reaches
+the edit field as literal `ca\x74`. The permanent Node regression executes those same
+prepare/save functions, and a JSP guard protects HTML encoding of the complete
+note. The three CPP regression classes pass all 29 tests.
 
 Reproduce the permanent focused tests with JDK 25, Maven, and Node installed:
 
