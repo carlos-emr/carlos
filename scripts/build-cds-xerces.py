@@ -4,6 +4,7 @@
 
 import argparse
 import hashlib
+from io import BytesIO
 from pathlib import Path
 from zipfile import ZIP_STORED, ZipFile, ZipInfo
 
@@ -30,11 +31,13 @@ Rebuild: scripts/build-cds-xerces.py (CARLOS repository).
 
 
 def build(source: Path, output: Path) -> None:
-    if hashlib.sha256(source.read_bytes()).hexdigest() != UPSTREAM_SHA256:
+    source_bytes = source.read_bytes()
+    if hashlib.sha256(source_bytes).hexdigest() != UPSTREAM_SHA256:
         raise ValueError("Upstream Xerces SHA-256 mismatch")
     if source.resolve() == output.resolve():
         raise ValueError("Output must differ from upstream source")
-    with ZipFile(source) as upstream:
+    # Parse the exact bytes that were hashed, even if the input path changes.
+    with ZipFile(BytesIO(source_bytes)) as upstream:
         services = {name for name in upstream.namelist()
                     if name.startswith("META-INF/services/") and not name.endswith("/")}
         if services != {"META-INF/services/" + name for name in PROVIDERS}:

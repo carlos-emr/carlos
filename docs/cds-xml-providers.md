@@ -43,7 +43,9 @@ this change. Directory entries are omitted and ZIP metadata is normalized;
 uncompressed entries avoid zlib-version-dependent output. This is provider
 isolation, not a Xerces security patch or a classloader sandbox: callers can
 still explicitly construct upstream classes. Deliberate system-property/provider
-configuration can still select another implementation.
+configuration can still select another implementation. Continue monitoring advisories
+for upstream `xerces:xercesImpl:2.12.2` explicitly: scanners may not associate the
+CARLOS-specific Maven coordinates with upstream advisories automatically.
 
 The POM has no `xml-apis` dependency because `java.xml` supplies the standard APIs.
 Maven Enforcer rejects upstream `xerces:xercesImpl`, `xerces:xmlParserAPIs` and
