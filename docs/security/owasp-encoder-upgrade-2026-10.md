@@ -38,6 +38,13 @@ parser, wrapper, tag, browser, build, and CI validation.
   parsing as visible text. Jackson now serializes the original name, and the
   existing `textContent` consumer keeps markup inert. Response round-trip tests
   cover spaces, quotes, backslashes, Unicode, and markup-like names.
+- Signature-stamp response URLs and the two annual-review checkbox arrays now
+  use the null-safe `SafeEncode.forJson` wrapper. JSON parsers reject JavaScript
+  `\xNN` escapes. Complete quoted JSON strings use the upstream JSON context,
+  which also escapes HTML delimiters for the planner's JSON script element.
+- CPP note metadata remains raw text until `viewNotes.jsp` HTML-encodes the
+  complete note. Pre-encoding metadata as JavaScript would expose hex escapes
+  in ordinary text such as treatment and family-history details.
 - CDATA preserves parsed text but can expand 13× and split parser events.
   XML-comment hyphens become `~`, a documented lossy policy. On the starting
   release branch, these contexts have no production consumers outside wrapper,
@@ -67,6 +74,10 @@ Five actual `Login2Action` JSON responses also passed through the third-party
 JSP's submit handler in Playwright. Provider names retained spaces, quotes,
 backslashes, Unicode, and markup-like text, with no injected elements or page
 errors. The five JSON round-trip unit cases fail against the original producer.
+Both actual annual-review JSP JSON builders also passed a Chromium check of
+`JSON.parse` and checkbox restoration; their previous JavaScript-encoding
+builders fail this check. The expanded focused set passes 184 tests without
+failures or skips, including signature-status/upload JSON and CPP metadata.
 
 Reproduce the permanent focused tests with JDK 25, Maven, and Node installed:
 
