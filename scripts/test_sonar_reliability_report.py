@@ -15,6 +15,17 @@ import sonar_reliability_report as sonar
 
 
 class SonarReliabilityReportTest(unittest.TestCase):
+    def test_optional_maintainability_report_keeps_the_same_sanitized_bounded_fields(self):
+        issue = {"key": "style", "type": "CODE_SMELL", "message": "split statements",
+                 "source": "never export", "authentication": "never export"}
+        fetch = lambda _: {"issues": [issue], "total": 1}
+        self.assertEqual([], sonar.collect_issues(fetch, 5347)[0])
+        selected, scanned = sonar.collect_issues(fetch, 5347, include_maintainability=True)
+        self.assertEqual(1, scanned)
+        self.assertEqual(["style"], [x["key"] for x in sonar.report(selected)])
+        self.assertNotIn("never export", json.dumps(sonar.report(selected)))
+        self.assertIn("Sonar quality finding", sonar.notice(sonar.report(selected)[0], 1, 1, "quality"))
+
     def test_preserves_bounded_flow_locations_without_source_values_or_messages(self):
         issue = {"key": "bug", "type": "BUG", "flows": [{"locations": [
             {"component": "project:caller.java", "textRange": {"startLine": 17},
@@ -225,8 +236,9 @@ class SonarReliabilityReportTest(unittest.TestCase):
         self.assertIn("name: sonar-pr-quality-findings", workflow)
         self.assertIn("if-no-files-found: error", workflow)
         self.assertEqual(1, workflow.count("continue-on-error: true"))
-        post_analysis = workflow.split("- name: Report PR security and reliability after server processing", 1)[1]
+        post_analysis = workflow.split("- name: Report PR quality findings after server processing", 1)[1]
         self.assertNotIn("continue-on-error:", post_analysis)
+        self.assertIn("SONAR_INCLUDE_MAINTAINABILITY: 'true'", post_analysis)
         self.assertNotIn("if ! python3 scripts/sonar_reliability_report.py", workflow)
 
 

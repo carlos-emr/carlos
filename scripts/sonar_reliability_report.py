@@ -49,7 +49,7 @@ def related_locations(issue):
     return result
 
 
-def collect_issues(fetch_page, pull_request):
+def collect_issues(fetch_page, pull_request, include_maintainability=False):
     """Require an exact, stable, complete workset before publishing any findings."""
     issues = []
     seen = set()
@@ -83,7 +83,7 @@ def collect_issues(fetch_page, pull_request):
             impacts = issue.get("impacts", [])
             if not isinstance(impacts, list) or len(impacts) > 16 or any(not isinstance(x, dict) for x in impacts):
                 raise ValueError("Invalid Sonar issue impacts")
-            if issue.get("type") in {"BUG", "VULNERABILITY"} or any(
+            if include_maintainability or issue.get("type") in {"BUG", "VULNERABILITY"} or any(
                     impact.get("softwareQuality") in {"RELIABILITY", "SECURITY"} for impact in impacts):
                 # Drop arbitrary metadata, flow messages/source values and authentication fields.
                 selected = {field: issue.get(field) for field in (
@@ -163,9 +163,9 @@ def write_report(path, document):
             temporary.unlink(missing_ok=True)
 
 
-def notice(finding, index, count):
+def notice(finding, index, count, scope="security/reliability"):
     preview = json.dumps(finding, ensure_ascii=True, separators=(",", ":")).replace("%", "%25")
-    prefix = f"::notice title=Sonar security/reliability finding {index} of {count}::"
+    prefix = f"::notice title=Sonar {scope} finding {index} of {count}::"
     allowance = MAX_NOTICE_BYTES - len(prefix) - 100
     if len(preview) > allowance:
         preview = preview[:allowance]
@@ -219,7 +219,9 @@ def main():
         finally:
             connection.close()
 
-    issues, scanned = collect_issues(fetch_page, pull_request)
+    include_maintainability = os.environ.get("SONAR_INCLUDE_MAINTAINABILITY") == "true"
+    scope = "quality" if include_maintainability else "security/reliability"
+    issues, scanned = collect_issues(fetch_page, pull_request, include_maintainability)
     findings = report(issues, credentials=(token, auth))
     commit = os.environ.get("REPORT_COMMIT", os.environ.get("GITHUB_SHA", ""))
     if not re.fullmatch(r"[0-9a-fA-F]{40}(?:[0-9a-fA-F]{24})?", commit):
@@ -230,24 +232,25 @@ def main():
                 "analysisLabel": "Latest available PR analysis; not the current quality-gate result",
                 "generatedAt": datetime.now(timezone.utc).isoformat(), "complete": True,
                 "scannedIssueCount": scanned, "findingCount": len(findings),
+                "includeMaintainability": include_maintainability,
                 "findingsSha256": digest, "findings": findings}
     location = os.environ.get("SONAR_REPORT_PATH")
     if not location:
         raise ValueError("SONAR_REPORT_PATH is required")
     write_report(Path(location), document)
-    print(f"Latest available Sonar PR security/reliability findings: {len(findings)} of {scanned} unresolved issues.")
+    print(f"Latest available Sonar PR {scope} findings: {len(findings)} of {scanned} unresolved issues.")
     print(f"Complete JSON findings SHA256: {digest}; analysis may precede commit {commit}.")
     if os.environ.get("GITHUB_ACTIONS") == "true":
         for index, finding in enumerate(findings, 1):
-            print(notice(finding, index, len(findings)))
+            print(notice(finding, index, len(findings), scope))
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with Path(summary).open("a", encoding="utf-8") as output:
-            output.write("## Sonar security and reliability diagnostics\n\n"
+            output.write(f"## Sonar {scope} diagnostics\n\n"
                          "Latest available PR analysis; it can precede this commit. "
                          "The SonarCloud Code Analysis check remains the quality-gate result.\n\n"
                          f"Current commit: `{commit}`. Scanned unresolved issues: {scanned}. "
-                         f"Security/reliability findings: {len(findings)}.\n\n"
+                         f"{scope.capitalize()} findings: {len(findings)}.\n\n"
                          "Complete sanitized JSON is in the `sonar-pr-quality-findings` artifact. "
                          f"Canonical findings SHA256: `{digest}`.\n")
 
