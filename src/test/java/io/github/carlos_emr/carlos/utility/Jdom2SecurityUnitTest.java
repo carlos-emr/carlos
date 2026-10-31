@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedConstruction;
 import org.xml.sax.SAXException;
 
 import java.io.StringReader;
@@ -37,6 +38,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mockConstruction;
 
 /** Behavioral checks for the JDOM boundary retained by CARLOS. Uses synthetic XML only. */
 @Tag("unit")
@@ -44,6 +47,45 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("security")
 @DisplayName("JDOM XML security and compatibility")
 class Jdom2SecurityUnitTest {
+
+    @Test
+    @DisplayName("should refuse to return a builder when required protections cannot be applied")
+    void shouldFailCreation_whenSecurityConfigurationFails() throws Exception {
+        JDOMException failure = new JDOMException("Required SAX feature is unsupported");
+        try (MockedConstruction<SAXBuilder> construction = mockConstruction(SAXBuilder.class,
+                (builder, context) -> doThrow(failure).when(builder).buildEngine())) {
+            assertThatThrownBy(XmlUtils::createSecureSAXBuilder)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasCause(failure);
+            assertThat(construction.constructed()).hasSize(1);
+        }
+    }
+
+    @Test
+    @DisplayName("should reject unsupported feature changes when the parsing engine is rebuilt")
+    void shouldRejectUnsupportedFeature_whenRebuildingEngine() {
+        SAXBuilder builder = XmlUtils.createSecureSAXBuilder();
+        builder.setFeature("urn:carlos:test:unsupported-feature", true);
+
+        assertThatThrownBy(() -> builder.build(new StringReader("<root/>")))
+                .isInstanceOf(JDOMException.class)
+                .hasMessageContaining("urn:carlos:test:unsupported-feature");
+    }
+
+    @Test
+    @DisplayName("should leave XInclude references unexpanded")
+    void shouldLeaveXIncludeUnexpanded_withExternalHref() throws Exception {
+        var root = XmlUtils.createSecureSAXBuilder().build(new StringReader("""
+                <root xmlns:xi="http://www.w3.org/2001/XInclude">
+                    <xi:include href="file:///must-not-be-read" parse="text"/>
+                </root>
+                """)).getRootElement();
+
+        assertThat(root.getChildren()).hasSize(1);
+        assertThat(root.getChildren().getFirst().getName()).isEqualTo("include");
+        assertThat(root.getChildren().getFirst().getAttributeValue("href"))
+                .isEqualTo("file:///must-not-be-read");
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {

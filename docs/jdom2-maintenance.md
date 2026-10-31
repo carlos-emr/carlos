@@ -49,6 +49,11 @@ throws `IllegalStateException` if a protected engine cannot be created; later
 engines are configured with the same restrictions. Builders remain local to a
 caller and must not be shared between threads or have protections relaxed.
 
+Previously, unsupported configured features already caused JDOM to reject engine
+creation when parsing began. The change validates that configuration before the
+factory returns; it does not claim to fix an observed XXE bypass. The extra engine
+creation checks configuration only and does not parse input.
+
 The Maven Enforcer `ban-obsolete-jdom` execution rejects JDOM 1 under either
 historical coordinate and JDOM2 versions older than 2.0.6.1, including transitive
 dependencies. The lock remains unchanged because this decision changes no
@@ -60,6 +65,9 @@ expansion. It also checks reuse after successful and rejected parses, namespace,
 CDATA, Unicode and escape round trips, and representative bundled clinical
 configuration. Resolver probes use synthetic XML and fail if resolution is
 attempted. No patient data or live external service is needed.
+Additional regression tests cover factory failure when protections cannot be
+applied, rejection of unsupported feature changes, and unexpanded XInclude
+references.
 
 Run the focused checks with the project's JDK 25 and Maven setup:
 
