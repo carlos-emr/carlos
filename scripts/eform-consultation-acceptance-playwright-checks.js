@@ -57,6 +57,7 @@
  * unique name, and each is asserted gone.
  */
 
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -99,25 +100,6 @@ function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
-}
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  if (!localHosts.has(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
 }
 
 function appUrl(appPath) {

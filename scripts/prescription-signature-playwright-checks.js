@@ -55,6 +55,7 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { browserErrorClass } = require('./browser-error-class');
@@ -88,29 +89,6 @@ if (!/^\d+$/.test(prescriptionDemographicNo)) {
 }
 if (prescriptionPharmacyId && !/^\d+$/.test(prescriptionPharmacyId)) {
   throw new Error('PRESCRIPTION_PHARMACY_ID must be numeric when provided');
-}
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const octets = host.split('.');
-  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
-  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
-    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
-    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
 }
 
 function appUrl(appPath) {
@@ -253,7 +231,11 @@ async function checkEmptyPrescriptionPrint(page) {
   await choosePrescriptionPatient(page);
   const countQuery = `SELECT COUNT(*) FROM prescription WHERE demographic_no=${prescriptionDemographicNo}`;
   const before = process.env.PRESCRIPTION_SIGNATURE_CLEANUP === 'true' ? localFixtureSql(countQuery) : null;
-  await gotoApp(page, '/rx/viewScript');
+  const params = new URLSearchParams({ demographicNo: prescriptionDemographicNo });
+  const response = await gotoApp(page, `/rx/viewScript?${params.toString()}`);
+  if (!response || response.status() !== 200) {
+    throw new Error(`Empty prescription view returned HTTP ${response ? response.status() : 'no response'}`);
+  }
   await assertNoErrorPage(page, 'empty-prescription-view');
   const state = await page.evaluate(() => {
     const button = document.getElementById('printButton');
@@ -263,7 +245,7 @@ async function checkEmptyPrescriptionPrint(page) {
     return state;
   });
   if (state.hasPreview !== false || state.framePresent || !state.printDisabled || !state.helperPresent) {
-    throw new Error('Empty prescription must disable Print and safely handle a programmatic print attempt');
+    throw new Error(`Empty prescription must disable Print and safely handle a programmatic print attempt: ${JSON.stringify(state)}`);
   }
   if (before !== null && localFixtureSql(countQuery) !== before) {
     throw new Error('Viewing an empty prescription must not create an orphan prescription row');

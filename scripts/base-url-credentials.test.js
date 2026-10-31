@@ -17,8 +17,10 @@ const scripts = collectScripts(__dirname);
 
 function scheduleUrlContext() {
   const source = fs.readFileSync(path.join(__dirname, 'schedule-links-playwright-checks.js'), 'utf8');
-  const context = vm.createContext({ URL, process: { env: {} } });
-  for (const name of ['validateBaseUrl', 'appUrl', 'safeGoto', 'clickScheduleLink']) {
+  const context = vm.createContext({ URL, process: { env: {} },
+    validateBaseUrl: raw => require('./lib/playwright-harness').validateBaseUrl(raw, {}),
+  });
+  for (const name of ['appUrl', 'safeGoto', 'clickScheduleLink']) {
     const start = source.indexOf(`function ${name}(`);
     assert.ok(start >= 0, `Schedule URL helper ${name} is missing`);
     const declaration = source.slice(start - 6, start) === 'async ' ? start - 6 : start;
