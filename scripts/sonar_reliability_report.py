@@ -24,32 +24,49 @@ MAX_NOTICE_BYTES = 3000
 MAX_RELATED_LOCATIONS = 128
 
 
+def source_location(location, flow_index):
+    """Validate a source coordinate without retaining source text or flow messages."""
+    if not isinstance(location, dict) or not isinstance(location.get("textRange", {}), dict):
+        raise ValueError("Invalid Sonar related location")
+    component = location.get("component")
+    line = location.get("textRange", {}).get("startLine")
+    if component is not None and (not isinstance(component, str) or len(component) > 65536):
+        raise ValueError("Invalid Sonar related component")
+    if line is not None and (type(line) is not int or line < 1 or line > 2147483647):
+        raise ValueError("Invalid Sonar related line")
+    return {"flow": flow_index, "component": component, "line": line}
+
+
 def related_locations(issue):
-    """Retain only bounded source coordinates, never flow messages or source values."""
+    """Retain bounded source coordinates and explicitly mark omitted context."""
     flows = issue.get("flows", [])
-    if not isinstance(flows, list) or len(flows) > 32:
+    if not isinstance(flows, list):
         raise ValueError("Invalid Sonar issue flows")
     result = []
-    for index, flow in enumerate(flows):
+    truncated = len(flows) > MAX_RELATED_LOCATIONS
+    for index, flow in enumerate(flows[:MAX_RELATED_LOCATIONS]):
         if not isinstance(flow, dict):
             raise ValueError("Invalid Sonar issue flow")
         locations = flow.get("locations", [])
-        if not isinstance(locations, list) or len(result) + len(locations) > MAX_RELATED_LOCATIONS:
-            raise ValueError("Sonar related location capacity exceeded")
-        for location in locations:
-            if not isinstance(location, dict) or not isinstance(location.get("textRange", {}), dict):
-                raise ValueError("Invalid Sonar related location")
-            component = location.get("component")
-            line = location.get("textRange", {}).get("startLine")
-            if component is not None and (not isinstance(component, str) or len(component) > 65536):
-                raise ValueError("Invalid Sonar related component")
-            if line is not None and (type(line) is not int or line < 1 or line > 2147483647):
-                raise ValueError("Invalid Sonar related line")
-            result.append({"flow": index, "component": component, "line": line})
-    return result
+        if not isinstance(locations, list):
+            raise ValueError("Invalid Sonar related locations")
+        remaining = MAX_RELATED_LOCATIONS - len(result)
+        truncated = truncated or len(locations) > remaining
+        for location in locations[:remaining]:
+            result.append(source_location(location, index))
+        if len(result) == MAX_RELATED_LOCATIONS:
+            truncated = truncated or index + 1 < len(flows)
+            break
+    return result, truncated
 
 
-def collect_issues(fetch_page, pull_request, include_maintainability=False):
+def security_or_reliability(issue):
+    """Keep classic and impact-based security/reliability findings prominent."""
+    return issue.get("type") in {"BUG", "VULNERABILITY"} or any(
+        impact.get("softwareQuality") in {"RELIABILITY", "SECURITY"} for impact in issue.get("impacts", []))
+
+
+def collect_issues(fetch_page, pull_request, *, include_maintainability=False):
     """Require an exact, stable, complete workset before publishing any findings."""
     issues = []
     seen = set()
@@ -83,16 +100,17 @@ def collect_issues(fetch_page, pull_request, include_maintainability=False):
             impacts = issue.get("impacts", [])
             if not isinstance(impacts, list) or len(impacts) > 16 or any(not isinstance(x, dict) for x in impacts):
                 raise ValueError("Invalid Sonar issue impacts")
-            if include_maintainability or issue.get("type") in {"BUG", "VULNERABILITY"} or any(
-                    impact.get("softwareQuality") in {"RELIABILITY", "SECURITY"} for impact in impacts):
+            if include_maintainability or security_or_reliability(issue):
                 # Drop arbitrary metadata, flow messages/source values and authentication fields.
                 selected = {field: issue.get(field) for field in (
                     "key", "rule", "component", "line", "type", "severity", "message")}
                 selected["impacts"] = [{"softwareQuality": x.get("softwareQuality"),
                                         "severity": x.get("severity")} for x in impacts]
-                locations = related_locations(issue)
+                locations, truncated = related_locations(issue)
                 if locations:
                     selected["relatedLocations"] = locations
+                if truncated:
+                    selected["relatedLocationsTruncated"] = True
                 report_bytes += len(json.dumps(selected, ensure_ascii=True).encode("ascii"))
                 if report_bytes > MAX_REPORT_BYTES:
                     raise ValueError("Sonar report capacity exceeded")
@@ -136,6 +154,8 @@ def report(issues, credentials=()):
             findings[-1]["relatedLocations"] = [
                 {"flow": location["flow"], "file": text(location["component"]), "line": location["line"]}
                 for location in issue["relatedLocations"]]
+        if issue.get("relatedLocationsTruncated") is True:
+            findings[-1]["relatedLocationsTruncated"] = True
     return findings
 
 
@@ -221,7 +241,7 @@ def main():
 
     include_maintainability = os.environ.get("SONAR_INCLUDE_MAINTAINABILITY") == "true"
     scope = "quality" if include_maintainability else "security/reliability"
-    issues, scanned = collect_issues(fetch_page, pull_request, include_maintainability)
+    issues, scanned = collect_issues(fetch_page, pull_request, include_maintainability=include_maintainability)
     findings = report(issues, credentials=(token, auth))
     commit = os.environ.get("REPORT_COMMIT", os.environ.get("GITHUB_SHA", ""))
     if not re.fullmatch(r"[0-9a-fA-F]{40}(?:[0-9a-fA-F]{24})?", commit):
@@ -241,7 +261,8 @@ def main():
     print(f"Latest available Sonar PR {scope} findings: {len(findings)} of {scanned} unresolved issues.")
     print(f"Complete JSON findings SHA256: {digest}; analysis may precede commit {commit}.")
     if os.environ.get("GITHUB_ACTIONS") == "true":
-        for index, finding in enumerate(findings, 1):
+        ordered_notices = sorted(findings, key=lambda finding: not security_or_reliability(finding))
+        for index, finding in enumerate(ordered_notices, 1):
             print(notice(finding, index, len(findings), scope))
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:

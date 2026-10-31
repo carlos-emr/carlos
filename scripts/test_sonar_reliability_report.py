@@ -18,7 +18,8 @@ class SonarReliabilityReportTest(unittest.TestCase):
     def test_optional_maintainability_report_keeps_the_same_sanitized_bounded_fields(self):
         issue = {"key": "style", "type": "CODE_SMELL", "message": "split statements",
                  "source": "never export", "authentication": "never export"}
-        fetch = lambda _: {"issues": [issue], "total": 1}
+        def fetch(_):
+            return {"issues": [issue], "total": 1}
         self.assertEqual([], sonar.collect_issues(fetch, 5347)[0])
         selected, scanned = sonar.collect_issues(fetch, 5347, include_maintainability=True)
         self.assertEqual(1, scanned)
@@ -36,12 +37,54 @@ class SonarReliabilityReportTest(unittest.TestCase):
         self.assertNotIn("synthetic-secret", json.dumps(finding))
         self.assertNotIn("never export", json.dumps(finding))
 
-    def test_invalid_or_excessive_flow_locations_fail_closed(self):
-        for locations in ([{"textRange": {"startLine": True}}],
-                          [{"textRange": {"startLine": 1}}] * 129):
-            issue = {"key": "bug", "type": "BUG", "flows": [{"locations": locations}]}
-            with self.subTest(count=len(locations)), self.assertRaises(ValueError):
+    def test_invalid_flow_locations_fail_closed(self):
+        for flows in (None, [7], [{"locations": None}], [{"locations": [{"textRange": {"startLine": True}}]}]):
+            issue = {"key": "bug", "type": "BUG", "flows": flows}
+            with self.subTest(flows=flows), self.assertRaises(ValueError):
                 sonar.collect_issues(lambda _: {"issues": [issue], "total": 1}, 5347)
+
+    def test_valid_large_secondary_context_is_bounded_and_explicitly_marked(self):
+        location = {"component": "project:source.java", "textRange": {"startLine": 1}, "source": "never export"}
+        for flows in ([{"locations": [location] * 129}], [{"locations": [location]}] * 129):
+            issue = {"key": "style", "type": "CODE_SMELL", "flows": flows}
+            selected, _ = sonar.collect_issues(lambda _: {"issues": [issue], "total": 1}, 5347,
+                                             include_maintainability=True)
+            finding = sonar.report(selected)[0]
+            self.assertEqual(128, len(finding["relatedLocations"]))
+            self.assertTrue(finding["relatedLocationsTruncated"])
+            self.assertNotIn("never export", json.dumps(finding))
+        for count in (34, 128):
+            issue = {"key": "style", "type": "CODE_SMELL", "flows": [{"locations": [location]}] * count}
+            selected, _ = sonar.collect_issues(lambda _: {"issues": [issue], "total": 1}, 5347,
+                                             include_maintainability=True)
+            finding = sonar.report(selected)[0]
+            self.assertEqual(count, len(finding["relatedLocations"]))
+            self.assertNotIn("relatedLocationsTruncated", finding)
+
+    def test_security_notices_precede_maintainability_without_reordering_the_artifact(self):
+        source = [{"key": f"style-{i}", "type": "CODE_SMELL"} for i in range(12)] + [
+            {"key": "bug", "type": "BUG"}, {"key": "vulnerability", "type": "VULNERABILITY"},
+            {"key": "impact", "type": "CODE_SMELL", "impacts": [{"softwareQuality": "SECURITY"}]}]
+        with tempfile.TemporaryDirectory() as directory:
+            artifact = Path(directory) / "report.json"
+            response = io.StringIO(json.dumps({"issues": source, "total": len(source)}))
+            response.status = 200
+            connection = Mock()
+            connection.getresponse.return_value = response
+            output = io.StringIO()
+            with patch.dict(os.environ, {"SONAR_TOKEN": "synthetic-secret", "PR_NUMBER": "5347",
+                                         "GITHUB_ACTIONS": "true", "SONAR_INCLUDE_MAINTAINABILITY": "true",
+                                         "SONAR_REPORT_PATH": str(artifact),
+                                         "GITHUB_STEP_SUMMARY": str(Path(directory) / "summary.md")}), \
+                    patch.object(sonar, "HTTPSConnection", return_value=connection), contextlib.redirect_stdout(output):
+                sonar.main()
+            notices = [json.loads(line.split("::", 2)[2]) for line in output.getvalue().splitlines()
+                       if line.startswith("::notice ")]
+            self.assertEqual(["bug", "vulnerability", "impact"], [x["key"] for x in notices[:3]])
+            document = json.loads(artifact.read_text())
+            self.assertEqual([x["key"] for x in source], [x["key"] for x in document["findings"]])
+            self.assertEqual(hashlib.sha256(sonar.canonical_findings(document["findings"])).hexdigest(),
+                             document["findingsSha256"])
 
     def test_reads_every_page_and_includes_classic_and_quality_impact_findings(self):
         calls = []
