@@ -512,8 +512,9 @@
                 <artifactId>jakarta.transaction-api</artifactId>
                 <version>2.0.1</version>
             </dependency>
-            <!-- Override transitive Xalan from jakarta.servlet.jsp.jstl to fix CVE-2022-34169
-                 (integer truncation in XSLTC compiler allows arbitrary bytecode execution) -->
+            <!-- Pin separately resolved Xalan artifacts to 2.7.3 for CVE-2022-34169.
+                 This does not replace JSTL 3.0.1's shaded Xalan 2.7.2 classes;
+                 see docs/security/jstl-shaded-xalan.md for scanner triage. -->
             <dependency>
                 <groupId>xalan</groupId>
                 <artifactId>xalan</artifactId>
@@ -1046,13 +1047,15 @@
             <version>${twelvemonkeys.version}</version>
         </dependency>
 
-        <!-- Glassfish JSTL 3.0.1 implementation (Jakarta EE 10 - jakarta.tags namespace) -->
+        <!-- Glassfish JSTL 3.0.1 implementation (Jakarta EE 10 - jakarta.tags namespace).
+             Bundles shaded Xalan 2.7.2, unaffected by the managed xalan:xalan version.
+             See docs/security/jstl-shaded-xalan.md for CVE-2022-34169 triage. -->
         <dependency>
             <groupId>org.glassfish.web</groupId>
             <artifactId>jakarta.servlet.jsp.jstl</artifactId>
             <version>3.0.1</version>
         </dependency>
-        <!-- Xalan serializer: companion to xalan:xalan (transitive from JSTL above).
+        <!-- Standalone Xalan serializer, separate from JSTL's shaded Xalan copy.
              Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts. -->
         <dependency>
             <groupId>xalan</groupId>
