@@ -853,6 +853,6 @@ require('./lib/legacy-check').runLegacyCheck('echart-print',async({cancellation}
     console.error(`HTTP errors: ${h.withoutQueryStrings(JSON.stringify(badResponses, null, 2))}`);
   }
   try { h.assertStrictPage(recorder); } catch (diagnostic) { console.error(diagnostic.message); }
-  throw error;
+  throw require('./lib/legacy-check').sanitizedError(error);
   }
 });

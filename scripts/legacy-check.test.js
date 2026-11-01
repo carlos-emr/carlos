@@ -24,3 +24,12 @@ for(const result of [0,1,2])test(`legacy result ${result} preserves pass/failure
   const actual=await run(t,{result});assert.equal(actual.code,result,actual.output());assert(fs.existsSync(path.join(actual.dir,'cleaned')));
   assert.match(actual.output(),new RegExp(['PASS','FAIL','SKIP'][result]+' legacy-fixture'));
 });
+
+test('legacy failures cannot reintroduce original query strings through structured results',()=>{
+ const {sanitizedError}=require('./lib/legacy-check');
+ const original=new Error('failed at "https://host/carlos/chart?demographic_no=123"');
+ original.failedStep='open /carlos/chart?demographic_no=456';original.secret='must not be copied';
+ const safe=sanitizedError(original);assert.notEqual(safe,original);
+ assert.equal(safe.message,'failed at "https://host/carlos/chart"');assert.equal(safe.failedStep,'open /carlos/chart');
+ assert(!/123|456|must not/.test(JSON.stringify(safe)));assert.equal(safe.cause,undefined);
+});

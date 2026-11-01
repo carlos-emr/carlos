@@ -19,5 +19,5 @@ test('a terminal read during form close retains its identity, while the new docu
  page.emit('framenavigated',frame);const newDocument=request();context.emit('request',newDocument);context.emit('requestfailed',newDocument);assert.equal(harvest.keepFailure(failure(newDocument)),true);
  const beforeReload=request();context.emit('request',beforeReload);harvest.beforeReload();page.emit('framenavigated',frame);context.emit('requestfailed',beforeReload);assert.equal(harvest.keepFailure(failure(beforeReload)),false);
  const afterReload=request();context.emit('request',afterReload);context.emit('requestfailed',afterReload);assert.equal(harvest.keepFailure(failure(afterReload)),true);
- harvest.finish();tracker.dispose();assert.equal(page.listenerCount('framenavigated'),0);assert.equal(context.listenerCount('request'),0);
+ harvest.finish();tracker.dispose();assert.equal(page.listenerCount('framenavigated'),0);for(const event of ['request','requestfinished','requestfailed'])assert.equal(context.listenerCount(event),0);
 });

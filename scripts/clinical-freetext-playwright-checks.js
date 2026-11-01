@@ -455,6 +455,7 @@ async function runWorkflow(context, workflow, cancellation) {
       // unchanged, and the page re-opened, so the body the replays carry holds the ids of rows that exist and they UPDATE.
       const primed = await captureForm(page, workflow.formName);
       assert(primed && primed.length, `${workflow.name}: form ${workflow.formName} was not on the page, so it could not be primed`);
+      cancellation?.throwIfCancelled();
       const status = await replay(page, workflow, primed, null);
       assert(status === 200 || status === 'redirect',
         `${workflow.name}: the priming save of the unchanged form answered ${status}, so the replays would measure a broken save`);
@@ -581,7 +582,7 @@ async function runFreeTextChecks(cancellation) {
 
     const wafBlocked = badResponses.filter((entry) => entry.status === 403);
     assert(wafBlocked.length === 0,
-      `a request carrying clinical free text was rejected with HTTP 403: ${JSON.stringify(wafBlocked, null, 2)}`);
+      `a request carrying clinical free text was rejected with HTTP 403: ${h.withoutQueryStrings(JSON.stringify(wafBlocked, null, 2))}`);
 
     assert(badResponses.length === 0, `unexpected HTTP errors or dialogs: ${h.withoutQueryStrings(JSON.stringify(badResponses, null, 2))}`);
 
@@ -631,6 +632,6 @@ require('./lib/legacy-check').runLegacyCheck('clinical-freetext',async({cancella
   if (badResponses.length) {
     console.error(`HTTP errors: ${h.withoutQueryStrings(JSON.stringify(badResponses, null, 2))}`);
   }
-  throw error;
+  throw require('./lib/legacy-check').sanitizedError(error);
   }
 });

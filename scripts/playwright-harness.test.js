@@ -1518,3 +1518,11 @@ test('only Chromium built-in PDF renderer internal aborts are excluded',async()=
  for(const request of [failure('https://host/carlos/pdf'),failure(internal,'script'),failure(internal,'other','net::ERR_FAILED'),failure(internal.replace('mhjfbmdgcfjbbpaeojofohoefgiehjai','anotherextension'))])await page.emit('requestfailed',request);
  assert.equal(recorder.requestFailures.length,4);
 });
+
+test('diagnostic redaction handles quoted JSON URLs and embedded Playwright addresses',()=>{
+ const input=JSON.stringify({url:'https://host/carlos/route?demographic_no=123#private',nested:{message:'goto("/carlos/chart?demographic_no=456") failed'}},null,2);
+ const output=harness.withoutQueryStrings(input);
+ assert(!/123|456|demographic_no|private/.test(output));
+ const parsed=JSON.parse(output);assert.equal(parsed.url,'https://host/carlos/route');
+ assert.equal(parsed.nested.message,'goto("/carlos/chart") failed');
+});

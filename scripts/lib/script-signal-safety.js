@@ -15,7 +15,10 @@ function hasSignalEntryPoint(file,seen=new Set(),isRoot=true) {
     if(pattern.type==='Identifier'){scope.bindings.set(pattern.name,binding);return;}
     if(pattern.type==='RestElement'){bind(pattern.argument,scope,binding);return;}
     if(pattern.type==='AssignmentPattern'){bind(pattern.left,scope,binding);return;}
-    if(pattern.type==='ObjectPattern')for(const property of pattern.properties)bind(property.value||property.argument,scope,binding);
+    if(pattern.type==='ObjectPattern')for(const property of pattern.properties){
+      const importedName=property.key?.name??property.key?.value;
+      bind(property.value||property.argument,scope,binding.kind==='import'?{...binding,importedName}:binding);
+    }
     if(pattern.type==='ArrayPattern')for(const element of pattern.elements)bind(element,scope,binding);
   }
   function children(node,operation){for(const value of Object.values(node))if(Array.isArray(value))value.forEach(operation);else if(value&&typeof value==='object')operation(value);}
@@ -47,7 +50,8 @@ function hasSignalEntryPoint(file,seen=new Set(),isRoot=true) {
     if(node.type==='CallExpression') {
       const callee=node.callee,called=callee.type==='Identifier'?callee.name:callee.type==='MemberExpression'&&!callee.computed?callee.property.name:'';
       const binding=callee.type==='Identifier'?resolve(called,scopes.get(node)):null;
-      if(ENTRY_POINTS.has(called)&&(!binding||binding.kind==='import'))direct=true;
+      if((ENTRY_POINTS.has(called)&&(!binding||binding.kind==='import'))
+        ||(binding?.kind==='import'&&ENTRY_POINTS.has(binding.importedName)))direct=true;
       if(binding?.fn)invoke(binding.fn);
       if(isFunction(callee))invoke(callee);
       if(callee.type==='Identifier'&&callee.name==='require'&&node.arguments[0]?.type==='Literal'){

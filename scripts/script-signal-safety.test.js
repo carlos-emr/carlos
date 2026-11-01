@@ -44,3 +44,16 @@ test('nested bindings cannot replace a called function in its parent lexical sco
  ];
  for(const [index,[expected,source]] of cases.entries()){const file=path.join(root,index+'.js');fs.writeFileSync(file,source);assert.equal(hasSignalEntryPoint(file),expected,source);}
 });
+
+test('destructured entry point aliases retain their imported identity and lexical shadowing',t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-signal-alias-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ fs.writeFileSync(path.join(root,'harness.js'),'module.exports={runCheck(){},runLegacyCheck(){}};');
+ const cases=[
+  [true,"const {runCheck: execute}=require('./harness');execute({});"],
+  [true,"const {runLegacyCheck: execute}=require('./harness');function start(){execute({});}start();"],
+  [false,"const {runCheck: execute}=require('./harness');function start(execute){execute({});}start(()=>{});"],
+  [false,"const {runCheck: execute}=require('./harness');function unused(){execute({});}"],
+  [false,"const {unprotected: execute}=require('./harness');execute({});"]
+ ];
+ for(const [index,[expected,source]] of cases.entries()){const file=path.join(root,index+'.js');fs.writeFileSync(file,source);assert.equal(hasSignalEntryPoint(file),expected,source);}
+});

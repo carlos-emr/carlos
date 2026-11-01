@@ -859,11 +859,7 @@ function getLatestRequest(recorder, predicate) {
  */
 function withoutQueryStrings(text) {
   return String(text == null ? '' : text)
-    .split(/(\s+)/)
-    .map((token) => (/^https?:\/\//i.test(token) || token.startsWith('/')
-      ? token.split(/[?#]/)[0]
-      : token))
-    .join('');
+    .replace(/((?:https?:\/\/|\/)[^\s"'<>?#\\]+)[?#][^\s"'<>\\]*/gi, '$1');
 }
 
 function pathOnly(rawUrl) {

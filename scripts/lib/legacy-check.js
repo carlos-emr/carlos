@@ -31,4 +31,10 @@ function runLegacyCheck(name,operation,{cancellationGraceMs}={}) {
     if(process.exitCode)throw new Error('Legacy check reported a failure; see its diagnostics');
   }});
 }
-module.exports={runLegacyCheck,armInterruption,NO_PLAYWRIGHT_SIGNAL_HANDLING:h.NO_PLAYWRIGHT_SIGNAL_HANDLING};
+function sanitizedError(error) {
+  const safe=new Error(h.withoutQueryStrings(error?.message || 'Legacy check failed'));
+  if(error?.name==='SkipCheck')safe.name='SkipCheck';
+  if(typeof error?.failedStep==='string')safe.failedStep=h.withoutQueryStrings(error.failedStep);
+  return safe;
+}
+module.exports={runLegacyCheck,armInterruption,sanitizedError,NO_PLAYWRIGHT_SIGNAL_HANDLING:h.NO_PLAYWRIGHT_SIGNAL_HANDLING};
