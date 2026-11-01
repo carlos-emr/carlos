@@ -31,8 +31,9 @@ HTTP session proof passed against this package.
 Full Node regressions pass in GitHub Actions at `c8df481ee5e` (6,899 passes,
 zero failures/skips, one existing TODO); the final
 commit must independently pass every required check. Focused final review
-regressions pass 139/139, including quoted diagnostic redaction, lexical import
-aliases, read-tracker disposal and real child-process interruption. Registration
+regressions pass 224/224 in the review-fix batch identified below, including
+quoted diagnostic redaction, lexical import aliases, editor completion and real
+child-process interruption. Registration
 alone does not certify a live workflow.
 
 ## Runtime run identities
@@ -73,8 +74,11 @@ crawls, note-editor autosave, diagnosis/flowsheet, document metadata, role matri
 fracture Paste, minor interactions, schedule deletion, messenger administration,
 lab upload, APCache rendering, patient Add and clinical lab-requisition follow-up.
 Earlier failures caused by harness timing or ownership gaps remain separate attempts.
-The WAF corpus still has two unclassified failures (chart reload request aborts and
-an eForm control's chart XHR 500); the two-patient suite reaches a Vascular Tracker
+An earlier full WAF corpus run had two failures (chart reload request aborts and
+an eForm control's chart XHR 500). After awaiting native AJAX Save completion and
+removing the extra reload, the focused chart-note/eForm retake passes both rows
+with no residue and no browser diagnostics. That focused result does not by itself
+certify a new full 24-row run. The two-patient suite reaches a Vascular Tracker
 Save & Exit failure; role administration reaches a late iframe timeout. These are
 not blanket-pinned or counted as successful certification. All final retakes cited
 as clean independently pass the residue audit.
@@ -152,14 +156,23 @@ not presented as regressions in this release build.
 CodeRabbit completed its final requested review at `c8df481ee5e`. Its two inline
 findings and two outside-diff findings are addressed: clearer wording, preserved
 cancellation identity, TLS for shared credential configuration and health checks,
-and a request-identity-scoped exception for the native chart unload beacon.
-Focused review regressions pass 213/213, including real SIGINT/SIGTERM structured
-interruption, remote HTTP refusal before reading credentials, and strict negative
-controls for the beacon exception. This exception does not excuse the remaining
-chart XHR failures recorded above. Valid findings
-from CodeRabbit and Cubic are addressed with targeted regressions; each thread is
-resolved only after its disposition is recorded. The final PR status, rather than
-this document's starting commit, determines CI and unresolved-thread completion.
+and awaiting the native chart's AJAX editor replacement before the next save.
+The extra chart reload is removed; all request failures stay strict.
+
+The final focused batch passes 224/224. Its files are `legacy-check.test.js`,
+`playwright-harness.test.js`, `base-url-credentials.test.js`,
+`clinical-standalone-browser-diagnostics.test.js`,
+`waf-clinical-text-corpus.test.js`, `waf-chart-save.test.js` and
+`owned-chart-page-cleanup.test.js`. This batch tests the source in this revision;
+it supersedes the overlapping 139-test and 213-test batches from `76c31d21b32`
+and `26f6990de09`. Counts are not added together. It includes real SIGINT/SIGTERM
+structured interruption, remote HTTP refusal before reading credentials, and
+waiting for the full Save response and old/new editor transition. The focused
+installed-package chart/eForm retake separately verifies that transition live.
+
+Valid findings from CodeRabbit and Cubic are addressed with targeted regressions;
+each thread is resolved only after its disposition is recorded. The final PR
+status determines CI and unresolved-thread completion.
 
 Cleanup guards cover accepted-but-unconfirmed writes, asynchronous installer
 process groups, retries after SQL cleanup failure, preferences created on first provider use,

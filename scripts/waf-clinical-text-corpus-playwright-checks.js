@@ -54,30 +54,19 @@
  * tickler, and the rows each save writes (found by the patient and by an id watermark taken before the
  * corpus is sent). Cleanup deletes them by key and asserts they are gone. No clinic-wide state is changed.
  */
-// Only this reload's native pagehide lock-release beacon may be excused.
-async function reloadChartForCorpus(s,chart) {
-  const requests=new Set(),since=s.recorder.requestFailures.length;
-  let oldDocument=true;
-  const committed=frame=>{if(frame===chart.mainFrame())oldDocument=false;};
-  const observed=request=>{
-    try {
-      const url=new URL(request.url()),body=new URLSearchParams(request.postData()||'');
-      if(oldDocument&&request.frame().page()===chart&&request.resourceType()==='ping'
-        &&request.method()==='POST'&&url.origin===s.config.baseUrl.origin
-        &&url.pathname===new URL(h.appUrl(s.config.baseUrl,'/CaseManagementEntry')).pathname
-        &&['method','demographicNo','providerNo'].every(key=>body.getAll(key).length===1)
-        &&body.get('method')==='releaseNoteLock'&&body.get('demographicNo')===String(s.patient)
-        &&body.get('providerNo')===String(s.provider))requests.add(request);
-    } catch {} // A detached/foreign request never qualifies for the exception.
-  };
-  chart.on('framenavigated',committed);s.context.on('request',observed);
-  try {await chart.reload({waitUntil:'networkidle'});}
-  finally {
-    chart.off('framenavigated',committed);s.context.off('request',observed);
-    const failures=s.recorder.requestFailures.splice(since);
-    s.recorder.requestFailures.push(...failures.filter(entry=>!(entry.resourceType==='ping'
-      &&entry.errorText==='net::ERR_ABORTED'&&requests.has(entry.requestRef?.deref?.()))));
-  }
+// Native AJAX Save replaces the editor: wait for that exact DOM transition.
+async function awaitNativeChartSave(chart,operation) {
+  const previous=await chart.locator('#caseManagementEntryForm').elementHandle();
+  h.assert(previous,'The native chart editor is absent before Save');
+  try {
+    const captured=await operation();
+    h.assert(captured.response,'The native Save has no response');
+    h.assert(await captured.response.finished()===null,'The native Save response did not finish');
+    await chart.waitForFunction(element=>!element.isConnected,previous,{timeout:30000});
+    await chart.locator('#caseManagementEntryForm textarea[name="caseNote_note"]').first().waitFor({state:'visible',timeout:30000});
+    await chart.waitForLoadState('networkidle');
+    return captured;
+  } finally {await previous.dispose();}
 }
 
 const { randomUUID } = require('node:crypto');
@@ -1041,11 +1030,13 @@ function rows(s, ctx) {
       family,table:'casemgmt_note',idColumn:'note_id',scope:owned,inPlace:true,
       fields:[{name:'caseNote_note',column:'note'}],cleanup:()=>removeNotes(s),
     });
+    const control=row.control.bind(row);
+    row.control=async()=>awaitNativeChartSave(await s.chart(),control);
     row.send=async values=>{
-      // A saved note advances its immutable revision and lock; replaying the old
-      // control body would test a stale editor, rather than the WAF prose rule.
-      const chart=await s.chart();await reloadChartForCorpus(s,chart);
-      const captured=await family.perform('CORPUS',{text:values.caseNote_note});
+      // The control's native AJAX Save already rendered a fresh editor.
+      // Type the corpus there instead of replaying a stale body or reloading it.
+      const chart=await s.chart();
+      const captured=await awaitNativeChartSave(chart,()=>family.perform('CORPUS',{text:values.caseNote_note}));
       h.assert(captured.response,'The native corpus Save has no response');return captured.response;
     };
     return row;
@@ -1396,4 +1387,4 @@ async function preflight({ sql }) {
 }
 
 if (require.main === module) runWorkflow('waf-clinical-text-corpus', workflow, { openPatient: true, preflight });
-module.exports = { PREREQUISITES, workflow, rtlPlainText,finishRows,reloadChartForCorpus };
+module.exports = { PREREQUISITES, workflow, rtlPlainText,finishRows,awaitNativeChartSave };
