@@ -6,6 +6,8 @@ carlos-emr (2026.09.0~snapshot28) resolute; urgency=medium
     prevention configuration values.
   * Reconcile the Consent one-live-record schema, audited flag/history
     normalization, generated import rules and active-record lookups.
+  * Keep development and additive demo Consent inserts compatible with
+    the generated live-record key by naming their original columns.
   * Ship the pre-fix physical contracts for verified pre-copy recovery and
     require the fixed carlos-ctl package pair (issue #5503).
 

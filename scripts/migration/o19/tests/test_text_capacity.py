@@ -3,9 +3,12 @@
 
 import importlib.util
 import json
+import os
 from pathlib import Path
 import re
+import subprocess
 import unittest
+import uuid
 
 ROOT = Path(__file__).resolve().parents[4]
 spec = importlib.util.spec_from_file_location(
@@ -35,3 +38,29 @@ class TestOscarTextCapacity(unittest.TestCase):
                         size = int(re.search(r"\((\d+)\)", declaration).group(1))
                         expected = int(re.search(r"\((\d+)\)", case["new_type"]).group(1))
                         self.assertGreaterEqual(size, expected)
+
+
+@unittest.skipUnless(os.environ.get("CARLOS_TEST_O19_REFERENCE_DB")
+                     and os.environ.get("CARLOS_TEST_MARIADB_SOCKET"),
+                     "requires a disposable migrated MariaDB reference database")
+class TestConsentDemoSeed(unittest.TestCase):
+    def test_demo_insert_omits_generated_column_and_keeps_decisions(self):
+        reference = os.environ["CARLOS_TEST_O19_REFERENCE_DB"]
+        self.assertRegex(reference, r"^[A-Za-z0-9_]+$")
+        database = "o19_consent_demo_" + uuid.uuid4().hex
+        client = ["mariadb", "--no-defaults", "--user=root", "--batch", "--skip-column-names",
+                  "--socket=" + os.environ["CARLOS_TEST_MARIADB_SOCKET"]]
+        snapshot = (ROOT / ".devcontainer/db/scripts/development.sql").read_text()
+        insert = re.search(r"^INSERT INTO `Consent` .*;$", snapshot, re.M).group()
+
+        def execute(sql):
+            return subprocess.run(client, input=sql, text=True, capture_output=True,
+                                  check=True).stdout.strip()
+
+        execute("CREATE DATABASE `{0}`".format(database))
+        try:
+            execute("CREATE TABLE `{0}`.Consent LIKE `{1}`.Consent; USE `{0}`; ".format(database, reference) + insert)
+            self.assertEqual(execute("SELECT COUNT(*), SUM(deleted=0), SUM(live_demographic_no IS NOT NULL) "
+                                     "FROM `{0}`.Consent".format(database)), "3\t2\t2")
+        finally:
+            execute("DROP DATABASE `{0}`".format(database))
