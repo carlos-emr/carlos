@@ -71,6 +71,9 @@ public class StringUtils {
      * Returns true for Java null, text empty after {@link String#trim()}, or
      * trimmed {@code "null"} text in any case. Case conversion uses the default
      * locale. Unicode whitespace outside {@code trim()}'s range is retained.
+     *
+     * @param obj String to check; may be null
+     * @return boolean true for null, trimmed blanks or trimmed {@code "null"} text
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -136,6 +139,11 @@ public class StringUtils {
     /**
      * Splits using {@link StringTokenizer}: each delimiter character separates
      * tokens, and empty tokens are dropped (unlike {@link String#split(String)}).
+     *
+     * @param rawString String to tokenize; must not be null
+     * @param delimiter String containing delimiter characters; must not be null for non-empty input
+     * @return String[] of non-empty tokens in input order
+     * @throws NullPointerException if rawString is null, or delimiter is null for non-empty input
      */
     public static String[] splitToStringArray(String rawString, String delimiter) {
         StringTokenizer st = new StringTokenizer(rawString, delimiter);
@@ -193,6 +201,10 @@ public class StringUtils {
      * Matches a substring after uppercasing both inputs in the default locale.
      * Returns false for null inputs; Unicode expansions and locale-specific case
      * mappings intentionally differ from lang3's region-based matching.
+     *
+     * @param text String to search; may be null
+     * @param searchWord String substring to find; may be null
+     * @return boolean true if the uppercased text contains the uppercased search word
      */
     public static boolean containsIgnoreCase(String text, String searchWord) {
         if (text == null || searchWord == null) return false;
@@ -207,17 +219,30 @@ public class StringUtils {
      * Returns empty text for Java null, trimmed blanks and case-insensitive
      * {@code "null"} text; otherwise returns the original, untrimmed value.
      * This is not equivalent to lang3's {@code defaultString} or {@code isBlank}.
+     *
+     * @param maybeNullText String to scrub; may be null
+     * @return String containing the original value when filled, or empty text otherwise
      */
     static public String noNull(String maybeNullText) {
         return filled(maybeNullText) ? maybeNullText : "";
     }
 
-    /** Returns true for Java null, trimmed blanks or {@code "null"} text in any case. */
+    /**
+     * Returns true for Java null, trimmed blanks or {@code "null"} text in any case.
+     *
+     * @param s String to check; may be null
+     * @return boolean true when {@link #isNullOrEmpty(String)} considers the value empty
+     */
     static public boolean empty(String s) {
         return isNullOrEmpty(s);
     }
 
-    /** Returns false for Java null, trimmed blanks or {@code "null"} text in any case. */
+    /**
+     * Returns false for Java null, trimmed blanks or {@code "null"} text in any case.
+     *
+     * @param s String to check; may be null
+     * @return boolean true when the value is neither null, trimmed blank nor {@code "null"} text
+     */
     static public boolean filled(String s) {
         return !isNullOrEmpty(s);
     }
