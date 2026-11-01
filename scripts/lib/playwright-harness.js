@@ -1135,7 +1135,7 @@ function logoutOnClose(browser, config, { log = console, logout = logoutContext 
 async function launchBrowser(config, { logoutOnClose: logout = true } = {}) {
   // Deliberately not a top-level require: see the module header.
   const { chromium } = require('playwright');
-  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), headless: config.headless !== false });
+  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING, headless: config.headless !== false });
   recordBrowserVersion(browser);
   return logout && config.baseUrl ? logoutOnClose(browser, config) : browser;
 }

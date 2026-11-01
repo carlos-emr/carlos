@@ -1217,6 +1217,8 @@ test('shouldRecordBrowserVersion_whenLaunchBrowserStartedOne', async (t) => {
     processRef,
   });
   assert.equal(launched.length, 1, 'launchBrowser reached the (fake) playwright');
+  assert.equal(launched[0].handleSIGINT,false,'the cooperative entry point owns SIGINT');
+  assert.equal(launched[0].handleSIGTERM,false,'the cooperative entry point owns SIGTERM');
   assert.equal(result.browserVersion, 'chromium 154.0.8025.0');
   assert.equal(JSON.parse(fs.readFileSync(resultPath, 'utf8')).browserVersion, 'chromium 154.0.8025.0');
 });

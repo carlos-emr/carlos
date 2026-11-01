@@ -112,22 +112,24 @@ async function settledCount(sql, query, { min = 1, quietMs = 3000, timeoutMs = 2
  * passed through to the browser untouched. Returns an async disarm function.
  */
 async function armSlowServer(context, pattern, ms = 1800) {
+  const pending=new Set();
   const handler = async (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
-    try {
-      if (process.env.DS_DEBUG) console.log('    [slow] intercept', route.request().url());
-      const response = await route.fetch({ maxRedirects: 0 });
-      if (process.env.DS_DEBUG) console.log('    [slow] fetched', Date.now()%100000);
-      await sleep(ms);
-      if (process.env.DS_DEBUG) console.log('    [slow] fulfilling', Date.now()%100000);
-      await route.fulfill({ response });
-    } catch (error) {
-      // the browser abandoned this navigation: that is the second click winning
-      if (process.env.DS_DEBUG) console.log('    [slow] handler error', String(error.message).split('\n')[0]);
-    }
+    const operation=(async()=>{
+      let response;
+      try {
+        response=await route.fetch({maxRedirects:0});
+        await sleep(ms);await route.fulfill({response});
+      } catch(error) {
+        // The second navigation may abandon the first response; storage is
+        // judged independently by each caller's exact owned-row assertions.
+        if(process.env.DS_DEBUG)console.log('    [slow] handler error',String(error.message).split('\n')[0]);
+      } finally {if(response)await response.dispose();}
+    })();
+    pending.add(operation);try{await operation;}finally{pending.delete(operation);}
   };
-  await context.route(pattern, handler);
-  return async () => { await context.unroute(pattern, handler).catch(() => {}); };
+  await context.route(pattern,handler);
+  return async()=>{try{await context.unroute(pattern,handler);}finally{await Promise.all([...pending]);}};
 }
 
 /** Position in the recorder before a rapid activation (see forgiveAbortedSecondRequest). */
