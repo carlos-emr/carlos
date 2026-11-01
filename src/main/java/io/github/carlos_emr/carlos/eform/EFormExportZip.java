@@ -229,8 +229,12 @@ public class EFormExportZip {
     }
 
     private void inputToOutput(InputStream inputStream, OutputStream outputStream) throws IOException {
-        for (int c = inputStream.read(); c != -1; c = inputStream.read()) {
-            outputStream.write(c);
+        // Keep working memory fixed even for large ZIP entries. The caller owns
+        // both streams; in particular, do not close the shared ZipInputStream.
+        byte[] buffer = new byte[8192];
+        int length;
+        while ((length = inputStream.read(buffer)) != -1) {
+            outputStream.write(buffer, 0, length);
         }
     }
 
