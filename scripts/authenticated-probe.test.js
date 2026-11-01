@@ -90,7 +90,7 @@ test('replaces caller Cookie headers regardless of casing', async () => {
 
 test('explicit security-redirect preconditions accept only the exact local security route', async () => {
   const {session,calls}=fixture([cookie],302);
-  for(const location of ['/carlos/login','/login','https://other.invalid/carlos/securityError','/carlos/securityError/other']) {
+  for(const location of ['/carlos/login','/login','https://other.invalid/carlos/securityError','/carlos/securityError/other','https://other.invalid/carlos/noRights.html','/carlos/noRights.html/other']) {
     session.context.request.fetch=async()=>({status:()=>302,headers:()=>({location})});
     await assert.rejects(authenticatedProbe(session,'/carlos/admin',{allowSecurityErrorRedirect:true}),/redirected/);
   }
@@ -98,4 +98,11 @@ test('explicit security-redirect preconditions accept only the exact local secur
   assert.equal((await authenticatedProbe(session,'/carlos/admin',{allowSecurityErrorRedirect:true})).status(),302);
   assert.equal(calls.at(-1)[1].headers.Cookie,'JSESSIONID=synthetic');
   assert.equal(Object.hasOwn(calls.at(-1)[1],'allowSecurityErrorRedirect'),false);
+});
+
+test('explicit refusal redirect option accepts the exact application noRights route without following it',async()=>{
+  const {session,calls}=fixture();
+  session.context.request.fetch=async(url,options)=>{calls.push([url,options]);return {status:()=>302,headers:()=>({location:'/carlos/noRights.html'})};};
+  const response=await authenticatedProbe(session,'/carlos/billing',{allowSecurityErrorRedirect:true});
+  assert.equal(response.status(),302);assert.equal(calls[0][1].maxRedirects,0);
 });

@@ -47,13 +47,13 @@ async function authenticatedProbe(session, target, options = {}) {
   const status = response.status();
   if (status >= 300 && status < 400) {
     // A few least-privilege preconditions deliberately inspect the application's
-    // security-error redirect. Accept only that exact local route when requested;
+    // security-error redirects. Accept only the exact local routes when requested;
     // a login redirect must still fail even in those callers.
     const location = response.headers?.().location;
     if (allowSecurityErrorRedirect && location) {
       const destination = new URL(location, url);
       if (destination.origin === base.origin && !destination.username && !destination.password
-          && destination.pathname === base.pathname.replace(/\/$/, '') + '/securityError') return response;
+          && ['/securityError','/noRights.html'].some(path=>destination.pathname===base.pathname.replace(/\/$/,'')+path)) return response;
     }
     throw new Error(`Authenticated probe redirected for ${options.method || 'GET'} ${url.pathname} `
       + `(HTTP ${status}); session/refusal evidence is inconclusive`);
