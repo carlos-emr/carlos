@@ -32,10 +32,10 @@ function restartAndWait(env = process.env) {
   const base = new URL(env.BASE_URL || 'https://127.0.0.1/carlos');
   if (base.username || base.password || !['http:', 'https:'].includes(base.protocol)) throw new Error('Invalid profile readiness target');
   const url = `${base.origin}${base.pathname.replace(/\/$/, '')}/status`;
-  const curl = ['--fail', '--silent', '--show-error', '--retry', '30', '--retry-delay', '2', '--retry-connrefused', '--max-time', '5', url];
+  const curl = ['--fail', '--silent', '--show-error', '--retry', '60', '--retry-max-time', '300', '--retry-delay', '2', '--retry-connrefused', '--max-time', '5', url];
   if (base.protocol === 'https:' && ['127.0.0.1', 'localhost', '[::1]'].includes(base.hostname)
       && fs.existsSync('/etc/carlos-emr/tls/fullchain.pem')) curl.unshift('--cacert', '/etc/carlos-emr/tls/fullchain.pem');
-  execFileSync('curl', curl, {stdio: 'inherit', timeout: 180000, env});
+  execFileSync('curl', curl, {stdio: 'inherit', timeout: 330000, env});
 }
 async function withPropertyProfile(name, operation, {env = process.env, file = '/etc/carlos-emr/carlos.properties', restart = () => restartAndWait(env), readRestarts = () => execFileSync('systemctl', ['show', 'carlos-emr', '-p', 'NRestarts', '--value'], {encoding: 'utf8', timeout: 10000}).trim()} = {}) {
   const properties = propertiesFor(name, env);

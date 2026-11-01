@@ -19,7 +19,7 @@ async function workflow(s) {
     } finally {f.cleanupMysqlDefaults();}
   });
   const snapshot = id => s.sql.rows(`SELECT reasonCode,urgency,reason,notes FROM appointment WHERE appointment_no=${id}`);
-  const mc = id => s.sql.rows(`SELECT other_id FROM other_id WHERE table_id=${h.sqlString(id)} AND other_key='appt_mc_number' AND deleted=0`);
+  const mc = id => s.sql.rows(`SELECT CONCAT('V:',COALESCE(other_id,'<NULL>')) FROM other_id WHERE table_id=${h.sqlString(id)} AND other_key='appt_mc_number' AND deleted=0`);
   const firstMC = s.marker.slice(-12), secondMC = firstMC + 'B';
   let primary, control, controlState, reasonA, reasonB, emptyReason;
   await f.openDaySheet(s.schedule);
@@ -41,7 +41,7 @@ async function workflow(s) {
       await page.locator('#appt_mc_number').fill(firstMC);
     }});
     h.assert(snapshot(primary.id)[0][0] === reasonA.value && snapshot(primary.id)[0][1] === 'critical', 'Add dropped selected reason or urgency');
-    h.assert(JSON.stringify(mc(primary.id)) === JSON.stringify([[firstMC]]), 'MC number was not attached exactly once to the new appointment');
+    h.assert(JSON.stringify(mc(primary.id)) === JSON.stringify([['V:'+firstMC]]), 'MC number was not attached exactly once to the new appointment');
   });
   async function reopen() {return f.openEditPopup(s.context, s.schedule, primary.id);}
   async function save(page) {
@@ -77,7 +77,7 @@ async function workflow(s) {
     await page.locator('#reasonCode').selectOption(reasonB.value); await page.locator('#appt_mc_number').fill(secondMC); await save(page);
     const [row] = snapshot(primary.id);
     h.assert(row[0] === reasonB.value && row[1] !== 'critical', 'Edit dropped reason change or critical clearing');
-    h.assert(JSON.stringify(mc(primary.id)) === JSON.stringify([[secondMC]]), 'MC update created duplicate active extensions');
+    h.assert(JSON.stringify(mc(primary.id)) === JSON.stringify([['V:'+secondMC]]), 'MC update created duplicate active extensions');
     await shown(false);
   });
   await s.step('clear reason and MC number and reopen the intended empty representation', async () => {
@@ -87,7 +87,7 @@ async function workflow(s) {
     await page.locator('#reasonCode').selectOption(emptyReason.value); await page.locator('#appt_mc_number').fill(''); await save(page);
     // OtherIdManager preserves history by soft deleting old versions; clearing
     // an existing MC value leaves exactly one active empty extension.
-    h.assert(JSON.stringify(mc(primary.id)) === JSON.stringify([['']]), 'MC clear did not preserve its active empty representation');
+    h.assert(JSON.stringify(mc(primary.id)) === JSON.stringify([['V:']]), 'MC clear did not preserve its active empty representation');
     page = await reopen();
     h.assert(await page.locator('#reasonCode').inputValue() === emptyReason.value && await page.locator('#appt_mc_number').inputValue() === ''
       && !await page.locator('#urgency').isChecked(), 'Cleared options did not reopen'); await page.close();

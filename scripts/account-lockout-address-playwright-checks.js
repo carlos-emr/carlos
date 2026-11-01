@@ -51,7 +51,7 @@ async function workflow(s) {
     });
     await s.step('the native Unlock control releases only the owned address and the blocked account can sign in',async()=>{
       const frame=await unlockPage();await frame.locator('select[name="userName"]').selectOption('127.0.0.2');
-      await ui.clickAndAwaitReload(frame,frame.locator('input[name="submit"]'),{label:'Unlock owned address',timeout:20000});
+      await Promise.all([frame.waitForNavigation({waitUntil:'domcontentloaded',timeout:20000}),frame.locator('input[name="submit"]').click()]);
       h.assert((await frame.locator('.alert-success').innerText()).includes('Account unlocked: 127.0.0.2'),'Unlock did not confirm the owned address');
       h.assert(!(await keys(frame)).includes('127.0.0.2'),'Unlocked source remains tracked');tracked=false;
       h.assert(await attempt(0,s.config.testPassword)==='schedule','Address remains blocked after administrative unlock');
@@ -63,7 +63,7 @@ async function workflow(s) {
       const frame=await unlockPage();
       if((await keys(frame)).includes('127.0.0.2')) {
         await frame.locator('select[name="userName"]').selectOption('127.0.0.2');
-        await ui.clickAndAwaitReload(frame,frame.locator('input[name="submit"]'),{label:'Recover owned address lock',timeout:20000});
+        await Promise.all([frame.waitForNavigation({waitUntil:'domcontentloaded',timeout:20000}),frame.locator('input[name="submit"]').click()]);
       }
       h.assert(!(await keys(frame)).includes('127.0.0.2'),'Owned address lock remains after recovery');
     }
