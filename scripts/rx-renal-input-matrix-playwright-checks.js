@@ -10,23 +10,20 @@ async function workflow(s) {
   const name = process.env.RX_RENAL_CASE || 'male-valid';
   h.assert(Object.hasOwn(CASES,name),'Unknown RX_RENAL_CASE');
   const testCase = CASES[name], fixture = renalInputFixture(s);
-  // Demographic characteristics are fixture setup before the patient enters
-  // Hibernate's cache. Mid-workflow corrections change observations only.
-  fixture.apply({...testCase,weight:'80',cr:'100',lab:undefined});
+  // Independent initial rendering must not depend on a working Refresh link.
+  fixture.apply(testCase);
   const rx = await s.popup(s.master,masterRecordLink(s.master,'/rx/choosePatient').first(),'renal-matrix-rx');
-  const card = await stageFromSearch(rx,'CIPRO 500','CIPRO 500MG');
-  const panel = rx.locator(`#renalDosing_${card}`);
-  await panel.locator('table.equation').waitFor({state:'visible'});
-  await s.step(`${name}: render independent clinical inputs and exact inclusive recommendation boundaries`,async()=>{
-    fixture.apply(testCase);
-    const [response] = await Promise.all([
-      rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
-      panel.getByRole('link',{name:'Refresh',exact:true}).click(),
+  let card,panel,originalAtc;
+  await s.step(`${name}: renal inputs render through the native drug card without a server error`,async()=>{
+    const [response,staged]=await Promise.all([
+      rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')&&new URL(r.url()).searchParams.get('demographicNo')===s.patient),
+      stageFromSearch(rx,'CIPRO 500','CIPRO 500MG'),
     ]);
-    h.assert(response.status()===200,`Renal rendering returned HTTP ${response.status()}`);
-    h.assert(new URL(response.url()).searchParams.get('demographicNo')===s.patient,'Renal refresh changed its patient');
-    await rx.waitForFunction(({id, token}) => document.querySelector(id)?.textContent.includes(token),
-      {id: `#renalDosing_${card}`, token: testCase.clearance === undefined ? 'N/A' : `Clcr ${testCase.clearance} =`});
+    card=staged;panel=rx.locator(`#renalDosing_${card}`);originalAtc=new URL(response.url()).searchParams.get('atcCode');
+    h.assert(response.status()===200,`Renal rendering returned HTTP ${response.status()}`);await response.finished();
+    await panel.locator('table.equation').waitFor({state:'visible'});
+  });
+  await s.step(`${name}: render independent clinical inputs and exact inclusive recommendation boundaries`,async()=>{
     const text=(await panel.innerText()).replace(/\s+/g,' '), selected=panel.locator('table.sofT tr.selected');
     if(testCase.clearance===undefined) {
       h.assert(text.includes('N/A') && !/NaN|Infinity/.test(text),'Unusable renal input was displayed as a usable number');
@@ -41,8 +38,12 @@ async function workflow(s) {
   });
   await s.step('restoring valid observations refreshes the same panel without retaining stale input',async()=>{
     fixture.apply({...testCase,weight:'80',cr:'100',crDate:'2025-01-02',lab:undefined});
-    await Promise.all([rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
+    const [response]=await Promise.all([rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
       panel.getByRole('link',{name:'Refresh',exact:true}).click()]);
+    h.assert(response.status()===200,'Restoring renal observations returned a server error');await response.finished();
+    const parameters=new URL(response.url()).searchParams;
+    h.assert(parameters.get('demographicNo')===s.patient&&parameters.get('atcCode')===originalAtc&&parameters.get('divId')===`renalDosing_${card}`,
+      'Refresh lost the originating patient, controlled drug or panel identity');
     const age=testCase.age??60;
     const clearance=age>0?Math.round((140-age)*80/(100*0.8)*(testCase.sex==='F'?0.85:1)):undefined;
     await rx.waitForFunction(({id,token})=>document.querySelector(id)?.textContent.includes(token),

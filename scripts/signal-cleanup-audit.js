@@ -45,6 +45,10 @@ async function main({cancellation}) {
       const count=(source.match(/cancellation\?\.throwIfCancelled\(\)/g)||[]).length;
       h.assert(count>0,`${check.name} has no cooperative checkpoint to interrupt`);
       const checkpoint=Math.max(1,Math.floor(count/2)),directory=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-signal-audit-'));
+      // Diagnostic screenshots are outputs, not clinic or temporary fixture stores.
+      const artifactEnvironment={};
+      for(const match of source.matchAll(/process\.env\.([A-Z][A-Z0-9_]*_SCREENSHOT_DIR|SCREENSHOT_DIR)\b/g))artifactEnvironment[match[1]]=path.join(directory,'artifacts');
+      for(const target of new Set(Object.values(artifactEnvironment)))fs.mkdirSync(target,{recursive:true,mode:0o700});
       let navigation,record,residue,child;
       const before=captureBaseline({sql,mutates:check.mutates||[]});
       const roots=[process.env.BASE_DOCUMENT_DIR,process.env.DOCUMENT_DIR,process.env.RX_FAX_DOCUMENT_DIR,
@@ -55,7 +59,7 @@ async function main({cancellation}) {
       try {
         navigation=providerNavigationFixture(sql,config.testUser,check.name);
         child=spawnSync(process.execPath,[script],{encoding:'utf8',timeout:check.timeoutSec*1000,maxBuffer:16<<20,
-          env:{...process.env,...check.envSet,CARLOS_INTERRUPT_AFTER_CHECKPOINT:String(checkpoint),RESULT_JSON:path.join(directory,'result.json')}});
+          env:{...process.env,...check.envSet,...artifactEnvironment,CARLOS_INTERRUPT_AFTER_CHECKPOINT:String(checkpoint),RESULT_JSON:path.join(directory,'result.json')}});
         fs.writeFileSync(path.join(output,check.name+'.log'),(child.stdout||'')+(child.stderr||''),{mode:0o600});
         if(fs.existsSync(path.join(directory,'result.json')))record=JSON.parse(fs.readFileSync(path.join(directory,'result.json'),'utf8'));
       } finally {

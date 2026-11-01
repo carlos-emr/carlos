@@ -55,6 +55,7 @@
  */
 
 
+// EFORM_IMAGE_DIR identifies the disposable server's mounted eForm image store for owned asset verification/cleanup.
 const legacyHarness=require('./lib/legacy-check');
 const { validateBaseUrl } = require('./lib/playwright-harness');
 const fs = require('fs');
@@ -65,6 +66,7 @@ const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 const h = require('./lib/playwright-harness');
+const {ownedUploadedImage}=require('./lib/owned-uploaded-image');
 const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -74,7 +76,8 @@ const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
 const screenshotDir = process.env.EFORM_SCREENSHOT_DIR || '/tmp';
 
-const bgImageName = 'playwright_pdf_render_bg.png';
+const ownedMarker=newOwnedMarker();
+const bgImageName=ownedMarker+'-render-bg.png';
 const transparentPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5n2QAAAAASUVORK5CYII=';
 
 const badResponses = [];
@@ -368,7 +371,7 @@ legacyHarness.runLegacyCheck('eform-render',async context=>{
   await (async({cancellation})=>{
   const fixture = createFixtureFiles();
   const timestamp = Date.now();
-  const importedFormName = `Playwright Render Pipeline ${timestamp}`;
+  const importedFormName=ownedMarker+' Render Pipeline';
   const importedFormSubject = `Render pipeline ${timestamp}`;
   const artifactBaseName = `eform-render-pipeline-${timestamp}`;
   const renderedPdfPath = buildArtifactPath(screenshotDir, artifactBaseName, '.pdf');
@@ -377,7 +380,6 @@ legacyHarness.runLegacyCheck('eform-render',async context=>{
   let managerPage = null;
   // The owned patient the eForm is opened for (never a demo patient), created before anything else is written.
   const sql = h.createSqlRunner(h.readConfig().mysql);
-  const ownedMarker = newOwnedMarker();
   let patient = null;
 
   const launchOptions = {
@@ -389,7 +391,10 @@ legacyHarness.runLegacyCheck('eform-render',async context=>{
   }
 
   let browser = null;
+  let uploadedImage;
   try {
+    if(!process.env.EFORM_IMAGE_DIR)throw new h.SkipCheck('EFORM_IMAGE_DIR is required to remove the owned uploaded background');
+    uploadedImage=ownedUploadedImage(process.env.EFORM_IMAGE_DIR,bgImageName,Buffer.from(transparentPngBase64,'base64'));
     const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
     assert(provider, 'The configured test login has no provider');
     patient = createOwnedPatient(sql, { marker: ownedMarker, provider });
@@ -404,6 +409,7 @@ legacyHarness.runLegacyCheck('eform-render',async context=>{
     cancellation?.throwIfCancelled();
 
     await ensureImageUploaded(context, fixture.imagePath, bgImageName);
+    uploadedImage.verify();
     cancellation?.throwIfCancelled();
     const uploadResult = await uploadEform(context, importedFormName, importedFormSubject, fixture.htmlPath);
     cancellation?.throwIfCancelled();
@@ -519,11 +525,16 @@ legacyHarness.runLegacyCheck('eform-render',async context=>{
       await managerPage.close().catch(() => {});
     }
     fs.rmSync(fixture.tempDir, { recursive: true, force: true });
-    if (browser) await browser.close();
+    let browserClosed=!browser;
+    try {if(browser)await browser.close();browserClosed=true;}
+    finally {
     try {
+      assert(browserClosed,'Browser shutdown is unconfirmed; retain render fixtures');
+      if(uploadedImage)uploadedImage.cleanup({browserClosed});
       removeFixtureRows();
     } finally {
       sql.dispose();
+    }
     }
   }
 

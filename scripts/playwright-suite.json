@@ -1318,9 +1318,10 @@
       "timeoutSec": 300,
       "env": [
         "EFORM_CONSULT_SCREENSHOT_DIR",
-        "LIBRARY_EFORM_NAME"
+        "LIBRARY_EFORM_NAME",
+        "EFORM_IMAGE_DIR"
       ],
-      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client) that the eForm is saved for, and an imported template with a unique name: the instance and its values are deleted by the patient's key, the template by name, then the patient, and each is asserted gone. It no longer saves for demo patient 1 or leaves its template active. No clinic-wide state is changed."
+      "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client) that the eForm is saved for, and an imported template with a unique name: the instance and its values are deleted by the patient's key, the template by name, then the patient, and each is asserted gone. It no longer saves for demo patient 1 or leaves its template active. No clinic-wide state is changed. Uses a unique owned background image; requires EFORM_IMAGE_DIR and verifies its original bytes before removing the uploaded file."
     },
     {
       "name": "eform-corpus-soak",
@@ -1381,7 +1382,8 @@
       ],
       "timeoutSec": 300,
       "env": [
-        "EFORM_SCREENSHOT_DIR"
+        "EFORM_SCREENSHOT_DIR",
+        "EFORM_IMAGE_DIR"
       ],
       "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client) for the eForm to be opened and downloaded for, and a patient-independent template with a timestamped form name. The instance the download stores (eform_data, eform_values), the soft-deleted template row and the patient are removed by key and asserted gone. It no longer runs on demo patient 1. The uploaded background image stays in the eForm image store (the check reuses it)."
     },
@@ -1586,7 +1588,8 @@
       "timeoutSec": 300,
       "env": [
         "EFORM_FAX_PREVIEW_CHECK",
-        "SAVED_RENDER_SCREENSHOT_DIR"
+        "SAVED_RENDER_SCREENSHOT_DIR",
+        "EFORM_IMAGE_DIR"
       ],
       "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client) that the eForm is saved for, and an imported template with a unique name: the instance and its values are deleted by the patient's key, the template by name, then the patient, and each is asserted gone. It no longer saves for demo patient 1 or leaves its template active. No clinic-wide state is changed."
     },
@@ -12725,11 +12728,7 @@
         "UserProperty:mcedt_account_password",
         "file:mcedt-outbox"
       ],
-      "notes": "The LOCAL half of the Ontario MCEDT mailbox (Administration > Billing > MCEDT Mailbox, /mcedt/kaimcedt; mcedt.mailbox.enabled=true, the packaged default) with no transport to the Ministry: Upload & Submit, Upload new files, Download new files, the Sent and Download tabs, Re-Submit, Check Connection and the older MCEDT Interface page (/mcedt/mcedt, which lists the Ministry's mailbox on load) are never reached, and a step asserts the browser's own traffic touched no service route and never left the application's origin. Steps: the Ontario install, the paths (ONEDT_OUTBOX and the billing region from the environment or CARLOS_PROPERTIES_FILE; any other billregion SKIPs with the reason); the mailbox opens through the Administration shell with its four tabs and the Upload tab's Add, Delete Selected and Submit (Submit is inspected, never clicked); an OHIP diskette is generated for an owned provider the way billing-on-group-disk-zero-total does; Add writes the fixture claim file to the outbox byte for byte (bytes that are not UTF-8) and lists it once; Add refuses a non-claim name, a month letter beyond L, ../, a leading /, a sub-directory and a hidden name with the application's message and writes nothing (..\\ and C: are blocked by the front door and counted as application not reached); Delete Selected removes only the ticked file (an OBEC-shaped bystander and a file beside the outbox survive) and refuses a list with a path in it; Change Password creates the property and the second change replaces it in the same row, and neither the page nor any response echoes the typed text (the stored value is not judged here: finding 189 pins it); controls with a valid token for Delete, Add and Change Password, then GET and a tokenless POST of each pass h.assertRefused (the application's own 403/405, never the front door's page) and change neither the outbox, the directory beside it nor the property; a doctor (holds _billing, not _admin.billing) is refused on all four routes and all three mutators, and a login holding _admin.billing r only is served the pages and refused all three mutators with a valid token. LAST and pinned to finding 216: the generated claim file is copied into ONEDT_OUTBOX byte for byte, listed once, and reopening does not duplicate it. ActionUtils reads <outbox>/.timestamp and writes <parent>/outbox.timestamp, so the copy window is empty and the file is never staged; every open logs an ERROR with a NullPointerException (ActionUtils.java:374). It is the last step because a script stops at its first failing step. Expected: every step above passes and this one fails. Two more findings have their own entries running the same script (MCEDT_PIN, envSet), so no pin hides another: mcedt-mailbox-outbox-short-name (217) and mcedt-mailbox-outbox-plaintext (189). An exported MCEDT_PIN redirects the default entry. Not covered: the Ministry transport itself (Upload & Submit, Download, Sent, Re-Submit), which is never driven.",
-      "expectedFailure": {
-        "finding": 216,
-        "step": "the generated OHIP claim file is copied to ONEDT_OUTBOX byte for byte and listed once, and reopening does not duplicate it"
-      },
+      "notes": "The LOCAL half of the Ontario MCEDT mailbox (Administration > Billing > MCEDT Mailbox, /mcedt/kaimcedt; mcedt.mailbox.enabled=true, the packaged default) with no transport to the Ministry: Upload & Submit, Upload new files, Download new files, the Sent and Download tabs, Re-Submit, Check Connection and the older MCEDT Interface page (/mcedt/mcedt, which lists the Ministry's mailbox on load) are never reached, and a step asserts the browser's own traffic touched no service route and never left the application's origin. Steps: the Ontario install, the paths (ONEDT_OUTBOX and the billing region from the environment or CARLOS_PROPERTIES_FILE; any other billregion SKIPs with the reason); the mailbox opens through the Administration shell with its four tabs and the Upload tab's Add, Delete Selected and Submit (Submit is inspected, never clicked); an OHIP diskette is generated for an owned provider the way billing-on-group-disk-zero-total does; Add writes the fixture claim file to the outbox byte for byte (bytes that are not UTF-8) and lists it once; Add refuses a non-claim name, a month letter beyond L, ../, a leading /, a sub-directory and a hidden name with the application's message and writes nothing (..\\ and C: are blocked by the front door and counted as application not reached); Delete Selected removes only the ticked file (an OBEC-shaped bystander and a file beside the outbox survive) and refuses a list with a path in it; Change Password creates the property and the second change replaces it in the same row, and neither the page nor any response echoes the typed text (the stored value is not judged here: finding 189 pins it); controls with a valid token for Delete, Add and Change Password, then GET and a tokenless POST of each pass h.assertRefused (the application's own 403/405, never the front door's page) and change neither the outbox, the directory beside it nor the property; a doctor (holds _billing, not _admin.billing) is refused on all four routes and all three mutators, and a login holding _admin.billing r only is served the pages and refused all three mutators with a valid token. The final step verifies the generated claim file is copied byte for byte, listed once, and not duplicated on reopening. Finding 216 is verified fixed on the tests-only release package (2026-11-01): the complete local workflow passed with exact outbox/timestamp restoration and no SQL residue. Two more findings have their own entries running the same script (MCEDT_PIN, envSet), so no pin hides another: mcedt-mailbox-outbox-short-name (217) and mcedt-mailbox-outbox-plaintext (189). An exported MCEDT_PIN redirects the default entry. Not covered: the Ministry transport itself (Upload & Submit, Download, Sent, Re-Submit), which is never driven.",
       "fixtures": "Clinic-wide state, restored however the run ends (failure, timeout, Ctrl-C): (1) the MCEDT account password, the property row mcedt_account_password. It is never read or printed: the clinic's own rows are PARKED (renamed to mcedt_account_password.parked-<run marker>) before anything, the run's Change Password creates and replaces its own FAKE-valued row, and cleanup deletes that row and renames the parked ones back, then proves the rows are as found by a SHA-256 digest computed inside MariaDB; a run killed without cleanup leaves the credential under the parked name (the next run refuses to start and prints the UPDATE that puts it back). (2) the EDT outbox (ONEDT_OUTBOX): its listing (name, size, SHA-256 of every entry, hidden ones too) and its two timestamp files (<outbox>/.timestamp and <parent>/outbox.timestamp, which the Upload tab creates on every open, finding 216) are snapshotted and cleanup removes only the files the run caused (while they still hold the bytes it knows) and fails unless the directory is exactly as found. Owned rows and files: the billing-on-group-disk-zero-total fixture (three providers with a unique billing group, two claims, one disk, its claim file on the OHIP_DISK_DIR disk), two throwaway logins (doctor and a custom role holding _admin.billing r only) removed before the last step, an OBEC-shaped marker file in the outbox, a marker file beside it, and the files Add writes (all FAKE-PW<hex> or marker-shaped names). The application's own lock inode OHIP_DISK_DIR/.carlos-ohip-disk.lock appears on the first diskette generation and is left, as billing-on-group-disk-zero-total leaves it. It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
@@ -17871,7 +17870,12 @@
         "CONSENT_PROGRAM_ID"
       ],
       "profile": "private-consent",
-      "fixtures": "An unused CONSENT_PROGRAM_ID is reserved for a marker-owned program, one throwaway doctor with exactly that default program and membership, and an owned patient. Cancelling changes nothing; confirming persists once and removes the banner. Cleanup removes the program, defaults, memberships, account and chart support rows."
+      "fixtures": "An unused CONSENT_PROGRAM_ID is reserved for a marker-owned program, one throwaway doctor with exactly that default program and membership, and an owned patient. Cancelling changes nothing; confirming persists once and removes the banner. Cleanup removes the program, defaults, memberships, account and chart support rows.",
+      "expectedFailure": {
+        "finding": 332,
+        "step": "cancelled informed-consent confirmation leaves the banner and stored consent unchanged"
+      },
+      "notes": "Task 46: owned program/clinician, Cancel/OK, exact patient extension and reopened state. Finding 332: current release reads the static checked attribute, so the native click never opens its confirmation; later confirmed-save assertions remain behind that failure."
     },
     {
       "name": "document-clinical-followup",
@@ -18138,7 +18142,11 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Eleven marker-owned Annual forms on the owned patient; chart heading, first ten, Next, Previous and patient context. Every form is removed by key."
+      "fixtures": "Eleven marker-owned Annual forms on the owned patient; chart heading, first ten, Next, Previous and patient context. Every form is removed by key.",
+      "expectedFailure": {
+        "finding": 335,
+        "step": "Forms heading paginates ten records, Next changes the rows and Previous restores them"
+      }
     },
     {
       "script": "scripts/note-browser-documents-playwright-checks.js",
@@ -18159,7 +18167,11 @@
       "envSet": {
         "DIALOG_CONFIRMATION_TARGET": "document"
       },
-      "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently."
+      "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently.",
+      "expectedFailure": {
+        "finding": 336,
+        "step": "dismissing document Delete confirms once and leaves both document rows unchanged"
+      }
     },
     {
       "script": "scripts/tickler-demo-main-status-playwright-checks.js",
@@ -18180,7 +18192,11 @@
       "envSet": {
         "DIALOG_CONFIRMATION_TARGET": "tickler"
       },
-      "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently."
+      "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently.",
+      "expectedFailure": {
+        "finding": 337,
+        "step": "dismissing task Delete confirms once and preserves every task and status history"
+      }
     },
     {
       "name": "rx-save-failure-retry-only-new",
@@ -18199,7 +18215,11 @@
       "envSet": {
         "RX_SAVE_FAILURE_MODE": "only-new"
       },
-      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive.",
+      "expectedFailure": {
+        "finding": 333,
+        "step": "a real second medication INSERT fails and the complete clinical batch rolls back with its draft retained"
+      }
     },
     {
       "name": "rx-save-failure-retry-print-new",
@@ -18218,7 +18238,11 @@
       "envSet": {
         "RX_SAVE_FAILURE_MODE": "print-new"
       },
-      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive.",
+      "expectedFailure": {
+        "finding": 333,
+        "step": "a real second medication INSERT fails and the complete clinical batch rolls back with its draft retained"
+      }
     },
     {
       "name": "rx-save-failure-retry-only-mixed",
@@ -18237,7 +18261,11 @@
       "envSet": {
         "RX_SAVE_FAILURE_MODE": "only-mixed"
       },
-      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive.",
+      "expectedFailure": {
+        "finding": 333,
+        "step": "a real second medication INSERT fails and the complete clinical batch rolls back with its draft retained"
+      }
     },
     {
       "name": "rx-save-failure-retry-print-mixed",
@@ -18256,7 +18284,11 @@
       "envSet": {
         "RX_SAVE_FAILURE_MODE": "print-mixed"
       },
-      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive.",
+      "expectedFailure": {
+        "finding": 333,
+        "step": "a real second medication INSERT fails and the complete clinical batch rolls back with its draft retained"
+      }
     },
     {
       "name": "rx-save-failure-retry-only-lost",
@@ -18275,7 +18307,11 @@
       "envSet": {
         "RX_SAVE_FAILURE_MODE": "only-lost"
       },
-      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive.",
+      "expectedFailure": {
+        "finding": 334,
+        "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved"
+      }
     },
     {
       "name": "rx-save-failure-retry-print-lost",
@@ -18294,7 +18330,11 @@
       "envSet": {
         "RX_SAVE_FAILURE_MODE": "print-lost"
       },
-      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive.",
+      "expectedFailure": {
+        "finding": 334,
+        "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved"
+      }
     }
   ]
 }

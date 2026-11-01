@@ -50,6 +50,7 @@
  */
 
 
+// EFORM_IMAGE_DIR identifies the disposable server's mounted eForm image store for owned asset verification/cleanup.
 const legacyHarness=require('./lib/legacy-check');
 const { authenticatedProbe } = require('./lib/authenticated-probe');
 const { validateBaseUrl } = require('./lib/playwright-harness');
@@ -61,6 +62,7 @@ const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 const h = require('./lib/playwright-harness');
 const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
+const {ownedUploadedImage}=require('./lib/owned-uploaded-image');
 const { checkPreviewCapacity } = require('./eform-preview-capacity-playwright');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -72,7 +74,8 @@ const testPin = process.env.TEST_PIN || '2026';
 let demographicNo = null;
 const screenshotDir = process.env.SAVED_RENDER_SCREENSHOT_DIR || '/tmp';
 
-const bgImageName = 'playwright_saved_render_bg.png';
+const ownedMarker = newOwnedMarker();
+const bgImageName = ownedMarker+'-saved-render-bg.png';
 const transparentPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5n2QAAAAASUVORK5CYII=';
 
 const badResponses = [];
@@ -506,13 +509,13 @@ legacyHarness.runLegacyCheck('eform-saved-render',async context=>{
   await (async({cancellation})=>{
   const fixture = createFixtureFiles();
   const timestamp = Date.now();
-  const formName = `Playwright Saved Render ${timestamp}`;
+  const formName = `${ownedMarker} Saved Render ${timestamp}`;
   const formSubject = `Saved Render ${timestamp}`;
   const savedValue = `Playwright Saved ${timestamp}`;
   let importedFid = null;
   let managerPage = null;
   const sql = h.createSqlRunner(h.readConfig().mysql);
-  const ownedMarker = newOwnedMarker();
+  let uploadedImage=null;
   // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
   const ownedRows = eformRows(sql);
 
@@ -526,6 +529,8 @@ legacyHarness.runLegacyCheck('eform-saved-render',async context=>{
 
   let browser = null;
   try {
+    h.assert(process.env.EFORM_IMAGE_DIR&&path.isAbsolute(process.env.EFORM_IMAGE_DIR),'EFORM_IMAGE_DIR must identify the disposable image store');
+    uploadedImage=ownedUploadedImage(process.env.EFORM_IMAGE_DIR,bgImageName,fs.readFileSync(fixture.imagePath));
     const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
     assert(provider, 'The configured test login has no provider');
     demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
@@ -539,6 +544,7 @@ legacyHarness.runLegacyCheck('eform-saved-render',async context=>{
     cancellation?.throwIfCancelled();
 
     await ensureImageUploaded(context, fixture.imagePath, bgImageName);
+    uploadedImage.verify();
     cancellation?.throwIfCancelled();
     const uploadResult = await uploadEform(context, formName, formSubject, fixture.htmlPath);
     cancellation?.throwIfCancelled();
@@ -598,13 +604,15 @@ legacyHarness.runLegacyCheck('eform-saved-render',async context=>{
     }
     // Every step runs whatever the one before it did, and a failure is reported, not thrown: a throw out of this
     // `finally` would replace the failure of the check itself.
-    const cleanupErrors = [];
+    const cleanupErrors = [];let browserClosed=!browser;
     try {
-      if (browser) await browser.close();
+      if (browser) await browser.close();browserClosed=true;
     } catch (error) {
       cleanupErrors.push(error);
     }
     try {
+      assert(browserClosed,'Browser shutdown is unconfirmed; retain saved-render fixtures');
+      if(uploadedImage)uploadedImage.cleanup({browserClosed});
       // The imported template by its unique name, then the instance, its values and the patient by the patient's key.
       try {
         sql.execute(`DELETE FROM eform WHERE form_name=${h.sqlString(formName)}`);
@@ -620,6 +628,7 @@ legacyHarness.runLegacyCheck('eform-saved-render',async context=>{
         cleanupErrors.push(error);
       }
     } finally {
+      fs.rmSync(fixture.tempDir,{recursive:true,force:true});
       sql.dispose();
     }
     if (cleanupErrors.length) {

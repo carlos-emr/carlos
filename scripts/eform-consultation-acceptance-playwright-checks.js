@@ -58,6 +58,7 @@
  */
 
 
+// EFORM_IMAGE_DIR identifies the disposable server's mounted eForm image store for owned asset verification/cleanup.
 const legacyHarness=require('./lib/legacy-check');
 const { validateBaseUrl } = require('./lib/playwright-harness');
 const fs = require('fs');
@@ -67,6 +68,7 @@ const { chromium, request } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 const h = require('./lib/playwright-harness');
+const {ownedUploadedImage}=require('./lib/owned-uploaded-image');
 const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
 const { storedBackgroundSnapshot, expectedBackgrounds, imageIdentity, assertLibraryBackgrounds } = require('./eform-library-background-probe');
 const { installOfflineCcBadge } = require('./lib/eform-offline-cc-badge');
@@ -84,7 +86,8 @@ const wafAuditLog = process.env.EFORM_WAF_AUDIT_LOG;
 const wafErrorLog = process.env.EFORM_WAF_ERROR_LOG;
 assert(Boolean(wafAuditLog) === Boolean(wafErrorLog), 'Set both explicit EFORM_WAF_AUDIT_LOG and EFORM_WAF_ERROR_LOG for the installed-release negative check');
 
-const bgImageName = 'playwright_consult_acceptance_bg.png';
+const ownedMarker=newOwnedMarker();
+const bgImageName=ownedMarker+'-consult-bg.png';
 const transparentPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5n2QAAAAASUVORK5CYII=';
 // The image-layer template probe targets a form that ships in no repo fixture
 // or seed - it exists only in richer dev libraries. LIBRARY_EFORM_NAME selects
@@ -652,7 +655,7 @@ legacyHarness.runLegacyCheck('eform-consultation-acceptance',async context=>{
   await (async({cancellation})=>{
   const fixture = createFixtureFiles();
   const timestamp = Date.now();
-  const formName = `Playwright Consultation Acceptance ${timestamp}`;
+  const formName = ownedMarker+' Consultation Acceptance';
   const formSubject = `Consult Acceptance ${timestamp}`;
   const expectedState = {
     textValue: `Playwright text ${timestamp}`,
@@ -668,8 +671,8 @@ legacyHarness.runLegacyCheck('eform-consultation-acceptance',async context=>{
   let libraryRuntimeProbe = null;
   let browser = null;
   let offlineBadge = null;
+  let uploadedImage;
   const sql = h.createSqlRunner(h.readConfig().mysql);
-  const ownedMarker = newOwnedMarker();
   const medicalHistory = `${ownedMarker} synthetic medical history & follow-up\nSecond synthetic history line` + ' literal ${medicalHistory}';
   // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
   const ownedRows = eformRows(sql);
@@ -687,6 +690,8 @@ legacyHarness.runLegacyCheck('eform-consultation-acceptance',async context=>{
   }
 
   try {
+    if(!process.env.EFORM_IMAGE_DIR)throw new h.SkipCheck('EFORM_IMAGE_DIR is required to remove the owned uploaded background');
+    uploadedImage=ownedUploadedImage(process.env.EFORM_IMAGE_DIR,bgImageName,Buffer.from(transparentPngBase64,'base64'));
     const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
     assert(provider, 'The configured test login has no provider');
     demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
@@ -722,6 +727,7 @@ legacyHarness.runLegacyCheck('eform-consultation-acceptance',async context=>{
     }
 
     await ensureImageUploaded(context, fixture.imagePath, bgImageName);
+    uploadedImage.verify();
     cancellation?.throwIfCancelled();
     const uploadResult = await uploadEform(context, formName, formSubject, fixture.htmlPath);
     cancellation?.throwIfCancelled();
@@ -826,17 +832,20 @@ legacyHarness.runLegacyCheck('eform-consultation-acceptance',async context=>{
     // Every step runs whatever the one before it did, and a failure is reported, not thrown: a throw out of this
     // `finally` would replace the failure of the check itself.
     const cleanupErrors = [];
+    let browserClosed=!browser;
     try {
       if (browser) {
-        await browser.close();
+        await browser.close();browserClosed=true;
       }
     } catch (error) {
       cleanupErrors.push(error);
     }
+    try {if(uploadedImage)uploadedImage.cleanup({browserClosed});}catch(error){cleanupErrors.push(error);}
     cleanupFixtureFiles(fixture);
     try {
       // The imported template by its unique name, then the instance, its values and the patient by the patient's key.
       try {
+        assert(browserClosed,'Browser shutdown is unconfirmed; retaining the owned template');
         sql.execute(`DELETE FROM eform WHERE form_name=${h.sqlString(formName)}`);
         if (sql.value(`SELECT COUNT(*) FROM eform WHERE form_name=${h.sqlString(formName)}`) !== '0') {
           throw new Error('The imported eForm template was not removed');
@@ -845,6 +854,7 @@ legacyHarness.runLegacyCheck('eform-consultation-acceptance',async context=>{
         cleanupErrors.push(error);
       }
       try {
+        assert(browserClosed,'Browser shutdown is unconfirmed; retaining the owned patient');
         if (demographicNo !== null) removeOwnedPatient(sql, demographicNo, ownedMarker, ownedRows);
       } catch (error) {
         cleanupErrors.push(error);

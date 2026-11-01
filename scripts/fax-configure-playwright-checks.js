@@ -287,7 +287,7 @@ async function main({cancellation}={}) {
       faxGuard.release();
       throw error;
     }
-    faxGuard.armSignals();
+    // The shared entry point owns signals; restore after the accepted request settles.
   }
 
   let browser = null;
