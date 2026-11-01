@@ -23,6 +23,7 @@
  
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
+ * Modifications by CARLOS Contributors, 2026.
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
@@ -54,6 +55,7 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
+import io.github.carlos_emr.carlos.utility.ImportZipInputStream;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -61,6 +63,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class EFormExportZip {
     private static final Logger _log = MiscUtils.getLogger();
+
+    // HTML/properties are subsequently held in memory; see importForm's resource contract.
+    private static final long MAX_IMPORT_ENTRY_BYTES = 16L << 20;
+    private static final long MAX_IMPORT_TOTAL_BYTES = 64L << 20;
+    private static final int MAX_IMPORT_ENTRIES = 1024;
 
     /**
      * Converts an eForm display title to one safe generated filename component.
@@ -229,11 +236,24 @@ public class EFormExportZip {
     }
 
     private void inputToOutput(InputStream inputStream, OutputStream outputStream) throws IOException {
-        for (int c = inputStream.read(); c != -1; c = inputStream.read()) {
-            outputStream.write(c);
-        }
+        inputStream.transferTo(outputStream);
     }
 
+    /**
+     * Imports an eForm archive after fully staging and validating its expansion.
+     * Limits are 16 MiB per entry, 64 MiB expanded overall and 1024 entries, including
+     * directories and skipped archiver metadata. These fixed budgets accommodate multi-form
+     * packages and image assets while bounding the HTML/properties subsequently held in memory.
+     * Counters use actual decompressed bytes, including when ZIP sizes are absent or false.
+     * A limit failure closes the input and removes this import's private staging directory
+     * before any form registration or public asset publication occurs. Split larger packages
+     * into separate imports; an individual oversized form or image must first be reduced.
+     *
+     * @param importInputStream compressed archive input, closed by this method
+     * @return warnings for skipped forms or existing images
+     * @throws IOException if extraction fails or a resource limit is exceeded
+     * @throws Exception if validation or form registration fails
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     // FindSecBugs CRLF_INJECTION_LOGS: the logged zip entry name is already passed through LogSafe.sanitize(...), so CR/LF are neutralized.
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "CRLF_INJECTION_LOGS"}, justification = "IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. CRLF_INJECTION_LOGS: logged zip entry name is already wrapped in LogSafe.sanitize(...).")
@@ -258,7 +278,8 @@ public class EFormExportZip {
         // extracted temp files and the open ZipInputStream).
         try {
             //first runthrough, get the properties files, construct eforms, cache files
-            try (ZipInputStream zis = new ZipInputStream(importInputStream)) {
+            try (ZipInputStream zis = new ImportZipInputStream(importInputStream,
+                    MAX_IMPORT_ENTRY_BYTES, MAX_IMPORT_TOTAL_BYTES, MAX_IMPORT_ENTRIES)) {
                 ZipEntry ze = null;
                 while ((ze = zis.getNextEntry()) != null) {
                     // The path is validated BEFORE anything is skipped: an absolute or traversal name
