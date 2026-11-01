@@ -50,7 +50,6 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
-import org.apache.cxf.common.util.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -253,7 +252,7 @@ public class BillingONCHeader1 extends AbstractModel<Integer> implements Seriali
     }
 
     public Date getAdmissionDate() throws ParseException {
-        if (StringUtils.isEmpty(this.admissionDate)) return null;
+        if (this.admissionDate == null || this.admissionDate.trim().isEmpty()) return null;
         return (new SimpleDateFormat("yyyy-MM-dd")).parse(this.admissionDate);
     }
 
