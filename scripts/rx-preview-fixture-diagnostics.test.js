@@ -42,6 +42,17 @@ test('leading-zero patient fixtures reach audit snapshot with their canonical id
   const snapshot = require('./lib/demo-timestamp-restore').snapshot({rows: () => []}, context.selectedPatient);
   assert.equal(snapshot.patient, '1');
 });
+for (const value of ['0', '0000', '-1', 'abc', '1e2', '2147483648', '9'.repeat(100)]) {
+  test(`invalid patient fixture is rejected before any database or browser use: ${value}`, () => {
+    assert.throws(() => vm.runInNewContext(fixtureConfig,
+      {process: {env: {PRESCRIPTION_DEMOGRAPHIC_NO: value}}, assert}), /positive 32-bit patient identifier/);
+  });
+}
+test('the highest supported patient identifier remains valid after canonicalization', () => {
+  const context = {process: {env: {PRESCRIPTION_DEMOGRAPHIC_NO: '0002147483647'}}, assert};
+  vm.runInNewContext(fixtureConfig + '\nthis.selectedPatient = demographicNo;', context);
+  assert.equal(context.selectedPatient, '2147483647');
+});
 
 const resolver = section(pharmacy, 'function resolvePrescriptionScriptId(', 'function sql(');
 function resolve(requestedScriptId, headers, drugs) {

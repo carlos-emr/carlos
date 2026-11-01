@@ -86,7 +86,8 @@ if (requestedScriptId) {
   requestedScriptId = String(Number(requestedScriptId));
 }
 let scriptId = requestedScriptId || null;
-assert(/^\d+$/.test(demographicNo), `PRESCRIPTION_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
+assert(/^[1-9]\d*$/.test(demographicNo) && Number(demographicNo) <= 2147483647,
+  'PRESCRIPTION_DEMOGRAPHIC_NO must be a positive 32-bit patient identifier');
 
 const mysqlHost = h.validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
