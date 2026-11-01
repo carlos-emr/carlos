@@ -1188,9 +1188,17 @@ public class ResponseSanitizationFilter implements Filter {
          */
         @Override
         public void reset() {
-            // super first, for the same all-or-nothing reason as resetBuffer().
+            // Full reset releases channel selection as well as the body. Cached writers in
+            // any downstream wrapper must also be released so new output reaches this capture.
             super.reset();
-            discardCapturedOutput();
+            switchingWriter = null;
+            switchingOutputStream = null;
+            shieldedPassthroughStream = null;
+            writer = null;
+            usingWriter = false;
+            usingOutputStream = false;
+            outputStreamPassthrough = false;
+            committed = false;
         }
 
         private void discardCapturedOutput() {

@@ -889,10 +889,14 @@ public class LogoutBroadcastFilter implements Filter {
          */
         @Override
         public void reset() {
+            super.reset();
             clearDeferredContentLength();
+            writer = null;
+            responseWriterObtained = false;
+            responseOutputStreamObtained = false;
             htmlInjectionBufferConfigured = false;
             htmlInjectionBufferUnavailable = false;
-            super.reset();
+            chainComplete = false;
         }
 
         /**

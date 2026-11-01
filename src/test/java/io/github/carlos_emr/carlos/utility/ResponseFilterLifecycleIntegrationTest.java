@@ -252,6 +252,35 @@ class ResponseFilterLifecycleIntegrationTest {
         }
     }
 
+    static Stream<Arguments> fullResetCases() {
+        return Stream.of("/development", "/packaged").flatMap(context ->
+                Stream.of("direct", "forward", "nested").flatMap(dispatch ->
+                        Stream.of("writer", "stream").flatMap(initial ->
+                                Stream.of("writer", "stream").map(output ->
+                                        Arguments.of(context, dispatch, initial, output)))));
+    }
+
+    @ParameterizedTest(name = "reset {0} {1} {2} -> {3}")
+    @MethodSource("fullResetCases")
+    void shouldCoordinateFullResetAcrossEveryWrapper_andAllowChannelReselection(
+            String context, String dispatch, String initial, String output) throws Exception {
+        HttpResponse<byte[]> response = get(context + "/" + dispatch
+                + "?reset=" + initial + "&output=" + output + "&size=55324");
+        assertThat(response.statusCode()).isEqualTo(200);
+        String body = new String(response.body(), StandardCharsets.UTF_8);
+        String csrf = "<script src=\"" + context + "/csrfguard\"></script>\n";
+        String expected = html(55_324);
+        if (!"direct".equals(dispatch) && "writer".equals(output)) {
+            expected = expected.replace("</head>", csrf + "</head>");
+        }
+        assertThat(response.body()).startsWith(expected.getBytes(StandardCharsets.UTF_8));
+        assertThat(body).doesNotContain("DISCARDED FULL RESET PREFIX", "DISCARDED PRE-FORWARD PREFIX");
+        assertThat(occurrences(body, NOTICE)).isEqualTo(1);
+        assertThat(occurrences(body, "window.__carlosLogoutActive=true"))
+                .isEqualTo("writer".equals(output) ? 1 : 0);
+        assertLength(response);
+    }
+
     static Stream<Arguments> captureCases() {
         return Stream.of("direct", "forward", "nested").flatMap(dispatch ->
                 Stream.of("writer", "stream").flatMap(output ->
@@ -419,7 +448,10 @@ class ResponseFilterLifecycleIntegrationTest {
             String output = request.getParameter("output");
             if ("/nested".equals(path) || "/forward".equals(path)) {
                 // resetBuffer at each forward must discard earlier captured output.
-                if (!"stream".equals(output) && !"binary".equals(output)) {
+                String initial = request.getParameter("reset");
+                if ("stream".equals(initial)) {
+                    response.getOutputStream().write("DISCARDED PRE-FORWARD PREFIX".getBytes(StandardCharsets.UTF_8));
+                } else if ("writer".equals(initial) || (!"stream".equals(output) && !"binary".equals(output))) {
                     response.getWriter().write("DISCARDED PRE-FORWARD PREFIX");
                 }
                 request.getRequestDispatcher("/nested".equals(path) ? "/forward" : "/direct")
@@ -439,6 +471,16 @@ class ResponseFilterLifecycleIntegrationTest {
                     response.getOutputStream().flush();
                 }
                 return;
+            }
+            String reset = request.getParameter("reset");
+            if (reset != null) {
+                response.setContentType("text/html;charset=UTF-8");
+                if ("stream".equals(reset)) {
+                    response.getOutputStream().write("DISCARDED FULL RESET PREFIX".getBytes(StandardCharsets.UTF_8));
+                } else {
+                    response.getWriter().write("DISCARDED FULL RESET PREFIX");
+                }
+                response.reset();
             }
             int size = request.getParameter("size") == null ? 8193 : Integer.parseInt(request.getParameter("size"));
             int status = request.getParameter("status") == null ? 200 : Integer.parseInt(request.getParameter("status"));

@@ -64,8 +64,12 @@ The nested-forward matrix exposed a missing `resetBuffer()`/`reset()` override i
 the CSRF capture wrapper: a prefix captured by the first FORWARD survived the next
 forward's reset, then was replayed ahead of the real page. The wrapper now clears
 its capture only after the delegated reset succeeds; buffer-only reset preserves
-headers, while full reset clears deferred length and channel state. Rejected
-resets retain the captured body. Flush/close behavior is unchanged.
+headers, while full reset clears deferred length and channel state. Every CARLOS
+wrapper releases its cached writer/stream after a successful full reset: retaining
+a logout writer pointing at a discarded CSRF capture would otherwise lose the new
+body. The sanitizer releases its own channel selection too. The regression switches
+writer/stream in both directions through the complete response-transforming stack.
+Rejected resets retain the captured body and state. Flush/close behavior is unchanged.
 
 The HTML-stream matrix exposed a stale Content-Length crossing the privacy wrapper
 before its notice was appended. The wrapper now defers the length until it knows
