@@ -36,6 +36,12 @@ test('explicit numeric fixture input is trimmed and normalized without changing 
   vm.runInNewContext(fixtureConfig + '\nthis.selectedFixture = scriptId;', context);
   assert.equal(context.selectedFixture, '45');
 });
+test('leading-zero patient fixtures reach audit snapshot with their canonical identity', () => {
+  const context = {process: {env: {PRESCRIPTION_DEMOGRAPHIC_NO: '0001'}}, assert};
+  vm.runInNewContext(fixtureConfig + '\nthis.selectedPatient = demographicNo;', context);
+  const snapshot = require('./lib/demo-timestamp-restore').snapshot({rows: () => []}, context.selectedPatient);
+  assert.equal(snapshot.patient, '1');
+});
 
 const resolver = section(pharmacy, 'function resolvePrescriptionScriptId(', 'function sql(');
 function resolve(requestedScriptId, headers, drugs) {

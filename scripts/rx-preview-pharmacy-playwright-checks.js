@@ -76,7 +76,8 @@ const config = {
   screenshotDir: process.env.RX_PREVIEW_SCREENSHOT_DIR || '/tmp',
 };
 let requestedScriptId = String(process.env.PRESCRIPTION_SCRIPT_ID || '').trim();
-const demographicNo = process.env.PRESCRIPTION_DEMOGRAPHIC_NO || '1';
+// Match the server's patient identity and the audit restore helper's positive-ID contract.
+const demographicNo = (process.env.PRESCRIPTION_DEMOGRAPHIC_NO || '1').replace(/^0+(?=\d)/, '');
 if (requestedScriptId) {
   assert(/^[0-9]{1,10}$/.test(requestedScriptId) && Number(requestedScriptId) > 0,
     'PRESCRIPTION_SCRIPT_ID must be a positive integer prescription identifier');
