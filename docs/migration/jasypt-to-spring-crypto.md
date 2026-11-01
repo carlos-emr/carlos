@@ -8,6 +8,9 @@
 
 CARLOS EMR has migrated from the stale jasypt library (last updated 2017) to Spring Security Crypto for encryption functionality. This migration affects the Shared Outcomes Dashboard integration.
 
+This dashboard change removed the direct dependency only. Removal of the remaining
+CXF/WSS4J transitive dependency is covered in [EBS WS-Security without Jasypt](ebs-without-jasypt.md).
+
 ## What Changed
 
 ### Code Changes

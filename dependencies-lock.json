@@ -2948,14 +2948,6 @@
     "optional" : false,
     "integrity" : "sha512:qLF8Oz9xULdg+DdbpU7yyCb6Dlz5an+E1/QJSW3zFijyfLtkSagRS5tUhbuVAxnGTWvLUvfbiGK7EBiQpVwDKA=="
   }, {
-    "groupId" : "org.jasypt",
-    "artifactId" : "jasypt",
-    "version" : "1.9.3",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:mTadpE5MJvZOYA+ZsTXrBRZ64eu1u58iIz8UAj9UFjGLtMpYk9uw59REOV6m+lNxNVmmmQEgtPyWKh6ShLpYIQ=="
-  }, {
     "groupId" : "org.javassist",
     "artifactId" : "javassist",
     "version" : "3.33.0-GA",
