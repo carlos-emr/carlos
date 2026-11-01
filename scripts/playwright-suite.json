@@ -89,17 +89,19 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
       "timeoutSec": 600,
       "env": [
-        "DOC_ID",
         "ANNOTATION_SECOND_USER_FIXTURE",
         "ANNOTATION_SESSION_COUNT",
-        "TEST_NEW_PASSWORD"
-      ]
+        "TEST_NEW_PASSWORD",
+        "DOCUMENT_DIR",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Owns a FAKE patient and twelve-page source PDF, observes each accepted annotated copy, releases held responses and drains accepted saves before guarded row/file/cache cleanup. Unknown outcomes retain a private recovery receipt."
     },
     {
       "name": "provider-quick-links",
@@ -4594,8 +4596,12 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Creates one SystemMessage through the administration UI and deletes it by id/marker; asserts the day-sheet banner shows and then drops it. SKIPs when the CAISI module (caisi=on) is off, because the menu entry is CAISI-gated.",
-      "notes": "Skips on the packaged default (caisi=off); its later steps have not run on a caisi=on deployment yet.",
-      "profile": "caisi-admin"
+      "notes": "CAISI profile live validation on 2026-11-01: empty-message refusal passed; the literal script-text save was blocked by WAF XSS rules, finding 330. Later banner/expiry steps remain unverified.",
+      "profile": "caisi-admin",
+      "expectedFailure": {
+        "finding": 330,
+        "step": "a punctuated message with a script literal is listed and stored with a future expiry"
+      }
     },
     {
       "name": "admin-audit-log",
@@ -4751,8 +4757,12 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owns one PW<hex>-coded issue (plus a GET-probe code) and the synthetic patient's notes/casemgmt_issue/CPP/eChart rows; adds the issue through Administration > CAISI > Issue Editor and assigns it from the chart's CPP item editor.",
-      "notes": "Skips on the packaged default (caisi=off hides the Issue Editor); with caisi=on its CPP issue-assignment step fails on 2026.08.",
-      "profile": "caisi-admin"
+      "notes": "CAISI profile live validation on 2026-11-01: native starter CPP note passed; native Issue Editor save returned HTTP 403, finding 331. Issue search/assignment and duplicate/refusal assertions remain behind this failure.",
+      "profile": "caisi-admin",
+      "expectedFailure": {
+        "finding": 331,
+        "step": "Issue Editor adds a coded issue and lists it"
+      }
     },
     {
       "name": "security-password-length",

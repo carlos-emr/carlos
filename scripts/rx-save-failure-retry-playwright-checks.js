@@ -53,7 +53,8 @@ async function workflow(s) {
     const mark=failureMark(s.recorder);let response;
     const expected=await rx.evaluate(()=>({incomplete:jsMsg.saveIncomplete,stale:jsMsg.staleDraft}));
     const dialogs=await h.withExpectedDialogs(rx,async()=>{
-      [response]=await Promise.all([rx.waitForResponse(saveMatch),button.click()]);await response.finished();
+      const alert=rx.waitForEvent('dialog',{predicate:dialog=>dialog.type()==='alert',timeout:30000});alert.catch(()=>{});
+      [response]=await Promise.all([rx.waitForResponse(saveMatch),button.click()]);await response.finished();await alert;
     });
     h.assert(response.status()===status&&(await response.json()).error===error,'Save did not report its exact failure contract');
     h.assert(dialogs.length===1&&dialogs[0].type==='alert'&&dialogs[0].text===(status===500?expected.incomplete:expected.stale),'Save did not show its accurate failure message');
@@ -93,10 +94,13 @@ async function workflow(s) {
         intercepted=true;const response=await route.fetch();h.assert(response.status()===200,'Lost-response control did not commit successfully');committed=await response.json();await response.dispose();await route.abort('failed');
       };
       await s.context.route(pattern,handler);
-      let dialogs;
-      try {dialogs=await h.withExpectedDialogs(rx,()=>button.click());}finally{await s.context.unroute(pattern,handler);}
+      let dialogs;const lostMessage=await rx.evaluate(()=>jsMsg.saveRefused+' (HTTP 0)');
+      try {dialogs=await h.withExpectedDialogs(rx,async()=>{
+        const alert=rx.waitForEvent('dialog',{predicate:dialog=>dialog.type()==='alert',timeout:30000});alert.catch(()=>{});
+        await button.click();await alert;
+      });}finally{await s.context.unroute(pattern,handler);}
       h.assert(intercepted&&/^[1-9]\d*$/.test(String(committed?.scriptId)),'Lost-response control never observed a successful server result');
-      h.assert(dialogs.length===1&&dialogs[0].type==='alert','Lost response was reported as success');
+      h.assert(dialogs.length===1&&dialogs[0].type==='alert'&&dialogs[0].text===lostMessage,'Lost response did not show its actual transport-failure message');
       const failures=s.recorder.requestFailures.slice(mark.failures);
       h.assert(failures.length===1&&new URL(failures[0].url).pathname.endsWith('/rx/WriteScript')&&/ERR_FAILED/.test(failures[0].errorText),'Lost response caused an unrelated transport failure');
       const urls=new Set(failures.map(row=>row.url));s.recorder.requestFailures.splice(mark.failures,1);

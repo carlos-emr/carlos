@@ -31,22 +31,23 @@
  *      reports that only on the console, so the console is asserted here.
  *   4. The save endpoint refuses GET.
  *   4. A real save round-trips: the composed copy is filed as a NEW document,
- *      reported by number, and is independently renderable. Each run therefore
- *      ADDS a document to the chart, which is why this belongs only on a
- *      disposable deployment.
+ *      reported by number, and is independently renderable. The check owns its synthetic source patient, source PDF and every annotated copy;
+ *      accepted saves finish before guarded row/file/cache cleanup.
  *
- * What it does NOT prove: that the SOURCE file is left byte-identical. That is the
- * design's central invariant, but asserting it needs filesystem access the browser
- * does not have. It is pinned by AnnotatedDocumentComposerUnitTest instead.
+ * Its fixture also verifies unchanged source rows/PDF bytes and removes only its
+ * captured annotated copies and filename-scoped page-cache files.
  *
  * Usage:
  *   BASE_URL=https://host/carlos TEST_USER=... TEST_PASSWORD=... TEST_PIN=... \
  *     node scripts/e2e/fax/annotate-document-playwright-checks.js
  *
- * Requires a disposable deployment with demo data. Never point it at real PHI.
+ * Requires a disposable deployment, configured DOCUMENT_DIR and guarded MySQL access.
  */
 'use strict';
 const legacyHarness=require('../../lib/legacy-check');
+const h=require('../../lib/playwright-harness');
+const {createOwnedAnnotationFixture}=require('../../lib/owned-annotation-fixture');
+const {authenticatedProbe}=require('../../lib/authenticated-probe');
 
 
 const { chromium } = require('playwright');
@@ -68,25 +69,7 @@ function requireEnv(name) {
  * must not be pointed at an arbitrary host by an unchecked environment variable.
  */
 function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed credentials');
-  }
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '[::1]', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const octets = host.split('.');
-  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
-  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
-    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
-    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
-  const local = localHosts.has(host) || privateIpv4;
-  if (!local && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  return { href: parsed.href.replace(/\/+$/, ''), local, loopback: ['localhost', '127.0.0.1', '[::1]'].includes(host) };
+  return h.validateCredentialBaseUrl(rawBaseUrl,process.env);
 }
 
 /** One navigation boundary for ordinary, busy and failed-image viewer checks. */
@@ -184,7 +167,8 @@ async function login(page) {
   return page;
 }
 
-async function main({cancellation}={}) {
+async function main({cancellation,fixture}={}) {
+  const cleanupReleases=[];
   const browser = await chromium.launch({...({
     headless: true,
     ...(chromePath ? { executablePath: chromePath } : {}),
@@ -192,7 +176,10 @@ async function main({cancellation}={}) {
   }),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   // Self-signed certificates are normal on a local dev deployment. For a remote one this script
   // sends a real password, so verification stays on unless ALLOW_UNVERIFIED_TLS=true says otherwise.
-  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+  let context;
+  try {
+  context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+  fixture.bind(context);
   context.setDefaultTimeout(120000);
   context.setDefaultNavigationTimeout(120000);
 
@@ -211,7 +198,6 @@ async function main({cancellation}={}) {
     }
   });
 
-  try {
     const page = await context.newPage();
     cancellation?.throwIfCancelled();
     page.on('console', (message) => {
@@ -223,7 +209,7 @@ async function main({cancellation}={}) {
     await login(page);
     cancellation?.throwIfCancelled();
 
-    const docId = process.env.DOC_ID || '1';
+    const docId = fixture.documentId;
     if (!/^[1-9][0-9]*$/.test(docId)) { throw new Error('DOC_ID must be a positive integer'); }
 
     // ---- word boxes are optional ----
@@ -1242,7 +1228,7 @@ async function main({cancellation}={}) {
         + '(install fonts-liberation); it resolves to a fallback face here');
     }
     let releaseFont;
-    const fontHeld = new Promise(resolve => { releaseFont = resolve; });
+    const fontHeld = new Promise(resolve => { releaseFont = resolve; cleanupReleases.push(resolve); });
     await page.route('**/dejavufonts/ttf/DejaVuSans.ttf', async route => {
       await fontHeld;
       await route.continue();
@@ -1302,7 +1288,7 @@ async function main({cancellation}={}) {
     // A page with no notes has nothing to measure in the annotation font, so its save must not
     // wait for the font: with the font held, a highlight-only save posts at once.
     let releaseNoNoteFont;
-    const noNoteFontHeld = new Promise(resolve => { releaseNoNoteFont = resolve; });
+    const noNoteFontHeld = new Promise(resolve => { releaseNoNoteFont = resolve; cleanupReleases.push(resolve); });
     await page.route('**/dejavufonts/ttf/DejaVuSans.ttf', async route => {
       await noNoteFontHeld;
       await route.continue();
@@ -1349,7 +1335,7 @@ async function main({cancellation}={}) {
     // note overruns the page in the real face, so the save is refused, the deferred refit pulls
     // the note back, and the retry files.
     let releaseLateFont;
-    const lateFontHeld = new Promise(resolve => { releaseLateFont = resolve; });
+    const lateFontHeld = new Promise(resolve => { releaseLateFont = resolve; cleanupReleases.push(resolve); });
     await page.route('**/dejavufonts/ttf/DejaVuSans.ttf', async route => {
       await lateFontHeld;
       await route.continue();
@@ -1374,7 +1360,7 @@ async function main({cancellation}={}) {
     const lateBefore = await lateNote.boundingBox();
     cancellation?.throwIfCancelled();
     let releaseLateSave;
-    const lateSaveHeld = new Promise(resolve => { releaseLateSave = resolve; });
+    const lateSaveHeld = new Promise(resolve => { releaseLateSave = resolve; cleanupReleases.push(resolve); });
     let lateSaveSeen;
     const lateSaveArrived = new Promise(resolve => { lateSaveSeen = resolve; });
     await page.route('**/SaveAnnotatedDocument?*', async route => {
@@ -1463,7 +1449,7 @@ async function main({cancellation}={}) {
 
     // Once fetch() has started the server may already have filed the copy, even if the
     // connection drops before any reply. Save must then be held so the operator checks first.
-    await page.route('**/SaveAnnotatedDocument?*', route => route.abort('connectionreset'));
+    await page.route('**/SaveAnnotatedDocument?*', route => fixture.abort(route,'connectionreset'));
     cancellation?.throwIfCancelled();
     await mark();
     cancellation?.throwIfCancelled();
@@ -1543,7 +1529,7 @@ async function main({cancellation}={}) {
     // The annotation font arriving redraws a page with notes once (the refit), not once for a
     // whole-viewer redraw and again for the refit. Counted by the note elements a redraw removes.
     let releaseCountedFont;
-    const countedFontHeld = new Promise(resolve => { releaseCountedFont = resolve; });
+    const countedFontHeld = new Promise(resolve => { releaseCountedFont = resolve; cleanupReleases.push(resolve); });
     await page.route('**/dejavufonts/ttf/DejaVuSans.ttf', async route => {
       await countedFontHeld;
       await route.continue();
@@ -1779,11 +1765,11 @@ async function main({cancellation}={}) {
 
     // Hold an actual server save response; attempted edits must not re-enable duplicate submission.
     let releaseSave;
-    const hold = new Promise(resolve => { releaseSave = resolve; });
+    const hold = new Promise(resolve => { releaseSave = resolve; cleanupReleases.push(resolve); });
     let responseReceived;
     const received = new Promise(resolve => { responseReceived = resolve; });
     await page.route('**/SaveAnnotatedDocument?*', async route => {
-      const result = await route.fetch();
+      const result = await fixture.fetch(route);
       responseReceived();
       await hold;
       await route.fulfill({ response: result });
@@ -1837,7 +1823,7 @@ async function main({cancellation}={}) {
     cancellation?.throwIfCancelled();
     await mark();
     cancellation?.throwIfCancelled();
-    await page.route('**/SaveAnnotatedDocument?*', route => route.abort('failed'));
+    await page.route('**/SaveAnnotatedDocument?*', route => fixture.abort(route,'failed'));
     cancellation?.throwIfCancelled();
     await page.locator('#btnSave').click();
     cancellation?.throwIfCancelled();
@@ -1943,12 +1929,12 @@ async function main({cancellation}={}) {
     const preview = await page.locator('input[name="faxFilePath"]').inputValue();
     cancellation?.throwIfCancelled();
     check('document fax uses a staged copy', preview.includes('carlos-temp'));
-    const countResponse = await context.request.get(`${baseUrl}/fax/faxAction`, {
+    const countResponse = await authenticatedProbe({config:readConfig(),context},`${baseUrl}/fax/faxAction`, {
       params: { method: 'getPageCount', faxFilePath: preview }
     });
     cancellation?.throwIfCancelled();
     check('session-owned document fax preview can be read', countResponse.status() === 200);
-    const directory = await context.request.get(`${baseUrl}/fax/SearchFaxRecipient?term=Test`);
+    const directory = await authenticatedProbe({config:readConfig(),context},`${baseUrl}/fax/SearchFaxRecipient?term=Test`);
     cancellation?.throwIfCancelled();
     check('both recipient directory queries execute on MariaDB', directory.status() === 200 && Array.isArray(await directory.json()));
     cancellation?.throwIfCancelled();
@@ -1959,7 +1945,7 @@ async function main({cancellation}={}) {
     check('cancelling returns to the saved document without a missing result error',
       !(await page.title()).includes('Error'));
     cancellation?.throwIfCancelled();
-    const cancelledPreview = await context.request.get(`${baseUrl}/fax/faxAction`, {
+    const cancelledPreview = await authenticatedProbe({config:readConfig(),context},`${baseUrl}/fax/faxAction`, {
       params: { method: 'getPageCount', faxFilePath: preview }
     });
     cancellation?.throwIfCancelled();
@@ -1988,26 +1974,25 @@ async function main({cancellation}={}) {
 
 
   } finally {
-    await context.close();
-    await browser.close();
+    for(const release of cleanupReleases)release();
+    try {
+      // Block future retries, then finish accepted server calls before closing their session.
+      for(const page of context?.pages()||[])await page.route('**/SaveAnnotatedDocument?*',route=>fixture.abort(route,'blockedbyclient'));
+      await fixture.drain();
+    } finally {
+      try {if(context)await context.close();} finally {await browser.close();}
+      fixture.confirmClosed();
+    }
   }
 }
 
-legacyHarness.runLegacyCheck('annotate-document',async context=>{
-  await (main)(context)
-  .then(() => {
-    notes.forEach((line) => console.log(line));
-    if (findings.length) {
-      console.log('');
-      findings.forEach((line) => console.log(line));
-      console.log(`\n${findings.length} check(s) failed`);
-      {process.exitCode=1;return;}
-    }
-    console.log('\nAll annotation viewer checks passed');
-  })
-  .catch((error) => {
-    notes.forEach((line) => console.log(line));
-    console.error(`\nERROR ${error && error.message ? error.message : error}`);
-    {process.exitCode=1;return;}
-  });
-});
+let ownedFixture;
+h.runCheck({name:'annotate-document',async run(context) {
+  legacyHarness.armInterruption(context);
+  ownedFixture=createOwnedAnnotationFixture(readConfig());
+  ownedFixture.create();
+  try {await main({...context,fixture:ownedFixture});}
+  finally {notes.forEach(line=>console.log(line));findings.forEach(line=>console.log(line));}
+  h.assert(findings.length===0,`${findings.length} annotation check(s) failed`);
+  console.log('All annotation viewer checks passed');
+},async cleanup(){if(ownedFixture)await ownedFixture.cleanup();}});

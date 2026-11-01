@@ -26,8 +26,8 @@ async function workflow(s) {
       sql.execute(`DELETE FROM program WHERE id=${program} AND name=${h.sqlString(name)}`);
     }
   });
-  sql.execute(`INSERT INTO program(id,facilityId,name,type,maxAllowed,programStatus,transgender,firstNation,alcohol,physicalHealth,mentalHealth,housing,exclusiveView,ageMin,ageMax)
-    VALUES (${program},${facility},${h.sqlString(name)},'service',1,'active',0,0,0,0,0,0,'none',0,150)`);created=true;
+  sql.execute(`INSERT INTO program(id,facilityId,name,type,maxAllowed,programStatus,transgender,firstNation,alcohol,physicalHealth,mentalHealth,housing,exclusiveView,ageMin,ageMax,enableEncounterTime,enableEncounterTransportationTime,enableOCAN)
+    VALUES (${program},${facility},${h.sqlString(name)},'service',1,'active',0,0,0,0,0,0,'none',0,150,0,0,0)`);created=true;
   const role=sql.value("SELECT role_no FROM secRole WHERE role_name='doctor'");
   h.assert(/^[1-9]\d*$/.test(role),'Seeded doctor program role is absent');
   sql.execute(`INSERT INTO program_provider(program_id,provider_no,role_id) VALUES (${program},${who},${role});

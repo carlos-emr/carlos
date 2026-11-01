@@ -21,10 +21,14 @@ async function workflow(s) {
     for(const key of ids)sql.execute(`DELETE FROM clinic_nbr WHERE nbr_id=${key} AND nbr_value=${q(code)} AND nbr_string IN (${descriptions.map(q).join(',')})`);
     h.assert(sql.value(`SELECT COUNT(*) FROM clinic_nbr WHERE nbr_value=${q(code)} AND nbr_string IN (${descriptions.map(q).join(',')})`)==='0','Owned clinic NBR remains');
   });
-  const {page:admin}=await ui.clickOpensPopupOrNavigates(s.schedule,s.schedule.locator('#admin-panel,#admin2').first(),{context:s.context,recorder:s.recorder,label:'clinic-nbr-administration',timeout:30000});
+  let admin,frame;
+  async function openManager() {
+    ({page:admin}=await ui.clickOpensPopupOrNavigates(s.schedule,s.schedule.locator('#admin-panel,#admin2').first(),{context:s.context,recorder:s.recorder,label:'clinic-nbr-administration',timeout:30000}));
   const menu=admin.locator('a[rel$="/admin/ViewClinicNbrManage"]').first();await revealAuditLink(admin,menu,30000);
-  const loaded=admin.waitForEvent('framenavigated',{predicate:f=>f.parentFrame()&&new URL(f.url()).pathname.endsWith('/admin/ViewClinicNbrManage')});await menu.click();const frame=await loaded;
+  const loaded=admin.waitForEvent('framenavigated',{predicate:f=>f.parentFrame()&&new URL(f.url()).pathname.endsWith('/admin/ViewClinicNbrManage')});await menu.click();frame=await loaded;
   await frame.locator('#nbr_value').waitFor();
+  }
+  await openManager();
   async function mutate(button,method) {
     const [response]=await Promise.all([admin.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/admin/clinicNbrManage')),button.click()]);
     h.assert(response.ok(),'Clinic NBR POST failed');const json=await response.json();h.assert(json.success&&json.method===method,'Clinic NBR operation was refused');return json;
@@ -49,9 +53,12 @@ async function workflow(s) {
     await remove();await add(descriptions[1]);
   });
   const family=billingOnSave(physician.dependentSession,{appointmentLocation:physician.siteName,configureForm:async page=>{
+    // Choosing a clinic rebuilds the provider picker; select the physician afterwards.
+    await physician.selectClinic(page);
     const options=await page.locator('select[name="xml_provider"] option').evaluateAll(nodes=>nodes.map(node=>node.value));
     const selected=options.find(value=>value.split('|')[0]===physician.providerNo);h.assert(selected,'Owned billing physician is not offered');
-    await page.locator('select[name="xml_provider"]').selectOption(selected);await physician.selectClinic(page);
+    await page.locator('select[name="xml_provider"]').selectOption(selected);
+    h.assert((await page.locator('select[name="xml_provider"]').inputValue()).split('|')[0]===physician.providerNo,'Clinic selection cleared the billing physician');
     const values=await page.locator('select[name="xml_visittype"] option').evaluateAll(nodes=>nodes.map(node=>({value:node.value,text:node.textContent})));
     const offered=values.find(option=>option.text.includes(descriptions[1])&&option.value.split('|')[0].trim()===code);h.assert(offered,'Revised clinic NBR is not offered by the native bill form');
     h.assert(!values.some(option=>option.text.includes(descriptions[0])),'Removed description remains offered');
@@ -60,7 +67,10 @@ async function workflow(s) {
   await s.step('the Ontario native bill stores the chosen clinic NBR',async()=>{
     await family.perform('NBR');await expectValue(sql,`SELECT visittype FROM billing_on_cheader1 WHERE ${family.where('NBR')}`,code,'Saved bill lost its clinic NBR');
   });
-  await s.step('Remove Selected retires only the owned clinic NBR',remove);
+  await s.step('Remove Selected retires only the owned clinic NBR',async()=>{
+    // Billing returns this shell to the schedule; re-enter the native manager.
+    await openManager();await remove();
+  });
 }
 if(require.main===module)runWorkflow('billing-on-clinic-nbr',workflow,{openPatient:true,openMaster:false});
 module.exports={workflow};
