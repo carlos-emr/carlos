@@ -33,11 +33,13 @@ import java.util.Objects;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -65,6 +67,7 @@ import io.github.carlos_emr.carlos.demographic.data.DobSearchPattern;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMergeSearch;
 import io.github.carlos_emr.carlos.demographic.data.DemographicListSearch;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
+import io.github.carlos_emr.carlos.commn.dao.projection.DemographicName;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.event.DemographicCreateEvent;
 import io.github.carlos_emr.carlos.event.DemographicUpdateEvent;
@@ -201,6 +204,23 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         query.setMaxResults(aLimit);
 
         return query.getResultList();
+    }
+
+    @Override
+    public List<DemographicName> getDemographicNames(Collection<Integer> demographicIds) {
+        List<Integer> ids = new ArrayList<>(new LinkedHashSet<>(demographicIds));
+        List<DemographicName> names = new ArrayList<>();
+        // Bound IN-list sizes even for unusually large schedules.
+        final int batchSize = 500;
+        for (int start = 0; start < ids.size(); start += batchSize) {
+            names.addAll(entityManager().createQuery(
+                    "SELECT NEW io.github.carlos_emr.carlos.commn.dao.projection.DemographicName"
+                    + "(d.demographicNo, d.lastName, d.firstName) FROM Demographic d"
+                    + " WHERE d.demographicNo IN :ids", DemographicName.class)
+                    .setParameter("ids", ids.subList(start, Math.min(start + batchSize, ids.size())))
+                    .getResultList());
+        }
+        return names;
     }
 
     @Override

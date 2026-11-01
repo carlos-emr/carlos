@@ -196,6 +196,56 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
      * @see SecurityInfoManager#hasPrivilege
      */
     @Nested
+    @DisplayName("Bulk schedule names")
+    class BulkScheduleNames {
+        @Test
+        void shouldCheckEachPatientBeforeReading_whenNamesAreRequested() {
+            when(mockDemographicDao.getDemographicNames(anyCollection())).thenReturn(List.of(
+                new io.github.carlos_emr.carlos.commn.dao.projection.DemographicName(12, "O'Neil", "Zoë"),
+                new io.github.carlos_emr.carlos.commn.dao.projection.DemographicName(13, null, "")));
+
+            var names = manager.getDemographicFormattedNames(mockLoggedInInfo, Arrays.asList(12, 0, 13, 12, null, 99));
+
+            assertThat(names).containsEntry(12, "O'Neil, Zoë").containsEntry(13, "null, ").doesNotContainKey(99);
+            var order = inOrder(mockSecurityInfoManager, mockDemographicDao);
+            order.verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_demographic", SecurityInfoManager.READ, 12);
+            order.verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_demographic", SecurityInfoManager.READ, 13);
+            order.verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_demographic", SecurityInfoManager.READ, 99);
+            order.verify(mockDemographicDao).getDemographicNames(new LinkedHashSet<>(List.of(12, 13, 99)));
+            verifyNoMoreInteractions(mockDemographicDao);
+            verifyNoInteractions(mockProviderManager, mockAppointmentManager);
+        }
+
+        @Test
+        void shouldReadNoNames_whenAnyPatientIsDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_demographic", SecurityInfoManager.READ, 13))
+                .thenReturn(false);
+
+            assertThatThrownBy(() -> manager.getDemographicFormattedNames(mockLoggedInInfo, List.of(12, 13)))
+                .isInstanceOf(RuntimeException.class).hasMessageContaining("missing required sec object");
+            verifyNoInteractions(mockDemographicDao, mockProviderManager, mockAppointmentManager);
+        }
+
+        @Test
+        void shouldPreservePatientDirective_whenPrivilegeCheckThrows() {
+            var directive = new io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException("restricted");
+            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_demographic", SecurityInfoManager.READ, 12))
+                .thenThrow(directive);
+
+            assertThatThrownBy(() -> manager.getDemographicFormattedNames(mockLoggedInInfo, List.of(12)))
+                .isSameAs(directive);
+            verifyNoInteractions(mockDemographicDao);
+        }
+
+        @Test
+        void shouldSkipPatientReads_whenOnlyBlankSlotsAreRequested() {
+            assertThat(manager.getDemographicFormattedNames(mockLoggedInInfo, Arrays.asList(0, null))).isEmpty();
+            assertThat(manager.getDemographicFormattedNames(mockLoggedInInfo, List.of())).isEmpty();
+            verifyNoInteractions(mockDemographicDao, mockSecurityInfoManager);
+        }
+    }
+
+    @Nested
     @DisplayName("Security and Privilege Checks")
     @Tag("security")
     class SecurityTests {
