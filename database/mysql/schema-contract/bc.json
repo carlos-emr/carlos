@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "0b63b47c90c6d7b6faae15542ef30d8add76a176d50f34c0a3bc57b7151d523d",
+ "migration_sha256": "abbd43c03a142c19f3439ed6ed24da13613620569ea02807d1662404bab5875e",
  "province": "bc",
  "schema": {
   "checks": [
@@ -1059,6 +1059,30 @@
     null,
     null,
     1
+   ],
+   [
+    "Consent_migration_audit",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    10
+   ],
+   [
+    "Consent_migration_audit",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    9
    ],
    [
     "Consent_migration_audit",
@@ -42027,6 +42051,18 @@
     "utf8mb4_general_ci",
     null,
     311
+   ],
+   [
+    "formBCAR2007",
+    "ar2_urineCStxt",
+    "varchar(255)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    815
    ],
    [
     "formBCAR2007",
@@ -105703,7 +105739,7 @@
    [
     "formMentalHealthForm1",
     "datetimeOfDetention",
-    "varchar(20)",
+    "varchar(50)",
     "YES",
     "NULL",
     "",

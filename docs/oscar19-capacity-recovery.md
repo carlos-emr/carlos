@@ -25,6 +25,8 @@ commit `a7900d569d3faf741993e5e1da8c14021bbefede`.
 | billing.total | 7 |
 | measurementTypeDeleted.typeDisplayName | 255 |
 | pharmacyInfo.city | 255 |
+| formMentalHealthForm1.datetimeOfDetention | 50 |
+| formBCAR2007.ar2_urineCStxt (BC, restored native field) | 255 |
 
 Common, Ontario and BC forward migrations also enlarge mapped text fields.
 TEXT sizes count bytes, so equal TEXT types can still be too small after
@@ -64,7 +66,8 @@ Deleted and undecided records remain retired; one deciding live record per
 patient/type is selected conservatively, with opt-out taking precedence.
 Prior flags and retirement reasons are retained. The application migration
 records pre-existing normalization/duplicate retirement in
-Consent_migration_audit, retains every row, and enforces one live record with
+Consent_migration_audit (including standard system attribution and update dates),
+retains every row, and enforces one live record with
 a generated-column unique key. Both application lookups exclude retired rows.
 An older unmodified manifest is diagnosed as an incompatible package pair;
 file tampering is not assumed. Host preflight checks this mapping structurally.

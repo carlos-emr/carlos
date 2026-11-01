@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS Consent_migration_audit (
     prior_optout TINYINT(1) NULL,
     prior_deleted TINYINT(1) NULL,
     recorded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    lastUpdateUser VARCHAR(100) NOT NULL DEFAULT 'system',
+    lastUpdateDate TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_consent_migration_reason (consent_id, migration, reason)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

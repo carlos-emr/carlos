@@ -13122,7 +13122,8 @@
    "passwordUpdateDate",
    "pinUpdateDate",
    "lastUpdateUser",
-   "lastUpdateDate"
+   "lastUpdateDate",
+   "usingMfa"
   ],
   "ServiceAccessToken": [
    "id",
@@ -14263,7 +14264,8 @@
    "key_val",
    "value",
    "date_time",
-   "hidden"
+   "hidden",
+   "dashboard_single_value_key"
   ],
   "demographicExtArchive": [
    "id",
@@ -24768,7 +24770,7 @@
  },
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-6+1aac654d",
+   "SCHEMA_MAP_VERSION": "o19map-6+e44c15d5",
    "O19_PROFILE": "bc",
    "TABLES": {
     "AppDefinition": {
@@ -29619,13 +29621,9 @@
       "ar2_tweakW",
       "ar2_tweakE",
       "ar2_tweakA",
-      "ar2_tweakK"
-     ],
-     "dropped": {
-      "ar2_urineCStxt": {
-       "nondefault": "s.`ar2_urineCStxt` IS NOT NULL AND s.`ar2_urineCStxt` <> ''"
-      }
-     }
+      "ar2_tweakK",
+      "ar2_urineCStxt"
+     ]
     },
     "formBCAR2012": {
      "class": "copy",
@@ -43181,7 +43179,8 @@
      "passwordUpdateDate",
      "pinUpdateDate",
      "lastUpdateUser",
-     "lastUpdateDate"
+     "lastUpdateDate",
+     "usingMfa"
     ],
     "ServiceAccessToken": [
      "id",
@@ -44287,7 +44286,8 @@
      "key_val",
      "value",
      "date_time",
-     "hidden"
+     "hidden",
+     "dashboard_single_value_key"
     ],
     "demographicExtArchive": [
      "id",
@@ -46719,7 +46719,8 @@
      "ar2_tweakW",
      "ar2_tweakE",
      "ar2_tweakA",
-     "ar2_tweakK"
+     "ar2_tweakK",
+     "ar2_urineCStxt"
     ],
     "formBCAR2012": [
      "ID",

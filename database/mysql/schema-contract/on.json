@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "e91c018a5f74f5aeff2b30f88c9e71b50030d1f79cb1e3e7aa19d47161fa67ef",
+ "migration_sha256": "4c772693fef9879737b5d090857d950d7f93216454accddde4dfe19a6678744b",
  "province": "on",
  "schema": {
   "checks": [
@@ -1059,6 +1059,30 @@
     null,
     null,
     1
+   ],
+   [
+    "Consent_migration_audit",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    10
+   ],
+   [
+    "Consent_migration_audit",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    9
    ],
    [
     "Consent_migration_audit",
@@ -57607,7 +57631,7 @@
    [
     "formMentalHealthForm1",
     "datetimeOfDetention",
-    "varchar(20)",
+    "varchar(50)",
     "YES",
     "NULL",
     "",

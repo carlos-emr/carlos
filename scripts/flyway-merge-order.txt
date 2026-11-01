@@ -89,3 +89,4 @@ common/V1.0.59.27__preserve_oscar19_text_capacity.sql
 on/V1.0.59.28__preserve_oscar19_text_capacity.sql
 bc/V1.0.59.29__preserve_oscar19_text_capacity.sql
 common/V1.0.59.30__one_live_consent_per_type.sql
+bc/V1.0.59.31__restore_bcar2007_urine_culture_text.sql

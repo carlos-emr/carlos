@@ -2067,6 +2067,18 @@
     },
     {
       "table": "formMentalHealthForm1",
+      "column": "datetimeOfDetention",
+      "source": "varchar(50) default NULL",
+      "target": "varchar(20) DEFAULT NULL",
+      "new_type": "varchar(50)",
+      "required_utf8_bytes": null,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formMentalHealthForm1",
       "column": "facts",
       "source": "text default NULL",
       "target": "text DEFAULT NULL",

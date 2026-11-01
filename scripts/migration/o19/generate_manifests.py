@@ -297,10 +297,10 @@ def walk_ddl(text: str):
     literal is misread, and the cursor skips past each body so statement
     text inside an INSERTed string is never re-matched.
 
-    Kept separate from Schema so the parse has two consumers: the model
-    below, and verify_ddl_parse.py, which replays the same statements
-    through a real MariaDB and compares. One walk, so the oracle cannot
-    drift from the thing it verifies.
+    Kept separate from Schema so literal DDL has two consumers: the model
+    below, and verify_ddl_parse.py, which replays those statements through
+    MariaDB. Known guarded dynamic CARLOS effects are modeled in load_schema;
+    independent physical-contract inventory checks cover that separate path.
     """
     # Dynamic migrations contain DDL inside CONCAT string literals. Those
     # fragments are not executable declarations and can carry only part of
@@ -1052,6 +1052,22 @@ def load_schema(files: List[Path],
     schema = Schema(if_not_exists_mode)
     for f in files:
         schema.feed(strip_line_comments(read_sql(f)))
+        # These committed CARLOS migrations execute guarded dynamic DDL.
+        # Do not parse arbitrary CONCAT fragments as SQL declarations. Model
+        # their canonical schema effects explicitly instead; independent
+        # physical-contract tests require the resulting column inventory.
+        if f.name == "V1.0.54__allow_dashboard_exclusion_history.sql":
+            key = schema.tables.get("demographicExt", {}).get("key_val", "")
+            kind = re.match(r"varchar\(\d+\)", key, re.I)
+            if not kind:
+                raise ValueError("dashboard helper requires the demographicExt key declaration")
+            schema.apply_alter("demographicExt", "ADD COLUMN IF NOT EXISTS "
+                               "dashboard_single_value_key " + kind.group() +
+                               " GENERATED ALWAYS AS (CASE WHEN key_val = 'excludeIndicator' "
+                               "THEN NULL ELSE key_val END) VIRTUAL INVISIBLE")
+        elif f.name == "V1.0.59__archive_security_mfa_setting.sql":
+            schema.apply_alter("SecurityArchive", "ADD COLUMN IF NOT EXISTS "
+                               "usingMfa TINYINT(1) NULL DEFAULT NULL")
     return schema
 
 
