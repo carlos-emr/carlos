@@ -45,6 +45,7 @@ class JdkEncodingCompatibilityUnitTest {
         assertThat(UtilMisc.encode64(text)).isEqualTo(expectedDefault);
         assertThat(MsgCommxml.encode64(text)).isEqualTo(expectedDefault);
         EmailLog email = new EmailLog(null, "sender", null, "synthetic", text, null);
+        assertThat(email.getBody()).isEqualTo(text);
         email.setBody(text);
         email.setEncryptedMessage(text);
         email.setInternalComment(text);

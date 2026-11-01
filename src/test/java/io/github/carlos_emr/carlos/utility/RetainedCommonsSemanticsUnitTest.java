@@ -34,8 +34,8 @@ class RetainedCommonsSemanticsUnitTest {
         GregorianCalendar calendar = new GregorianCalendar(TimeZone.getTimeZone("UTC"), Locale.ROOT);
         calendar.clear();
         calendar.set(1500, Calendar.JANUARY, 1);
-        String legacy = DateFormatUtils.format(calendar, "yyyy-MM-dd", TimeZone.getTimeZone("UTC"));
-        String modern = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneOffset.UTC).format(calendar.toInstant());
+        String legacy = DateFormatUtils.format(calendar, "yyyy-MM-dd", TimeZone.getTimeZone("UTC"), Locale.ROOT);
+        String modern = DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ROOT).withZone(ZoneOffset.UTC).format(calendar.toInstant());
         assertThat(legacy).isEqualTo("1500-01-01");
         assertThat(modern).isNotEqualTo(legacy);
     }
@@ -44,9 +44,9 @@ class RetainedCommonsSemanticsUnitTest {
     void shouldRetainCalendarChronology_forNonGregorianCalendars() {
         Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.forLanguageTag("th-TH"));
         calendar.setTimeInMillis(0);
-        assertThat(DateFormatUtils.format(calendar, "yyyy-MM-dd", TimeZone.getTimeZone("UTC")))
+        assertThat(DateFormatUtils.format(calendar, "yyyy-MM-dd", TimeZone.getTimeZone("UTC"), Locale.ROOT))
                 .isEqualTo("2513-01-01");
-        assertThat(DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneOffset.UTC).format(calendar.toInstant()))
+        assertThat(DateTimeFormatter.ofPattern("yyyy-MM-dd", Locale.ROOT).withZone(ZoneOffset.UTC).format(calendar.toInstant()))
                 .isEqualTo("1970-01-01");
     }
 

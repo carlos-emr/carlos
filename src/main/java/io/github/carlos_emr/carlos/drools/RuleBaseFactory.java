@@ -45,7 +45,7 @@ import io.github.carlos_emr.carlos.utility.QueueCache;
  * <ul>
  *   <li><strong>Queue buckets:</strong> 4 (distributes entries across buckets for performance)</li>
  *   <li><strong>Max entries:</strong> 2048 (maximum number of knowledge bases to cache)</li>
- *   <li><strong>TTL:</strong> 24 hours (entries expire after {@link DateUtils#MILLIS_PER_DAY})</li>
+ *   <li><strong>TTL:</strong> 24 hours (a fixed {@link java.time.Duration#ofDays(long)} duration)</li>
  *   <li><strong>Expiry handler:</strong> null (no custom cleanup on expiration)</li>
  * </ul>
  *

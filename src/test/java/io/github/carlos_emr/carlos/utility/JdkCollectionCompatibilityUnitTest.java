@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Map;
+import java.nio.charset.StandardCharsets;
 
 import io.github.carlos_emr.carlos.commn.model.CdsClientForm;
 import io.github.carlos_emr.carlos.web.Cds4ReportUIBean.SingleMultiAdmissions;
@@ -40,10 +41,18 @@ class JdkCollectionCompatibilityUnitTest {
     }
 
     @Test
-    void shouldKeepDiseaseOrderAndReplacements_forOntarioMd() {
+    void shouldKeepDiseaseOrderAndReplacements_forOntarioMd() throws Exception {
         Map<String, String> diseases = new OntarioMD().getDiseaseList();
         LinkedMap<String, String> legacy = new LinkedMap<>();
-        diseases.forEach(legacy::put);
+        // Frozen from release/2026.08 before this migration, not from the new result.
+        try (var fixture = getClass().getResourceAsStream("/utility/ontario-md-diseases.tsv")) {
+            assertThat(fixture).isNotNull();
+            new String(fixture.readAllBytes(), StandardCharsets.UTF_8).lines().forEach(line -> {
+                String[] pair = line.split("\t", -1);
+                legacy.put(pair[0], pair[1]);
+            });
+        }
+        assertThat(new ArrayList<>(diseases.entrySet())).containsExactlyElementsOf(legacy.entrySet());
         String first = diseases.keySet().iterator().next();
         diseases.put(first, "replacement");
         legacy.put(first, "replacement");
@@ -61,6 +70,7 @@ class JdkCollectionCompatibilityUnitTest {
                 assertThat(entry.getKey()).isEqualTo(legacy.getKey());
                 assertThat(entry.getValue()).isEqualTo(legacy.getValue());
                 assertThat(entry.setValue("replacement")).isEqualTo(legacy.setValue("replacement"));
+                assertThat(entry.getValue()).isEqualTo(legacy.getValue()).isEqualTo("replacement");
             }
         }
     }
