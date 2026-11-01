@@ -40,11 +40,7 @@ async function workflow(s){
   const columns=sql.rows(`SELECT COLUMN_NAME,COLUMN_KEY FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=${q(form.table)}`);
   const idColumn=columns.find(x=>x[1]==='PRI')?.[0];
   h.assert(idColumn&&fields.every(f=>columns.some(c=>c[0]===f.name)),'Follow-up configuration disagrees with the real form schema');
-  const pendingReads=new Map();
-  const observeRead=request=>{try{const url=new URL(request.url());if(url.origin===s.config.baseUrl.origin&&url.pathname===new URL(h.appUrl(s.config.baseUrl,'/encounter/displayForms')).pathname&&request.resourceType()==='xhr'){const page=request.frame().page();if(!pendingReads.has(page))pendingReads.set(page,new Set());pendingReads.get(page).add(request);}}catch{}};
-  const finishRead=request=>{for(const requests of pendingReads.values())requests.delete(request);};
-  s.context.on('request',observeRead);s.context.on('requestfinished',finishRead);s.context.on('requestfailed',finishRead);
-  s.cleanup(()=>{s.context.off('request',observeRead);s.context.off('requestfinished',finishRead);s.context.off('requestfailed',finishRead);});
+  const readTracker=createFormReadTracker(s.context,s.config.baseUrl);s.cleanup(()=>readTracker.dispose());
   const chart=await s.chart();
   let page,id,original;
   const input=f=>page.locator(`[name="${f.name}"]`).first();
@@ -63,20 +59,16 @@ async function workflow(s){
     await landed.waitForLoadState('domcontentloaded');page=landed;
   }
   async function reopen(){
-    const inFlight=new Set(pendingReads.get(chart)||[]);
-    const since=s.recorder.requestFailures.length;
-    // Closing the form refreshes its opener's Forms module. Capture those
-    // pre-existing read requests before that native callback can abandon them.
-    if(page&&!page.isClosed())await page.close();
-    for(const request of pendingReads.get(chart)||[])inFlight.add(request);
-    await chart.waitForLoadState('networkidle',{timeout:5000}).catch(()=>{});
-    for(const request of pendingReads.get(chart)||[])inFlight.add(request);
-    await chart.reload({waitUntil:'domcontentloaded'});await waitForNavbars(chart,20000);
-    // This explicit browser reload aborts the old chart's pagehide lock-release
-    // beacon. Scope the expected unload signal to this reload only.
-    const failures=s.recorder.requestFailures.splice(since);
-    s.recorder.requestFailures.push(...failures.filter(x=>keepOwnReloadFailure(x,inFlight,s.config.baseUrl)).filter(x=>!(x.resourceType==='ping'&&x.errorText==='net::ERR_ABORTED'
-      &&new URL(x.url).pathname.endsWith('/CaseManagementEntry'))));
+    const harvest=readTracker.begin(chart),since=s.recorder.requestFailures.length;
+    try {
+      if(page&&!page.isClosed())await page.close();
+      await chart.waitForLoadState('networkidle',{timeout:5000}).catch(()=>{});
+      harvest.beforeReload();
+      await chart.reload({waitUntil:'domcontentloaded'});await waitForNavbars(chart,20000);
+      const failures=s.recorder.requestFailures.splice(since);
+      s.recorder.requestFailures.push(...failures.filter(entry=>harvest.keepFailure(entry)).filter(entry=>!(entry.resourceType==='ping'&&entry.errorText==='net::ERR_ABORTED'
+        &&new URL(entry.url).pathname.endsWith('/CaseManagementEntry'))));
+    } finally {harvest.finish();}
     const link=chart.locator(`#leftNavBar a[onclick*="formname=${title}&"],#rightNavBar a[onclick*="formname=${title}&"]`).first();
     await revealSavedForm(chart,link);
     page=await ui.clickOpensPopup(chart,link,{context:s.context,recorder:s.recorder,label:`followup-${key}`,position:{x:8,y:9}});
@@ -123,10 +115,35 @@ async function workflow(s){
   });
 }
 if(require.main===module)runWorkflow(name,workflow);
+function createFormReadTracker(context,baseUrl) {
+  const pending=new Map(),harvests=new Map(),endpoint=new URL(h.appUrl(baseUrl,'/encounter/displayForms'));
+  const observe=request=>{try{
+    const url=new URL(request.url());
+    if(url.origin!==endpoint.origin||url.pathname!==endpoint.pathname||request.resourceType()!=='xhr')return;
+    const page=request.frame().page();if(!pending.has(page))pending.set(page,new Set());pending.get(page).add(request);
+    const harvest=harvests.get(page);if(harvest?.oldDocument)harvest.requests.add(request);
+  }catch{}};
+  const terminal=request=>{for(const requests of pending.values())requests.delete(request);};
+  context.on('request',observe);context.on('requestfinished',terminal);context.on('requestfailed',terminal);
+  return {
+    begin(page){
+      h.assert(!harvests.has(page),'A Forms read harvest is already active');
+      const state={page,requests:new Set(pending.get(page)||[]),oldDocument:true};
+      state.commit=frame=>{if(frame===page.mainFrame())state.oldDocument=false;};
+      harvests.set(page,state);page.on('framenavigated',state.commit);
+      return {
+        beforeReload(){for(const request of pending.get(page)||[])state.requests.add(request);state.oldDocument=true;},
+        keepFailure(entry){return keepOwnReloadFailure(entry,state.requests,baseUrl);},
+        finish(){page.off('framenavigated',state.commit);harvests.delete(page);},
+      };
+    },
+    dispose(){context.off('request',observe);context.off('requestfinished',terminal);context.off('requestfailed',terminal);for(const state of harvests.values())state.page.off('framenavigated',state.commit);harvests.clear();pending.clear();},
+  };
+}
 function keepOwnReloadFailure(entry,inFlight,baseUrl) {
   const request=entry.requestRef?.deref?.();
   if(!request||!inFlight.has(request)||entry.resourceType!=='xhr'||entry.errorText!=='net::ERR_ABORTED')return true;
-  const url=new URL(entry.url);
+  let url;try{url=new URL(entry.url);}catch{return true;}
   return url.origin!==baseUrl.origin||url.pathname!==new URL(h.appUrl(baseUrl,'/encounter/displayForms')).pathname;
 }
-module.exports={workflow,forms,keepOwnReloadFailure};
+module.exports={workflow,forms,keepOwnReloadFailure,createFormReadTracker};

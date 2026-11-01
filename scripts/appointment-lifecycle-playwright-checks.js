@@ -126,6 +126,7 @@ function encodeOptionFileValue(value) {
 }
 
 function initMysqlDefaults() {
+  if(mysqlDefaults)return;
   if (/[\r\n]/.test(mysqlPassword)) {
     throw new Error('MYSQL_PASSWORD must not contain newline characters');
   }

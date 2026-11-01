@@ -207,7 +207,7 @@ function assertBrowserDiagnostics() {
   h.assertStrictPage(recorder);
   // Retain this workflow's stronger pre-migration HTTP contract, including assets
   // that the common recorder treats as a known missing resource.
-  assert(badResponses.length === 0, `unexpected HTTP errors or dialogs: ${JSON.stringify(badResponses, null, 2)}`);
+  assert(badResponses.length === 0, `unexpected HTTP errors or dialogs: ${h.withoutQueryStrings(JSON.stringify(badResponses, null, 2))}`);
 }
 
 /** Observe the real final navigation; never intercept or replace its native lock release. */
@@ -845,12 +845,12 @@ require('./lib/legacy-check').runLegacyCheck('echart-print',async({cancellation}
   }
   } catch(error) {
   console.error('FAIL eChart print Playwright check');
-  console.error(error.stack || error.message);
+  console.error(h.withoutQueryStrings(error.stack || error.message));
   if (printResults.length) {
-    console.error(`Print results: ${JSON.stringify(printResults, null, 2)}`);
+    console.error(`Print results: ${h.withoutQueryStrings(JSON.stringify(printResults, null, 2))}`);
   }
   if (badResponses.length) {
-    console.error(`HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
+    console.error(`HTTP errors: ${h.withoutQueryStrings(JSON.stringify(badResponses, null, 2))}`);
   }
   try { h.assertStrictPage(recorder); } catch (diagnostic) { console.error(diagnostic.message); }
   throw error;

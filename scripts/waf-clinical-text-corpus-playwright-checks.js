@@ -1218,7 +1218,7 @@ async function workflow(s) {
   };
   const available = rows(s, ctx);
   const built = selectedKeys().map((key) => available[key]());
-  const failures = [];
+  const failures = [],skips=[];
   const clipped = [];
   let ticklerRow = null;
   for (const row of built) if (row.early) row.early();
@@ -1238,7 +1238,7 @@ async function workflow(s) {
     const keep = Object.fromEntries(['pageErrors', 'consoleIssues', 'requestFailures', 'badResponses', 'unexpectedDialogs']
       .map((key) => [key, s.recorder[key].length]));
     try { await s.step(label, body); return true; } catch (error) {
-      if(error instanceof h.SkipCheck)throw error;
+      if(error instanceof h.SkipCheck){skips.push(error);console.log(`  SKIP ${label}: ${error.message}`);return false;}
       const own = !judged || error instanceof RowFailure;
       failures.push({ label: own ? label : `${label} -- the drive failed before the corpus could be judged`, error });
       console.error(`  FAIL ${label}: ${error.message}`);
@@ -1351,12 +1351,17 @@ async function workflow(s) {
 
   for (const note of clipped) console.log(`  NOTE ${note}`);
   assertFrontDoor();
+  finishRows(failures,skips);
+}
+
+function finishRows(failures,skips=[]) {
   if (failures.length) {
     // One failed row keeps its own step label, so a manifest expectedFailure can pin it; several failed
     // rows are a different problem and must not hide behind one pin.
     const message = `${failures.length} route row(s) failed: ${failures.map((failure) => `[${failure.label}] ${failure.error.message}`).join(' || ')}`;
     throw h.markFailedStep(new Error(message), failures.length === 1 ? failures[0].label : `${failures.length} route rows failed`);
   }
+  if(skips.length)throw skips[0];
 }
 
 /** Before any fixture exists: a piece of the install a selected row needs that is missing SKIPs the whole check. */
@@ -1365,4 +1370,4 @@ async function preflight({ sql }) {
 }
 
 if (require.main === module) runWorkflow('waf-clinical-text-corpus', workflow, { openPatient: true, preflight });
-module.exports = { PREREQUISITES, workflow, rtlPlainText };
+module.exports = { PREREQUISITES, workflow, rtlPlainText,finishRows };

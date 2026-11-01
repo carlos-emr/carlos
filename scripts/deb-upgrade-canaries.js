@@ -26,10 +26,11 @@ async function reopenCanaries(s) {
     await openDaySheet({...s,schedule},appointment[0][1]);
     const link=schedule.locator(`a.apptLink[onclick*="appointment_no=${appointment[0][0]}"]`).first();
     await link.waitFor({state:'visible'});
-    const shown=(await link.innerText())+' '+(await link.getAttribute('title')||'');
-    h.assert(shown.includes(s.marker),'Upgraded day sheet lost its retained appointment marker');
-    const binding=/[?&]demographic_no=(\d+)(?:&|['"])/.exec(await link.getAttribute('onclick')||'');
-    h.assert(binding?.[1]===s.patient,'Upgraded day sheet changed the appointment patient binding');
+    const editor=await ui.clickOpensPopup(schedule,link,{context,recorder:s.recorder,label:'upgraded-appointment',timeout:30000});
+    h.assert(new URL(editor.url()).searchParams.get('appointment_no')===appointment[0][0],'Upgraded day sheet opened another appointment');
+    h.assert(await editor.locator('[name="demographic_no"]').inputValue()===s.patient,'Upgraded appointment changed its patient binding');
+    h.assert(await editor.locator('[name="reason"]').inputValue()===s.marker+'-AA-UPGRADE','Upgraded appointment lost its retained reason');
+    await editor.close();
     const ticklers=await ui.clickOpensPopup(master,masterRecordLink(master,'/tickler/ViewTicklerMain').first(),{context,recorder:s.recorder,label:'upgraded-ticklers',timeout:30000});
     await ticklers.getByText(`${s.marker}-TA-UPGRADE`,{exact:false}).first().waitFor({state:'visible'});
     const chart=await openChart(context,master,s.recorder,30000);await waitForNavbars(chart,30000);

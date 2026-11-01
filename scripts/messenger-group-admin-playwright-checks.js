@@ -135,9 +135,9 @@ function cleanup() {
     if(state.latchBefore) {
       const after=sql.rows('SELECT id,lastUpdateUser,lastUpdateDate FROM messengerMembershipLock ORDER BY id');
       if(state.latchBefore.length)assert(JSON.stringify(after)===JSON.stringify(state.latchBefore),'Preexisting membership coordinator changed; retain it');
-      else if(state.latchOwned) {
-        assert(after.length===1&&JSON.stringify(after[0])===JSON.stringify(state.latchOwned),'Owned membership coordinator changed; retain it');
-        sql.execute(`DELETE FROM messengerMembershipLock WHERE id=1 AND lastUpdateUser=${sqlString(state.latchMarker)} AND lastUpdateDate=${sqlString(state.latchOwned[2])}`);
+      else if(state.latchMarker&&after.length) {
+        assert(after.length===1&&after[0][0]==='1'&&after[0][1]===state.latchMarker&&(!state.latchOwned||JSON.stringify(after[0])===JSON.stringify(state.latchOwned)),'Owned membership coordinator changed; retain it');
+        sql.execute(`DELETE FROM messengerMembershipLock WHERE id=1 AND lastUpdateUser=${sqlString(state.latchMarker)} AND lastUpdateDate=${sqlString(after[0][2])}`);
         assert(sql.value('SELECT COUNT(*) FROM messengerMembershipLock')==='0','Membership coordinator baseline did not restore');
       }
     }

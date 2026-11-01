@@ -32,3 +32,15 @@ test('local calls discover nested reachable functions without accepting an unuse
  const file=path.join(root,'nested.js');fs.writeFileSync(file,'function outer(){function inner(){h.runCheck({});}inner();}outer();');assert.equal(hasSignalEntryPoint(file),true);
  const unused=path.join(root,'unused.js');fs.writeFileSync(unused,'function outer(){function inner(){h.runCheck({});}}outer();');assert.equal(hasSignalEntryPoint(unused),false);
 });
+
+test('nested bindings cannot replace a called function in its parent lexical scope',t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-signal-scope-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const cases=[
+  [false,'function start(){doUnprotectedWork();}function outer(){function start(){h.runCheck({});}}outer();start();'],
+  [true,'function start(){h.runCheck({});}function outer(){function start(){doUnprotectedWork();}}outer();start();'],
+  [false,'function start(){h.runCheck({});}function outer(start){start();}outer(()=>{});'],
+  [true,'function outer(){const start=()=>h.runCheck({});start();}outer();'],
+  [false,'function outer(){const start=()=>doUnprotectedWork();{const start=()=>h.runCheck({});}start();}outer();']
+ ];
+ for(const [index,[expected,source]] of cases.entries()){const file=path.join(root,index+'.js');fs.writeFileSync(file,source);assert.equal(hasSignalEntryPoint(file),expected,source);}
+});

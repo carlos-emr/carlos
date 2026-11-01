@@ -110,11 +110,19 @@ function removeOwnedPdfDocuments({ sql, marker, patient, files, docs }) {
   const ids = [...new Set([...byMarker, ...capturedIds(docs)])];
   h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Invalid owned document identity');
   if (ids.length) {
-    h.assert(sql.value(`SELECT COUNT(*) FROM ctl_document WHERE document_no IN (${ids.join(',')}) AND NOT (module='demographic' AND module_id=${patient})`)==='0','Owned document acquired an external document link; retain it');
+    h.assert(sql.value(`SELECT COUNT(*) FROM ctl_document WHERE document_no IN (${ids.join(',')}) AND NOT (module='demographic' AND module_id=${h.sqlString(String(patient))})`)==='0','Owned document acquired an external document link; retain it');
     h.assert(sql.value(`SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='DOC' AND lab_no IN (${ids.join(',')}) AND demographic_no<>${patient}`)==='0','Owned document acquired another patient link; retain it');
-    sql.execute(`DELETE FROM patientLabRouting WHERE lab_type='DOC' AND lab_no IN (${ids.join(',')}) AND demographic_no=${patient};
-      DELETE FROM ctl_document WHERE document_no IN (${ids.join(',')}) AND module='demographic' AND module_id=${patient};
-      DELETE FROM document WHERE document_no IN (${ids.join(',')})`);
+    sql.execute(`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;START TRANSACTION;
+      SELECT document_no FROM document WHERE document_no IN (${ids.join(',')}) FOR UPDATE;
+      SELECT document_no FROM ctl_document WHERE document_no IN (${ids.join(',')}) FOR UPDATE;
+      SELECT lab_no FROM patientLabRouting WHERE lab_type='DOC' AND lab_no IN (${ids.join(',')}) FOR UPDATE;
+      CREATE TEMPORARY TABLE carlos_pdf_cleanup_guard(ok INT NOT NULL CHECK(ok=1));
+      INSERT INTO carlos_pdf_cleanup_guard VALUES(IF(
+        (SELECT COUNT(*) FROM ctl_document WHERE document_no IN (${ids.join(',')}) AND NOT (module='demographic' AND module_id=${h.sqlString(String(patient))}))=0
+        AND (SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='DOC' AND lab_no IN (${ids.join(',')}) AND demographic_no<>${patient})=0,1,0));
+      DELETE FROM patientLabRouting WHERE lab_type='DOC' AND lab_no IN (${ids.join(',')}) AND demographic_no=${patient};
+      DELETE FROM ctl_document WHERE document_no IN (${ids.join(',')}) AND module='demographic' AND module_id=${h.sqlString(String(patient))};
+      DELETE FROM document WHERE document_no IN (${ids.join(',')});COMMIT;`);
   }
   for (const file of files) if (fs.existsSync(file)) fs.unlinkSync(file);
 }
@@ -124,7 +132,7 @@ function assertOwnedPdfDocumentsRemoved({ sql, marker, patient, files, docs }) {
   h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Invalid owned document identity');
   h.assert(sql.value(`SELECT COUNT(*) FROM document WHERE docdesc LIKE ${h.sqlString(`${marker}%`)}`) === '0'
     && (!ids.length || sql.value(`SELECT COUNT(*) FROM document WHERE document_no IN (${ids.join(',')})`) === '0')
-    && sql.value(`SELECT COUNT(*) FROM ctl_document WHERE module='demographic' AND module_id=${patient}`) === '0'
+    && sql.value(`SELECT COUNT(*) FROM ctl_document WHERE module='demographic' AND module_id=${h.sqlString(String(patient))}`) === '0'
     && (!ids.length || sql.value(`SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='DOC' AND lab_no IN (${ids.join(',')})`) === '0'),
   'Owned document rows were not removed');
   h.assert(!files.some(file => fs.existsSync(file)), 'Owned document files were not removed');
