@@ -49,6 +49,8 @@
  *     compose network — private IPv4 addresses included
  *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-local test database
  */
+
+const legacyHarness=require('./lib/legacy-check');
 const assert = require('assert');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
@@ -315,7 +317,7 @@ function runCleanupOnce() {
   return failures;
 }
 
-async function run() {
+async function run({cancellation}={}) {
   const providerNo = String(900000 + randomInt(1000, 9999));
   const lastName = `Rolecheck${providerNo}`;
   let browser = null;
@@ -333,10 +335,11 @@ async function run() {
     check(`${testUser} holds _site_access_privacy (the condition that triggered the bug)`,
       privilege.length > 0, privilege || '(none)');
 
-    browser = await chromium.launch({
+    browser = await chromium.launch({...({
       ...(chromePath ? { executablePath: chromePath } : {}),
       args: ['--no-sandbox', '--disable-dev-shm-usage'],
-    });
+    }),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const page = await browser.newPage({
       baseURL: playwrightBaseUrl(),
       // The packaged standalone install intentionally starts with a
@@ -346,12 +349,16 @@ async function run() {
       ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1400, height: 1000 },
     });
+    cancellation?.throwIfCancelled();
 
     await login(page);
+    cancellation?.throwIfCancelled();
     check('logged in', /providercontrol/i.test(page.url()), page.url());
 
     const options = await roleOptions(page);
+    cancellation?.throwIfCancelled();
     await page.screenshot({ path: shot('assign-role-dropdown'), fullPage: true });
+    cancellation?.throwIfCancelled();
     check(`Assign Role dropdown offers the "${SUPER_ROOT_ROLE}" role`,
       options.includes(SUPER_ROOT_ROLE), `${options.length} options`);
 
@@ -359,12 +366,15 @@ async function run() {
     seededProviderNo = providerNo;
 
     await roleOptions(page, lastName);
+    cancellation?.throwIfCancelled();
     // The JSP wraps each <tr> in a <form> INSIDE the <table>; HTML parsing
     // hoists the form out and leaves the row behind, so address the row.
     const row = page.locator('tr', { hasText: providerNo }).first();
     await row.waitFor({ state: 'attached', timeout: 30000 });
+    cancellation?.throwIfCancelled();
     const select = row.locator('select[name="roleNew"]').first();
     await select.selectOption(SUPER_ROOT_ROLE);
+    cancellation?.throwIfCancelled();
     const addButton = row.locator('input[name="submit"][value="Add"]').first();
     // The Add button ships disabled; the select's onchange (enableAddRoleButton)
     // is what enables it for a role the provider does not already hold. Wait for
@@ -377,12 +387,14 @@ async function run() {
     let addButtonDetail = '';
     try {
       await addButton.click({ timeout: 30000 });
+    cancellation?.throwIfCancelled();
     } catch (error) {
       addButtonEnabled = false;
       // click() also fails when the element is detached, hidden or obstructed,
       // so read the real state before blaming the change handler — otherwise a
       // failing check points at the wrong thing.
       const stillDisabled = await addButton.isDisabled().catch(() => null);
+    cancellation?.throwIfCancelled();
       addButtonDetail = stillDisabled === true
         ? `Add stayed disabled after selecting "${SUPER_ROOT_ROLE}"`
         : `Add could not be clicked (disabled=${stillDisabled}): ${String(error.message).split('\n')[0].slice(0, 200)}`;
@@ -390,7 +402,9 @@ async function run() {
     check('the role change handler enables Add, and the click submits',
       addButtonEnabled, addButtonDetail);
     await page.waitForLoadState('domcontentloaded', { timeout: 60000 });
+    cancellation?.throwIfCancelled();
     await page.screenshot({ path: shot('assign-role-assigned'), fullPage: true });
+    cancellation?.throwIfCancelled();
 
     const assigned = sql(`SELECT role_name FROM secUserRole WHERE provider_no='${escapeSql(providerNo)}'`);
     check(`"${SUPER_ROOT_ROLE}" role assigned through the browser and persisted`,
@@ -414,26 +428,16 @@ async function run() {
  * and the cleartext password file here too. The browser is left to the OS; only
  * the database rows and that file matter.
  */
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`\n${signal} received; removing seeded rows before exiting.`);
-    let failures = [];
-    try {
-      failures = runCleanupOnce();
-    } catch (error) {
-      console.error(`WARN cleanup after ${signal} failed: ${error.message}`);
-    }
-    failures.forEach((failure) => console.error(`WARN ${failure}`));
-    process.exit(130);
-  });
-}
+// Signals unwind through the shared entry point and the existing finally below.
 
-run()
+legacyHarness.runLegacyCheck('assign-role',async context=>{await run(context)
   .catch((error) => check('script completed without error', false, error.message))
   .finally(() => {
     fs.mkdirSync(screenshotDir, { recursive: true });
     fs.writeFileSync(buildArtifactPath(screenshotDir, 'results', '.json'), JSON.stringify(results, null, 2));
     const failed = results.filter((result) => !result.ok);
     console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
-    process.exit(failed.length ? 1 : 0);
+    process.exitCode=failed.length ? 1 : 0;
   });
+
+});

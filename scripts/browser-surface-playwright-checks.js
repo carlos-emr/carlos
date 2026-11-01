@@ -25,6 +25,8 @@
  * back could never put the demo record back. The patient, its archive rows and its chart rows are deleted by the patient's key.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
@@ -258,7 +260,7 @@ async function checkAdminPage(context, appPath, label, requiredText) {
   await page.close();
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('browser-surface',async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -276,17 +278,26 @@ async function checkAdminPage(context, appPath, label, requiredText) {
     // The Master Record form refuses to save a blank Canadian postal code ("The entered Postal Code is not valid"), and the surface
     // step saves it; the demo patient this check used to open had one. A reserved real-format code, on the owned patient only.
     sql.execute(`UPDATE demographic SET postal='K1A0B1' WHERE demographic_no=${demographicNo} AND last_name=${h.sqlString(ownedMarker)}`);
-    browser = await chromium.launch(launchOptions);
+    browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    cancellation?.throwIfCancelled();
     context.on('page', page => h.wireStrictPage(page, 'browser-surface-page', recorder, { baseline: [] }));
     const schedulePage = await login(context);
+    cancellation?.throwIfCancelled();
     const patientPage = await openPatientFromSearch(context, schedulePage);
+    cancellation?.throwIfCancelled();
 
     await checkDemographicCrud(context);
+    cancellation?.throwIfCancelled();
     await checkPatientPopups(context, patientPage);
+    cancellation?.throwIfCancelled();
     await checkAdminPage(context, '/admin/ViewAdminDisplayMyGroup', 'admin-my-group', 'Group');
+    cancellation?.throwIfCancelled();
     await checkAdminPage(context, '/admin/labForwardingRules', 'admin-lab-forwarding', 'Forwarding');
+    cancellation?.throwIfCancelled();
     await checkAdminPage(context, '/admin/ProviderPrivilege', 'admin-provider-privilege', 'Provider');
+    cancellation?.throwIfCancelled();
 
     const fatalConsoleIssues = consoleIssues.filter((issue) => issue.type !== 'dialog');
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
@@ -305,7 +316,7 @@ async function checkAdminPage(context, appPath, label, requiredText) {
       sql.dispose();
     }
   }
-})().catch((error) => {
+}).catch((error) => {
   console.error('FAIL browser surface Playwright check');
   console.error(error.stack || error.message);
   console.error(JSON.stringify(h.buildFailureDetails(recorder), null, 2));

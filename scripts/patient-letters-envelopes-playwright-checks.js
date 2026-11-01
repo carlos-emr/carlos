@@ -55,6 +55,8 @@
  * every owned template, document, follow-up and PDF can be removed and verified after the run.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { authenticatedProbe } = require('./lib/authenticated-probe');
 const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
@@ -561,7 +563,7 @@ async function cleanup(demographicNo) {
   if (sql(`SELECT COUNT(*) FROM measurements WHERE comments='${reportName}' AND type='FLUF' AND demographicNo=${Number(demographicNo)}`) !== '0') throw new Error('Owned follow-up remains');
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('patient-letters-envelopes',async({cancellation})=>{
   const launchOptions = { headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -572,21 +574,30 @@ async function cleanup(demographicNo) {
   execFileSync('pdftotext', ['-v'], {stdio:'ignore'});
   sql('SELECT 1');
   const demographicNo = resolveDemographicNo();
-  const browser = await chromium.launch(launchOptions);
+  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   let context;
   await withPreservedCleanup(async () => {
     context = await browser.newContext({
       ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1280, height: 900 },
     });
+    cancellation?.throwIfCancelled();
     await login(context);
+    cancellation?.throwIfCancelled();
     await checkEnvelopesWithoutSelection(context);
+    cancellation?.throwIfCancelled();
     await checkEnvelopePdf(context, demographicNo);
+    cancellation?.throwIfCancelled();
     await checkUnicodeEnvelope(context);
+    cancellation?.throwIfCancelled();
     await checkMutatorsRejectGet(context);
+    cancellation?.throwIfCancelled();
     await checkInvalidUpload(context);
+    cancellation?.throwIfCancelled();
     await uploadTemplate(context);
+    cancellation?.throwIfCancelled();
     await checkGenerateLetters(context, demographicNo);
+    cancellation?.throwIfCancelled();
 
     console.log(JSON.stringify({ visited, dialogs, findings }, null, 2));
     if (findings.length) {
@@ -598,7 +609,7 @@ async function cleanup(demographicNo) {
     () => { if (mysqlDefaults) fs.rmSync(mysqlDefaults.dir, { recursive: true, force: true }); },
     () => browser.close(),
   ]);
-})().catch((error) => {
+}).catch((error) => {
   try {
     if (mysqlDefaults) fs.rmSync(mysqlDefaults.dir, {recursive:true, force:true});
   } catch (cleanupError) {

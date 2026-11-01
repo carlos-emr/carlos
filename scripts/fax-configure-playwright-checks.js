@@ -97,6 +97,8 @@
  */
 
 'use strict';
+const legacyHarness=require('./lib/legacy-check');
+
 
 const { chromium } = require('playwright');
 const { createFaxConfigGuard } = require('./lib/fax-config-state');
@@ -268,7 +270,7 @@ async function armSaveButton(form) {
 
 const recorder = createRecorder();
 
-async function main() {
+async function main({cancellation}={}) {
   // The fax account is clinic-wide. Snapshot it BEFORE a browser exists, so there is no path on
   // which the save runs and the table is not put back. Without MYSQL_PASSWORD there is nothing to
   // restore from, so the save step below is skipped rather than risked.
@@ -294,18 +296,21 @@ async function main() {
   const existing = { accountNumber: '', accountName: '', senderEmail: '', faxNumber: '' };
 
   try {
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     context = await browser.newContext({
       // A packaged standalone install begins with a self-signed certificate.
       // Remote targets explicitly opted into above must still prove their TLS.
       ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl),
       viewport: { width: 1360, height: 1100 },
     });
+    cancellation?.throwIfCancelled();
 
     await step('login as an administrator', async () => {
       page = await login(context, config, recorder);
       await assertNotErrorPage(page, 'post-login page');
     });
+    cancellation?.throwIfCancelled();
 
     // wirePage() dismisses every dialog it sees, and dismissing a beforeunload
     // prompt CANCELS navigation. The page only arms that prompt while Save is
@@ -343,6 +348,7 @@ async function main() {
       existing.senderEmail = (await frame.locator('#senderEmail').inputValue()).trim();
       existing.faxNumber = digitsOnly(await frame.locator('#faxNumber').inputValue());
     });
+    cancellation?.throwIfCancelled();
 
     const frame = page.frameLocator('#myFrame');
 
@@ -380,6 +386,7 @@ async function main() {
 
       await shot(page, existing, 'fax-config-page');
     });
+    cancellation?.throwIfCancelled();
 
     // The connection test is a real request: verifyConnection posts Get_Fax_Inbox to SRFax's API at
     // www.srfax.com whenever an account number and password are entered, the fake defaults included.
@@ -446,6 +453,7 @@ async function main() {
       await frame.locator('#faxUser').fill(config.srfax.accessId);
       assert(!(await result.isVisible()), 'Connection result reappeared after restoring the account number');
     });
+    cancellation?.throwIfCancelled();
 
     // Saving overwrites the single fax_config row, and the row is only put back from the snapshot,
     // so a save needs the guard. Safe cases beyond that: no account configured yet, the row holds
@@ -528,10 +536,12 @@ async function main() {
       await shot(direct, existing, 'fax-config-reloaded');
       await direct.close();
     });
+    cancellation?.throwIfCancelled();
 
     await step('no page errors across the flow', async () => {
       assertNoPageErrors(recorder);
     });
+    cancellation?.throwIfCancelled();
     if (screenshotsSkipped > 0) {
       console.log(`SKIP ${screenshotsSkipped} screenshot(s): a real SRFax account could appear on the page; `
         + 'set FAX_CONFIG_SCREENSHOTS=always to capture them anyway');
@@ -557,7 +567,7 @@ async function main() {
   }
 }
 
-main()
+legacyHarness.runLegacyCheck('fax-configure',main)
   .then(() => {
     const failed = results.filter((r) => !r.passed);
     if (failed.length > 0) {

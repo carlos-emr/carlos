@@ -26,6 +26,8 @@
  * gone; the audit log keeps its entries. The save upper-cases the name; the database compares it without case.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const h = require('./lib/playwright-harness');
 const { shouldIgnoreHttpsErrors } = h;
@@ -413,11 +415,12 @@ function removeRunPatient(sql) {
   }
 }
 
-async function main() {
+async function main({cancellation}={}) {
   // Before the browser starts: without the database the run could not remove its patient.
   const sql = h.createSqlRunner(h.readConfig().mysql);
   try {
     await run(sql);
+    cancellation?.throwIfCancelled();
   } finally {
     // Removes the runner's client option file, which holds the database password; also after a failed launch.
     sql.dispose();
@@ -434,7 +437,7 @@ async function run(sql) {
     launchOptions.executablePath = config.chromiumPath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   // ignoreHTTPSErrors: the packaged deployment serves a self-signed certificate
   // by default, so a real install is reached over HTTPS with an untrusted CA.
   const context = await browser.newContext({ viewport: { width: 1400, height: 1000 }, ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
@@ -495,7 +498,7 @@ async function run(sql) {
   }
 }
 
-main().catch(error => {
+legacyHarness.runLegacyCheck('demographic-master-crud-smoke',main).catch(error => {
   console.error(error.stack || error.message);
   process.exit(1);
 });

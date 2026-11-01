@@ -49,6 +49,8 @@
  * unique name, and each is asserted gone.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { authenticatedProbe } = require('./lib/authenticated-probe');
 const { validateBaseUrl } = require('./lib/playwright-harness');
 const fs = require('fs');
@@ -500,7 +502,7 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
   }
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-saved-render',async({cancellation})=>{
   const fixture = createFixtureFiles();
   const timestamp = Date.now();
   const formName = `Playwright Saved Render ${timestamp}`;
@@ -526,34 +528,52 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
     assert(provider, 'The configured test login has no provider');
     demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
-    browser = await chromium.launch(launchOptions);
+    browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1280, height: 1400 } });
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     await ensureImageUploaded(context, fixture.imagePath, bgImageName);
+    cancellation?.throwIfCancelled();
     const uploadResult = await uploadEform(context, formName, formSubject, fixture.htmlPath);
+    cancellation?.throwIfCancelled();
     managerPage = uploadResult.page;
     importedFid = uploadResult.fid;
 
     const addPage = await openAddEform(context, importedFid);
+    cancellation?.throwIfCancelled();
     const fdid = await saveEformAndCaptureFdid(addPage, savedValue);
+    cancellation?.throwIfCancelled();
     await screenshot(addPage, 'saved-render-after-save');
+    cancellation?.throwIfCancelled();
     await addPage.close();
+    cancellation?.throwIfCancelled();
 
     const directPage = await openSavedEformDirect(context, fdid);
+    cancellation?.throwIfCancelled();
     await assertSavedFormState(directPage, savedValue, fdid, 'saved-render-direct-route');
+    cancellation?.throwIfCancelled();
     await directPage.close();
+    cancellation?.throwIfCancelled();
 
     await checkPreviewCapacity(context, { appUrl, fdid, demographicNo });
+    cancellation?.throwIfCancelled();
 
     const patientListPopup = await openSavedEformFromPatientList(context, formName);
+    cancellation?.throwIfCancelled();
     assert(patientListPopup.url().includes(`fdid=${fdid}`), `Patient list popup did not open the expected saved-form route: ${patientListPopup.url()}`);
     await assertSavedFormState(patientListPopup, savedValue, fdid, 'saved-render-patient-list');
+    cancellation?.throwIfCancelled();
     await patientListPopup.close();
+    cancellation?.throwIfCancelled();
 
     if (process.env.EFORM_FAX_PREVIEW_CHECK === 'true') {
       await checkOwnedFaxPreview(browser, context, fdid);
+    cancellation?.throwIfCancelled();
     } else {
       console.log('SKIP owned fax preview cancellation (set EFORM_FAX_PREVIEW_CHECK=true with an active fax account)');
     }
@@ -606,7 +626,7 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
       process.exitCode = 1;
     }
   }
-})().catch((error) => {
+}).catch((error) => {
   console.error('FAIL saved eForm render Playwright check');
   console.error(error.stack || error.message);
   if (badResponses.length) {

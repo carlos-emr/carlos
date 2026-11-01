@@ -9,7 +9,7 @@ const vm = require('node:vm');
 const h = require('./lib/playwright-harness');
 
 const source = fs.readFileSync(path.join(__dirname, 'demographic-master-crud-smoke.js'), 'utf8');
-const definitions = source.slice(0, source.indexOf('\nmain().catch('));
+const definitions = source.slice(0, source.indexOf("\nlegacyHarness.runLegacyCheck('demographic-master-crud-smoke'"));
 
 for (const cleanupFails of [false, true]) {
   test(`shouldAttemptPatientCleanup_whenBrowserCloseFails${cleanupFails ? 'AndSqlFails' : ''}`, async () => {
@@ -29,6 +29,7 @@ for (const cleanupFails of [false, true]) {
       process: { env: {} },
       console: { log() {} },
       require(name) {
+        if(name==='./lib/legacy-check')return require('./lib/legacy-check');
     if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
         if (name === 'playwright') return { chromium: { async launch() { return {
           async newContext() { return { setDefaultTimeout() {}, on() {}, async newPage() { return {}; } }; },

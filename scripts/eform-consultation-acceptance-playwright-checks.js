@@ -57,6 +57,8 @@
  * unique name, and each is asserted gone.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { validateBaseUrl } = require('./lib/playwright-harness');
 const fs = require('fs');
 const os = require('os');
@@ -646,7 +648,7 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
   await screenshot(page, 'consultation-linked-open');
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-consultation-acceptance',async({cancellation})=>{
   const fixture = createFixtureFiles();
   const timestamp = Date.now();
   const formName = `Playwright Consultation Acceptance ${timestamp}`;
@@ -689,11 +691,16 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
     demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
     seedOwnedMedicalHistory(sql, provider, medicalHistory);
     let latestLabValues = seedOwnedLatestLabValues(sql, provider, ownedMarker);
-    browser = await chromium.launch(launchOptions);
+    browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1600 } });
+    cancellation?.throwIfCancelled();
     offlineBadge = await installOfflineCcBadge(context, process.env.EFORM_CC_BADGE_FIXTURE);
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     // Skip the probe only when the form is genuinely absent (the row wait times
     // out); let any other failure (a 500 on the manager page, a broken lookup)
@@ -703,61 +710,90 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
         if (error && error.name === 'TimeoutError') return null;
         throw error;
       });
+    cancellation?.throwIfCancelled();
     if (libraryFid) {
       const backgrounds = await readManagerTemplateBackgrounds(context, libraryFid);
+    cancellation?.throwIfCancelled();
       libraryRuntimeProbe = await probeExistingLibraryEform(context, libraryFid, backgrounds);
+    cancellation?.throwIfCancelled();
     } else {
       console.log(`[skip] Library eForm "${libraryEformName}" is not in this database's eForm library; skipping the stored image-layer template probe (set LIBRARY_EFORM_NAME to probe a different form).`);
     }
 
     await ensureImageUploaded(context, fixture.imagePath, bgImageName);
+    cancellation?.throwIfCancelled();
     const uploadResult = await uploadEform(context, formName, formSubject, fixture.htmlPath);
+    cancellation?.throwIfCancelled();
     managerPage = uploadResult.page;
     importedFid = uploadResult.fid;
 
     const probePage = await openAddEform(context, importedFid);
+    cancellation?.throwIfCancelled();
     assert(await probePage.locator('#playwright_textarea_field').inputValue() === medicalHistory,
       'The bundled medical_history AP silently omitted or changed the owned clinical history');
+    cancellation?.throwIfCancelled();
     console.log('PASS bundled medical_history AP populated the exact owned clinical history before editing');
     await assertOwnedLatestLabValues(probePage, latestLabValues);
+    cancellation?.throwIfCancelled();
     console.log('PASS bundled latest_lab_values AP preserved all nine owned literal results as JSON without executable markup');
     const labScope = { baseUrl: baseUrl.href, fid: importedFid, patient: demographicNo, provider,
       marker: ownedMarker, expected: latestLabValues };
     if (wafAuditLog && wafErrorLog) {
       await fillEformForSave(probePage, expectedState);
+    cancellation?.throwIfCancelled();
       const receipt = await proveWafNegative({ context, page: probePage, sql, scope: labScope,
         auditLog: wafAuditLog, errorLog: wafErrorLog });
+    cancellation?.throwIfCancelled();
       console.log(`AP intentional hostile POST WAF-negative/no-save receipt: ${JSON.stringify(receipt)}`);
     } else {
       console.log('AP WAF-negative coverage NOT_REQUESTED: explicit audit/error paths absent; no WAF denial or no-save transport claim is made');
     }
     await probePage.close();
+    cancellation?.throwIfCancelled();
     latestLabValues = transitionToClinicalValues(sql, labScope);
     const addPage = await openAddEform(context, importedFid);
+    cancellation?.throwIfCancelled();
     assert(await addPage.locator('#playwright_textarea_field').inputValue() === medicalHistory,
       'The fresh positive form changed the literal medical-history AP value');
+    cancellation?.throwIfCancelled();
     await assertOwnedLatestLabValues(addPage, latestLabValues);
+    cancellation?.throwIfCancelled();
     console.log('PASS fresh clinical form preserved all nine benign clinical lab values before saving');
     const fdid = await saveEformAndCaptureFdid(addPage, expectedState);
+    cancellation?.throwIfCancelled();
     assertPersistedLabValues(sql, { ...labScope, expected: latestLabValues }, fdid);
     await screenshot(addPage, 'consult-acceptance-after-save');
+    cancellation?.throwIfCancelled();
     await addPage.close();
+    cancellation?.throwIfCancelled();
 
     const directPage = await openSavedEformDirect(context, fdid);
+    cancellation?.throwIfCancelled();
     await assertSavedFormState(directPage, expectedState, fdid, 'consult-acceptance-direct-reopen');
+    cancellation?.throwIfCancelled();
     await assertOwnedLatestLabValues(directPage, latestLabValues);
+    cancellation?.throwIfCancelled();
     await directPage.close();
+    cancellation?.throwIfCancelled();
 
     const patientListPopup = await openSavedEformFromPatientList(context, fdid);
+    cancellation?.throwIfCancelled();
     assert(patientListPopup.url().includes(`fdid=${fdid}`), `Patient list popup did not open the expected saved-form route: ${patientListPopup.url()}`);
     await assertSavedFormState(patientListPopup, expectedState, fdid, 'consult-acceptance-patient-list-reopen');
+    cancellation?.throwIfCancelled();
     await assertOwnedLatestLabValues(patientListPopup, latestLabValues);
+    cancellation?.throwIfCancelled();
     await patientListPopup.close();
+    cancellation?.throwIfCancelled();
 
     const newConsultationPage = await openNewConsultation(context);
+    cancellation?.throwIfCancelled();
     await prepareConsultationForm(newConsultationPage);
+    cancellation?.throwIfCancelled();
     await openConsultAttachmentPanelAndAttachEform(newConsultationPage, fdid);
+    cancellation?.throwIfCancelled();
     await newConsultationPage.close();
+    cancellation?.throwIfCancelled();
 
     const syntheticBackgroundResponses = collectDisplayImageFetches(bgImageName);
     assert(syntheticBackgroundResponses.length > 0, `displayImage was never requested for ${bgImageName}`);
@@ -820,7 +856,7 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
       process.exitCode = 1;
     }
   }
-})().catch((error) => {
+}).catch((error) => {
   console.error('FAIL eForm consultation acceptance Playwright check');
   console.error(error.stack || error.message);
   if (badResponses.length) {
