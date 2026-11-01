@@ -142,6 +142,11 @@ class DayScheduleNamesDaoIntegrationTest extends CarlosTestBase {
             assertThat(demographicDao.getDemographicNames(List.of())).isEmpty();
             assertThat(statistics.getPrepareStatementCount()).isZero();
 
+            // Preserve the real-SQL missing-patient check alongside the populated batches.
+            assertThat(demographicDao.getDemographicNames(List.of(-1))).isEmpty();
+            assertThat(statistics.getPrepareStatementCount()).isEqualTo(1);
+            statistics.clear();
+
             assertThat(demographicDao.getDemographicNames(ids))
                     .containsExactlyInAnyOrderElementsOf(expected.subList(0, 500));
             assertThat(statistics.getPrepareStatementCount()).isEqualTo(1);
