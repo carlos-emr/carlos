@@ -212,7 +212,7 @@ def _split_top_level(body: str) -> List[str]:
 
 
 def strip_line_comments(text: str) -> str:
-    """Remove `-- ` and `#` line comments outside string literals.
+    """Remove ordinary SQL comments outside string literals.
 
     initcaisi.sql carries a commented-out `-- CREATE TABLE surveyData` whose
     empty body would otherwise REPLACE the real oscarinit definition. Quote
@@ -223,6 +223,12 @@ def strip_line_comments(text: str) -> str:
     n = len(text)
     while i < n:
         c = text[i]
+        if text.startswith("/*", i) and not text.startswith("/*!", i):
+            end = text.find("*/", i + 2)
+            end = n if end == -1 else end + 2
+            out.extend(char if char in "\r\n" else " " for char in text[i:end])
+            i = end
+            continue
         if c in ("'", '"', "`"):
             quote = c
             out.append(c)
@@ -306,11 +312,20 @@ def walk_ddl(text: str):
     # fragments are not executable declarations and can carry only part of
     # a column type. Preserve offsets while excluding them from matching.
     masked = list(text)
+    uncommented = list(text)
     quote = None
     cursor = 0
     while cursor < len(text):
         char = text[cursor]
         if quote is None:
+            if text.startswith("/*", cursor) and not text.startswith("/*!", cursor):
+                end = text.find("*/", cursor + 2)
+                end = len(text) if end == -1 else end + 2
+                for index in range(cursor, end):
+                    if text[index] not in "\r\n":
+                        masked[index] = uncommented[index] = " "
+                cursor = end
+                continue
             if char in ("'", '"'):
                 quote = char
                 masked[cursor] = " "
@@ -327,6 +342,7 @@ def walk_ddl(text: str):
                 else:
                     quote = None
         cursor += 1
+    text = "".join(uncommented)
     searchable = "".join(masked)
     patterns = (("create", _CREATE_RE), ("drop", _DROP_RE),
                 ("rename", _RENAME_RE), ("alter", _ALTER_RE))

@@ -35,6 +35,24 @@ def load_generator():
 
 
 class TestExplicitSourceCommit(unittest.TestCase):
+    def test_block_comment_apostrophes_do_not_hide_or_invent_ddl(self):
+        generator = load_generator()
+        sql = "/* clinic's CREATE TABLE fake(id INT); */ CREATE TABLE real(id INT /* patient's note */);"
+        statements = list(generator.walk_ddl(sql))
+        self.assertEqual([(s.kind, s.table) for s in statements], [("create", "real")])
+        self.assertIn("id INT", statements[0].body)
+        sql = "/* clinic's comment */\n-- doctor's note\nCREATE TABLE real(id INT);"
+        statements = list(generator.walk_ddl(generator.strip_line_comments(sql)))
+        self.assertEqual([(s.kind, s.table) for s in statements], [("create", "real")])
+
+    def test_escaped_quotes_do_not_expose_literal_ddl(self):
+        generator = load_generator()
+        for literal in (r"'clinic\'s ALTER TABLE fake ADD value INT;'", "'clinic''s ALTER TABLE fake ADD value INT;'", "'/* clinic comment */ ALTER TABLE fake ADD value INT;'"):
+            with self.subTest(literal=literal):
+                sql = "SET @sql=" + literal + "; CREATE TABLE real(id INT);"
+                statements = list(generator.walk_ddl(sql))
+                self.assertEqual([(s.kind, s.table) for s in statements], [("create", "real")])
+
     def test_dynamic_ddl_fragments_are_not_column_declarations(self):
         generator = load_generator()
         sql = "CREATE TABLE sample(id INT, value TEXT); SET @sql=CONCAT('ALTER TABLE sample MODIFY value LONGTEXT', ' NOT NULL'); ALTER TABLE sample MODIFY value MEDIUMTEXT;"
