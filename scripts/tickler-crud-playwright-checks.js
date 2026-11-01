@@ -386,12 +386,15 @@ async function editTicklerFromList(context, listPage, ticklerNo) {
   await editPage.locator('#newMessage').fill(editedMessage);
   await editPage.locator('#priority').selectOption('Low');
   await editPage.locator('#xml_appointment_date').fill('2026-02-19');
+  const openerRefresh=listPage.waitForResponse(response => response.request().method()==='GET'
+    && new URL(response.url()).pathname.endsWith('/tickler/ListTicklers'), {timeout:30000});
   await editPage.locator('input[name="updateTickler"]').click();
   await editPage.waitForFunction(() => {
     const frame = document.getElementById('ticklerEditFrame');
     return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok');
   }, null, { timeout: 30000 });
-  await editPage.waitForTimeout(750).catch(() => {});
+  await (await openerRefresh).finished();
+  await waitForTicklerListReady(listPage);
   await editPage.close().catch(() => {});
 
   const rows = getTicklerRows();
@@ -414,11 +417,15 @@ async function completeTicklerViaEdit(context, listPage, ticklerNo) {
     { timeout: 30000, waitUntil: 'domcontentloaded' });
   await page.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 30000 });
   await page.locator('#status').selectOption('C');
+  const openerRefresh=listPage.waitForResponse(response => response.request().method()==='GET'
+    && new URL(response.url()).pathname.endsWith('/tickler/ListTicklers'), {timeout:30000});
   await page.locator('input[name="updateTickler"]').click();
   await page.waitForFunction(() => {
     const frame = document.getElementById('ticklerEditFrame');
     return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok');
   }, null, { timeout: 30000 });
+  await (await openerRefresh).finished();
+  await waitForTicklerListReady(listPage);
   await page.close().catch(() => {});
 
   const rows = getTicklerRows();
