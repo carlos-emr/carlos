@@ -868,6 +868,7 @@ legacyHarness.runLegacyCheck('eform-consultation-acceptance',async context=>{
     }
   }
 })(context).catch((error) => {
+  if (error instanceof h.SkipCheck) throw error;
   console.error('FAIL eForm consultation acceptance Playwright check');
   console.error(error.stack || error.message);
   if (badResponses.length) {

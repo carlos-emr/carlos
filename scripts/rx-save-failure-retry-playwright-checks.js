@@ -140,7 +140,7 @@ async function workflow(s) {
       const retryStatus=print?409:400,body=await retry.text();
       h.assert(retry.status()===retryStatus,'Consumed-card retry returned the wrong source contract');
       if(print)h.assert((await retry.json()).error==='STALE_RX_STASH','Print retry was not a revision conflict');
-      else h.assert(/text\/html/.test(retry.headers()['content-type']||'')&&h.isApplicationErrorPage(body)&&!h.isWafPage(body),
+      else h.assert(/text\/html/.test(retry.headers()['content-type']||'')&&h.isApplicationErrorPage(body)&&!h.isWafPage(retry.status(),body),
         'Consumed-card retry did not reach the source-qualified application 400');
       h.assert(retryDialogs.length===1&&retryDialogs[0].type==='alert','Consumed-card retry did not report its refusal');
       lostMessages.push(retryDialogs[0].text);consumeRxRefusal(s,retryMark,retryStatus);

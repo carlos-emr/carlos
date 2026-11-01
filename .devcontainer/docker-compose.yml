@@ -26,6 +26,9 @@ services:
       TZ: America/Toronto
       DISPLAY: ":0"
       OAUTH_CALLBACK_PORT: "13579"
+      # This compose stack owns its application and database test containers.
+      ALLOW_NON_LOCAL_BASE_URL: "true"
+      ALLOW_NON_LOCAL_MYSQL_HOST: "true"
     networks:
       - carlos-network
     depends_on:

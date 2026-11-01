@@ -25,3 +25,18 @@ for mutation in ['tag','draft','duplicate','missing','url','digest','traversal']
   const result=spawnSync('python3',['-B','-c',script,path.join(__dirname,'lib/deb-release-assets.py')],{encoding:'utf8'});
   assert.equal(result.status,0,result.stderr);
 });
+test('cached package checksums work without Python 3.11 file_digest and close each input',()=>{
+  const script=String.raw`
+import hashlib,importlib.util,pathlib,sys,tempfile
+spec=importlib.util.spec_from_file_location('assets',sys.argv[1]);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+if hasattr(hashlib,'file_digest'):del hashlib.file_digest
+with tempfile.TemporaryDirectory() as folder:
+    target=pathlib.Path(folder)/'cached.deb'
+    target.write_bytes(b'owned cached package'*(1<<17))
+    expected=hashlib.sha256(target.read_bytes()).hexdigest()
+    for _ in range(4):assert module.sha256_file(target)==expected
+    target.unlink()
+`;
+  const result=spawnSync('python3',['-B','-W','error::ResourceWarning','-c',script,path.join(__dirname,'lib/deb-release-assets.py')],{encoding:'utf8'});
+  assert.equal(result.status,0,result.stderr);
+});

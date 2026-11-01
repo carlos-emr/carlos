@@ -50,3 +50,16 @@ test('every declared profile Spring module has a shipped application context',()
     assert.equal(fs.existsSync(path.join(__dirname,'../src/main/resources',`applicationContext${module}.xml`)),true,`Profile requests absent Spring module ${module}`);
   }
 });
+test('suite rejects invalid property-profile selections and unsafe targets before entering the mutating wrapper',()=>{
+  const {spawnSync}=require('node:child_process');
+  const cli=path.join(__dirname,'run-playwright-suite.js');
+  for(const [selection,env,diagnostic] of [
+    [['--only','definitely-misspelled-check'],{},/Unknown.*definitely-misspelled-check/i],
+    [['--only','appointment-email-option','--skip','appointment-email-option'],{},/No checks matched/],
+    [['--only','appointment-email-option'],{BASE_URL:'https://unapproved.invalid/carlos'},/non-loopback BASE_URL/],
+  ]) {
+    const result=spawnSync(process.execPath,[cli,'--profile','appointment-options',...selection],{encoding:'utf8',env:{...process.env,BASE_URL:'https://127.0.0.1/carlos',MYSQL_HOST:'localhost',CARLOS_DISPOSABLE_HOST:'',ALLOW_NON_LOCAL_BASE_URL:'',ALLOW_NON_LOCAL_MYSQL_HOST:'',CARLOS_PROPERTY_PROFILE_ACTIVE:'',...env}});
+    assert.equal(result.status,1,result.stderr);assert.match(result.stderr,diagnostic);
+    assert.doesNotMatch(result.stderr,/Property profiles require|lstat|systemctl/,'profile wrapper ran before selection validation');
+  }
+});

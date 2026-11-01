@@ -10138,8 +10138,15 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "Creates four throwaway logins (own provider rows 800000-899999, copy of the test login's credential, one seeded role each: er_clerk, receptionist, nurse, doctor) and one owned patient; reads only; cleanup deletes the owned login/provider/audit rows and asserts they are gone.",
-      "notes": "Expected to FAIL only at the last step 'a refusal is a 403, never an HTTP 500 \"unexpected error\" page' until the SecurityException exception-mapping is added to struts-billing.xml, struts-eform.xml and struts-messenger.xml (70 routes answer a login with no sec object with HTTP 500). Every earlier step (307 pinned refusals, GET and HEAD) passes."
+      "fixtures": "Creates four throwaway logins (own provider rows 800000-899999, copy of the test login's credential, one seeded role each: er_clerk, receptionist, nurse, doctor) and one owned patient; reads only; cleanup deletes the owned login/provider/audit rows and asserts they are gone. The full-access control can initialize/update the operator quick-list selection; its exact baseline is guarded and restored. It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Expected to FAIL only at the last step 'a refusal is a 403, never an HTTP 500 \"unexpected error\" page' until the SecurityException exception-mapping is added to struts-billing.xml, struts-eform.xml and struts-messenger.xml (70 routes answer a login with no sec object with HTTP 500). Every earlier step (307 pinned refusals, GET and HEAD) passes.",
+      "expectedFailure": {
+        "finding": 345,
+        "step": "a refusal is a 403, never an HTTP 500 \"unexpected error\" page (lists the packages whose gates fail that way)"
+      },
+      "mutates": [
+        "quickListUser"
+      ]
     },
     {
       "name": "authz-read-patient-lock",
@@ -10224,7 +10231,11 @@
         "DOCUMENT_DIR"
       ],
       "fixtures": "Seeds one row per chart domain for the owned patient; creates three throwaway logins (receptionist, nurse, er_clerk); needs pdftotext (SKIPs without Poppler); cleanup removes every owned row and asserts it.",
-      "notes": "Expected to FAIL at the last step 'the E-Chart print hands only the sections a role holds the object for': OscarChartPrint returns the prescriptions and allergies sections (and the whole chart to a receptionist without _eChart). Steps 1-5 pass."
+      "notes": "Expected to FAIL at the last step 'the E-Chart print hands only the sections a role holds the object for': OscarChartPrint returns the prescriptions and allergies sections (and the whole chart to a receptionist without _eChart). Steps 1-5 pass.",
+      "expectedFailure": {
+        "finding": 343,
+        "step": "the E-Chart print hands only the sections a role holds the object for (lists every section that leaks)"
+      }
     },
     {
       "name": "authz-read-record-by-id",
@@ -10968,7 +10979,11 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient; one throwaway doctor login with two lock rows (_demographic$N, _eChart$N) via lib/authz-read-fixture.js; cleanup removes the login, locks, audit rows and asserts them gone.",
-      "notes": "Expected to FAIL at the last step 'the refused attempt is itself in the audit log': the locked doctor's refused Master Record open is thrown as a SecurityException before any audit write."
+      "notes": "Expected to FAIL at the last step 'the refused attempt is itself in the audit log': the locked doctor's refused Master Record open is thrown as a SecurityException before any audit write.",
+      "expectedFailure": {
+        "finding": 344,
+        "step": "the refused attempt is itself in the audit log, naming the patient and the refused login"
+      }
     },
     {
       "name": "audit-log-report-tools",
@@ -18048,7 +18063,7 @@
       "env": [],
       "notes": "Original-date monthly/yearly boundaries for new and saved bookings, leap years, inclusive range/retry, duplicate prevention and owned cleanup (#5264).",
       "envSet": {
-        "APPOINTMENT_CALENDAR_CASE": "new:2032-01-29:1"
+        "APPOINTMENT_CALENDAR_CASE": "new:jan29"
       }
     },
     {
@@ -18065,7 +18080,7 @@
       "env": [],
       "notes": "Original-date monthly/yearly boundaries for new and saved bookings, leap years, inclusive range/retry, duplicate prevention and owned cleanup (#5264).",
       "envSet": {
-        "APPOINTMENT_CALENDAR_CASE": "saved:2032-01-29:1"
+        "APPOINTMENT_CALENDAR_CASE": "saved:jan29"
       }
     },
     {
@@ -18082,7 +18097,7 @@
       "env": [],
       "notes": "Original-date monthly/yearly boundaries for new and saved bookings, leap years, inclusive range/retry, duplicate prevention and owned cleanup (#5264).",
       "envSet": {
-        "APPOINTMENT_CALENDAR_CASE": "new:2032-01-30:1"
+        "APPOINTMENT_CALENDAR_CASE": "new:jan30"
       }
     },
     {
@@ -18099,7 +18114,7 @@
       "env": [],
       "notes": "Original-date monthly/yearly boundaries for new and saved bookings, leap years, inclusive range/retry, duplicate prevention and owned cleanup (#5264).",
       "envSet": {
-        "APPOINTMENT_CALENDAR_CASE": "saved:2032-01-30:1"
+        "APPOINTMENT_CALENDAR_CASE": "saved:jan30"
       }
     },
     {
@@ -18116,7 +18131,7 @@
       "env": [],
       "notes": "Original-date monthly/yearly boundaries for new and saved bookings, leap years, inclusive range/retry, duplicate prevention and owned cleanup (#5264).",
       "envSet": {
-        "APPOINTMENT_CALENDAR_CASE": "new:2032-01-31:1"
+        "APPOINTMENT_CALENDAR_CASE": "new:jan31"
       }
     },
     {
@@ -18133,7 +18148,7 @@
       "env": [],
       "notes": "Original-date monthly/yearly boundaries for new and saved bookings, leap years, inclusive range/retry, duplicate prevention and owned cleanup (#5264).",
       "envSet": {
-        "APPOINTMENT_CALENDAR_CASE": "saved:2032-01-31:1"
+        "APPOINTMENT_CALENDAR_CASE": "saved:jan31"
       }
     },
     {
@@ -18150,7 +18165,7 @@
       "env": [],
       "notes": "Original-date monthly/yearly boundaries for new and saved bookings, leap years, inclusive range/retry, duplicate prevention and owned cleanup (#5264).",
       "envSet": {
-        "APPOINTMENT_CALENDAR_CASE": "new:2033-01-31:1"
+        "APPOINTMENT_CALENDAR_CASE": "new:jan31-common"
       }
     },
     {
@@ -18167,7 +18182,7 @@
       "env": [],
       "notes": "Original-date monthly/yearly boundaries for new and saved bookings, leap years, inclusive range/retry, duplicate prevention and owned cleanup (#5264).",
       "envSet": {
-        "APPOINTMENT_CALENDAR_CASE": "saved:2033-01-31:1"
+        "APPOINTMENT_CALENDAR_CASE": "saved:jan31-common"
       }
     },
     {
@@ -18184,7 +18199,7 @@
       "env": [],
       "notes": "Original-date monthly/yearly boundaries for new and saved bookings, leap years, inclusive range/retry, duplicate prevention and owned cleanup (#5264).",
       "envSet": {
-        "APPOINTMENT_CALENDAR_CASE": "new:2028-02-29:1"
+        "APPOINTMENT_CALENDAR_CASE": "new:feb29-yearly"
       }
     },
     {
@@ -18201,7 +18216,7 @@
       "env": [],
       "notes": "Original-date monthly/yearly boundaries for new and saved bookings, leap years, inclusive range/retry, duplicate prevention and owned cleanup (#5264).",
       "envSet": {
-        "APPOINTMENT_CALENDAR_CASE": "saved:2028-02-29:1"
+        "APPOINTMENT_CALENDAR_CASE": "saved:feb29-yearly"
       }
     },
     {
@@ -18218,7 +18233,7 @@
       "env": [],
       "notes": "Original-date monthly/yearly boundaries for new and saved bookings, leap years, inclusive range/retry, duplicate prevention and owned cleanup (#5264).",
       "envSet": {
-        "APPOINTMENT_CALENDAR_CASE": "new:2028-02-29:2"
+        "APPOINTMENT_CALENDAR_CASE": "new:feb29-biennial"
       }
     },
     {
@@ -18235,7 +18250,7 @@
       "env": [],
       "notes": "Original-date monthly/yearly boundaries for new and saved bookings, leap years, inclusive range/retry, duplicate prevention and owned cleanup (#5264).",
       "envSet": {
-        "APPOINTMENT_CALENDAR_CASE": "saved:2028-02-29:2"
+        "APPOINTMENT_CALENDAR_CASE": "saved:feb29-biennial"
       }
     },
     {

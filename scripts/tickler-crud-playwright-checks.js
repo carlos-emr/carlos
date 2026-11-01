@@ -388,6 +388,7 @@ async function editTicklerFromList(context, listPage, ticklerNo) {
   await editPage.locator('#xml_appointment_date').fill('2026-02-19');
   const openerRefresh=listPage.waitForResponse(response => response.request().method()==='GET'
     && new URL(response.url()).pathname.endsWith('/tickler/ListTicklers'), {timeout:30000});
+  openerRefresh.catch(() => {});
   await editPage.locator('input[name="updateTickler"]').click();
   await editPage.waitForFunction(() => {
     const frame = document.getElementById('ticklerEditFrame');
@@ -419,6 +420,7 @@ async function completeTicklerViaEdit(context, listPage, ticklerNo) {
   await page.locator('#status').selectOption('C');
   const openerRefresh=listPage.waitForResponse(response => response.request().method()==='GET'
     && new URL(response.url()).pathname.endsWith('/tickler/ListTicklers'), {timeout:30000});
+  openerRefresh.catch(() => {});
   await page.locator('input[name="updateTickler"]').click();
   await page.waitForFunction(() => {
     const frame = document.getElementById('ticklerEditFrame');

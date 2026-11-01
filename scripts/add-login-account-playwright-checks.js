@@ -51,7 +51,7 @@
 // refused with an explanation, and the confirmation's role-assignment link restores
 // access. Cleanup includes the facility/program memberships created by these steps.
 
-const { validateBaseUrl } = require('./lib/playwright-harness');
+const { validateCredentialBaseUrl: validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');

@@ -28,7 +28,7 @@ async function consumeOwnedConflict(s,mark,responses,text,count) {
   const response=conflicts[0],request=response.request(),url=new URL(response.url()),body=new URLSearchParams(request.postData()||'');
   h.assert(url.origin===s.config.baseUrl.origin&&url.pathname===new URL(h.appUrl(s.config.baseUrl,'/CaseManagementEntry')).pathname
     &&request.method()==='POST'&&body.get('demographicNo')===s.patient&&[...body.values()].some(value=>value.includes(text))
-    &&Object.hasOwn(response.headers(),h.APPLICATION_HEADER)&&!h.isWafPage(await response.text()),'The conflict is not the owned native note submission');
+    &&Object.hasOwn(response.headers(),h.APPLICATION_HEADER)&&!h.isWafPage(response.status(),await response.text()),'The conflict is not the owned native note submission');
   consumeExpectedFailure(s.recorder,mark,{status:409,path:/\/CaseManagementEntry$/});
 }
 async function workflow(s) {

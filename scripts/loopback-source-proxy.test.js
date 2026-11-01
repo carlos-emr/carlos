@@ -26,7 +26,7 @@ test('opaque fixture relay uses its real source address and refuses a different 
   assert.deepEqual(seen,['127.0.0.2']);
 });
 test('fixture relay rejects remote, credentialed, cleartext and unowned source targets before opening a listener',async()=>{
-  for(const url of ['https://other.invalid/carlos','https://user@localhost/carlos','http://127.0.0.1/carlos'])
+  for(const url of ['https://other.invalid/carlos','https://user@localhost/carlos','http://127.0.0.1/carlos','https://[::1]/carlos'])
     await assert.rejects(loopbackSourceProxy(url,'127.0.0.2'),/loopback HTTPS/);
   await assert.rejects(loopbackSourceProxy('https://127.0.0.1/carlos','0.0.0.0'),/owned loopback/);
 });

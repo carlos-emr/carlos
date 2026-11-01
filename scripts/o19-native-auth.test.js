@@ -94,8 +94,10 @@ test('failed reset, fresh login or old-password refusal cannot yield native proo
 function loadDriver(native) {
   const queries = [], logs = [];
   const filename = path.join(__dirname, 'o19-migrated-smoke-playwright-checks.js');
-  let code = fs.readFileSync(filename, 'utf8'); const marker = '(async () => {';
-  code = code.slice(0, code.indexOf(marker));
+  let code = fs.readFileSync(filename, 'utf8'); const marker = '\nlegacyHarness.runLegacyCheck(';
+  const cut = code.indexOf(marker);
+  assert.ok(cut > 0, 'The driver entry-point anchor moved');
+  code = code.slice(0, cut);
   code += '\nmodule.exports = { restoreSecurityRows, restorePoints };';
   const sandbox = { module: { exports: {} }, URL, URLSearchParams,
     console: { log: (...v) => logs.push(v.join(' ')), error: () => {} },

@@ -312,3 +312,21 @@ test('unsupported container networks are refused before Docker',t=>{
   const box=sandbox(t),result=run(['up'],{...box.env,CARLOS_DISPOSABLE_HOST:'true',CONTAINER_NETWORK:'public-network'});
   assert.equal(result.status,1);assert.match(result.stderr,/CONTAINER_NETWORK must be host or bridge/);assert.equal(fs.existsSync(box.calls),false);
 });
+test('upgrade refreshes only build identity and preserves provisioned credentials and fixtures',t=>{
+  const box=sandbox(t),environment=path.join(box.dir,'suite-env.sh'),properties=path.join(box.dir,'build.properties');
+  const original="export TEST_PASSWORD='owned-password'\nexport CONSULT_DEMO_NO=42\nexport DOCUMENT_DIR='/owned/store'\nexport RX_EXPECTED_BUILD_TAG='beta2 (old 1)' EXPECTED_BUILD_VERSION='beta2'\n";
+  fs.writeFileSync(environment,original,{mode:0o600});
+  fs.writeFileSync(properties,"build.version=beta3\nbuild.job=review's job\nbuild.number=42\n");
+  const source=fs.readFileSync(SCRIPT,'utf8');
+  let helper=source.slice(source.indexOf('\nrefresh_suite_build_identity() {'),source.indexOf('\ncmd_upgrade() {'));
+  helper=helper.replaceAll('/root/suite-env.sh',environment).replaceAll('/usr/share/carlos-emr/webapp/carlos/WEB-INF/classes/carlos-build.properties',properties);
+  const result=spawnSync('bash',['-ec',`in_container() { bash -ec "$1"; }\n${helper}\nrefresh_suite_build_identity\nrefresh_suite_build_identity\n. "$1"\nprintf '%s\\n' "$RX_EXPECTED_BUILD_TAG" "$EXPECTED_BUILD_VERSION" "$TEST_PASSWORD" "$CONSULT_DEMO_NO" "$DOCUMENT_DIR"`,'refresh',environment],{encoding:'utf8',env:box.env});
+  assert.equal(result.status,0,result.stderr);
+  assert.equal(result.stdout,"beta3 (review's job 42)\nbeta3\nowned-password\n42\n/owned/store\n");
+  const after=fs.readFileSync(environment,'utf8');assert(after.startsWith(original.split('export RX_EXPECTED')[0]));
+  assert.equal((after.match(/^export RX_EXPECTED_BUILD_TAG=/gm)||[]).length,1);
+  assert.equal(fs.statSync(environment).mode&0o777,0o600);
+  const upgrade=source.slice(source.indexOf('\ncmd_upgrade() {'),source.indexOf('\ncmd_audit() {'));
+  assert(upgrade.indexOf('refresh_suite_build_identity')>upgrade.indexOf('upgrade-canaries.js'));
+  assert(upgrade.indexOf('refresh_suite_build_identity')<upgrade.indexOf('cmd_suite --tier smoke'));
+});

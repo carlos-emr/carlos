@@ -8,7 +8,7 @@ const h=require('./playwright-harness');
 // never decrypts TLS, rewrites forwarding headers or accepts external targets.
 async function loopbackSourceProxy(base,source) {
   const target=new URL(base);
-  h.assert(target.protocol==='https:'&&['127.0.0.1','localhost','[::1]'].includes(target.hostname)&&!target.username&&!target.password,'Address-lock fixture requires a loopback HTTPS application');
+  h.assert(target.protocol==='https:'&&['127.0.0.1','localhost'].includes(target.hostname)&&!target.username&&!target.password,'Address-lock fixture requires a loopback HTTPS application on IPv4');
   h.assert(['127.0.0.2','127.0.0.3'].includes(source),'Unsupported owned loopback source address');
   const authority=target.host,port=Number(target.port||443),sockets=new Set();
   const server=http.createServer((request,response)=>{response.writeHead(405);response.end();});

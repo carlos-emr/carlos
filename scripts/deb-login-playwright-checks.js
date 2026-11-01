@@ -214,7 +214,7 @@ legacyHarness.runLegacyCheck('deb-login',async context=>{
     console.log(`The administrator password is now the NEW_PASSWORD given or generated for this run.`);
     if (!process.env.NEW_PASSWORD) console.log(`generated password: ${newPassword}`);
   }
-  {process.exitCode=failed;return;}
+  {process.exitCode=failed ? 1 : 0;return;}
 })(context).catch((err) => {
   console.error(err);
   {process.exitCode=1;return;}

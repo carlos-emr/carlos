@@ -4,22 +4,31 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const {runWorkflow} = require('./lib/workflow-session');
-// Explicit dates encode the original-date rule, not an implementation of it.
-const CASES = [
-  {start: '2032-01-29', unit: 'Month', every: '1', dates: ['2032-01-29','2032-02-29','2032-03-29']},
-  {start: '2032-01-30', unit: 'Month', every: '1', dates: ['2032-01-30','2032-02-29','2032-03-30']},
-  {start: '2032-01-31', unit: 'Month', every: '1', dates: ['2032-01-31','2032-02-29','2032-03-31','2032-04-30']},
-  {start: '2033-01-31', unit: 'Month', every: '1', dates: ['2033-01-31','2033-02-28','2033-03-31']},
-  {start: '2028-02-29', unit: 'Year', every: '1', dates: ['2028-02-29','2029-02-28','2030-02-28','2031-02-28','2032-02-29']},
-  {start: '2028-02-29', unit: 'Year', every: '2', dates: ['2028-02-29','2030-02-28','2032-02-29']},
-];
+// Pick a future leap year whose next four-year return is also a leap year.
+// Skipping the exceptional 2100/2200/2300 boundary keeps the explicit clinical
+// examples (including the return to Feb 29) stable without implementing recurrence.
+function calendarCases(now = new Date()) {
+  const leap = year => year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  let year = now.getUTCFullYear() + 1;
+  while (!leap(year) || !leap(year + 4)) year++;
+  const y = year, common = year + 1;
+  return [
+    {id:'jan29', start:`${y}-01-29`, unit:'Month', every:'1', dates:[`${y}-01-29`,`${y}-02-29`,`${y}-03-29`]},
+    {id:'jan30', start:`${y}-01-30`, unit:'Month', every:'1', dates:[`${y}-01-30`,`${y}-02-29`,`${y}-03-30`]},
+    {id:'jan31', start:`${y}-01-31`, unit:'Month', every:'1', dates:[`${y}-01-31`,`${y}-02-29`,`${y}-03-31`,`${y}-04-30`]},
+    {id:'jan31-common', start:`${common}-01-31`, unit:'Month', every:'1', dates:[`${common}-01-31`,`${common}-02-28`,`${common}-03-31`]},
+    {id:'feb29-yearly', start:`${y}-02-29`, unit:'Year', every:'1', dates:[`${y}-02-29`,`${y+1}-02-28`,`${y+2}-02-28`,`${y+3}-02-28`,`${y+4}-02-29`]},
+    {id:'feb29-biennial', start:`${y}-02-29`, unit:'Year', every:'2', dates:[`${y}-02-29`,`${y+2}-02-28`,`${y+4}-02-29`]},
+  ];
+}
+const CASES = calendarCases();
 async function workflow(s) {
   process.env.APPOINTMENT_DEMOGRAPHIC_NO = s.patient;
   process.env.APPOINTMENT_PROVIDER_NO = s.provider;
   const chosen=process.env.APPOINTMENT_CALENDAR_CASE;
-  h.assert(!chosen||CASES.some(testCase=>['new','saved'].some(mode=>chosen===`${mode}:${testCase.start}:${testCase.every}`)),'Unknown calendar recurrence case');
+  h.assert(!chosen||CASES.some(testCase=>['new','saved'].some(mode=>chosen===`${mode}:${testCase.id}`)),'Unknown calendar recurrence case');
   for (const testCase of CASES) for (const mode of ['new', 'saved']) {
-    if(chosen&&chosen!==`${mode}:${testCase.start}:${testCase.every}`)continue;
+    if(chosen&&chosen!==`${mode}:${testCase.id}`)continue;
     const now = new Date(), today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
     const distance = Math.round((Date.parse(testCase.start+'T00:00:00Z') - today) / 86400000);
     h.assert(distance > 0 && distance < 3650, 'Calendar recurrence fixtures must be future dates within ten years');
@@ -43,7 +52,7 @@ async function workflow(s) {
       }
       await page.locator('#endDate').waitFor({state: 'visible'});
       const priorDate = new Date(Date.parse(testCase.start+'T12:00:00Z') - 86400000).toISOString().slice(0, 10);
-      await ui.pickDate(page, page.locator('#endDate'), priorDate,{maxMonthSteps:120});
+      await ui.pickDate(page, page.locator('#endDate'), priorDate,{maxMonthSteps:180});
       await page.locator(`#dateUnit${testCase.unit}`).check();
       await page.locator('select[name="everyNum"]').selectOption(testCase.every);
       async function submit() {
@@ -61,7 +70,7 @@ async function workflow(s) {
       }
       h.assert(/end date on or after/i.test(await submit()), 'Invalid end date was not explained');
       h.assert(f.stampedAppointments().length === (mode === 'saved' ? 1 : 0), 'Rejected recurrence wrote rows');
-      await ui.pickDate(page, page.locator('#endDate'), testCase.dates.at(-1),{maxMonthSteps:120});
+      await ui.pickDate(page, page.locator('#endDate'), testCase.dates.at(-1),{maxMonthSteps:180});
       await submit();
       const rows = f.stampedAppointments();
       h.assert(JSON.stringify(rows.map(row => row.date).sort()) === JSON.stringify(testCase.dates), 'Calendar recurrence dates/count differ from the original-date rule');
@@ -74,7 +83,7 @@ async function workflow(s) {
       await page.close();
       page=await f.openEditPopup(s.context,s.schedule,rows.find(row=>row.date===testCase.start).id);
       await Promise.all([page.waitForEvent('domcontentloaded'),page.locator('#repeatButton').click()]);
-      await ui.pickDate(page,page.locator('#endDate'),testCase.dates.at(-1),{maxMonthSteps:120});
+      await ui.pickDate(page,page.locator('#endDate'),testCase.dates.at(-1),{maxMonthSteps:180});
       await page.locator(`#dateUnit${testCase.unit}`).check();
       await page.locator('select[name="everyNum"]').selectOption(testCase.every);
       h.assert(/No appointments created: repeats already exist/.test(await submit()),'Duplicate recurrence was not explained');
@@ -87,4 +96,4 @@ async function workflow(s) {
   }
 }
 if (require.main === module) runWorkflow('appointment-calendar-recurrence', workflow, {openPatient: true, openMaster: false});
-module.exports = {workflow, CASES};
+module.exports = {workflow, CASES, calendarCases};

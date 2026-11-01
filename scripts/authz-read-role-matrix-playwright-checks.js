@@ -19,6 +19,7 @@
  * Implements the "authz-read" sweep of the wave-6 plan (role-matrix, denied-by-design pairs).
  */
 const h = require('./lib/playwright-harness');
+const {providerQuickListFixture}=require('./lib/provider-quick-list-fixture');
 const { runWorkflow } = require('./lib/workflow-session');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
 const { probe, classify, forbiddenByApp, refusedHead, urlFor, signIn } = require('./lib/authz-read-probe');
@@ -39,6 +40,7 @@ const CONTROL = {
 
 async function workflow(s) {
   const { sql, marker, provider, config } = s;
+  const quickList=providerQuickListFixture(sql,provider);s.cleanup(()=>quickList.cleanup());
   const fixture = authzReadFixture({ sql, marker, provider, testUser: config.testUser });
   s.cleanup(() => fixture.cleanup());
   // ViewAdministrationIndex2Action serves the Administration index to a role holding read on any one

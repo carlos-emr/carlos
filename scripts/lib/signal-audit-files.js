@@ -2,7 +2,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 const digest=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
-// Read-only inventories. Never follow a fixture-store symlink or expose names/bytes in results.
+// Read-only inventories. Resolve configured store roots, but never follow an entry symlink or expose names/bytes in results.
 function snapshot({roots=[],tempRoot=os.tmpdir(),tempPrefixes=[]}={}) {
   const entries=new Map();
   function visit(file,key) {
@@ -28,7 +28,9 @@ function snapshot({roots=[],tempRoot=os.tmpdir(),tempPrefixes=[]}={}) {
   const seen=new Set();
   for(const root of roots) {
     if(!path.isAbsolute(root)||path.resolve(root)===path.parse(root).root)throw new Error('Signal file audit needs specific absolute fixture stores');
-    const canonical=path.resolve(root);if(seen.has(canonical))continue;seen.add(canonical);
+    const canonical=fs.existsSync(root)?fs.realpathSync(root):path.resolve(root);
+    if(canonical===path.parse(canonical).root)throw new Error('Signal file audit needs specific absolute fixture stores');
+    if(seen.has(canonical))continue;seen.add(canonical);
     if(fs.existsSync(canonical))visit(canonical,'store:'+canonical);
     else entries.set(digest('store:'+canonical),'absent');
   }

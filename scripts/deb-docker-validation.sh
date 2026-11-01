@@ -524,6 +524,24 @@ cmd_suite() {
   return "$rc"
 }
 
+# Only the package identity changes here: passwords, patient IDs and store paths
+# from provisioning must survive the upgrade unchanged.
+refresh_suite_build_identity() {
+  in_container '
+    python3 - <<"PYBUILD"
+from pathlib import Path
+import shlex
+props = dict(line.split("=", 1) for line in Path("/usr/share/carlos-emr/webapp/carlos/WEB-INF/classes/carlos-build.properties").read_text().splitlines() if "=" in line and not line.startswith("#"))
+version = props["build.version"]
+tag = version + " (" + props["build.job"] + " " + props["build.number"] + ")"
+path = Path("/root/suite-env.sh")
+lines = [line for line in path.read_text().splitlines() if not line.startswith(("export RX_EXPECTED_BUILD_TAG=", "export EXPECTED_BUILD_VERSION="))]
+lines += ["export RX_EXPECTED_BUILD_TAG=" + shlex.quote(tag), "export EXPECTED_BUILD_VERSION=" + shlex.quote(version)]
+path.write_text("\n".join(lines) + "\n")
+PYBUILD
+  '
+}
+
 cmd_upgrade() {
   require_disposable
   local from="${1:-}" target_dir target_emr target_drugref target_ctl previous rc=0
@@ -552,6 +570,7 @@ cmd_upgrade() {
     docker cp "$CONTAINER:/root/$artifact" "$LOG_DIR/$artifact" >/dev/null 2>&1 || true
   done
   [[ $rc == 0 ]] || die "upgrade canaries or verification failed; see $LOG_DIR/upgrade-canaries.log"
+  refresh_suite_build_identity
   cmd_suite --tier smoke --residue-audit
   # Core readers do not create clinical rows; compare their installation
   # snapshots as well as checking their UI assertions and fixture residue.

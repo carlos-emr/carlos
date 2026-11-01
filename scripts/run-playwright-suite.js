@@ -782,7 +782,7 @@ if (require.main === module) {
   if (selectedProfile && Object.hasOwn(PROPERTY_PROFILES.PROFILES, selectedProfile.profile)
       && !selectedProfile.list && !selectedProfile.dryRun && !selectedProfile.help) {
     if(process.env.CARLOS_PROPERTY_PROFILE_ACTIVE===selectedProfile.profile)process.exitCode=main();
-    else PROPERTY_PROFILES.withPropertyProfile(selectedProfile.profile,
+    else if ((process.exitCode=main([...process.argv.slice(2),'--dry-run'])) === EXIT_PASS) PROPERTY_PROFILES.withPropertyProfile(selectedProfile.profile,
       async ({signal}) => {
         if(selectedProfile.profile==='caisi-admin') {
           console.log('Initializing CAISI shared measurement definitions through the native chart before the residue baseline');

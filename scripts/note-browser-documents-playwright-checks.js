@@ -176,7 +176,10 @@ async function workflow(s) {
       if(!dialogs.length) {
         // A missing prompt may already have accepted a native write; drain it
         // before asserting the unchanged contract and tearing down fixtures.
-        await browser.waitForLoadState('networkidle',{timeout:30000});
+        await browser.waitForLoadState('networkidle',{timeout:30000}).catch(error=>{
+          if(error.name!=='TimeoutError')throw error;
+          console.error('Document Delete did not offer cancellable confirmation; background traffic did not settle before teardown');
+        });
         for(const response of responses)await response.finished();
       }
       h.assert(dialogs.length===1&&dialogs[0].type==='confirm'&&status(docA)==='A'&&status(docB)==='A','Document Delete did not offer cancellable confirmation or changed a row after dismissal');

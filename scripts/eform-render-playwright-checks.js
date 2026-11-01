@@ -556,6 +556,7 @@ legacyHarness.runLegacyCheck('eform-render',async context=>{
   }
   h.assertStrictPage(strictRecorder);
 })(context).catch((error) => {
+  if (error instanceof h.SkipCheck) throw error;
   console.error('FAIL app-backed eForm render pipeline Playwright check');
   console.error(error.stack || error.message);
   console.error(JSON.stringify(h.buildFailureDetails(strictRecorder), null, 2));

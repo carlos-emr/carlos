@@ -26,6 +26,14 @@ def select_packages(release, tag):
     return result
 
 
+
+def sha256_file(target):
+    digest = hashlib.sha256()
+    with target.open("rb") as source:
+        while block := source.read(1 << 20):
+            digest.update(block)
+    return digest.hexdigest()
+
 def main():
     tag, destination = sys.argv[1:]
     if not re.fullmatch(r"2026\.08\.\d+(?:-[A-Za-z0-9.]+)?", tag):
@@ -40,7 +48,7 @@ def main():
     for asset in select_packages(release, tag):
         target = directory / asset["name"]
         expected = asset["digest"].split(":", 1)[1]
-        if target.exists() and hashlib.file_digest(target.open("rb"), "sha256").hexdigest() == expected:
+        if target.exists() and sha256_file(target) == expected:
             continue
         temporary = target.with_suffix(".partial")
         try:

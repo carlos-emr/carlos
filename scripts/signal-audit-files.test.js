@@ -25,3 +25,13 @@ test('signal scratch inventory includes the actual legacy prefix and rejects bro
   assert.deepEqual(scratchPrefixes("fs.mkdtempSync(path.join(os.tmpdir(), 'appt-lifecycle-'))"),['carlos-playwright-sql-','carlos-annotation-fixture-','appt-lifecycle-']);
   assert.throws(()=>snapshot({roots:['/']}),/specific absolute/);
 });
+test('configured symlink roots inventory the real store while inner links remain opaque',t=>{
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'signal-files-root-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  const store=path.join(root,'store'),alias=path.join(root,'configured-store');fs.mkdirSync(store);fs.symlinkSync(store,alias);
+  fs.writeFileSync(path.join(store,'owned.pdf'),'before');
+  const options={roots:[alias,store],tempRoot:root},before=snapshot(options);
+  assert.deepEqual([...before],[...snapshot({roots:[store],tempRoot:root})]);
+  fs.writeFileSync(path.join(store,'owned.pdf'),'after');
+  assert.deepEqual(differences(before,snapshot(options)),{added:0,removed:0,changed:1});
+  fs.symlinkSync('/',path.join(root,'broad'));assert.throws(()=>snapshot({roots:[path.join(root,'broad')],tempRoot:root}),/specific absolute/);
+});
