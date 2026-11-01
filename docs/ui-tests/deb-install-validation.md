@@ -927,7 +927,7 @@ by #4407.
 ```bash
 lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
-  apt-get install -y nodejs npm poppler-utils
+  apt-get install -y nodejs npm poppler-utils fonts-liberation
   cd /root && npm init -y && npm install --save-exact playwright@1.60.0
   /usr/lib/carlos-emr/chromium/chrome --version'
 ```
@@ -948,6 +948,11 @@ and the coordinates of a percentage-positioned field. A PDF header alone
 cannot establish that the clinical content was retained. The corpus soak also
 records the application's explicit completeness refusal and its issue report;
 it does not approve omitted content to obtain a PDF.
+
+`annotate-document-playwright-checks.js` requires Liberation Sans from
+`fonts-liberation` where Chromium runs. Its late-font scenarios use this narrower
+fallback to verify that notes are refitted when the annotation font arrives.
+The Docker validation image installs this prerequisite too.
 
 ## 6. Run the suite
 
