@@ -26,7 +26,7 @@
  * state itself (unlinking the patient's pharmacies and restoring them in a
  * finally), walks the real reprint journey — the Reprint panel embeds
  * viewScript as an iframe, whose own #preview iframe is the Preview2 render —
- * and then re-renders the preview with pharmacyId=null literal. Both must
+ * and then opens viewScript and Preview2 directly with pharmacyId=null literal. All must
  * render and the whole flow must stay free of 5xx responses.
  *
  * Requires the deb-install env contract (docs/ui-tests/deb-install-validation.md §6):
@@ -390,11 +390,23 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRun);
     await assertNotErrorPage(nullPage, 'reprint view (pharmacyId=null literal)');
     const nullPreviewUrl = await assertPreviewRenders(nullPage.mainFrame(), 'reprint preview (pharmacyId=null literal)');
     const nullPreviewParams = new URL(nullPreviewUrl).searchParams;
-    assert(nullPreviewParams.get('pharmacyId') === 'null',
-      'literal pharmacyId=null did not reach the rendered preview');
+    // ViewScript2.jsp's noNull scrubber normalizes the literal "null" to empty.
+    assert(nullPreviewParams.get('pharmacyId') === '',
+      'viewScript did not normalize literal pharmacyId=null to an empty preview pharmacy');
     assert(nullPreviewParams.get('demographicNo') === String(Number(demographicNo)) && nullPreviewParams.get('scriptId') === scriptId,
       'literal pharmacyId=null preview did not retain the requested patient and prescription');
     await screenshot(nullPage, config.screenshotDir, 'rx-preview-pharmacy-null-literal');
+
+    // Bypass viewScript's scrubber to exercise Preview2.jsp's literal-null guard too.
+    const directNullPage = await context.newPage();
+    wirePage(directNullPage, 'rx-preview-null-literal', recorder);
+    const directNullResponse = await gotoApp(directNullPage, config.baseUrl,
+      `/rx/ViewPreview2?demographicNo=${demographicNo}&scriptId=${scriptId}&pharmacyId=null`);
+    assert(directNullResponse && directNullResponse.status() === 200,
+      `direct preview (pharmacyId=null literal) expected HTTP 200, got ${directNullResponse ? directNullResponse.status() : 'no response'}`);
+    await assertNotErrorPage(directNullPage, 'direct preview (pharmacyId=null literal)');
+    await directNullPage.locator('#signature').waitFor({ state: 'attached', timeout: 30000 });
+    await directNullPage.close();
 
     // Explicit saved-script previews must refuse invalid/foreign identities even while a
     // valid same-patient reprint is open; neither may silently render the current workspace.
