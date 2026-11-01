@@ -96,10 +96,24 @@ public final class Cds4ReportUIBean {
         // this is a map where key=0-10 representing each cohort bucket., value is a collection of CdsClientForms
         public Map<Integer, List<CdsClientForm>> multipleAdmissionCohortBuckets = new HashMap<>();
 
+        /**
+         * Appends a form to a single-admission cohort, retaining duplicates and nulls.
+         * Creates the bucket on its first append.
+         *
+         * @param bucket int the cohort bucket key, conventionally 0 through 10
+         * @param form CdsClientForm the form to append; may be null
+         */
         public void addSingleAdmissionToCohort(int bucket, CdsClientForm form) {
             singleAdmissionCohortBuckets.computeIfAbsent(bucket, key -> new ArrayList<>()).add(form);
         }
 
+        /**
+         * Appends a form to a multiple-admission cohort, retaining duplicates and nulls.
+         * Creates the bucket on its first append.
+         *
+         * @param bucket int the cohort bucket key, conventionally 0 through 10
+         * @param form CdsClientForm the form to append; may be null
+         */
         public void addMultipleAdmissionToCohort(int bucket, CdsClientForm form) {
             multipleAdmissionCohortBuckets.computeIfAbsent(bucket, key -> new ArrayList<>()).add(form);
         }

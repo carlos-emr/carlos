@@ -122,6 +122,12 @@ public class OntarioMD {
         return ret;
     }
 
+    /**
+     * Builds the OntarioMD disease keyword catalogue in display insertion order.
+     *
+     * @return Map&lt;String, String&gt; a new mutable map of keywords to display labels,
+     *         preserving the insertion order of the catalogue
+     */
     public Map<String, String> getDiseaseList() {
         Map<String, String> map = new LinkedHashMap<>();
      /*

@@ -26,7 +26,13 @@ public final class ContentDigests {
         return HexFormat.of().formatHex(sha256(value));
     }
 
-    /** Reads to EOF without closing the caller-owned stream. */
+    /**
+     * Reads to EOF without closing the caller-owned stream.
+     *
+     * @param input InputStream the caller-owned stream to hash
+     * @return String the lowercase SHA-256 hexadecimal digest
+     * @throws IOException if reading the stream fails
+     */
     public static String sha256Hex(InputStream input) throws IOException {
         return hexDigest("SHA-256", input);
     }
@@ -34,6 +40,10 @@ public final class ContentDigests {
     /**
      * Legacy lab duplicate key only, never a password or security integrity check.
      * Existing stored MD5 keys must continue to match uploaded bytes.
+     *
+     * @param input InputStream the caller-owned stream to hash, left open
+     * @return String the lowercase MD5 hexadecimal digest
+     * @throws IOException if reading the stream fails
      */
     public static String md5Hex(InputStream input) throws IOException {
         return hexDigest("MD5", input);

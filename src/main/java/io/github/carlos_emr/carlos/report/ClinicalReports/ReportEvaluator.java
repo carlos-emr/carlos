@@ -75,6 +75,19 @@ public class ReportEvaluator {
         evaluate(loggedInInfo, deno, numer, null, additionalFields, true);
     }
 
+    /**
+     * Evaluates denominator entries against the primary and additional numerators
+     * and adds the resulting report rows.
+     *
+     * @param loggedInInfo LoggedInInfo the current login context
+     * @param deno Denominator the denominator whose entries are evaluated
+     * @param numer Numerator the primary numerator
+     * @param numers Numerator[] at least eleven additional numerator slots,
+     *               checked at indices 0 through 10; individual slots may be null
+     * @param additionalFields List&lt;Map.Entry&lt;String, String&gt;&gt; measurement fields
+     *                         to add; may be null
+     * @param includeFalseResults boolean whether to include rows with false results
+     */
     public void evaluate(LoggedInInfo loggedInInfo, Denominator deno, Numerator numer, Numerator[] numers, List<Map.Entry<String, String>> additionalFields, boolean includeFalseResults) {
         denominator = deno;
         numerator = numer;
