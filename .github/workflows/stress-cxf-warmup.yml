@@ -1,0 +1,97 @@
+name: Stress synthetic EBS warm-up
+on:
+  push:
+    branches: [diagnostics/cxf-failure-055d319]
+    paths: [.github/workflows/stress-cxf-warmup.yml]
+permissions:
+  contents: read
+  packages: read
+  actions: read
+jobs:
+  stress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Start existing development container
+        uses: ./.github/actions/dev-container
+        with:
+          token: ${{ github.token }}
+          maven-cache: restore-only
+      - name: Add an isolated repeated warm-up and unconditional peer diagnostics
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilderTransportUnitTest.java')
+          source = path.read_text()
+          original = '''    void tearDown() {
+        clients.forEach(Client::destroy);
+        BusFactory.setThreadDefaultBus(previousBus);
+        if (bus != null) bus.shutdown(true);
+        if (peer != null) peer.close();
+    }'''
+          replacement = '''    void tearDown() {
+        try {
+            if (peer != null) peer.assertHealthy();
+        } finally {
+            clients.forEach(Client::destroy);
+            BusFactory.setThreadDefaultBus(previousBus);
+            if (bus != null) bus.shutdown(true);
+            if (peer != null) peer.close();
+        }
+    }'''
+          if original not in source:
+              raise RuntimeError('Unexpected fixture cleanup source')
+          source = source.replace(original, replacement)
+          test = '''    @org.junit.jupiter.api.RepeatedTest(100)
+    void shouldRepeatWarmup_withIndependentSyntheticPeers() throws Exception {
+        EDTDelegate port = client(EDTDelegate.class);
+        assertThat(port.download(RESOURCE_IDS).getData().getFirst().getContent())
+                .containsExactly(EbsHttpsTestFixture.PAYLOAD);
+        peer.assertHealthy();
+        assertReplaysReleased();
+    }
+
+'''
+          marker = '    private <T> T client(Class<T> contract) {'
+          if marker not in source:
+              raise RuntimeError('Unexpected client helper source')
+          path.write_text(source.replace(marker, test + marker))
+          PY
+      - name: Run one hundred repeated warm-ups across four JUnit workers
+        run: >-
+          docker exec carlos-tomcat-dev mvn --batch-mode test
+          -Dtest.forkCount=1
+          -Dtest=EdtClientBuilderTransportUnitTest#shouldRepeatWarmup_withIndependentSyntheticPeers
+          -Djunit.jupiter.execution.parallel.enabled=true
+          -Djunit.jupiter.execution.parallel.mode.default=concurrent
+          -Djunit.jupiter.execution.parallel.config.strategy=fixed
+          -Djunit.jupiter.execution.parallel.config.fixed.parallelism=4
+      - name: Publish identifiers and source-frame diagnostics
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import xml.etree.ElementTree as ET
+          def note(text):
+              text = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::notice title=Synthetic warm-up stress::' + text)
+          reports = list(Path('target/surefire-reports').glob('TEST-*EdtClientBuilderTransportUnitTest.xml'))
+          for report in reports:
+              root = ET.parse(report).getroot()
+              note('tests=' + root.get('tests', '?') + ' failures=' + root.get('failures', '?') + ' errors=' + root.get('errors', '?'))
+              for case in root.iter('testcase'):
+                  for problem in case:
+                      if problem.tag not in {'failure', 'error'}:
+                          continue
+                      note(case.get('name', '') + ' | ' + problem.get('type', ''))
+                      trace = problem.text or ''
+                      for cause in re.findall(r'Caused by: ([\w.$]+)', trace):
+                          note('cause: ' + cause)
+                      for method, location in re.findall(r'at ([\w.$]+)\(([^)]*\.java:\d+)\)', trace):
+                          if 'integration.ebs.client.ng' in method:
+                              note('frame: ' + method + ' (' + location + ')')
+          PY
