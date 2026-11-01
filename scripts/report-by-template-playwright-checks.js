@@ -317,6 +317,29 @@ async function workflow(s) {
     const [row] = templateRow();
     h.assert(row[0] === title && row[1] === `${s.marker} edited roster` && row[2] === query, 'Edited template was not persisted');
   });
+
+  await s.step('CSV download guards formula headers and text while preserving negative amounts and CSV syntax', async () => {
+    const guardedTitle = `${s.marker} RBT spreadsheet`;
+    const headers = ['=header', '+header', '-header', '@header', '  =header', 'control', 'quoted', 'multiline', 'amount', 'scientific'];
+    const values = ['=1+1', '+1+1', '-cmd', '@SUM(A1)', '  =1+1', '\t\r\n=1+1',
+      '=HYPERLINK("synthetic","quoted,\r\nvalue")', 'Zoë,"text"\r\nnext', '-12.50', '-1.2E-7'];
+    // Hex literals preserve the synthetic control characters through XML and SQL parsing.
+    const select = 'SELECT ' + values.map((value, i) =>
+      `CONVERT(0x${Buffer.from(value).toString('hex')} USING utf8mb4) AS \`${headers[i]}\``).join(', ');
+    const id = await uploadTemplate(templateXml(guardedTitle, `${s.marker} spreadsheet probe`, select), guardedTitle);
+    await openFromLibrary(guardedTitle, id);
+    await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), 'Spreadsheet result');
+    await frame.locator('table#report2').waitFor();
+    h.assert(await frame.locator('table#report2 tbody tr').first().locator('td').first().innerText() === values[0],
+      'The CSV guard changed the visible HTML result');
+    const file = await download('input[name="getCSV"]');
+    const expected = [headers.map((v, i) => i < 5 ? `\t${v}` : v), values.map((v, i) => i < 7 ? `\t${v}` : v)];
+    h.assert(file.bytes.toString('utf8').startsWith('"\t=header"'), 'Formula guard tab was not CSV quoted');
+    h.assert(JSON.stringify(parseCsv(file.bytes.toString('utf8'))) === JSON.stringify(expected),
+      'Downloaded spreadsheet CSV lost its guards, numeric text, quotes, line breaks or Unicode');
+    await leaveResult(frame.locator('input[type="button"][value="Back"]'), 'Back (spreadsheet)');
+    await deleteFromConfiguration(id, guardedTitle);
+  });
 }
 
 if (require.main === module) runWorkflow('report-by-template', workflow, {openPatient: true, openMaster: false});
