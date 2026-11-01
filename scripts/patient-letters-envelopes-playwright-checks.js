@@ -563,7 +563,8 @@ async function cleanup(demographicNo) {
   if (sql(`SELECT COUNT(*) FROM measurements WHERE comments='${reportName}' AND type='FLUF' AND demographicNo=${Number(demographicNo)}`) !== '0') throw new Error('Owned follow-up remains');
 }
 
-legacyHarness.runLegacyCheck('patient-letters-envelopes',async({cancellation})=>{
+legacyHarness.runLegacyCheck('patient-letters-envelopes',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = { headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
@@ -609,7 +610,7 @@ legacyHarness.runLegacyCheck('patient-letters-envelopes',async({cancellation})=>
     () => { if (mysqlDefaults) fs.rmSync(mysqlDefaults.dir, { recursive: true, force: true }); },
     () => browser.close(),
   ]);
-}).catch((error) => {
+})(context).catch((error) => {
   try {
     if (mysqlDefaults) fs.rmSync(mysqlDefaults.dir, {recursive:true, force:true});
   } catch (cleanupError) {
@@ -617,5 +618,6 @@ legacyHarness.runLegacyCheck('patient-letters-envelopes',async({cancellation})=>
   }
   console.error('FAIL patient letters/envelopes Playwright check');
   console.error(error.stack || error.message);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

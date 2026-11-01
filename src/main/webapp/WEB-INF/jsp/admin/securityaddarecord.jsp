@@ -198,6 +198,8 @@
                     setfocus('date_ExpireDate');
                     return false;
                 }
+                // Legacy PIN controls are absent when password/MFA login is configured.
+                if (!document.forms[0].pin) return true;
                 if (document.forms[0].pinIsRequired.value == 1 || document.forms[0].b_RemoteLockSet.checked || document.forms[0].b_LocalLockSet.checked) {
                     if (document.forms[0].pin.value == "") {
                         alert('<fmt:message key="admin.securityrecord.formPIN"/> <fmt:message key="admin.securityrecord.msgIsRequired"/>');
@@ -234,17 +236,10 @@
 	}
 
 	function updatePinComponentsAccess(checked) {
-		let pinCheckbox = document.getElementsByName('b_RemoteLockSet')
-		let pinConfCheckbox = document.getElementsByName('b_LocalLockSet')
-		let pinInput = document.getElementsByName('pin')
-		let pinConfInput = document.getElementsByName('conPin')
-
-		pinCheckbox[0].disabled = checked;
-		pinConfCheckbox[0].disabled = checked;
-		pinInput[0].disabled = checked;
-		pinConfInput[0].disabled = checked;
+        for (const name of ['b_RemoteLockSet','b_LocalLockSet','pin','conPin']) {
+            for (const element of document.getElementsByName(name)) element.disabled = checked;
+        }
 	}
-
             //-->
         </script>
     </head>

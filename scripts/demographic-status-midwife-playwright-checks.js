@@ -17,6 +17,26 @@ async function workflow(s) {
   s.cleanup(() => sql.execute(`DELETE FROM demographicExtArchive WHERE demographic_no=${patient}; DELETE FROM demographiccust WHERE demographic_no=${patient}`));
   const state = id => sql.rows(`SELECT patient_status,COALESCE(DATE(patient_status_date),''),first_name,last_name,hin,sex FROM demographic WHERE demographic_no=${id}`);
   const controlState = JSON.stringify(state(control));
+  let reportTool;
+  async function reportMembership(status) {
+    if(!reportTool) {
+      const {page:index}=await ui.clickOpensPopupOrNavigates(s.schedule,s.schedule.locator('a[title="Generate a report"]').first(),
+        {context:s.context,recorder:s.recorder,label:'status-report-index',timeout:20000});
+      ({page:reportTool}=await ui.clickOpensPopupOrNavigates(index,index.locator('a[href*="ViewReportDemographicReport"]').first(),
+        {context:s.context,recorder:s.recorder,label:'status-report-tool',timeout:20000}));
+    }
+    for(const selected of ['AC',status].filter((value,index,list)=>list.indexOf(value)===index)) {
+      await reportTool.locator('#select_demographic_no').check();await reportTool.locator('#select_last_name').check();
+      await reportTool.locator('textarea[name="demoIds"]').fill(`${patient}\n${control}`);
+      const boxes=reportTool.locator('input[name="patientStatus"]');for(const box of await boxes.all())await box.uncheck();
+      await reportTool.locator(`input[name="patientStatus"][value="${selected}"]`).check();
+      await ui.clickAndAwaitReload(reportTool,reportTool.getByRole('button',{name:'Run Query',exact:true}),{label:'status-dependent demographic report',timeout:30000});
+      const cells=await reportTool.locator('table tr').filter({hasText:marker}).locator('td').allTextContents();
+      const ids=cells.map(value=>value.trim()).filter(value=>[patient,control].includes(value));
+      h.assert(ids.includes(patient)===(selected===status),'Demographic report did not apply its explicit patient-status criterion');
+      h.assert(ids.includes(control)===(selected==='AC'),'Demographic report changed active control inclusion');
+    }
+  }
   async function edit() {
     if (await master.locator('#editBtn').isVisible()) await master.locator('#editBtn').click();
     await master.locator('#editDemographic').waitFor({state: 'visible'});
@@ -50,6 +70,9 @@ async function workflow(s) {
     await date('2025-02-03'); await save();
     h.assert(state(patient)[0][0] === status && state(patient)[0][1] === '2025-02-03', 'Status/date were not saved');
     await searchMembership(true);
+    // The Demographic Report Tool filters by the operator's selected statuses;
+    // unlike the default search it does not impose a universal active-only rule.
+    await reportMembership(status);
     await edit();
     h.assert(await master.locator('[name="patient_status"]').inputValue() === status, 'Reopened status differs');
     await date('2025-03-04'); await save();
@@ -65,6 +88,7 @@ async function workflow(s) {
     await edit();await date('');await save();
     h.assert(state(patient)[0][0] === 'AC' && state(patient)[0][1] === '', 'Reactivation retained a misleading inactive date');
     await searchMembership(false);
+    await reportMembership('AC');
     h.assert(JSON.stringify(state(control)) === controlState, 'Status changes affected the control patient');
   });
   await s.step('a partial status date is visibly refused without changing persisted status', async () => {

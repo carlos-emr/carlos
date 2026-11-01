@@ -679,7 +679,8 @@ async function loginThroughForcedReset(context, user, password, pin, label,
 
 // --- checks ----------------------------------------------------------------
 
-legacyHarness.runLegacyCheck('o19-migrated-smoke',async({cancellation})=>{
+legacyHarness.runLegacyCheck('o19-migrated-smoke',async context=>{
+  await (async({cancellation})=>{
   // No break-glass credentials file means this deployment never ran
   // `carlos-ctl import-o19`: a fresh package install or the devcontainer.
   // There is nothing migrated to smoke, so report SKIP (exit 2, #3313) and
@@ -1062,7 +1063,7 @@ legacyHarness.runLegacyCheck('o19-migrated-smoke',async({cancellation})=>{
       process.exitCode = 1;
     }
   }
-}).catch((error) => {
+})(context).catch((error) => {
   console.error(reportError(error, true));
   try {
     restoreSecurityRows();
@@ -1071,5 +1072,6 @@ legacyHarness.runLegacyCheck('o19-migrated-smoke',async({cancellation})=>{
   } finally {
     cleanupMysqlDefaultsFile();
   }
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

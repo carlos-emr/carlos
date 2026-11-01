@@ -17,6 +17,7 @@ function fixture() {
   const context = {module: {exports: {}}, console, require(name) {
     if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
     if (name === 'node:crypto') return require(name);
+    if (name === './provider-navigation-fixture') return {providerNavigationFixture:()=>null};
     if (name === './playwright-harness') return harness;
     return {};
   }};

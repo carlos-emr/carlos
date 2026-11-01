@@ -567,7 +567,8 @@ async function main({cancellation}={}) {
   }
 }
 
-legacyHarness.runLegacyCheck('fax-configure',main)
+legacyHarness.runLegacyCheck('fax-configure',async context=>{
+  await (main)(context)
   .then(() => {
     const failed = results.filter((r) => !r.passed);
     if (failed.length > 0) {
@@ -580,3 +581,4 @@ legacyHarness.runLegacyCheck('fax-configure',main)
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   });
+});

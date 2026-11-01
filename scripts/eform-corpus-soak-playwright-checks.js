@@ -196,7 +196,8 @@ function launchOptions() {
   return getLaunchOptions(config.chromePath);
 }
 
-legacyHarness.runLegacyCheck('eform-corpus-soak',async({cancellation})=>{
+legacyHarness.runLegacyCheck('eform-corpus-soak',async context=>{
+  await (async({cancellation})=>{
   if (!config.corpusDir) {
     console.error('EFORM_CORPUS_DIR is required — point it at a directory of eForm .zip packages.');
     {process.exitCode=2;return;}
@@ -418,8 +419,9 @@ legacyHarness.runLegacyCheck('eform-corpus-soak',async({cancellation})=>{
       console.log(`  ${entry.image}\t${entry.form}`);
     }
   }
-}).catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL eForm corpus soak');
   console.error(error.stack || error.message);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

@@ -325,7 +325,8 @@ async function expectValidationWithoutNavigation(page, submitSelector, label) {
   }
 }
 
-legacyHarness.runLegacyCheck('patient-search-dob',async({cancellation})=>{
+legacyHarness.runLegacyCheck('patient-search-dob',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -659,8 +660,9 @@ legacyHarness.runLegacyCheck('patient-search-dob',async({cancellation})=>{
     console.log(JSON.stringify({ checks, findings }, null, 2));
     await browser.close();
   }
-}).catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL CARLOS EMR patient search DOB Playwright check');
   console.error(`Failure type: ${error && error.name ? error.name : 'Error'}`);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

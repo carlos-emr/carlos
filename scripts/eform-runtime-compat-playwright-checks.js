@@ -431,7 +431,9 @@ async function main({cancellation}={}) {
     + 'and immediate jQuery aliases after replacement.');
 }
 
-legacyHarness.runLegacyCheck('eform-runtime-compat',main).catch((error) => {
+legacyHarness.runLegacyCheck('eform-runtime-compat',async context=>{
+  await (main)(context).catch((error) => {
   console.error(error);
   process.exitCode = 1;
+});
 });

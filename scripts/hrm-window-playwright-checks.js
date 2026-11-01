@@ -208,4 +208,6 @@ async function main({cancellation}={}) {
     await new Promise(resolve => server.close(resolve));
   }
 }
-legacyHarness.runLegacyCheck('hrm-window',main).catch(error => { console.error(error); server.close(); process.exitCode = 1; });
+legacyHarness.runLegacyCheck('hrm-window',async context=>{
+  await (main)(context).catch(error => { console.error(error); server.close(); process.exitCode = 1; });
+});

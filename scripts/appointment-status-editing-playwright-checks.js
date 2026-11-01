@@ -332,8 +332,10 @@ async function main({cancellation}={}) {
   }
 }
 
-if (require.main === module) legacyHarness.runLegacyCheck('appointment-status-editing',main).catch((error) => {
+if (require.main === module) legacyHarness.runLegacyCheck('appointment-status-editing',async context=>{
+  await (main)(context).catch((error) => {
   console.error(error.stack || error.message);
   process.exitCode = 1;
+});
 });
 module.exports = { main };

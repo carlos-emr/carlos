@@ -106,4 +106,6 @@ async function main({cancellation}={}) {
   }
 }
 
-legacyHarness.runLegacyCheck('fax-inbox-lifecycle',main).catch((e) => { console.error('INBOX LIFECYCLE: FAIL —', e.message); process.exit(1); });
+legacyHarness.runLegacyCheck('fax-inbox-lifecycle',async context=>{
+  await (main)(context).catch((e) => { console.error('INBOX LIFECYCLE: FAIL —', e.message); {process.exitCode=1;return;} });
+});

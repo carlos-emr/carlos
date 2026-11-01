@@ -91,7 +91,8 @@ async function assertLoggedOutPage(page, label) {
   assert(!/provider\/(providercontrol|ViewAppointmentAdminDay)/i.test(url), `${label} stayed on authenticated URL ${url}`);
 }
 
-legacyHarness.runLegacyCheck('logout-session-invalidation',async({cancellation})=>{
+legacyHarness.runLegacyCheck('logout-session-invalidation',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -139,7 +140,8 @@ legacyHarness.runLegacyCheck('logout-session-invalidation',async({cancellation})
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
   }
-}).catch((error) => {
+})(context).catch((error) => {
   console.error(error && error.stack ? error.stack : error);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

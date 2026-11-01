@@ -502,7 +502,8 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
   }
 }
 
-legacyHarness.runLegacyCheck('eform-saved-render',async({cancellation})=>{
+legacyHarness.runLegacyCheck('eform-saved-render',async context=>{
+  await (async({cancellation})=>{
   const fixture = createFixtureFiles();
   const timestamp = Date.now();
   const formName = `Playwright Saved Render ${timestamp}`;
@@ -626,7 +627,7 @@ legacyHarness.runLegacyCheck('eform-saved-render',async({cancellation})=>{
       process.exitCode = 1;
     }
   }
-}).catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL saved eForm render Playwright check');
   console.error(error.stack || error.message);
   if (badResponses.length) {
@@ -638,5 +639,6 @@ legacyHarness.runLegacyCheck('eform-saved-render',async({cancellation})=>{
   if (displayImageResponses.length) {
     console.error(`displayImage responses: ${JSON.stringify(displayImageResponses, null, 2)}`);
   }
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

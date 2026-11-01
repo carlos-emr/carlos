@@ -132,11 +132,12 @@ test('native file or require-native mode refuses absent genuine P4 credentials b
   for (const native of [{ O19_REQUIRE_NATIVE_AUTH: 'true' }, { O19_NATIVE_CLINICIAN_CREDENTIALS: fixture(t) }]) {
     const exits = [], queries = [], browserCalls = [];
     const filename = path.join(__dirname, 'o19-migrated-smoke-playwright-checks.js');
-    const code = fs.readFileSync(filename, 'utf8').replace('(async () => {', 'module.exports.mainPromise = (async () => {');
+    const code = fs.readFileSync(filename, 'utf8').replace('legacyHarness.runLegacyCheck(', 'module.exports.mainPromise = legacyHarness.runLegacyCheck(');
     const sandbox = { module: { exports: {} }, URL, URLSearchParams,
       console: { log: () => {}, error: () => {} },
       process: { env: { ...native, O19_ADMIN_CREDENTIALS: fixture(t) + '.missing' }, on: () => {}, getuid: () => process.getuid(), exit: code => exits.push(code) },
       require: name => {
+        if(name==='./lib/legacy-check')return {...require('./lib/legacy-check'),runLegacyCheck:(_name,operation)=>operation({})};
         if (name === 'playwright') return { chromium: { launch: () => { browserCalls.push(1); throw new Error('Browser must not launch'); } } };
         if (name === './lib/playwright-harness') return { ...require('./lib/playwright-harness'), shouldIgnoreHttpsErrors: () => true, EXIT_SKIP: 2 };
         if (name === './lib/o19-native-auth') return require('./lib/o19-native-auth');
@@ -146,7 +147,7 @@ test('native file or require-native mode refuses absent genuine P4 credentials b
       } };
     vm.runInNewContext(code, sandbox, { filename });
     await sandbox.module.exports.mainPromise;
-    assert.deepEqual(exits, [1]); assert.deepEqual(queries, []); assert.deepEqual(browserCalls, []);
+    assert.deepEqual(exits, []); assert.equal(sandbox.process.exitCode,1); assert.deepEqual(queries, []); assert.deepEqual(browserCalls, []);
     assert.notEqual(sandbox.process.exitCode, 2);
   }
 });

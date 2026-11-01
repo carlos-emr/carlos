@@ -383,7 +383,8 @@ async function run({cancellation}={}) {
   }
 }
 
-legacyHarness.runLegacyCheck('billing-on-third-party',run)
+legacyHarness.runLegacyCheck('billing-on-third-party',async context=>{
+  await (run)(context)
   .catch((error) => check('script completed without error', false, error.message))
   .finally(() => {
     // buildArtifactPath validates the directory (restricted to /tmp or the
@@ -391,5 +392,6 @@ legacyHarness.runLegacyCheck('billing-on-third-party',run)
     fs.writeFileSync(buildArtifactPath(artifactDir, 'results', '.json'), JSON.stringify(results, null, 2));
     const failed = results.filter((result) => !result.ok);
     console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
-    process.exit(failed.length ? 1 : 0);
+    {process.exitCode=failed.length ? 1 : 0;return;}
   });
+});

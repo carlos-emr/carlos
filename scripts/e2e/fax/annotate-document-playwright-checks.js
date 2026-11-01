@@ -1993,19 +1993,21 @@ async function main({cancellation}={}) {
   }
 }
 
-legacyHarness.runLegacyCheck('annotate-document',main)
+legacyHarness.runLegacyCheck('annotate-document',async context=>{
+  await (main)(context)
   .then(() => {
     notes.forEach((line) => console.log(line));
     if (findings.length) {
       console.log('');
       findings.forEach((line) => console.log(line));
       console.log(`\n${findings.length} check(s) failed`);
-      process.exit(1);
+      {process.exitCode=1;return;}
     }
     console.log('\nAll annotation viewer checks passed');
   })
   .catch((error) => {
     notes.forEach((line) => console.log(line));
     console.error(`\nERROR ${error && error.message ? error.message : error}`);
-    process.exit(1);
+    {process.exitCode=1;return;}
   });
+});

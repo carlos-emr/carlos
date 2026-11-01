@@ -7,6 +7,17 @@ const h=require('./playwright-harness');
 // Await that write, checkpoint in the caller, and unwind through its finally.
 function runLegacyCheck(name,operation) {
   return h.runCheck({name,async run(context) {
+    const requested=process.env.CARLOS_INTERRUPT_AFTER_CHECKPOINT;
+    if(requested!==undefined) {
+      h.assert(process.env.CARLOS_DISPOSABLE_HOST==='true'&&/^[1-9]\d{0,3}$/.test(requested),
+        'Signal audit requires a disposable install and a positive checkpoint number');
+      let reached=0;
+      const original=context.cancellation.throwIfCancelled;
+      context.cancellation.throwIfCancelled=()=>{
+        if(++reached===Number(requested))process.kill(process.pid,'SIGINT');
+        original();
+      };
+    }
     await operation(context);
     context.throwIfCancelled();
     // Preserve legacy checks which collect failures instead of throwing them.

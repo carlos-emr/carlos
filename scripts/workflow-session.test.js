@@ -166,6 +166,7 @@ async function runChartSession(t, { options, navbarError, navigationError, searc
   const sandbox = { module: { exports: {} }, console, URL, setTimeout, require(name) {
     if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
     if (name === 'node:crypto') return require(name);
+    if (name === './provider-navigation-fixture') return {providerNavigationFixture:()=>null};
     if (name === './playwright-harness') return h;
     if (name === './playwright-ui') return require('./lib/playwright-ui');
     if (name === '../master-record-tabs-playwright-checks') return {

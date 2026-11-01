@@ -100,4 +100,6 @@ async function main({cancellation}={}) {
   }
 }
 
-legacyHarness.runLegacyCheck('fax-prescription-drugref',main).catch((e) => { console.error('PRESCRIPTION DRUGREF: FAIL —', e.message); process.exit(1); });
+legacyHarness.runLegacyCheck('fax-prescription-drugref',async context=>{
+  await (main)(context).catch((e) => { console.error('PRESCRIPTION DRUGREF: FAIL —', e.message); {process.exitCode=1;return;} });
+});

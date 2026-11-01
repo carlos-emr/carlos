@@ -57,7 +57,8 @@ const config = {
   formName: process.env.RTL_FORM_NAME || 'Rich Text Letter',
 };
 
-legacyHarness.runLegacyCheck('eform-rtl-attachment-behavior',async({cancellation})=>{
+legacyHarness.runLegacyCheck('eform-rtl-attachment-behavior',async context=>{
+  await (async({cancellation})=>{
   assert(/^[1-9][0-9]*$/.test(config.demographicNo), 'RTL_DEMOGRAPHIC_NO must be a positive ID');
   const recorder = createRecorder();
   const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
@@ -248,4 +249,5 @@ legacyHarness.runLegacyCheck('eform-rtl-attachment-behavior',async({cancellation
       }
     }
   }
-}).catch(error => { console.error(error.message); process.exitCode = 1; });
+})(context).catch(error => { console.error(error.message); process.exitCode = 1; });
+});

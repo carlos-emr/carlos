@@ -364,7 +364,8 @@ function assertDisplayImageFetchesSucceeded(imageName) {
   await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
 }
 
-legacyHarness.runLegacyCheck('eform-render',async({cancellation})=>{
+legacyHarness.runLegacyCheck('eform-render',async context=>{
+  await (async({cancellation})=>{
   const fixture = createFixtureFiles();
   const timestamp = Date.now();
   const importedFormName = `Playwright Render Pipeline ${timestamp}`;
@@ -543,7 +544,7 @@ legacyHarness.runLegacyCheck('eform-render',async({cancellation})=>{
     removeOwnedPatient(sql, patient, ownedMarker);
   }
   h.assertStrictPage(strictRecorder);
-}).catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL app-backed eForm render pipeline Playwright check');
   console.error(error.stack || error.message);
   console.error(JSON.stringify(h.buildFailureDetails(strictRecorder), null, 2));
@@ -553,5 +554,6 @@ legacyHarness.runLegacyCheck('eform-render',async({cancellation})=>{
   if (consoleIssues.length) {
     console.error(`Console issues: ${JSON.stringify(consoleIssues, null, 2)}`);
   }
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

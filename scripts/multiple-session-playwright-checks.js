@@ -145,7 +145,8 @@ async function assertLogoutPageNoLoop(browser) {
   console.log(`PASS unauthenticated logoutPage completed without redirect loop (${paths.join(' -> ') || current})`);
 }
 
-legacyHarness.runLegacyCheck('multiple-session',async({cancellation})=>{
+legacyHarness.runLegacyCheck('multiple-session',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -177,7 +178,8 @@ legacyHarness.runLegacyCheck('multiple-session',async({cancellation})=>{
     await contextB.close().catch(() => {});
     await browser.close().catch(() => {});
   }
-}).catch((error) => {
+})(context).catch((error) => {
   console.error(error && error.stack ? error.stack : error);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

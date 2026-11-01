@@ -2,6 +2,7 @@
 const { randomBytes } = require('node:crypto');
 const h = require('./playwright-harness');
 const ui = require('./playwright-ui');
+const {providerNavigationFixture}=require('./provider-navigation-fixture');
 const { openMasterRecord } = require('../master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('../echart-navbar-modules-playwright-checks');
 
@@ -23,6 +24,8 @@ async function runWorkflow(name, workflow, { openPatient = true, openMaster = tr
       // credentials. Keep provider/schema-dependent preflight after SQL setup.
       if (preflightConfig) await preflightConfig({config});
       sql = h.createSqlRunner(config.mysql);
+      const navigation=providerNavigationFixture(sql,config.testUser,name);
+      if(navigation)cleanups.push(()=>navigation.cleanup());
       const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(config.testUser)}`);
       h.assert(provider, 'The configured test login has no provider');
       if (preflight) await preflight({config, sql, provider});

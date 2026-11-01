@@ -307,7 +307,8 @@ async function selectProviderFromLastNameSearch(context, schedulePage) {
   await schedulePage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 }
 
-legacyHarness.runLegacyCheck('schedule-links',async({cancellation})=>{
+legacyHarness.runLegacyCheck('schedule-links',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -348,9 +349,10 @@ legacyHarness.runLegacyCheck('schedule-links',async({cancellation})=>{
   } finally {
     await browser.close();
   }
-}).catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL schedule link Playwright check');
   console.error(error.stack || error.message);
   console.error(JSON.stringify(h.buildFailureDetails(recorder), null, 2));
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

@@ -74,7 +74,8 @@ function appPathFromHref(href) {
   return parsed.pathname;
 }
 
-legacyHarness.runLegacyCheck('eform-admin',async({cancellation})=>{
+legacyHarness.runLegacyCheck('eform-admin',async context=>{
+  await (async({cancellation})=>{
   const navJsp = readNavJsp();
   const editorJsp = readEditorJsp();
   const navHtml = jspFragmentToHtml(navJsp);
@@ -176,7 +177,8 @@ legacyHarness.runLegacyCheck('eform-admin',async({cancellation})=>{
   } finally {
     await browser.close();
   }
-}).catch((error) => {
+})(context).catch((error) => {
   console.error(error.stack || error.message);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

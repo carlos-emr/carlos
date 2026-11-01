@@ -310,7 +310,7 @@ function demographicUpdate(s) {
 // ---------------------------------------------------------------------------------------------
 // Ontario bill save (both)
 
-function billingOnSave(s) {
+function billingOnSave(s, {configureForm} = {}) {
   const prefix = `${s.marker}-BS-`;
   const date = process.env.BILLING_SUBMIT_DATE || '2024-05-06';
   const code = process.env.BILLING_OHIP_CODE || 'A007A';
@@ -366,6 +366,7 @@ function billingOnSave(s) {
       await page.locator(`input[name="xml_${code}"]:visible`).first().check();
       await page.locator('input[name="dxCode"]').fill(process.env.BILLING_DX_CODE || '250');
       await page.locator('input[name="dxCode"]').dispatchEvent('change');
+      if (configureForm) await configureForm(page);
       await Promise.all([page.waitForURL(/ViewBillingONReview/, { timeout: TIMEOUT }),
         page.locator('#titlesearch input[type="submit"][name="submit"]').click()]);
       await page.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});

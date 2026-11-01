@@ -561,7 +561,8 @@ async function checkResizeIframeCallers(page) {
   }
 }
 
-legacyHarness.runLegacyCheck('schedule-setting',async({cancellation})=>{
+legacyHarness.runLegacyCheck('schedule-setting',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -595,8 +596,9 @@ legacyHarness.runLegacyCheck('schedule-setting',async({cancellation})=>{
   } finally {
     await browser.close();
   }
-}).catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL schedule setting Playwright check');
   console.error(redactUrls(error.stack || error.message));
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

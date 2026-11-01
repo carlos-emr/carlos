@@ -337,6 +337,9 @@ async function openBookingForm(context, daySheet, {slotIndex = 0} = {}) {
 }
 
 async function bookFromSlot(context, daySheet, {configureAdd, slotIndex = 0} = {}) {
+  // A successful booking refreshes its opener without retaining every date parameter.
+  // Re-enter the intended day before booking another control appointment.
+  await openDaySheet(daySheet);
   const existingIds = new Set(stampedAppointments().map(row => row.id));
   const popup = await openBookingForm(context, daySheet, {slotIndex});
   const slotStart = await popup.locator('form#addappt input[name="start_time"]').inputValue();
@@ -829,9 +832,11 @@ async function main({cancellation}={}) {
   }
 
 }
-if (require.main === module) legacyHarness.runLegacyCheck('appointment-lifecycle',main).catch((error) => {
+if (require.main === module) legacyHarness.runLegacyCheck('appointment-lifecycle',async context=>{
+  await (main)(context).catch((error) => {
   console.error(error.stack || error.message);
   process.exitCode = 1;
+});
 });
 // Shared UI fixture: importing this module does not book or delete anything.
 module.exports = { config, recorder, targetDate, target, stamp, bookedReason, bookedNotes,

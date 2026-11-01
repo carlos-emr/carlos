@@ -406,7 +406,8 @@ function checkLogDelta(snapshot) {
   }
 }
 
-legacyHarness.runLegacyCheck('logout-redirect',async({cancellation})=>{
+legacyHarness.runLegacyCheck('logout-redirect',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -450,11 +451,12 @@ legacyHarness.runLegacyCheck('logout-redirect',async({cancellation})=>{
   }
 
   console.log('PASS logout redirect surfaces rendered without auth, HTTP, browser, or response-commit failures');
-}).catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL logout redirect Playwright check');
   console.error(error.stack || error.message);
   if (findings.length) {
     console.error(`Findings: ${JSON.stringify(findings, null, 2)}`);
   }
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

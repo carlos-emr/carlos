@@ -25,7 +25,7 @@ for (const [clearance, cr] of [[4,'2000'],[5,'1600'],[6,'1333.333333'],[29,'275.
 }
 function renalInputFixture(s) {
   const {sql, patient, provider, marker} = s;
-  const labs = [];
+  const labs = [],reports=[];
   function clear() {
     const ids = sql.rows(`SELECT id FROM measurements WHERE demographicNo=${patient}`).map(row=>row[0]);
     if (ids.length) sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN (${ids.join(',')})`);
@@ -37,6 +37,12 @@ function renalInputFixture(s) {
         DELETE FROM labPatientPhysicianInfo WHERE id=${id} AND accession_num=${h.sqlString(marker)}`);
     }
     labs.length=0;
+    for(const id of reports) {
+      h.assert(sql.value(`SELECT COUNT(*) FROM labReportInformation WHERE id=${id} AND location_id=${h.sqlString(marker)}`)==='1','Renal report fixture ownership changed');
+      h.assert(sql.value(`SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE labReportInfo_id=${id}`)==='0','Renal report has an unexpected surviving patient header');
+      sql.execute(`DELETE FROM labReportInformation WHERE id=${id} AND location_id=${h.sqlString(marker)}`);
+    }
+    reports.length=0;
   }
   s.cleanup(clear);
   function measure(type, value, date, instruction) {
@@ -50,8 +56,10 @@ function renalInputFixture(s) {
     sql.execute(`UPDATE demographic SET sex=${h.sqlString(testCase.sex || 'M')},year_of_birth=YEAR(CURDATE())-(${age}),month_of_birth='01',date_of_birth='01' WHERE demographic_no=${patient}`);
     measure('WT',testCase.weight,'2025-01-01','in kg'); measure('SCR',testCase.cr,testCase.crDate || '2025-01-02','umol/L');
     if (testCase.lab !== undefined) {
-      const id = sql.value(`INSERT INTO labPatientPhysicianInfo(accession_num,patient_first_name,patient_last_name,collection_date,lastUpdateDate)
-        VALUES (${h.sqlString(marker)},'Synthetic',${h.sqlString(marker)},${h.sqlString(testCase.labDate)},NOW()); SELECT LAST_INSERT_ID()`);
+      const report=h.insertId(sql,`INSERT INTO labReportInformation(location_id,print_date,print_time,total_BType,total_CType,total_DType)
+        VALUES (${h.sqlString(marker)},'20250103','00:00','1','1','0')`,'owned renal CML report');reports.push(report);
+      const id = sql.value(`INSERT INTO labPatientPhysicianInfo(labReportInfo_id,accession_num,patient_first_name,patient_last_name,collection_date,lastUpdateDate)
+        VALUES (${report},${h.sqlString(marker)},'Synthetic',${h.sqlString(marker)},${h.sqlString(testCase.labDate)},NOW()); SELECT LAST_INSERT_ID()`);
       h.assert(/^[1-9]\d*$/.test(id), 'Renal lab fixture was not inserted'); labs.push(id);
       sql.execute(`INSERT INTO labTestResults(labPatientPhysicianInfo_id,test_name,abn,minimum,maximum,units,result)
         VALUES (${id},'CREATININE','','0','9999','umol/L',${h.sqlString(testCase.lab)});

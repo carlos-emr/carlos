@@ -5,7 +5,8 @@ const h = require('./lib/playwright-harness');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
 const {openCalculator, FRACTURE_CASES, parsePrediction} = require('./clinical-calculators-playwright-checks');
 const {openSecondPatient} = require('./lib/second-patient-window');
-const {openChart,waitForNavbars} = require('./echart-navbar-modules-playwright-checks');
+const {openChart} = require('./echart-navbar-modules-playwright-checks');
+const {reloadChart}=require('./chart-session-state-two-window-isolation-playwright-checks');
 const {removeMarkedPatients} = require('./lib/gap-records-fixtures');
 const {chartNoteSave} = require('./lib/mutation-families');
 const NOTE = '#encMainDiv textarea[name="caseNote_note"]';
@@ -50,12 +51,27 @@ async function workflow(s) {
       const storedText=after.trim().replace(/\r/g,'');
       await expectValue(sql, `SELECT HEX(REPLACE(note,CHAR(13),'')) FROM casemgmt_note WHERE demographic_no=${patient} AND LOCATE(${h.sqlString(marker+'-NS-')},note)>0 ORDER BY note_id DESC LIMIT 1`, Buffer.from(storedText).toString('hex').toUpperCase(),
         'Saved chart note differs from the exact pasted text');
-      await chart.reload();await waitForNavbars(chart,20000);
-      h.assert((await chart.locator('#encMainDiv').innerText()).includes(prediction.split('\n')[0]), 'Reopened chart does not show the persisted prediction');
+      const id = sql.value(`SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient} AND LOCATE(${h.sqlString(marker+'-NS-')},note)>0 ORDER BY note_id DESC LIMIT 1`);
+      await chart.locator(`#n${id}`).waitFor({state:'visible'});
+      await reloadChart(s,chart,'fracture note reopened');
+      await chart.locator(`#n${id}`).waitFor({state:'visible'});
+      // The list initially shows a 50-character preview. Expand its actual
+      // Maximize control before checking the persisted clinical output.
+      const expand=chart.locator(`#n${id} img[name="fullViewTrigger"]`);
+      if(await expand.isVisible()) {
+        const [expanded]=await Promise.all([chart.waitForResponse(r=>r.request().method()==='POST'
+          &&new URL(r.url()).pathname.endsWith('/CaseManagementView')&&new URLSearchParams(r.request().postData()||'').get('method')==='viewNote'),expand.click()]);
+        h.assert(expanded.status()===200,'Expanding the saved fracture note failed');
+        await chart.waitForFunction(id=>document.getElementById('full'+id)?.value==='true',id);
+      }
+      const editor=chart.locator(`#caseNote_note${id}`);
+      const editable=await editor.isVisible();
+      const shown=(editable?await editor.inputValue():await chart.locator(`#txt${id}`).innerText()).replace(/\s+/g,' ');
+      h.assert(shown.includes(prediction.replace(/\s+/g,' ')),
+        `Reopened chart does not show the persisted prediction (displayed probability ${parsePrediction(shown).probability||'absent'})`);
       // Open the saved note's real edit control before the next append.
-      const id = sql.value(`SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient} AND note LIKE ${h.sqlString(marker + '-NS-%')} ORDER BY note_id DESC LIMIT 1`);
       const edit = chart.locator(`#edit${id}`);
-      if (await edit.count()) await edit.click();
+      if (!editable && await edit.count()) await edit.click();
       await chart.locator(NOTE).first().waitFor({state: 'visible'});
     });
   }

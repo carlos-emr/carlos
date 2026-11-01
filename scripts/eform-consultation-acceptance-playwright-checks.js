@@ -648,7 +648,8 @@ async function openConsultAttachmentPanelAndAttachEform(page, fdid) {
   await screenshot(page, 'consultation-linked-open');
 }
 
-legacyHarness.runLegacyCheck('eform-consultation-acceptance',async({cancellation})=>{
+legacyHarness.runLegacyCheck('eform-consultation-acceptance',async context=>{
+  await (async({cancellation})=>{
   const fixture = createFixtureFiles();
   const timestamp = Date.now();
   const formName = `Playwright Consultation Acceptance ${timestamp}`;
@@ -856,7 +857,7 @@ legacyHarness.runLegacyCheck('eform-consultation-acceptance',async({cancellation
       process.exitCode = 1;
     }
   }
-}).catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL eForm consultation acceptance Playwright check');
   console.error(error.stack || error.message);
   if (badResponses.length) {
@@ -874,5 +875,6 @@ legacyHarness.runLegacyCheck('eform-consultation-acceptance',async({cancellation
   if (consultPreviewResponses.length) {
     console.error(`consult preview responses: ${JSON.stringify(consultPreviewResponses, null, 2)}`);
   }
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

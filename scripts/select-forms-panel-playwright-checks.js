@@ -287,7 +287,8 @@ async function restoreSubject(page, subject) {
   }
 }
 
-legacyHarness.runLegacyCheck('select-forms-panel',async({cancellation})=>{
+legacyHarness.runLegacyCheck('select-forms-panel',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -442,7 +443,8 @@ legacyHarness.runLegacyCheck('select-forms-panel',async({cancellation})=>{
     }
   }
   console.log(`PASS Select Forms panel renders after add, delete, move up, and move down (subject form ${subject})`);
-}).catch((error) => {
+})(context).catch((error) => {
   console.error(`FAIL Select Forms panel checks: ${error.stack || error.message}`);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

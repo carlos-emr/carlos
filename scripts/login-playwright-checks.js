@@ -287,7 +287,10 @@ async function login(page, password = testPassword) {
   await assertNotBlank(page, 'login page');
   await page.locator('#username').fill(testUser);
   await page.locator('#password').fill(password);
-  await page.locator('#pin').fill(testPin);
+  const pin=page.locator('#pin');
+  if(process.env.CARLOS_PROPERTY_PROFILE_ACTIVE==='no-pin') {
+    assert(await pin.count()===0,'No-PIN profile still renders the legacy PIN control');
+  } else if(await pin.count()) await pin.fill(testPin);
   await Promise.all([
     page.waitForLoadState('domcontentloaded').catch(() => {}),
     page.locator('input[type="submit"], button[type="submit"]').first().click(),

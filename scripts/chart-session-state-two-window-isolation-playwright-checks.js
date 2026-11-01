@@ -558,4 +558,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('chart-session-state-two-window-isolation', workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, reloadChart };

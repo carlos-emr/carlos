@@ -103,7 +103,8 @@ async function expectSchedulePage(page, label) {
   assert(/Schedule|appointment|provider/i.test(html), `${label}: did not look like a schedule page`);
 }
 
-legacyHarness.runLegacyCheck('deb-login',async({cancellation})=>{
+legacyHarness.runLegacyCheck('deb-login',async context=>{
+  await (async({cancellation})=>{
   const creds = credentials();
   const newPassword = process.env.NEW_PASSWORD || generatedPassword();
   const strictTls = process.env.STRICT_TLS === '1';
@@ -214,7 +215,8 @@ legacyHarness.runLegacyCheck('deb-login',async({cancellation})=>{
     if (!process.env.NEW_PASSWORD) console.log(`generated password: ${newPassword}`);
   }
   {process.exitCode=failed;return;}
-}).catch((err) => {
+})(context).catch((err) => {
   console.error(err);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

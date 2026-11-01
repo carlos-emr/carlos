@@ -22,6 +22,7 @@ function load(name, overrides={}, {entry=false, sandbox={}}={}) {
     if(id.startsWith('node:'))return require(id);
     if(id==='./lib/workflow-session')return {runWorkflow(){}};
     if(id==='./lib/playwright-ui'||id==='./playwright-ui'||id==='./lib/playwright-link-audit')return {};
+    if(id==='./provider-navigation-fixture')return {providerNavigationFixture:()=>null};
     if(id==='../master-record-tabs-playwright-checks'||id==='../echart-navbar-modules-playwright-checks')return {};
     throw Error('Unexpected pure-control import '+id);
   }

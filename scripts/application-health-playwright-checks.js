@@ -190,7 +190,8 @@ async function checkProtectedRedirect(browser, appPath) {
   await context.close();
 }
 
-legacyHarness.runLegacyCheck('application-health',async({cancellation})=>{
+legacyHarness.runLegacyCheck('application-health',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -231,9 +232,10 @@ legacyHarness.runLegacyCheck('application-health',async({cancellation})=>{
   } finally {
     await browser.close();
   }
-}).catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL application health Playwright check');
   console.error(error.stack || error.message);
   console.error(JSON.stringify(h.buildFailureDetails(recorder), null, 2));
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

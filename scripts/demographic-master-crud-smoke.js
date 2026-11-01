@@ -498,7 +498,9 @@ async function run(sql) {
   }
 }
 
-legacyHarness.runLegacyCheck('demographic-master-crud-smoke',main).catch(error => {
+legacyHarness.runLegacyCheck('demographic-master-crud-smoke',async context=>{
+  await (main)(context).catch(error => {
   console.error(error.stack || error.message);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

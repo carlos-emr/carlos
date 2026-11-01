@@ -39,6 +39,7 @@
 # Usage:
 #   CARLOS_DISPOSABLE_HOST=true DEBS_DIR=/path/to/debs scripts/deb-docker-validation.sh up
 #   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh suite --tier smoke
+#   CARLOS_DISPOSABLE_HOST=true DEBS_DIR=/path/to/new/debs scripts/deb-docker-validation.sh upgrade 2026.08.0-beta2
 #   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh audit
 #   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh profile legacy-teleplan
 #   CARLOS_DISPOSABLE_HOST=true scripts/deb-docker-validation.sh suite --profile legacy-teleplan
@@ -54,6 +55,9 @@
 #                 (default: --tier smoke); fails if carlos-emr restarted
 #                 during the run; the JUnit report is copied to LOG_DIR
 #   audit [ARGS]  run scripts/deb-server-log-audit.sh ARGS in the container
+#   upgrade TAG   install the published TAG package set in a fresh container,
+#                 retain UI-created clinical canaries through the local package
+#                 upgrade, verify PRE/POST, then run smoke and read-only core
 #   profile NAME  switch the install to a configuration some checks need and
 #                 restart it: legacy-teleplan (BC, NEW_BC_TELEPLAN=no, for
 #                 `suite --profile legacy-teleplan`) or default (put back the
@@ -439,6 +443,7 @@ export INCOMINGDOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/incomingdo
 export OHIP_DISK_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/billing/download
 export INVOICE_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/billing/invoices
 export ONEDT_INBOX=/var/lib/carlos-emr/CarlosDocument/carlos/onEDTDocs/inbox
+export ONEDT_ARCHIVE=/var/lib/carlos-emr/CarlosDocument/carlos/onEDTDocs/archive
 export RA_EDT_INBOX=/var/lib/carlos-emr/CarlosDocument/carlos/onEDTDocs/inbox
 export EFORM_IMAGE_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/eform/images
 export SCREENSHOT_DIR=/tmp/carlos-shots ARTIFACT_DIR=/tmp/carlos-artifacts
@@ -514,6 +519,44 @@ cmd_suite() {
   return "$rc"
 }
 
+cmd_upgrade() {
+  require_disposable
+  local from="${1:-}" target_dir target_emr target_drugref target_ctl previous rc=0
+  [[ "$#" == 1 && "$from" =~ ^2026\.08\.[0-9]+(-[A-Za-z0-9.]+)?$ ]] \
+    || die 'upgrade requires exactly one from-version release tag (for example 2026.08.0-beta2)'
+  [ -n "${DEBS_DIR:-}" ] && [ -d "$DEBS_DIR" ] || die 'DEBS_DIR must name the directory holding the target .debs'
+  target_dir="$(cd "$DEBS_DIR" && pwd)"
+  target_emr=$(find_one_deb 'carlos-emr_*_amd64.deb')
+  target_drugref=$(find_one_deb 'carlos-emr-drugref_*_all.deb')
+  target_ctl=$(find_one_deb 'carlos-ctl_*_all.deb')
+  mkdir -p "$LOG_DIR"
+  previous="$LOG_DIR/from-$from"
+  python3 "$REPO_ROOT/scripts/lib/deb-release-assets.py" "$from" "$previous"
+  DEBS_DIR="$previous" cmd_up
+  docker exec "$CONTAINER" mkdir -m 0700 /root/upgrade-target
+  local package
+  for package in "$target_emr" "$target_drugref" "$target_ctl"; do
+    docker cp "$target_dir/$package" "$CONTAINER:/root/upgrade-target/$package" >/dev/null
+  done
+  # This process owns the canaries from creation until final cleanup, including
+  # failure and signals. No keep-fixtures switch can leave ordinary checks dirty.
+  in_container '. /root/suite-env.sh; CARLOS_DISPOSABLE_HOST=true node scripts/deb-upgrade-canaries.js' \
+    >"$LOG_DIR/upgrade-canaries.log" 2>&1 || rc=$?
+  local artifact
+  for artifact in upgrade-before.txt upgrade-after.txt upgrade.log; do
+    docker cp "$CONTAINER:/root/$artifact" "$LOG_DIR/$artifact" >/dev/null 2>&1 || true
+  done
+  [[ $rc == 0 ]] || die "upgrade canaries or verification failed; see $LOG_DIR/upgrade-canaries.log"
+  cmd_suite --tier smoke --residue-audit
+  # Core readers do not create clinical rows; compare their installation
+  # snapshots as well as checking their UI assertions and fixture residue.
+  in_container '. /root/suite-env.sh; scripts/deb-upgrade-baseline.sh > /root/readers-before.txt'
+  cmd_suite --only retired-view-aliases --only el-jstl-pages --only legacy-calculator-bookmarks --residue-audit
+  in_container '. /root/suite-env.sh; scripts/deb-upgrade-baseline.sh > /root/readers-after.txt; diff -u /root/readers-before.txt /root/readers-after.txt' \
+    >"$LOG_DIR/upgrade-readers-diff.log" 2>&1 || die 'read-only core checks changed the installation baseline'
+  say "upgrade $from -> local target: canaries, verifier, smoke and read-only core passed"
+}
+
 cmd_audit() {
   require_disposable
   # printf '%q ' with no arguments still prints '', which the audit rejects
@@ -587,6 +630,7 @@ main() {
   [ "$#" -gt 0 ] && shift
   case "$cmd" in
     up) cmd_up ;;
+    upgrade) cmd_upgrade "$@" ;;
     suite) cmd_suite "$@" ;;
     audit) cmd_audit "$@" ;;
     profile) cmd_profile "$@" ;;

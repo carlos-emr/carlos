@@ -260,7 +260,8 @@ async function checkAdminPage(context, appPath, label, requiredText) {
   await page.close();
 }
 
-legacyHarness.runLegacyCheck('browser-surface',async({cancellation})=>{
+legacyHarness.runLegacyCheck('browser-surface',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -316,7 +317,7 @@ legacyHarness.runLegacyCheck('browser-surface',async({cancellation})=>{
       sql.dispose();
     }
   }
-}).catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL browser surface Playwright check');
   console.error(error.stack || error.message);
   console.error(JSON.stringify(h.buildFailureDetails(recorder), null, 2));
@@ -326,5 +327,6 @@ legacyHarness.runLegacyCheck('browser-surface',async({cancellation})=>{
   if (consoleIssues.length) {
     console.error(`Console issues: ${JSON.stringify(consoleIssues, null, 2)}`);
   }
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

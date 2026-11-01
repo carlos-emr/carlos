@@ -6,6 +6,7 @@ const {runWorkflow}=require('./lib/workflow-session');
 const {masterRecordLink}=require('./lib/master-record-link');
 const {viewerDocuments}=require('./document-viewer-review-actions-playwright-checks');
 const {sha}=require('./lib/stored-pdf-documents');
+const {openInbox,openSidebar,setMode,search}=require('./inbox-file-forward-playwright-checks');
 async function workflow(s) {
   const {sql,patient,marker}=s;
   const {docs}=viewerDocuments(s,['primary','control']);
@@ -72,12 +73,27 @@ async function workflow(s) {
     }
   });
   await s.step('abnormal flag toggles and survives an unrelated edit without changing review status',async()=>{
+    const inbox=await openInbox(s.schedule,s.context,s.recorder,'metadata-inbox');
+    await setMode(inbox,'list');await openSidebar(inbox);
+    await inbox.locator('#statusNew').check();await inbox.locator('#specificPatients').check();
+    await inbox.locator('#inputLastName').fill(marker);
     for(const checked of [true,false]) {
       let editor=await edit();await editor.locator('input[name="abnormal"]').setChecked(checked);await save(editor);
       h.assert(row(primary.id)[0][13]===(checked?'1':'0'),'Abnormal checkbox did not persist');
       editor=await edit();h.assert(await editor.locator('input[name="abnormal"]').isChecked()===checked,'Abnormal state did not reopen');
       await editor.locator('#docSubClass').fill(custom);await save(editor);h.assert(row(primary.id)[0][13]===(checked?'1':'0'),'Unrelated metadata edit reset abnormal state');
+      await openSidebar(inbox);await inbox.locator('#abnormalAll').check();await search(inbox);
+      const listed=inbox.locator(`#labdoc_DOC_${primary.id}`),controlRow=inbox.locator(`#labdoc_DOC_${control.id}`);
+      await listed.waitFor({state:'visible'});await controlRow.waitFor({state:'visible'});
+      h.assert((await listed.getAttribute('class')||'').includes('table-danger')===checked,'Inbox abnormal marker differs from the saved checkbox');
+      h.assert(!(await controlRow.getAttribute('class')||'').includes('table-danger'),'Abnormal edit marked the control document');
+      for(const [selector,expected] of [['#Abnormal',checked],['#abnormalNormal',!checked]]) {
+        await openSidebar(inbox);await inbox.locator(selector).check();await search(inbox);
+        h.assert(await listed.count()===(expected?1:0),'Inbox abnormal filter disagrees with stored metadata');
+        h.assert(await controlRow.count()===(selector==='#abnormalNormal'?1:0),'Inbox abnormal filter changed the normal control document');
+      }
     }
+    if(inbox!==s.schedule)await inbox.close();
   });
   // Responsibility updates only document.responsible. providerLabRouting remains
   // the independent acknowledgement assignment, as asserted after every save.

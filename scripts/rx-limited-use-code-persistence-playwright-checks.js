@@ -9,6 +9,7 @@ const {masterRecordLink} = require('./lib/master-record-link');
 const {openSecondPatient} = require('./lib/second-patient-window');
 const {removeMarkedPatients} = require('./lib/gap-records-fixtures');
 const {rxSave} = require('./lib/mutation-families');
+const {viewScriptFrame}=require('./rx-drug-name-quotes-playwright-checks');
 async function workflow(s) {
   const {sql, patient, marker} = s, otherName=marker+'-CONTROL';
   const cleanup=rxSave(s);s.cleanup(()=>cleanup.cleanup());
@@ -50,16 +51,23 @@ async function workflow(s) {
     ]);
     h.assert(saved.status()===200,'Saving the limited-use prescription failed');script=String((await saved.json()).scriptId);
     h.assert(/^[1-9]\d*$/.test(script),'Save returned no prescription identity');
-    await expectValue(sql,`SELECT special FROM drugs WHERE demographic_no=${patient} AND regional_identifier=${h.sqlString(LIMITED_USE.din)} ORDER BY drugid DESC LIMIT 1`,wanted,'Saved medication lost selected LU codes');
-    h.assert(sql.value(`SELECT special FROM drugs WHERE demographic_no=${patient} AND BN=${h.sqlString(RENAL.name)} ORDER BY drugid DESC LIMIT 1`)===controlDirections,'Saving LU codes changed control directions');
+    // drugs.special is the complete formatted prescription (brand, quantity,
+    // repeats and directions), rather than the directions textarea alone.
+    const selected=`demographic_no=${patient} AND BN=${h.sqlString(LIMITED_USE.name)}`;
+    await expectValue(sql,`SELECT LOCATE(${h.sqlString(wanted)},special)>0 FROM drugs WHERE ${selected} ORDER BY drugid DESC LIMIT 1`,'1','Saved medication lost selected LU codes');
+    const [[din,special]]=sql.rows(`SELECT regional_identifier,special FROM drugs WHERE ${selected} ORDER BY drugid DESC LIMIT 1`);
+    h.assert(Number(din)===Number(LIMITED_USE.din)&&special.split(' LU Code: ').length-1===3,'Saved prescription identifies a different product or altered the selected code count');
+    const controlSpecial=sql.value(`SELECT special FROM drugs WHERE demographic_no=${patient} AND BN=${h.sqlString(RENAL.name)} ORDER BY drugid DESC LIMIT 1`);
+    h.assert(controlSpecial.includes(controlDirections)&&!controlSpecial.includes('LU Code:'),'Saving LU codes changed control directions');
+    await rx.reload({waitUntil:'networkidle'});
     await rx.getByRole('link',{name:'Reprint',exact:true}).first().click();
     await rx.locator(`#reprint a[onclick*="reprint2('${script}')"]`).first().click();
-    await rx.waitForFunction(()=>[...document.querySelectorAll('iframe')].some(frame=>frame.src.includes('/rx/viewScript')));
-    const host=rx.frames().find(frame=>frame.url().includes('/rx/viewScript'));
+    const host=await viewScriptFrame(rx);
     h.assert(host,'The real Reprint control did not open a prescription view');
     await host.locator('#preview').waitFor({state:'attached'});
-    const preview=await host.locator('#preview').contentFrame();
-    h.assert(preview && (await preview.locator('body').innerText()).includes(wanted),'Prescription print preview lost the LU annotations');
+    const preview=host.frameLocator('#preview');
+    await preview.locator('body').filter({hasText:wanted}).waitFor({state:'visible',timeout:30000});
+    h.assert((await preview.locator('body').innerText()).includes(wanted),'Prescription print preview lost the LU annotations');
   });
   await s.step('removing an unsaved LU card and closing its window creates no prescription',async()=>{
     const remove=otherRx.locator(`#set_${otherCard} a[onclick*="removePrescribingDrug"]`);

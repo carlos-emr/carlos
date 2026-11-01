@@ -129,7 +129,8 @@ async function waitForClosedOrLoginRedirect(page, label, timeoutMs = 5000) {
   throw new Error(`${label} did not close or redirect after logout; final URL: ${page.url()}`);
 }
 
-legacyHarness.runLegacyCheck('logout-broadcast',async({cancellation})=>{
+legacyHarness.runLegacyCheck('logout-broadcast',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -178,7 +179,8 @@ legacyHarness.runLegacyCheck('logout-broadcast',async({cancellation})=>{
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
   }
-}).catch((error) => {
+})(context).catch((error) => {
   console.error(error && error.stack ? error.stack : error);
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

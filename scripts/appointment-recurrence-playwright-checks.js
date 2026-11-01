@@ -176,8 +176,10 @@ async function main({cancellation}={}) {
     }
   }
 }
-if (require.main === module) legacyHarness.runLegacyCheck('appointment-recurrence',main).catch((error) => {
+if (require.main === module) legacyHarness.runLegacyCheck('appointment-recurrence',async context=>{
+  await (main)(context).catch((error) => {
   console.error(`FAIL appointment recurrence: ${error.stack || error.message}`);
   process.exitCode = 1;
+});
 });
 module.exports = { main };
