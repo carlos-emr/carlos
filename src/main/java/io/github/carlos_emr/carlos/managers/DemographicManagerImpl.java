@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.Demographic.PatientStatus;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DemographicExtKey;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
+import io.github.carlos_emr.carlos.commn.dao.projection.DemographicName;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.utility.DemographicContactCreator;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -185,6 +186,26 @@ public class DemographicManagerImpl implements DemographicManager {
         }
 
         return (name);
+    }
+
+    @Override
+    public Map<Integer, String> getDemographicFormattedNames(LoggedInInfo loggedInInfo,
+                                                            Collection<Integer> demographicIds) {
+        Set<Integer> ids = new LinkedHashSet<>(demographicIds);
+        ids.remove(null);
+        ids.remove(0);
+        // Check every patient before reading any names. Keep the patient-specific
+        // privilege path (including directives/session effects), rather than a global check.
+        for (Integer id : ids) {
+            checkPrivilege(loggedInInfo, SecurityInfoManager.READ, id);
+        }
+        Map<Integer, String> names = new HashMap<>();
+        if (!ids.isEmpty()) {
+            for (DemographicName patient : demographicDao.getDemographicNames(ids)) {
+                names.put(patient.demographicNo(), patient.formattedName());
+            }
+        }
+        return names;
     }
 
     @Override
