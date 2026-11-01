@@ -23,33 +23,14 @@
     which defines servlets, filters, and Servlet-spec configuration.
 -->
 <!--
-    suspendWrappedResponseAfterForward MUST stay "false" (Tomcat 11 flipped
-    the default to "true").
-
-    With the default, ApplicationDispatcher unwraps the response-wrapper chain
-    to the ResponseFacade when a forward returns and calls finish() on it —
-    Response.setSuspended(true) -> OutputBuffer.setSuspended(true) — and a
-    suspended OutputBuffer silently DISCARDS every later write and flush. The
-    forwarded page's body only drains out of the filter stack's own buffers
-    during filter unwind (javamelody wraps every request and turns all writer
-    traffic into a PrintWriter over an OutputStream), so those flushes were
-    thrown away: every JSP-to-JSP <jsp:forward> returned 200 with an EMPTY
-    body, and a forward on a 4xx became a raw 500 when
-    ResponseSanitizationFilter's replay found the response already finished.
-    Nothing was logged for either. Verified on the packaged install
-    2026-08-30.
-
-    The fix is NOT that "false" restores a close which flushes something —
-    that close is deliberately absorbed by the wrappers below. It is that
-    finish() is never called, so the buffer is never suspended and the
-    unwind-time flushes reach the wire.
-
-    NOTE ON SCOPE: this file is read by the DEVCONTAINER deploy. On packaged
-    installs Tomcat's appBase is empty and both webapps deploy from
-    conf/Catalina/localhost/ descriptors, so the WAR's META-INF/context.xml is
-    never consulted there; debian/assets/tomcat/Catalina/localhost/carlos.xml
-    is the one that matters and carries the same attribute. Keep them in sync.
-    ResponseSanitizationFilter documents the filter-side view.
+  Response-filter compatibility contract (#5487): keep this false in BOTH deployment
+  descriptors. The REQUEST/ERROR sanitizer and decorators can replay captured bytes
+  after a forward returns. Tomcat's default finishes the raw response before that
+  replay and discards the bytes; JavaMelody 2.9.0 alone no longer has this problem.
+  Capture writers must continue shielding close/flush until the owning filter unwinds.
+  See docs/response-filter-lifecycle.md and ResponseFilterLifecycleIntegrationTest.
+  Packaged installs read conf/Catalina/localhost/carlos.xml; development deployments
+  read the WAR's META-INF/context.xml. Changing only one does not change both modes.
 -->
 <Context suspendWrappedResponseAfterForward="false">
 

@@ -185,7 +185,13 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 return;
             }
 
-            printConfidentialityStatement(response, delegatingServletResponse);
+            String statement = getPrivacyStatement();
+            if (statement.isEmpty()) {
+                delegatingServletResponse.completeWithoutStatement();
+                return;
+            }
+            delegatingServletResponse.discardDeferredContentLength();
+            printConfidentialityStatement(response, delegatingServletResponse, statement);
         } finally {
             if (!isConfidentialityNotePrinted)
                 resetConfidentialityNote((HttpServletRequest) request);
@@ -237,11 +243,12 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
     // FindSecBugs XSS_SERVLET: writes fixed print-only privacy HTML from trusted system configuration.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "writes fixed print-only privacy HTML from trusted system configuration")
-    private void printConfidentialityStatement(ServletResponse response, DelegatingServletResponse delegatingServletResponse) throws IOException {
+    private void printConfidentialityStatement(ServletResponse response, DelegatingServletResponse delegatingServletResponse,
+                                               String statement) throws IOException {
         if (delegatingServletResponse.isResponseOutputStreamObtained()) {
-            response.getOutputStream().write(getPrivacyStatement().getBytes());
+            response.getOutputStream().write(statement.getBytes());
         } else if (delegatingServletResponse.isResponseWriterObtained()) {
-            response.getWriter().print(getPrivacyStatement());
+            response.getWriter().print(statement);
         }
 
         response.flushBuffer();
@@ -313,6 +320,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
         private boolean responseOutputStreamObtained;
 
         private DelegatingWriter writer;
+        private Long deferredContentLength;
 
         public DelegatingServletResponse(HttpServletResponse response) {
             super(response);
@@ -336,6 +344,11 @@ public class PrivacyStatementAppendingFilter implements Filter {
         public ServletOutputStream getOutputStream() throws IOException {
             ServletOutputStream stream = super.getOutputStream();
             responseOutputStreamObtained = true;
+            // HTML can grow when the print notice is appended. A length published here
+            // would make Tomcat finish the response before that append can reach the client.
+            if (isKnownNonHtml()) {
+                applyDeferredContentLength();
+            }
             return stream;
         }
 
@@ -356,9 +369,84 @@ public class PrivacyStatementAppendingFilter implements Filter {
         }
 
         public void completeWithoutStatement() {
+            applyDeferredContentLength();
             if (writer != null) {
                 writer.flushDelegate();
             }
+        }
+
+        @Override
+        public void setContentLength(int length) {
+            setContentLengthLong(length);
+        }
+
+        @Override
+        public void setContentLengthLong(long length) {
+            deferredContentLength = length;
+            if (responseOutputStreamObtained && isKnownNonHtml()) {
+                applyDeferredContentLength();
+            }
+        }
+
+        @Override
+        public void setHeader(String name, String value) {
+            if ("Content-Length".equalsIgnoreCase(name) && value != null) {
+                try {
+                    setContentLengthLong(Long.parseLong(value));
+                    return;
+                } catch (NumberFormatException ignored) {
+                    // Preserve the container's handling of malformed header values.
+                }
+            }
+            if ("Content-Length".equalsIgnoreCase(name)) {
+                deferredContentLength = null;
+            }
+            super.setHeader(name, value);
+        }
+
+        @Override
+        public void addHeader(String name, String value) {
+            if ("Content-Length".equalsIgnoreCase(name)) {
+                setHeader(name, value);
+            } else {
+                super.addHeader(name, value);
+            }
+        }
+
+        @Override
+        public void setContentType(String type) {
+            super.setContentType(type);
+            if (responseOutputStreamObtained && isKnownNonHtml()) {
+                applyDeferredContentLength();
+            }
+        }
+
+        @Override
+        public void resetBuffer() {
+            super.resetBuffer();
+            deferredContentLength = null;
+        }
+
+        @Override
+        public void reset() {
+            super.reset();
+            deferredContentLength = null;
+        }
+
+        private boolean isKnownNonHtml() {
+            String type = getContentType();
+            return type != null && !RequestNegotiation.isHtmlContentType(type);
+        }
+
+        private void applyDeferredContentLength() {
+            if (deferredContentLength != null) {
+                super.setContentLengthLong(deferredContentLength);
+                deferredContentLength = null;
+            }
+        }
+
+        private void discardDeferredContentLength() {
+            deferredContentLength = null;
         }
 
         @Override

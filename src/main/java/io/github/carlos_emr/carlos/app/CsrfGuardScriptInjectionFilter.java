@@ -460,6 +460,28 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return writer;
         }
 
+        /** Discard the uncommitted capture when a nested forward resets its response. */
+        @Override
+        public void resetBuffer() {
+            super.resetBuffer();
+            if (captureWriter != null) {
+                captureWriter.reset();
+            }
+            deferredContentLength = null;
+            deferredContentLengthLong = null;
+        }
+
+        /** Reset capture state only after the underlying response accepts the full reset. */
+        @Override
+        public void reset() {
+            super.reset();
+            if (captureWriter != null) {
+                captureWriter.reset();
+            }
+            deferredContentLength = null;
+            deferredContentLengthLong = null;
+        }
+
         @Override
         public void setContentLength(int len) {
             if (usingOutputStream) {

@@ -55,6 +55,55 @@ class PrivacyStatementAppendingFilterUnitTest {
     }
 
     @Test
+    void shouldDeferOriginalLength_whenHtmlStreamGetsAPrivacyNotice() throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic length notice.");
+        try {
+            for (int form = 0; form < 4; form++) {
+                MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
+                MockHttpServletResponse response = new MockHttpServletResponse();
+                int setter = form;
+                filter.doFilter(request, response, (req, res) -> {
+                    res.setContentType("text/html;charset=UTF-8");
+                    var http = (jakarta.servlet.http.HttpServletResponse) res;
+                    switch (setter) {
+                        case 0 -> http.setContentLength(4);
+                        case 1 -> http.setContentLengthLong(4);
+                        case 2 -> http.setHeader("Content-Length", "4");
+                        default -> http.addHeader("Content-Length", "4");
+                    }
+                    res.getOutputStream().write("body".getBytes(StandardCharsets.UTF_8));
+                    assertThat(response.getContentLength()).isZero();
+                });
+                assertThat(response.getContentAsString()).startsWith("body").contains("Synthetic length notice.");
+                assertThat(response.getHeader("Content-Length")).isNull();
+            }
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.put("confidentiality_statement.v1", original);
+            }
+        }
+    }
+
+    @Test
+    void shouldKeepBinaryLength_whenItIsDeclaredBeforeContentType() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        byte[] payload = {0, 1, -1, 42};
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentLength(payload.length);
+            var stream = res.getOutputStream();
+            res.setContentType("application/octet-stream");
+            assertThat(response.getContentLength()).isEqualTo(payload.length);
+            stream.write(payload);
+        });
+        assertThat(response.getContentAsByteArray()).isEqualTo(payload);
+        assertThat(response.getContentLength()).isEqualTo(payload.length);
+    }
+
+    @Test
     @DisplayName("should match excluded route when servlet path is empty")
     void shouldMatchExcludedRoute_whenServletPathIsEmpty() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET",

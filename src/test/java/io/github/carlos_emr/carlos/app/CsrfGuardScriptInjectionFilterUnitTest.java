@@ -631,6 +631,45 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         }
     }
 
+    @Test
+    void shouldDiscardCapturedPrefix_whenNestedForwardResetsTheBuffer() throws Exception {
+        for (boolean fullReset : new boolean[] {false, true}) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+            request.setContextPath("/carlos");
+            request.setDispatcherType(DispatcherType.FORWARD);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+                res.getWriter().write("DISCARDED PREFIX");
+                if (fullReset) {
+                    res.reset();
+                } else {
+                    res.resetBuffer();
+                }
+                res.setContentType("text/html;charset=UTF-8");
+                res.getWriter().write(PROVIDER_PAGE);
+            }));
+            assertThat(response.getContentAsString()).isEqualTo(PROVIDER_PAGE_WITH_SCRIPT);
+        }
+    }
+
+    @Test
+    void shouldKeepCapturedBody_whenUnderlyingResetIsRejected() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            res.getWriter().write(PROVIDER_PAGE);
+            response.setCommitted(true);
+            org.assertj.core.api.Assertions.assertThatThrownBy(res::resetBuffer)
+                    .isInstanceOf(IllegalStateException.class);
+            org.assertj.core.api.Assertions.assertThatThrownBy(res::reset)
+                    .isInstanceOf(IllegalStateException.class);
+        }));
+        assertThat(response.getContentAsString()).isEqualTo(PROVIDER_PAGE_WITH_SCRIPT);
+    }
+
     private void withEnabledCsrfGuard(Executable executable) throws Exception {
         CsrfGuard csrfGuard = mock(CsrfGuard.class);
         when(csrfGuard.isEnabled()).thenReturn(true);
