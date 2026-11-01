@@ -419,7 +419,7 @@ async function main({cancellation}={}) {
   // Before the browser starts: without the database the run could not remove its patient.
   const sql = h.createSqlRunner(h.readConfig().mysql);
   try {
-    await run(sql);
+    await run(sql,cancellation);
     cancellation?.throwIfCancelled();
   } finally {
     // Removes the runner's client option file, which holds the database password; also after a failed launch.
@@ -427,7 +427,7 @@ async function main({cancellation}={}) {
   }
 }
 
-async function run(sql) {
+async function run(sql,cancellation) {
   const launchOptions = {
     headless: config.headless,
     // Required when the bundled chromium runs as root (deb test VM / CI).
@@ -465,15 +465,24 @@ async function run(sql) {
   let demographicNo = null;
   try {
     await login(page);
+    cancellation?.throwIfCancelled();
     const searchPage = await openSearchPopup(context, page);
+    cancellation?.throwIfCancelled();
     await searchByName(searchPage, patient.lastName);
+    cancellation?.throwIfCancelled();
     demographicNo = await createDemographic(searchPage);
+    cancellation?.throwIfCancelled();
     if (demographicNo) {
       await returnToDemographicSearch(searchPage);
+    cancellation?.throwIfCancelled();
       await searchByName(searchPage, patient.lastName);
+    cancellation?.throwIfCancelled();
       await readDemographic(searchPage, demographicNo);
+    cancellation?.throwIfCancelled();
       await updateDemographic(searchPage, demographicNo);
+    cancellation?.throwIfCancelled();
       await inactivateDemographic(searchPage, demographicNo);
+    cancellation?.throwIfCancelled();
     }
   } finally {
     console.log(JSON.stringify({ stamp, patient, demographicNo, results, findings }, null, 2));

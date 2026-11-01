@@ -1264,14 +1264,16 @@
       "tiers": [
         "core"
       ],
-      "assertsDatabase": false,
+      "assertsDatabase": true,
       "provinces": [
         "all"
       ],
       "timeoutSec": 300,
       "env": [
-        "EFORM_ADMIN_NAV_SCREENSHOT_DIR"
-      ]
+        "EFORM_ADMIN_NAV_SCREENSHOT_DIR",
+        "MYSQL_PASSWORD"
+      ],
+      "fixtures": "Creates, exports and imports one uniquely marked synthetic library eForm; accepted transfers finish before guarded SQL cleanup. Teardown refuses patient instances, group references or changed title/subject/content."
     },
     {
       "name": "csrf-runtime-forms",
