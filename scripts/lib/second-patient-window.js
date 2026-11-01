@@ -7,9 +7,14 @@ const {openMasterRecord}=require('../master-record-tabs-playwright-checks');
 // opener trees, as a clinician working in two browser windows does. All patient
 // selection still goes through the schedule's Search and Master Record controls.
 async function openSecondPatient(s,patient,searchTerm) {
-  const schedule=await s.context.newPage(),url=new URL(s.schedule.url());
-  h.assert(url.origin===s.config.baseUrl.origin&&url.pathname.startsWith(s.config.baseUrl.pathname+'/'),'Second schedule must stay in the application');
-  await h.gotoApp(schedule,s.config.baseUrl,url.pathname.slice(s.config.baseUrl.pathname.length)+url.search);
+  const route=scheduleRoute(s.config.baseUrl,s.scheduleUrl),schedule=await s.context.newPage();
+  await h.gotoApp(schedule,s.config.baseUrl,route);
   return openMasterRecord(s.context,schedule,s.recorder,{searchTerm,preferredDemographicNo:patient,timeout:20000});
 }
-module.exports={openSecondPatient};
+function scheduleRoute(baseUrl,savedUrl) {
+  h.assert(typeof savedUrl==='string'&&savedUrl.length>0,'The original schedule URL was not captured');
+  const url=new URL(savedUrl),prefix=baseUrl.pathname.replace(/\/$/,'');
+  h.assert(url.origin===baseUrl.origin&&!url.username&&!url.password&&url.pathname.startsWith(prefix+'/'),'Second schedule must stay in the application');
+  return url.pathname.slice(prefix.length)+url.search;
+}
+module.exports={openSecondPatient,scheduleRoute};

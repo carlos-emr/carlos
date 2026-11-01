@@ -21,13 +21,15 @@
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const h = require('./playwright-harness');
+const {authenticatedProbe}=require('./authenticated-probe');
 
 const APPLICATION_HEADER = 'x-permitted-cross-domain-policies';
 
 /** One request through a login's browser context; never follows redirects. */
-async function probe(context, url, { method = 'GET', needles = [] } = {}) {
+async function probe(context, url, { method = 'GET', needles = [], baseUrl = h.validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos') } = {}) {
   try {
-    const response = await context.request.fetch(url, { method, maxRedirects: 0, timeout: 40000, failOnStatusCode: false });
+    const response = await authenticatedProbe({context,config:{baseUrl}},url,
+      {method,timeout:40000,allowSecurityErrorRedirect:true});
     const body = method === 'HEAD' ? Buffer.alloc(0) : await response.body();
     const headers = response.headers();
     const type = (headers['content-type'] || '').split(';')[0];

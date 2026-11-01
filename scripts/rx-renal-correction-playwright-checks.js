@@ -38,7 +38,12 @@ async function workflow(s) {
   const controlPatient=sql.value(`SELECT demographic_no FROM demographic WHERE last_name=${h.sqlString(controlName)}`);
   renalInputFixture({...s,patient:controlPatient}).apply(CASES['female-valid']);
   const rx=await s.popup(s.master,masterRecordLink(s.master,'/rx/choosePatient').first(),'renal-correction-rx');
-  const card=await stageFromSearch(rx,RENAL.term,RENAL.name),panel=rx.locator(`#renalDosing_${card}`);
+  let card;
+  const [initial]=await Promise.all([rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
+    (async()=>{card=await stageFromSearch(rx,RENAL.term,RENAL.name);})()]);
+  const originalAtc=new URL(initial.url()).searchParams.get('atcCode');
+  h.assert(originalAtc&&originalAtc.includes(RENAL.atc),'Initial renal lookup does not identify the controlled drug');
+  const panel=rx.locator(`#renalDosing_${card}`);
   await panel.locator('table.equation').waitFor({state:'visible'});
   h.assert((await panel.innerText()).includes('Clcr 80 ='),'Initial clearance is wrong');
   h.assert(await panel.locator('tr.selected').count()===0,'Initial high clearance selected a reduced dose');
@@ -62,7 +67,9 @@ async function workflow(s) {
     const [response]=await Promise.all([rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
       panel.getByRole('link',{name:'Refresh',exact:true}).click()]);
     const params=new URL(response.url()).searchParams;
-    h.assert(response.status()===200 && params.get('demographicNo')===patient && params.get('atcCode')===RENAL.atc,'Refresh lost the originating patient or drug');
+    h.assert(response.status()===200,`Renal refresh returned HTTP ${response.status()}`);
+    h.assert(params.get('demographicNo')===patient,'Refresh lost the originating patient');
+    h.assert(params.get('atcCode')===originalAtc,`Refresh changed the controlled drug ATC (${params.get('atcCode')})`);
     h.assert(await panel.locator('table.equation').count()===1,'Refresh appended a duplicate panel');
   };
   await s.step('measurement links save corrected values, units, dates and provider on the originating patient',async()=>{
@@ -92,7 +99,7 @@ async function workflow(s) {
     const text=(await panel.innerText()).replace(/\s+/g,' ');
     h.assert(text.includes('40.0') && text.includes('200.0 sCr'),'Refresh retained old clinical inputs');
     const date=sql.value("SELECT DATE_FORMAT(CURDATE(),'%Y-%b-%d')");
-    h.assert((text.match(new RegExp(date,'g'))||[]).length===2,'Refresh retained old observation dates');
+    h.assert(text.split(date).length-1===2,'Refresh retained old observation dates');
     h.assert(await panel.locator('tr.selected').count()===1 && (await panel.locator('tr.selected').innerText()).includes('250-500 mg po q18h'),'New clearance selected the wrong dose');
     h.assert(await controlPanel.innerText()===controlBefore && JSON.stringify(measurements(controlPatient))===controlStored,'Correction affected the other patient');
   });

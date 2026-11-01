@@ -61,6 +61,7 @@ async function withPropertyProfile(name, operation, {env = process.env, file = '
   catch (error) {throw failure ? new AggregateError([failure, error], 'Profile run and restoration failed') : error;}
   finally {for(const [signal,handler] of Object.entries(handlers))process.removeListener(signal,handler);}
   if (failure) throw failure;
+  if (interrupted) throw new Error(`Profile interrupted by ${interrupted} during restoration`);
   return result;
 }
 

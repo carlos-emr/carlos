@@ -69,7 +69,10 @@ test('real Playwright HTTP transport sends the Secure cookie to a local refusal 
     assert.equal(response.status(), 405);
     await response.dispose();
   }
-  assert.deepEqual(seen, ['GET', 'HEAD'].map(method => ({method, cookie: 'JSESSIONID=synthetic'})));
+  const {probe,classify}=require('./lib/authz-read-probe');
+  const roleRead=await probe(session.context,new URL('/carlos/save',baseUrl).href,{baseUrl});
+  assert.equal(classify(roleRead),'refused');
+  assert.deepEqual(seen, ['GET', 'HEAD','GET'].map(method => ({method, cookie: 'JSESSIONID=synthetic'})));
 });
 
 
