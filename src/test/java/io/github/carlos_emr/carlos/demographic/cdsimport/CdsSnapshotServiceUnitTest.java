@@ -61,7 +61,8 @@ class CdsSnapshotServiceUnitTest {
         for (String budget : new String[] {"entry", "total", "count"}) {
             Path source = Files.createDirectory(temp.resolve("budget-" + budget));
             Path archive = source.resolve("patients.zip");
-            int payloadSize = budget.equals("entry") ? 1 << 20 : 2048;
+            // The entry case must fit the aggregate budget so either missing byte check fails.
+            int payloadSize = budget.equals("entry") ? 4096 : 2048;
             zip(archive, new String[] {"one.bin", "two.bin", "three.bin"},
                     new String[] {"x".repeat(payloadSize), "x".repeat(2048), ""});
             assertTrue(Files.size(archive) < 2048, "Synthetic highly compressed archive stays small");
