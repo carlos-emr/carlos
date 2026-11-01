@@ -1254,11 +1254,21 @@ async function run(s) {
       const foreign = await read(`/encounter/ViewEcharthistoryprint?echartid=${legacy[other].revision}&demographic_no=${d.patient}`);
       h.assert(foreign.status === 200 && d.ownName(foreign.body) && !d.otherName(foreign.body)
         && !foreign.body.includes(`${marker}-${other}-`), `${d.label}'s history print showed the other patient's revision`);
-      for (const route of [`/encounter/ViewEncounterPrint?echartid=${legacy[d.label].revision}`,
-        `/encounter/ViewEcharthistoryprint?echartid=${legacy[d.label].revision}&demographic_no=0`]) {
-        const refused = await read(route);
-        h.assert(refused.status === 400 && !namesA(refused.body) && !namesB(refused.body),
-          `A legacy print without a valid patient answered HTTP ${refused.status}`);
+      for (const action of ['ViewEncounterPrint', 'ViewEcharthistoryprint']) {
+        for (const [label, parameters] of invalidPatientParameters(d.patient, d.other)) {
+          const query = new URLSearchParams([['echartid', legacy[d.label].revision], ...parameters]);
+          const route = `/encounter/${action}?${query}`;
+          const refused = await read(route);
+          // No patient reaches the JSP's required-patient check (400). A supplied invalid or
+          // conflicting scope is refused by ViewClinical2Action before the JSP runs (403).
+          // Keep the shared gate's fail-closed policy; do not weaken it to satisfy this check (#5448).
+          const expectedStatus = label === 'missing' ? 400 : 403;
+          const description = `${d.label}'s ${action} with ${label} patient scope`;
+          h.assert(refused.status === expectedStatus,
+            `${description} answered HTTP ${refused.status}; expected ${expectedStatus}`);
+          h.assert(!namesA(refused.body) && !namesB(refused.body),
+            `${description} exposed a patient name`);
+        }
       }
       assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s legacy prints`);
     });
@@ -1352,11 +1362,16 @@ async function run(s) {
         }
       }
       h.assert(JSON.stringify(sql.rows(schedules)) === schedulesBefore, 'A refused immunization schedule request wrote a schedule');
-      for (const route of ['/encounter/immunization/ViewSchedule', '/encounter/immunization/ViewScheduleConfig',
-        `/encounter/immunization/ViewScheduleConfig?demographic_no=${d.patient}&demographicNo=${d.other}`]) {
+      for (const [route, expectedStatus] of [
+        ['/encounter/immunization/ViewSchedule', 400],
+        ['/encounter/immunization/ViewScheduleConfig', 400],
+        [`/encounter/immunization/ViewScheduleConfig?demographic_no=${d.patient}&demographicNo=${d.other}`, 403],
+      ]) {
         const refused = await read(route);
-        h.assert(refused.status === 400 && !namesA(refused.body) && !namesB(refused.body),
-          `An immunization schedule page without one valid patient answered HTTP ${refused.status}`);
+        h.assert(refused.status === expectedStatus,
+          `${route} answered HTTP ${refused.status}; expected ${expectedStatus}`);
+        h.assert(!namesA(refused.body) && !namesB(refused.body),
+          `${route} exposed a patient name`);
       }
     });
   }
