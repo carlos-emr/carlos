@@ -329,6 +329,12 @@ async function probeTicklerSearch(page, message) {
   await page.evaluate(() => {
     window.jQuery('#ticklerResults').DataTable().search('').draw();
   });
+  // The clear starts a server-side draw. Drain it before the next operation
+  // starts another draw or navigation; otherwise DataTables aborts our own read.
+  await page.waitForFunction(() => {
+    const settings=window.jQuery('#ticklerResults').DataTable().settings()[0];
+    return !settings.bDrawing && (!settings.jqXHR || settings.jqXHR.readyState===4);
+  }, null, {timeout:30000});
   return found;
 }
 

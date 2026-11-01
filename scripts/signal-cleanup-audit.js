@@ -49,6 +49,7 @@ async function main({cancellation}) {
         outcome:verdict(child.status,record,residue),detail:record?.detail||child.error?.code||'No structured result',residue};
       results.push(result);console.log(JSON.stringify(result));
       fs.writeFileSync(path.join(output,'results.json'),JSON.stringify(results,null,2)+'\n',{mode:0o600});
+      h.assert(residue.length===0,`Stopping signal audit after ${check.name}: residue must be investigated before another workflow`);
     }
   } finally {sql.dispose();}
   h.assert(!results.some(result=>result.outcome==='FAIL'),'Signal audit found a failed interruption or residue; see results.json');
