@@ -21,8 +21,8 @@
  *   6. The Schedule Management pages that call parent.parent.resizeIframe()
  *      load without a browser exception.
  *
- * It writes schedule rows for the selected provider, so run it against a
- * disposable local/dev database.
+ * It owns a throwaway provider and verifies/removes its schedule rows after browser shutdown.
+ * Run it against a disposable local/dev database with the shared SQL configuration.
  *
  * Defaults are for the local devcontainer:
  *   node scripts/schedule-setting-playwright-checks.js
@@ -33,12 +33,14 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   TEST_SCHEDULE_PROVIDER=999998  provider_no to configure; blank picks the logged-in provider
+ *   MYSQL_HOST/USER/PASSWORD/DATABASE (owned provider and schedule cleanup)
  *   ALLOW_NON_LOCAL_BASE_URL=true  only when intentionally targeting a non-local test app
  */
 
 
 const legacyHarness=require('./lib/legacy-check');
+const h=require('./lib/playwright-harness');
+const {ownedScheduleProvider}=require('./lib/owned-schedule-provider');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
@@ -67,7 +69,8 @@ const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const requestedProvider = process.env.TEST_SCHEDULE_PROVIDER || '';
+let requestedProvider = '';
+let ownedSchedule;
 
 // The wizard writes real rschedule/scheduledate rows. Use a range far enough out
 // that it cannot collide with demo appointments a human is looking at.
@@ -414,7 +417,7 @@ async function fillWeekSchedule(frame, templateName) {
   }
 }
 
-async function runWizard(context, page) {
+async function runWizard(context, page, cancellation) {
   const settingFrame = await openAdminSection(page, '/schedule/TemplateSetting', /\/schedule\/TemplateSetting/, 'schedule-setting');
   if (!settingFrame) {
     return;
@@ -438,6 +441,7 @@ async function runWizard(context, page) {
     url: recordableUrl(weekFrame.url()),
     providerSource: requestedProvider ? 'TEST_SCHEDULE_PROVIDER' : 'auto-selected',
   });
+  cancellation?.throwIfCancelled();
   await assertNoErrorPage(weekFrame, 'schedule-week-setting');
   assertFramedStepIsVisible(await waitForShellScrollTop(page), 'schedule-week-setting');
 
@@ -447,6 +451,7 @@ async function runWizard(context, page) {
     return;
   }
   const templateName = templates[0];
+  ownedSchedule.expectTemplate(templateName);
   await fillWeekSchedule(weekFrame, templateName);
 
   const weekScroll = await scrollShellToFramedStepBottom(page);
@@ -459,6 +464,7 @@ async function runWizard(context, page) {
     return;
   }
   await calendarFrame.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
+  cancellation?.throwIfCancelled();
   visited.push({ label: 'schedule-calendar', url: recordableUrl(calendarFrame.url()) });
   await assertNoErrorPage(calendarFrame, 'schedule-calendar');
   assertFramedStepIsVisible(await waitForShellScrollTop(page), 'schedule-calendar');
@@ -483,6 +489,7 @@ async function runWizard(context, page) {
     return;
   }
   await finalFrame.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
+  cancellation?.throwIfCancelled();
   visited.push({ label: 'schedule-final', url: recordableUrl(finalFrame.url()) });
   await assertNoErrorPage(finalFrame, 'schedule-final');
   assertFramedStepIsVisible(await waitForShellScrollTop(page), 'schedule-final');
@@ -493,6 +500,7 @@ async function runWizard(context, page) {
   }
 
   await assertFrameHeightDoesNotRatchet(page, finalFrame, 'schedule-final');
+  cancellation?.throwIfCancelled();
 }
 
 /**
@@ -571,8 +579,12 @@ legacyHarness.runLegacyCheck('schedule-setting',async context=>{
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+  const config=h.readConfig(),sql=h.createSqlRunner(config.mysql);
+  ownedSchedule=ownedScheduleProvider(sql,config);let browser=null;
   try {
+    h.assert(!process.env.TEST_SCHEDULE_PROVIDER,'Schedule Setting now owns its target provider; unset TEST_SCHEDULE_PROVIDER');
+    ownedSchedule.create();requestedProvider=ownedSchedule.providerNo;
+    browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
     const context = await browser.newContext({
       ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1440, height: 900 },
@@ -582,7 +594,7 @@ legacyHarness.runLegacyCheck('schedule-setting',async context=>{
     cancellation?.throwIfCancelled();
     context.on('page', (popup) => wirePage(popup, 'popup'));
 
-    await runWizard(context, page);
+    await runWizard(context, page, cancellation);
     cancellation?.throwIfCancelled();
     await checkResizeIframeCallers(page);
     cancellation?.throwIfCancelled();
@@ -594,7 +606,9 @@ legacyHarness.runLegacyCheck('schedule-setting',async context=>{
     }
     console.log('PASS schedule setting wizard advances through every step with the new step in view');
   } finally {
-    await browser.close();
+    let browserClosed=!browser;
+    try {if(browser)await browser.close();browserClosed=true;}
+    finally {try {ownedSchedule.cleanup({browserClosed});}finally {sql.dispose();}}
   }
 })(context).catch((error) => {
   console.error('FAIL schedule setting Playwright check');
