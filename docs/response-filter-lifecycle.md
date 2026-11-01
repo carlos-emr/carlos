@@ -78,6 +78,9 @@ Known non-HTML lengths reach the logout wrapper before stream acquisition, so an
 explicit flush cannot outrun header replay. The logout wrapper also publishes
 known non-HTML writer lengths before a large body can commit. HEAD/no-channel
 responses preserve metadata length; integer header setters share the same rules.
+Content-Type header setters also publish known non-HTML lengths. If the type
+changes to HTML before commitment, the decorators remove their published lengths
+through every outer wrapper and defer them again until the append decision.
 Decorated HTML omits the obsolete length so the outer sanitizer or container can
 frame the completed response. A writer initially captured before its Content-Type
 was known still uses the existing CSRF writer replay contract: the container may

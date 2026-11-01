@@ -275,6 +275,30 @@ class ResponseFilterLifecycleIntegrationTest {
         assertThat(response.headers().firstValueAsLong("Content-Length")).hasValue(BINARY.length);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"/development", "/packaged"})
+    void shouldKeepSuppliedLength_whenNullLengthHeaderIsAdded(String context) throws Exception {
+        HttpResponse<byte[]> response = get(context + "/direct?output=binary&addNullLength=true&flush=true");
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).isEqualTo(BINARY);
+        assertThat(response.headers().firstValueAsLong("Content-Length")).hasValue(BINARY.length);
+    }
+
+    static Stream<Arguments> htmlTypeSwitchCases() {
+        return Stream.of("/development", "/packaged").flatMap(context ->
+                Stream.of("type", "set", "add").map(api -> Arguments.of(context, api)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("htmlTypeSwitchCases")
+    void shouldClearPublishedLength_whenStreamResponseSwitchesToHtml(String context, String api) throws Exception {
+        HttpResponse<byte[]> response = get(context + "/direct?output=stream&size=55324&switchType=" + api);
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(new String(response.body(), StandardCharsets.UTF_8))
+                .startsWith(html(55324)).contains(NOTICE);
+        assertLength(response);
+    }
+
     @ParameterizedTest(name = "reset {0} {1} {2} -> {3}")
     @MethodSource("fullResetCases")
     void shouldCoordinateFullResetAcrossEveryWrapper_andAllowChannelReselection(
@@ -484,6 +508,9 @@ class ResponseFilterLifecycleIntegrationTest {
                 if (lateType == null) {
                     response.setContentType("application/octet-stream");
                     response.setContentLength(BINARY.length);
+                    if ("true".equals(request.getParameter("addNullLength"))) {
+                        response.addHeader("Content-Length", null);
+                    }
                     stream = response.getOutputStream();
                 } else {
                     response.setContentLength(BINARY.length);
@@ -516,6 +543,19 @@ class ResponseFilterLifecycleIntegrationTest {
             response.setContentType("plain".equals(output) ? "text/plain;charset=UTF-8" : "text/html;charset=UTF-8");
             String body = "true".equals(request.getParameter("tainted"))
                     ? PRIVATE_DIAGNOSTIC + "x".repeat(size) : html(size);
+            String switchType = request.getParameter("switchType");
+            if (switchType != null) {
+                response.setContentType("text/plain;charset=UTF-8");
+                response.setContentLength(body.getBytes(StandardCharsets.UTF_8).length);
+                var stream = response.getOutputStream();
+                switch (switchType) {
+                    case "type" -> response.setContentType("text/html;charset=UTF-8");
+                    case "set" -> response.setHeader("Content-Type", "text/html;charset=UTF-8");
+                    default -> response.addHeader("Content-Type", "text/html;charset=UTF-8");
+                }
+                stream.write(body.getBytes(StandardCharsets.UTF_8));
+                return;
+            }
             if (!Set.of("/sanitizer", "/capture").contains(request.getContextPath())) {
                 response.setContentLength(body.getBytes(StandardCharsets.UTF_8).length);
             }

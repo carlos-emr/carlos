@@ -31,6 +31,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -210,6 +212,47 @@ class PrivacyStatementAppendingFilterUnitTest {
         });
         assertThat(response.getContentAsString()).isEqualTo("body");
         assertThat(response.getContentLength()).isEqualTo(4);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"0,false", "1,false", "2,false", "0,true", "1,true", "2,true"})
+    void shouldClearPublishedLength_whenContentTypeChangesToHtml(int api, boolean useWriter) throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic switch notice.");
+        try {
+            MockHttpServletResponse response = spy(new MockHttpServletResponse());
+            filter.doFilter(new MockHttpServletRequest("GET", "/print"), response, (req, res) -> {
+                res.setContentType("text/plain;charset=UTF-8");
+                res.setContentLength(4);
+                if (useWriter) {
+                    res.getWriter();
+                } else {
+                    res.getOutputStream();
+                }
+                assertThat(response.getContentLength()).isEqualTo(4);
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                switch (api) {
+                    case 0 -> http.setContentType("text/html;charset=UTF-8");
+                    case 1 -> http.setHeader("Content-Type", "text/html;charset=UTF-8");
+                    default -> http.addHeader("Content-Type", "text/html;charset=UTF-8");
+                }
+                // Spring's mock ignores null values; real-Tomcat tests verify header removal.
+                verify(response).setHeader("Content-Length", null);
+                if (useWriter) {
+                    res.getWriter().write("body");
+                } else {
+                    res.getOutputStream().write("body".getBytes(StandardCharsets.UTF_8));
+                }
+            });
+            assertThat(response.getContentAsString()).startsWith("body").contains("Synthetic switch notice.");
+            verify(response).setHeader("Content-Length", null);
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.put("confidentiality_statement.v1", original);
+            }
+        }
     }
 
     @Test

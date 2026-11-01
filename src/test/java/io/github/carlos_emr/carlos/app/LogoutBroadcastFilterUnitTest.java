@@ -47,6 +47,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -54,6 +56,8 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -114,6 +118,31 @@ class LogoutBroadcastFilterUnitTest {
 
         assertThat(forwardResponse.getContentAsString()).contains("<html><body>schedule</body></html>");
         assertThat(forwardResponse.getContentAsString()).doesNotContain("window.__carlosLogoutActive=true;");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1, 2})
+    void shouldClearPublishedWriterLength_whenTypeChangesToHtml(int api) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.getSession(true).setAttribute("user", "123");
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("text/plain;charset=UTF-8");
+            res.setContentLength(4);
+            var writer = res.getWriter();
+            assertThat(response.getContentLength()).isEqualTo(4);
+            var http = (HttpServletResponse) res;
+            switch (api) {
+                case 0 -> http.setContentType("text/html;charset=UTF-8");
+                case 1 -> http.setHeader("Content-Type", "text/html;charset=UTF-8");
+                default -> http.addHeader("Content-Type", "text/html;charset=UTF-8");
+            }
+            // Spring's mock ignores null values; real-Tomcat tests verify header removal.
+            verify(response).setHeader("Content-Length", null);
+            writer.write("body");
+        });
+        assertThat(response.getContentAsString()).startsWith("body").contains("window.__carlosLogoutActive=true;");
+        verify(response).setHeader("Content-Length", null);
     }
 
     @Test

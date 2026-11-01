@@ -327,6 +327,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         private DelegatingWriter writer;
         private Long deferredContentLength;
+        private Long publishedContentLength;
 
         public DelegatingServletResponse(HttpServletResponse response) {
             super(response);
@@ -386,7 +387,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
         @Override
         public void setContentLengthLong(long length) {
             deferredContentLength = length;
-            applyNonHtmlContentLength();
+            updateContentLengthForType();
         }
 
         @Override
@@ -419,28 +420,42 @@ public class PrivacyStatementAppendingFilter implements Filter {
             }
             if (isContentLengthHeader(name)) {
                 deferredContentLength = null;
+                publishedContentLength = null;
             }
             super.setHeader(name, value);
-            applyNonHtmlContentLength();
+            updateContentLengthForType();
         }
 
         @Override
         public void addHeader(String name, String value) {
             if (isContentLengthHeader(name)) {
+                if (value == null) {
+                    return;
+                }
                 setHeader(name, value);
             } else {
                 super.addHeader(name, value);
-                applyNonHtmlContentLength();
+                updateContentLengthForType();
             }
         }
 
         @Override
         public void setContentType(String type) {
             super.setContentType(type);
-            applyNonHtmlContentLength();
+            updateContentLengthForType();
         }
 
-        private void applyNonHtmlContentLength() {
+        private void updateContentLengthForType() {
+            if (publishedContentLength != null && !isCommitted()
+                    && RequestNegotiation.isHtmlContentType(getContentType())) {
+                // A type change before writing makes the previously published length unsafe.
+                // Keep it deferred in case the response ultimately needs no decoration.
+                if (deferredContentLength == null) {
+                    deferredContentLength = publishedContentLength;
+                }
+                super.setHeader("Content-Length", null);
+                publishedContentLength = null;
+            }
             // Content-Type can arrive through any header API after channel selection.
             if ((responseOutputStreamObtained || responseWriterObtained) && isKnownNonHtml()) {
                 applyDeferredContentLength();
@@ -457,6 +472,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
         public void reset() {
             super.reset();
             deferredContentLength = null;
+            publishedContentLength = null;
             writer = null;
             responseWriterObtained = false;
             responseOutputStreamObtained = false;
@@ -477,6 +493,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
         private void applyDeferredContentLength() {
             if (deferredContentLength != null) {
                 super.setContentLengthLong(deferredContentLength);
+                publishedContentLength = deferredContentLength;
                 deferredContentLength = null;
             }
         }

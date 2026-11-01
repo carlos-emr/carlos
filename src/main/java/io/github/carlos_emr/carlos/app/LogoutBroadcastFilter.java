@@ -743,6 +743,7 @@ public class LogoutBroadcastFilter implements Filter {
         private int deferredContentLength;
         private long deferredContentLengthLong;
         private boolean deferredContentLengthIsLong;
+        private Long publishedContentLength;
         private boolean htmlInjectionBufferConfigured;
         private boolean htmlInjectionBufferUnavailable;
         private boolean chainComplete;
@@ -824,6 +825,15 @@ public class LogoutBroadcastFilter implements Filter {
         public void setContentType(String type) {
             super.setContentType(type);
             if (RequestNegotiation.isHtmlContentType(type)) {
+                if (responseWriterObtained && publishedContentLength != null && !isCommitted()) {
+                    if (!contentLengthDeferred) {
+                        contentLengthDeferred = true;
+                        deferredContentLengthLong = publishedContentLength;
+                        deferredContentLengthIsLong = true;
+                    }
+                    super.setHeader("Content-Length", null);
+                    publishedContentLength = null;
+                }
                 configureWriterInjectionBufferIfNeeded();
             } else if ((responseWriterObtained || responseOutputStreamObtained) && isKnownNonHtml()) {
                 applyDeferredContentLength();
@@ -891,6 +901,7 @@ public class LogoutBroadcastFilter implements Filter {
         public void reset() {
             super.reset();
             clearDeferredContentLength();
+            publishedContentLength = null;
             writer = null;
             responseWriterObtained = false;
             responseOutputStreamObtained = false;
@@ -955,6 +966,9 @@ public class LogoutBroadcastFilter implements Filter {
                 return;
             }
             if (isContentLengthHeader(name)) {
+                if (value == null) {
+                    return;
+                }
                 deferContentLengthHeader(value);
                 return;
             }
@@ -1001,6 +1015,8 @@ public class LogoutBroadcastFilter implements Filter {
                         requestUriForLog, deferredContentLength);
                 super.setContentLength(deferredContentLength);
             }
+            publishedContentLength = deferredContentLengthIsLong
+                    ? deferredContentLengthLong : (long) deferredContentLength;
             clearDeferredContentLength();
         }
 
@@ -1057,6 +1073,12 @@ public class LogoutBroadcastFilter implements Filter {
          * @param value raw Content-Length header value from downstream code
          */
         private void deferContentLengthHeader(String value) {
+            if (value == null) {
+                clearDeferredContentLength();
+                publishedContentLength = null;
+                super.setHeader("Content-Length", null);
+                return;
+            }
             try {
                 setContentLengthLong(Long.parseLong(value));
             } catch (NumberFormatException e) {

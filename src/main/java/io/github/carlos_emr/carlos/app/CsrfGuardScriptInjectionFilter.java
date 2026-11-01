@@ -534,6 +534,9 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         @Override
         public void addHeader(String name, String value) {
             if (isContentLengthHeader(name)) {
+                if (value == null) {
+                    return;
+                }
                 deferContentLengthHeader(value);
                 return;
             }
@@ -732,6 +735,12 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         }
 
         private void deferContentLengthHeader(String value) {
+            if (value == null) {
+                deferredContentLength = null;
+                deferredContentLengthLong = null;
+                super.setHeader("Content-Length", null);
+                return;
+            }
             try {
                 setContentLengthLong(Long.parseLong(value));
             } catch (NumberFormatException e) {
