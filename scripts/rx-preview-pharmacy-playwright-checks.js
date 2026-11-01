@@ -392,7 +392,7 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRun);
     const nullPreviewParams = new URL(nullPreviewUrl).searchParams;
     assert(nullPreviewParams.get('pharmacyId') === 'null',
       'literal pharmacyId=null did not reach the rendered preview');
-    assert(nullPreviewParams.get('demographicNo') === demographicNo && nullPreviewParams.get('scriptId') === scriptId,
+    assert(nullPreviewParams.get('demographicNo') === String(Number(demographicNo)) && nullPreviewParams.get('scriptId') === scriptId,
       'literal pharmacyId=null preview did not retain the requested patient and prescription');
     await screenshot(nullPage, config.screenshotDir, 'rx-preview-pharmacy-null-literal');
 
