@@ -14,7 +14,7 @@ async function workflow(s) {
   fixture.apply(testCase);
   const rx = await s.popup(s.master,masterRecordLink(s.master,'/rx/choosePatient').first(),'renal-matrix-rx');
   let card,panel,originalAtc;
-  await s.step(`${name}: renal inputs render through the native drug card without a server error`,async()=>{
+  await s.step('renal inputs render through the native drug card without a server error',async()=>{
     const [response,staged]=await Promise.all([
       rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')&&new URL(r.url()).searchParams.get('demographicNo')===s.patient),
       stageFromSearch(rx,'CIPRO 500','CIPRO 500MG'),
@@ -23,7 +23,7 @@ async function workflow(s) {
     h.assert(response.status()===200,`Renal rendering returned HTTP ${response.status()}`);await response.finished();
     await panel.locator('table.equation').waitFor({state:'visible'});
   });
-  await s.step(`${name}: render independent clinical inputs and exact inclusive recommendation boundaries`,async()=>{
+  await s.step('render independent clinical inputs and exact inclusive recommendation boundaries',async()=>{
     const text=(await panel.innerText()).replace(/\s+/g,' '), selected=panel.locator('table.sofT tr.selected');
     if(testCase.clearance===undefined) {
       h.assert(text.includes('N/A') && !/NaN|Infinity/.test(text),'Unusable renal input was displayed as a usable number');

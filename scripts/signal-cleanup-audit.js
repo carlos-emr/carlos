@@ -13,6 +13,7 @@ function verdict(status,record,residue) {
   return status===130&&record?.outcome==='FAIL'&&record?.detail==='interrupted'?'PASS':'FAIL';
 }
 function unavailable(check,env=process.env) {
+  if(check.name==='deb-login')return 'Requires a fresh package initial-login/password-reset fixture; the configured-runtime audit must not change the shared administrator credential';
   const province=env.CARLOS_SUITE_PROVINCE||'ON';
   if(!check.provinces.includes('all')&&!check.provinces.includes(province))return `Requires ${check.provinces.join('/')} installation; current province is ${province}`;
   if(check.profile&&check.profile!==(env.CARLOS_PROPERTY_PROFILE_ACTIVE||'default'))return `Requires ${check.profile} configuration profile`;

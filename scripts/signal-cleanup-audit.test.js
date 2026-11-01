@@ -18,3 +18,5 @@ test('signal audit keeps province and profile prerequisites explicit instead of 
   assert.match(unavailable({provinces:['all'],profile:'no-pin'},{}),/Requires no-pin/);
   assert.equal(unavailable({provinces:['all'],profile:'no-pin'},{CARLOS_PROPERTY_PROFILE_ACTIVE:'no-pin'}),null);
 });
+
+test('configured-runtime audit blocks the persistent installer password-reset prerequisite',()=>{assert.match(unavailable({name:'deb-login',provinces:['all']},{}),/fresh package initial-login/);});

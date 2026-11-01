@@ -256,11 +256,13 @@ async function checkEmptyPrescriptionPrint(page) {
 async function openPrescriptionView(page, label) {
   await choosePrescriptionPatient(page);
   await postReprintSession(page);
-  const viewParams = new URLSearchParams({ scriptId: prescriptionScriptId });
+  const viewParams = new URLSearchParams({ scriptId: prescriptionScriptId, demographicNo: prescriptionDemographicNo });
   if (prescriptionPharmacyId) {
     viewParams.set('pharmacyId', prescriptionPharmacyId);
   }
-  await gotoApp(page, `/rx/viewScript?${viewParams.toString()}`);
+  const response=await gotoApp(page, `/rx/viewScript?${viewParams.toString()}`);
+  if(!response||response.status()!==200)throw new Error(`Prescription view returned HTTP ${response?response.status():'no response'}`);
+  await assertNoErrorPage(page,label);
   await waitForPreviewOrExplain(page);
   await previewFrame(page);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});

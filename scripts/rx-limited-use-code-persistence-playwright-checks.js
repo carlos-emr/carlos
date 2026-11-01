@@ -10,6 +10,15 @@ const {openSecondPatient} = require('./lib/second-patient-window');
 const {removeMarkedPatients} = require('./lib/gap-records-fixtures');
 const {rxSave} = require('./lib/mutation-families');
 const {viewScriptFrame}=require('./rx-drug-name-quotes-playwright-checks');
+// Judge this reproduced, nonblocking native-link defect after storage/reprint
+// coverage, while leaving every unrelated browser error strict.
+function deferNativeLinkSyntaxErrors(recorder,mark,hrefs) {
+  if(hrefs.length!==3||!hrefs.every(href=>href==='javascript: return void();'))return [];
+  const errors=recorder.pageErrors.slice(mark).filter(error=>error.label==='limited-use-rx'&&error.text==='Illegal return statement');
+  if(errors.length!==3)return [];
+  for(const error of errors)recorder.pageErrors.splice(recorder.pageErrors.indexOf(error),1);
+  return errors;
+}
 async function workflow(s) {
   const {sql, patient, marker} = s, otherName=marker+'-CONTROL';
   const cleanup=rxSave(s);s.cleanup(()=>cleanup.cleanup());
@@ -31,11 +40,12 @@ async function workflow(s) {
   const otherRx=await s.popup(otherMaster,masterRecordLink(otherMaster,'/rx/choosePatient').first(),'limited-use-control-rx');
   const otherCard=await stageFromSearch(otherRx,LIMITED_USE.term,LIMITED_USE.name);
   const otherInstructions=otherRx.locator(`#instructions_${otherCard}`);await otherInstructions.fill('CONTROL directions');await otherInstructions.press('Tab');
-  let wanted,script;
+  let wanted,script,nativeLinkErrors=[];
   await s.step('choose offered LU codes through the actual links and preserve both control cards',async()=>{
     h.assert(JSON.stringify((await codes.allInnerTexts()).map(value=>value.trim()).filter(Boolean))===JSON.stringify(expected),'Offered codes differ from the controlled formulary');
     await otherRx.bringToFront();
-    for(const code of [expected[0],expected[0],expected[1]])await rx.locator(`#luc_${card}`).getByRole('link',{name:code,exact:true}).click();
+    const errorMark=s.recorder.pageErrors.length,hrefs=[];
+    for(const code of [expected[0],expected[0],expected[1]]){const link=rx.locator(`#luc_${card}`).getByRole('link',{name:code,exact:true});hrefs.push(await link.getAttribute('href'));await link.click();}
     // addLuCode appends an explicit annotation; repeated clicks append another
     // annotation rather than replacing existing directions or another selected code.
     wanted=base+` LU Code: ${expected[0]} LU Code: ${expected[0]} LU Code: ${expected[1]}`;
@@ -43,6 +53,7 @@ async function workflow(s) {
     h.assert(await rx.locator(`#instructions_${controlCard}`).inputValue()===controlDirections,'LU selection changed another medication');
     h.assert(await otherInstructions.inputValue()==='CONTROL directions','LU selection changed another patient window');
     h.assert(sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no IN (${patient},${otherPatient})`)==='0','Selecting unsaved codes created a prescription');
+    nativeLinkErrors=deferNativeLinkSyntaxErrors(s.recorder,errorMark,hrefs);
   });
   await s.step('Save Only persists LU text on the selected medication and reprint preview',async()=>{
     const [saved]=await Promise.all([
@@ -74,6 +85,7 @@ async function workflow(s) {
     await remove.click();await otherRx.locator(`#set_${otherCard}`).waitFor({state:'detached'});await otherRx.close();
     h.assert(sql.value(`SELECT COUNT(*) FROM prescription WHERE demographic_no=${otherPatient}`)==='0','Removing an unsaved LU card created a prescription');
   });
+  await s.step('offered LU links complete without uncaught JavaScript errors',async()=>{h.assert(nativeLinkErrors.length===0,'Native LU links emitted Illegal return statement despite preserving the clinical text');});
 }
 if(require.main===module)runWorkflow('rx-limited-use-code-persistence',workflow,{openPatient:true});
-module.exports={workflow};
+module.exports={workflow,deferNativeLinkSyntaxErrors};

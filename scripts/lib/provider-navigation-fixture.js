@@ -13,7 +13,7 @@ const DEFAULTS = Object.freeze({
   encounterWindowMaximize: 'no', dashboard_share: 'no',
   prevention_sso_warning: 'false', prevention_ispa_warning: 'false', prevention_non_ispa_warning: 'false',
 });
-const AFFECTED = new Set(['application-health', 'document-upload', 'schedule-links','document-metadata-controls','document-clinical-followup','responsive-hit-test','accessibility-smoke','i18n-locale-walk','dialog-confirmations-tickler','tickler-demo-main-status']);
+const AFFECTED = new Set(['application-health', 'document-upload', 'schedule-links','document-metadata-controls','document-clinical-followup','responsive-hit-test','accessibility-smoke','i18n-locale-walk','dialog-confirmations-tickler','tickler-demo-main-status','tickler-patient-erase']);
 const quote = name => {
   assert(/^[A-Za-z_][A-Za-z0-9_]*$/.test(name), 'Invalid navigation fixture column');
   return `\`${name}\``;

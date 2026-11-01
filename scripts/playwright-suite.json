@@ -2906,7 +2906,7 @@
         "rschedule",
         "scheduledate"
       ],
-      "fixtures": "Owned FAKE- throwaway provider/login, reserved only if no preexisting weekly or dated schedules use its number; the wizard uses a native offered public day template. Browser shutdown must succeed before exact range/template/creator guards admit removal of its schedule rows and login. No shared-provider schedules are changed.",
+      "fixtures": "Owned FAKE- throwaway provider/login, reserved only if no preexisting weekly or dated schedules use its number; the wizard uses a native offered public day template. Browser shutdown must succeed before exact range/template/creator guards admit removal of its schedule rows and login. No shared-provider schedules are changed. Run exclusively (EXCLUSIVE=1). It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": " The check now owns its target provider; TEST_SCHEDULE_PROVIDER must be unset. Native writes are checkpointed within the wizard, including immediately after calendar generation."
     },
     {
@@ -10200,7 +10200,11 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Creates three throwaway logins (doctor, nurse, Field Note Admin); no other rows; reads only; cleanup asserts removal.",
-      "notes": "Expected to FAIL at the last step 'administration pages are refused without their menu object and served with it': encounter/oscarMeasurements/View* configuration pages and billing/CA/ON/BillingONPayment are served to a nurse. Steps 1-5 pass. The step also listed eform/fieldNoteReport/* (served to a doctor, HTTP 500 for the Field Note Admin role) until the 2026.08 line; on the 2026.08.0-beta1 package (PR #5067) it no longer does. The doctor's /administration is expected, since the doctor holds _admin.flowsheet (#4623)."
+      "notes": "Expected to FAIL at the last step 'administration pages are refused without their menu object and served with it': encounter/oscarMeasurements/View* configuration pages and billing/CA/ON/BillingONPayment are served to a nurse. Steps 1-5 pass. The step also listed eform/fieldNoteReport/* (served to a doctor, HTTP 500 for the Field Note Admin role) until the 2026.08 line; on the 2026.08.0-beta1 package (PR #5067) it no longer does. The doctor's /administration is expected, since the doctor holds _admin.flowsheet (#4623).",
+      "expectedFailure": {
+        "finding": 342,
+        "step": "administration pages are refused without their menu object and served with it (lists every route that is not)"
+      }
     },
     {
       "name": "authz-read-print-export",
@@ -17377,7 +17381,7 @@
       "notes": "Independent renal input/source/threshold matrix case newer-unusable-source (#5263); isolated outcome and owned cleanup.",
       "expectedFailure": {
         "finding": 339,
-        "step": "newer-unusable-source: renal inputs render through the native drug card without a server error"
+        "step": "renal inputs render through the native drug card without a server error"
       }
     },
     {
@@ -17419,7 +17423,7 @@
       "notes": "Independent renal input/source/threshold matrix case cr-blank (#5263); isolated outcome and owned cleanup.",
       "expectedFailure": {
         "finding": 339,
-        "step": "cr-blank: renal inputs render through the native drug card without a server error"
+        "step": "renal inputs render through the native drug card without a server error"
       }
     },
     {
@@ -17461,7 +17465,7 @@
       "notes": "Independent renal input/source/threshold matrix case cr-text (#5263); isolated outcome and owned cleanup.",
       "expectedFailure": {
         "finding": 339,
-        "step": "cr-text: renal inputs render through the native drug card without a server error"
+        "step": "renal inputs render through the native drug card without a server error"
       }
     },
     {
@@ -17629,7 +17633,7 @@
       "notes": "Independent renal input/source/threshold matrix case cr-infinity (#5263); isolated outcome and owned cleanup.",
       "expectedFailure": {
         "finding": 340,
-        "step": "cr-infinity: render independent clinical inputs and exact inclusive recommendation boundaries"
+        "step": "render independent clinical inputs and exact inclusive recommendation boundaries"
       }
     },
     {
@@ -17772,7 +17776,11 @@
       "env": [
         "RX_ODB_FILE"
       ],
-      "notes": "Real formulary code clicks, append/repeat behavior, same/other-patient controls, saved medication and reprint preview, unsaved cancellation and cleanup (#5270)."
+      "notes": "Real formulary code clicks, append/repeat behavior, same/other-patient controls, saved medication and reprint preview, unsaved cancellation and cleanup (#5270).",
+      "expectedFailure": {
+        "finding": 341,
+        "step": "offered LU links complete without uncaught JavaScript errors"
+      }
     },
     {
       "name": "rx-renal-correction",
@@ -17792,7 +17800,11 @@
         "measurementType",
         "measurementGroupStyle"
       ],
-      "fixtures": "Owned patients and observations; supplies an owned Renal Dosing measurement group only when absent and removes its exact rows. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+      "fixtures": "Owned patients and observations; supplies an owned Renal Dosing measurement group only when absent and removes its exact rows. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "expectedFailure": {
+        "finding": 338,
+        "step": "Refresh replaces the equation and crosses into the inclusive reduced-dose recommendation"
+      }
     },
     {
       "name": "rx-minor-interaction-levels",

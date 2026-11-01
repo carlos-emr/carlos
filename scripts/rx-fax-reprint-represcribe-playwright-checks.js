@@ -155,7 +155,7 @@ let expectingCustomDrugConfirm = false;
 function validateBaseUrl(rawBaseUrl) {
   // Delegate host/protocol/credential rules; this legacy caller retains its return shape.
   const parsed = require('./lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl);
-  return `${parsed.origin}${parsed.pathname}`;
+  return `${parsed.origin}${parsed.pathname.replace(/\/+$/, '')}`;
 }
 
 /** True when BASE_URL points at loopback, where the packaged self-signed certificate lives. */

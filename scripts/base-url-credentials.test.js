@@ -131,3 +131,13 @@ for (const name of scripts) {
     assert.throws(() => optedIn.validateBaseUrl('https://user:secret@review.example.invalid/carlos'), /BASE_URL must not/);
   });
 }
+
+test('legacy Rx fax string adapter keeps root-context navigation on the application origin',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'rx-fax-reprint-represcribe-playwright-checks.js'),'utf8');
+  const start=source.indexOf('function validateBaseUrl('),body=source.slice(start,source.indexOf('\n}',start)+2);
+  const context=vm.createContext({URL,require:()=>require('./lib/playwright-harness')});vm.runInContext(body,context);
+  for(const [raw,expected] of [['http://127.0.0.1:8080/','http://127.0.0.1:8080'],['https://127.0.0.1/carlos/','https://127.0.0.1/carlos']]){
+    const validated=context.validateBaseUrl(raw);assert.equal(validated,expected);
+    assert.equal(new URL(validated+'/provider/providercontrol').pathname,new URL(expected+'/provider/providercontrol').pathname);
+  }
+});

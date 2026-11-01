@@ -43,7 +43,7 @@ async function workflow(s) {
       }
       await page.locator('#endDate').waitFor({state: 'visible'});
       const priorDate = new Date(Date.parse(testCase.start+'T12:00:00Z') - 86400000).toISOString().slice(0, 10);
-      await ui.pickDate(page, page.locator('#endDate'), priorDate);
+      await ui.pickDate(page, page.locator('#endDate'), priorDate,{maxMonthSteps:120});
       await page.locator(`#dateUnit${testCase.unit}`).check();
       await page.locator('select[name="everyNum"]').selectOption(testCase.every);
       async function submit() {
@@ -61,7 +61,7 @@ async function workflow(s) {
       }
       h.assert(/end date on or after/i.test(await submit()), 'Invalid end date was not explained');
       h.assert(f.stampedAppointments().length === (mode === 'saved' ? 1 : 0), 'Rejected recurrence wrote rows');
-      await ui.pickDate(page, page.locator('#endDate'), testCase.dates.at(-1));
+      await ui.pickDate(page, page.locator('#endDate'), testCase.dates.at(-1),{maxMonthSteps:120});
       await submit();
       const rows = f.stampedAppointments();
       h.assert(JSON.stringify(rows.map(row => row.date).sort()) === JSON.stringify(testCase.dates), 'Calendar recurrence dates/count differ from the original-date rule');
@@ -74,7 +74,7 @@ async function workflow(s) {
       await page.close();
       page=await f.openEditPopup(s.context,s.schedule,rows.find(row=>row.date===testCase.start).id);
       await Promise.all([page.waitForEvent('domcontentloaded'),page.locator('#repeatButton').click()]);
-      await ui.pickDate(page,page.locator('#endDate'),testCase.dates.at(-1));
+      await ui.pickDate(page,page.locator('#endDate'),testCase.dates.at(-1),{maxMonthSteps:120});
       await page.locator(`#dateUnit${testCase.unit}`).check();
       await page.locator('select[name="everyNum"]').selectOption(testCase.every);
       h.assert(/No appointments created: repeats already exist/.test(await submit()),'Duplicate recurrence was not explained');
