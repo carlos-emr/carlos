@@ -6,6 +6,8 @@
  * JSON; installed-application checks are still needed for Struts, filters and persistence.
  * Runs one browser context at a time. CHROME_BIN may select the packaged Chromium.
  */
+
+const legacyHarness=require('./lib/legacy-check');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -107,20 +109,24 @@ const server = http.createServer(async (req, res) => {
   }
   res.end(inbox(url));
 });
-async function main() {
+async function main({cancellation}={}) {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
-  const browser = await chromium.launch(getLaunchOptions(process.env.CHROME_BIN || process.env.CHROME_PATH));
+  const browser = await chromium.launch({...(getLaunchOptions(process.env.CHROME_BIN || process.env.CHROME_PATH)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   try {
     for (const mode of ['popup', 'coop', 'fallback', 'iframe', 'legacy', 'chart', 'cached', 'failure']) {
       signed = false; fail = mode === 'failure'; mutations = 0; reloads = 0; restoring = false;
       const context = await browser.newContext();
+    cancellation?.throwIfCancelled();
       const errors = [];
       context.on('page', page => page.on('pageerror', error => errors.push(error.message)));
       if (mode === 'fallback') await context.addInitScript(() => { window.BroadcastChannel = undefined; });
+    cancellation?.throwIfCancelled();
       const page = await context.newPage();
+    cancellation?.throwIfCancelled();
       // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this fixture's bound 127.0.0.1 server; mode is from the fixed scenario array above, with no external URL input
       await page.goto(`${base}/inbox?mode=${mode}`);
+    cancellation?.throwIfCancelled();
       let viewer;
       if (mode === 'iframe') {
         viewer = page.frameLocator('iframe');
@@ -129,53 +135,77 @@ async function main() {
       } else {
         const popup = page.waitForEvent('popup');
         await page.locator('#open').click();
+    cancellation?.throwIfCancelled();
         viewer = await popup;
+    cancellation?.throwIfCancelled();
         await viewer.waitForLoadState('load');
+    cancellation?.throwIfCancelled();
         if (mode === 'coop') assert.equal(await viewer.evaluate(() => window.opener), null);
+    cancellation?.throwIfCancelled();
       }
       if (mode === 'failure') {
         await viewer.locator('#signoff7').click();
+    cancellation?.throwIfCancelled();
         await viewer.locator('#signoffstatus7').filter({hasText: 'Test failure'}).waitFor();
+    cancellation?.throwIfCancelled();
         assert.equal(await page.locator('#totalHRMCount').inputValue(), '2');
+    cancellation?.throwIfCancelled();
         assert(!viewer.isClosed());
         fail = false;
       }
       if (mode === 'legacy') {
         await viewer.locator('#signoff7').click();
+    cancellation?.throwIfCancelled();
         await viewer.locator('#hrmdoc_7').waitFor({state: 'hidden'});
+    cancellation?.throwIfCancelled();
         assert.equal(await page.locator('[data-lab-type="HL7"]').textContent(), 'Other lab');
+    cancellation?.throwIfCancelled();
         assert.equal(await page.locator('#refreshed').textContent(), 'yes');
+    cancellation?.throwIfCancelled();
       } else {
         await viewer.locator('#signoff7').click();
+    cancellation?.throwIfCancelled();
         await page.waitForFunction(() => document.getElementById('totalHRMCount').value === '1');
+    cancellation?.throwIfCancelled();
         assert.equal(await page.locator('[data-lab-type="HRM"]').count(), 1);
+    cancellation?.throwIfCancelled();
         assert.equal(await page.locator('[data-segment-id="8"]').count(), 1);
+    cancellation?.throwIfCancelled();
         assert.equal(await page.locator('[data-lab-type="HL7"]').count(), 1);
+    cancellation?.throwIfCancelled();
         if (mode === 'chart' || mode === 'cached') {
           assert(!viewer.isClosed());
           await viewer.locator('#signoff7').click();
+    cancellation?.throwIfCancelled();
           await page.waitForFunction(() => document.getElementById('totalHRMCount').value === '2');
+    cancellation?.throwIfCancelled();
           assert.equal(reloads, mode === 'cached' ? 0 : 1);
           if (mode === 'chart') {
             assert.deepEqual(await page.evaluate(() => ({filter, activeTypeFilter, ackToggleState, rapidReviewState})), FILTER_STATE);
+    cancellation?.throwIfCancelled();
             assert.equal(await page.locator('#patient1hrms').getAttribute('class'), 'selected');
+    cancellation?.throwIfCancelled();
           }
           assert(!viewer.isClosed());
           await viewer.locator('#signoff7').click();
+    cancellation?.throwIfCancelled();
           await page.waitForFunction(() => document.getElementById('totalHRMCount').value === '1');
+    cancellation?.throwIfCancelled();
         } else if (mode !== 'iframe') {
           // Do not stub window.close: this checks the actual browser window lifecycle.
           if (!viewer.isClosed()) await viewer.waitForEvent('close');
+    cancellation?.throwIfCancelled();
         }
       }
       assert.equal(mutations, ['chart', 'cached'].includes(mode) ? 3 : mode === 'failure' ? 2 : 1);
       assert.deepEqual(errors, []);
       console.log(`PASS ${mode}: real AJAX, window lifecycle and inbox state`);
       await context.close();
+    cancellation?.throwIfCancelled();
     }
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));
   }
 }
-main().catch(error => { console.error(error); server.close(); process.exitCode = 1; });
+legacyHarness.runLegacyCheck('hrm-window',main).catch(error => { console.error(error); server.close(); process.exitCode = 1; });

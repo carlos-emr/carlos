@@ -37,6 +37,8 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true  only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
@@ -559,7 +561,7 @@ async function checkResizeIframeCallers(page) {
   }
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('schedule-setting',async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -568,17 +570,21 @@ async function checkResizeIframeCallers(page) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   try {
     const context = await browser.newContext({
       ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1440, height: 900 },
     });
+    cancellation?.throwIfCancelled();
     const page = await login(context);
+    cancellation?.throwIfCancelled();
     context.on('page', (popup) => wirePage(popup, 'popup'));
 
     await runWizard(context, page);
+    cancellation?.throwIfCancelled();
     await checkResizeIframeCallers(page);
+    cancellation?.throwIfCancelled();
 
     console.log(JSON.stringify({ visited, findings }, null, 2));
 
@@ -589,7 +595,7 @@ async function checkResizeIframeCallers(page) {
   } finally {
     await browser.close();
   }
-})().catch((error) => {
+}).catch((error) => {
   console.error('FAIL schedule setting Playwright check');
   console.error(redactUrls(error.stack || error.message));
   process.exit(1);

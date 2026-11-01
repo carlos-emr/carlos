@@ -38,6 +38,8 @@
  * Exit status: the number of failed checks.
  */
 'use strict';
+const legacyHarness=require('./lib/legacy-check');
+
 
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -101,7 +103,7 @@ async function expectSchedulePage(page, label) {
   assert(/Schedule|appointment|provider/i.test(html), `${label}: did not look like a schedule page`);
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('deb-login',async({cancellation})=>{
   const creds = credentials();
   const newPassword = process.env.NEW_PASSWORD || generatedPassword();
   const strictTls = process.env.STRICT_TLS === '1';
@@ -138,6 +140,7 @@ async function expectSchedulePage(page, label) {
       const headers = response.headers();
       assert(headers['strict-transport-security'], 'no Strict-Transport-Security header from the front door');
     });
+    cancellation?.throwIfCancelled();
 
     await record('a wrong PIN is refused and the page stays on the login form', async () => {
       await fillLogin(page, { ...creds, pin: creds.pin === '0000' ? '0001' : '0000' });
@@ -147,6 +150,7 @@ async function expectSchedulePage(page, label) {
       assert(/invalid|incorrect|failed|denied|error/i.test(text) || (await page.locator('#username').count()) > 0,
         'wrong PIN produced neither an error nor the login form');
     });
+    cancellation?.throwIfCancelled();
 
     await record('the installer credential signs in and lands on the forced password reset', async () => {
       await fillLogin(page, creds);
@@ -157,6 +161,7 @@ async function expectSchedulePage(page, label) {
       assert(action && action.endsWith('/forcepasswordresetSubmit'), `reset form action was ${action}`);
       await page.locator('input[name="oldPassword"]').waitFor({ timeout: 10000 });
     });
+    cancellation?.throwIfCancelled();
 
     await record('completing the reset reaches the provider schedule', async () => {
       await page.locator('input[name="oldPassword"]').fill(creds.password);
@@ -166,6 +171,7 @@ async function expectSchedulePage(page, label) {
         { label: 'the password reset button' });
       await expectSchedulePage(page, 'after the forced reset');
     });
+    cancellation?.throwIfCancelled();
 
     await record('a fresh session signs in with the new password straight to the schedule', async () => {
       const fresh = await context.browser().newContext({ ignoreHTTPSErrors });
@@ -177,6 +183,7 @@ async function expectSchedulePage(page, label) {
         await fresh.close();
       }
     });
+    cancellation?.throwIfCancelled();
 
     await record('the old installer password no longer signs in', async () => {
       const fresh = await context.browser().newContext({ ignoreHTTPSErrors });
@@ -189,11 +196,13 @@ async function expectSchedulePage(page, label) {
         await fresh.close();
       }
     });
+    cancellation?.throwIfCancelled();
 
     await record('no uncaught browser errors on the pages visited', async () => {
       const serious = consoleErrors.filter((t) => !/favicon|net::ERR_CERT/i.test(t));
       assert(serious.length === 0, `console errors: ${serious.slice(0, 3).join(' | ')}`);
     });
+    cancellation?.throwIfCancelled();
   } finally {
     await browser.close();
   }
@@ -204,8 +213,8 @@ async function expectSchedulePage(page, label) {
     console.log(`The administrator password is now the NEW_PASSWORD given or generated for this run.`);
     if (!process.env.NEW_PASSWORD) console.log(`generated password: ${newPassword}`);
   }
-  process.exit(failed);
-})().catch((err) => {
+  {process.exitCode=failed;return;}
+}).catch((err) => {
   console.error(err);
   process.exit(1);
 });
