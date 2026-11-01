@@ -32,7 +32,7 @@ Full Node regressions pass in GitHub Actions at `c8df481ee5e` (6,899 passes,
 zero failures/skips, one existing TODO); the final
 commit must independently pass every required check. Focused final review
 regressions pass 227/227 in the review-fix batch identified below, including
-quoted diagnostic redaction, lexical import aliases, editor completion and real
+quoted diagnostic redaction, editor completion and real
 child-process interruption. Registration
 alone does not certify a live workflow.
 
@@ -168,8 +168,9 @@ The final focused batch passes 227/227. Its files are `legacy-check.test.js`,
 `clinical-standalone-browser-diagnostics.test.js`,
 `waf-clinical-text-corpus.test.js`, `waf-chart-save.test.js` and
 `owned-chart-page-cleanup.test.js`. This batch tests the source in this revision;
-it supersedes the overlapping 139-test and 213-test batches from `76c31d21b32`
-and `26f6990de09`. Counts are not added together. It includes real SIGINT/SIGTERM
+it is separate from the earlier overlapping 139-test and 213-test batches at
+`76c31d21b32` and `26f6990de09`. Counts apply only to their listed test sets and
+are not added together. It includes real SIGINT/SIGTERM
 structured interruption, remote HTTP refusal before reading credentials, and
 waiting for the full Save response and old/new editor transition. HTTP 403/409/500
 responses return to the row reporter without waiting for a successful editor
