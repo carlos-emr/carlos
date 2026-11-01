@@ -42,7 +42,10 @@ async function workflow(s) {
     const ticklers=await ui.clickOpensPopup(master,masterRecordLink(master,'/tickler/ViewTicklerMain').first(),{context,recorder:s.recorder,label:'upgraded-ticklers',timeout:30000});
     await ticklers.getByText(`${s.marker}-TA-UPGRADE`,{exact:false}).first().waitFor({state:'visible'});
     const chart=await openChart(context,master,s.recorder,30000);await waitForNavbars(chart,30000);
-    h.assert((await chart.locator('body').innerText()).includes(`${s.marker}-NS-UPGRADE`),'Reopened chart lost the retained note');
+    // A reopened note may be the active editor. innerText omits textarea
+    // values; wait for the chart's asynchronous notes and inspect both views.
+    await chart.waitForFunction(text=>document.body.innerText.includes(text)
+      ||Array.from(document.querySelectorAll('textarea[name="caseNote_note"]')).some(field=>field.value.includes(text)),`${s.marker}-NS-UPGRADE`,{timeout:30000});
     const rx=await ui.clickOpensPopup(master,masterRecordLink(master,'/rx/choosePatient').first(),{context,recorder:s.recorder,label:'upgraded-prescription',timeout:30000});
     await rx.getByText(`${s.marker}-RX-UPGRADE`,{exact:false}).first().waitFor({state:'visible'});
   });

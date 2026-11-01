@@ -18169,6 +18169,120 @@
         "DIALOG_CONFIRMATION_TARGET": "tickler"
       },
       "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently."
+    },
+    {
+      "name": "rx-save-failure-retry-only-new",
+      "script": "scripts/rx-save-failure-retry-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [
+        "LAB_UPLOAD_JOURNAL_UNIT"
+      ],
+      "envSet": {
+        "RX_SAVE_FAILURE_MODE": "only-new"
+      },
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
+    },
+    {
+      "name": "rx-save-failure-retry-print-new",
+      "script": "scripts/rx-save-failure-retry-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [
+        "LAB_UPLOAD_JOURNAL_UNIT"
+      ],
+      "envSet": {
+        "RX_SAVE_FAILURE_MODE": "print-new"
+      },
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
+    },
+    {
+      "name": "rx-save-failure-retry-only-mixed",
+      "script": "scripts/rx-save-failure-retry-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [
+        "LAB_UPLOAD_JOURNAL_UNIT"
+      ],
+      "envSet": {
+        "RX_SAVE_FAILURE_MODE": "only-mixed"
+      },
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
+    },
+    {
+      "name": "rx-save-failure-retry-print-mixed",
+      "script": "scripts/rx-save-failure-retry-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [
+        "LAB_UPLOAD_JOURNAL_UNIT"
+      ],
+      "envSet": {
+        "RX_SAVE_FAILURE_MODE": "print-mixed"
+      },
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
+    },
+    {
+      "name": "rx-save-failure-retry-only-lost",
+      "script": "scripts/rx-save-failure-retry-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [
+        "LAB_UPLOAD_JOURNAL_UNIT"
+      ],
+      "envSet": {
+        "RX_SAVE_FAILURE_MODE": "only-lost"
+      },
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
+    },
+    {
+      "name": "rx-save-failure-retry-print-lost",
+      "script": "scripts/rx-save-failure-retry-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [
+        "LAB_UPLOAD_JOURNAL_UNIT"
+      ],
+      "envSet": {
+        "RX_SAVE_FAILURE_MODE": "print-lost"
+      },
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
     }
   ]
 }

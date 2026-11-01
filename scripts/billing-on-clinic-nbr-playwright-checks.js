@@ -48,7 +48,7 @@ async function workflow(s) {
     // This release offers Add and Remove Selected; there is no Edit endpoint.
     await remove();await add(descriptions[1]);
   });
-  const family=billingOnSave(physician.dependentSession,{configureForm:async page=>{
+  const family=billingOnSave(physician.dependentSession,{appointmentLocation:physician.siteName,configureForm:async page=>{
     const options=await page.locator('select[name="xml_provider"] option').evaluateAll(nodes=>nodes.map(node=>node.value));
     const selected=options.find(value=>value.split('|')[0]===physician.providerNo);h.assert(selected,'Owned billing physician is not offered');
     await page.locator('select[name="xml_provider"]').selectOption(selected);await physician.selectClinic(page);

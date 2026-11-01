@@ -52,11 +52,11 @@ const pathIs = (route) => (url) => route.test(url.pathname);
 const assertId = (id, what) => h.assert(/^[1-9]\d*$/.test(String(id)), `${what} is not an owned numeric id`);
 
 /** Insert an owned appointment for the patient (reason/notes carry the text); returns its number. */
-function ownedAppointment(s, { date, start, text }) {
+function ownedAppointment(s, { date, start, text, location = '' }) {
   const no = s.sql.value(`INSERT INTO appointment (provider_no, appointment_date, start_time, end_time, name, demographic_no,
     program_id, notes, reason, location, resources, type, style, billing, status, createdatetime, updatedatetime, creator, remarks, urgency)
     VALUES (${q(s.provider)}, ${q(date)}, ${q(start)}, ADDTIME(${q(start)}, '00:14:00'), ${q(`${s.marker},Workflow`)}, ${s.patient}, 0,
-    ${q(text)}, ${q(text)}, '', '', '', '', '', 't', NOW(), NOW(), ${q(s.provider)}, '', ''); SELECT LAST_INSERT_ID()`);
+    ${q(text)}, ${q(text)}, ${q(location)}, '', '', '', '', 't', NOW(), NOW(), ${q(s.provider)}, '', ''); SELECT LAST_INSERT_ID()`);
   assertId(no, 'The appointment fixture');
   return no;
 }
@@ -310,7 +310,7 @@ function demographicUpdate(s) {
 // ---------------------------------------------------------------------------------------------
 // Ontario bill save (both)
 
-function billingOnSave(s, {configureForm} = {}) {
+function billingOnSave(s, {configureForm, appointmentLocation = ''} = {}) {
   const prefix = `${s.marker}-BS-`;
   const date = process.env.BILLING_SUBMIT_DATE || '2024-05-06';
   const code = process.env.BILLING_OHIP_CODE || 'A007A';
@@ -319,7 +319,7 @@ function billingOnSave(s, {configureForm} = {}) {
   let hour = 8;
   const target = (tag) => {
     if (!targets[tag]) {
-      targets[tag] = ownedAppointment(s, { date, start: `${String(hour).padStart(2, '0')}:30:00`, text: prefix + tag });
+      targets[tag] = ownedAppointment(s, { date, start: `${String(hour).padStart(2, '0')}:30:00`, text: prefix + tag, location: appointmentLocation });
       hour += 1;
     }
     return targets[tag];
