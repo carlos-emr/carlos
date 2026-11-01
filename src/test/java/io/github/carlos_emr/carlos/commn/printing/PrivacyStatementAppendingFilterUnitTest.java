@@ -55,11 +55,88 @@ class PrivacyStatementAppendingFilterUnitTest {
     }
 
     @Test
+    void shouldPublishNonHtmlWriterLength_beforeTheBodyCanCommit() throws Exception {
+        for (boolean typeFirst : new boolean[] {false, true}) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/text");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "x".repeat(APPEND_BUFFER_SIZE_BYTES + 1);
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentLength(body.length());
+                if (typeFirst) {
+                    res.setContentType("text/plain;charset=UTF-8");
+                }
+                var writer = res.getWriter();
+                if (!typeFirst) {
+                    res.setContentType("text/plain;charset=UTF-8");
+                }
+                assertThat(response.getContentLength()).isEqualTo(body.length());
+                writer.write(body);
+            });
+            assertThat(response.getContentAsString()).isEqualTo(body);
+            assertThat(response.getContentLength()).isEqualTo(body.length());
+        }
+    }
+
+    @Test
+    void shouldKeepMetadataLength_whenHtmlHasNoBodyChannel() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("HEAD", "/print");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            res.setContentLength(12345);
+        });
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getContentLength()).isEqualTo(12345);
+    }
+
+    @Test
+    void shouldEncodeStreamNotice_withTheDeclaredResponseCharset() throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic café notice.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentType("text/html;charset=ISO-8859-1");
+                res.getOutputStream().write("body".getBytes(StandardCharsets.ISO_8859_1));
+            });
+            assertThat(new String(response.getContentAsByteArray(), StandardCharsets.ISO_8859_1))
+                    .startsWith("body").contains("Synthetic café notice.");
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.put("confidentiality_statement.v1", original);
+            }
+        }
+    }
+
+    @Test
+    void shouldPreserveDeferredLength_onBufferResetButClearItOnFullReset() throws Exception {
+        for (boolean fullReset : new boolean[] {false, true}) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentLength(4);
+                if (fullReset) {
+                    res.reset();
+                } else {
+                    res.resetBuffer();
+                }
+                res.setContentType("application/octet-stream");
+                res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+            });
+            assertThat(response.getHeader("Content-Length")).isEqualTo(fullReset ? null : "4");
+            assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+        }
+    }
+
+    @Test
     void shouldDeferOriginalLength_whenHtmlStreamGetsAPrivacyNotice() throws Exception {
         var properties = io.github.carlos_emr.CarlosProperties.getInstance();
         Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic length notice.");
         try {
-            for (int form = 0; form < 4; form++) {
+            for (int form = 0; form < 6; form++) {
                 MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
                 MockHttpServletResponse response = new MockHttpServletResponse();
                 int setter = form;
@@ -70,7 +147,9 @@ class PrivacyStatementAppendingFilterUnitTest {
                         case 0 -> http.setContentLength(4);
                         case 1 -> http.setContentLengthLong(4);
                         case 2 -> http.setHeader("Content-Length", "4");
-                        default -> http.addHeader("Content-Length", "4");
+                        case 3 -> http.addHeader("Content-Length", "4");
+                        case 4 -> http.setIntHeader("Content-Length", 4);
+                        default -> http.addIntHeader("Content-Length", 4);
                     }
                     res.getOutputStream().write("body".getBytes(StandardCharsets.UTF_8));
                     assertThat(response.getContentLength()).isZero();

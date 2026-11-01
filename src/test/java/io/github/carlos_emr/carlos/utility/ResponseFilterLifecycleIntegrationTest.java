@@ -230,6 +230,28 @@ class ResponseFilterLifecycleIntegrationTest {
         assertLength(resource);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"/development", "/packaged"})
+    void shouldPreserveSuppliedLength_whenNonHtmlResponsesFlushThroughAllWrappers(String context) throws Exception {
+        for (String output : new String[] {"binary", "plain"}) {
+            for (String dispatch : new String[] {"direct", "forward", "nested"}) {
+                HttpResponse<byte[]> response = get(context + "/" + dispatch
+                        + "?output=" + output + "&size=1100000&flush=true");
+                byte[] expected = "binary".equals(output) ? BINARY : html(1_100_000).getBytes(StandardCharsets.UTF_8);
+                assertThat(response.statusCode()).isEqualTo(200);
+                assertThat(response.body()).isEqualTo(expected);
+                if ("plain".equals(output) && "nested".equals(dispatch)) {
+                    // A writer acquired before Content-Type stays in the outer CSRF capture.
+                    // Its replay deliberately leaves byte framing to the container; chunked is valid.
+                    assertLength(response);
+                } else {
+                    assertThat(response.headers().firstValueAsLong("Content-Length"))
+                            .as("explicit length for %s %s at %s", dispatch, output, context).hasValue(expected.length);
+                }
+            }
+        }
+    }
+
     static Stream<Arguments> captureCases() {
         return Stream.of("direct", "forward", "nested").flatMap(dispatch ->
                 Stream.of("writer", "stream").flatMap(output ->
@@ -413,12 +435,15 @@ class ResponseFilterLifecycleIntegrationTest {
                 response.setContentType("application/octet-stream");
                 response.setContentLength(BINARY.length);
                 response.getOutputStream().write(BINARY);
+                if ("true".equals(request.getParameter("flush"))) {
+                    response.getOutputStream().flush();
+                }
                 return;
             }
             int size = request.getParameter("size") == null ? 8193 : Integer.parseInt(request.getParameter("size"));
             int status = request.getParameter("status") == null ? 200 : Integer.parseInt(request.getParameter("status"));
             response.setStatus(status);
-            response.setContentType("text/html;charset=UTF-8");
+            response.setContentType("plain".equals(output) ? "text/plain;charset=UTF-8" : "text/html;charset=UTF-8");
             String body = "true".equals(request.getParameter("tainted"))
                     ? PRIVATE_DIAGNOSTIC + "x".repeat(size) : html(size);
             if (!Set.of("/sanitizer", "/capture").contains(request.getContextPath())) {
@@ -431,6 +456,9 @@ class ResponseFilterLifecycleIntegrationTest {
                 response.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
             } else {
                 response.getWriter().write(body);
+                if ("true".equals(request.getParameter("flush"))) {
+                    response.getWriter().flush();
+                }
             }
         }
     }

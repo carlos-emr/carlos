@@ -670,6 +670,58 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         assertThat(response.getContentAsString()).isEqualTo(PROVIDER_PAGE_WITH_SCRIPT);
     }
 
+    @Test
+    void shouldPreserveDeferredLength_onBufferResetButClearItOnFullReset() throws Exception {
+        for (boolean fullReset : new boolean[] {false, true}) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+            request.setContextPath("/carlos");
+            request.setDispatcherType(DispatcherType.FORWARD);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+                res.setContentLength(4);
+                if (fullReset) {
+                    res.reset();
+                } else {
+                    res.resetBuffer();
+                }
+                res.setContentType("application/octet-stream");
+                res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+            }));
+            assertThat(response.getHeader("Content-Length")).isEqualTo(fullReset ? null : "4");
+            assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+        }
+    }
+
+    @Test
+    void shouldAllowChannelReselection_afterFullReset() throws Exception {
+        for (boolean writerFirst : new boolean[] {false, true}) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+            request.setContextPath("/carlos");
+            request.setDispatcherType(DispatcherType.FORWARD);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+                if (writerFirst) {
+                    res.getWriter().write("discarded");
+                } else {
+                    res.getOutputStream().write(new byte[] {9, 9});
+                }
+                res.reset();
+                if (writerFirst) {
+                    res.setContentType("application/octet-stream");
+                    res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+                } else {
+                    res.setContentType("text/html;charset=UTF-8");
+                    res.getWriter().write(PROVIDER_PAGE);
+                }
+            }));
+            if (writerFirst) {
+                assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+            } else {
+                assertThat(response.getContentAsString()).isEqualTo(PROVIDER_PAGE_WITH_SCRIPT);
+            }
+        }
+    }
+
     private void withEnabledCsrfGuard(Executable executable) throws Exception {
         CsrfGuard csrfGuard = mock(CsrfGuard.class);
         when(csrfGuard.isEnabled()).thenReturn(true);

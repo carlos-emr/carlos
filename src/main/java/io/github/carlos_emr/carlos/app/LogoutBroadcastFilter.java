@@ -802,6 +802,9 @@ public class LogoutBroadcastFilter implements Filter {
         public PrintWriter getWriter() throws IOException {
             responseWriterObtained = true;
             configureWriterInjectionBufferIfNeeded();
+            if (isKnownNonHtml()) {
+                applyDeferredContentLength();
+            }
             if (writer == null) {
                 writer = new DelegatingWriter(super.getWriter());
             }
@@ -822,7 +825,14 @@ public class LogoutBroadcastFilter implements Filter {
             super.setContentType(type);
             if (RequestNegotiation.isHtmlContentType(type)) {
                 configureWriterInjectionBufferIfNeeded();
+            } else if ((responseWriterObtained || responseOutputStreamObtained) && isKnownNonHtml()) {
+                applyDeferredContentLength();
             }
+        }
+
+        private boolean isKnownNonHtml() {
+            String type = getContentType();
+            return type != null && !RequestNegotiation.isHtmlContentType(type);
         }
 
         /**
@@ -906,6 +916,9 @@ public class LogoutBroadcastFilter implements Filter {
             contentLengthDeferred = true;
             deferredContentLength = len;
             deferredContentLengthIsLong = false;
+            if ((responseWriterObtained || responseOutputStreamObtained) && isKnownNonHtml()) {
+                applyDeferredContentLength();
+            }
         }
 
         @Override
@@ -913,6 +926,9 @@ public class LogoutBroadcastFilter implements Filter {
             contentLengthDeferred = true;
             deferredContentLengthLong = len;
             deferredContentLengthIsLong = true;
+            if ((responseWriterObtained || responseOutputStreamObtained) && isKnownNonHtml()) {
+                applyDeferredContentLength();
+            }
         }
 
         @Override

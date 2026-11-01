@@ -30,6 +30,7 @@ package io.github.carlos_emr.carlos.commn.printing;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.charset.Charset;
 import java.io.Writer;
 import java.util.Collections;
 import java.util.HashSet;
@@ -190,6 +191,11 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 delegatingServletResponse.completeWithoutStatement();
                 return;
             }
+            if (!delegatingServletResponse.isResponseWriterObtained()
+                    && !delegatingServletResponse.isResponseOutputStreamObtained()) {
+                delegatingServletResponse.completeWithoutStatement();
+                return;
+            }
             delegatingServletResponse.discardDeferredContentLength();
             printConfidentialityStatement(response, delegatingServletResponse, statement);
         } finally {
@@ -246,7 +252,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
     private void printConfidentialityStatement(ServletResponse response, DelegatingServletResponse delegatingServletResponse,
                                                String statement) throws IOException {
         if (delegatingServletResponse.isResponseOutputStreamObtained()) {
-            response.getOutputStream().write(statement.getBytes());
+            response.getOutputStream().write(statement.getBytes(Charset.forName(response.getCharacterEncoding())));
         } else if (delegatingServletResponse.isResponseWriterObtained()) {
             response.getWriter().print(statement);
         }
@@ -327,12 +333,6 @@ public class PrivacyStatementAppendingFilter implements Filter {
             response.setBufferSize(1024 * 1024 * 1); // 1 Megs
         }
 
-        @Override
-        public ServletResponse getResponse() {
-            responseWriterObtained = true;
-            return super.getResponse();
-        }
-
         // Each flag is set only after the container hands the channel over. A caller may ask
         // for the other channel and swallow the IllegalStateException. CXF does that when it
         // closes a void JAX-RS response with getOutputStream().close() after a forwarded JSP
@@ -342,13 +342,13 @@ public class PrivacyStatementAppendingFilter implements Filter {
         // response, so this guard covers any other forwarding JAX-RS method.
         @Override
         public ServletOutputStream getOutputStream() throws IOException {
-            ServletOutputStream stream = super.getOutputStream();
-            responseOutputStreamObtained = true;
-            // HTML can grow when the print notice is appended. A length published here
-            // would make Tomcat finish the response before that append can reach the client.
+            // Publish before acquiring the delegate: an outer wrapper may itself defer the
+            // length and replay it only when its output stream is first acquired.
             if (isKnownNonHtml()) {
                 applyDeferredContentLength();
             }
+            ServletOutputStream stream = super.getOutputStream();
+            responseOutputStreamObtained = true;
             return stream;
         }
 
@@ -357,6 +357,9 @@ public class PrivacyStatementAppendingFilter implements Filter {
             if (writer == null)
                 writer = new DelegatingWriter(super.getWriter());
             responseWriterObtained = true;
+            if (isKnownNonHtml()) {
+                applyDeferredContentLength();
+            }
             return writer;
         }
 
@@ -383,8 +386,26 @@ public class PrivacyStatementAppendingFilter implements Filter {
         @Override
         public void setContentLengthLong(long length) {
             deferredContentLength = length;
-            if (responseOutputStreamObtained && isKnownNonHtml()) {
+            if ((responseOutputStreamObtained || responseWriterObtained) && isKnownNonHtml()) {
                 applyDeferredContentLength();
+            }
+        }
+
+        @Override
+        public void setIntHeader(String name, int value) {
+            if ("Content-Length".equalsIgnoreCase(name)) {
+                setContentLength(value);
+            } else {
+                super.setIntHeader(name, value);
+            }
+        }
+
+        @Override
+        public void addIntHeader(String name, int value) {
+            if ("Content-Length".equalsIgnoreCase(name)) {
+                setContentLength(value);
+            } else {
+                super.addIntHeader(name, value);
             }
         }
 
@@ -416,7 +437,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
         @Override
         public void setContentType(String type) {
             super.setContentType(type);
-            if (responseOutputStreamObtained && isKnownNonHtml()) {
+            if ((responseOutputStreamObtained || responseWriterObtained) && isKnownNonHtml()) {
                 applyDeferredContentLength();
             }
         }
@@ -424,13 +445,16 @@ public class PrivacyStatementAppendingFilter implements Filter {
         @Override
         public void resetBuffer() {
             super.resetBuffer();
-            deferredContentLength = null;
+            // Buffer-only reset preserves headers, including the pending entity length.
         }
 
         @Override
         public void reset() {
             super.reset();
             deferredContentLength = null;
+            writer = null;
+            responseWriterObtained = false;
+            responseOutputStreamObtained = false;
         }
 
         private boolean isKnownNonHtml() {

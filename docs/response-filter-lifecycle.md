@@ -63,15 +63,23 @@ This is the existing bounded-capture guarantee, not whole-response buffering.
 The nested-forward matrix exposed a missing `resetBuffer()`/`reset()` override in
 the CSRF capture wrapper: a prefix captured by the first FORWARD survived the next
 forward's reset, then was replayed ahead of the real page. The wrapper now clears
-its capture and deferred length only after the delegated reset succeeds. Rejected
+its capture only after the delegated reset succeeds; buffer-only reset preserves
+headers, while full reset clears deferred length and channel state. Rejected
 resets retain the captured body. Flush/close behavior is unchanged.
 
 The HTML-stream matrix exposed a stale Content-Length crossing the privacy wrapper
 before its notice was appended. The wrapper now defers the length until it knows
 whether it will decorate; binary/non-HTML streams retain their supplied length.
-An unchanged response replays its length; decorated HTML omits the obsolete length
-so the outer sanitizer or container can frame the completed response. This adds
-header coordination, not another body buffer.
+Known non-HTML lengths reach the logout wrapper before stream acquisition, so an
+explicit flush cannot outrun header replay. The logout wrapper also publishes
+known non-HTML writer lengths before a large body can commit. HEAD/no-channel
+responses preserve metadata length; integer header setters share the same rules.
+Decorated HTML omits the obsolete length so the outer sanitizer or container can
+frame the completed response. A writer initially captured before its Content-Type
+was known still uses the existing CSRF writer replay contract: the container may
+choose chunked framing instead of a supplied length. Exact byte integrity remains
+required. Stream notices use the response charset. This adds header coordination,
+not another body buffer.
 
 ## Why retain the setting
 

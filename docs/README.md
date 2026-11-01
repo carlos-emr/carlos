@@ -45,6 +45,7 @@ Key testing resources:
 | Document | Description |
 |----------|-------------|
 | [Runtime Directories](runtime-directories.md) | Required filesystem directories and permissions |
+| [Response-filter lifecycle](response-filter-lifecycle.md) | Response capture ownership, nested forwards, error sanitization, and the Tomcat compatibility contract |
 | [Resources Directory](resources-directory.md) | Application resources structure |
 | [Container-provided Jakarta APIs](container-provided-apis.md) | Which web-tier Jakarta APIs Tomcat 11 supplies (`provided`), why JSTL still ships in the WAR, and the checks that hold it |
 | [GitHub Issue Management](github-issue-management.md) | Issue tracking and workflow |

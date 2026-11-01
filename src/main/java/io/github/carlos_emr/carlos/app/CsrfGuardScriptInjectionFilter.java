@@ -467,17 +467,19 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             if (captureWriter != null) {
                 captureWriter.reset();
             }
-            deferredContentLength = null;
-            deferredContentLengthLong = null;
+            // resetBuffer preserves headers, including a length deferred before channel selection.
         }
 
-        /** Reset capture state only after the underlying response accepts the full reset. */
+        /** Reset channel/capture state only after the underlying response accepts the full reset. */
         @Override
         public void reset() {
             super.reset();
-            if (captureWriter != null) {
-                captureWriter.reset();
-            }
+            captureWriter = null;
+            writer = null;
+            usingOutputStream = false;
+            usingWriter = false;
+            writerPassthrough = false;
+            committed = false;
             deferredContentLength = null;
             deferredContentLengthLong = null;
         }

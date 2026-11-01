@@ -15,7 +15,8 @@
   Response-filter compatibility contract (#5487): keep this false in BOTH deployment
   descriptors. The REQUEST/ERROR sanitizer and decorators can replay captured bytes
   after a forward returns. Tomcat's default finishes the raw response before that
-  replay and discards the bytes; JavaMelody 2.9.0 alone no longer has this problem.
+  replay and discards the bytes. JavaMelody 2.9.0 fixes its own forwarded truncation,
+  but the false setting remains required for CARLOS capture/replay.
   Capture writers must continue shielding close/flush until the owning filter unwinds.
   See docs/response-filter-lifecycle.md and ResponseFilterLifecycleIntegrationTest.
   Packaged installs read conf/Catalina/localhost/carlos.xml; development deployments
