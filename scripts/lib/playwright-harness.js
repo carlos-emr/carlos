@@ -1213,7 +1213,9 @@ async function login(context, config, recorder, options = {}) {
     // loop below recognises the challenge by its code field.
     page.waitForURL(url => /providercontrol|appointment|forcepasswordreset|loginMfa|select_facility/i.test(String(url))
       || /\/login$/.test(new URL(String(url)).pathname), { timeout: 30000 }),
-    page.locator('input[type="submit"], button[type="submit"]').first().click(),
+    // Match the existing navigation budget even when the workflow's default
+    // locator timeout is shorter (first CAISI schedule compilation is cold).
+    page.locator('input[type="submit"], button[type="submit"]').first().click({timeout:30000}),
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 

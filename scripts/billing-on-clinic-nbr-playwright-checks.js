@@ -53,7 +53,7 @@ async function workflow(s) {
     const selected=options.find(value=>value.split('|')[0]===physician.providerNo);h.assert(selected,'Owned billing physician is not offered');
     await page.locator('select[name="xml_provider"]').selectOption(selected);await physician.selectClinic(page);
     const values=await page.locator('select[name="xml_visittype"] option').evaluateAll(nodes=>nodes.map(node=>({value:node.value,text:node.textContent})));
-    const offered=values.find(option=>option.text.includes(descriptions[1])&&option.value.startsWith(code+'|'));h.assert(offered,'Revised clinic NBR is not offered by the native bill form');
+    const offered=values.find(option=>option.text.includes(descriptions[1])&&option.value.split('|')[0].trim()===code);h.assert(offered,'Revised clinic NBR is not offered by the native bill form');
     h.assert(!values.some(option=>option.text.includes(descriptions[0])),'Removed description remains offered');
     await page.locator('select[name="xml_visittype"]').selectOption(offered.value);
   }});physician.dependentSession.cleanup(()=>family.cleanup());family.prepare();

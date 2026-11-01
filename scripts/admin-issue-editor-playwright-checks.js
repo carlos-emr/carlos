@@ -3,7 +3,7 @@
 /*
  * CAISI Issue Editor and where its issues are used (coverage plan §3.7 admin-issue-editor).
  *
- * User path: Master Record ▸ E-Chart ▸ Save a plain note (binds the session's case
+ * User path: Master Record ▸ E-Chart ▸ Save a starter CPP note (binds the session's case
  * program, whose provider role governs which issues the chart may search), then
  * Schedule ▸ Administration ▸ CAISI ▸ "Issue Editor" (issueAdmin?method=list in the
  * #dynamic-content iframe) ▸ Add Issue ▸ code + description + role ▸ Save, then back
@@ -29,14 +29,10 @@ const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
 
-const NOTE_EDITOR = '#encMainDiv textarea[name="caseNote_note"]';
 const CPP_BOX = '#divR1I1';
 const DIALOG = '#showEditNote';
 
-function isEntryPost(response, method) {
-  return response.request().method() === 'POST' && /\/CaseManagementEntry/.test(response.url())
-    && new URLSearchParams(response.request().postData() || '').get('method') === method;
-}
+
 
 /** Admin ▸ CAISI ▸ Issue Editor, inside the administration iframe. */
 async function openIssueEditor(s) {
@@ -71,7 +67,7 @@ async function workflow(s) {
   const code = 'PW' + marker.slice(-14);
   const probeCode = code + 'G';
   const description = `${marker} issue: O'Neil & co`;
-  const firstNote = `${marker} plain note before issues`;
+  const firstNote = `${marker} starter CPP note before issues`;
   const cppText = `${marker} CPP item carrying the new issue`;
   const codes = `(${h.sqlString(code)},${h.sqlString(probeCode)})`;
   const issueCount = value => sql.value(`SELECT COUNT(*) FROM issue WHERE code=${h.sqlString(value)}`);
@@ -93,20 +89,20 @@ async function workflow(s) {
   h.assert(sql.value(`SELECT COUNT(*) FROM issue WHERE code IN ${codes}`) === '0', 'An issue with the owned code already exists');
 
   const chart = await s.chart();
-  const editor = chart.locator(NOTE_EDITOR).first();
   let role;
-  await s.step('a plain note saves and binds the chart to a program the provider holds a role in', async () => {
-    await editor.waitFor({state: 'visible'});
-    await editor.click();
-    await editor.fill(firstNote);
+  await s.step('a starter CPP note saves with its required issue and binds the chart to the provider program', async () => {
+    await chart.locator(CPP_BOX).locator('a[title="Add Item"]').first().click();
+    await chart.locator(DIALOG).waitFor({state:'visible'});
+    h.assert(await chart.locator(`${DIALOG} input[name="issue_id"]:checked`).count()>0,'Starter CPP item has no assigned primary issue');
+    await chart.locator('#noteEditTxt').fill(firstNote);
     const [response] = await Promise.all([
-      chart.waitForResponse(r => isEntryPost(r, 'save'), {timeout: 30000}),
-      chart.locator('#saveImg').first().click(),
+      chart.waitForResponse(r => r.request().method()==='POST'&&new URL(r.url()).searchParams.get('method')==='issueNoteSave', {timeout: 30000}),
+      chart.locator(`${DIALOG} input[type="image"][title="Sign & Save"]`).click(),
     ]);
     h.assert(response.status() < 400, `Save returned HTTP ${response.status()}`);
     const noteQuery = `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient} AND provider_no=${h.sqlString(provider)}
       AND LOCATE(BINARY ${h.sqlString(firstNote)}, note)>0`;
-    await expectValue(sql, noteQuery, '1', 'The plain note was not stored');
+    await expectValue(sql, noteQuery, '1', 'The starter CPP note was not stored');
     const program = sql.value(`SELECT program_no FROM casemgmt_note WHERE demographic_no=${patient}
       AND LOCATE(BINARY ${h.sqlString(firstNote)}, note)>0 ORDER BY note_id DESC LIMIT 1`);
     h.assert(/^[1-9]\d*$/.test(program), 'The saved note carries no case program, so the chart cannot search issues');
@@ -146,8 +142,10 @@ async function workflow(s) {
     await suggestions.first().waitFor({state: 'visible', timeout: 20000});
     h.assert(await suggestions.count() === 1 && (await suggestions.first().innerText()).trim() === `${description} (${code})`,
       'The issue search did not offer exactly the new issue');
+    const noteIssueBefore=await chart.locator('#newIssueId').inputValue();
     await suggestions.first().click();
-    h.assert(await chart.locator('#newIssueId').inputValue() === issueId, 'Selecting the issue did not record its id');
+    h.assert(await chart.locator(`${DIALOG} input[name="issue_id"][value="${issueId}"]`).isChecked(),'Selecting the issue did not record it in the CPP editor');
+    h.assert(await chart.locator('#newIssueId').inputValue()===noteIssueBefore,'CPP selection contaminated the separate note issue field');
   });
 
   await s.step('the selected issue attaches to the CPP item and Sign & Save links it to the note', async () => {

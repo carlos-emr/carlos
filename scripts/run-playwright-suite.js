@@ -783,7 +783,14 @@ if (require.main === module) {
       && !selectedProfile.list && !selectedProfile.dryRun && !selectedProfile.help) {
     if(process.env.CARLOS_PROPERTY_PROFILE_ACTIVE===selectedProfile.profile)process.exitCode=main();
     else PROPERTY_PROFILES.withPropertyProfile(selectedProfile.profile,
-      ({signal}) => PROPERTY_PROFILES.runProfileChild(process.argv.slice(1),selectedProfile.profile,signal)).then(
+      async ({signal}) => {
+        if(selectedProfile.profile==='caisi-admin') {
+          console.log('Initializing CAISI shared measurement definitions through the native chart before the residue baseline');
+          const initialized=await PROPERTY_PROFILES.runProfileChild([path.join(__dirname,'vascular-dictionary-initialize.js')],selectedProfile.profile,signal);
+          if(initialized!==0)throw new Error('CAISI native dictionary initialization failed; clinical checks were not started');
+        }
+        return PROPERTY_PROFILES.runProfileChild(process.argv.slice(1),selectedProfile.profile,signal);
+      }).then(
       code => {process.exitCode = code;}, error => {console.error(error.message); process.exitCode = EXIT_FAIL;});
   } else if (selectedProfile) process.exitCode = main();
 }

@@ -24,11 +24,9 @@
  *      only while it still holds the bytes the run knows it wrote, so a real claim file that took a
  *      name the run once used is never deleted.
  *
- * THE TWO TIMESTAMP FILES. ActionUtils.getOutboxTimestamp() reads `<outbox>/.timestamp` while
- * setOutboxTimestamp() writes `<parent>/<outbox name>.timestamp` (validateGeneratedSiblingPath appends
- * the suffix to the directory's NAME); app-findings-log.md finding 216. Until that is fixed an open
- * leaves an empty file at the first path and a "dd-MM-yyyy HH:mm" file at the second, so both are
- * snapshotted: a run that found neither removes both, and one that found either puts its bytes back.
+ * TIMESTAMP FILES. Current ActionUtils records an ISO instant in <outbox>/.timestamp.
+ * Older builds used an empty file there and a dd-MM-yyyy HH:mm sibling file. Snapshot both
+ * paths so the same check can validate upgrades without losing either original record.
  */
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -40,8 +38,8 @@ const PASSWORD_PROPERTY = 'mcedt_account_password';
 
 const PROPERTY_NAME = /^[A-Za-z0-9_.-]{1,100}$/;
 const RUN_MARKER = /^FAKE-PW[0-9a-f]{16}$/;
-/** What the application writes into the sibling timestamp file: new SimpleDateFormat("dd-MM-yyyy HH:mm"). */
-const TIMESTAMP_TEXT = /^\d{2}-\d{2}-\d{4} \d{2}:\d{2}$/;
+/** Native timestamp formats: legacy minute precision and the current Instant.toString(). */
+const TIMESTAMP_TEXT = /^(?:\d{2}-\d{2}-\d{4} \d{2}:\d{2}|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z)$/;
 
 function quoted(name) {
   assert(PROPERTY_NAME.test(name), 'not a plain property name');
@@ -172,7 +170,12 @@ function createOutboxLedger({ outbox }) {
   const beside = path.join(parent, `${path.basename(dir)}.timestamp`);
   const timestampPaths = [inside, beside];
 
-  const readOptional = (file) => (fs.existsSync(file) ? fs.readFileSync(file) : null);
+  const readOptional = file => {
+    let stat;
+    try {stat=fs.lstatSync(file);}catch(error){if(error.code==='ENOENT')return null;throw error;}
+    assert(stat.isFile()&&!stat.isSymbolicLink(),'MCEDT timestamp must be a regular owned-store file, not a symlink or directory');
+    return fs.readFileSync(file);
+  };
   const found = {
     listing: listDirectory(dir),
     parent: fs.readdirSync(parent, { withFileTypes: true }).map((entry) => `${entry.name}:${entry.isDirectory() ? 'dir' : 'file'}`).sort(),
@@ -245,6 +248,10 @@ function createOutboxLedger({ outbox }) {
             if (now.length === 0 || TIMESTAMP_TEXT.test(now.toString('latin1'))) fs.unlinkSync(file);
             else problems.push(`${path.basename(file)} holds text the application does not write and was left in place`);
           } else if (now === null || !now.equals(was)) {
+            if(now!==null&&now.length!==0&&!TIMESTAMP_TEXT.test(now.toString('latin1'))) {
+              problems.push(`${path.basename(file)} changed to bytes the application does not write and was left in place`);
+              continue;
+            }
             fs.writeFileSync(file, was, { mode: 0o640 });
             ownLike(file, path.dirname(file));
           }

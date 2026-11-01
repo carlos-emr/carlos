@@ -235,3 +235,24 @@ test('shouldTellAddedRemovedAndChanged_whenComparingTwoListings', (t) => {
   fs.writeFileSync(path.join(outbox, 'c'), '3');
   assert.deepEqual(diffListings(was, listDirectory(outbox)), { added: ['c'], removed: ['b'], changed: ['a'] });
 });
+
+test('timestamp snapshot refuses symlinks without following their targets',t=>{
+  const {parent,outbox}=scratch(t),target=path.join(parent,'foreign');fs.writeFileSync(target,'foreign bytes');
+  fs.symlinkSync(target,path.join(outbox,'.timestamp'));
+  assert.throws(()=>createOutboxLedger({outbox}),/not a symlink/);assert.equal(fs.readFileSync(target,'utf8'),'foreign bytes');
+});
+test('timestamp restoration preserves unexpected replacement bytes and fails',t=>{
+  const {outbox}=scratch(t),file=path.join(outbox,'.timestamp');fs.writeFileSync(file,'baseline bytes');
+  const ledger=createOutboxLedger({outbox});fs.writeFileSync(file,'unknown replacement');
+  assert.throws(()=>ledger.restore(),/changed to bytes the application does not write/);assert.equal(fs.readFileSync(file,'utf8'),'unknown replacement');
+});
+test('timestamp restoration refuses a newly introduced symlink without deleting its target',t=>{
+  const {parent,outbox}=scratch(t),ledger=createOutboxLedger({outbox}),target=path.join(parent,'foreign');fs.writeFileSync(target,'foreign bytes');fs.symlinkSync(target,path.join(outbox,'.timestamp'));
+  assert.throws(()=>ledger.restore(),/timestamp could not be restored/);assert.equal(fs.readFileSync(target,'utf8'),'foreign bytes');assert.equal(fs.lstatSync(path.join(outbox,'.timestamp')).isSymbolicLink(),true);
+});
+
+ test('timestamp restoration accepts the native ISO instant and restores original bytes',t=>{
+  const {outbox}=scratch(t),file=path.join(outbox,'.timestamp');fs.writeFileSync(file,'baseline bytes');
+  const ledger=createOutboxLedger({outbox});fs.writeFileSync(file,'2026-11-01T03:30:12.123Z');
+  ledger.restore();assert.equal(fs.readFileSync(file,'utf8'),'baseline bytes');
+});
