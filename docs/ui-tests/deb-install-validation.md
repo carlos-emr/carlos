@@ -927,7 +927,7 @@ by #4407.
 ```bash
 lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
-  apt-get install -y nodejs npm poppler-utils
+  apt-get install -y nodejs npm poppler-utils fonts-liberation
   cd /root && npm init -y && npm install --save-exact playwright@1.60.0
   /usr/lib/carlos-emr/chromium/chrome --version'
 ```
@@ -938,6 +938,11 @@ Playwright release does not recognise the `ubuntu26.04-x64` host platform. The
 runtime dependencies (before 2026.08.0-alpha14 the separate
 `carlos-emr-eform-renderer` package did). Using it also makes the suite exercise the exact
 browser shipped to operators instead of a second downloaded browser.
+
+`annotate-document-playwright-checks.js` requires Liberation Sans from
+`fonts-liberation` on the machine running the browser. Its late-font scenarios
+use that face while the annotation font is delayed; a fallback face makes the
+check fail. The Docker validation image installs this prerequisite too.
 
 The scripts run from `/root/carlos` (the repo mount) so their relative fixture
 paths resolve; Node still finds Playwright via `/root/node_modules`.
