@@ -6,7 +6,7 @@ import org.apache.cxf.phase.AbstractPhaseInterceptor;
 import org.apache.cxf.phase.Phase;
 
 /**
- * Cleans up attachments cached by {@link AttachmentCachingInterceptor}.
+ * Clears the attachment ThreadLocal and closes the application's response replay.
  * 
  * <h3>Purpose</h3>
  * 
@@ -45,7 +45,15 @@ public class AttachmentCleanupInterceptor extends
 	 */
 	@Override
 	public void handleMessage(Message message) throws Fault {
-		AttachmentCachingInterceptor.clear();
+		cleanup(message);
 	}
+
+    static void cleanup(Message message) {
+        try {
+            DynamicWSS4JInInterceptor.closeReplay(message);
+        } finally {
+            AttachmentCachingInterceptor.clear();
+        }
+    }
 	
 }

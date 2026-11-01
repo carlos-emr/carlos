@@ -158,7 +158,7 @@ class CxfHttpTransportUnitTest {
 
     private void configure(HTTPConduit conduit) {
         // Keep factory discovery unchanged: this must be the default transport.
-        assertThat(conduit).isInstanceOf(HttpClientHTTPConduit.class);
+        assertThat(conduit).isExactlyInstanceOf(HttpClientHTTPConduit.class);
         conduit.getClient().setConnectionTimeout(5000);
         conduit.getClient().setReceiveTimeout(5000);
     }
