@@ -52,6 +52,7 @@
  * asserted absent), and one message linked to B, delivered to the test provider. Cleanup removes
  * every owned row by key and asserts it gone. No clinic-wide state is changed.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { csrfTokenPresent } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
@@ -296,8 +297,7 @@ async function patientlessRequests(s, A, B) {
       const named = method === 'addToDx' ? [...cases, ['A\'s', `demographicNo=${A}`]] : cases;
       for (const [label, patient] of named) {
         const query = [`method=${method}`, extra, patient].filter(Boolean).join('&');
-        const response = await context.request.get(h.appUrl(config.baseUrl, `/CaseManagementView?${query}`),
-          { maxRedirects: 0, failOnStatusCode: false });
+        const response = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, `/CaseManagementView?${query}`), { maxRedirects: 0, failOnStatusCode: false });
         try {
           const body = await response.text();
           h.assert(response.status() === refusal,
@@ -312,7 +312,7 @@ async function patientlessRequests(s, A, B) {
     h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no IN (${A},${B})`) === notesBefore,
       'A refused chart request wrote a note');
     // The positive control: a list that names A lists A's notes, after B's chart was used last.
-    const own = await context.request.get(h.appUrl(config.baseUrl,
+    const own = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl,
       `/CaseManagementView?method=viewNotesOpt&offset=0&numToReturn=20&demographicNo=${A}`), { failOnStatusCode: false });
     try {
       const body = await own.text();

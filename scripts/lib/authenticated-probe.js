@@ -7,6 +7,7 @@
  * redirects disabled so a refusal probe cannot leak them to another origin.
  */
 async function authenticatedProbe(session, target, options = {}) {
+  const {allowSecurityErrorRedirect = false, ...requestOptions} = options;
   const base = session.config.baseUrl;
   const url = new URL(target, base);
   if (url.origin !== base.origin || url.username || url.password) {
@@ -36,7 +37,7 @@ async function authenticatedProbe(session, target, options = {}) {
     throw new Error('Authenticated probe requires an application session cookie');
   }
   const response = await session.context.request.fetch(url.href, {
-    ...options,
+    ...requestOptions,
     headers: { ...Object.fromEntries(Object.entries(options.headers || {}).filter(([name]) => name.toLowerCase() !== 'cookie')),
       Cookie: cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ') },
     maxRedirects: 0,
@@ -45,6 +46,15 @@ async function authenticatedProbe(session, target, options = {}) {
   // Even no-write/include assertions must not accept a logged-out redirect.
   const status = response.status();
   if (status >= 300 && status < 400) {
+    // A few least-privilege preconditions deliberately inspect the application's
+    // security-error redirect. Accept only that exact local route when requested;
+    // a login redirect must still fail even in those callers.
+    const location = response.headers?.().location;
+    if (allowSecurityErrorRedirect && location) {
+      const destination = new URL(location, url);
+      if (destination.origin === base.origin && !destination.username && !destination.password
+          && destination.pathname === base.pathname.replace(/\/$/, '') + '/securityError') return response;
+    }
     throw new Error(`Authenticated probe redirected for ${options.method || 'GET'} ${url.pathname} `
       + `(HTTP ${status}); session/refusal evidence is inconclusive`);
   }

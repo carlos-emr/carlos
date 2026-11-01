@@ -22,6 +22,7 @@
  * Fixtures: one throwaway login (scripts/lib/throwaway-login-fixture.js) -- never the
  * shared test account -- whose rows, including its audit rows, cleanup removes.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
@@ -222,8 +223,7 @@ async function workflow(s) {
 
   await s.step('Reset MFA refuses GET, then clears the stored secret from the record', async () => {
     const enrolled = mfaState();
-    const probe = await context.request.get(h.appUrl(config.baseUrl, '/securityRecord/mfa'),
-      { params: { method: 'resetMfa', securityId: securityNo }, maxRedirects: 0 });
+    const probe = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, '/securityRecord/mfa'), { params: { method: 'resetMfa', securityId: securityNo }, maxRedirects: 0 });
     h.assert(probe.status() === 405 && mfaState() === enrolled, `Reset MFA answered GET with HTTP ${probe.status()} or changed the record`);
     const frame = await openRecord();
     const reset = frame.locator('#resetMfaLink');

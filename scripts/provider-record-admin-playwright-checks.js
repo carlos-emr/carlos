@@ -24,6 +24,7 @@
  * pages write for it. Cleanup deletes only rows carrying the owned number and
  * asserts they are gone.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates, dataTableRows } = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
@@ -213,12 +214,12 @@ async function workflow(s) {
   });
   await s.step('ProviderUpdate and ProviderAddARecord refuse GET without writing', async () => {
     const after = snapshot();
-    const update = await context.request.get(h.appUrl(config.baseUrl, '/admin/ProviderUpdate'), {
+    const update = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, '/admin/ProviderUpdate'), {
       params: { provider_no: providerNo, last_name: s.marker, first_name: 'Record', provider_type: 'doctor', specialty: 'MUST NOT SAVE',
         team, sex: 'M', status: '1', officialFirstName: 'MUST NOT SAVE' }, maxRedirects: 0 });
     h.assert(update.status() === 405, `ProviderUpdate answered GET with HTTP ${update.status()}, expected 405`);
     extra = pickUnusedProviderNo(sql);
-    const add = await context.request.get(h.appUrl(config.baseUrl, '/admin/ProviderAddARecord'), {
+    const add = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, '/admin/ProviderAddARecord'), {
       params: { provider_no: extra, last_name: s.marker + '-GET', first_name: 'Record', provider_type: 'doctor', sex: 'M' }, maxRedirects: 0 });
     h.assert(add.status() === 405, `ProviderAddARecord answered GET with HTTP ${add.status()}, expected 405`);
     h.assert(JSON.stringify(snapshot()) === JSON.stringify(after) && archives() === '1'

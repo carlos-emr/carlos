@@ -29,6 +29,9 @@ async function workflow(s) {
     for (const [index, field] of ['year', 'month', 'day'].entries()) await master.locator(`[name="patientstatus_date_${field}"]`).fill(parts[index]);
   }
   async function searchMembership(expectedInactive) {
+    // The first Master Record search remains in a named popup. Close that
+    // search before requesting a new one, so its reuse cannot evade capture.
+    if(s.search && s.search!==s.schedule && !s.search.isClosed())await s.search.close();
     for (const mode of ['active', 'inactive', 'all']) {
       const {page} = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#search a').first(),
         {context: s.context, recorder: s.recorder, label: 'status-search', timeout: 20000});
@@ -56,15 +59,20 @@ async function workflow(s) {
     const before = JSON.stringify(state(patient));
     await edit(); await master.locator('[name="patient_status"]').selectOption('AC');
     await master.reload(); h.assert(JSON.stringify(state(patient)) === before, 'Abandoning an edit changed status');
-    await edit(); await master.locator('[name="patient_status"]').selectOption('AC'); await date(''); await save();
+    // The editor requires a date for every status transition, including AC.
+    // Its supported clearing path is a subsequent edit with status unchanged.
+    await edit(); await master.locator('[name="patient_status"]').selectOption('AC'); await date('2025-03-04'); await save();
+    await edit();await date('');await save();
     h.assert(state(patient)[0][0] === 'AC' && state(patient)[0][1] === '', 'Reactivation retained a misleading inactive date');
     await searchMembership(false);
     h.assert(JSON.stringify(state(control)) === controlState, 'Status changes affected the control patient');
   });
-  await s.step('a partial status date follows the editor null-date contract', async () => {
-    await edit(); await master.locator('[name="patient_status"]').selectOption('MO'); await date('2025--'); await save();
-    h.assert(state(patient)[0][0] === 'MO' && state(patient)[0][1] === '', 'Partial status date was not represented as null');
-    await edit(); await master.locator('[name="patient_status"]').selectOption('AC'); await date(''); await save();
+  await s.step('a partial status date is visibly refused without changing persisted status', async () => {
+    const before=JSON.stringify(state(patient));await edit(); await master.locator('[name="patient_status"]').selectOption('MO'); await date('2025--');
+    await master.locator('#updateButton input[type="submit"]').first().click();
+    await master.locator('#carlos-alert-container [role="alert"]').waitFor({state:'visible'});
+    h.assert(JSON.stringify(state(patient))===before,'Partial date changed persisted status');
+    await master.reload();
   });
   const providers = [];
   for (let index = 0; index < 3; index++) {
@@ -72,6 +80,9 @@ async function workflow(s) {
     s.cleanup(() => fixture.cleanup()); fixture.create(); providers.push(fixture.providerNo);
     if (index < 2) sql.execute(`INSERT INTO secUserRole(provider_no,role_name,orgcd) VALUES (${h.sqlString(fixture.providerNo)},'midwife','')`);
   }
+  // The hidden editor's options were rendered before the owned providers
+  // existed. Reload the native page before opening that editor.
+  await master.reload();
   const midwife = () => sql.value(`SELECT COALESCE(cust4,'') FROM demographiccust WHERE demographic_no=${patient}`);
   await s.step('eligible midwives assign, replace, preserve, cancel and clear on one patient', async () => {
     for (const selected of providers.slice(0, 2)) {

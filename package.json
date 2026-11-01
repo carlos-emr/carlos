@@ -953,7 +953,12 @@
     "test:demographic-status-midwife-playwright": "node scripts/demographic-status-midwife-playwright-checks.js",
     "test:appointment-calendar-recurrence-playwright": "node scripts/appointment-calendar-recurrence-playwright-checks.js",
     "test:fracture-paste-persistence-playwright": "node scripts/fracture-paste-persistence-playwright-checks.js",
-    "test:rx-renal-input-matrix-playwright": "node scripts/rx-renal-input-matrix-playwright-checks.js"
+    "test:rx-renal-input-matrix-playwright": "node scripts/rx-renal-input-matrix-playwright-checks.js",
+    "test:rx-limited-use-code-persistence-playwright": "node scripts/rx-limited-use-code-persistence-playwright-checks.js",
+    "test:rx-renal-correction-playwright": "node scripts/rx-renal-correction-playwright-checks.js",
+    "test:rx-minor-interaction-levels-playwright": "node scripts/rx-minor-interaction-levels-playwright-checks.js",
+    "test:document-metadata-controls-playwright": "node scripts/document-metadata-controls-playwright-checks.js",
+    "test:appointment-email-option-playwright": "node scripts/appointment-email-option-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

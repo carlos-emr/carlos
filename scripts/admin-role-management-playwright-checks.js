@@ -474,7 +474,7 @@ async function workflow(s) {
       && currentRole() === '0', 'The repair would target anything other than the owned note');
     const route = h.appUrl(config.baseUrl, '/admin/FixRolesOnNotes');
     for (const method of ['GET', 'HEAD']) {
-      const response = await context.request.fetch(route, {method, params: {action: 'run', role_to: roleNo}, maxRedirects: 0});
+      const response = await authenticatedProbe({context, config}, route, {method, params: {action: 'run', role_to: roleNo}, maxRedirects: 0});
       h.assert(response.status() === 405 && response.headers().allow === 'POST', `${method} did not deliberately refuse repair`);
       await response.dispose();
       h.assert(currentRole() === '0' && others() === before, `${method} changed a note role`);
@@ -493,9 +493,9 @@ async function workflow(s) {
 
   await s.step('ProviderAddRole and ProviderPrivilege refuse a GET save without writing', async () => {
     const extra = `${role}-GET`;
-    const add = await context.request.get(h.appUrl(config.baseUrl, '/admin/ProviderAddRole'), {
+    const add = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, '/admin/ProviderAddRole'), {
       params: { submit: 'Save', action: `add${extra}`, role_name: extra }, maxRedirects: 0 });
-    const privilege = await context.request.get(h.appUrl(config.baseUrl, '/admin/ProviderPrivilege'), {
+    const privilege = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, '/admin/ProviderPrivilege'), {
       params: { submit: 'Add', roleUserGroup: role, [`object$${OBJECT}`]: 'on', [`privilege$${OBJECT}$x`]: 'on', [`priority$${OBJECT}`]: '0' },
       maxRedirects: 0 });
     h.assert(add.status() === 405 && privilege.status() === 405,
@@ -506,7 +506,7 @@ async function workflow(s) {
   await s.step('Fix notes refuses a GET carrying its run action, and no deferred defect remains', async () => {
     lastStepReached = true;
     // role_to is deliberately not a number: were the GET to reach the UPDATE, parseInt fails first.
-    const response = await context.request.get(h.appUrl(config.baseUrl, '/admin/FixRolesOnNotes'), {
+    const response = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, '/admin/FixRolesOnNotes'), {
       params: { action: 'run', role_to: 'not-a-role' }, maxRedirects: 0 });
     if (response.status() !== 405) defects.push(`GET admin/FixRolesOnNotes?action=run answered HTTP ${response.status()}, expected 405`);
     h.assert(defects.length === 0, `Application defects: ${defects.join('; ')}`);

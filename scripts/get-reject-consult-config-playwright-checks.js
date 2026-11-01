@@ -427,7 +427,8 @@ async function workflow(s, { select = validatePin() } = {}) {
   /** The login is refused the page that hosts the action's form: the policy the action is held to. */
   async function pageRefuses(action, who) {
     claims.precondition(hosts[action.key], 'the page flow recorded no page for the form');
-    const response = await who.context.request.fetch(hosts[action.key], { maxRedirects: 0, failOnStatusCode: false });
+    const response = await authenticatedProbe({context: who.context, config: s.config}, hosts[action.key],
+      {allowSecurityErrorRedirect: true});
     claims.precondition(response.status() === 302 && /securityError/.test(response.headers().location || ''),
       `the page that hosts the ${action.title} form answered HTTP ${response.status()} to the doctor login, not a redirect to /securityError`);
   }

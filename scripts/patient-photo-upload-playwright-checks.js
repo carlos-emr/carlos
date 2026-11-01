@@ -24,6 +24,7 @@
  * (lib/authz-read-fixture.js); cleanup deletes only those rows and verifies they are gone.
  * Implements docs/ui-tests/playwright-coverage-plan-2026.08.md chart section (patient-photo-upload).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
@@ -196,9 +197,7 @@ async function workflow(s) {
       'Clear Photo does not post the patient the manager was opened for');
     await manager.locator('button.btn-secondary', { hasText: 'Cancel' }).click();
     if (!manager.isClosed()) await manager.waitForEvent('close');
-    const response = await s.context.request.get(
-      h.appUrl(s.config.baseUrl, `/ClientImage?method=deleteImage&demographicNo=${patient}`),
-      { maxRedirects: 0, failOnStatusCode: false });
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, `/ClientImage?method=deleteImage&demographicNo=${patient}`), { maxRedirects: 0, failOnStatusCode: false });
     const status = response.status();
     await response.dispose();
     h.assert(sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no=${patient}`) === '1',

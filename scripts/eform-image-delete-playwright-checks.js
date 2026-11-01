@@ -40,6 +40,7 @@
  * accumulate rather than collide.
  */
 
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -135,7 +136,7 @@ if (config.baseUrl.protocol !== 'https:') {
 
     await uploadImage(context, recorder, imagePath, imageName);
     for (const method of ['GET', 'HEAD']) {
-      const rejected = await context.request.fetch(config.baseUrl.origin + config.baseUrl.pathname + '/eform/deleteImage',
+      const rejected = await authenticatedProbe({context, config}, config.baseUrl.origin + config.baseUrl.pathname + '/eform/deleteImage',
         {method, params: {filename: imageName}});
       assert(rejected.status() === 405, method + ' must not delete an image');
       assert(rejected.headers().allow === 'POST', '405 must advertise Allow: POST');

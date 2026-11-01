@@ -18,14 +18,14 @@
 # stored document file preserved, the service up behind the front door, and the
 # new build identity in place. Run as root after `apt-get install` returns.
 # UPGRADE_LOG, EXPECT_FLYWAY (count), EXPECT_NEW (space-separated versions) and
-# EXPECT_TAG tune it for a given release pair; defaults match a11 -> a12.
+# EXPECT_TAG tune it for a given release pair. Otherwise the migration target is
+# derived from the target package's common/province inventory. EXPECT_TAG must
+# name the build expected before installation, or TARGET_BUILD_PROPERTIES must
+# point at the build properties extracted from that package before the upgrade.
 #
-# EXPECT_FLYWAY counts the rows in flyway_schema_history on the install under test,
-# NOT the migration files the package ships. They differ: a12 ships 27 migration
-# files, but the BC-only ones never apply to an Ontario install, so an ON install
-# upgraded from a11 goes 19 applied -> 23 applied. Set it to the applied count for
-# the province being verified. EXPECT_NEW may be empty when the two packages ship
-# the same migration set (a packaging-only upgrade).
+# EXPECT_FLYWAY counts applied history rows for this province. The derived count
+# preserves the pre-upgrade history and adds only pending target migrations.
+# EXPECT_NEW may be empty for a packaging-only upgrade.
 #
 # From 2026.08.0~alpha16 (developer builds: 2026.09.0~snapshot25) the carlos-ctl command is its own package that
 # carlos-emr depends on (carlos-emr/carlos#4001). EXPECT_SPLIT=1 (the default
@@ -36,10 +36,9 @@
 # provisioning unit starts /usr/sbin/carlos-ctl. EXPECT_CTL pins the carlos-ctl
 # version the upgrade was expected to leave installed (empty: any).
 set -uo pipefail
-PRE="${PRE:-/root/baseline-a11.txt}"; POST="${POST:-/root/baseline-a12.txt}"
-UPGRADE_LOG="${UPGRADE_LOG:-/root/a12-upgrade.log}"
-EXPECT_FLYWAY="${EXPECT_FLYWAY:-23}"; EXPECT_NEW="${EXPECT_NEW-1.0.20 1.0.21 1.0.22 1.0.23}"
-EXPECT_TAG="${EXPECT_TAG:-build.version=2026.08.0-alpha12-SNAPSHOT build.job=carlos-emr-deb build.number=2026.09.0~snapshot22}"
+PRE="${PRE:-/root/baseline-before.txt}"; POST="${POST:-/root/baseline-after.txt}"
+UPGRADE_LOG="${UPGRADE_LOG:-/root/upgrade.log}"
+EXPECT_TAG="${EXPECT_TAG:-}"
 EXPECT_SPLIT="${EXPECT_SPLIT:-$(dpkg-query -W -f='${db:Status-Status}' carlos-ctl 2>/dev/null | grep -qx installed && echo 1 || echo 0)}"
 EXPECT_CTL="${EXPECT_CTL:-}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -57,6 +56,18 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 [ -r "$PRE" ] || { echo "PRE snapshot $PRE not readable"; exit 2; }
 [[ ! "$PRE" -ef "$POST" ]] || { echo 'ERROR: PRE and POST must refer to different files; refusing to overwrite the baseline.' >&2; exit 2; }
 [ "$(g "$PRE" baseline.format)" = 2 ] || { echo 'ERROR: capture a fresh format-2 PRE snapshot; legacy snapshots contain raw credential fields.' >&2; exit 2; }
+if [ -z "$EXPECT_TAG" ]; then
+  [ -r "${TARGET_BUILD_PROPERTIES:-}" ] || { echo 'ERROR: EXPECT_TAG or pre-extracted TARGET_BUILD_PROPERTIES is required.' >&2; exit 2; }
+  EXPECT_TAG=$(grep -E '^build\.(version|job|number)=' "$TARGET_BUILD_PROPERTIES" | tr '\n' ' ')
+  [ -n "$EXPECT_TAG" ] || { echo 'ERROR: target package build identity is empty.' >&2; exit 2; }
+fi
+if [ -z "${EXPECT_FLYWAY:-}" ] || [ -z "${EXPECT_NEW+x}" ]; then
+  derived=$(python3 "$HERE/lib/deb-upgrade-expectations.py" "$PRE" \
+    "${TARGET_MIGRATION_DIR:-$CARLOS_SHARE_DIR/schema/migration}" "$(g "$PRE" cfg.province)") || exit 2
+  EXPECT_FLYWAY="${EXPECT_FLYWAY:-${derived%%$'\n'*}}"
+  derived_new=${derived#*$'\nversions='}
+  EXPECT_NEW="${EXPECT_NEW-$derived_new}"
+fi
 [ -r "$UPGRADE_LOG" ] && { echo "== upgrade log =="; grep -E "^UPGRADE_RC=" "$UPGRADE_LOG"; grep -iE "^E: |dpkg: error|No space|FAILED" "$UPGRADE_LOG" | head -5 | cut -c1-140; }
 if [ -r "$UPGRADE_LOG" ] && grep -q '^UPGRADE_RC=' "$UPGRADE_LOG"; then
   upgrade_rc=$(g "$UPGRADE_LOG" UPGRADE_RC)

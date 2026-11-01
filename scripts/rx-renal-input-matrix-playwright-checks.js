@@ -10,7 +10,9 @@ async function workflow(s) {
   const name = process.env.RX_RENAL_CASE || 'male-valid';
   h.assert(Object.hasOwn(CASES,name),'Unknown RX_RENAL_CASE');
   const testCase = CASES[name], fixture = renalInputFixture(s);
-  fixture.apply(CASES['male-valid']);
+  // Demographic characteristics are fixture setup before the patient enters
+  // Hibernate's cache. Mid-workflow corrections change observations only.
+  fixture.apply({...testCase,weight:'80',cr:'100',lab:undefined});
   const rx = await s.popup(s.master,masterRecordLink(s.master,'/rx/choosePatient').first(),'renal-matrix-rx');
   const card = await stageFromSearch(rx,'CIPRO 500','CIPRO 500MG');
   const panel = rx.locator(`#renalDosing_${card}`);
@@ -38,10 +40,13 @@ async function workflow(s) {
     }
   });
   await s.step('restoring valid observations refreshes the same panel without retaining stale input',async()=>{
-    fixture.apply(CASES['female-valid']);
+    fixture.apply({...testCase,weight:'80',cr:'100',crDate:'2025-01-02',lab:undefined});
     await Promise.all([rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
       panel.getByRole('link',{name:'Refresh',exact:true}).click()]);
-    await rx.waitForFunction(({id})=>document.querySelector(id)?.textContent.includes('Clcr 68 ='),{id:`#renalDosing_${card}`});
+    const age=testCase.age??60;
+    const clearance=age>0?Math.round((140-age)*80/(100*0.8)*(testCase.sex==='F'?0.85:1)):undefined;
+    await rx.waitForFunction(({id,token})=>document.querySelector(id)?.textContent.includes(token),
+      {id:`#renalDosing_${card}`,token:clearance===undefined?'N/A':`Clcr ${clearance} =`});
     h.assert(await panel.locator('table.sofT tr.selected').count()===0,'Restored valid high clearance retained the previous recommendation');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${s.patient}`)==='0','Input checking unexpectedly saved a prescription');
   });

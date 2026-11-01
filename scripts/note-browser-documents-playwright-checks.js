@@ -20,6 +20,7 @@
  * (note-browser-documents). Env: DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR), INCOMINGDOCUMENT_DIR,
  * plus the harness contract; needs pdftotext.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -81,7 +82,7 @@ async function workflow(s) {
   // errors stop: a GET must not delete a seeded, published document.
   await s.step('NoteBrowserDocumentDelete refuses GET and changes nothing', async () => {
     const query = new URLSearchParams({ delDocumentNo: docB.id, demographicNo: patient }).toString();
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/casemgmt/NoteBrowserDocumentDelete?${query}`), { maxRedirects: 0, failOnStatusCode: false });
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, `/casemgmt/NoteBrowserDocumentDelete?${query}`), { maxRedirects: 0, failOnStatusCode: false });
     const code = response.status();
     await response.dispose();
     h.assert(code === 405, `GET NoteBrowserDocumentDelete answered HTTP ${code}, expected 405`);

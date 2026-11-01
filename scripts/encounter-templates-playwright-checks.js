@@ -19,6 +19,7 @@
  * the run's own synthetic patient; both removed in cleanup and asserted gone. Nothing
  * shared is modified.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
@@ -147,7 +148,7 @@ async function workflow(s) {
 
   await s.step('GET and HEAD cannot delete the owned template', async () => {
     for (const method of ['GET', 'HEAD']) {
-      const response = await s.context.request.fetch(h.appUrl(s.config.baseUrl, '/admin/ProviderTemplate'), {
+      const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/admin/ProviderTemplate'), {
         method, params: {dboperation: 'Delete', name}, maxRedirects: 0,
       });
       h.assert(response.status() < 500, `${method} deletion probe returned HTTP ${response.status()}`);

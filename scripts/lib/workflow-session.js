@@ -48,9 +48,9 @@ async function runWorkflow(name, workflow, { openPatient = true, openMaster = tr
       // Install synchronously on the event, before a popup's first script runs.
       context.on('page', page => h.wireStrictPage(page, name, recorder));
       const schedule = await h.login(context, config, recorder);
-      let master;
+      let master, search;
       if (openPatient && openMaster) {
-        ({ masterPage: master } = await openMasterRecord(context, schedule, recorder, {
+        ({ masterPage: master, searchPage: search } = await openMasterRecord(context, schedule, recorder, {
           searchTerm: marker, preferredDemographicNo: patient, timeout: 20000,
         }));
         h.assert(new URL(master.url()).searchParams.get('demographic_no') === patient,
@@ -58,7 +58,7 @@ async function runWorkflow(name, workflow, { openPatient = true, openMaster = tr
       }
       let chart;
       const session = {
-        config, sql, patient, provider, marker, context, recorder, master, schedule,
+        config, sql, patient, provider, marker, context, recorder, master, schedule, search,
         cleanup(fn) { cleanups.push(fn); },
         async chart({navbarTimeout = 20000} = {}) {
           h.assert(master, 'This workflow did not request a patient fixture');

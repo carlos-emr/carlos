@@ -781,7 +781,9 @@ if (require.main === module) {
   catch {process.exitCode = main();}
   if (selectedProfile && Object.hasOwn(PROPERTY_PROFILES.PROFILES, selectedProfile.profile)
       && !selectedProfile.list && !selectedProfile.dryRun && !selectedProfile.help) {
-    PROPERTY_PROFILES.withPropertyProfile(selectedProfile.profile, () => main()).then(
+    if(process.env.CARLOS_PROPERTY_PROFILE_ACTIVE===selectedProfile.profile)process.exitCode=main();
+    else PROPERTY_PROFILES.withPropertyProfile(selectedProfile.profile,
+      ({signal}) => PROPERTY_PROFILES.runProfileChild(process.argv.slice(1),selectedProfile.profile,signal)).then(
       code => {process.exitCode = code;}, error => {console.error(error.message); process.exitCode = EXIT_FAIL;});
   } else if (selectedProfile) process.exitCode = main();
 }

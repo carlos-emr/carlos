@@ -4,8 +4,8 @@
 const h = require('./lib/playwright-harness');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
 const {openCalculator, FRACTURE_CASES, parsePrediction} = require('./clinical-calculators-playwright-checks');
-const {openMasterRecord} = require('./master-record-tabs-playwright-checks');
-const {openChart} = require('./echart-navbar-modules-playwright-checks');
+const {openSecondPatient} = require('./lib/second-patient-window');
+const {openChart,waitForNavbars} = require('./echart-navbar-modules-playwright-checks');
 const {removeMarkedPatients} = require('./lib/gap-records-fixtures');
 const {chartNoteSave} = require('./lib/mutation-families');
 const NOTE = '#encMainDiv textarea[name="caseNote_note"]';
@@ -13,14 +13,13 @@ async function workflow(s) {
   const {sql, patient, marker} = s, controlName = marker + '-CONTROL';
   s.cleanup(() => removeMarkedPatients(sql, controlName));
   sql.execute(`INSERT INTO demographic(last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
-    VALUES (${h.sqlString(controlName)},'Control','1980','01','02','F','AC',${h.sqlString(s.provider)},'ON','ON','NR',NOW())`);
+    VALUES (${h.sqlString(controlName)},'Workflow','1980','01','02','F','AC',${h.sqlString(s.provider)},'ON','ON','NR',NOW())`);
   const controlPatient = sql.value(`SELECT demographic_no FROM demographic WHERE last_name=${h.sqlString(controlName)}`);
   const mainCleanup = chartNoteSave(s), controlCleanup = chartNoteSave({...s, patient: controlPatient, marker: controlName});
   s.cleanup(() => controlCleanup.cleanup()); s.cleanup(() => mainCleanup.cleanup());
   let chart = await s.chart();
   await chart.locator(NOTE).first().fill(marker + '-NS-fracture existing text');
-  const {masterPage: controlMaster} = await openMasterRecord(s.context, s.schedule, s.recorder,
-    {searchTerm: controlName, preferredDemographicNo: controlPatient, timeout: 20000});
+  const {masterPage: controlMaster} = await openSecondPatient(s,controlPatient,controlName);
   const controlChart = await openChart(s.context, controlMaster, s.recorder, 20000);
   const controlText = controlName + '-NS-control draft'; await controlChart.locator(NOTE).first().fill(controlText);
   for (const scenario of [FRACTURE_CASES[0], FRACTURE_CASES.find(value => value.sex === 'M')]) {
@@ -45,9 +44,13 @@ async function workflow(s) {
         chart.locator('#saveImg').first().click(),
       ]);
       h.assert(saved.status() === 200, `Saving the pasted note returned HTTP ${saved.status()}`);
-      await expectValue(sql, `SELECT note FROM casemgmt_note WHERE demographic_no=${patient} AND note LIKE ${h.sqlString(marker + '-NS-%')} ORDER BY note_id DESC LIMIT 1`, after,
+      // The note save trims surrounding whitespace and normalizes line endings.
+      // Compare its complete content in hex so the SQL batch framing cannot
+      // consume the trailing newline appended by the calculator's Paste.
+      const storedText=after.trim().replace(/\r/g,'');
+      await expectValue(sql, `SELECT HEX(REPLACE(note,CHAR(13),'')) FROM casemgmt_note WHERE demographic_no=${patient} AND LOCATE(${h.sqlString(marker+'-NS-')},note)>0 ORDER BY note_id DESC LIMIT 1`, Buffer.from(storedText).toString('hex').toUpperCase(),
         'Saved chart note differs from the exact pasted text');
-      await chart.close(); chart = await s.chart();
+      await chart.reload();await waitForNavbars(chart,20000);
       h.assert((await chart.locator('#encMainDiv').innerText()).includes(prediction.split('\n')[0]), 'Reopened chart does not show the persisted prediction');
       // Open the saved note's real edit control before the next append.
       const id = sql.value(`SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient} AND note LIKE ${h.sqlString(marker + '-NS-%')} ORDER BY note_id DESC LIMIT 1`);

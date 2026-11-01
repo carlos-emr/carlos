@@ -216,7 +216,7 @@ async function workflow(s) {
     const before = matching();
     const route = h.appUrl(s.config.baseUrl, '/admin/ViewKeygenUpdateMatchingProfessionalSpecialist');
     for (const method of ['GET', 'HEAD']) {
-      const response = await s.context.request.fetch(route, {method,
+      const response = await authenticatedProbe(s, route, {method,
         params: {serviceName: service, professionalSpecialistId: specialistId}, maxRedirects: 0});
       h.assert(response.status() === 405 && response.headers().allow === 'POST', `${method} did not refuse specialist mutation`);
       await response.dispose();

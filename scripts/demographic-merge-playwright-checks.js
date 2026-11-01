@@ -17,6 +17,7 @@
  * cleanup removes their merge, privilege, recycle-bin and demographic rows and
  * asserts they are gone. Implements coverage plan §2.4 demographic-merge.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates, clickAndAwaitReload, csrfTokenPresent} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
@@ -247,7 +248,7 @@ async function workflow(s) {
       headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': token}});
     h.assert(forged.status() === 302 && /outcome=failure/.test(forged.headers().location || ''),
       `A merge towards a head outside the selection returned HTTP ${forged.status()} instead of the failure outcome`);
-    const unsafeGet = await context.request.get(endpoint, {maxRedirects: 0,
+    const unsafeGet = await authenticatedProbe({context, config: s.config}, endpoint, {maxRedirects: 0,
       params: {mergeAction: 'merge', provider_no: provider, head, records: dup}});
     h.assert(unsafeGet.status() === 405 && unsafeGet.headers().allow === 'POST', 'MergeRecords must reject GET with Allow: POST');
     h.assert(mergeRows() === before && liveRows() === '0'

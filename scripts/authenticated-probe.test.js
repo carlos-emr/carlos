@@ -84,3 +84,15 @@ test('replaces caller Cookie headers regardless of casing', async () => {
   await authenticatedProbe(session, '/carlos/save', {headers: {cookie: 'wrong', COOKIE: 'also-wrong', Accept: 'text/html'}});
   assert.deepEqual(calls[0][1].headers, {Accept: 'text/html', Cookie: 'JSESSIONID=synthetic'});
 });
+
+test('explicit security-redirect preconditions accept only the exact local security route', async () => {
+  const {session,calls}=fixture([cookie],302);
+  for(const location of ['/carlos/login','/login','https://other.invalid/carlos/securityError','/carlos/securityError/other']) {
+    session.context.request.fetch=async()=>({status:()=>302,headers:()=>({location})});
+    await assert.rejects(authenticatedProbe(session,'/carlos/admin',{allowSecurityErrorRedirect:true}),/redirected/);
+  }
+  session.context.request.fetch=async(url,options)=>{calls.push([url,options]);return {status:()=>302,headers:()=>({location:'/carlos/securityError?type=_admin'})};};
+  assert.equal((await authenticatedProbe(session,'/carlos/admin',{allowSecurityErrorRedirect:true})).status(),302);
+  assert.equal(calls.at(-1)[1].headers.Cookie,'JSESSIONID=synthetic');
+  assert.equal(Object.hasOwn(calls.at(-1)[1],'allowSecurityErrorRedirect'),false);
+});

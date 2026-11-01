@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 'use strict';
 const fs = require('node:fs');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawn } = require('node:child_process');
 const PROFILES = Object.freeze({
   'address-lock': {login_lock: 'false'},
   'no-pin': {'mfa.legacy.pin.enable': 'false'},
@@ -42,17 +42,49 @@ async function withPropertyProfile(name, operation, {env = process.env, file = '
   if (env.CARLOS_DISPOSABLE_HOST !== 'true') throw new Error('Property profiles require CARLOS_DISPOSABLE_HOST=true');
   if (!fs.lstatSync(file).isFile()) throw new Error('Property profile target must be a regular file');
   const snapshot = fs.readFileSync(file);
-  let result, failure;
+  let result, failure, interrupted;
+  const cancellation=new AbortController();
+  const handlers=Object.fromEntries(['SIGINT','SIGTERM'].map(signal=>[signal,()=>{
+    interrupted=signal;cancellation.abort(signal);
+  }]));
+  for(const [signal,handler] of Object.entries(handlers))process.on(signal,handler);
   try {
     fs.writeFileSync(file, renderProperties(snapshot, properties));
     await restart();
+    if(cancellation.signal.aborted)throw new Error(`Profile interrupted by ${interrupted}`);
     const before = readRestarts();
-    result = await operation();
+    result = await operation({signal:cancellation.signal});
+    if(cancellation.signal.aborted)throw new Error(`Profile interrupted by ${interrupted}`);
     if (readRestarts() !== before) throw new Error('carlos-emr restarted during the profile checks');
   } catch (error) {failure = error;}
   try {fs.writeFileSync(file, snapshot); await restart();}
   catch (error) {throw failure ? new AggregateError([failure, error], 'Profile run and restoration failed') : error;}
+  finally {for(const [signal,handler] of Object.entries(handlers))process.removeListener(signal,handler);}
   if (failure) throw failure;
   return result;
 }
-module.exports = {PROFILES, propertiesFor, renderProperties, withPropertyProfile};
+
+// Keep the profile owner asynchronous while the suite performs synchronous
+// per-check subprocess work. Signals can then reach the whole check process
+// group and allow its cleanup before the owner restores/restarts the service.
+function runProfileChild(args,profile,signal) {
+  if(signal.aborted)return Promise.reject(new Error('Profile interrupted before suite start'));
+  return new Promise((resolve,reject)=>{
+    const child=spawn(process.execPath,args,{stdio:'inherit',detached:process.platform!=='win32',
+      env:{...process.env,CARLOS_PROPERTY_PROFILE_ACTIVE:profile}});
+    let timer;
+    const stop=()=>{
+      const kill=name=>{try{if(process.platform==='win32')child.kill(name);else process.kill(-child.pid,name);}catch(error){if(error.code!=='ESRCH')reject(error);}};
+      kill('SIGTERM');timer=setTimeout(()=>kill('SIGKILL'),30000);timer.unref();
+    };
+    signal.addEventListener('abort',stop,{once:true});
+    const clear=()=>{clearTimeout(timer);signal.removeEventListener('abort',stop);};
+    child.once('error',error=>{clear();reject(error);});
+    child.once('close',(code,killed)=>{clear();
+      if(signal.aborted||killed)reject(new Error('Profile suite interrupted; configuration restored after child shutdown'));
+      else resolve(code);
+    });
+    if(signal.aborted)stop();
+  });
+}
+module.exports = {PROFILES, propertiesFor, renderProperties, withPropertyProfile, runProfileChild};

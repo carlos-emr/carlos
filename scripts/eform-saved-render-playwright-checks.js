@@ -49,6 +49,7 @@
  * unique name, and each is asserted gone.
  */
 
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const { validateBaseUrl } = require('./lib/playwright-harness');
 const fs = require('fs');
 const os = require('os');
@@ -399,7 +400,7 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     await gotoApp(page, `/eform/efmshowform_data?fdid=${encodeURIComponent(fdid)}&parentAjaxId=eforms`);
     csrfToken = await readCsrfToken(page);
     for (const method of ['GET', 'HEAD']) {
-      const rejected = await context.request.fetch(`${endpoint}?${parameters}`, { method });
+      const rejected = await authenticatedProbe({context, config: {baseUrl}}, `${endpoint}?${parameters}`, { method });
       assert(rejected.status() === 405 && rejected.headers().allow === 'POST',
         'fax preparation must reject GET/HEAD before staging');
       await rejected.dispose();
@@ -439,7 +440,7 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     assert(faxFilePath.length > 0, 'preview must contain its server-issued path');
     csrfToken = await readCsrfToken(page);
     const preview = async () => {
-      const response = await context.request.get(endpoint, { params: { method: 'getPreview', faxFilePath } });
+      const response = await authenticatedProbe({context, config: {baseUrl}}, endpoint, { params: { method: 'getPreview', faxFilePath } });
       assert(response.status() === 200, 'owned preview must remain available');
       assert((await response.body()).subarray(0, 5).toString() === '%PDF-', 'owned preview must remain a PDF');
       await response.dispose();
@@ -460,11 +461,11 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     assert(otherSession.status() === 403, 'a second authenticated session must not cancel another session preview');
     await otherSession.dispose();
     for (const method of ['getPreview', 'getPageCount']) {
-      const deniedRead = await otherContext.request.get(endpoint, { params: { method, faxFilePath } });
+      const deniedRead = await authenticatedProbe({context: otherContext, config: {baseUrl}}, endpoint, { params: { method, faxFilePath } });
       assert(deniedRead.status() === 403, 'another session must not read a claimed PDF or its page count');
       await deniedRead.dispose();
     }
-    const ownedCount = await context.request.get(endpoint, { params: { method: 'getPageCount', faxFilePath } });
+    const ownedCount = await authenticatedProbe({context, config: {baseUrl}}, endpoint, { params: { method: 'getPageCount', faxFilePath } });
     assert(ownedCount.status() === 200 && (await ownedCount.json()).pageCount > 0,
       'the owning session must be able to read its page count without consuming the claim');
     await ownedCount.dispose();
@@ -478,7 +479,7 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     const replay = await context.request.post(endpoint, { form: form({}), maxRedirects: 0 });
     assert(replay.status() === 403, 'successful cancellation must consume the owned claim');
     await replay.dispose();
-    const cancelledRead = await context.request.get(endpoint, { params: { method: 'getPreview', faxFilePath } });
+    const cancelledRead = await authenticatedProbe({context, config: {baseUrl}}, endpoint, { params: { method: 'getPreview', faxFilePath } });
     assert(cancelledRead.status() === 403, 'a cancelled claim must not authorize a preview read');
     await cancelledRead.dispose();
     assert(pageErrors.length === 0, 'fax preview cancellation must not produce browser script errors');

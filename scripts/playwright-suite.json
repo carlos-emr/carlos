@@ -17616,6 +17616,99 @@
         "RX_RENAL_CASE": "boundary-31"
       },
       "notes": "Independent renal input/source/threshold matrix case boundary-31 (#5263); isolated outcome and owned cleanup."
+    },
+    {
+      "name": "rx-limited-use-code-persistence",
+      "script": "scripts/rx-limited-use-code-persistence-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "RX_ODB_FILE"
+      ],
+      "notes": "Real formulary code clicks, append/repeat behavior, same/other-patient controls, saved medication and reprint preview, unsaved cancellation and cleanup (#5270)."
+    },
+    {
+      "name": "rx-renal-correction",
+      "script": "scripts/rx-renal-correction-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "Issue 5262: real measurement popup correction, dose threshold refresh, cancellation and second-patient isolation.",
+      "mutates": [
+        "measurementGroup",
+        "measurementType",
+        "measurementGroupStyle"
+      ],
+      "fixtures": "Owned patients and observations; supplies an owned Renal Dosing measurement group only when absent and removes its exact rows. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+    },
+    {
+      "name": "rx-minor-interaction-levels",
+      "script": "scripts/rx-minor-interaction-levels-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "mutates": [
+        "UserProperty:rxInteractionWarningLevel"
+      ],
+      "fixtures": "Owned patient, controlled minor DrugRef pair and exact provider preference restoration; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Issue 5271: minor markers and all offered provider levels, patient override and facility fallback."
+    },
+    {
+      "name": "document-metadata-controls",
+      "script": "scripts/document-metadata-controls-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "DOCUMENT_DIR"
+      ],
+      "mutates": [
+        "ctl_doc_class"
+      ],
+      "fixtures": "Owned patient, two PDFs and owned subclass suggestion; routed document fixture must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "Issue 5281: subclass autocomplete/custom/clear/cancel, responsibility round trips and abnormal metadata; patient documents do not offer provider-public controls."
+    },
+    {
+      "name": "appointment-email-option",
+      "script": "scripts/appointment-email-option-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "profile": "appointment-options",
+      "env": [],
+      "expectedFailure": {
+        "finding": 329,
+        "step": "requested reminder has an implemented and visible persisted outcome"
+      },
+      "notes": "Issue 5268: checked/unchecked real Add requests and cancellation; emailApptReminder=yes exposes an unimplemented emailPt option. Finding 329 keeps reminder outcome distinct from booking success."
     }
   ]
 }

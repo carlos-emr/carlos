@@ -4,6 +4,7 @@
  * Owns FAKE patients, an orphaned appointment and two messages. Cleanup deletes only the owned fixtures.
  * The legacy owner action is exercised before entering the modern chart, which selects its layout.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {runWorkflow} = require('./lib/workflow-session');
 const {textPdf} = require('./lib/stored-pdf-documents');
@@ -451,7 +452,7 @@ async function workflow(s) {
   await s.step('patient-message unlink validates the complete selection before changing any association', async () => {
     const before = messageState();
     const route = `/messenger/DisplayDemographicMessages?demographic_no=${patient}`;
-    const get = await context.request.get(url(`${route}&messageNo=${ids[1]}`), {maxRedirects: 0});
+    const get = await authenticatedProbe({context, config}, url(`${route}&messageNo=${ids[1]}`), {maxRedirects: 0});
     try {
       h.assert(get.status() === 405 && get.headers().allow === 'POST',
         `An unlink GET did not require POST (HTTP ${get.status()})`);
@@ -531,8 +532,7 @@ async function workflow(s) {
         AND remoteLocation IN (${localLocations.join(',')}) AND destinationFacilityId=0 AND status='read'`)
         === String(localLocations.length), 'Opening a message did not mark every local recipient read');
       h.assert(remoteRows() === remoteBefore, 'Opening a local message marked a remote recipient read');
-      const refused = await context.request.get(url(`/messenger/HandleMessages?messageNo=${ids[1]}&delete=Delete`),
-        {maxRedirects: 0});
+      const refused = await authenticatedProbe({context, config}, url(`/messenger/HandleMessages?messageNo=${ids[1]}&delete=Delete`), {maxRedirects: 0});
       try {
         h.assert(refused.status() === 405 && refused.headers().allow === 'POST',
           `Message deletion did not require POST (HTTP ${refused.status()})`);

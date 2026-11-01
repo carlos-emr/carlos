@@ -55,6 +55,7 @@
  * every owned template, document, follow-up and PDF can be removed and verified after the run.
  */
 
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
@@ -388,7 +389,7 @@ async function checkEnvelopePdf(context, demographicNo) {
 
 async function checkMutatorsRejectGet(context) {
   for (const route of ['/report/ManageLetters', '/report/GenerateLetters']) {
-    const response = await context.request.get(appUrl(route), { maxRedirects: 0 });
+    const response = await authenticatedProbe({context, config: {baseUrl}}, appUrl(route), { maxRedirects: 0 });
     expect(response.status() === 405, `GET ${route} rejected with 405`, { status: response.status() });
   }
 }

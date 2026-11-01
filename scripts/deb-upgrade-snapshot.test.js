@@ -19,13 +19,14 @@ if name=='mariadb':
     if 'COUNT(*) FROM security' in sql: print(os.environ.get('ADMIN_COUNT','1'))
     elif 'SHA2' in sql: print(os.environ.get('PASSWORD_DIGEST','a'*64) if 'password:' in sql else 'b'*64)
     elif 'forcePasswordReset' in sql: print('0')
-    elif 'SELECT version' in sql: print('1.0.39')
+    elif 'SELECT version' in sql: print(os.environ.get('FLYWAY_VERSIONS','1.0.39'))
     elif 'SELECT HEX' in sql:
         body=os.environ.get('INLINE_BODY','')
         eligible=bool(body.strip(''.join(chr(n) for n in range(33))))
         print('example file.pdf'.encode().hex()+'\\t'+str(int(eligible)))
     elif 'WHERE success=0' in sql: print('0')
     elif 'SELECT CONCAT' in sql: print('NULL:1')
+    elif 'COUNT(*) FROM flyway_schema_history WHERE success=1' in sql: print(os.environ.get('FLYWAY_COUNT','1'))
     elif 'COUNT(*)' in sql: print('1')
     else: sys.exit('unexpected test query')
 elif name=='dpkg-query': print('1.0')
@@ -118,6 +119,35 @@ test('upgrade verifier accepts an unchanged install with snapshot paths containi
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.match(result.stdout, /0 failed/);
   assert.match(result.stdout, /PIN digest unchanged/);
+});
+
+test('upgrade verifier derives target migrations by province and preserves an empty no-op difference', t => {
+  const fixture=setup(t);fixture.baseline();
+  const migration=path.join(fixture.env.CARLOS_SHARE_DIR,'schema','migration');
+  for(const location of ['common','on','bc'])fs.mkdirSync(path.join(migration,location),{recursive:true});
+  fs.writeFileSync(path.join(migration,'common','V1__baseline.sql'),'SELECT 1;');
+  fs.writeFileSync(path.join(migration,'common','V1.0.39__old.sql'),'SELECT 1;');
+  const automatic={EXPECT_FLYWAY:undefined,EXPECT_NEW:undefined};
+  let result=fixture.run('deb-upgrade-verify.sh',automatic);
+  assert.equal(result.status,0,result.stdout+result.stderr);
+  assert.match(result.stdout,/expected new migrations applied: $/m);
+  fs.writeFileSync(path.join(migration,'on','V1.0.40__new.sql'),'SELECT 1;');
+  fs.writeFileSync(path.join(migration,'bc','V1.0.41__other_province.sql'),'SELECT 1;');
+  result=fixture.run('deb-upgrade-verify.sh',{...automatic,FLYWAY_VERSIONS:'1.0.39\n1.0.40',FLYWAY_COUNT:'2'});
+  assert.equal(result.status,0,result.stdout+result.stderr);
+  assert.match(result.stdout,/expected new migrations applied: 1.0.40/);
+  assert.doesNotMatch(result.stdout,/expected '.*1.0.41/);
+  result=fixture.run('deb-upgrade-verify.sh',automatic);
+  assert.equal(result.status,1,'Missing target migration must fail verification');
+  assert.match(result.stdout,/new migrations were: '' \(expected '1.0.40'\)/);
+});
+
+test('automatic upgrade expectations refuse missing target locations and unpinned build identity', t=>{
+  const fixture=setup(t);fixture.baseline();
+  let result=fixture.run('deb-upgrade-verify.sh',{EXPECT_FLYWAY:undefined,EXPECT_NEW:undefined});
+  assert.equal(result.status,2);assert.match(result.stderr,/migration location is missing/);
+  result=fixture.run('deb-upgrade-verify.sh',{EXPECT_TAG:undefined,TARGET_BUILD_PROPERTIES:undefined});
+  assert.equal(result.status,2);assert.match(result.stderr,/EXPECT_TAG/);
 });
 
 test('upgrade verifier accepts the one-time OSCAR feature-defaults migration', t => {
