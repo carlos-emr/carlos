@@ -124,12 +124,21 @@ async function armSlowServer(context, pattern, ms = 1800) {
         // The second navigation may abandon the first response; storage is
         // judged independently by each caller's exact owned-row assertions.
         if(process.env.DS_DEBUG)console.log('    [slow] handler error',String(error.message).split('\n')[0]);
-      } finally {if(response)await response.dispose();}
+      } finally {if(response)await response.dispose().catch(error=>{
+        if(!/Target page, context or browser has been closed|Browser has been closed/i.test(error.message))throw error;
+      });}
     })();
     pending.add(operation);try{await operation;}finally{pending.delete(operation);}
   };
   await context.route(pattern,handler);
-  return async()=>{try{await context.unroute(pattern,handler);}finally{await Promise.all([...pending]);}};
+  return async()=>{
+    let failure;try{await context.unroute(pattern,handler);}catch(error){
+      if(!/Target page, context or browser has been closed|Browser has been closed/i.test(error.message))failure=error;
+    }
+    const drained=await Promise.allSettled([...pending]);
+    if(failure)throw failure;
+    const rejected=drained.find(result=>result.status==='rejected');if(rejected)throw rejected.reason;
+  };
 }
 
 /** Position in the recorder before a rapid activation (see forgiveAbortedSecondRequest). */

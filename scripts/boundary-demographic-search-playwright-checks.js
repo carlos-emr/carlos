@@ -46,10 +46,21 @@ async function workflow(s) {
 
   const search = await ui.clickOpensPopup(s.schedule, s.schedule.locator('#search a, a:has-text("Search")').first(),
     { context: s.context, recorder: s.recorder, label: 'name-search', timeout: TIMEOUT });
-  async function find(mode, term, id) {
+  let guarded=false;
+  async function find(mode, term, id,{allowWafRefusal=false}={}) {
+    guarded=false;
+    if(await search.locator('#search-sort').count()===0)await search.goBack({waitUntil:'networkidle'});
     await search.locator('select[name="search_mode"]').selectOption(mode);
     await search.locator('#keyword, input[name="keyword"]').first().fill(term);
+    const {failureMark,consumeExpectedFailure}=require('./lib/concurrency-support'),mark=failureMark(s.recorder);
+    const responsePromise=search.waitForResponse(response=>response.request().isNavigationRequest()&&response.request().method()==='POST'&&new URL(response.url()).pathname.endsWith('/demographic/DemographicSearch'));
     await ui.clickAndAwaitReload(search, search.locator("input[type='submit']").first(), { timeout: TIMEOUT, label: `search ${mode}` });
+    const response=await responsePromise;
+    if(allowWafRefusal&&response.status()===403&&h.isWafPage(response.status(),await response.text())) {
+      h.assert(await search.locator('a[title="Master Demographic File"]').count()===0,'Rejected search disclosed patient results');
+      consumeExpectedFailure(s.recorder,mark,{status:403,path:/\/demographic\/DemographicSearch$/});guarded=true;return false;
+    }
+    h.assert(response.status()===200,`Patient search answered HTTP ${response.status()}`);
     const submitted = mode === 'search_name' ? term.toLowerCase() : term;
     h.assert(await search.locator('#search-sort input[name="keyword"]').inputValue() === submitted,
       'The search keyword changed while being rendered into the sort form');
@@ -88,8 +99,8 @@ async function workflow(s) {
   });
 
   await s.step('SQL-shaped keywords do not return unrelated patients', async () => {
-    await find('search_address', "' OR 1=1 --", apostropheId);
-    h.assert((await k.readResultRows(search)).length === 0, 'SQL-shaped input widened the patient search');
+    await find('search_address', "' OR 1=1 --", apostropheId,{allowWafRefusal:true});
+    h.assert(guarded||(await k.readResultRows(search)).length === 0, 'SQL-shaped input widened the patient search');
   });
 
   await s.step('markup-shaped keywords remain literal text and cannot create executable elements', async () => {

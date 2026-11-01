@@ -9,6 +9,7 @@ const {revealAuditLink}=require('./lib/playwright-link-audit');
 const {throwawayLoginFixture,submitLoginForm}=require('./lib/throwaway-login-fixture');
 const {loopbackSourceProxy}=require('./lib/loopback-source-proxy');
 async function workflow(s) {
+  h.assert(process.env.EXCLUSIVE==='1','Address-lock validation requires EXCLUSIVE=1 on a disposable deployment');
   const owned=[0,1].map(()=>throwawayLoginFixture({sql:s.sql,marker:'FAKE-PW'+randomBytes(8).toString('hex'),provider:s.provider,testUser:s.config.testUser}));
   for(const fixture of owned){s.cleanup(()=>fixture.cleanup());fixture.create();}
   const relays=[];
@@ -27,7 +28,7 @@ async function workflow(s) {
     await frame.waitForURL(/\/admin\/UnLock/,{waitUntil:'load'});await frame.locator('select[name="userName"]').waitFor({state:'attached'});return frame;
   }
   const keys=frame=>frame.locator('select[name="userName"] option').evaluateAll(nodes=>nodes.map(node=>node.value));
-  const initial=await unlockPage();h.assert(!(await keys(initial)).includes('127.0.0.2'),'Owned source address was already tracked before the workflow');
+  const initial=await unlockPage(),initialKeys=await keys(initial);h.assert(['127.0.0.2','127.0.0.3'].every(ip=>!(initialKeys||[]).includes(ip)),'An owned source address was already tracked before the workflow');
   let tracked=false;
   const attempt=async(index,password,source=0)=>{
     const result=await submitLoginForm(contexts[source],s.config,{username:owned[index].username,password,pin:s.config.testPin});
@@ -37,7 +38,7 @@ async function workflow(s) {
     await s.step('failed passwords are tracked and locked by the real client address rather than either username',async()=>{
       let locked=false;
       for(let index=0;index<6&&!locked;index++) {
-        const result=await attempt(0,s.config.testPassword+'-WRONG');tracked=true;
+        tracked=true;const result=await attempt(0,s.config.testPassword+'-WRONG');
         h.assert(['failed','locked'].includes(result),'Address-lock attempt did not produce a native authentication refusal');locked=result==='locked';
       }
       h.assert(locked,'Owned loopback source did not reach address lockout');

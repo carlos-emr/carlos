@@ -20,6 +20,7 @@ async function workflow(s) {
       stageFromSearch(rx,'CIPRO 500','CIPRO 500MG'),
     ]);
     card=staged;panel=rx.locator(`#renalDosing_${card}`);originalAtc=new URL(response.url()).searchParams.get('atcCode');
+    h.assert(originalAtc?.split(',').includes('J01MA02'),'The staged renal product is not ciprofloxacin (J01MA02)');
     h.assert(response.status()===200,`Renal rendering returned HTTP ${response.status()}`);await response.finished();
     await panel.locator('table.equation').waitFor({state:'visible'});
   });

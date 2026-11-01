@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Download the exact published package set and verify GitHub's SHA-256 digests."""
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
+"""Download the exact published package set and verify GitHub's SHA-256 digests."""
 import hashlib
 import json
 import os
@@ -13,12 +13,20 @@ import urllib.request
 def select_packages(release, tag):
     if release.get("tag_name") != tag or release.get("draft"):
         raise ValueError("release identity does not match the requested published tag")
+    if re.fullmatch(r"2026\.08\.0-alpha1[4-7]", tag):
+        raise ValueError("transitional renderer releases need a different predecessor package set and are unsupported")
     result = []
     for pattern in (r"carlos-emr_[A-Za-z0-9.+~_-]+_amd64\.deb", r"carlos-emr-drugref_[A-Za-z0-9.+~_-]+_all\.deb", r"carlos-ctl_[A-Za-z0-9.+~_-]+_all\.deb"):
         candidates = [a for a in release["assets"] if re.fullmatch(pattern, a["name"])]
         if len(candidates) != 1:
             raise ValueError("release must contain exactly one package of each required type")
         asset = candidates[0]
+        if asset["name"].startswith(("carlos-emr_", "carlos-emr-drugref_")):
+            versions = [tag.replace("-", ".", 1), tag.replace("-", "~", 1)]
+            prefix = "carlos-emr-drugref_" if asset["name"].startswith("carlos-emr-drugref_") else "carlos-emr_"
+            architecture = "_all.deb" if prefix == "carlos-emr-drugref_" else "_amd64.deb"
+            if asset["name"] not in [prefix + version + architecture for version in versions]:
+                raise ValueError("release package version does not match the requested predecessor tag")
         expected_url = f"https://github.com/carlos-emr/carlos/releases/download/{tag}/{asset['name']}"
         if asset.get("browser_download_url") != expected_url or not re.fullmatch(r"sha256:[0-9a-f]{64}", asset.get("digest", "")):
             raise ValueError("release package URL or SHA-256 digest is invalid")

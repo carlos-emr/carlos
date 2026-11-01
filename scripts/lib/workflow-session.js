@@ -14,6 +14,7 @@ async function runWorkflow(name, workflow, { openPatient = true, openMaster = tr
   let patient;
   let patientFixture;
   const cleanups = [];
+  let navigation;
   const marker = `FAKE-PW${randomBytes(8).toString('hex')}`;
   const recorder = h.createRecorder();
   const result = await h.runCheck({
@@ -24,8 +25,7 @@ async function runWorkflow(name, workflow, { openPatient = true, openMaster = tr
       // credentials. Keep provider/schema-dependent preflight after SQL setup.
       if (preflightConfig) await preflightConfig({config});
       sql = h.createSqlRunner(config.mysql);
-      const navigation=providerNavigationFixture(sql,config.testUser,name);
-      if(navigation)cleanups.push(()=>navigation.cleanup());
+      navigation=providerNavigationFixture(sql,config.testUser,name);
       const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(config.testUser)}`);
       h.assert(provider, 'The configured test login has no provider');
       if (preflight) await preflight({config, sql, provider});
@@ -93,17 +93,19 @@ async function runWorkflow(name, workflow, { openPatient = true, openMaster = tr
       h.assertStrictPage(recorder);
     },
     async cleanup() {
-      await cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups, patientFixture });
+      await cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups, patientFixture, independentCleanups:navigation?[()=>navigation.cleanup()]:[] });
     },
   });
   if (result.outcome === 'FAIL') console.error(JSON.stringify(h.buildFailureDetails(recorder), null, 2));
   return result;
 }
 
-async function cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups, patientFixture }) {
+async function cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups, patientFixture, independentCleanups=[] }) {
   const failures = [];
   let browserClosed = !browser;
   try { if (browser) await browser.close(); browserClosed = true; } catch (error) { failures.push(error); }
+  if(browserClosed)for(const cleanup of independentCleanups) {try{await cleanup();}catch(error){failures.push(error);}}
+  else if(independentCleanups.length)failures.push(new Error('Provider navigation retained: browser close is unconfirmed'));
   // Check ownership before touching children. A replaced fixture must never cause
   // cleanup to erase another patient's records.
   let owned = !patient && !patientFixture;

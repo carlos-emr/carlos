@@ -781,12 +781,14 @@ if (require.main === module) {
   catch {process.exitCode = main();}
   if (selectedProfile && Object.hasOwn(PROPERTY_PROFILES.PROFILES, selectedProfile.profile)
       && !selectedProfile.list && !selectedProfile.dryRun && !selectedProfile.help) {
-    if(process.env.CARLOS_PROPERTY_PROFILE_ACTIVE===selectedProfile.profile)process.exitCode=main();
+    if(process.env.CARLOS_PROPERTY_PROFILE_ACTIVE===selectedProfile.profile) PROPERTY_PROFILES.verifyActiveProfile(selectedProfile.profile).then(
+      ()=>{process.exitCode=main();},error=>{console.error(error.message);process.exitCode=EXIT_FAIL;});
     else if ((process.exitCode=main([...process.argv.slice(2),'--dry-run'])) === EXIT_PASS) PROPERTY_PROFILES.withPropertyProfile(selectedProfile.profile,
       async ({signal}) => {
-        if(selectedProfile.profile==='caisi-admin') {
-          console.log('Initializing CAISI shared measurement definitions through the native chart before the residue baseline');
-          const initialized=await PROPERTY_PROFILES.runProfileChild([path.join(__dirname,'vascular-dictionary-initialize.js')],selectedProfile.profile,signal);
+        if(selectedProfile.profile==='caisi-admin' && selectChecks(loadManifest(),selectedProfile).some(check =>
+          ['admin-issue-editor'].includes(check.name))) {
+          console.log('Initializing the CAISI chart definitions required by the selected Issue Editor check');
+          const initialized=await PROPERTY_PROFILES.runProfileChild([path.join(__dirname,'chart-dictionary-initialize.js')],selectedProfile.profile,signal);
           if(initialized!==0)throw new Error('CAISI native dictionary initialization failed; clinical checks were not started');
         }
         return PROPERTY_PROFILES.runProfileChild(process.argv.slice(1),selectedProfile.profile,signal);

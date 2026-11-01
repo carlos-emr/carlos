@@ -488,7 +488,8 @@ async function run(sql,cancellation) {
     console.log(JSON.stringify({ stamp, patient, demographicNo, results, findings }, null, 2));
     if (config.keepOpen) {
       console.log('KEEP_OPEN=true, leaving browser open.');
-      await new Promise(() => {});
+      if (cancellation) await cancellation.waitForCancellation();
+      else await new Promise(() => {});
     }
     try {
       await browser.close();

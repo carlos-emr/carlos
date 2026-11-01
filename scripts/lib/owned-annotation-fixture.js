@@ -7,9 +7,13 @@ const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
 function createOwnedAnnotationFixture(config) {
   h.assert(process.env.CARLOS_DISPOSABLE_HOST==='true','Annotation fixture requires a disposable install');
   const sql=h.createSqlRunner(config.mysql),marker='FAKE-PW'+crypto.randomBytes(8).toString('hex');
-  const store=pdf.directory('DOCUMENT_DIR','DOCUMENT_DIR','RX_FAX_DOCUMENT_DIR');
+  let store;
+  try {store=pdf.directory('DOCUMENT_DIR','DOCUMENT_DIR','RX_FAX_DOCUMENT_DIR');}
+  catch(error){sql.dispose();throw error;}
   const cache=path.join(path.dirname(store),'document_cache'),records=new Map(),pending=[],known=new WeakSet(),errors=[];
-  const receiptDir=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-annotation-fixture-'));
+  let receiptDir;
+  try {receiptDir=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-annotation-fixture-'));}
+  catch(error){sql.dispose();throw error;}
   let patient,provider,source,closed=true;
   const persist=()=>fs.writeFileSync(path.join(receiptDir,'recovery.json'),JSON.stringify({marker,patient,provider,source:source?.id,records:[...records]},null,2),{mode:0o600});
   persist();

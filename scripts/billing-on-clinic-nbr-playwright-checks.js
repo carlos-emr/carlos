@@ -23,7 +23,7 @@ async function workflow(s) {
   });
   let admin,frame;
   async function openManager() {
-    ({page:admin}=await ui.clickOpensPopupOrNavigates(s.schedule,s.schedule.locator('#admin-panel,#admin2').first(),{context:s.context,recorder:s.recorder,label:'clinic-nbr-administration',timeout:30000}));
+    if(!admin||admin.isClosed())({page:admin}=await ui.clickOpensPopupOrNavigates(s.schedule,s.schedule.locator('#admin-panel,#admin2').first(),{context:s.context,recorder:s.recorder,label:'clinic-nbr-administration',timeout:30000}));
   const menu=admin.locator('a[rel$="/admin/ViewClinicNbrManage"]').first();await revealAuditLink(admin,menu,30000);
   const loaded=admin.waitForEvent('framenavigated',{predicate:f=>f.parentFrame()&&new URL(f.url()).pathname.endsWith('/admin/ViewClinicNbrManage')});await menu.click();frame=await loaded;
   await frame.locator('#nbr_value').waitFor();
@@ -40,8 +40,10 @@ async function workflow(s) {
     await frame.locator(`#xml_p_nbr option[value="${id}"]`).waitFor({state:'attached'});
   }
   async function remove() {
+    const others=JSON.stringify(sql.rows(`SELECT * FROM clinic_nbr WHERE nbr_id<>${id} ORDER BY nbr_id`));
     await frame.locator('#xml_p_nbr').selectOption(id);await mutate(frame.locator('input[onclick*="removeCode"]'),'remove');
     await expectValue(sql,`SELECT nbr_status FROM clinic_nbr WHERE nbr_id=${id}`,'D','Removed clinic NBR remains active');
+    h.assert(JSON.stringify(sql.rows(`SELECT * FROM clinic_nbr WHERE nbr_id<>${id} ORDER BY nbr_id`))===others,'Remove Selected changed a non-owned clinic NBR');
   }
   await s.step('native Add stores a clinic NBR and GET cannot replace it',async()=>{
     await add(descriptions[0]);const before=sql.value(`SELECT COUNT(*) FROM clinic_nbr WHERE nbr_id=${id}`);

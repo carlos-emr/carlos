@@ -35,7 +35,7 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
-const { validateBaseUrl } = require('./lib/playwright-harness');
+const { validateCredentialBaseUrl: validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium, request } = require('playwright');
 const h = require('./lib/playwright-harness');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');

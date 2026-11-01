@@ -82,8 +82,20 @@ async function workflow(s) {
     const inbox=await openInbox(who.page,who.context,s.recorder,'followup-inbox');await setMode(inbox,'list');await openSidebar(inbox);
     await inbox.locator('#statusNew').check();await inbox.locator('#specificPatients').check();await inbox.locator('#inputLastName').fill(marker);await search(inbox);
     const row=inbox.locator(`#labdoc_DOC_${primary.id}`);await row.waitFor();
+    h.assert((await row.innerText()).includes(primary.label),'Inbox omits the exact seeded document description');
+    h.assert((await row.innerText()).includes(marker),'Inbox omits the originating synthetic patient identity');
     const viewer=await popup(inbox,row.locator('a[onclick*="reportWindow"]').first(),'review-forwarded-document');
     h.assert(new URL(viewer.url()).searchParams.get('segmentID')===primary.id,'Inbox opened another document');
+    for(const [selector,value] of [[`#docDesc_${primary.id}`,primary.label],[`#docType_${primary.id}`,'others'],[`#observationDate${primary.id}`,'2026-01-02']])
+      h.assert(await viewer.locator(selector).inputValue()===value,`Viewer omitted or changed seeded clinical field ${selector}`);
+    const content=viewer.locator(`#docPDF_${primary.id},#docImg_${primary.id}`).first();
+    await content.waitFor({state:'attached'});
+    const image=await content.evaluate(element=>element.tagName==='IMG');
+    if(image)h.assert(await content.evaluate(element=>element.complete&&element.naturalWidth>0),'Viewer document image did not render');
+    const target=new URL(image?await content.locator('..').getAttribute('href'):await content.getAttribute('data'),viewer.url());
+    h.assert(target.origin===s.config.baseUrl.origin&&target.searchParams.get('doc_no')===primary.id,'Viewer content points at a different document');
+    const delivered=await require('./lib/authenticated-probe').authenticatedProbe({...s,context:who.context},target.href);
+    try{h.assert(delivered.status()===200&&Buffer.from(await delivered.body()).equals(require('node:fs').readFileSync(primary.file)),'Viewer content does not deliver the exact seeded PDF');}finally{await delivered.dispose();}
     await h.withExpectedDialogs(viewer,async()=>{
       const [response]=await Promise.all([viewer.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/oscarMDS/UpdateStatus')),
         viewer.locator(`#acknowledgeForm_${primary.id} input[onclick^="addDocComment("]`).click()]);

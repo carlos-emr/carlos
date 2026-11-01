@@ -32,6 +32,11 @@ async function workflow(s) {
     const editor=await s.popup(report,row.locator('a[onclick*="/documentManager/ViewEditDocument"]'),'metadata-editor');
     h.assert(await editor.locator('input[name="mode"]').inputValue()===primary.id,'Metadata editor opened the wrong document');
     h.assert(await editor.locator('input[name="docPublic"]').count()===0,'Patient document incorrectly offers provider-public control');
+    const expected=stableBefore;
+    for(const [selector,index] of [['[name="docDesc"]',0],['[name="docType"]',1],['[name="source"]',4],['[name="sourceFacility"]',5],['[name="observationDate"]',6],['[name="docClass"]',10]]) {
+      const value=await editor.locator(selector).inputValue();
+      h.assert(value===expected[index],`Reopened metadata ${selector} differs from its unchanged clinical value`);
+    }
     return editor;
   }
   async function save(editor) {
@@ -62,7 +67,7 @@ async function workflow(s) {
   });
   await s.step('responsible provider reassigns, reopens, cancels and clears independently of review routing',async()=>{
     let editor=await edit();const options=await editor.locator('select[name="responsibleId"] option').evaluateAll(nodes=>nodes.map(n=>n.value));
-    const providers=options.filter(value=>value&&value!==s.provider);h.assert(providers.length>=2,'Responsibility fixture needs two offered alternate providers');
+    const providers=options.filter(value=>value&&value!==s.provider);if(providers.length<2)throw new h.SkipCheck('Responsibility fixture needs two offered alternate providers');
     await editor.close();
     for(const value of [providers[0],providers[1],'']) {
       editor=await edit();await editor.locator('select[name="responsibleId"]').selectOption(value);await save(editor);

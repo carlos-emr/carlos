@@ -353,11 +353,11 @@ async function run({cancellation}={}) {
       let status = null;
       try {
         const response = await gotoApp(page, baseUrl, path);
-    cancellation?.throwIfCancelled();
         status = response ? response.status() : null;
       } catch (error) {
         status = null;
       }
+      cancellation?.throwIfCancelled();
       const loaded = status !== null && status < 400;
       check(`${report} loads its unbilled report`, loaded, `status=${status === null ? 'no response' : status}`);
       if (!loaded) continue;

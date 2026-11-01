@@ -9,6 +9,7 @@ async function workflow(s) {
   s.cleanup(()=>fixture.cleanup());fixture.create();
   const pin=()=>s.sql.value(`SELECT SHA2(JSON_ARRAY(pin,pinUpdateDate),256) FROM security WHERE security_no=${fixture.securityNo}`),before=pin();
   const context=await h.newContext(s.context.browser(),s.config);
+  context.on('page',page=>h.wireStrictPage(page,'no-pin',s.recorder,{baseline:[]}));
   await s.step('no-PIN configuration exposes password login without a legacy PIN field',async()=>{
     const page=await context.newPage();await h.gotoApp(page,s.config.baseUrl,'/');
     h.assert(await page.locator('#username').isVisible()&&await page.locator('#password').isVisible(),'Password login controls are missing');

@@ -302,10 +302,12 @@ async function checkRenderer(page, origin, renderer, expected) {
 legacyHarness.runLegacyCheck('eform-bootstrap-isolation',async({cancellation})=>{
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
-  const browser = await chromium.launch({...(getLaunchOptions(process.env.CHROME_PATH)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+  let browser;
   const pageErrors = [];
   let failed = false;
   try {
+    browser = await chromium.launch({...(getLaunchOptions(process.env.CHROME_PATH)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
     cancellation?.throwIfCancelled();
     page.on('pageerror', (error) => pageErrors.push(error.message));
@@ -328,8 +330,7 @@ legacyHarness.runLegacyCheck('eform-bootstrap-isolation',async({cancellation})=>
     console.error(error.message);
     if (pageErrors.length) console.error('page errors:', pageErrors.join('\n'));
   } finally {
-    await browser.close();
-    server.close();
+    try { await browser?.close(); } finally { await new Promise(resolve=>server.close(resolve)); }
   }
   {process.exitCode=failed ? 1 : 0;return;}
 });

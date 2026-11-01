@@ -36,7 +36,7 @@ async function workflow(s) {
     delete require.cache[require.resolve('./appointment-lifecycle-playwright-checks')];
     const f = require('./appointment-lifecycle-playwright-checks'); f.initMysqlDefaults();
     let active=true;
-    const cleanup=()=>{if(!active)return;try{f.cleanupRows();}finally{f.cleanupMysqlDefaults();active=false;}};
+    const cleanup=()=>{if(!active)return;f.cleanupRows();f.cleanupMysqlDefaults();active=false;};
     s.cleanup(cleanup);
     await s.step(`${mode} ${testCase.unit} interval ${testCase.every} from ${testCase.start} retains calendar boundaries`, async () => {
       await f.openDaySheet(s.schedule);

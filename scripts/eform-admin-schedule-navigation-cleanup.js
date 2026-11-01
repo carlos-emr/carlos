@@ -10,7 +10,7 @@ function ownedRows(rows,{marker,name,subject}) {
 function removeOwnedForms(sql,identity) {
   const rows=ownedRows(sql.rows(`SELECT fid,form_name,subject,SHA2(form_html,256),form_html FROM eform WHERE form_name=${h.sqlString(identity.name)}`),identity);
   for(const [fid,name,subject,sha] of rows) {
-    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM eform_data WHERE fid=${fid})+(SELECT COUNT(*) FROM eform_groups WHERE fid=${fid})`)==='0','Owned library form acquired patient instances or group references; retain it');
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM eform_data WHERE fid=${fid})+(SELECT COUNT(*) FROM eform_groups WHERE fid=${fid})+(SELECT COUNT(*) FROM eform_values WHERE fid=${fid})`)==='0','Owned library form acquired patient instances or group references; retain it');
     const subjectClause=subject===null?'subject IS NULL':`subject=${h.sqlString(subject)}`;
     sql.execute(`DELETE FROM eform WHERE fid=${fid} AND form_name=${h.sqlString(name)} AND ${subjectClause} AND SHA2(form_html,256)=${h.sqlString(sha)}`);
   }

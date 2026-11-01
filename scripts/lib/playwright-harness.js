@@ -132,6 +132,7 @@ function validateMysqlHost(rawHost, env = process.env) {
   const host = String(rawHost || '').trim().toLowerCase();
   const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
   const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+  if (!normalizedHost) throw new Error('MYSQL_HOST must not be empty');
   if (!loopbackHosts.has(normalizedHost) && env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
     throw new Error(`Refusing to seed fixtures into non-loopback MYSQL_HOST ${host}; set ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable test database`);
   }

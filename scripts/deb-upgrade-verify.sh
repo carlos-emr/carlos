@@ -58,8 +58,15 @@ bad() { echo "FAIL $1"; fail=$((fail+1)); }
 [ "$(g "$PRE" baseline.format)" = 2 ] || { echo 'ERROR: capture a fresh format-2 PRE snapshot; legacy snapshots contain raw credential fields.' >&2; exit 2; }
 if [ -z "$EXPECT_TAG" ]; then
   [ -r "${TARGET_BUILD_PROPERTIES:-}" ] || { echo 'ERROR: EXPECT_TAG or pre-extracted TARGET_BUILD_PROPERTIES is required.' >&2; exit 2; }
-  EXPECT_TAG=$(grep -E '^build\.(version|job|number)=' "$TARGET_BUILD_PROPERTIES" | tr '\n' ' ')
-  [ -n "$EXPECT_TAG" ] || { echo 'ERROR: target package build identity is empty.' >&2; exit 2; }
+  EXPECT_TAG=$(python3 - "$TARGET_BUILD_PROPERTIES" <<'PYIDENTITY'
+import pathlib,sys
+keys=["build.version","build.job","build.number"]
+lines=[line for line in pathlib.Path(sys.argv[1]).read_text().splitlines() if line.split("=",1)[0] in keys]
+if any(sum(line.startswith(key+"=") and bool(line.split("=",1)[1]) for line in lines)!=1 for key in keys) or len(lines)!=3:
+    raise SystemExit("target package requires exactly one nonempty build.version, build.job and build.number")
+print(" ".join(lines)+" ",end="")
+PYIDENTITY
+  ) || { echo 'ERROR: target package build identity is incomplete or duplicated.' >&2; exit 2; }
 fi
 if [ -z "${EXPECT_FLYWAY:-}" ] || [ -z "${EXPECT_NEW+x}" ]; then
   derived=$(python3 "$HERE/lib/deb-upgrade-expectations.py" "$PRE" \

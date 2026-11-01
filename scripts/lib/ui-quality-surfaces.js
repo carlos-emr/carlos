@@ -24,6 +24,7 @@ async function eachUiQualitySurface(s,visit) {
   const inbox=await openSurface(s.context,s.schedule,surfaceByName('inbox-surface'),s.recorder,30000);
   await visit('inbox',inbox,'button:visible,input[type="button"]:visible,select:visible');
   if(inbox!==s.schedule)await inbox.close();
+  else await s.schedule.goto(scheduleUrl,{waitUntil:'domcontentloaded'}); // nosemgrep: captured authenticated schedule URL
   const {page:admin}=await ui.clickOpensPopupOrNavigates(s.schedule,s.schedule.locator('#admin-panel,#admin2').first(),
     {context:s.context,recorder:s.recorder,label:'quality-administration',timeout:30000});
   await admin.locator('#adminNav').waitFor();await visit('administration',admin,'#adminNav a:visible');

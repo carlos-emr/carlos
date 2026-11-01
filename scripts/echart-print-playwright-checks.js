@@ -620,7 +620,7 @@ async function printChart(page, noteText, flags, expectAutosave) {
   }
 }
 
-(async () => {
+require('./lib/legacy-check').runLegacyCheck('echart-print',async({cancellation})=>{
   const sql = h.createSqlRunner(h.readConfig().mysql);
   const ownedMarker = newOwnedMarker();
   patientMarker = ownedMarker;
@@ -632,7 +632,7 @@ async function printChart(page, noteText, flags, expectAutosave) {
     const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
     assert(provider, 'The configured test login has no provider');
     demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
-    browser = await chromium.launch(chromePath ? { executablePath: chromePath } : {});
+    browser = await chromium.launch({...h.NO_PLAYWRIGHT_SIGNAL_HANDLING,...(chromePath ? { executablePath: chromePath } : {})});
     // Certificate verification is only relaxed for loopback, where the packaged
     // install serves its own self-signed cert. A target opted in with
     // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
@@ -647,7 +647,9 @@ async function printChart(page, noteText, flags, expectAutosave) {
 
     const page = await login(context);
     // Before anything is typed into a chart: refuse a patient that is not test data.
+    cancellation.throwIfCancelled();
     await verifySyntheticPatient(page);
+    cancellation.throwIfCancelled();
     await openEchart(page);
     await page.evaluate(() => {
       window.__chartPrintUnloadEvents = 0;
@@ -679,6 +681,7 @@ async function printChart(page, noteText, flags, expectAutosave) {
     try {
       for (const note of NOTE_BODIES) {
         if (!printsRemainUseful) break;
+        cancellation.throwIfCancelled();
         const { response, pdf, autosaveStatus } = await printChart(page, note.text, [], true);
         printResults.push({
           dimension: 'note body', label: note.label, crs: note.crs,
@@ -691,6 +694,7 @@ async function printChart(page, noteText, flags, expectAutosave) {
       const worstCaseNote = NOTE_BODIES.find((note) => note.label === 'sentence semicolon').text;
       for (const selection of PRINT_SELECTIONS) {
         if (!printsRemainUseful) break;
+        cancellation.throwIfCancelled();
         const { response, pdf, autosaveStatus } = await printChart(page, worstCaseNote, selection.flags, false);
         printResults.push({
           dimension: 'selection', label: selection.label, crs: 'n/a',
@@ -713,7 +717,8 @@ async function printChart(page, noteText, flags, expectAutosave) {
         const pattern = '**/CaseManagementEntry*';
         await context.route(pattern, slowPrint);
         try {
-          const { response, pdf, autosaveStatus } = await printChart(page,
+          cancellation.throwIfCancelled();
+        const { response, pdf, autosaveStatus } = await printChart(page,
             `${worstCaseNote}\n${ownedMarker} delayed print`, [], true);
           printResults.push({ dimension: 'delayed response', label: 'slow print retains editor lock',
             crs: '932100/932110 attack-rce', status: response.status(),
@@ -748,7 +753,8 @@ async function printChart(page, noteText, flags, expectAutosave) {
       // open, record that and let the print failure below stay the headline.
       try {
         if ((await page.locator('textarea[name="caseNote_note"]').count()) === 0) {
-          await openEchart(page);
+          cancellation.throwIfCancelled();
+    await openEchart(page);
         }
         cleanupOutcome = await cleanUpNoteDraft(page, originalNote);
       } catch (error) {
@@ -836,7 +842,7 @@ async function printChart(page, noteText, flags, expectAutosave) {
       }
     }
   }
-})().catch((error) => {
+}).catch((error) => {
   console.error('FAIL eChart print Playwright check');
   console.error(error.stack || error.message);
   if (printResults.length) {

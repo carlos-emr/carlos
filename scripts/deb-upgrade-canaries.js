@@ -1,11 +1,17 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 'use strict';
-const {execFileSync}=require('node:child_process');
+const {spawn}=require('node:child_process');
+async function installPackages() {
+  await new Promise((resolve,reject)=>{
+    const child=spawn('bash',['/root/carlos/scripts/lib/deb-upgrade-install.sh'],{stdio:'inherit',timeout:900000});
+    child.once('error',reject);child.once('close',(code,signal)=>code===0?resolve():reject(new Error(`Upgrade installer failed (${signal||code})`)));
+  });
+}
 const h=require('./lib/playwright-harness');
 const ui=require('./lib/playwright-ui');
 const {runWorkflow}=require('./lib/workflow-session');
-const {appointmentAdd,ticklerAdd,chartNoteSave,rxSave}=require('./lib/mutation-families');
+const {appointmentAdd,ticklerAdd,chartNoteSave,rxSave,openDaySheet}=require('./lib/mutation-families');
 const {openMasterRecord}=require('./master-record-tabs-playwright-checks');
 const {masterRecordLink}=require('./lib/master-record-link');
 const {openChart,waitForNavbars}=require('./echart-navbar-modules-playwright-checks');
@@ -17,6 +23,15 @@ async function reopenCanaries(s) {
     const schedule=await h.login(context,s.config,s.recorder);
     const {masterPage:master}=await openMasterRecord(context,schedule,s.recorder,{searchTerm:s.marker,preferredDemographicNo:s.patient,timeout:30000});
     h.assert(new URL(master.url()).searchParams.get('demographic_no')===s.patient,'Upgrade reopened another patient');
+    const appointment=s.sql.rows(`SELECT appointment_no,appointment_date,provider_no FROM appointment WHERE ${appointmentAdd(s).where('UPGRADE')} ORDER BY appointment_no`);
+    h.assert(appointment.length===1,'The retained appointment is not unique');
+    await openDaySheet({...s,schedule},appointment[0][1]);
+    const link=schedule.locator(`a.apptLink[onclick*="appointment_no=${appointment[0][0]}"]`).first();
+    await link.waitFor({state:'visible'});
+    const shown=(await link.innerText())+' '+(await link.getAttribute('title')||'');
+    h.assert(shown.includes(s.marker),'Upgraded day sheet lost its retained appointment marker');
+    const binding=/[?&]demographic_no=(\d+)(?:&|['"])/.exec(await link.getAttribute('onclick')||'');
+    h.assert(binding?.[1]===s.patient,'Upgraded day sheet changed the appointment patient binding');
     const ticklers=await ui.clickOpensPopup(master,masterRecordLink(master,'/tickler/ViewTicklerMain').first(),{context,recorder:s.recorder,label:'upgraded-ticklers',timeout:30000});
     await ticklers.getByText(`${s.marker}-TA-UPGRADE`,{exact:false}).first().waitFor({state:'visible'});
     const chart=await openChart(context,master,s.recorder,30000);await waitForNavbars(chart,30000);
@@ -47,7 +62,7 @@ async function workflow(s) {
   const before=queries.map(query=>JSON.stringify(s.sql.rows(query)));
   await s.step('upgrade the packages and verify the pre/post installation contract',async()=>{
     await s.context.browser().close();
-    execFileSync('bash',['/root/carlos/scripts/lib/deb-upgrade-install.sh'],{stdio:'inherit',timeout:900000});
+    await installPackages();
     queries.forEach((query,index)=>h.assert(JSON.stringify(s.sql.rows(query))===before[index],`Upgrade changed retained clinical canary ${index}`));
   });
   await s.step('sign in again and reopen the retained patient, tasks, chart note and prescription',()=>reopenCanaries(s));

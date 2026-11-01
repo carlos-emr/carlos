@@ -63,3 +63,14 @@ test('suite rejects invalid property-profile selections and unsafe targets befor
     assert.doesNotMatch(result.stderr,/Property profiles require|lstat|systemctl/,'profile wrapper ran before selection validation');
   }
 });
+
+test('active profile environment marker cannot bypass the private inherited handoff',async()=>{
+  const {verifyActiveProfile}=require('./lib/property-profiles');
+  await assert.rejects(verifyActiveProfile('address-lock',{env:{CARLOS_PROPERTY_PROFILE_ACTIVE:'address-lock'},file:'/unreadable/should-not-be-opened'}),/private parent handoff/);
+});
+test('profile readiness budget is validated before any configuration mutation',async t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-profile-budget-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const file=path.join(dir,'properties');fs.writeFileSync(file,'original');let restarted=false;
+  await assert.rejects(withPropertyProfile('address-lock',()=>assert.fail('must not run'),{file,env:{CARLOS_DISPOSABLE_HOST:'true',CARLOS_PROFILE_READINESS_SECONDS:'0'},restart(){restarted=true;}}),/10 to 1800/);
+  assert.equal(fs.readFileSync(file,'utf8'),'original');assert.equal(restarted,false);
+});

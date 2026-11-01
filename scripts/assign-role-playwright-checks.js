@@ -45,8 +45,8 @@
  *   TEST_USER=carlosdoc TEST_PASSWORD=carlos2026 TEST_PIN=2026
  *   MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
  *   ASSIGN_ROLE_SCREENSHOT_DIR=/tmp/carlos-assign-role-playwright
- *   ALLOW_NON_LOCAL_BASE_URL=true for any target that is not loopback or the
- *     compose network — private IPv4 addresses included
+ *   ALLOW_NON_LOCAL_BASE_URL=true for any target that is not loopback, including
+ *     compose service names and private IPv4 addresses
  *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-local test database
  */
 
@@ -61,38 +61,14 @@ const os = require('os');
 const path = require('path');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 
-/*
- * Hosts this script will browse without an explicit opt-in.
- *
- * NOTE this is deliberately stricter than the sibling harnesses, which also
- * accept the private IPv4 ranges as "local". Those ranges reach the developer's
- * host or a shared network, and this check logs in as an administrator and then
- * grants the installation-wide administrator role, so a private-network address
- * has to be opted into via ALLOW_NON_LOCAL_BASE_URL like any other non-local
- * target. Nothing is lost: the opt-in is one environment variable.
- */
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'db', 'carlos']);
-
-/*
- * Hosts that are unambiguously this machine or its compose network. The
- * database target keys off this set because the check WRITES a provider row
- * and an `admin` role grant. Browser transport is deliberately stricter below:
- * only a real loopback destination may use HTTP or relax certificate checks.
- */
-const EXACT_LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', 'db', 'carlos']);
+// Shared loopback-only guards require explicit opt-in for compose and LAN targets.
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
 function normalizeHost(rawHost) {
   return rawHost.toLowerCase().replace(/^\[|\]$/g, '');
 }
 
-function isLocalHost(rawHost) {
-  return LOCAL_HOSTS.has(normalizeHost(rawHost));
-}
 
-function isExactLocalHost(rawHost) {
-  return EXACT_LOCAL_HOSTS.has(normalizeHost(rawHost));
-}
 
 function isLoopbackHost(rawHost) {
   return LOOPBACK_HOSTS.has(normalizeHost(rawHost));

@@ -60,6 +60,7 @@ async function workflow(s){
   async function reopen(){
     if(page&&!page.isClosed())await page.close();
     const since=s.recorder.requestFailures.length;
+    await chart.waitForLoadState('networkidle');
     await chart.reload({waitUntil:'domcontentloaded'});await waitForNavbars(chart,20000);
     // This explicit browser reload aborts the old chart's pagehide lock-release
     // beacon. Scope the expected unload signal to this reload only.

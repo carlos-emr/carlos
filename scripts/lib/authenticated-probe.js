@@ -58,6 +58,7 @@ async function authenticatedProbe(session,target,options={}) {
   const heartbeat=new URL(base.pathname.replace(/\/$/,'')+'/status/SessionHeartbeat',base);
   const proof=await session.context.request.fetch(heartbeat.href,{
     method:'GET',headers:{Accept:'application/json',Cookie:cookieHeader(heartbeat)},maxRedirects:0,failOnStatusCode:false,
+    ...(requestOptions.timeout===undefined?{}:{timeout:requestOptions.timeout}),
   });
   try {
     if(proof.status()!==200||(await proof.json()).valid!==true)throw new Error('Authenticated probe session is invalid; refusal evidence is inconclusive');

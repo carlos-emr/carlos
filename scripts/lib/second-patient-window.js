@@ -9,7 +9,9 @@ const {openMasterRecord}=require('../master-record-tabs-playwright-checks');
 async function openSecondPatient(s,patient,searchTerm) {
   const route=scheduleRoute(s.config.baseUrl,s.scheduleUrl),schedule=await s.context.newPage();
   await h.gotoApp(schedule,s.config.baseUrl,route);
-  return openMasterRecord(s.context,schedule,s.recorder,{searchTerm,preferredDemographicNo:patient,timeout:20000});
+  const master=await openMasterRecord(s.context,schedule,s.recorder,{searchTerm,preferredDemographicNo:patient,timeout:20000});
+  h.assert(new URL(master.masterPage.url()).searchParams.get('demographic_no')===String(patient),'Second Master Record does not belong to the requested patient');
+  return master;
 }
 function scheduleRoute(baseUrl,savedUrl) {
   h.assert(typeof savedUrl==='string'&&savedUrl.length>0,'The original schedule URL was not captured');

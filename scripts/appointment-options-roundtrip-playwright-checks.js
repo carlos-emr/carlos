@@ -14,12 +14,12 @@ async function workflow(s) {
   s.cleanup(() => {
     try {
       const ids = f.stampedAppointments().map(row => row.id);
-      if (ids.length) s.sql.execute(`DELETE FROM other_id WHERE other_key='appt_mc_number' AND table_id IN (${ids.map(h.sqlString).join(',')})`);
+      if (ids.length) s.sql.execute(`DELETE FROM other_id WHERE table_name=2 AND other_key='appt_mc_number' AND table_id IN (${ids.map(h.sqlString).join(',')})`);
       f.cleanupRows();
     } finally {f.cleanupMysqlDefaults();}
   });
   const snapshot = id => s.sql.rows(`SELECT reasonCode,urgency,reason,notes FROM appointment WHERE appointment_no=${id}`);
-  const mc = id => s.sql.rows(`SELECT CONCAT('V:',COALESCE(other_id,'<NULL>')) FROM other_id WHERE table_id=${h.sqlString(id)} AND other_key='appt_mc_number' AND deleted=0`);
+  const mc = id => s.sql.rows(`SELECT CONCAT('V:',COALESCE(other_id,'<NULL>')) FROM other_id WHERE table_name=2 AND table_id=${h.sqlString(id)} AND other_key='appt_mc_number' AND deleted=0`);
   const firstMC = s.marker.slice(-12), secondMC = firstMC + 'B';
   let primary, control, controlState, reasonA, reasonB, emptyReason;
   await f.openDaySheet(s.schedule);
@@ -32,10 +32,10 @@ async function workflow(s) {
     primary = await f.bookFromSlot(s.context, s.schedule, {slotIndex: 4, configureAdd: async page => {
       const reasons = await page.locator('#reasonCode option').evaluateAll(nodes => nodes.map(node => ({value: node.value, label: node.textContent.trim()})));
       const coded = reasons.filter(option => option.value !== '-1' && option.label);
-      h.assert(coded.length >= 2, 'Appointment reason fixture needs two active named reasons');
+      if(coded.length<2)throw new h.SkipCheck('Appointment reason configuration needs two active named reasons');
       [reasonA, reasonB] = coded;
       emptyReason = reasons.find(option => !option.label || option.value === '-1');
-      h.assert(emptyReason, 'Appointment reason fixture needs its ordinary/empty option');
+      if(!emptyReason)throw new h.SkipCheck('Appointment reason configuration needs an offered ordinary/empty option');
       await page.locator('#reasonCode').selectOption(reasonA.value);
       await page.locator('#urgency').check();
       await page.locator('#appt_mc_number').fill(firstMC);

@@ -12,10 +12,13 @@ function armInterruption(context) {
         'Signal audit requires a disposable install and a positive checkpoint number');
       let reached=0;
       const original=context.cancellation.throwIfCancelled;
-      context.cancellation.throwIfCancelled=()=>{
-        if(++reached===Number(requested))process.kill(process.pid,'SIGINT');
+      const checkpoint=()=>{
+        // Dispatch the installed handler synchronously: the last checkpoint must
+        // observe cancellation before runCheck can dispose its listeners.
+        if(++reached===Number(requested))process.emit('SIGINT');
         original();
       };
+      context.cancellation.throwIfCancelled=checkpoint;context.throwIfCancelled=checkpoint;
     }
 }
 function runLegacyCheck(name,operation) {

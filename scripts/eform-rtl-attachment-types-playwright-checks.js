@@ -58,8 +58,10 @@ legacyHarness.runLegacyCheck('eform-rtl-attachment-types',async({cancellation})=
   const sql = createSqlRunner(readConfig().mysql);
   // Before the first save: the instances saved after this are the run's, and only they are removed.
   const instanceMark = markEformInstances(sql);
-  const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+  let browser;
   try {
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     cancellation?.throwIfCancelled();
     const landingPage = await login(context, config, recorder);
@@ -151,7 +153,7 @@ legacyHarness.runLegacyCheck('eform-rtl-attachment-types',async({cancellation})=
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    await browser.close();
+    try { await browser?.close(); } finally {
     try {
       removeEformInstancesSince(sql, instanceMark, config.demographicNo);
     } catch (error) {
@@ -159,6 +161,7 @@ legacyHarness.runLegacyCheck('eform-rtl-attachment-types',async({cancellation})=
       process.exitCode = 1;
     } finally {
       sql.dispose();
+    }
     }
   }
 });

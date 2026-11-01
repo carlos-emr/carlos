@@ -30,7 +30,7 @@ const MARIADB = (process.env.MARIADB || 'mariadb').split(/\s+/);
 const DB = process.env.CARLOS_DB_NAME || 'carlos';
 function sql(q) {
   const [cmd, ...pre] = MARIADB;
-  return execFileSync(cmd, [...pre, '-N', DB, '-e', q], { encoding: 'utf8' }).trim();
+  return execFileSync(cmd, [...pre, '-N', DB, '-e', q], { encoding: 'utf8', timeout: 30000 }).trim();
 }
 const must = (cond, msg) => { if (!cond) throw new Error(msg); };
 // Escape a value for embedding inside a single-quoted SQL string literal.
@@ -54,9 +54,12 @@ async function main({cancellation}={}) {
   console.log(`unclaimed inbound fax document=${doc}; target patient=${demo} provider=${provider}`);
   console.log('STEP 1 redirected-to-inbox: PASS (providerLabRouting DOC provider_no=0 status=N)');
 
+  cancellation?.throwIfCancelled();
   const b = await launch();
-  const ctx = await b.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   try {
+    cancellation?.throwIfCancelled();
+    const ctx = await b.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+    cancellation?.throwIfCancelled();
     const p = await login(ctx, c);
     cancellation?.throwIfCancelled();
     // Land on an app page so a CSRFGuard token is present to scrape.
@@ -91,6 +94,7 @@ async function main({cancellation}={}) {
     console.log(`STEP 3 attached-to-provider: PASS (providerLabRouting -> provider ${provider})`);
 
     // STEP 4: the provider files (acknowledges) the item in their inbox.
+    cancellation?.throwIfCancelled();
     const r2 = await postForm(p, c.base + '/oscarMDS/FileLabs', {
       method: 'fileLabAjax', flaggedLabId: doc, labType: 'DOC',
     });

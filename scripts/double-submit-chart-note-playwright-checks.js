@@ -23,13 +23,14 @@ const NOTE = 'textarea[name="caseNote_note"]';
 
 async function consumeOwnedConflict(s,mark,responses,text,count) {
   const conflicts=responses.filter(response=>response.status()===409);
-  if(!conflicts.length)return;
+  if(!conflicts.length)return false;
   h.assert(conflicts.length===1&&count===1,'A rapid save has unexplained conflicts or duplicate durable notes');
   const response=conflicts[0],request=response.request(),url=new URL(response.url()),body=new URLSearchParams(request.postData()||'');
   h.assert(url.origin===s.config.baseUrl.origin&&url.pathname===new URL(h.appUrl(s.config.baseUrl,'/CaseManagementEntry')).pathname
-    &&request.method()==='POST'&&body.get('demographicNo')===s.patient&&[...body.values()].some(value=>value.includes(text))
+    &&request.method()==='POST'&&['save','saveAndExit'].includes(body.get('method'))&&body.get('demographicNo')===s.patient&&[...body.values()].some(value=>value.includes(text))
     &&Object.hasOwn(response.headers(),h.APPLICATION_HEADER)&&!h.isWafPage(response.status(),await response.text()),'The conflict is not the owned native note submission');
   consumeExpectedFailure(s.recorder,mark,{status:409,path:/\/CaseManagementEntry$/});
+  return true;
 }
 async function workflow(s) {
   const { sql, patient, marker } = s;
@@ -74,10 +75,9 @@ async function workflow(s) {
         chart.on('response',observed);
         const disarm = mode.key === 'slowResubmit' ? await armSlowServer(s.context, route) : null;
         try {
-        const savingMessage=await chart.evaluate(()=>window.noteSavingMessage);
+        const {savingMessage,lockLost,saveError}=await chart.evaluate(()=>({savingMessage:window.noteSavingMessage,lockLost:window.noteLockLostError,saveError:window.savingNoteError}));
         h.assert(typeof savingMessage==='string'&&savingMessage.length>0,'Native saving-state message is unavailable');
         const dialogs=await h.withExpectedDialogs(chart,()=>rapid(mode.key,chart.locator(button).first()));
-        h.assert(dialogs.length<=1&&dialogs.every(dialog=>dialog.type==='alert'&&dialog.text===savingMessage),'Rapid activation raised an unrelated dialog');
         const like = h.sqlString(`%${text}%`);
         const count = await settledCount(sql,
           `SELECT COUNT(DISTINCT uuid) FROM casemgmt_note WHERE demographic_no=${patient} AND note LIKE ${like}`, { min: 1, quietMs: 3500 });
@@ -92,7 +92,8 @@ async function workflow(s) {
           const signedNotes = Number(sql.value(`SELECT COUNT(DISTINCT uuid) FROM casemgmt_note WHERE demographic_no=${patient} AND note LIKE ${like} AND signed=1`));
           v.record(`${verb} ${mode.label} (signed notes)`, signedNotes, { exactly: 1 });
         }
-        await consumeOwnedConflict(s,mark,responses,text,count);
+        const conflict=await consumeOwnedConflict(s,mark,responses,text,count);
+        h.assert(dialogs.length<=1&&dialogs.every(dialog=>dialog.type==='alert'&&(dialog.text===savingMessage||(conflict&&[lockLost,saveError+' 409'].filter(value=>typeof value==='string'&&value.length>0).includes(dialog.text)))),'Rapid activation raised an unrelated dialog');
         if (!chart.isClosed()){await chart.waitForLoadState('networkidle');await chart.close();}
         const reopened=await s.chart(),id=sql.value(`SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient} AND note LIKE ${like} ORDER BY note_id DESC LIMIT 1`);
         h.assert(/^[1-9]\d*$/.test(id),'Saved rapid note has no identity');

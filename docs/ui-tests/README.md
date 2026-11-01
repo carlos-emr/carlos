@@ -496,10 +496,11 @@ grep "⚠️\|❌" docs/ui-tests/smoke-test-results.md
 *Generated for CARLOS EMR UI Test Suite*
 *Last Updated: 2026-01-16*
 
-The disposable devcontainer compose service explicitly sets
-`ALLOW_NON_LOCAL_BASE_URL=true` and `ALLOW_NON_LOCAL_MYSQL_HOST=true` for its
-application and `db` network names. Outside that service, set those flags only
-when intentionally targeting a disposable non-loopback app/database. For example,
+For browser checks inside the disposable devcontainer, explicitly select its
+MariaDB service on the command you intend to run:
+`MYSQL_HOST=db ALLOW_NON_LOCAL_MYSQL_HOST=true npm run test:<check>`.
+The compose service does not export a global target opt-in. Set those flags only
+on a command intentionally targeting an owned disposable non-loopback app/database. For example,
 `MYSQL_HOST=db ALLOW_NON_LOCAL_MYSQL_HOST=true npm run test:flu-billing-report-playwright`
 opts into that database. Credential-bearing checks still require trusted HTTPS
 for a non-loopback application URL; the flags do not disable certificate checks.

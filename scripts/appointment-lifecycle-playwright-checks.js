@@ -278,7 +278,7 @@ async function checkInvalidDuration(popup, button, label) {
   }
 }
 
-/** Books the appointment this check then operates on, from an empty slot link. */
+/** Opens and prepares the native booking form from an empty slot link. */
 async function openBookingForm(context, daySheet, {slotIndex = 0} = {}) {
   await monitorCleanup.remember(context);
   // Scoped to the target provider's COLUMN, not just the first slot on the sheet.

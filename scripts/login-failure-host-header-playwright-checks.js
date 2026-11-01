@@ -269,6 +269,7 @@ legacyHarness.runLegacyCheck('login-failure-host-header',async({cancellation})=>
   const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
 
   try {
+    cancellation?.throwIfCancelled();
     const target = new URL(appUrl(config.baseUrl, '/loginfailed'));
     target.searchParams.set('errormsg', ERROR_MESSAGE);
     const pathname = target.pathname;

@@ -16,7 +16,7 @@ function validateRows(before,after,{provider,names,start,end}) {
 function providerQuickListFixture(sql,provider) {
   h.assert(/^[1-9]\d*$/.test(provider),'Quick-list fixture needs the authenticated provider');
   const q=h.sqlString,scope=`BINARY providerNo=BINARY ${q(provider)}`,read=()=>sql.rows(`SELECT id,providerNo,quickListName,lastUsed FROM quickListUser WHERE ${scope} ORDER BY id`),before=read(),names=sql.rows('SELECT DISTINCT LEFT(quickListName,10) FROM quickList').map(row=>row[0]),start=sql.value('SELECT NOW()');let restored=false;
-  const date=value=>value==='NULL'?'NULL':q(value),where=row=>`id=${q(row[0])} AND ${scope} AND BINARY quickListName=BINARY ${q(row[2])} AND lastUsed<=>${date(row[3])}`;
+  const date=value=>value===null||value==='NULL'?'NULL':q(value),where=row=>`id=${q(row[0])} AND ${scope} AND BINARY quickListName=BINARY ${q(row[2])} AND lastUsed<=>${date(row[3])}`;
   return {cleanup(){if(restored)return;const after=read();validateRows(before,after,{provider,names,start,end:sql.value('SELECT NOW()')});
     if(!same(before,after)){
       const statements=['START TRANSACTION','CREATE TEMPORARY TABLE carlos_quick_restore_guard (ok INT NOT NULL CHECK(ok=1))',`UPDATE quickListUser SET id=id WHERE ${scope}`,`INSERT INTO carlos_quick_restore_guard VALUES(IF((SELECT COUNT(*) FROM quickListUser WHERE ${scope})=${after.length},1,0))`];

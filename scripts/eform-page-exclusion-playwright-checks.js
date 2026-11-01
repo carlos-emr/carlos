@@ -112,7 +112,7 @@ function check(label, actual, expected) {
     }
 }
 
-h.runCheck({name:'eform-page-exclusion',async run() {
+h.runCheck({name:'eform-page-exclusion',async run({cancellation}) {
     const source = fs.readFileSync(SERVICE_JAVA, 'utf8');
     const geometryJs = extractJavaStringConstant(source, 'COMPUTE_PAGE_GEOMETRY_JS');
 
@@ -130,7 +130,9 @@ h.runCheck({name:'eform-page-exclusion',async run() {
         launchOptions.executablePath = chromePath;
     }
     browser = await chromium.launch(launchOptions);
+    cancellation.throwIfCancelled();
     const page = await browser.newPage();
+    cancellation.throwIfCancelled();
 
     // Selenium's executeScript wraps the body in a function, so the script ends in a bare `return`.
     // page.evaluate takes an expression, so reproduce the same wrapping rather than editing the JS.
@@ -139,7 +141,9 @@ h.runCheck({name:'eform-page-exclusion',async run() {
     const run = async (html) => {
         // html is one of the three fixed HTML fixtures in this test file.
         // nosemgrep: javascript.playwright.security.audit.playwright-setcontent-injection.playwright-setcontent-injection
+        cancellation.throwIfCancelled();
         await page.setContent(html);
+        cancellation.throwIfCancelled();
         // asExpression comes from a named constant in a fixed repository Java file.
         // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-code-injection.playwright-evaluate-code-injection
         return page.evaluate(asExpression);
@@ -159,6 +163,7 @@ h.runCheck({name:'eform-page-exclusion',async run() {
     check('form with no interstitial stays at zero', clean.excludedCount, 0);
 
     // The page divs themselves must never be hidden — hiding them would blank the whole document.
+    cancellation.throwIfCancelled();
     await page.setContent(FORM_WRAPPED);
     // asExpression comes from a named constant in a fixed repository Java file.
     // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-code-injection.playwright-evaluate-code-injection
@@ -172,6 +177,7 @@ h.runCheck({name:'eform-page-exclusion',async run() {
         console.log(`  FAIL  expected only carlos-interstitial marked, got [${hidden.join(',')}]`);
     }
 
+    cancellation.throwIfCancelled();
     await browser.close();
 
     if (failures.length > 0) {

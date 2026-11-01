@@ -17,7 +17,7 @@ function ownedScheduleProvider(sql,config) {
   return {get providerNo(){return fixture?.providerNo;},expectTemplate(value){h.assert(typeof value==='string'&&value.length>0&&value.length<=255,'Invalid offered schedule template');template=value;},
     create(){
       for(let attempt=0;attempt<5;attempt++){
-        fixture=throwawayLoginFixture({sql,marker,provider:sourceProvider,testUser:config.testUser});fixture.create();
+        fixture=throwawayLoginFixture({sql,marker,provider:sourceProvider,testUser:config.testUser,reserveSchedule:true});fixture.create();
         if(count(fixture.providerNo)==='0')return;
         fixture.cleanup();fixture=null;
       }

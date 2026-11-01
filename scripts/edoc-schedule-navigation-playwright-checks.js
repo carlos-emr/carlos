@@ -79,28 +79,14 @@ const path = require('node:path');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
 const { removeOwnedDocumentFile } = require('./local-fixture-cleanup');
 
-/*
- * Hosts that are unambiguously this machine or its compose network. The teardown below
- * DELETEs document rows, so the database target is held to this narrower set rather than
- * BASE_URL's (which also admits private IPv4). Same sets as
- * assign-role-playwright-checks.js, which seeds rows for the same reason.
- */
-const EXACT_LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', 'db', 'carlos']);
-
-/*
- * Strictly this machine's own loopback interface. Deliberately NARROWER than EXACT_LOCAL_HOSTS,
- * which also admits the compose service names: those resolve over a real network, so a
- * certificate served on one has to be verified. Only this set may switch TLS checking off.
- */
+// The shared guard requires explicit opt-in for non-loopback app and SQL targets.
+// Only loopback may relax TLS verification.
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
 function normalizeHost(rawHost) {
   return String(rawHost).toLowerCase().replace(/^\[|\]$/g, '');
 }
 
-function isExactLocalHost(rawHost) {
-  return EXACT_LOCAL_HOSTS.has(normalizeHost(rawHost));
-}
 
 function isLoopbackHost(rawHost) {
   return LOOPBACK_HOSTS.has(normalizeHost(rawHost));

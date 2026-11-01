@@ -385,18 +385,14 @@ legacyHarness.runLegacyCheck('drugref-update',async({cancellation})=>{
         popup.waitForResponse((r) => r.url().includes(ENDPOINT) && postedMethod(r) === 'updateDB', { timeout: 60000 }),
         popup.locator('#updatedb').click(),
       ]);
-    cancellation?.throwIfCancelled();
       assert(startResponse.status() === 200, `updateDB answered HTTP ${startResponse.status()}`);
       const start = await startResponse.json();
-    cancellation?.throwIfCancelled();
       assert(
         start.result === 'running' || start.result === 'updating',
         `updateDB answered ${JSON.stringify(start)}: the trigger did not reach DrugRef`,
       );
       await popup.locator('#updateResult').waitFor({ state: 'visible', timeout: 20000 });
-    cancellation?.throwIfCancelled();
       const startText = (await popup.locator('#updateResult').innerText()).trim();
-    cancellation?.throwIfCancelled();
       assert(/started|already running/i.test(startText), `page reported "${startText}" after the click`);
       console.log(`STEP 3a trigger: PASS (${start.result}: "${startText.slice(0, 80)}")`);
 
@@ -405,7 +401,6 @@ legacyHarness.runLegacyCheck('drugref-update',async({cancellation})=>{
       let sawRunning = false;
       while (Date.now() < deadline) {
         const reply = await callStatus(popup);
-    cancellation?.throwIfCancelled();
         assert(reply.status === 200, `status relay answered HTTP ${reply.status} mid-run`);
         last = JSON.parse(reply.text);
         if (last.state === 'RUNNING') {
@@ -425,7 +420,6 @@ legacyHarness.runLegacyCheck('drugref-update',async({cancellation})=>{
             });
             return r.json();
           }, ENDPOINT);
-    cancellation?.throwIfCancelled();
           if (v.lastUpdate !== 'updating') {
             break;
           }
@@ -434,12 +428,12 @@ legacyHarness.runLegacyCheck('drugref-update',async({cancellation})=>{
           break;
         }
         await popup.waitForTimeout(15000);
-    cancellation?.throwIfCancelled();
       }
       assert(last && last.state !== 'RUNNING', `update still running after ${timeoutSec}s: ${JSON.stringify(last)}`);
       assert(last.state !== 'FAILED', `update FAILED: ${last.message}`);
       console.log(`STEP 3b run: PASS (${sawRunning ? 'observed RUNNING, then ' : ''}${last.state}${last.message ? ': ' + last.message : ''})`);
 
+      cancellation?.throwIfCancelled();
       // The page must have followed the run and now show the new date.
       await popup.waitForFunction(
         (before) => {

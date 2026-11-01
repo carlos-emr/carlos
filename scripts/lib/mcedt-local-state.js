@@ -32,6 +32,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { assert } = require('./playwright-harness');
+const {readRegular,retireOwnedFile}=require('./owned-file-retirement');
 
 /** The property row Change Password writes (UserProperty.MCEDT_ACCOUNT_PASSWORD). */
 const PASSWORD_PROPERTY = 'mcedt_account_password';
@@ -135,7 +136,7 @@ function listDirectory(dir, { hidden = true } = {}) {
     .map((entry) => {
       const full = path.join(dir, entry.name);
       if (!entry.isFile()) return { name: entry.name, kind: entry.isDirectory() ? 'dir' : 'other' };
-      const bytes = fs.readFileSync(full);
+      const bytes = readRegular(full).bytes;
       return { name: entry.name, kind: 'file', size: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex') };
     })
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
@@ -171,10 +172,7 @@ function createOutboxLedger({ outbox }) {
   const timestampPaths = [inside, beside];
 
   const readOptional = file => {
-    let stat;
-    try {stat=fs.lstatSync(file);}catch(error){if(error.code==='ENOENT')return null;throw error;}
-    assert(stat.isFile()&&!stat.isSymbolicLink(),'MCEDT timestamp must be a regular owned-store file, not a symlink or directory');
-    return fs.readFileSync(file);
+    try{return readRegular(file)?.bytes??null;}catch{throw new Error('MCEDT timestamp must be a regular owned-store file, not a symlink or directory');}
   };
   const found = {
     listing: listDirectory(dir),
@@ -183,15 +181,6 @@ function createOutboxLedger({ outbox }) {
   };
   // Files the run may have caused under a known name, each with the bytes the run knows it wrote.
   const copies = [];
-
-  function ownLike(file, reference) {
-    const stat = fs.statSync(reference);
-    try {
-      fs.chownSync(file, stat.uid, stat.gid);
-    } catch (error) {
-      if (typeof process.getuid === 'function' && process.getuid() === 0) throw error;
-    }
-  }
 
   const ledger = {
     dir,
@@ -230,10 +219,10 @@ function createOutboxLedger({ outbox }) {
       for (const { file, bytes } of copies.slice().reverse()) {
         if (!fs.existsSync(file)) continue;
         try {
-          if (!fs.lstatSync(file).isFile() || !fs.readFileSync(file).equals(bytes)) {
+          if (!readRegular(file)?.bytes.equals(bytes)) {
             problems.push(`${path.basename(file)} now holds other bytes and was left in place`);
           } else {
-            fs.unlinkSync(file);
+            retireOwnedFile(file,current=>current.equals(bytes));
           }
         } catch (error) {
           problems.push(`${path.basename(file)} could not be removed (${error.code || 'error'})`);
@@ -245,15 +234,23 @@ function createOutboxLedger({ outbox }) {
           const now = readOptional(file);
           if (was === null) {
             if (now === null) continue;
-            if (now.length === 0 || TIMESTAMP_TEXT.test(now.toString('latin1'))) fs.unlinkSync(file);
+            if (now.length === 0 || TIMESTAMP_TEXT.test(now.toString('latin1'))) retireOwnedFile(file,current=>current.length===0||TIMESTAMP_TEXT.test(current.toString('latin1')));
             else problems.push(`${path.basename(file)} holds text the application does not write and was left in place`);
           } else if (now === null || !now.equals(was)) {
             if(now!==null&&now.length!==0&&!TIMESTAMP_TEXT.test(now.toString('latin1'))) {
               problems.push(`${path.basename(file)} changed to bytes the application does not write and was left in place`);
               continue;
             }
-            fs.writeFileSync(file, was, { mode: 0o640 });
-            ownLike(file, path.dirname(file));
+            let fd;
+            try {
+              fd=fs.openSync(file,fs.constants.O_RDWR|fs.constants.O_NOFOLLOW|(now===null?fs.constants.O_CREAT|fs.constants.O_EXCL:0),0o640);
+              assert(fs.fstatSync(fd).isFile(),'Timestamp replacement is not a regular file');
+              const current=fs.readFileSync(fd);
+              assert(current.equals(was)||current.length===0||TIMESTAMP_TEXT.test(current.toString('latin1')),'Timestamp changed during restoration');
+              fs.writeSync(fd,was,0,was.length,0);fs.ftruncateSync(fd,was.length);
+              const owner=fs.statSync(path.dirname(file));
+              try{fs.fchownSync(fd,owner.uid,owner.gid);}catch(error){if(process.getuid?.()===0)throw error;}
+            } finally {if(fd!==undefined)fs.closeSync(fd);}
           }
         } catch (error) {
           problems.push(`${path.basename(file)} could not be restored (${error.code || 'error'})`);

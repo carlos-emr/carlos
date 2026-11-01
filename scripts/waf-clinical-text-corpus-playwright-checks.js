@@ -64,7 +64,8 @@ const boundary = require('./lib/boundary-values');
 const fam = require('./lib/mutation-families');
 const tickler = require('./lib/concurrency-tickler');
 const { captureRequest, multipartFields, replayParams, takeKnownNoise } = require('./lib/get-reject-probe');
-const { createLabRoutingFixture } = require('./lib/lab-routing-fixture');
+const { createOwnedLab } = require('./lib/owned-lab');
+const { LOCK_NOT_SHARED } = require('./lab-forwarding-rules-playwright-checks');
 const pdfs = require('./lib/stored-pdf-documents');
 const billing = require('./billing-on-invoice-third-party-playwright-checks');
 const rep = require('./lib/mutation-replay');
@@ -938,11 +939,13 @@ function rows(s, ctx) {
       drive: 'replay: real UI (Inbox ▸ lab ▸ Acknowledge ▸ comment prompt), then the captured POST',
       fields,
       prepare() {
-        lab = s.sql.rows(labCandidates())[0][0];
-        h.assert(/^[1-9]\d*$/.test(lab), 'the lab fixture id is invalid');
-        const routing = createLabRoutingFixture((query) => s.sql.execute(query), (query) => s.sql.rows(query), s.provider, [lab]);
-        s.cleanup(() => routing.cleanup());
-        routing.prepare();
+        const template = s.sql.rows(labCandidates())[0][0];
+        h.assert(/^[1-9]\d*$/.test(template), 'the lab template id is invalid');
+        const owned = createOwnedLab({sql:query=>s.sql.value(query),sqlRows:query=>s.sql.rows(query),lockNotShared:LOCK_NOT_SHARED});
+        s.cleanup(()=>owned.removeOwnedLab());
+        lab=owned.cloneLab(template);
+        s.sql.execute(`UPDATE patientLabRouting SET demographic_no=${patient} WHERE lab_no=${lab} AND lab_type='HL7';
+          INSERT INTO providerLabRouting(provider_no,lab_no,status,comment,lab_type) VALUES(${q(s.provider)},${lab},'N',${q(marker+'-LS-OWNED')},'HL7')`);
       },
       async control() {
         let nav;
@@ -1003,14 +1006,24 @@ function rows(s, ctx) {
     return row;
   };
 
-  all['chart-note'] = () => familyRow(s, ctx, {
-    key: 'chart-note', ...FACTS['chart-note'],
-    drive: 'replay: real UI (E-Chart ▸ note box ▸ Save), then the captured POST',
-    // A second save from the same chart window edits the note the first one made, in place.
-    family: fam.chartNoteSave(s), table: 'casemgmt_note', idColumn: 'note_id', scope: owned, inPlace: true,
-    fields: [{ name: 'caseNote_note', column: 'note' }],
-    cleanup: () => removeNotes(s),
-  });
+  all['chart-note'] = () => {
+    const family=fam.chartNoteSave(s);
+    const row=familyRow(s,ctx,{
+      key:'chart-note',...FACTS['chart-note'],
+      drive:'typed: native chart Save for the control, then a fresh native editor and Save for the corpus',
+      family,table:'casemgmt_note',idColumn:'note_id',scope:owned,inPlace:true,
+      fields:[{name:'caseNote_note',column:'note'}],cleanup:()=>removeNotes(s),
+    });
+    row.send=async values=>{
+      // A saved note advances its immutable revision and lock; replaying the old
+      // control body would test a stale editor, rather than the WAF prose rule.
+      const chart=await s.chart();await chart.reload({waitUntil:'networkidle'});
+      const captured=await family.perform('CORPUS',{text:values.caseNote_note});
+      const response=await captured.request.response();h.assert(response,'The native corpus Save has no response');
+      await response.finished();return response;
+    };
+    return row;
+  };
 
   all['eform-letter'] = () => {
     // The Rich Text Letter is the one eForm field the packaged WAF knows is prose (Letter, rule 1045): the

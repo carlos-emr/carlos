@@ -175,7 +175,7 @@ function serverSample(pid, expectedBase, priorIdentity) {
   return {identity,rssBytes:value(/^VmRSS:\s+(\d+) kB$/m),highWaterBytes:value(/^VmHWM:\s+(\d+) kB$/m)};
 }
 
-async function run(env = process.env) {
+async function run(env = process.env,{cancellation}={}) {
   h.assert(env.CDS_LARGE_INGRESS_DISPOSABLE === 'true', 'Explicit disposable large-ingress authorization is required');
   const evidence = env.CDS_LARGE_INGRESS_EVIDENCE;
   h.assert(evidence && path.isAbsolute(evidence) && !fs.existsSync(evidence), 'Evidence directory must be absent and absolute');
@@ -266,6 +266,7 @@ async function run(env = process.env) {
     {stdio:[original,'ignore','pipe'],timeout:120000,maxBuffer:65536}); }
     finally { fs.closeSync(original); }
     for (const chunked of [false,true]) {
+      cancellation?.throwIfCancelled();
       const start = performance.now();
       const begin = await importApi(page,'cdsUpload',{operation:'begin',fileName:'synthetic-large.xml',expectedBytes:report.source.bytes},'POST');
       h.assert(begin.status === 200 && begin.body?.ok === true && begin.body.upload?.state === 'OPEN','Large upload reservation failed');
@@ -315,6 +316,7 @@ async function run(env = process.env) {
       h.assert(abandon.status === 200 && abandon.body?.upload?.state === 'ABANDONED','Supported unaccepted transfer retirement failed');
       ownership.phase='ABANDONED';save();
     }
+    cancellation?.throwIfCancelled();
     const begin = await importApi(page,'cdsUpload',{operation:'begin',fileName:'synthetic-limit.xml',expectedBytes:8*MiB},'POST');
     h.assert(begin.status === 200 && begin.body?.upload?.id,'Oversize probe reservation failed');
     const probe = begin.body.upload;const probeOwnership={uploadId:probe.id,phase:'RESERVED',purpose:'OVERSIZE_REFUSAL'};
@@ -322,6 +324,7 @@ async function run(env = process.env) {
     h.assert(Number.isSafeInteger(probe.chunkBytes) && probe.chunkBytes>=65536 && probe.chunkBytes<=16*MiB,
       'Oversize probe has an unsafe advertised chunk bound');
     for (const chunked of [false,true]) {
+      cancellation?.throwIfCancelled();
       const body = Buffer.alloc(probe.chunkBytes+1,65); const endpoint = new URL(url);
       for (const [key,value] of Object.entries({apiVersion:2,operation:'chunk',uploadId:probe.id,offset:0,bytes:probe.chunkBytes,
         sha256:createHash('sha256').update(body.subarray(0,probe.chunkBytes)).digest('hex')})) endpoint.searchParams.set(key,String(value));
@@ -342,5 +345,5 @@ async function run(env = process.env) {
   } catch (_) { report.status='FAILED'; save(); throw new Error('Large-ingress gate failed; inspect protected evidence and retained upload IDs'); }
   finally { clearInterval(metricTimer); if (browser) await browser.close(); if (sql) sql.dispose(); }
 }
-if (require.main === module) run().catch(error => { console.error(error.message); process.exitCode=1; });
+if (require.main === module) require('./lib/legacy-check').runLegacyCheck('demographic-cds-large-ingress',context=>run(process.env,context)).catch(error => { console.error(error.message); process.exitCode=1; });
 module.exports = {writeFixture,journalRow,rawPost,interruptPost,assertMetadataVersion,serverSample,verifyUploadedBody,run};

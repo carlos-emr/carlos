@@ -103,6 +103,7 @@ async function workflow(s) {
     const fixture = throwawayLoginFixture({sql, marker: 'FAKE-PW' + randomBytes(8).toString('hex'), provider: s.provider, testUser: s.config.testUser});
     s.cleanup(() => fixture.cleanup()); fixture.create(); providers.push(fixture.providerNo);
     if (index < 2) sql.execute(`INSERT INTO secUserRole(provider_no,role_name,orgcd) VALUES (${h.sqlString(fixture.providerNo)},'midwife','')`);
+    else sql.execute(`DELETE FROM secUserRole WHERE provider_no=${h.sqlString(fixture.providerNo)} AND role_name='midwife'`);
   }
   // The hidden editor's options were rendered before the owned providers
   // existed. Reload the native page before opening that editor.

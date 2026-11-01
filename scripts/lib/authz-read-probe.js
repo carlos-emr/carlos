@@ -111,10 +111,19 @@ function urlFor(config, route) {
  * its context. Pages of this context are not wired to the workflow recorder: the restricted
  * logins deliberately land on pages their role cannot fully load.
  */
-async function signIn(session, login) {
+async function signIn(session, login,{allowForbiddenSchedule=false}={}) {
   const context = await h.newContext(session.context.browser(), session.config);
   context.setDefaultTimeout(20000);
-  const page = await h.login(context, { ...session.config, testUser: login.username }, h.createRecorder());
+  const {failureMark,consumeExpectedFailure}=require('./concurrency-support'),mark=failureMark(session.recorder);
+  const page = await h.login(context, { ...session.config, testUser: login.username }, session.recorder);
+  if(allowForbiddenSchedule&&session.recorder.badResponses.length>mark.responses) {
+    const url=new URL(page.url());
+    h.assert(url.origin===session.config.baseUrl.origin&&url.pathname.endsWith('/provider/providercontrol'),'Restricted login failed outside the schedule landing');
+    const proof=await authenticatedProbe({...session,context},url.href);
+    try {h.assert(proof.status()===403&&Object.hasOwn(proof.headers(),h.APPLICATION_HEADER)&&/Security Exception/i.test(await proof.text()),'Restricted schedule landing is not an authenticated application refusal');}
+    finally {await proof.dispose();}
+    consumeExpectedFailure(session.recorder,mark,{status:403,method:'GET',path:/\/provider\/providercontrol$/});
+  }
   return { context, page, login };
 }
 

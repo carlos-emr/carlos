@@ -441,10 +441,10 @@ legacyHarness.runLegacyCheck('eform-rtl-attachment-pdf',async({cancellation})=>{
     for (const family of FAMILIES) {
       try {
         previousLetter = await checkFamily(context, recorder, fid, family, previousLetter);
-    cancellation?.throwIfCancelled();
       } catch (error) {
         record(family.key, 'family check completed', false, String(error && error.stack || error));
       }
+      cancellation?.throwIfCancelled();
     }
     await context.close();
     cancellation?.throwIfCancelled();

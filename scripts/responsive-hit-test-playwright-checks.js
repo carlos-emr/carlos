@@ -9,6 +9,14 @@ async function workflow(s) {
     await eachUiQualitySurface(s,async(label,page,selector)=>s.step(`${label} controls receive pointer hits at ${viewport.width}×${viewport.height}`,async()=>{
       await page.setViewportSize(viewport);
       await page.waitForLoadState('networkidle');
+      // Resize handlers and widget replacement can run after network idle.
+      await page.waitForFunction(selector=>{
+        const visible=[...document.querySelectorAll(selector)].filter(e=>e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden');
+        const signature=visible.map(e=>{const r=e.getBoundingClientRect();return [e.id,e.name,e.tagName,r.x,r.y,r.width,r.height].join(':');}).join('|');
+        const previous=window.__carlosHitReadiness;
+        if(!previous||previous.signature!==signature){window.__carlosHitReadiness={signature,since:performance.now()};return false;}
+        return visible.length>0&&performance.now()-previous.since>=750;
+      },selector,{timeout:15000,polling:100});
       // Native widgets hide/replace their original controls during initialization.
       // Freeze the visible identities after readiness instead of re-indexing a live list.
       const controls=await page.locator(selector).filter({visible:true}).elementHandles();

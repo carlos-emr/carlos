@@ -99,12 +99,7 @@ function normalizeHost(rawHost) {
   return String(rawHost).toLowerCase().replace(/^\[|\]$/g, '');
 }
 
-const LOCAL_BASE_URL_HOSTS = new Set([
-  'localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1', '0.0.0.0', 'host.docker.internal', 'carlos',
-]);
-// Loopback only. This is the set that decides whether TLS verification may be relaxed, so it is
-// deliberately narrower than LOCAL_BASE_URL_HOSTS: a self-signed certificate is expected on the
-// packaged loopback front door and nowhere else.
+// Shared validation requires explicit non-loopback opt-in; TLS exceptions stay loopback-only.
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');

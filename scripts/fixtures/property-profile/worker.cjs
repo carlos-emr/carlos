@@ -5,5 +5,7 @@ process.on('SIGTERM',()=>{
   fs.writeFileSync(path.join(process.env.PROFILE_TEST_DIR,'cleaned'),'yes');
   process.exit(0);
 });
-fs.writeFileSync(path.join(process.env.PROFILE_TEST_DIR,'ready'),String(process.pid));
-setInterval(()=>{},1000);
+require('../../lib/property-profiles').verifyActiveProfile('address-lock',{file:path.join(process.env.PROFILE_TEST_DIR,'properties')}).then(()=>{
+  fs.writeFileSync(path.join(process.env.PROFILE_TEST_DIR,'ready'),String(process.pid));
+  setInterval(()=>{},1000);
+},error=>{console.error(error.message);process.exitCode=1;});

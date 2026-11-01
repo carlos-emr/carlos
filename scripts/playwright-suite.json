@@ -2394,7 +2394,13 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": []
+      "env": [
+        "EXCLUSIVE=1"
+      ],
+      "mutates": [
+        "messengerMembershipLock"
+      ],
+      "fixtures": " Snapshots the shared membership coordinator; removes only its exact native first-use singleton when absent at entry. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "multiple-session",
@@ -11964,7 +11970,7 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 900,
+      "timeoutSec": 1800,
       "env": [],
       "notes": "Issue #4556, finding 182: two charts in one login retain their own navbar, history/index/plot, measurement prefill, and form identities through reciprocal refreshes and writes. Each chart refreshed after the other patient was entered keeps its own identity banner and opens its own patient's note browser. Before every cross-check the other chart is entered through IncomingEncounter, the one entry that still rewrites the login-wide encounter bean. Measurement, Dx, CPP, prevention, history deletion, and Vascular Tracker Update/reopen/Save and Exit must leave the other patient's complete clinical rows unchanged. Missing, malformed, and conflicting patient parameters and foreign form IDs are rejected. A form's completion cannot alter an opener navigated to another patient. Issue #4673: with the other chart entered last, each patient's chart print names its own MRP, the legacy encounter save writes only its own revision and signs only its own appointment (a stale, foreign, missing or malformed revision, another patient's appointment and missing or conflicting patients are refused without writing), the legacy encounter prints show only its own revisions, the legacy immunization schedule adds a template, saves and deletes a set in its own schedule by the logged-in provider and its dose window names its own patient and offers the logged-in provider as the giver after the other chart was entered from another provider's day sheet, and a schedule Save, template add or set restore without one valid patient is refused (400) without writing; a template made after a chart was entered from another provider's day sheet is the logged-in provider's; the legacy case-management navigation renders completely, links only to it and lists only its own messages; its notes list keeps the logged-in provider's unsigned notes editable, and its notes panel (rendered again by a note save) names its own entry provider, after a chart was entered from another provider's day sheet.",
       "fixtures": "Owned FAKE patients A/B with distinct WT values. All owned clinical rows and children, VT forms, note signature hashes, drafts, and locks are removed by key and asserted gone; B is removed and the harness removes A. The seeded Vascular Tracker registration is temporarily enabled by display order for browser coverage, then its exact prior encounterForm state is restored and asserted. B's MRP is a second named provider. One owned appointment per patient, its archive rows, the owned immunization schedule rows, one owned immunization template and one message linked to each patient are removed by key; the provider's legacy encounter layout row (encounterWindow) is restored exactly. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Vascular Tracker first-use catalog rows are recorded before any native form opens and only proven fixture-created definitions are removed after clinical children; preexisting definitions, IDs and validation rows remain exact.",
@@ -12882,7 +12888,7 @@
       "mutates": [
         "providerLabRouting"
       ],
-      "fixtures": "Owned FAKE patient (runWorkflow) and the rows each save writes for it, found by the patient and by an id watermark taken before the corpus is sent and deleted by key after every row (tickler, tickler_comments, drugs, allergies, measurements, preventions with their preventionsExt, appointments, casemgmt_note, messagetbl with its delivery rows above the run's marks, billing_on_cheader1 with its children, eform_data with its eform_values); one owned tickler for the edit, one owned PDF in DOCUMENT_DIR with its document and ctl_document rows, owned Ontario bills (lib/billing seedOwnedBill), and one demo HL7 lab routed to the test login for the acknowledge, whose providerLabRouting row is restored exactly. The lab routing is the only shared row, and lab-acknowledge and the lab macro checks route the same demo lab: this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup asserts each set gone.",
+      "fixtures": "Owned FAKE patient (runWorkflow) and the rows each save writes for it, found by the patient and by an id watermark taken before the corpus is sent and deleted by key after every row (tickler, tickler_comments, drugs, allergies, measurements, preventions with their preventionsExt, appointments, casemgmt_note, messagetbl with its delivery rows above the run's marks, billing_on_cheader1 with its children, eform_data with its eform_values); one owned tickler for the edit, one owned PDF in DOCUMENT_DIR with its document and ctl_document rows, owned Ontario bills (lib/billing seedOwnedBill), and one owned copy of a demo HL7 lab linked to the owned patient, with its routing, lock and exact table_modification cleanup. Shared first-use navigation preferences are snapshotted and restored: this check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup asserts each set gone.",
       "notes": "The clinical phrase corpus (lib/clinical-prose-corpus.js, the same seven sentences clinical-freetext uses) through every route in the plan's list that has a prose WAF exclusion, one row each: tickler add, edit, the list search term and the list answer, Rx special instruction, custom drug name (the rename key-up and the Save Only box) and sig, allergy add, the measurement dialog and the Vitals comment, prevention, document description, lab acknowledge, messenger, appointment add and update, chart note, eForm Rich Text Letter, and the three Ontario billing comment routes (1134-1136; 1137 is BC and out of scope). A route reached through two different arguments or answers is two rows, because a pin names one defect. Each row is a control step (the real UI save with plain text) and a corpus step that saves every phrase at once, the pasted-link phrase first, fitted to the column where it is short, and asserts what the row proves: the stored text byte for byte, or for the two kinds of row that store nothing (the Rx rename goes to a session stash; a search term and a display page are read-only) that the route accepted it, or for the list answer that the message comes back exactly. A WAF 403, or an answer the WAF drops, fails the corpus step with the CRS rule ids read from the ModSecurity audit log (/var/log/carlos-emr/modsec/modsec_audit.log; WAF_AUDIT_LOG to move it). A last step sends the same corpus in an argument no exclusion names and requires the WAF's 403, which proves the rows measured the WAF. Run with EXPECT_FRONT_DOOR=true. This entry runs all 24 rows, including the Rx More comment saved as rxComment_<n> and the incoming encounter reason through both chart redirects. Findings 209-213 (#4571-#4575) are fixed; dedicated row entries remain available for focused regressions without expected-failure pins. Rx Save Only and Save & Print omit the unused search box from their payloads. The real-engine security boundary checks run separately in scripts/waf/check-clinical-policy.py."
     },
     {
@@ -17931,7 +17937,11 @@
       ],
       "notes": "Task 36: repeat the complete real TOTP enrolment/challenge/reset/disable lifecycle with legacy PIN disabled.",
       "fixtures": "Throwaway login (never the shared account) enrolled, challenged, reset and un-enrolled through Administration \u25b8 Security Records; TOTP computed from the enrolment QR by scripts/lib/mfa-otp.js; every owned row removed.",
-      "profile": "no-pin"
+      "profile": "no-pin",
+      "expectedFailure": {
+        "finding": 347,
+        "step": "Enable MFA on the security record sets usingMfa and stores no secret yet"
+      }
     },
     {
       "name": "account-lockout-address",

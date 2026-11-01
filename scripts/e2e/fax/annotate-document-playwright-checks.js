@@ -103,7 +103,7 @@ async function waitForAnnotationFaxCover(page) {
 }
 
 const validatedBaseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
-const baseUrl = validatedBaseUrl.href.replace(/\/$/, '');
+const baseUrl = validatedBaseUrl.href.replace(/\/+$/, '');
 const testUser = requireEnv('TEST_USER');
 const testPassword = requireEnv('TEST_PASSWORD');
 const testPin = requireEnv('TEST_PIN');

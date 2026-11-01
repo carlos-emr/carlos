@@ -35,7 +35,7 @@
  * are ignored on local targets unless STRICT_TLS=1. Remote disposable hosts
  * require ALLOW_NON_LOCAL_BASE_URL=true and a trusted certificate.
  *
- * Exit status: the number of failed checks.
+ * Exit status: 0 on success, 1 for any failed checks (2 is reserved for prerequisites).
  */
 'use strict';
 const legacyHarness=require('./lib/legacy-check');

@@ -46,13 +46,9 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only for an intentional non-local test target
  *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-local test database
  *
- * BASE_URL and MYSQL_HOST are both restricted to local targets by default, but
- * MYSQL_HOST is held to a stricter definition. Browsing accepts any private
- * network address; seeding does not, because a shared clinic database usually
- * lives on one. Only loopback and the devcontainer service names reach the
- * database without ALLOW_NON_LOCAL_MYSQL_HOST=true. A browse target that is not
- * plainly loopback must additionally use https, since this script logs in with
- * real credentials.
+ * Shared validation allows loopback targets by default. Compose service names
+ * and private LAN targets require the corresponding explicit non-local opt-in.
+ * Credential-bearing browser requests outside loopback require HTTPS.
  */
 
 const { execFileSync } = require('child_process');

@@ -128,6 +128,9 @@ case "$RESET_PASSWORD" in
 esac
 [ -z "$BUILD_PROXY" ] || [[ "$BUILD_PROXY" =~ ^https?://[A-Za-z0-9._:-]+/?$ ]] \
   || die "BUILD_PROXY must be a plain http(s)://host:port URL"
+if [ "$CONTAINER_NETWORK" = bridge ] && [[ "$BUILD_PROXY" =~ ^https?://(localhost|127\.[0-9.]+)(:|/) ]]; then
+  die "Bridge containers need a BUILD_PROXY address reachable from the container; host loopback is not reachable"
+fi
 
 # The debconf answers of runbook section 3. reset-seed-admin stays true: the
 # validation must prove a fresh install replaces the published seed credential
@@ -212,7 +215,7 @@ STOPSIGNAL SIGRTMIN+3
 CMD ["/sbin/init"]
 EOF
   say "building image $IMAGE from $BASE_IMAGE"
-  docker build --secret "id=validation_ca,src=$ctx/extra-ca.crt" -t "$IMAGE" \
+  docker build --network host --secret "id=validation_ca,src=$ctx/extra-ca.crt" -t "$IMAGE" \
     --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg BUILD_PROXY="$BUILD_PROXY" \
     --build-arg APT_FORCE_HTTPS="$APT_FORCE_HTTPS" --build-arg PLAYWRIGHT_VERSION="$PLAYWRIGHT_VERSION" \
     "$ctx" >"$LOG_DIR/image-build.log" 2>&1 || { rm -rf "$ctx"; die "image build failed; see $LOG_DIR/image-build.log"; }
@@ -455,7 +458,7 @@ export SCREENSHOT_DIR=/tmp/carlos-shots ARTIFACT_DIR=/tmp/carlos-artifacts
 # The package ships ALLOW_UPDATE_DOCUMENT_CONTENT=true.
 export STORED_DOCUMENT_EXPECT_CONTENT_UPDATES=true
 # This container is disposable: checks that change clinic-wide settings may run.
-export CARLOS_DISPOSABLE_VM=true CARLOS_LOG_JOURNAL_UNIT=carlos-emr.service
+export CARLOS_DISPOSABLE_VM=true EXCLUSIVE=1 CARLOS_LOG_JOURNAL_UNIT=carlos-emr.service
 # stage_fixtures enabled this in the disposable install and restarted CARLOS.
 export CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true
 # The installed province: 'suite' passes it as --province unless one is given.
