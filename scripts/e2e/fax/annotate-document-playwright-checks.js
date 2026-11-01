@@ -69,7 +69,7 @@ function requireEnv(name) {
  * must not be pointed at an arbitrary host by an unchecked environment variable.
  */
 function validateBaseUrl(rawBaseUrl) {
-  return h.validateCredentialBaseUrl(rawBaseUrl,process.env);
+  return require('../../lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl,process.env);
 }
 
 /** One navigation boundary for ordinary, busy and failed-image viewer checks. */

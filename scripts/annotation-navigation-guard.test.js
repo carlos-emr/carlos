@@ -10,7 +10,7 @@ const source = fs.readFileSync(path.join(__dirname, 'e2e/fax/annotate-document-p
 // Execute the real validation/navigation boundary without booting a browser,
 // loading private credentials or running the clinical fixture workflow.
 function navigation(env = {}) {
-  const context = vm.createContext({URL,h:require('./lib/playwright-harness'),process:{env}});
+  const context = vm.createContext({URL,require:()=>require('./lib/playwright-harness'),process:{env}});
   for (const name of ['validateBaseUrl', 'navigateAnnotationViewer']) {
     const marker = name === 'validateBaseUrl' ? 'function ' : 'async function ';
     const start = source.indexOf(marker + name + '(');
