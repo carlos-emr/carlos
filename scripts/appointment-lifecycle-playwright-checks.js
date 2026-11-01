@@ -58,6 +58,8 @@
  * that marker is deleted in a finally, including after a failure.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors, assertStrictPage, wireStrictPage, withExpectedDialogs } = require('./lib/playwright-harness');
 const { appointmentMonitorCleanup, finishAppointmentCleanup } = require('./lib/appointment-page-monitor-cleanup');
@@ -739,7 +741,7 @@ async function deleteAppointment(context, daySheet, appointmentNo) {
     `appointmentArchive has no row for deleted appointment ${appointmentNo}: ${JSON.stringify(archived)}`);
 }
 
-async function main() {
+async function main({cancellation}={}) {
   initMysqlDefaults();
   let browser = null;
   let context = null;
@@ -749,8 +751,10 @@ async function main() {
   try {
     cleanupRows();
 
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+    cancellation?.throwIfCancelled();
     // Wire before the initial popup response and before the shared login helper
     // can choose its default baseline. No historical console baseline applies.
     context.on('page', page => wireStrictPage(page, 'appointment-page', recorder, { baseline: [] }));
@@ -762,33 +766,45 @@ async function main() {
         window.__carlosSelfCloseRequested = true;
       };
     });
+    cancellation?.throwIfCancelled();
 
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
 
     const daySheet = await context.newPage();
+    cancellation?.throwIfCancelled();
     wireStrictPage(daySheet, 'day-sheet', recorder, { baseline: [] });
     await openDaySheet(daySheet);
+    cancellation?.throwIfCancelled();
     pass(`day sheet renders bookable slots for ${targetDate}`);
 
     const booked = await bookFromSlot(context, daySheet);
+    cancellation?.throwIfCancelled();
     pass(`booked appointment ${booked.id} from a day-sheet slot for demographic ${demographicNo}`);
 
     await checkAppointmentLabels(context, daySheet, booked.id);
+    cancellation?.throwIfCancelled();
 
     const edited = await editAppointment(context, daySheet, booked.id);
+    cancellation?.throwIfCancelled();
     pass(`edit persisted reason, notes and the recomputed end_time (${edited.startTime}-${edited.endTime})`);
 
     const rotated = await rotateStatus(daySheet, booked.id, edited.status);
+    cancellation?.throwIfCancelled();
     pass(`day sheet status letter advanced the status ${edited.status} -> ${rotated.status}`);
 
     await dismissBilledCancel(context, daySheet, booked.id, rotated.status);
+    cancellation?.throwIfCancelled();
     pass('Cancel Appt on a billed appointment asked to confirm; dismissed, it sent nothing and kept the appointment');
     const cancelled = await cancelAppointment(context, daySheet, booked.id);
+    cancellation?.throwIfCancelled();
     pass(`edit popup cancelled the appointment (status=${cancelled.status}) without deleting it`);
 
     await dismissDeleteAppointment(context, daySheet, booked.id);
+    cancellation?.throwIfCancelled();
     pass('delete dismissed at its confirmation sent nothing and kept the appointment');
     await deleteAppointment(context, daySheet, booked.id);
+    cancellation?.throwIfCancelled();
     pass('delete removed the appointment and left an appointmentArchive record behind');
 
     assertNoPageErrors(recorder);
@@ -813,7 +829,7 @@ async function main() {
   }
 
 }
-if (require.main === module) main().catch((error) => {
+if (require.main === module) legacyHarness.runLegacyCheck('appointment-lifecycle',main).catch((error) => {
   console.error(error.stack || error.message);
   process.exitCode = 1;
 });
