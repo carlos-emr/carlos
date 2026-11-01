@@ -241,7 +241,7 @@
                                                                 <% if (StringUtils.isNotBlank(demographic.getSourceOfIncome())) { %>
                                                                 <div class="demographicSection" id="legacyDemographicText">
                                                                     <label><fmt:message key="demographic.legacySourceOfIncome"/></label>
-                                                                    <div style="white-space: pre-wrap"><%= Encode.forHtmlContent(demographic.getSourceOfIncome()) %></div>
+                                                                    <div style="white-space: pre-wrap"><%= SafeEncode.forHtmlContent(demographic.getSourceOfIncome()) %></div>
                                                                 </div>
                                                                 <% } %>
                                                                 <%
