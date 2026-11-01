@@ -31,7 +31,8 @@ function runLegacyCheck(name,operation,{cancellationGraceMs}={}) {
     if(process.exitCode)throw new Error('Legacy check reported a failure; see its diagnostics');
   }});
 }
-function sanitizedError(error) {
+function sanitizedError(error, isCancellation) {
+  if(typeof isCancellation==='function'&&isCancellation(error))return error;
   const safe=new Error(h.withoutQueryStrings(error?.message || 'Legacy check failed'));
   if(error?.name==='SkipCheck')safe.name='SkipCheck';
   if(typeof error?.failedStep==='string')safe.failedStep=h.withoutQueryStrings(error.failedStep);

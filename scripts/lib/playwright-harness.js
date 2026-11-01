@@ -111,7 +111,7 @@ function validateBaseUrl(rawBaseUrl, env = process.env) {
   return parsed;
 }
 
-/** Legacy credential-bearing checks additionally require TLS beyond loopback. */
+/** Credential-bearing configuration requires TLS beyond loopback. */
 function validateCredentialBaseUrl(rawBaseUrl, env = process.env) {
   const parsed = validateBaseUrl(rawBaseUrl, env);
   const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
@@ -246,7 +246,7 @@ function appUrl(baseUrl, appPath) {
  */
 function readConfig(options = {}) {
   const env = options.env || process.env;
-  const baseUrl = validateBaseUrl(options.baseUrl || env.BASE_URL || 'http://127.0.0.1:8080/carlos', env);
+  const baseUrl = validateCredentialBaseUrl(options.baseUrl || env.BASE_URL || 'http://127.0.0.1:8080/carlos', env);
   const config = {
     baseUrl,
     chromePath: env.CHROME_PATH || env.CHROMIUM_PATH || '',

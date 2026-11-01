@@ -28,7 +28,8 @@ reopened all four UI-created clinical canaries, then passed 12 smoke and three
 read-only core checks with an unchanged residue baseline. The real Secure-cookie
 HTTP session proof passed against this package.
 
-Full Node regressions pass in GitHub Actions at `797ce6782038`; the final
+Full Node regressions pass in GitHub Actions at `c8df481ee5e` (6,899 passes,
+zero failures/skips, one existing TODO); the final
 commit must independently pass every required check. Focused final review
 regressions pass 139/139, including quoted diagnostic redaction, lexical import
 aliases, read-tracker disposal and real child-process interruption. Registration
@@ -148,19 +149,26 @@ not presented as regressions in this release build.
 
 ## Review and cleanup evidence
 
-CodeRabbit full and incremental reviews were requested on the PR. Valid findings
+CodeRabbit completed its final requested review at `c8df481ee5e`. Its two inline
+findings and two outside-diff findings are addressed: clearer wording, preserved
+cancellation identity, TLS for shared credential configuration and health checks,
+and a request-identity-scoped exception for the native chart unload beacon.
+Focused review regressions pass 213/213, including real SIGINT/SIGTERM structured
+interruption, remote HTTP refusal before reading credentials, and strict negative
+controls for the beacon exception. This exception does not excuse the remaining
+chart XHR failures recorded above. Valid findings
 from CodeRabbit and Cubic are addressed with targeted regressions; each thread is
 resolved only after its disposition is recorded. The final PR status, rather than
 this document's starting commit, determines CI and unresolved-thread completion.
 
 Cleanup guards cover accepted-but-unconfirmed writes, asynchronous installer
-process groups, retries after SQL cleanup failure, provider first-use preferences,
+process groups, retries after SQL cleanup failure, preferences created on first provider use,
 quick-list SQL NULLs, exact program references, and atomic document/link retirement.
 A real MariaDB interleaving proof inserts a foreign string-valued document reference
 after preflight and confirms that the transaction preserves the document, links and
 file. File retirement uses a private quarantine with inode/byte checks and refuses
 to unlink a replacement. Annotation-response ambiguity retains fixtures for exact
-reconciliation rather than claiming successful cleanup. Synthetic owned residue
+reconciliation rather than claiming successful cleanup. Synthetic fixture residue
 found during exploratory attempts was reconciled with exact identity/hash guards;
 no full clinical database backup or fabricated application schema is required.
 

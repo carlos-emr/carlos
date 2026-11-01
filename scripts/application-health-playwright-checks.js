@@ -16,7 +16,7 @@
 
 
 const legacyHarness=require('./lib/legacy-check');
-const { validateBaseUrl } = require('./lib/playwright-harness');
+const { validateCredentialBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const h = require('./lib/playwright-harness');
@@ -29,7 +29,7 @@ function requireEnv(name) {
   return value;
 }
 
-const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+const baseUrl = validateCredentialBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = requireEnv('TEST_USER');
 const testPassword = requireEnv('TEST_PASSWORD');

@@ -1526,3 +1526,9 @@ test('diagnostic redaction handles quoted JSON URLs and embedded Playwright addr
  const parsed=JSON.parse(output);assert.equal(parsed.url,'https://host/carlos/route');
  assert.equal(parsed.nested.message,'goto("/carlos/chart") failed');
 });
+
+test('shared credential configuration refuses opted-in remote cleartext before login',()=>{
+ assert.throws(()=>readConfig({env:{BASE_URL:'http://example.invalid/carlos',ALLOW_NON_LOCAL_BASE_URL:'true'}}),/must use https/);
+ assert.doesNotThrow(()=>readConfig({env:{BASE_URL:'https://example.invalid/carlos',ALLOW_NON_LOCAL_BASE_URL:'true'}}));
+ assert.doesNotThrow(()=>readConfig({env:{BASE_URL:'http://127.0.0.1:8080/carlos'}}));
+});

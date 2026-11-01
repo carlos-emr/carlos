@@ -632,6 +632,6 @@ require('./lib/legacy-check').runLegacyCheck('clinical-freetext',async({cancella
   if (badResponses.length) {
     console.error(`HTTP errors: ${h.withoutQueryStrings(JSON.stringify(badResponses, null, 2))}`);
   }
-  throw require('./lib/legacy-check').sanitizedError(error);
+  throw require('./lib/legacy-check').sanitizedError(error,cancellation.isCancellation);
   }
 });

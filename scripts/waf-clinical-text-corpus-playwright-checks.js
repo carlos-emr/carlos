@@ -54,6 +54,32 @@
  * tickler, and the rows each save writes (found by the patient and by an id watermark taken before the
  * corpus is sent). Cleanup deletes them by key and asserts they are gone. No clinic-wide state is changed.
  */
+// Only this reload's native pagehide lock-release beacon may be excused.
+async function reloadChartForCorpus(s,chart) {
+  const requests=new Set(),since=s.recorder.requestFailures.length;
+  let oldDocument=true;
+  const committed=frame=>{if(frame===chart.mainFrame())oldDocument=false;};
+  const observed=request=>{
+    try {
+      const url=new URL(request.url()),body=new URLSearchParams(request.postData()||'');
+      if(oldDocument&&request.frame().page()===chart&&request.resourceType()==='ping'
+        &&request.method()==='POST'&&url.origin===s.config.baseUrl.origin
+        &&url.pathname===new URL(h.appUrl(s.config.baseUrl,'/CaseManagementEntry')).pathname
+        &&['method','demographicNo','providerNo'].every(key=>body.getAll(key).length===1)
+        &&body.get('method')==='releaseNoteLock'&&body.get('demographicNo')===String(s.patient)
+        &&body.get('providerNo')===String(s.provider))requests.add(request);
+    } catch {} // A detached/foreign request never qualifies for the exception.
+  };
+  chart.on('framenavigated',committed);s.context.on('request',observed);
+  try {await chart.reload({waitUntil:'networkidle'});}
+  finally {
+    chart.off('framenavigated',committed);s.context.off('request',observed);
+    const failures=s.recorder.requestFailures.splice(since);
+    s.recorder.requestFailures.push(...failures.filter(entry=>!(entry.resourceType==='ping'
+      &&entry.errorText==='net::ERR_ABORTED'&&requests.has(entry.requestRef?.deref?.()))));
+  }
+}
+
 const { randomUUID } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, openFormsMenu } = require('./lib/playwright-ui');
@@ -1018,7 +1044,7 @@ function rows(s, ctx) {
     row.send=async values=>{
       // A saved note advances its immutable revision and lock; replaying the old
       // control body would test a stale editor, rather than the WAF prose rule.
-      const chart=await s.chart();await chart.reload({waitUntil:'networkidle'});
+      const chart=await s.chart();await reloadChartForCorpus(s,chart);
       const captured=await family.perform('CORPUS',{text:values.caseNote_note});
       h.assert(captured.response,'The native corpus Save has no response');return captured.response;
     };
@@ -1370,4 +1396,4 @@ async function preflight({ sql }) {
 }
 
 if (require.main === module) runWorkflow('waf-clinical-text-corpus', workflow, { openPatient: true, preflight });
-module.exports = { PREREQUISITES, workflow, rtlPlainText,finishRows };
+module.exports = { PREREQUISITES, workflow, rtlPlainText,finishRows,reloadChartForCorpus };

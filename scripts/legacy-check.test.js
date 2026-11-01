@@ -5,7 +5,7 @@ const {spawn}=require('node:child_process');
 async function run(t,{signal,result}={}) {
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-legacy-check-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
   const child=spawn(process.execPath,[path.join(__dirname,'fixtures/legacy-check/worker.cjs')],
-    {env:{...process.env,LEGACY_CHECK_FIXTURE_DIR:dir,LEGACY_CHECK_RESULT:result===undefined?'':String(result)},stdio:['ignore','pipe','pipe']});
+    {env:{...process.env,LEGACY_CHECK_FIXTURE_DIR:dir,RESULT_JSON:path.join(dir,'result.json'),LEGACY_CHECK_RESULT:result===undefined?'':String(result)},stdio:['ignore','pipe','pipe']});
   let output='';child.stdout.on('data',data=>output+=data);child.stderr.on('data',data=>output+=data);
   const closed=new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',(code,killed)=>resolve({code,killed}));});
   t.after(()=>{if(child.exitCode===null)child.kill('SIGKILL');});
@@ -18,7 +18,8 @@ async function run(t,{signal,result}={}) {
 for(const [signal,code] of [['SIGINT',130],['SIGTERM',143]])test(`${signal} drains the accepted write, unwinds finally and starts no later operation`,async t=>{
   const result=await run(t,{signal});assert.equal(result.code,code,result.output());assert.equal(result.killed,null);
   assert(fs.existsSync(path.join(result.dir,'settled')));assert(fs.existsSync(path.join(result.dir,'cleaned')));
-  assert(!fs.existsSync(path.join(result.dir,'continued')));assert.match(result.output(),/interrupted/);
+  assert(!fs.existsSync(path.join(result.dir,'continued')));const structured=JSON.parse(fs.readFileSync(path.join(result.dir,'result.json'),'utf8'));
+  assert.equal(structured.detail,'interrupted');
 });
 for(const result of [0,1,2])test(`legacy result ${result} preserves pass/failure/prerequisite status after cleanup`,async t=>{
   const actual=await run(t,{result});assert.equal(actual.code,result,actual.output());assert(fs.existsSync(path.join(actual.dir,'cleaned')));
