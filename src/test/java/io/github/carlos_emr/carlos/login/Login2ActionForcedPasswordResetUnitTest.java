@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.util.AlertTimer;
 
 import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.logging.log4j.Level;
@@ -57,6 +58,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.MockedConstruction;
@@ -2152,6 +2155,28 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
                 "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "0123456789", "!@#")).isEqualTo(3);
         assertThat(Login2Action.countPasswordGroups("Lower123!", "abcdefghijklmnopqrstuvwxyz",
                 "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "0123456789", "!@#")).isEqualTo(4);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Test Provider", "O'Brien \"quoted\"", "日本語 😀", "Back\\slash",
+            "</script><img src=x onerror=alert(1)>"})
+    @DisplayName("should preserve provider display names through the AJAX JSON response")
+    void shouldPreserveProviderName_throughAjaxJsonRoundTrip(String firstName) throws Exception {
+        Provider provider = activeProvider();
+        provider.setFirstName(firstName);
+        // Production's ResponseDefaultsFilter establishes UTF-8 before the action writes.
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        Login2Action action = newAction(null, null, null);
+
+        String result = ReflectionTestUtils.invokeMethod(action, "buildPostAuthenticationResponse",
+                provider, true, "3rdpartyLogin");
+
+        var json = new ObjectMapper().readTree(response.getContentAsByteArray());
+        assertThat(result).isNull();
+        assertThat(response.getContentType()).startsWith("application/json");
+        assertThat(json.get("success").booleanValue()).isTrue();
+        assertThat(json.get("providerNo").textValue()).isEqualTo("999998");
+        assertThat(json.get("providerName").textValue()).isEqualTo("Provider, " + firstName);
     }
 
     private Login2Action newAction(String oldPassword, String newPassword, String confirmPassword) {

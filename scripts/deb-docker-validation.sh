@@ -191,7 +191,7 @@ RUN set -e; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ca-certificates systemd systemd-sysv dbus iproute2 procps curl \
-      nodejs npm poppler-utils gnupg libxml2-utils fonts-liberation; \
+      nodejs npm poppler-utils fonts-liberation gnupg libxml2-utils; \
     update-ca-certificates; \
     rm -f /etc/apt/apt.conf.d/98carlos-validation-ca; \
     rm -rf /var/lib/apt/lists/*; \

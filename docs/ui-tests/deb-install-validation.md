@@ -939,6 +939,11 @@ runtime dependencies (before 2026.08.0-alpha14 the separate
 `carlos-emr-eform-renderer` package did). Using it also makes the suite exercise the exact
 browser shipped to operators instead of a second downloaded browser.
 
+`annotate-document-playwright-checks.js` requires Liberation Sans from
+`fonts-liberation` on the machine running the browser. Its late-font scenarios
+use that face while the annotation font is delayed; a fallback face makes the
+check fail. The Docker validation image installs this prerequisite too.
+
 The scripts run from `/root/carlos` (the repo mount) so their relative fixture
 paths resolve; Node still finds Playwright via `/root/node_modules`.
 
@@ -948,11 +953,6 @@ and the coordinates of a percentage-positioned field. A PDF header alone
 cannot establish that the clinical content was retained. The corpus soak also
 records the application's explicit completeness refusal and its issue report;
 it does not approve omitted content to obtain a PDF.
-
-`annotate-document-playwright-checks.js` requires Liberation Sans from
-`fonts-liberation` where Chromium runs. Its late-font scenarios use this narrower
-fallback to verify that notes are refitted when the annotation font arrives.
-The Docker validation image installs this prerequisite too.
 
 ## 6. Run the suite
 
