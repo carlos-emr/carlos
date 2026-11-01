@@ -56,3 +56,14 @@ changing that algorithm would stop matching stored rows.
 The hard requirement to preserve behaviour takes precedence over replacing a
 call merely because the issue's initial inventory lists its file. The five new
 compatibility test classes supplement the full suite and `-Pjspc` checks.
+
+## Existing analysis debt
+
+SonarCloud's PR analysis raised the pre-existing cognitive complexity of
+`Hl7TextInfoDaoImpl.findLabAndDocsViaMagic(..., acknowledgedSince)` while
+reanalysing this file. Its query body is unchanged from release base
+`b4c0dfc94e6`; the Base64 replacement is in another method. That one method
+has a specific `java:S3776` deferral so this encoding migration does not also
+restructure permission-sensitive inbox SQL. This does not suppress SQL/security
+analysis, other rules, or complexity checks elsewhere. The original finding is
+`AaGUx4Dmtp6QPeC6m-s5` in the SonarCloud analysis of PR #5497.

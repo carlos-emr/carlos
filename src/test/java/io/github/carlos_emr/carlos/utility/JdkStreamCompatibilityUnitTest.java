@@ -62,7 +62,9 @@ class JdkStreamCompatibilityUnitTest {
             @Override public void close() { throw new AssertionError("caller owns input"); }
         };
         OutputStream output = new OutputStream() {
-            @Override public void write(int value) { }
+            @Override public void write(int value) {
+                // Discard bytes: this test observes ownership and flushing, not content.
+            }
             @Override public void close() { throw new AssertionError("caller owns output"); }
             @Override public void flush() { throw new AssertionError("caller flushes output"); }
         };

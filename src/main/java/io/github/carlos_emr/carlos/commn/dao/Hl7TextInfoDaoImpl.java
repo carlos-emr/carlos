@@ -294,7 +294,10 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         return findLabAndDocsViaMagic(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, searchProvider, patientSearch, startDate, endDate, null);
     }
 
-    @SuppressWarnings("unchecked")
+    // S3776: this query body is unchanged from release/2026.08 b4c0dfc94e6.
+    // #5483 changes only encoding elsewhere in this file; restructuring this
+    // permission-sensitive SQL builder needs its own behavior-preservation review.
+    @SuppressWarnings({"unchecked", "java:S3776"})
     @NativeSql({"hl7TextInfo", "providerLabRouting", "ctl_document", "demographic"})
     @Override
     public List<Object[]> findLabAndDocsViaMagic(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, boolean searchProvider, boolean patientSearch, Date startDate, Date endDate, Date acknowledgedSince) {

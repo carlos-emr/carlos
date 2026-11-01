@@ -61,7 +61,8 @@ class JdkEncodingCompatibilityUnitTest {
         assertThat(new ClientImage().getImage_contents()).isNull();
         assertThatThrownBy(() -> UtilMisc.encode64(null)).isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> MsgCommxml.encode64(null)).isInstanceOf(NullPointerException.class);
-        assertThatThrownBy(() -> new EmailLog().setBody(null)).isInstanceOf(NullPointerException.class);
+        EmailLog email = new EmailLog();
+        assertThatThrownBy(() -> email.setBody(null)).isInstanceOf(NullPointerException.class);
     }
 
     @Test
@@ -70,7 +71,8 @@ class JdkEncodingCompatibilityUnitTest {
         ClientImage image = new ClientImage();
         image.setImage_contents(new javax.sql.rowset.serial.SerialBlob(" -_8 !\r\n".getBytes(StandardCharsets.US_ASCII)));
         assertThat(image.getImage_data()).isEqualTo(expected);
-        assertThatThrownBy(() -> java.util.Base64.getDecoder().decode(" -_8 !\r\n"))
+        var decoder = java.util.Base64.getDecoder();
+        assertThatThrownBy(() -> decoder.decode(" -_8 !\r\n"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 }

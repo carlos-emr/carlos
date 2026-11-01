@@ -103,8 +103,8 @@ public class ReportEvaluator {
 
             if (additionalFields != null) {
                 for (Map.Entry<String, String> field : additionalFields) {
-                    String key = (String) field.getKey();
-                    String val = (String) field.getValue();
+                    String key = field.getKey();
+                    String val = field.getValue();
 
                     EctMeasurementsDataBeanHandler ect = new EctMeasurementsDataBeanHandler(Integer.valueOf(demo), val);
                     Collection<EctMeasurementsDataBean> v = ect.getMeasurementsDataVector();
