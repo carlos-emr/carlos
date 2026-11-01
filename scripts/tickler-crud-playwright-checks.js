@@ -335,30 +335,37 @@ async function findRowInList(page, message, expectedStatus) {
   return row;
 }
 
-async function probeTicklerSearch(page, message) {
-  // fill() also fires DataTables' input handler. Use one API draw per probe,
-  // rather than starting two requests and having DataTables abort the first.
-  await page.evaluate((needle) => {
-    document.querySelector('#ticklerResults_filter input[type="search"]').value = needle;
-    window.jQuery('#ticklerResults').DataTable().search(needle).draw();
-  }, message);
-  await page.waitForFunction(() => {
+async function fillTicklerSearch(page, needle) {
+  const previousDraw = await page.evaluate(() => (
+    window.jQuery('#ticklerResults').DataTable().settings()[0].iDraw
+  ));
+  // Exercise the input handler once and wait through its server-side debounce.
+  const [searchResponse] = await Promise.all([
+    page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return response.request().method() === 'GET'
+        && url.pathname.endsWith('/tickler/ListTicklers')
+        && url.searchParams.get('search[value]') === needle;
+    }, { timeout: 30000 }),
+    page.locator('#ticklerResults_filter input[type="search"]').fill(needle),
+  ]);
+  assert(searchResponse.ok(), `tickler search returned HTTP ${searchResponse.status()}`);
+  assert(await searchResponse.finished() === null, 'tickler search did not finish');
+  await page.waitForFunction(({ previousDraw, needle }) => {
     const settings = window.jQuery('#ticklerResults').DataTable().settings()[0];
-    return !settings.bDrawing && settings.jqXHR && settings.jqXHR.readyState === 4;
-  }, null, { timeout: 30000 });
+    return settings.iDraw > previousDraw && settings.oPreviousSearch.sSearch === needle
+      && !settings.bDrawing && settings.jqXHR && settings.jqXHR.readyState === 4;
+  }, { previousDraw, needle }, { timeout: 30000 });
+}
+
+async function probeTicklerSearch(page, message) {
+  await fillTicklerSearch(page, message);
   const found = await page.evaluate(() => {
     const needle = document.querySelector('#ticklerResults_filter input[type="search"]').value;
     const table = window.jQuery('#ticklerResults').DataTable();
     return table.rows({ search: 'applied' }).data().toArray().some((row) => row.message === needle);
   });
-  await page.evaluate(() => {
-    document.querySelector('#ticklerResults_filter input[type="search"]').value = '';
-    window.jQuery('#ticklerResults').DataTable().search('').draw();
-  });
-  await page.waitForFunction(() => {
-    const settings = window.jQuery('#ticklerResults').DataTable().settings()[0];
-    return !settings.bDrawing && settings.jqXHR && settings.jqXHR.readyState === 4;
-  }, null, { timeout: 30000 });
+  await fillTicklerSearch(page, '');
   return found;
 }
 
