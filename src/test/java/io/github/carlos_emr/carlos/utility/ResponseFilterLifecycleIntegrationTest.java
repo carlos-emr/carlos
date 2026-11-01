@@ -260,6 +260,21 @@ class ResponseFilterLifecycleIntegrationTest {
                                         Arguments.of(context, dispatch, initial, output)))));
     }
 
+    static Stream<Arguments> lateTypeHeaderCases() {
+        return Stream.of("/development", "/packaged").flatMap(context ->
+                Stream.of("set", "add").map(api -> Arguments.of(context, api)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("lateTypeHeaderCases")
+    void shouldPublishStreamLength_whenTypeHeaderFollowsChannelSelection(String context, String api)
+            throws Exception {
+        HttpResponse<byte[]> response = get(context + "/direct?output=binary&lateType=" + api + "&flush=true");
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).isEqualTo(BINARY);
+        assertThat(response.headers().firstValueAsLong("Content-Length")).hasValue(BINARY.length);
+    }
+
     @ParameterizedTest(name = "reset {0} {1} {2} -> {3}")
     @MethodSource("fullResetCases")
     void shouldCoordinateFullResetAcrossEveryWrapper_andAllowChannelReselection(
@@ -464,11 +479,24 @@ class ResponseFilterLifecycleIntegrationTest {
                 return;
             }
             if ("binary".equals(output)) {
-                response.setContentType("application/octet-stream");
-                response.setContentLength(BINARY.length);
-                response.getOutputStream().write(BINARY);
+                String lateType = request.getParameter("lateType");
+                jakarta.servlet.ServletOutputStream stream;
+                if (lateType == null) {
+                    response.setContentType("application/octet-stream");
+                    response.setContentLength(BINARY.length);
+                    stream = response.getOutputStream();
+                } else {
+                    response.setContentLength(BINARY.length);
+                    stream = response.getOutputStream();
+                    if ("add".equals(lateType)) {
+                        response.addHeader("cOnTeNt-TyPe", "application/octet-stream");
+                    } else {
+                        response.setHeader("cOnTeNt-TyPe", "application/octet-stream");
+                    }
+                }
+                stream.write(BINARY);
                 if ("true".equals(request.getParameter("flush"))) {
-                    response.getOutputStream().flush();
+                    stream.flush();
                 }
                 return;
             }

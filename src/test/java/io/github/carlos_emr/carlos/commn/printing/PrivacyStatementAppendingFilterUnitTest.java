@@ -24,6 +24,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -180,6 +182,34 @@ class PrivacyStatementAppendingFilterUnitTest {
         });
         assertThat(response.getContentAsByteArray()).isEqualTo(payload);
         assertThat(response.getContentLength()).isEqualTo(payload.length);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false,false", "false,true", "true,false", "true,true"})
+    void shouldPublishNonHtmlLength_whenTypeHeaderIsSetAfterChannelSelection(boolean add, boolean useWriter)
+            throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentLength(4);
+            var writer = useWriter ? res.getWriter() : null;
+            var stream = useWriter ? null : res.getOutputStream();
+            var http = (jakarta.servlet.http.HttpServletResponse) res;
+            if (add) {
+                http.addHeader("cOnTeNt-TyPe", "text/plain;charset=UTF-8");
+            } else {
+                http.setHeader("cOnTeNt-TyPe", "text/plain;charset=UTF-8");
+            }
+            assertThat(response.getContentLength()).isEqualTo(4);
+            if (useWriter) {
+                writer.write("body");
+            } else {
+                stream.write("body".getBytes(StandardCharsets.UTF_8));
+                stream.flush();
+            }
+        });
+        assertThat(response.getContentAsString()).isEqualTo("body");
+        assertThat(response.getContentLength()).isEqualTo(4);
     }
 
     @Test

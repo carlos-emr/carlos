@@ -386,9 +386,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
         @Override
         public void setContentLengthLong(long length) {
             deferredContentLength = length;
-            if ((responseOutputStreamObtained || responseWriterObtained) && isKnownNonHtml()) {
-                applyDeferredContentLength();
-            }
+            applyNonHtmlContentLength();
         }
 
         @Override
@@ -423,6 +421,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 deferredContentLength = null;
             }
             super.setHeader(name, value);
+            applyNonHtmlContentLength();
         }
 
         @Override
@@ -431,12 +430,18 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 setHeader(name, value);
             } else {
                 super.addHeader(name, value);
+                applyNonHtmlContentLength();
             }
         }
 
         @Override
         public void setContentType(String type) {
             super.setContentType(type);
+            applyNonHtmlContentLength();
+        }
+
+        private void applyNonHtmlContentLength() {
+            // Content-Type can arrive through any header API after channel selection.
             if ((responseOutputStreamObtained || responseWriterObtained) && isKnownNonHtml()) {
                 applyDeferredContentLength();
             }
