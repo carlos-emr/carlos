@@ -27,34 +27,34 @@ jobs:
           path = Path('src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilderTransportUnitTest.java')
           source = path.read_text()
           original = '''    void tearDown() {
-        clients.forEach(Client::destroy);
-        BusFactory.setThreadDefaultBus(previousBus);
-        if (bus != null) bus.shutdown(true);
-        if (peer != null) peer.close();
-    }'''
+                  clients.forEach(Client::destroy);
+                  BusFactory.setThreadDefaultBus(previousBus);
+                  if (bus != null) bus.shutdown(true);
+                  if (peer != null) peer.close();
+              }'''
           replacement = '''    void tearDown() {
-        try {
-            if (peer != null) peer.assertHealthy();
-        } finally {
-            clients.forEach(Client::destroy);
-            BusFactory.setThreadDefaultBus(previousBus);
-            if (bus != null) bus.shutdown(true);
-            if (peer != null) peer.close();
-        }
-    }'''
+                  try {
+                      if (peer != null) peer.assertHealthy();
+                  } finally {
+                      clients.forEach(Client::destroy);
+                      BusFactory.setThreadDefaultBus(previousBus);
+                      if (bus != null) bus.shutdown(true);
+                      if (peer != null) peer.close();
+                  }
+              }'''
           if original not in source:
               raise RuntimeError('Unexpected fixture cleanup source')
           source = source.replace(original, replacement)
           test = '''    @org.junit.jupiter.api.RepeatedTest(100)
-    void shouldRepeatWarmup_withIndependentSyntheticPeers() throws Exception {
-        EDTDelegate port = client(EDTDelegate.class);
-        assertThat(port.download(RESOURCE_IDS).getData().getFirst().getContent())
-                .containsExactly(EbsHttpsTestFixture.PAYLOAD);
-        peer.assertHealthy();
-        assertReplaysReleased();
-    }
-
-'''
+              void shouldRepeatWarmup_withIndependentSyntheticPeers() throws Exception {
+                  EDTDelegate port = client(EDTDelegate.class);
+                  assertThat(port.download(RESOURCE_IDS).getData().getFirst().getContent())
+                          .containsExactly(EbsHttpsTestFixture.PAYLOAD);
+                  peer.assertHealthy();
+                  assertReplaysReleased();
+              }
+          
+          '''
           marker = '    private <T> T client(Class<T> contract) {'
           if marker not in source:
               raise RuntimeError('Unexpected client helper source')
