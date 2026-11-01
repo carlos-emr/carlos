@@ -267,7 +267,7 @@ class GenerateEnvelopes2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
             String script = openActionScript(response.getContentAsByteArray());
-            assertThat(script).contains("params.printerName='Envelope Printer';")
+            assertThat(script).contains("params.printerName='Envelope\\x20Printe\\x72';")
                     .contains("interactionLevel.silent");
         }
 

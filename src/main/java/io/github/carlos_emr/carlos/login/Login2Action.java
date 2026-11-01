@@ -1272,7 +1272,8 @@ public final class Login2Action extends ActionSupport {
             logger.debug("rendering ajax response");
             ObjectNode json = objectMapper.createObjectNode();
             json.put("success", true);
-            json.put("providerName", SafeEncode.forJavaScript(provider.getFormattedName()));
+            // Jackson owns JSON escaping; the AJAX page renders this value with textContent.
+            json.put("providerName", provider.getFormattedName());
             json.put("providerNo", provider.getProviderNo());
             response.setContentType("application/json");
             response.getWriter().write(json.toString());

@@ -76,7 +76,8 @@ class CaseManagementEmptyStateRegressionTest {
         assertConditionalMessage(jsp, "Notes", "casemgmt.viewNotes.msgNoNotes");
         assertThat(jsp)
                 .contains("<li class=\"cpp-empty-state\">")
-                .contains("for (int i = 0; i < notes.size(); i++)");
+                .contains("for (int i = 0; i < notes.size(); i++)")
+                .contains("String htmlNoteTxt = SafeEncode.forHtml(note.getNote() + addlData);");
     }
 
     @Test
