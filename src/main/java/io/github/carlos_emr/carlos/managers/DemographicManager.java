@@ -61,6 +61,14 @@ public interface DemographicManager {
 
     public String getDemographicFormattedName(LoggedInInfo loggedInInfo, Integer demographicId);
 
+    /**
+     * Checks patient-specific read access before bulk-loading schedule names.
+     * Null IDs and blank-slot ID 0 are ignored; missing patients have no map entry.
+     * No MRP or next-appointment enrichment is performed.
+     */
+    Map<Integer, String> getDemographicFormattedNames(LoggedInInfo loggedInInfo,
+                                                    Collection<Integer> demographicIds);
+
     public String getDemographicEmail(LoggedInInfo loggedInInfo, Integer demographicId);
 
 

@@ -160,13 +160,20 @@ public class ScheduleService extends AbstractServiceImpl {
             }
 
             List<Appointment> appts = scheduleManager.getDayAppointments(loggedInInfo, providerNo, dateObj);
+            List<Integer> demographicIds = new ArrayList<>();
+            for (Appointment appt : appts) {
+                if (appt.getDemographicNo() != 0) {
+                    demographicIds.add(appt.getDemographicNo());
+                }
+            }
+            Map<Integer, String> patientNames = demographicManager.getDemographicFormattedNames(loggedInInfo, demographicIds);
             for (Appointment appt : appts) {
                 PatientListApptItemBean item = new PatientListApptItemBean();
                 item.setDemographicNo(appt.getDemographicNo());
                 if (appt.getDemographicNo() == 0) {
                     item.setName(appt.getName());
                 } else {
-                    item.setName(demographicManager.getDemographicFormattedName(loggedInInfo, appt.getDemographicNo()));
+                    item.setName(patientNames.get(appt.getDemographicNo()));
                 }
                 item.setStartTime(timeFormatter.format(appt.getStartTime()));
                 item.setReason(appt.getReason());
