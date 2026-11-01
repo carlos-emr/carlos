@@ -377,14 +377,23 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRun);
       `Preview2 unexpectedly received a pharmacy (pharmacyId=${JSON.stringify(emptyParam)} at ${emptyFrameUrl})`);
     await screenshot(rxPage, config.screenshotDir, 'rx-preview-pharmacy-empty');
 
-    // Branch 2: the literal string "null" clients can echo back, rendered as
-    // a top-level viewScript page like the prescription-signature check does.
+    // Branch 2: the literal string "null" clients can echo back. Name the
+    // patient just as the Reprint UI does; viewScript refuses patient-less
+    // requests rather than adopting another window's active patient (#5450).
     const nullPage = await context.newPage();
     wirePage(nullPage, 'rx-null-literal', recorder);
-    await gotoApp(nullPage, config.baseUrl, `/rx/viewScript?scriptId=${scriptId}&pharmacyId=null`);
+    const nullResponse = await gotoApp(nullPage, config.baseUrl,
+      `/rx/viewScript?demographicNo=${demographicNo}&scriptId=${scriptId}&pharmacyId=null`);
+    assert(nullResponse && nullResponse.status() === 200,
+      `reprint view (pharmacyId=null literal) expected HTTP 200, got ${nullResponse ? nullResponse.status() : 'no response'}`);
     await nullPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(nullPage, 'reprint view (pharmacyId=null literal)');
-    await assertPreviewRenders(nullPage.mainFrame(), 'reprint preview (pharmacyId=null literal)');
+    const nullPreviewUrl = await assertPreviewRenders(nullPage.mainFrame(), 'reprint preview (pharmacyId=null literal)');
+    const nullPreviewParams = new URL(nullPreviewUrl).searchParams;
+    assert(nullPreviewParams.get('pharmacyId') === 'null',
+      'literal pharmacyId=null did not reach the rendered preview');
+    assert(nullPreviewParams.get('demographicNo') === demographicNo && nullPreviewParams.get('scriptId') === scriptId,
+      'literal pharmacyId=null preview did not retain the requested patient and prescription');
     await screenshot(nullPage, config.screenshotDir, 'rx-preview-pharmacy-null-literal');
 
     // Explicit saved-script previews must refuse invalid/foreign identities even while a
