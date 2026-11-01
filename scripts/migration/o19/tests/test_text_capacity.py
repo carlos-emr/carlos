@@ -9,8 +9,7 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
-import unittest
-from unittest import mock
+from unittest import TestCase, mock, skipUnless
 import uuid
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -24,7 +23,7 @@ capacity_audit = importlib.util.module_from_spec(audit_spec)
 audit_spec.loader.exec_module(capacity_audit)
 
 
-class TestHistoricalDeclarations(unittest.TestCase):
+class TestHistoricalDeclarations(TestCase):
     def test_missing_source_or_empty_glob_refuses_audit_before_parsing(self):
         """A partial checkout must not produce an apparently complete inventory."""
         with tempfile.TemporaryDirectory() as temporary:
@@ -66,7 +65,7 @@ class TestHistoricalDeclarations(unittest.TestCase):
         self.assertEqual(schema.largest["sample"]["value"], "VARCHAR(4000)")
 
 
-class TestPhysicalColumnInventory(unittest.TestCase):
+class TestPhysicalColumnInventory(TestCase):
     def test_existing_columns_keep_attributes_and_never_lose_capacity(self):
         """Compare old and new physical contracts for unintended destructive changes."""
         contracts = ROOT / "database/mysql/schema-contract"
@@ -101,7 +100,7 @@ class TestPhysicalColumnInventory(unittest.TestCase):
                     self.assertEqual(set(columns), physical[table])
 
 
-class TestOscarTextCapacity(unittest.TestCase):
+class TestOscarTextCapacity(TestCase):
     @classmethod
     def setUpClass(cls):
         """Reuse exported physical types instead of reparsing both migration trees."""
@@ -128,10 +127,10 @@ class TestOscarTextCapacity(unittest.TestCase):
                         self.assertGreaterEqual(size, expected)
 
 
-@unittest.skipUnless(os.environ.get("CARLOS_TEST_O19_REFERENCE_DB")
+@skipUnless(os.environ.get("CARLOS_TEST_O19_REFERENCE_DB")
                      and os.environ.get("CARLOS_TEST_MARIADB_SOCKET"),
                      "requires a disposable migrated MariaDB reference database")
-class TestConsentDemoSeed(unittest.TestCase):
+class TestConsentDemoSeed(TestCase):
     def test_demo_insert_omits_generated_column_and_keeps_decisions(self):
         reference = os.environ["CARLOS_TEST_O19_REFERENCE_DB"]
         self.assertRegex(reference, r"^[A-Za-z0-9_]+$")
@@ -154,10 +153,10 @@ class TestConsentDemoSeed(unittest.TestCase):
             execute("DROP DATABASE `{0}`".format(database))
 
 
-@unittest.skipUnless(os.environ.get("CARLOS_TEST_O19_REFERENCE_BC_DB")
+@skipUnless(os.environ.get("CARLOS_TEST_O19_REFERENCE_BC_DB")
                      and os.environ.get("CARLOS_TEST_MARIADB_SOCKET"),
                      "requires a disposable migrated BC reference database")
-class TestBCARUrineCultureText(unittest.TestCase):
+class TestBCARUrineCultureText(TestCase):
     def test_an_existing_short_source_definition_is_upgraded_without_losing_values(self):
         reference = os.environ["CARLOS_TEST_O19_REFERENCE_BC_DB"]
         self.assertRegex(reference, r"^[A-Za-z0-9_]+$")
