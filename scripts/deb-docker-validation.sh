@@ -545,8 +545,10 @@ PYBUILD
 cmd_upgrade() {
   require_disposable
   local from="${1:-}" target_dir target_emr target_drugref target_ctl previous rc=0
-  [[ "$#" == 1 && "$from" =~ ^2026\.08\.[0-9]+(-[A-Za-z0-9.]+)?$ ]] \
-    || die 'upgrade requires exactly one from-version release tag (for example 2026.08.0-beta2)'
+  if ! [[ "$#" == 1 && "$from" =~ ^2026\.08\.[0-9]+(-[A-Za-z0-9.]+)?$ ]]; then
+    printf '%s\n' 'upgrade requires exactly one from-version release tag (for example 2026.08.0-beta2)' >&2
+    return 2
+  fi
   [ -n "${DEBS_DIR:-}" ] && [ -d "$DEBS_DIR" ] || die 'DEBS_DIR must name the directory holding the target .debs'
   target_dir="$(cd "$DEBS_DIR" && pwd)"
   target_emr=$(find_one_deb 'carlos-emr_*_amd64.deb')

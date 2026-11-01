@@ -65,7 +65,7 @@ test('upgrade rejects missing, ambiguous or malformed release versions before Do
   const box=sandbox(t),env={...box.env,CARLOS_DISPOSABLE_HOST:'true'};
   for(const args of [[],[''],['../2026.08.0-beta2'],['2026.08.0-beta2','extra'],['2026.09.0-beta1']]) {
     const result=run(['upgrade',...args],env);
-    assert.equal(result.status,1);assert.match(result.stderr,/exactly one from-version release tag/);
+    assert.equal(result.status,2);assert.match(result.stderr,/exactly one from-version release tag/);
   }
   const result=run(['upgrade','2026.08.0-beta2'],{...env,DEBS_DIR:''});
   assert.equal(result.status,1);assert.match(result.stderr,/DEBS_DIR/);
