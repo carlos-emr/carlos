@@ -1,3 +1,16 @@
+carlos-emr (2026.09.0~snapshot28) resolute; urgency=medium
+
+  * Proactively preserve OSCAR 19 character and text capacities in the
+    common, Ontario and BC schemas, including utf8mb4 expansion. Keep
+    legacy demographic text visible and preserve full Rx favourites and
+    prevention configuration values.
+  * Reconcile the Consent one-live-record schema, audited flag/history
+    normalization, generated import rules and active-record lookups.
+  * Ship the pre-fix physical contracts for verified pre-copy recovery and
+    require the fixed carlos-ctl package pair (issue #5503).
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 01 Nov 2026 16:01:03 -0500
+
 carlos-emr (2026.09.0~snapshot27) resolute; urgency=medium
 
   * Keep immutable import input snapshots out of routine backups and remove

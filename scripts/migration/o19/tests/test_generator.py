@@ -35,6 +35,23 @@ def load_generator():
 
 
 class TestExplicitSourceCommit(unittest.TestCase):
+    def test_dynamic_ddl_fragments_are_not_column_declarations(self):
+        generator = load_generator()
+        sql = "CREATE TABLE sample(id INT, value TEXT); SET @sql=CONCAT('ALTER TABLE sample MODIFY value LONGTEXT', ' NOT NULL'); ALTER TABLE sample MODIFY value MEDIUMTEXT;"
+        statements = list(generator.walk_ddl(sql))
+        self.assertEqual([s.kind for s in statements], ["create", "alter"])
+        self.assertEqual(statements[1].body.strip(), "MODIFY value MEDIUMTEXT")
+
+    def test_modify_tracks_type_default_nullability_and_position(self):
+        schema = load_generator().Schema()
+        schema.apply_create("sample", "id INT, value VARCHAR(1), tail INT")
+        schema.apply_alter("sample", "MODIFY COLUMN `VALUE` VARCHAR(255) NOT NULL DEFAULT 'x' AFTER tail")
+        self.assertEqual(list(schema.tables["sample"]), ["id", "tail", "value"])
+        self.assertEqual(schema.tables["sample"]["value"], "VARCHAR(255) NOT NULL DEFAULT 'x'")
+        schema.apply_alter("sample", "MODIFY value MEDIUMTEXT NULL FIRST")
+        self.assertEqual(list(schema.tables["sample"]), ["value", "id", "tail"])
+        self.assertEqual(schema.tables["sample"]["value"], "MEDIUMTEXT NULL")
+
     def test_empty_or_malformed_source_commit_is_refused_before_generation(self):
         generator = load_generator()
         for commit in ("", "abc", "A" * 40):

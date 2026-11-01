@@ -85,3 +85,7 @@ common/V1.0.59.23__cds_report_content_precision.sql
 common/V1.0.59.24__cds_durable_resume_intent.sql
 common/V1.0.59.25__cds_review_kind_capacity.sql
 common/V1.0.59.26__cds_measurements_deleted_capacity.sql
+common/V1.0.59.27__preserve_oscar19_text_capacity.sql
+on/V1.0.59.28__preserve_oscar19_text_capacity.sql
+bc/V1.0.59.29__preserve_oscar19_text_capacity.sql
+common/V1.0.59.30__one_live_consent_per_type.sql

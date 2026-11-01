@@ -1,0 +1,5723 @@
+{
+  "source_repository": "https://bitbucket.org/oscaremr/oscar.git",
+  "source_branch": "stable",
+  "source_commit": "b425be066fa17f7dff0a4e0ee58e41bf89b83d81",
+  "note": "Largest historical init/update declarations for copy/merge columns; no clinic data. Text tiers allow utf8mb4 expansion from latin1. LONGTEXT is already the engine maximum.",
+  "columns": [
+    {
+      "table": "AppDefinition",
+      "column": "config",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "AppUser",
+      "column": "authenticationData",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "Contact",
+      "column": "note",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "Department",
+      "column": "annotation",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "Episode",
+      "column": "notes",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "FlowSheetUserCreated",
+      "column": "topHTML",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "Flowsheet",
+      "column": "content",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "HRMDocumentComment",
+      "column": "comment",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "HRMProviderConfidentialityStatement",
+      "column": "statement",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "Institution",
+      "column": "annotation",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "PreventionsLotNrs",
+      "column": "lotNr",
+      "source": "text NOT NULL",
+      "target": "text NOT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "SystemMessage",
+      "column": "message",
+      "source": "text NOT NULL",
+      "target": "text NOT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "admission",
+      "column": "admission_notes",
+      "source": "text default NULL",
+      "target": "varchar(4) DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "admission",
+      "column": "discharge_notes",
+      "source": "text default NULL",
+      "target": "varchar(4) DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "allergies",
+      "column": "reaction",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "billactivity",
+      "column": "htmlcontext",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "billactivity",
+      "column": "ohipcontext",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "billing",
+      "column": "content",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "billing",
+      "column": "total",
+      "source": "varchar(7) DEFAULT NULL",
+      "target": "varchar(6) DEFAULT NULL",
+      "new_type": "varchar(7)",
+      "required_utf8_bytes": null,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "billing_on_cheader1",
+      "column": "comment1",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on"
+      ]
+    },
+    {
+      "table": "billing_on_repo",
+      "column": "content",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on"
+      ]
+    },
+    {
+      "table": "billingnote",
+      "column": "note",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "billingservice",
+      "column": "description",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "caisi_form",
+      "column": "surveyData",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "caisi_form_data",
+      "column": "value",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "caisi_form_data_tmpsave",
+      "column": "value",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "casemgmt_cpp",
+      "column": "familyHistory",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "casemgmt_cpp",
+      "column": "medicalHistory",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "casemgmt_cpp",
+      "column": "ongoingConcerns",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "casemgmt_cpp",
+      "column": "otherSupportSystems",
+      "source": "text default null",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "casemgmt_cpp",
+      "column": "pastMedications",
+      "source": "text default null",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "casemgmt_cpp",
+      "column": "reminders",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "casemgmt_cpp",
+      "column": "socialHistory",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "casemgmt_note",
+      "column": "history",
+      "source": "mediumtext NOT NULL",
+      "target": "mediumtext NOT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "casemgmt_note",
+      "column": "note",
+      "source": "mediumtext NOT NULL",
+      "target": "mediumtext NOT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "casemgmt_note_ext",
+      "column": "value",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "casemgmt_tmpsave",
+      "column": "note",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "client_referral",
+      "column": "completion_notes",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "client_referral",
+      "column": "notes",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "client_referral",
+      "column": "present_problems",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "clinic",
+      "column": "clinic_delim_fax",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "clinic",
+      "column": "clinic_delim_phone",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "clinic_nbr",
+      "column": "nbr_string",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationRequestExt",
+      "column": "value",
+      "source": "text NOT NULL",
+      "target": "text NOT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationRequests",
+      "column": "allergies",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationRequests",
+      "column": "clinicalInfo",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationRequests",
+      "column": "concurrentProblems",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationRequests",
+      "column": "currentMeds",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationRequests",
+      "column": "letterheadAddress",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationRequests",
+      "column": "reason",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationRequests",
+      "column": "statusText",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationResponse",
+      "column": "allergies",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationResponse",
+      "column": "appointmentNote",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationResponse",
+      "column": "clinicalInfo",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationResponse",
+      "column": "concurrentProblems",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationResponse",
+      "column": "currentMeds",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationResponse",
+      "column": "examination",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationResponse",
+      "column": "impression",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationResponse",
+      "column": "letterheadAddress",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationResponse",
+      "column": "plan",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "consultationResponse",
+      "column": "referralReason",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "cssStyles",
+      "column": "style",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "default_issue",
+      "column": "issue_ids",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "demographic",
+      "column": "children",
+      "source": "varchar(255) DEFAULT NULL",
+      "target": "varchar(1) DEFAULT NULL",
+      "new_type": "varchar(255)",
+      "required_utf8_bytes": null,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "demographic",
+      "column": "newsletter",
+      "source": "varchar(32) DEFAULT NULL",
+      "target": "varchar(10) DEFAULT NULL",
+      "new_type": "varchar(32)",
+      "required_utf8_bytes": null,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "demographic",
+      "column": "previousAddress",
+      "source": "varchar(255) DEFAULT NULL",
+      "target": "varchar(60) DEFAULT NULL",
+      "new_type": "varchar(255)",
+      "required_utf8_bytes": null,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "demographic",
+      "column": "provider_no",
+      "source": "varchar(250) DEFAULT NULL",
+      "target": "varchar(11) DEFAULT NULL",
+      "new_type": "varchar(250)",
+      "required_utf8_bytes": null,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "demographic",
+      "column": "sourceOfIncome",
+      "source": "varchar(255) DEFAULT NULL",
+      "target": "varchar(1) DEFAULT NULL",
+      "new_type": "varchar(255)",
+      "required_utf8_bytes": null,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "demographicExt",
+      "column": "value",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "demographicExtArchive",
+      "column": "value",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "demographicQueryFavourites",
+      "column": "demoIds",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "demographicQueryFavourites",
+      "column": "patientStatus",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "demographicQueryFavourites",
+      "column": "providerNo",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "demographicQueryFavourites",
+      "column": "rosterStatus",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "demographicQueryFavourites",
+      "column": "selects",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "demographicaccessory",
+      "column": "content",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "demographiccust",
+      "column": "content",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "demographiccustArchive",
+      "column": "content",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "desannualreviewplan",
+      "column": "checklist_content",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "desannualreviewplan",
+      "column": "risk_content",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "desaprisk",
+      "column": "checklist_content",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "desaprisk",
+      "column": "risk_content",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "document",
+      "column": "docxml",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "drugReason",
+      "column": "archivedReason",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "drugReason",
+      "column": "comments",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "drugs",
+      "column": "dosage",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "drugs",
+      "column": "special",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "drugs",
+      "column": "special_instruction",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "dsGuidelines",
+      "column": "xml",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "eChart",
+      "column": "encounter",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "eChart",
+      "column": "familyHistory",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "eChart",
+      "column": "medicalHistory",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "eChart",
+      "column": "ongoingConcerns",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "eChart",
+      "column": "reminders",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "eChart",
+      "column": "socialHistory",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "eform",
+      "column": "form_html",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "eform_data",
+      "column": "form_data",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "eform_values",
+      "column": "var_value",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "encounter",
+      "column": "content",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "encounter",
+      "column": "encounterattachment",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "encountertemplate",
+      "column": "encountertemplate_value",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "facility_message",
+      "column": "message",
+      "source": "text NOT NULL",
+      "target": "text NOT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "favorites",
+      "column": "BN",
+      "source": "varchar(255) DEFAULT NULL",
+      "target": "varchar(30) DEFAULT NULL",
+      "new_type": "varchar(255)",
+      "required_utf8_bytes": null,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "favorites",
+      "column": "dosage",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "faxes",
+      "column": "document",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "flowsheet_customization",
+      "column": "payload",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "form",
+      "column": "content",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAdfV2",
+      "column": "actProblem",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAdfV2",
+      "column": "courseOverYear",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAdfV2",
+      "column": "inactProblem",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAdfV2",
+      "column": "medications",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAdfV2",
+      "column": "pertLabInvest",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAlpha",
+      "column": "abuse",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAlpha",
+      "column": "alcoholDrugAbuse",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAlpha",
+      "column": "childAbuse",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAlpha",
+      "column": "childDiscipline",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAlpha",
+      "column": "comments",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAlpha",
+      "column": "coupleRelationship",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAlpha",
+      "column": "depression",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAlpha",
+      "column": "feelingsRePregnancy",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAlpha",
+      "column": "lifeEvents",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAlpha",
+      "column": "prenatalCare",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAlpha",
+      "column": "prenatalEducation",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAlpha",
+      "column": "psychHistory",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAlpha",
+      "column": "relationshipParents",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAlpha",
+      "column": "selfEsteem",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAlpha",
+      "column": "socialSupport",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAlpha",
+      "column": "womanAbuse",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnual",
+      "column": "assessment",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnual",
+      "column": "currentConcerns",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnual",
+      "column": "physicalSigns",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnual",
+      "column": "plan",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnualV2",
+      "column": "examcns",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnualV2",
+      "column": "impressionPlan",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnualV2",
+      "column": "other",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnualV2",
+      "column": "toDoCholesterol",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnualV2",
+      "column": "toDoColorectal",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnualV2",
+      "column": "toDoElderly",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnualV2",
+      "column": "toDoImmunization",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnualV2",
+      "column": "toDoMammogram",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnualV2",
+      "column": "toDoObesity",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnualV2",
+      "column": "toDoOsteoporosis",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnualV2",
+      "column": "toDoPAPs",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnualV2",
+      "column": "toDoProstateCancer",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formAnnualV2",
+      "column": "toDoSexualHealth",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formBCAR",
+      "column": "ar2_investigation",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "formBCAR",
+      "column": "pg1_summary",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "formBCAR2007",
+      "column": "pg1_summary",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "formBCAR2007",
+      "column": "pg2_investigation",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "formBCAR2007",
+      "column": "pg3_investigation",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "formBCAR2012",
+      "column": "pg1_summary",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "formBCAR2012",
+      "column": "pg2_investigation",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "formBCAR2012",
+      "column": "pg3_investigation",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "formBCBirthSumMo",
+      "column": "comLabBirth",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "formBCBirthSumMo2008",
+      "column": "comLabBirth",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "formConsult",
+      "column": "comments",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formCounseling",
+      "column": "comments",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formDischargeSummary",
+      "column": "admissionNotes",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formDischargeSummary",
+      "column": "allergies",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formDischargeSummary",
+      "column": "briefSummary",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formDischargeSummary",
+      "column": "currentIssues",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formDischargeSummary",
+      "column": "dischargePlan",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formDischargeSummary",
+      "column": "notes",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formDischargeSummary",
+      "column": "prescriptionSummary",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formLabReq",
+      "column": "aci",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formLabReq",
+      "column": "otherTest",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formLabReq07",
+      "column": "aci",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on"
+      ]
+    },
+    {
+      "table": "formLabReq10",
+      "column": "aci",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on"
+      ]
+    },
+    {
+      "table": "formMMSE",
+      "column": "diagnosis",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formMMSE",
+      "column": "meds",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formMentalHealth",
+      "column": "a_assComments",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formMentalHealth",
+      "column": "o_outComments",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formMentalHealth",
+      "column": "r_refComments",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formMentalHealthForm1",
+      "column": "facts",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formMentalHealthForm1",
+      "column": "facts2",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formMentalHealthForm1",
+      "column": "factsB",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formMentalHealthForm1",
+      "column": "observation",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formMentalHealthForm1",
+      "column": "observation2",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formMentalHealthForm1",
+      "column": "observationB",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formPositionHazard",
+      "column": "AdditionalNotes",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on"
+      ]
+    },
+    {
+      "table": "formPositionHazard",
+      "column": "Nanotechnology",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on"
+      ]
+    },
+    {
+      "table": "formPositionHazard",
+      "column": "OtherHumanBiohazard",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on"
+      ]
+    },
+    {
+      "table": "formPositionHazard",
+      "column": "ProcedureName",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on"
+      ]
+    },
+    {
+      "table": "formPositionHazard",
+      "column": "SubstanceForm",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on"
+      ]
+    },
+    {
+      "table": "formRhImmuneGlobulin",
+      "column": "allReactionsComment",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRhImmuneGlobulin",
+      "column": "comments",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRhImmuneGlobulin",
+      "column": "curPregAntiDComment",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRhImmuneGlobulin",
+      "column": "curPregBleedingComment",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRhImmuneGlobulin",
+      "column": "curPregDueDateChangeComment",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRhImmuneGlobulin",
+      "column": "curPregProceduresComment",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRhImmuneGlobulin",
+      "column": "pmHisBlClDisordersComment",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRhImmuneGlobulin",
+      "column": "pmHisBlPlTransfusComment",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke",
+      "column": "c_birthRemarks",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke",
+      "column": "c_riskFactors",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke",
+      "column": "p1_pConcern1m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke",
+      "column": "p1_pConcern1w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke",
+      "column": "p1_pConcern2m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke",
+      "column": "p1_pConcern2w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke",
+      "column": "p2_pConcern12m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke",
+      "column": "p2_pConcern4m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke",
+      "column": "p2_pConcern6m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke",
+      "column": "p2_pConcern9m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke",
+      "column": "p3_pConcern18m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke",
+      "column": "p3_pConcern2y",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke",
+      "column": "p3_pConcern4y",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "c_birthRemarks",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "c_famHistory",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "c_riskFactors",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p1_development1m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p1_development1w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p1_development2w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p1_pConcern1m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p1_pConcern1w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p1_pConcern2w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p1_problems1m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p1_problems1w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p1_problems2w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p2_development2m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p2_development4m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p2_development6m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p2_nutrition2m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p2_nutrition4m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p2_pConcern2m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p2_pConcern4m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p2_pConcern6m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p2_problems2m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p2_problems4m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p2_problems6m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p3_development12m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p3_development9m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p3_nutrition12m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p3_nutrition15m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p3_pConcern12m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p3_pConcern15m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p3_pConcern9m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p3_problems12m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p3_problems15m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p3_problems9m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p4_pConcern18m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p4_pConcern24m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p4_pConcern48m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p4_problems18m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p4_problems24m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2006",
+      "column": "p4_problems48m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "c_birthRemarks",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "c_famHistory",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "c_riskFactors",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_development1m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_development1w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_development2w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_immunization1m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_immunization1w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_immunization2w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_pConcern1m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_pConcern1w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_pConcern2w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_pEducation",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_pNutrition1m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_pNutrition1w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_pNutrition2w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_pPhysical1m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_pPhysical1w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_pPhysical2w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_problems1m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_problems1w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p1_problems2w",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_development2m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_development4m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_development6m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_education",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_immunization6m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_nutrition2m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_nutrition4m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_nutrition6m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_pConcern2m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_pConcern4m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_pConcern6m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_physical2m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_physical4m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_physical6m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_problems2m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_problems4m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p2_problems6m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p3_development12m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p3_development15m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p3_development9m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p3_education",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p3_nutrition12m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p3_nutrition15m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p3_nutrition9m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p3_pConcern12m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p3_pConcern15m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p3_pConcern9m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p3_physical12m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p3_physical15m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p3_physical9m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p3_problems12m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p3_problems15m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p3_problems9m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_development18m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_development24m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_development36m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_development48m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_development60m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_education18m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_education48m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_nippisingattained",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_nutrition18m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_nutrition24m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_nutrition48m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_pConcern18m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_pConcern24m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_pConcern48m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_physical18m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_physical24m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_physical48m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_problems18m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_problems24m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formRourke2009",
+      "column": "p4_problems48m",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "ADHD",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Academic",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "AcademicPerformance",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Adopted",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "AgesFather",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "AgesMother",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "AgesOthers",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "AgesSiblings",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Anxiety",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Bipolar",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Campus",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "CurrentMedications",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "CurrentMedicationsList",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Depression",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "DrinkAlcohol",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "DrinkAlcoholMany",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "DrinkAlcoholWeekly",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Eating",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Esteem",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Exercise",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "FamilyADHD",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "FamilyAlcohol",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "FamilyAnxiety",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "FamilyBipolar",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "FamilyDepression",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "FamilyDrugs",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "FamilyEating",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "FamilyEmotional",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "FamilyPhysical",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "FamilyPsychiatricOther",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "FamilyPsychosis",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "FamilySchizophrenia",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "FamilySexual",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "FamilySubstance",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "FamilySuicide",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "GeneralOther",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Grief",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Home",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Hospitalizations",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "HospitalizationsOther",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "InRelationship",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "LivingSituationOther",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Mania",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Meals",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Medicalillnesses",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Obsessions",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastAlcohol",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastCounterMedications",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastCutting",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastGambling",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastLegal",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastPASTPSYCHIATRICOther",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastPSYCHIATRICTraumaEmotional",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastPSYCHIATRICTraumaPhysical",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastPSYCHIATRICTraumaSexual",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastPrescribedDrugs",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastReactionsMedication",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastReactionsMedicationList",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastStreetDrugs",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastSubstance",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastSuicideAttempts",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastSuicideMany",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastSuicideWhen",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "PastTobacco",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Psychosis",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "ReasonsOther",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Relationship",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "ReligiousAffiliation",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Residence",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Roommates",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Sexual",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "SexualOrientation",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "SmokeQty",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Smoker",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "StreetDrugs",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Substance",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Suicidal",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "Surgery",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "TraumaEmotional",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "TraumaPhysical",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "TraumaSexual",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "helplessness",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "psychiatricMedications",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "psychiatricMedicationsList",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formSelfAssessment",
+      "column": "ptsd",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formVTForm",
+      "column": "Assessment",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formVTForm",
+      "column": "Diagnosis",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formVTForm",
+      "column": "Objective",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formVTForm",
+      "column": "Plan",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formVTForm",
+      "column": "Subjective",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "formWCB",
+      "column": "w_clinicinfo",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "formWCB",
+      "column": "w_problem",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "health_safety",
+      "column": "message",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "hl7_message",
+      "column": "notes",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "hl7_obr",
+      "column": "note",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "hl7_obr",
+      "column": "parent_result",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "hl7_obr",
+      "column": "reason_for_study",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "hl7_obr",
+      "column": "relevant_clinical_info",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "hl7_obr",
+      "column": "specimen_source",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "hl7_obx",
+      "column": "note",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "hl7_obx",
+      "column": "observation_identifier",
+      "source": "text NOT NULL",
+      "target": "text NOT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "hl7_obx",
+      "column": "observation_results",
+      "source": "text NOT NULL",
+      "target": "text NOT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "hl7_pid",
+      "column": "note",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    },
+    {
+      "table": "hsfo2_patient",
+      "column": "EmrHCPId",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "hsfo2_patient",
+      "column": "FName",
+      "source": "text NOT NULL",
+      "target": "text NOT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "hsfo2_patient",
+      "column": "LName",
+      "source": "text NOT NULL",
+      "target": "text NOT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "hsfo2_patient",
+      "column": "PharmacyLocation",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "hsfo2_patient",
+      "column": "PharmacyName",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "hsfo_recommit_schedule",
+      "column": "memo",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "immunizations",
+      "column": "immunizations",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "indicatorTemplate",
+      "column": "definition",
+      "source": "tinytext",
+      "target": "tinytext DEFAULT NULL",
+      "new_type": "TEXT",
+      "required_utf8_bytes": 1020,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "indicatorTemplate",
+      "column": "notes",
+      "source": "tinytext",
+      "target": "tinytext DEFAULT NULL",
+      "new_type": "TEXT",
+      "required_utf8_bytes": 1020,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "indicatorTemplate",
+      "column": "template",
+      "source": "mediumtext",
+      "target": "mediumtext DEFAULT NULL",
+      "new_type": "LONGTEXT",
+      "required_utf8_bytes": 67108860,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "labPatientPhysicianInfo",
+      "column": "comment1",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "labPatientPhysicianInfo",
+      "column": "comment2",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "labTestResults",
+      "column": "description",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "log",
+      "column": "data",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "log_letters",
+      "column": "log",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "measurementTypeDeleted",
+      "column": "typeDisplayName",
+      "source": "varchar(255) NOT NULL",
+      "target": "varchar(20) NOT NULL",
+      "new_type": "varchar(255)",
+      "required_utf8_bytes": null,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "measurementsExt",
+      "column": "val",
+      "source": "text NOT NULL",
+      "target": "text NOT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "messagetbl",
+      "column": "attachment",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "messagetbl",
+      "column": "sentto",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "messagetbl",
+      "column": "themessage",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "oscarKeys",
+      "column": "privKey",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "oscarKeys",
+      "column": "pubKey",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "pharmacyInfo",
+      "column": "address",
+      "source": "text",
+      "target": "varchar(255) DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "pharmacyInfo",
+      "column": "city",
+      "source": "varchar(255) DEFAULT NULL",
+      "target": "varchar(60) DEFAULT NULL",
+      "new_type": "varchar(255)",
+      "required_utf8_bytes": null,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "pharmacyInfo",
+      "column": "notes",
+      "source": "text",
+      "target": "tinytext DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "prescribe",
+      "column": "content",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "prescription",
+      "column": "dates_reprinted",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "prescription",
+      "column": "rx_comments",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "prescription",
+      "column": "textView",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "preventionsExt",
+      "column": "val",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "professionalSpecialists",
+      "column": "annotation",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "property",
+      "column": "value",
+      "source": "varchar(4000) DEFAULT NULL",
+      "target": "varchar(2000) DEFAULT NULL",
+      "new_type": "varchar(4000)",
+      "required_utf8_bytes": null,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "provider",
+      "column": "comments",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "providerArchive",
+      "column": "comments",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "publicKeys",
+      "column": "privateKey",
+      "source": "text NOT NULL",
+      "target": "text NOT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "publicKeys",
+      "column": "pubKey",
+      "source": "text NOT NULL",
+      "target": "text NOT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "raheader",
+      "column": "content",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "recyclebin",
+      "column": "table_content",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "relationships",
+      "column": "notes",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "report",
+      "column": "notes",
+      "source": "text default NULL",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "reportFilter",
+      "column": "description",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "reportFilter",
+      "column": "javascript",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "reportTemplates",
+      "column": "templatedescription",
+      "source": "text NOT NULL",
+      "target": "text NOT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "reportTemplates",
+      "column": "templatesql",
+      "source": "text NOT NULL",
+      "target": "text NOT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "reportTemplates",
+      "column": "templatexml",
+      "source": "text NOT NULL",
+      "target": "text NOT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "reporttemp",
+      "column": "address",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "rschedule",
+      "column": "avail_hour",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "scheduletemplate",
+      "column": "timecode",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "scratch_pad",
+      "column": "scratch_text",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "studydata",
+      "column": "content",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "survey",
+      "column": "surveyData",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "table_modification",
+      "column": "resultSet",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "tickler",
+      "column": "message",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "tickler_comments",
+      "column": "message",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "vacancy_client_match",
+      "column": "rejection_reason",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "view",
+      "column": "value",
+      "source": "text",
+      "target": "text DEFAULT NULL",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "on",
+        "bc"
+      ]
+    },
+    {
+      "table": "wcb",
+      "column": "w_clinicinfo",
+      "source": "text",
+      "target": "text",
+      "new_type": "MEDIUMTEXT",
+      "required_utf8_bytes": 262140,
+      "provinces": [
+        "bc"
+      ]
+    }
+  ]
+}

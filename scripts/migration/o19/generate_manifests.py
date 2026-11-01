@@ -302,6 +302,32 @@ def walk_ddl(text: str):
     through a real MariaDB and compares. One walk, so the oracle cannot
     drift from the thing it verifies.
     """
+    # Dynamic migrations contain DDL inside CONCAT string literals. Those
+    # fragments are not executable declarations and can carry only part of
+    # a column type. Preserve offsets while excluding them from matching.
+    masked = list(text)
+    quote = None
+    cursor = 0
+    while cursor < len(text):
+        char = text[cursor]
+        if quote is None:
+            if char in ("'", '"'):
+                quote = char
+                masked[cursor] = " "
+        else:
+            masked[cursor] = " "
+            if char == "\\":
+                cursor += 1
+                if cursor < len(text):
+                    masked[cursor] = " "
+            elif char == quote:
+                if cursor + 1 < len(text) and text[cursor + 1] == quote:
+                    cursor += 1
+                    masked[cursor] = " "
+                else:
+                    quote = None
+        cursor += 1
+    searchable = "".join(masked)
     patterns = (("create", _CREATE_RE), ("drop", _DROP_RE),
                 ("rename", _RENAME_RE), ("alter", _ALTER_RE))
     i = 0
@@ -311,7 +337,7 @@ def walk_ddl(text: str):
         # alone so nothing else in the tuple is ever compared
         found = [(m.start(), kind, m)
                  for kind, rx in patterns
-                 for m in (rx.search(text, i),) if m]
+                 for m in (rx.search(searchable, i),) if m]
         if not found:
             return
         _, kind, m = min(found, key=lambda hit: hit[0])
@@ -335,7 +361,7 @@ def walk_ddl(text: str):
                             sql=text[m.start():m.end()], new_name=m.group(2))
             i = m.end()
         else:  # alter
-            stmt_end = text.find(";", m.end())
+            stmt_end = searchable.find(";", m.end())
             if stmt_end == -1:
                 stmt_end = n
             yield Statement("alter", m.group(1),
@@ -601,8 +627,19 @@ class Schema:
                     self.tables[name] = rebuilt
                     cols = rebuilt
                 continue
-            # MODIFY changes type only — column set is unaffected; other
-            # clauses (indexes, engine, charset) don't affect the column map.
+            # Keep the final declaration as well as the names. Ignoring
+            # MODIFY hid capacity changes in later OSCAR/CARLOS updates.
+            m = re.match(r"modify\s+(?:column\s+)?`?(\w+)`?\s+(.+)",
+                         clause, re.I | re.S)
+            if m:
+                column = next((c for c in cols
+                               if c.lower() == m.group(1).lower()), None)
+                if column is not None:
+                    ctype, position = split_column_position(
+                        re.sub(r"\s+", " ", m.group(2)).strip())
+                    cols = place_column(cols, column, ctype, position)
+                    self.tables[name] = cols
+                continue
         # A DROP COLUMN takes the column out of the primary key too, and a
         # key naming no column would be looked up in tables[t] and missed.
         # Re-resolving against the final column set covers every clause that
