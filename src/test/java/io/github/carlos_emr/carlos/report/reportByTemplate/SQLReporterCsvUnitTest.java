@@ -35,9 +35,9 @@ class SQLReporterCsvUnitTest extends CarlosUnitTestBase {
     @ValueSource(booleans = {false, true})
     void shouldGuardHeadersAndData_whenGeneratingNormalOrSequencedReport(boolean sequenced) throws Exception {
         String[] headers = {"=1+1", "+header", "-header", "@header", "  =header", "\tlabel",
-                "quoted,\"header\"", "multiline\r\nheader", "amount", "scientific", "nullable"};
+                "quoted,\"header\"", "multiline\r\nheader", "amount", "scientific", "nullable", "spaced amount"};
         String[] values = {"=1+1", "+1+1", "-cmd", "@SUM(A1)", "\u00A0=1+1", "\r\ntext",
-                "=HYPERLINK(\"synthetic\",\"quoted,\r\nvalue\")", "Zoë,\"text\"\r\nnext", "-12.50", "-1.2E-7", null};
+                "=HYPERLINK(\"synthetic\",\"quoted,\r\nvalue\")", "Zoë,\"text\"\r\nnext", "-12.50", "-1.2E-7", null, "  -12.50"};
         ReportTemplatesDao dao = mock(ReportTemplatesDao.class);
         registerMock(ReportTemplatesDao.class, dao);
         ReportTemplates template = new ReportTemplates();
@@ -66,9 +66,9 @@ class SQLReporterCsvUnitTest extends CarlosUnitTestBase {
                 var records = parser.getRecords();
                 assertThat(records).hasSize(2);
                 assertThat(records.get(0).toList()).containsExactly("\t=1+1", "\t+header", "\t-header",
-                        "\t@header", "\t  =header", "\t\tlabel", headers[6], headers[7], "amount", "scientific", "nullable");
+                        "\t@header", "\t  =header", "\t\tlabel", headers[6], headers[7], "amount", "scientific", "nullable", "spaced amount");
                 assertThat(records.get(1).toList()).containsExactly("\t=1+1", "\t+1+1", "\t-cmd",
-                        "\t@SUM(A1)", "\t\u00A0=1+1", "\t\r\ntext", "\t" + values[6], values[7], "-12.50", "-1.2E-7", "");
+                        "\t@SUM(A1)", "\t\u00A0=1+1", "\t\r\ntext", "\t" + values[6], values[7], "-12.50", "-1.2E-7", "", "  -12.50");
             }
             // CSV guards must not leak into the HTML representation of the report.
             String html = (String) request.getAttribute(sequenced ? "resultsethtml-0" : "resultsethtml");
