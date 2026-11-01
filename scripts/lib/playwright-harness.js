@@ -717,6 +717,10 @@ function wireStrictPage(page, label, recorder, options = {}) {
     }
     const failure = request.failure();
     const url = request.url();
+    // Chromium's built-in PDF renderer abandons its internal extension document
+    // while attaching the real PDF. This is not an application request failure.
+    if(request.resourceType()==='other'&&failure?.errorText==='net::ERR_ABORTED'
+      &&/^chrome-extension:\/\/mhjfbmdgcfjbbpaeojofohoefgiehjai\/[0-9a-f-]{36}$/i.test(url))return;
     if (isExpectedMissingAsset(404, url)) {
       return;
     }

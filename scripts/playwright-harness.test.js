@@ -1509,3 +1509,12 @@ test('a CDS route or public qualification property cannot excuse an unproven net
     errorText:'net::ERR_ABORTED',cdsMetadataEofEvidence:{classification:'CDS_METADATA_EOF_CONFIRMED'}});
   assert.throws(() => assertStrictPage(recorder), /fetch request failed/);
 });
+
+test('only Chromium built-in PDF renderer internal aborts are excluded',async()=>{
+ const recorder=createRecorder(),page=fakePage();wireStrictPage(page,'pdf',recorder,{baseline:[]});
+ const internal='chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/06977c87-317a-4972-a20c-7abfa89ea907';
+ const failure=(url,type='other',errorText='net::ERR_ABORTED')=>({url:()=>url,resourceType:()=>type,failure:()=>({errorText})});
+ await page.emit('requestfailed',failure(internal));assert.equal(recorder.requestFailures.length,0);
+ for(const request of [failure('https://host/carlos/pdf'),failure(internal,'script'),failure(internal,'other','net::ERR_FAILED'),failure(internal.replace('mhjfbmdgcfjbbpaeojofohoefgiehjai','anotherextension'))])await page.emit('requestfailed',request);
+ assert.equal(recorder.requestFailures.length,4);
+});

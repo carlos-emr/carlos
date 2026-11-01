@@ -40,6 +40,11 @@ async function workflow(s){
   const columns=sql.rows(`SELECT COLUMN_NAME,COLUMN_KEY FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=${q(form.table)}`);
   const idColumn=columns.find(x=>x[1]==='PRI')?.[0];
   h.assert(idColumn&&fields.every(f=>columns.some(c=>c[0]===f.name)),'Follow-up configuration disagrees with the real form schema');
+  const pendingReads=new Map();
+  const observeRead=request=>{try{const url=new URL(request.url());if(url.origin===s.config.baseUrl.origin&&url.pathname===new URL(h.appUrl(s.config.baseUrl,'/encounter/displayForms')).pathname&&request.resourceType()==='xhr'){const page=request.frame().page();if(!pendingReads.has(page))pendingReads.set(page,new Set());pendingReads.get(page).add(request);}}catch{}};
+  const finishRead=request=>{for(const requests of pendingReads.values())requests.delete(request);};
+  s.context.on('request',observeRead);s.context.on('requestfinished',finishRead);s.context.on('requestfailed',finishRead);
+  s.cleanup(()=>{s.context.off('request',observeRead);s.context.off('requestfinished',finishRead);s.context.off('requestfailed',finishRead);});
   const chart=await s.chart();
   let page,id,original;
   const input=f=>page.locator(`[name="${f.name}"]`).first();
@@ -58,14 +63,19 @@ async function workflow(s){
     await landed.waitForLoadState('domcontentloaded');page=landed;
   }
   async function reopen(){
-    if(page&&!page.isClosed())await page.close();
+    const inFlight=new Set(pendingReads.get(chart)||[]);
     const since=s.recorder.requestFailures.length;
+    // Closing the form refreshes its opener's Forms module. Capture those
+    // pre-existing read requests before that native callback can abandon them.
+    if(page&&!page.isClosed())await page.close();
+    for(const request of pendingReads.get(chart)||[])inFlight.add(request);
     await chart.waitForLoadState('networkidle',{timeout:5000}).catch(()=>{});
+    for(const request of pendingReads.get(chart)||[])inFlight.add(request);
     await chart.reload({waitUntil:'domcontentloaded'});await waitForNavbars(chart,20000);
     // This explicit browser reload aborts the old chart's pagehide lock-release
     // beacon. Scope the expected unload signal to this reload only.
     const failures=s.recorder.requestFailures.splice(since);
-    s.recorder.requestFailures.push(...failures.filter(x=>!(x.resourceType==='ping'&&x.errorText==='net::ERR_ABORTED'
+    s.recorder.requestFailures.push(...failures.filter(x=>keepOwnReloadFailure(x,inFlight,s.config.baseUrl)).filter(x=>!(x.resourceType==='ping'&&x.errorText==='net::ERR_ABORTED'
       &&new URL(x.url).pathname.endsWith('/CaseManagementEntry'))));
     const link=chart.locator(`#leftNavBar a[onclick*="formname=${title}&"],#rightNavBar a[onclick*="formname=${title}&"]`).first();
     await revealSavedForm(chart,link);
@@ -113,4 +123,10 @@ async function workflow(s){
   });
 }
 if(require.main===module)runWorkflow(name,workflow);
-module.exports={workflow,forms};
+function keepOwnReloadFailure(entry,inFlight,baseUrl) {
+  const request=entry.requestRef?.deref?.();
+  if(!request||!inFlight.has(request)||entry.resourceType!=='xhr'||entry.errorText!=='net::ERR_ABORTED')return true;
+  const url=new URL(entry.url);
+  return url.origin!==baseUrl.origin||url.pathname!==new URL(h.appUrl(baseUrl,'/encounter/displayForms')).pathname;
+}
+module.exports={workflow,forms,keepOwnReloadFailure};

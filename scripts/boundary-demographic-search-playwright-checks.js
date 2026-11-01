@@ -44,12 +44,13 @@ async function workflow(s) {
     b.assertStored(sql, 'demographic', 'first_name', `demographic_no=${cjkId}`, T.cjk, 'Fixture CJK first name');
   });
 
-  const search = await ui.clickOpensPopup(s.schedule, s.schedule.locator('#search a, a:has-text("Search")').first(),
+  const openSearch=()=>ui.clickOpensPopup(s.schedule, s.schedule.locator('#search a, a:has-text("Search")').first(),
     { context: s.context, recorder: s.recorder, label: 'name-search', timeout: TIMEOUT });
+  let search=await openSearch();
   let guarded=false;
   async function find(mode, term, id,{allowWafRefusal=false}={}) {
     guarded=false;
-    if(await search.locator('#search-sort').count()===0)await search.goBack({waitUntil:'networkidle'});
+    if(await search.locator('select[name="search_mode"]').count()===0){await search.close();search=await openSearch();}
     await search.locator('select[name="search_mode"]').selectOption(mode);
     await search.locator('#keyword, input[name="keyword"]').first().fill(term);
     const {failureMark,consumeExpectedFailure}=require('./lib/concurrency-support'),mark=failureMark(s.recorder);
