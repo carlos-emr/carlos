@@ -37,6 +37,25 @@ class TestHistoricalDeclarations(unittest.TestCase):
 
 
 class TestPhysicalColumnInventory(unittest.TestCase):
+    def test_existing_columns_keep_attributes_and_never_lose_capacity(self):
+        contracts = ROOT / "database/mysql/schema-contract"
+        for province in ("on", "bc"):
+            before = json.loads((contracts / ("o19-pre-copy-" + province + ".json")).read_text())
+            after = json.loads((contracts / (province + ".json")).read_text())
+            columns = {tuple(row[:2]): row for row in after["schema"]["columns"]}
+            for old in before["schema"]["columns"]:
+                with self.subTest(province=province, table=old[0], column=old[1]):
+                    new = columns[tuple(old[:2])]
+                    if old[0] == "Consent" and old[1] in ("explicit", "optout", "deleted"):
+                        continue  # audited, intentional flag normalization
+                    self.assertEqual(old[:2] + old[3:], new[:2] + new[3:])
+                    previous, current = capacity_audit.capacity(old[2]), capacity_audit.capacity(new[2])
+                    if previous and current:
+                        required = previous[1]
+                        if current[3] and not previous[3] and previous[0] == "text":
+                            required *= 4
+                        self.assertGreaterEqual(current[1], required)
+
     def test_manifest_columns_equal_independently_exported_physical_columns(self):
         manifest = json.loads((ROOT / "debian/assets/o19-manifest/o19map_schema.json").read_text())
         for province in ("on", "bc"):
