@@ -8,7 +8,9 @@ const {surfaceByName}=require('./playwright-surfaces');
 const {openOntarioBillForm}=require('./billing-on-bill-form');
 
 async function eachUiQualitySurface(s,visit) {
-  const scheduleUrl=s.schedule.url();
+  const scheduleUrl=s.scheduleUrl;
+  h.assert(scheduleUrl,'UI-quality traversal requires the captured authenticated schedule URL');
+  if(s.schedule.url()!==scheduleUrl)await s.schedule.goto(scheduleUrl,{waitUntil:'domcontentloaded'}); // nosemgrep: captured authenticated schedule URL
   const anonymous=await h.newContext(s.context.browser(),s.config);
   const login=await anonymous.newPage();h.wireStrictPage(login,'quality-login',s.recorder);await h.gotoApp(login,s.config.baseUrl,'/');
   await visit('login',login,'#username,#password,input[type="submit"],button[type="submit"]');

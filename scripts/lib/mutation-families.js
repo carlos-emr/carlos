@@ -454,7 +454,13 @@ function chartNoteSave(s) {
       await note.click();
       await note.fill(`${prefix}${tag} note text`);
       return captureInContext(s.context,
-        (url) => this.route.test(url.pathname), () => chart.locator('#saveImg').first().click());
+        (url) => this.route.test(url.pathname), () => chart.locator('#saveImg').first().click(), {
+          acceptRequest:request=>{
+            const form=new URLSearchParams(request.postData()||'');
+            return ['save','ajaxsave'].includes(form.get('method'))
+              && (form.get('caseNote_note')||form.get('noteTxt')||'').includes(prefix+tag);
+          },
+        });
     },
     aim(captured, tag) {
       const field = ['caseNote_note', 'noteTxt', 'value'].find(name => captured.body.has(name));

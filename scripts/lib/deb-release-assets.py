@@ -35,7 +35,7 @@ def main():
     if os.environ.get("RELEASE_METADATA"):
         release = json.loads(pathlib.Path(os.environ["RELEASE_METADATA"]).read_text())
     else:
-        with urllib.request.urlopen(f"https://api.github.com/repos/carlos-emr/carlos/releases/tags/{tag}", timeout=60) as response:
+        with urllib.request.urlopen(f"https://api.github.com/repos/carlos-emr/carlos/releases/tags/{tag}", timeout=60) as response:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected -- literal HTTPS host/path plus strict release-tag regex above; file schemes cannot be supplied
             release = json.load(response)
     for asset in select_packages(release, tag):
         target = directory / asset["name"]
@@ -45,7 +45,7 @@ def main():
         temporary = target.with_suffix(".partial")
         try:
             digest = hashlib.sha256()
-            with urllib.request.urlopen(asset["browser_download_url"], timeout=120) as source, temporary.open("wb") as output:
+            with urllib.request.urlopen(asset["browser_download_url"], timeout=120) as source, temporary.open("wb") as output:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected -- select_packages requires equality to the exact HTTPS GitHub release-asset URL; file/foreign URLs are rejected
                 while block := source.read(1 << 20):
                     output.write(block)
                     digest.update(block)

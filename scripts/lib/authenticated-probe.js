@@ -22,24 +22,37 @@ async function authenticatedProbe(session, target, options = {}) {
     throw new Error('Authenticated refusal probes support only GET and HEAD');
   }
   const now = Date.now() / 1000;
-  const cookies = (await session.context.cookies()).filter(cookie => {
-    const domain = cookie.domain.toLowerCase();
-    const host = url.hostname.toLowerCase();
-    const domainMatches = domain.startsWith('.')
-      ? host === domain.slice(1) || host.endsWith(domain)
-      : host === domain;
-    const path = cookie.path || '/';
-    const pathMatches = url.pathname === path || (url.pathname.startsWith(path)
-      && (path.endsWith('/') || url.pathname[path.length] === '/'));
-    return domainMatches && pathMatches && (cookie.expires === -1 || cookie.expires > now);
-  }).sort((a, b) => (b.path || '/').length - (a.path || '/').length);
-  if (!cookies.some(cookie => cookie.name === 'JSESSIONID' && cookie.value)) {
-    throw new Error('Authenticated probe requires an application session cookie');
+  const browserCookies=await session.context.cookies();
+  function cookiesFor(destination) {
+    return browserCookies.filter(cookie => {
+      const domain = cookie.domain.toLowerCase(),host=destination.hostname.toLowerCase();
+      const domainMatches = domain.startsWith('.') ? host === domain.slice(1) || host.endsWith(domain) : host === domain;
+      const path = cookie.path || '/';
+      const pathMatches = destination.pathname === path || (destination.pathname.startsWith(path)
+        && (path.endsWith('/') || destination.pathname[path.length] === '/'));
+      return domainMatches && pathMatches && (cookie.expires === -1 || cookie.expires > now);
+    }).sort((a,b)=>(b.path||'/').length-(a.path||'/').length);
   }
+  const cookieHeader=destination=>{
+    const cookies=cookiesFor(destination);
+    if(!cookies.some(cookie=>cookie.name==='JSESSIONID'&&cookie.value))throw new Error('Authenticated probe requires an application session cookie');
+    return cookies.map(cookie=>`${cookie.name}=${cookie.value}`).join('; ');
+  };
+  const targetCookie=cookieHeader(url);
+  // A retained cookie is not proof of a live server-side session. The method
+  // guard can answer 405 even after logout or a service restart. Verify the
+  // actual session immediately before EACH probe using this same transport.
+  const heartbeat=new URL(base.pathname.replace(/\/$/,'')+'/status/SessionHeartbeat',base);
+  const proof=await session.context.request.fetch(heartbeat.href,{
+    method:'GET',headers:{Accept:'application/json',Cookie:cookieHeader(heartbeat)},maxRedirects:0,failOnStatusCode:false,
+  });
+  try {
+    if(proof.status()!==200||(await proof.json()).valid!==true)throw new Error('Authenticated probe session is invalid; refusal evidence is inconclusive');
+  } finally {await proof.dispose();}
   const response = await session.context.request.fetch(url.href, {
     ...requestOptions,
     headers: { ...Object.fromEntries(Object.entries(options.headers || {}).filter(([name]) => name.toLowerCase() !== 'cookie')),
-      Cookie: cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ') },
+      Cookie: targetCookie },
     maxRedirects: 0,
     failOnStatusCode: false,
   });
