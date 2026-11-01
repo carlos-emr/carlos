@@ -46,6 +46,10 @@ jobs:
                           test_id = case.get('classname', '') + '.' + case.get('name', '')
                           annotate(test_id + ' | ' + problem.tag + ' | ' + problem.get('type', ''))
                           trace = problem.text or ''
+                          annotate('elapsed seconds: ' + str(float(case.get('time', '0'))))
+                          for condition in ['Connection reset', 'Broken pipe', 'Socket closed', 'Unexpected end of file', 'Read timed out', 'Connection refused', 'Too many open files', 'timed out after', 'Unexpected EOF']:
+                              if condition.lower() in trace.lower():
+                                  annotate('network condition: ' + condition)
                           causes = re.findall(r'Caused by: ([\w.$]+)', trace)
                           frames = re.findall(r'at ([\w.$]+)\(([^)]*\.java:\d+)\)', trace)
                           for cause in causes[:8]:
