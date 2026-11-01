@@ -61,7 +61,9 @@ async function awaitNativeChartSave(chart,operation) {
   try {
     const captured=await operation();
     h.assert(captured.response,'The native Save has no response');
-    h.assert(await captured.response.finished()===null,'The native Save response did not finish');
+    const finished=await captured.response.finished();
+    if(captured.response.status()>=400)return captured;
+    h.assert(finished===null,'The native Save response did not finish');
     await chart.waitForFunction(element=>!element.isConnected,previous,{timeout:30000});
     await chart.locator('#caseManagementEntryForm textarea[name="caseNote_note"]').first().waitFor({state:'visible',timeout:30000});
     await chart.waitForLoadState('networkidle');
