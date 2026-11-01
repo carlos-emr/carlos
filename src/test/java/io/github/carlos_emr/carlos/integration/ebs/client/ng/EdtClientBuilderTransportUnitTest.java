@@ -74,6 +74,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("mcedt")
 @Timeout(30)
 class EdtClientBuilderTransportUnitTest {
+    private static final List<BigInteger> RESOURCE_IDS = List.of(BigInteger.ONE);
+    private final Requests hcvRequest = new Requests();
     @TempDir static Path keyDirectory;
     @TempDir Path temporaryDirectory;
     private static EbsHttpsTestFixture.Keys keys;
@@ -108,7 +110,7 @@ class EdtClientBuilderTransportUnitTest {
     @Test
     void shouldValidateHcv_withSignedEncryptedSoap() throws Exception {
         HCValidation client = client(HCValidation.class);
-        assertThat(client.validate(new Requests(), "en").getAuditUID()).isEqualTo(EbsHttpsTestFixture.AUDIT);
+        assertThat(client.validate(hcvRequest, "en").getAuditUID()).isEqualTo(EbsHttpsTestFixture.AUDIT);
         peer.assertHealthy();
         assertThat(peer.requests).hasSize(1);
     }
@@ -126,7 +128,7 @@ class EdtClientBuilderTransportUnitTest {
         assertThat(request.multipart()).isTrue();
         assertThat(request.attachments()).hasSize(1);
         assertThat(request.attachments().getFirst()).containsExactly(EbsHttpsTestFixture.PAYLOAD);
-        var result = client.download(List.of(BigInteger.ONE));
+        var result = client.download(RESOURCE_IDS);
         assertThat(result.getAuditID()).isEqualTo(EbsHttpsTestFixture.AUDIT);
         assertThat(result.getData()).hasSize(1);
         assertThat(result.getData().getFirst().getContent()).containsExactly(EbsHttpsTestFixture.PAYLOAD);
@@ -141,13 +143,13 @@ class EdtClientBuilderTransportUnitTest {
     void shouldRejectInvalidSecurity_withEncryptedMtom(EbsHttpsTestFixture.Mode mode) throws Exception {
         EDTDelegate client = client(EDTDelegate.class);
         peer.mode = mode;
-        assertThatThrownBy(() -> client.download(List.of(BigInteger.ONE)))
+        assertThatThrownBy(() -> client.download(RESOURCE_IDS))
                 .isInstanceOf(SOAPFaultException.class);
         peer.assertHealthy();
         assertThat(peer.requests).hasSize(1);
         assertReplaysReleased();
         peer.mode = EbsHttpsTestFixture.Mode.NORMAL;
-        assertThat(client.download(List.of(BigInteger.ONE)).getData().getFirst().getContent())
+        assertThat(client.download(RESOURCE_IDS).getData().getFirst().getContent())
                 .containsExactly(EbsHttpsTestFixture.PAYLOAD);
         assertReplaysReleased();
     }
@@ -157,12 +159,12 @@ class EdtClientBuilderTransportUnitTest {
     void shouldAbortStalledResponse_withSocketReadTimeout(EbsHttpsTestFixture.Mode mode) throws Exception {
         EDTDelegate client = client(EDTDelegate.class);
         // Warm TLS, crypto and the endpoint before imposing a short read timeout.
-        client.download(List.of(BigInteger.ONE));
+        client.download(RESOURCE_IDS);
         long existingSpills;
         try (var files = Files.list(temporaryDirectory)) { existingSpills = files.count(); }
         ((HTTPConduit) ClientProxy.getClient(client).getConduit()).getClient().setReceiveTimeout(500);
         peer.mode = mode;
-        assertThatThrownBy(() -> client.download(List.of(BigInteger.ONE)))
+        assertThatThrownBy(() -> client.download(RESOURCE_IDS))
                 .isInstanceOf(WebServiceException.class)
                 .satisfies(error -> assertThat(hasCause(error, SocketTimeoutException.class)).isTrue());
         assertReplaysReleased();
@@ -172,7 +174,7 @@ class EdtClientBuilderTransportUnitTest {
         peer.assertHealthy();
         peer.mode = EbsHttpsTestFixture.Mode.NORMAL;
         ((HTTPConduit) ClientProxy.getClient(client).getConduit()).getClient().setReceiveTimeout(3000);
-        assertThat(client.download(List.of(BigInteger.ONE)).getData().getFirst().getContent())
+        assertThat(client.download(RESOURCE_IDS).getData().getFirst().getContent())
                 .containsExactly(EbsHttpsTestFixture.PAYLOAD);
         assertReplaysReleased();
     }
@@ -181,7 +183,7 @@ class EdtClientBuilderTransportUnitTest {
     void shouldRejectTruncatedResponse_withoutReturningPartialData() throws Exception {
         EDTDelegate client = client(EDTDelegate.class);
         peer.mode = EbsHttpsTestFixture.Mode.TRUNCATED;
-        assertThatThrownBy(() -> client.download(List.of(BigInteger.ONE))).isInstanceOf(WebServiceException.class);
+        assertThatThrownBy(() -> client.download(RESOURCE_IDS)).isInstanceOf(WebServiceException.class);
         peer.assertHealthy();
         assertThat(replays).isEmpty(); // Rejected during caching, before hand-off to CXF.
         assertThat(AttachmentCachingInterceptor.getAttachments()).isNull();
@@ -193,14 +195,14 @@ class EdtClientBuilderTransportUnitTest {
     void shouldReleaseReplay_withSignedServerSoapFault(EbsHttpsTestFixture.Mode mode) throws Exception {
         HCValidation client = client(HCValidation.class);
         peer.mode = mode;
-        assertThatThrownBy(() -> client.validate(new Requests(), "en"))
+        assertThatThrownBy(() -> client.validate(hcvRequest, "en"))
                 .isInstanceOf(SOAPFaultException.class).hasMessageContaining("synthetic service fault");
         peer.assertHealthy();
         assertThat(faultChains).hasValue(1);
         assertReplaysReleased();
         try (var files = Files.list(temporaryDirectory)) { assertThat(files).isEmpty(); }
         peer.mode = EbsHttpsTestFixture.Mode.NORMAL;
-        assertThat(client.validate(new Requests(), "en").getAuditUID()).isEqualTo(EbsHttpsTestFixture.AUDIT);
+        assertThat(client.validate(hcvRequest, "en").getAuditUID()).isEqualTo(EbsHttpsTestFixture.AUDIT);
         assertReplaysReleased();
     }
 
@@ -209,13 +211,13 @@ class EdtClientBuilderTransportUnitTest {
     void shouldClearAttachments_withMultipartServerFault(EbsHttpsTestFixture.Mode mode) throws Exception {
         EDTDelegate client = client(EDTDelegate.class);
         peer.mode = mode;
-        assertThatThrownBy(() -> client.download(List.of(BigInteger.ONE)))
+        assertThatThrownBy(() -> client.download(RESOURCE_IDS))
                 .isInstanceOf(SOAPFaultException.class).hasMessageContaining("synthetic service fault");
         peer.assertHealthy();
         assertThat(faultChains).hasValue(1);
         assertReplaysReleased();
         peer.mode = EbsHttpsTestFixture.Mode.NORMAL;
-        assertThat(client.download(List.of(BigInteger.ONE)).getData().getFirst().getContent())
+        assertThat(client.download(RESOURCE_IDS).getData().getFirst().getContent())
                 .containsExactly(EbsHttpsTestFixture.PAYLOAD);
         assertReplaysReleased();
     }
@@ -232,13 +234,13 @@ class EdtClientBuilderTransportUnitTest {
             }
         };
         cxf.getInFaultInterceptors().add(failure);
-        assertThatThrownBy(() -> client.download(List.of(BigInteger.ONE))).isInstanceOf(WebServiceException.class);
+        assertThatThrownBy(() -> client.download(RESOURCE_IDS)).isInstanceOf(WebServiceException.class);
         assertThat(faultChains).hasValue(1);
         peer.assertHealthy();
         assertReplaysReleased();
         cxf.getInFaultInterceptors().remove(failure);
         peer.mode = EbsHttpsTestFixture.Mode.NORMAL;
-        assertThat(client.download(List.of(BigInteger.ONE)).getData().getFirst().getContent())
+        assertThat(client.download(RESOURCE_IDS).getData().getFirst().getContent())
                 .containsExactly(EbsHttpsTestFixture.PAYLOAD);
         assertReplaysReleased();
     }
@@ -246,11 +248,11 @@ class EdtClientBuilderTransportUnitTest {
     @Test
     void shouldAcceptProgressingDownload_beyondOneReadTimeout() throws Exception {
         EDTDelegate client = client(EDTDelegate.class);
-        client.download(List.of(BigInteger.ONE));
+        client.download(RESOURCE_IDS);
         ((HTTPConduit) ClientProxy.getClient(client).getConduit()).getClient().setReceiveTimeout(1000);
         peer.mode = EbsHttpsTestFixture.Mode.PROGRESSING_BODY;
         long started = System.nanoTime();
-        assertThat(client.download(List.of(BigInteger.ONE)).getData().getFirst().getContent())
+        assertThat(client.download(RESOURCE_IDS).getData().getFirst().getContent())
                 .containsExactly(EbsHttpsTestFixture.PAYLOAD);
         assertThat(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)).isGreaterThan(1000);
         peer.assertHealthy();
@@ -263,7 +265,7 @@ class EdtClientBuilderTransportUnitTest {
         HCValidation client = client(HCValidation.class);
         ((HTTPConduit) ClientProxy.getClient(client).getConduit()).getTlsClientParameters()
                 .setSecureSocketProtocol(protocol);
-        assertThat(client.validate(new Requests(), "en").getAuditUID()).isEqualTo(EbsHttpsTestFixture.AUDIT);
+        assertThat(client.validate(hcvRequest, "en").getAuditUID()).isEqualTo(EbsHttpsTestFixture.AUDIT);
         assertThat(peer.negotiatedProtocol).isEqualTo(protocol);
         peer.assertHealthy();
     }
@@ -273,15 +275,15 @@ class EdtClientBuilderTransportUnitTest {
         HCValidation client = client(HCValidation.class);
         HTTPConduit conduit = (HTTPConduit) ClientProxy.getClient(client).getConduit();
         conduit.getTlsClientParameters().setTrustManagers(null);
-        assertThatThrownBy(() -> client.validate(new Requests(), "en")).isInstanceOf(WebServiceException.class);
+        assertThatThrownBy(() -> client.validate(hcvRequest, "en")).isInstanceOf(WebServiceException.class);
         conduit.getTlsClientParameters().setTrustManagers(keys.trust());
         ((BindingProvider) client).getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY,
                 peer.address().replace("localhost", "127.0.0.1") + "/ebs");
-        assertThatThrownBy(() -> client.validate(new Requests(), "en")).isInstanceOf(WebServiceException.class);
+        assertThatThrownBy(() -> client.validate(hcvRequest, "en")).isInstanceOf(WebServiceException.class);
         assertThat(peer.requests).isEmpty();
         ((BindingProvider) client).getRequestContext().put(BindingProvider.ENDPOINT_ADDRESS_PROPERTY,
                 peer.address() + "/ebs");
-        assertThat(client.validate(new Requests(), "en").getAuditUID()).isEqualTo(EbsHttpsTestFixture.AUDIT);
+        assertThat(client.validate(hcvRequest, "en").getAuditUID()).isEqualTo(EbsHttpsTestFixture.AUDIT);
         peer.assertHealthy();
     }
 
@@ -290,11 +292,11 @@ class EdtClientBuilderTransportUnitTest {
         peer.close();
         peer = new EbsHttpsTestFixture(keys, true);
         HCValidation client = client(HCValidation.class);
-        assertThatThrownBy(() -> client.validate(new Requests(), "en")).isInstanceOf(WebServiceException.class);
+        assertThatThrownBy(() -> client.validate(hcvRequest, "en")).isInstanceOf(WebServiceException.class);
         assertThat(peer.requests).isEmpty();
         ((HTTPConduit) ClientProxy.getClient(client).getConduit()).getTlsClientParameters()
                 .setKeyManagers(keys.clientIdentity());
-        assertThat(client.validate(new Requests(), "en").getAuditUID()).isEqualTo(EbsHttpsTestFixture.AUDIT);
+        assertThat(client.validate(hcvRequest, "en").getAuditUID()).isEqualTo(EbsHttpsTestFixture.AUDIT);
         peer.assertHealthy();
     }
 
@@ -316,7 +318,7 @@ class EdtClientBuilderTransportUnitTest {
         try {
             assertThat(control.get(String.class)).isEqualTo("control-ok");
             assertThat(usedUrlConnection).isFalse();
-            assertThat(ebs.validate(new Requests(), "en").getAuditUID()).isEqualTo(EbsHttpsTestFixture.AUDIT);
+            assertThat(ebs.validate(hcvRequest, "en").getAuditUID()).isEqualTo(EbsHttpsTestFixture.AUDIT);
             assertThat(control.get(String.class)).isEqualTo("control-ok");
             assertThat(usedUrlConnection).isFalse();
             assertThat(WebClient.getConfig(control).getRequestContext())
@@ -332,7 +334,7 @@ class EdtClientBuilderTransportUnitTest {
         List<Callable<Boolean>> work = new ArrayList<>();
         for (EDTDelegate port : ports) work.add(() -> {
             for (int i = 0; i < 2; i++) {
-                assertThat(port.download(List.of(BigInteger.ONE)).getData().getFirst().getContent())
+                assertThat(port.download(RESOURCE_IDS).getData().getFirst().getContent())
                         .containsExactly(EbsHttpsTestFixture.PAYLOAD);
                 assertThat(AttachmentCachingInterceptor.getAttachments()).isNull();
             }
@@ -399,8 +401,8 @@ class EdtClientBuilderTransportUnitTest {
         });
         cxf.getOutInterceptors().add(new AbstractPhaseInterceptor<Message>(Phase.PRE_STREAM) {
             @Override public void handleMessage(Message message) {
-                assertThat(message.get("USING_URLCONNECTION")).isEqualTo(Boolean.TRUE);
-                assertThat(message.get("use.async.http.conduit")).isNotEqualTo(Boolean.TRUE);
+                assertThat(message).containsEntry("USING_URLCONNECTION", Boolean.TRUE)
+                        .doesNotContainEntry("use.async.http.conduit", Boolean.TRUE);
             }
         });
         // Trust only the generated peer certificate; keep hostname verification and the builder's TLS policy.

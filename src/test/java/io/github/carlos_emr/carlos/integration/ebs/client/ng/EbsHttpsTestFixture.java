@@ -198,7 +198,7 @@ final class EbsHttpsTestFixture implements AutoCloseable {
             sentEncryptedAttachment = reply.encryptedAttachment();
             writing = true;
             if (responseMode == Mode.STALLED_HEADERS) {
-                pause();
+                pause(1500);
             }
             exchange.getResponseHeaders().set("Content-Type", reply.contentType());
             exchange.sendResponseHeaders(isSoapFault(responseMode) ? 500 : 200, reply.bytes().length);
@@ -208,13 +208,13 @@ final class EbsHttpsTestFixture implements AutoCloseable {
                 int first = Math.min(4096, reply.bytes().length - 1);
                 exchange.getResponseBody().write(reply.bytes(), 0, first);
                 exchange.getResponseBody().flush();
-                pause();
+                pause(1500);
                 exchange.getResponseBody().write(reply.bytes(), first, reply.bytes().length - first);
             } else if (responseMode == Mode.PROGRESSING_BODY) {
                 for (int offset = 0; offset < reply.bytes().length; offset += 4096) {
                     exchange.getResponseBody().write(reply.bytes(), offset, Math.min(4096, reply.bytes().length - offset));
                     exchange.getResponseBody().flush();
-                    Thread.sleep(250);
+                    pause(250);
                 }
             } else {
                 exchange.getResponseBody().write(reply.bytes());
@@ -504,7 +504,11 @@ final class EbsHttpsTestFixture implements AutoCloseable {
         output.write(text.getBytes(StandardCharsets.UTF_8));
     }
 
-    private static void pause() throws InterruptedException { Thread.sleep(1500); }
+    /** Deliberate wire delay: exercise idle timeouts and responses that keep making progress. */
+    @SuppressWarnings("java:S2925") // A simulated slow peer must delay actual network bytes.
+    private static void pause(long milliseconds) throws InterruptedException {
+        Thread.sleep(milliseconds);
+    }
 
     @Override public void close() {
         server.stop(0); workers.shutdownNow();
