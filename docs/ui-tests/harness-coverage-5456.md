@@ -78,6 +78,14 @@ Save & Exit failure; role administration reaches a late iframe timeout. These ar
 not blanket-pinned or counted as successful certification. All final retakes cited
 as clean independently pass the residue audit.
 
+The final targeted retake passes minor interactions (server audit 0) and clinical
+lab-requisition follow-up (server audit 2: no journal lines). Chart-history
+access-control and print/group checks pass before a later native compact-save
+invariant reports a change outside the selected editor state; the whole check
+fails, its residue audit passes, and its server audit exits 1. The qualified
+restricted-login schedule refusal is no longer the stopping point. This later
+failure is not suppressed or presented as a complete chart-history pass.
+
 Historical evidence uses the earlier tests-only application/package at
 `b4c0dfc94e677514e6f64dd271358f0295270739`, EMR SHA-256
 `437fc19cabcaf7fd3100f3555b900abce6b76000a9419eecb2a967640f17c3b8`.
