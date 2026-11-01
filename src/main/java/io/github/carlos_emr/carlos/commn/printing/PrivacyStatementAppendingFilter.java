@@ -393,7 +393,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         @Override
         public void setIntHeader(String name, int value) {
-            if ("Content-Length".equalsIgnoreCase(name)) {
+            if (isContentLengthHeader(name)) {
                 setContentLength(value);
             } else {
                 super.setIntHeader(name, value);
@@ -402,7 +402,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         @Override
         public void addIntHeader(String name, int value) {
-            if ("Content-Length".equalsIgnoreCase(name)) {
+            if (isContentLengthHeader(name)) {
                 setContentLength(value);
             } else {
                 super.addIntHeader(name, value);
@@ -411,7 +411,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         @Override
         public void setHeader(String name, String value) {
-            if ("Content-Length".equalsIgnoreCase(name) && value != null) {
+            if (isContentLengthHeader(name) && value != null) {
                 try {
                     setContentLengthLong(Long.parseLong(value));
                     return;
@@ -419,7 +419,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
                     // Preserve the container's handling of malformed header values.
                 }
             }
-            if ("Content-Length".equalsIgnoreCase(name)) {
+            if (isContentLengthHeader(name)) {
                 deferredContentLength = null;
             }
             super.setHeader(name, value);
@@ -427,7 +427,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         @Override
         public void addHeader(String name, String value) {
-            if ("Content-Length".equalsIgnoreCase(name)) {
+            if (isContentLengthHeader(name)) {
                 setHeader(name, value);
             } else {
                 super.addHeader(name, value);
@@ -455,6 +455,13 @@ public class PrivacyStatementAppendingFilter implements Filter {
             writer = null;
             responseWriterObtained = false;
             responseOutputStreamObtained = false;
+        }
+
+        // HTTP field names are case insensitive (RFC 9110); this is response framing, not an identity check.
+        @SuppressFBWarnings(value = "IMPROPER_UNICODE",
+                justification = "HTTP header names require case-insensitive comparison; no authentication or authorization decision")
+        private static boolean isContentLengthHeader(String name) {
+            return "Content-Length".equalsIgnoreCase(name);
         }
 
         private boolean isKnownNonHtml() {
