@@ -971,7 +971,9 @@
     "test:signal-cleanup-audit": "node scripts/signal-cleanup-audit.js",
     "test:billing-on-moh-files": "node scripts/billing-on-moh-files-playwright-checks.js",
     "test:billing-on-clinic-nbr": "node scripts/billing-on-clinic-nbr-playwright-checks.js",
-    "test:echart-forms-list-paging": "node scripts/echart-forms-list-paging-playwright-checks.js"
+    "test:echart-forms-list-paging": "node scripts/echart-forms-list-paging-playwright-checks.js",
+    "test:dialog-confirmations-document": "DIALOG_CONFIRMATION_TARGET=document node scripts/note-browser-documents-playwright-checks.js",
+    "test:dialog-confirmations-tickler": "DIALOG_CONFIRMATION_TARGET=tickler node scripts/tickler-demo-main-status-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

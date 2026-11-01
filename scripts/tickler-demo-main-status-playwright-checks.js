@@ -187,6 +187,13 @@ async function workflow(s) {
     await offers({ complete: true, delete: true, erase: false });
   });
 
+  if(process.env.DIALOG_CONFIRMATION_TARGET==='tickler') await s.step('dismissing task Delete confirms once and preserves every task and status history',async()=>{
+    await box('first').check();const before=statuses(),history=updates('first','D');
+    const dialogs=await h.withExpectedDialogs(list,()=>list.locator(BUTTON.delete).click(),{accept:false});
+    if(!dialogs.length)await list.waitForLoadState('networkidle',{timeout:TIMEOUT});
+    h.assert(dialogs.length===1&&dialogs[0].type==='confirm'&&statuses()===before&&updates('first','D')===history,'Task Delete did not offer cancellable confirmation or changed a task after dismissal');
+  });
+
   await s.step('Delete with one tickler ticked marks only that one deleted and returns to the patient\'s list', async () => {
     await box('first').check();
     await press('delete');

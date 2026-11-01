@@ -88,6 +88,7 @@
 #   BUILD_CA_BUNDLE     optional PEM bundle to trust for that proxy
 #   APT_FORCE_HTTPS     true rewrites the image's apt sources to https://
 #                       (for an egress proxy that only tunnels CONNECT)
+#   CONTAINER_NETWORK   host (default) or bridge; bridge publishes no host ports
 #   CONTAINER_CPUS      optional --cpus limit for the container (on a host that
 #                       also builds, so the browser checks are not starved)
 #   LOG_DIR             host directory for logs and reports
@@ -107,6 +108,7 @@ BUILD_PROXY="${BUILD_PROXY:-}"
 BUILD_CA_BUNDLE="${BUILD_CA_BUNDLE:-}"
 APT_FORCE_HTTPS="${APT_FORCE_HTTPS:-false}"
 CONTAINER_CPUS="${CONTAINER_CPUS:-}"
+CONTAINER_NETWORK="${CONTAINER_NETWORK:-host}"
 LOG_DIR="${LOG_DIR:-$REPO_ROOT/target/deb-docker-validation}"
 CGROUP_ROOT="${CGROUP_ROOT:-/sys/fs/cgroup}"
 
@@ -117,6 +119,7 @@ usage() { sed -n '/^# Usage:/,/^set -euo pipefail/p' "${BASH_SOURCE[0]}" | sed '
 
 case "$CARLOS_PROVINCE" in on|bc|other) ;; *) die "CARLOS_PROVINCE must be on, bc or other (got '$CARLOS_PROVINCE')" ;; esac
 case "$INSTALL_DEMO_DATA" in true|false) ;; *) die "INSTALL_DEMO_DATA must be true or false" ;; esac
+case "$CONTAINER_NETWORK" in host|bridge) ;; *) die "CONTAINER_NETWORK must be host or bridge" ;; esac
 # Both values are written into shell text that runs as root in the container
 # (and RESET_PASSWORD into /root/suite-env.sh), so refuse anything that quoting
 # could not carry through unchanged.
@@ -240,16 +243,18 @@ cmd_up() {
   # decided before the port probe, so it does not depend on what else this host
   # happens to be listening on.
   cgroup_args=$(cgroup_run_args) || exit 1
+  if [ "$CONTAINER_NETWORK" = host ]; then
   for port in 80 443 3306 18080 9515; do
     if ss -Hltn "sport = :$port" 2>/dev/null | grep -q .; then die "port $port is already in use on this host"; fi
   done
+  fi
   [ -n "$CONTAINER_CPUS" ] && extra+=(--cpus "$CONTAINER_CPUS")
   build_image
 
   say "starting $CONTAINER (cgroup mode: $(cgroup_mode))"
   local validation_ca="${BUILD_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}"
   # shellcheck disable=SC2086 # cgroup_args is a deliberate word list
-  docker run -d --name "$CONTAINER" --hostname "$CONTAINER" --privileged --network host \
+  docker run -d --name "$CONTAINER" --hostname "$CONTAINER" --privileged --network "$CONTAINER_NETWORK" \
     $cgroup_args "${extra[@]}" --tmpfs /run --tmpfs /run/lock \
     -v "$REPO_ROOT:/root/carlos:ro" -v "$DEBS_DIR:/debs:ro" \
     -v "$validation_ca:/run/carlos-validation-ca.pem:ro" \

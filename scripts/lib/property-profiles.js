@@ -27,6 +27,10 @@ function renderProperties(snapshot, properties) {
     + Object.entries(properties).map(([key, value]) => `${key}=${value}`).join('\n') + '\n')]);
 }
 function restartAndWait(env = process.env) {
+  // A profile deliberately restarts twice. Release systemd start-rate limits
+  // count these operator starts too; reset that budget only at this explicit
+  // boundary. The child-run NRestarts check still catches an unexpected crash.
+  execFileSync('systemctl', ['reset-failed', 'carlos-emr'], {stdio: 'inherit', timeout: 10000});
   execFileSync('systemctl', ['restart', 'carlos-emr'], {stdio: 'inherit', timeout: 120000});
   // /status is public; never include a credential-bearing URL in subprocess args.
   const base = new URL(env.BASE_URL || 'https://127.0.0.1/carlos');

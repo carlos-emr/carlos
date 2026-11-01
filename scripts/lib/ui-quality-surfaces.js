@@ -10,7 +10,7 @@ const {openOntarioBillForm}=require('./billing-on-bill-form');
 async function eachUiQualitySurface(s,visit) {
   const scheduleUrl=s.schedule.url();
   const anonymous=await h.newContext(s.context.browser(),s.config);
-  const login=await anonymous.newPage();await h.gotoApp(login,s.config.baseUrl,'/');
+  const login=await anonymous.newPage();h.wireStrictPage(login,'quality-login',s.recorder);await h.gotoApp(login,s.config.baseUrl,'/');
   await visit('login',login,'#username,#password,input[type="submit"],button[type="submit"]');
   await anonymous.close();
   await visit('schedule',s.schedule,'#inboxLink,#admin-panel,#admin2,#dateAndCalendar a');

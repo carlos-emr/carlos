@@ -32,8 +32,23 @@ async function workflow(s) {
     await editor.locator('input[name="emailPt"]').check();await editor.close();
     h.assert(JSON.stringify(s.sql.rows(`SELECT * FROM appointment WHERE appointment_no=${ordinary.id}`))===JSON.stringify(before),'Cancelled reminder edit changed the appointment');
   });
+  await s.step('Edit posts both choices and a repeated checked Save does not duplicate either booking',async()=>{
+    const requests=[];
+    const listener=request=>{if(request.method()==='POST'&&new URL(request.url()).pathname.endsWith('/appointment/UpdateRecord'))requests.push(new URLSearchParams(request.postData()||''));};
+    s.context.on('request',listener);
+    try {
+      for(const [booking,checked] of [[ordinary,true],[ordinary,true],[selected,false]]) {
+        const editor=await f.openEditPopup(s.context,s.schedule,booking.id);
+        await editor.locator('input[name="emailPt"]').setChecked(checked);
+        const [response]=await Promise.all([editor.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/appointment/UpdateRecord')),editor.locator('#updateButton').click()]);
+        h.assert(response.status()===200,'Reminder Edit failed');await editor.close();
+      }
+    } finally {s.context.off('request',listener);}
+    h.assert(requests.length===3&&requests.slice(0,2).every(body=>body.get('emailPt')==='email reminder')&&!requests[2].has('emailPt'),'Native Edit did not submit the checked, repeated and unchecked choices');
+    h.assert(f.stampedAppointments().length===2,'Reminder edits duplicated a booking');
+  });
   await s.step('requested reminder has an implemented and visible persisted outcome',async()=>{
-    const editor=await f.openEditPopup(s.context,s.schedule,selected.id);
+    const editor=await f.openEditPopup(s.context,s.schedule,ordinary.id);
     const checked=await editor.locator('input[name="emailPt"]').isChecked();await editor.close();
     // No queue/transport assertion is possible before the product defines one.
     // A missing implementation must remain a visible finding, never a green

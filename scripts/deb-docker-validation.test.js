@@ -307,3 +307,8 @@ test('should refuse a suite run that does not match the profile the install is i
   assert.match(r.stderr, /the install is in profile 'legacy-teleplan' but the run asks for 'default'/);
   assert.equal(fs.existsSync(box.calls), false, 'the suite ran although the install is in another profile');
 });
+
+test('unsupported container networks are refused before Docker',t=>{
+  const box=sandbox(t),result=run(['up'],{...box.env,CARLOS_DISPOSABLE_HOST:'true',CONTAINER_NETWORK:'public-network'});
+  assert.equal(result.status,1);assert.match(result.stderr,/CONTAINER_NETWORK must be host or bridge/);assert.equal(fs.existsSync(box.calls),false);
+});

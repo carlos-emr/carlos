@@ -18127,6 +18127,48 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Eleven marker-owned Annual forms on the owned patient; chart heading, first ten, Next, Previous and patient context. Every form is removed by key."
+    },
+    {
+      "script": "scripts/note-browser-documents-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 420,
+      "env": [
+        "DOCUMENT_DIR",
+        "INCOMINGDOCUMENT_DIR"
+      ],
+      "fixtures": "Owned FAKE- patient, two owned PDFs (rows, ctl_document and files), an owned note and the refiled copy; all removed. Needs pdftotext.",
+      "name": "dialog-confirmations-document",
+      "envSet": {
+        "DIALOG_CONFIRMATION_TARGET": "document"
+      },
+      "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently."
+    },
+    {
+      "script": "scripts/tickler-demo-main-status-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [
+        "DOCUMENT_DIR",
+        "RX_FAX_DOCUMENT_DIR"
+      ],
+      "fixtures": "Owned synthetic patient with three active ticklers due today, a comment, legacy link, active and detached attachment associations, and one PDF document (row, ctl_document link and file) so the document viewer offers the patient tickler list; all removed and asserted gone. SKIPs without DOCUMENT_DIR.",
+      "name": "dialog-confirmations-tickler",
+      "envSet": {
+        "DIALOG_CONFIRMATION_TARGET": "tickler"
+      },
+      "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently."
     }
   ]
 }
