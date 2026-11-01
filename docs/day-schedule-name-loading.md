@@ -48,7 +48,8 @@ an SLA. Small-sample P95 values are the maximum observed sample and are noisy.
 The automated budget assertion is deterministic: one statement and zero entity or
 collection loads for the new path at 1, 25 and 100 appointments, with distinct or
 repeated patients. No wall-clock threshold is asserted. Empty input runs no SQL;
-501 distinct IDs use two statements, and duplicate IDs do not add batches. The
+500 existing patients plus a duplicate use one statement; adding the 501st
+existing patient uses two. Both cases assert every returned name projection. The
 harness also compares all response fields recursively with the old helper's
 results. REST tests cover Unicode names, repeated/missing patients, blank slots and
 ordering; manager tests cover denial and directive propagation before any bulk read.

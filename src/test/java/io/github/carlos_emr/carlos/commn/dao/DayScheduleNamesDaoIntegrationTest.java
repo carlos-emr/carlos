@@ -7,6 +7,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
+import io.github.carlos_emr.carlos.commn.dao.projection.DemographicName;
 import io.github.carlos_emr.carlos.managers.AppointmentManagerImpl;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.managers.DemographicManagerImpl;
@@ -117,7 +118,22 @@ class DayScheduleNamesDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldAvoidEmptyInLists_andBoundLargeInLists() {
+    void shouldPreserveNamesAndDeduplicate_whenInputCrossesBatchBoundary() {
+        List<DemographicName> expected = new ArrayList<>();
+        List<Integer> ids = new ArrayList<>();
+        for (int i = 0; i < 501; i++) {
+            Demographic patient = new Demographic();
+            patient.setSex("M");
+            patient.setFirstName("BoundaryFirst" + i);
+            patient.setLastName("BoundaryLast" + i);
+            entityManager.persist(patient);
+            expected.add(new DemographicName(patient.getDemographicNo(), patient.getLastName(), patient.getFirstName()));
+            if (i < 500) ids.add(patient.getDemographicNo());
+        }
+        entityManager.flush();
+        entityManager.clear();
+        // 501 inputs but only 500 distinct patients must still fit in one batch.
+        ids.add(ids.get(0));
         var statistics = entityManager.getEntityManagerFactory().unwrap(SessionFactory.class).getStatistics();
         boolean enabled = statistics.isStatisticsEnabled();
         statistics.setStatisticsEnabled(true);
@@ -125,11 +141,20 @@ class DayScheduleNamesDaoIntegrationTest extends CarlosTestBase {
         try {
             assertThat(demographicDao.getDemographicNames(List.of())).isEmpty();
             assertThat(statistics.getPrepareStatementCount()).isZero();
-            List<Integer> ids = new ArrayList<>();
-            for (int i = 1; i <= 501; i++) ids.add(-i);
-            ids.add(-1);
-            assertThat(demographicDao.getDemographicNames(ids)).isEmpty();
+
+            assertThat(demographicDao.getDemographicNames(ids))
+                    .containsExactlyInAnyOrderElementsOf(expected.subList(0, 500));
+            assertThat(statistics.getPrepareStatementCount()).isEqualTo(1);
+            assertThat(statistics.getEntityLoadCount()).isZero();
+            assertThat(statistics.getCollectionLoadCount()).isZero();
+
+            statistics.clear();
+            ids.add(expected.get(500).demographicNo());
+            assertThat(demographicDao.getDemographicNames(ids))
+                    .containsExactlyInAnyOrderElementsOf(expected);
             assertThat(statistics.getPrepareStatementCount()).isEqualTo(2);
+            assertThat(statistics.getEntityLoadCount()).isZero();
+            assertThat(statistics.getCollectionLoadCount()).isZero();
         } finally {
             statistics.setStatisticsEnabled(enabled);
         }
