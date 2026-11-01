@@ -21,6 +21,8 @@
  * the database.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { createSqlRunner, readConfig, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { markEformInstances, removeEformInstancesSince } = require('./lib/eform-instance-residue');
@@ -51,26 +53,36 @@ const config = {
   formName: process.env.RTL_FORM_NAME || 'Rich Text Letter',
 };
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-rtl-attachment-types',async({cancellation})=>{
   const recorder = createRecorder();
   const sql = createSqlRunner(readConfig().mysql);
   // Before the first save: the instances saved after this are the run's, and only they are removed.
   const instanceMark = markEformInstances(sql);
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     const managerPage = await openManager(context, config, recorder, 'rtl-manager');
+    cancellation?.throwIfCancelled();
     const { fid } = await findLibraryEform(managerPage, config.formName);
+    cancellation?.throwIfCancelled();
     await managerPage.close();
+    cancellation?.throwIfCancelled();
 
     const addPage = await openAddEform(context, config, recorder, fid, config.demographicNo, 'rtl-types-add');
+    cancellation?.throwIfCancelled();
     await saveCurrentEform(addPage, `RTL types ${Date.now()}`);
+    cancellation?.throwIfCancelled();
 
     const popup = await openAttachPopup(addPage, context);
+    cancellation?.throwIfCancelled();
     await waitForPopupReady(popup, recorder, 'rtl-types-popup');
+    cancellation?.throwIfCancelled();
 
     const popupState = await popup.evaluate(() => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-injection.playwright-evaluate-injection -- fixed helper code executed without interpolating user-controlled input
       const normalizedText = document.body.innerText.replace(/\s+/g, ' ').trim();
@@ -94,6 +106,7 @@ const config = {
         bodyText: normalizedText,
       };
     });
+    cancellation?.throwIfCancelled();
 
     assert(popupState.headingMatches.documents, 'RTL attachment popup did not expose a Documents section');
     assert(popupState.headingMatches.labs, 'RTL attachment popup did not expose a Labs section');
@@ -123,9 +136,13 @@ const config = {
     expectFieldWhenPresent(sectionInfo.forms, 'formNo', 'encounter form');
 
     await screenshot(popup, config.screenshotDir, 'rtl-attachment-types-popup');
+    cancellation?.throwIfCancelled();
     await popup.close();
+    cancellation?.throwIfCancelled();
     await addPage.close();
+    cancellation?.throwIfCancelled();
     await context.close();
+    cancellation?.throwIfCancelled();
 
     console.log('PASS rtl attachment popup exposes all expected attachment families');
   } catch (error) {
@@ -144,4 +161,4 @@ const config = {
       sql.dispose();
     }
   }
-})();
+});

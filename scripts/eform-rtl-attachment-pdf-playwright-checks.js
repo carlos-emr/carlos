@@ -48,6 +48,8 @@
  * Environment: BASE_URL, CHROME_PATH, TEST_USER/TEST_PASSWORD/TEST_PIN, RTL_DEMOGRAPHIC_NO,
  * RTL_FORM_NAME, RTL_SCREENSHOT_DIR, RTL_REQUIRE_ALL_FAMILIES, RTL_HRM_TEXT_MARKER, RTL_HRM_DOCUMENT_NO (default 1).
  */
+
+const legacyHarness=require('./lib/legacy-check');
 const fs = require('fs');
 const zlib = require('zlib');
 const { spawnSync } = require('child_process');
@@ -411,33 +413,41 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
 
 /* ---------- main ---------- */
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-rtl-attachment-pdf',async({cancellation})=>{
   const recorder = createRecorder();
   const sql = createSqlRunner(readConfig().mysql);
   // Before the first save: the instances saved after this are the run's, and only they are removed.
   const instanceMark = markEformInstances(sql);
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   try {
     // Only a loopback target (the packaged install's self-signed front door) may skip TLS
     // validation; any other BASE_URL keeps it on.
     const loopbackTarget = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(config.baseUrl);
     const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
     const managerPage = await openManager(context, config, recorder, 'rtl-manager');
+    cancellation?.throwIfCancelled();
     const { fid } = await findLibraryEform(managerPage, config.formName);
+    cancellation?.throwIfCancelled();
     await managerPage.close();
+    cancellation?.throwIfCancelled();
     console.log(`pdftotext ${pdftotextAvailable ? 'found: text assertions enabled' : 'not on PATH: page-count assertions only'}`);
 
     let previousLetter = null;
     for (const family of FAMILIES) {
       try {
         previousLetter = await checkFamily(context, recorder, fid, family, previousLetter);
+    cancellation?.throwIfCancelled();
       } catch (error) {
         record(family.key, 'family check completed', false, String(error && error.stack || error));
       }
     }
     await context.close();
+    cancellation?.throwIfCancelled();
   } catch (error) {
     record('run', 'completed without exception', false, String(error && error.stack || error));
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2).slice(0, 6000));
@@ -454,5 +464,5 @@ async function checkFamily(context, recorder, fid, family, previousLetter) {
   const failed = results.filter((r) => !r.ok).length;
   const skipped = results.filter((r) => r.skipped).length;
   console.log(`\n${results.length - failed}/${results.length} checks passed${skipped ? ` (${skipped} family skipped)` : ''}`);
-  process.exit(failed ? 1 : 0);
-})();
+  {process.exitCode=failed ? 1 : 0;return;}
+});

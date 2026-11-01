@@ -17,6 +17,8 @@
  * Requires MYSQL_HOST/USER/PASSWORD/DATABASE for source assertions and owned fixture cleanup.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const fs = require('fs');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
@@ -55,69 +57,100 @@ const config = {
   formName: process.env.RTL_FORM_NAME || 'Rich Text Letter',
 };
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-rtl-attachment-behavior',async({cancellation})=>{
   assert(/^[1-9][0-9]*$/.test(config.demographicNo), 'RTL_DEMOGRAPHIC_NO must be a positive ID');
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   try {
     const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     const managerPage = await openManager(context, config, recorder, 'rtl-manager');
+    cancellation?.throwIfCancelled();
     const { fid } = await findLibraryEform(managerPage, config.formName);
+    cancellation?.throwIfCancelled();
     await managerPage.close();
+    cancellation?.throwIfCancelled();
 
     const addPage = await openAddEform(context, config, recorder, fid, config.demographicNo, 'rtl-behavior-add');
+    cancellation?.throwIfCancelled();
     const fdid = await saveCurrentEform(addPage, stamp);
+    cancellation?.throwIfCancelled();
 
     const popup = await openAttachPopup(addPage, context);
+    cancellation?.throwIfCancelled();
     await waitForPopupReady(popup, recorder, 'rtl-behavior-popup');
+    cancellation?.throwIfCancelled();
     const popupUrl = new URL(popup.url());
     const requestId = popupUrl.searchParams.get('requestId');
     assert(requestId === fdid, `Attach popup requestId should match saved fdid ${fdid}, got ${requestId || '(empty)'}`);
 
     await screenshot(popup, config.screenshotDir, 'rtl-attachment-behavior-popup-before-submit');
+    cancellation?.throwIfCancelled();
 
     const firstDoc = popup.locator('input[name="docNo"]').first();
     await firstDoc.waitFor({ state: 'attached', timeout: 15000 });
+    cancellation?.throwIfCancelled();
     const selectedDocValue = await firstDoc.getAttribute('value');
+    cancellation?.throwIfCancelled();
     assert(selectedDocValue, 'RTL attachment popup did not expose a document checkbox value');
     await firstDoc.check();
+    cancellation?.throwIfCancelled();
     const lab = popup.locator('input[name="labNo"][value^="HL7:"]').first();
     await lab.waitFor({state:'attached', timeout:15000});
+    cancellation?.throwIfCancelled();
     const selectedLabValue = await lab.inputValue();
+    cancellation?.throwIfCancelled();
     assert(/^HL7:[1-9][0-9]*$/.test(selectedLabValue), 'lab selection lost its source');
     await lab.check();
+    cancellation?.throwIfCancelled();
 
     await Promise.all([
       popup.waitForLoadState('domcontentloaded').catch(() => {}),
       popup.locator('input[type="submit"][value="Attach Selected"]').click(),
     ]);
+    cancellation?.throwIfCancelled();
     await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     const popupBodyText = await popup.locator('body').innerText({ timeout: 10000 }).catch(() => '');
+    cancellation?.throwIfCancelled();
     const normalizedPopupBodyText = popupBodyText.trim();
     assert(!/HTTP Status 500|Exception Report|CARLOS has encountered an unexpected error/i.test(normalizedPopupBodyText), `Attachment submit crashed the popup: ${normalizedPopupBodyText}`);
     assert(normalizedPopupBodyText === 'ok', `Attachment submit did not complete cleanly: ${normalizedPopupBodyText}`);
     await screenshot(popup, config.screenshotDir, 'rtl-attachment-behavior-popup-after-submit');
+    cancellation?.throwIfCancelled();
     await popup.close();
+    cancellation?.throwIfCancelled();
     assert(db.value(`SELECT COUNT(*) FROM EFormDocs WHERE fdid=${Number(fdid)} AND doctype='L' AND lab_type='HL7' AND document_no=${Number(selectedLabValue.split(':')[1])} AND deleted IS NULL`) === '1',
       'saved eForm attachment did not preserve the selected lab source');
 
     const reopenedPopup = await openAttachPopup(addPage, context);
+    cancellation?.throwIfCancelled();
     await waitForPopupReady(reopenedPopup, recorder, 'rtl-behavior-popup-reopen');
+    cancellation?.throwIfCancelled();
     const reopenedDoc = reopenedPopup.locator(`input[name="docNo"][value="${selectedDocValue}"]`);
     await reopenedDoc.waitFor({ state: 'attached', timeout: 15000 });
+    cancellation?.throwIfCancelled();
     assert(await reopenedDoc.isChecked(), `Reopened attach popup should keep document ${selectedDocValue} checked`);
+    cancellation?.throwIfCancelled();
     assert(await reopenedPopup.locator(`input[name="labNo"][value="${selectedLabValue}"]`).isChecked(), 'reopened eForm lost its source-qualified lab');
+    cancellation?.throwIfCancelled();
     await screenshot(reopenedPopup, config.screenshotDir, 'rtl-attachment-behavior-popup-reopen');
+    cancellation?.throwIfCancelled();
     await reopenedPopup.close();
+    cancellation?.throwIfCancelled();
 
     const fetchResult = await invokeFetchAttached(addPage);
+    cancellation?.throwIfCancelled();
     assert(fetchResult.hasFunction, 'Rich Text Letter page did not expose fetchAttached() after popup submit');
     assert(!fetchResult.error, `fetchAttached() threw after popup submit: ${fetchResult.error}`);
     assert(!/Error loading attachments|HTTP Status 500/i.test(fetchResult.text), `Attachment sidebar rendered an error after empty submit: ${fetchResult.text}`);
     await screenshot(addPage, config.screenshotDir, 'rtl-attachment-behavior-main');
+    cancellation?.throwIfCancelled();
 
     // Merged eForm+attachment PDF download: the letter with its attached document must come back
     // as a well-formed PDF that still carries embedded font programs. This is the flow that
@@ -127,10 +160,14 @@ const config = {
     // re-save keeps the attachment bound (the add page's form does not refresh attachments after
     // a popup submit, so a download from there produces an attachment-less new instance).
     const viewPage = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(viewPage, 'rtl-behavior-saved-view', recorder);
     await gotoApp(viewPage, config.baseUrl, `/eform/efmshowform_data?fdid=${encodeURIComponent(fdid)}`);
+    cancellation?.throwIfCancelled();
     await viewPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     const reopenedSubject = await viewPage.locator('#remote_eform_subject').inputValue();
+    cancellation?.throwIfCancelled();
     if (reopenedSubject !== stamp) {
       console.error('Synthetic subject diagnostics', JSON.stringify({
         storedMatches: db.value(`SELECT COUNT(*) FROM eform_data WHERE fdid=${Number(fdid)} AND subject=${sqlString(stamp)}`),
@@ -139,6 +176,7 @@ const config = {
           formIndex: Array.from(document.forms).indexOf(field.form),
         }))),
       }));
+    cancellation?.throwIfCancelled();
     }
     assert(reopenedSubject === stamp,
       `reopening the saved eForm changed its synthetic subject: ${JSON.stringify(reopenedSubject)}`);
@@ -148,6 +186,7 @@ const config = {
       () => !Array.from(document.querySelectorAll('select option')).some((o) => o.textContent.trim() === 'loading...'),
       { timeout: 20000 },
     ).catch(() => {});
+    cancellation?.throwIfCancelled();
     const mergedPdfPath = buildArtifactPath(config.screenshotDir, `rtl-attachment-merged-${Date.now()}`, '.pdf');
     const downloadPromise = viewPage.waitForEvent('download', { timeout: 90000 });
     // Independent ownership marker lets cleanup find the PDF revision even if subject
@@ -159,9 +198,13 @@ const config = {
       marker.value = owner;
       document.forms[0].appendChild(marker);
     }, stamp);
+    cancellation?.throwIfCancelled();
     await viewPage.locator('#remoteDownloadButton').click();
+    cancellation?.throwIfCancelled();
     const download = await downloadPromise;
+    cancellation?.throwIfCancelled();
     await download.saveAs(mergedPdfPath);
+    cancellation?.throwIfCancelled();
     assert(db.value(`SELECT COUNT(*) FROM eform_data WHERE demographic_no=${Number(config.demographicNo)} AND subject=${sqlString(stamp)}`) === '2',
       'PDF export must preserve the subject on its saved revision');
     const mergedBytes = fs.readFileSync(mergedPdfPath);
@@ -177,9 +220,12 @@ const config = {
     assert(mergedBytes.length > 50000, `Merged eForm+attachment PDF looks attachment-less (${mergedBytes.length} bytes)`);
     fs.rmSync(mergedPdfPath, { force: true });
     await viewPage.close();
+    cancellation?.throwIfCancelled();
 
     await addPage.close();
+    cancellation?.throwIfCancelled();
     await context.close();
+    cancellation?.throwIfCancelled();
 
     console.log(`PASS rtl attachment submit stays stable and reopens with selected documents pre-checked (fdid ${fdid}, doc ${selectedDocValue}); merged PDF download verified (${mergedBytes.length} bytes)`);
   } catch (error) {
@@ -202,4 +248,4 @@ const config = {
       }
     }
   }
-})().catch(error => { console.error(error.message); process.exitCode = 1; });
+}).catch(error => { console.error(error.message); process.exitCode = 1; });

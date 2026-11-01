@@ -20,6 +20,8 @@
 // Prereqs: fixtures.sql loaded; backbone-loopback.js has imported >=1 inbound
 // fax; the login user has _edoc and _lab write privileges (carlosdoc does).
 'use strict';
+const legacyHarness=require('../../lib/legacy-check');
+
 const { execFileSync } = require('child_process');
 const { launch, login, cfg } = require('./lib');
 const { shouldIgnoreHttpsErrors } = require('../../lib/playwright-harness');
@@ -34,7 +36,7 @@ const must = (cond, msg) => { if (!cond) throw new Error(msg); };
 // Escape a value for embedding inside a single-quoted SQL string literal.
 const sqlLit = (v) => String(v).replace(/'/g, "''");
 
-async function main() {
+async function main({cancellation}={}) {
   const c = cfg({ srfax: false });
 
   // Resolve the fixture patient and the login's provider from the database so
@@ -56,10 +58,13 @@ async function main() {
   const ctx = await b.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   try {
     const p = await login(ctx, c);
+    cancellation?.throwIfCancelled();
     // Land on an app page so a CSRFGuard token is present to scrape.
     // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validated base + constant path
     await p.goto(c.base + '/web/inboxhub/Inboxhub', { waitUntil: 'domcontentloaded' });
+    cancellation?.throwIfCancelled();
     await p.waitForTimeout(800);
+    cancellation?.throwIfCancelled();
     const { postForm } = require('./lib');
 
     // STEP 2 + 3: file the document to the patient and route it to the provider.
@@ -67,6 +72,7 @@ async function main() {
       method: 'documentUpdateAjax', documentId: doc, docType: 'Received Fax',
       documentDescription: 'E2E inbound fax', observationDate: '', demog: demo, flagproviders: provider,
     });
+    cancellation?.throwIfCancelled();
     must(r1.status === 200, `documentUpdateAjax returned HTTP ${r1.status} (expected 200)`);
     must(/^application\/json(?:;|$)/i.test(r1.contentType), 'documentUpdateAjax did not return JSON');
     must(JSON.parse(r1.body).patientId === demo, 'documentUpdateAjax returned another patient');
@@ -88,6 +94,7 @@ async function main() {
     const r2 = await postForm(p, c.base + '/oscarMDS/FileLabs', {
       method: 'fileLabAjax', flaggedLabId: doc, labType: 'DOC',
     });
+    cancellation?.throwIfCancelled();
     must(r2.status === 200, `fileLabAjax returned HTTP ${r2.status} (expected 200)`);
     const filed = sql(`SELECT status FROM providerLabRouting WHERE lab_no=${doc} AND lab_type='DOC' AND provider_no='${provider}' ORDER BY id DESC LIMIT 1`);
     must(filed === 'F', `provider routing status is '${filed}', expected 'F' (filed)`);
@@ -99,4 +106,4 @@ async function main() {
   }
 }
 
-main().catch((e) => { console.error('INBOX LIFECYCLE: FAIL —', e.message); process.exit(1); });
+legacyHarness.runLegacyCheck('fax-inbox-lifecycle',main).catch((e) => { console.error('INBOX LIFECYCLE: FAIL —', e.message); process.exit(1); });
