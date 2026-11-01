@@ -62,10 +62,25 @@ class TestPackagedTargetSchemaColumns(unittest.TestCase):
         # The pinned upstream checkout is unavailable in normal CI. The target side
         # is local, so a new common/province migration must never leave the packaged
         # importer's destination-column metadata silently stale.
+        """Check all native columns independently, then the shipped copy inventory."""
         generator = load_generator()
         for province in generator.PROVINCES:
             with self.subTest(province=province):
                 schema = generator.load_schema(generator.carlos_schema_files(province))
+                physical = json.loads((generator.REPO_ROOT / "database/mysql/schema-contract" /
+                                       (province + ".json")).read_text())
+                physical_columns = {}
+                for row in physical["schema"]["columns"]:
+                    physical_columns.setdefault(row[0], set()).add(row[1])
+                discrepancies = {}
+                for table in set(schema.tables) | set(physical_columns):
+                    parsed = set(schema.tables.get(table, {}))
+                    actual = physical_columns.get(table, set())
+                    if parsed != actual:
+                        discrepancies[table] = {"missing": sorted(actual - parsed),
+                                                "unexpected": sorted(parsed - actual)}
+                self.assertFalse(discrepancies,
+                                 "Native schema inventory differs: " + repr(discrepancies))
                 profile = profile_data(province)
                 copied_tables = sorted(table for table, entry in profile["TABLES"].items()
                                        if entry["class"] in ("copy", "merge"))
@@ -532,6 +547,7 @@ class TestPreflightDriftLock(unittest.TestCase):
             self._assert_all_profiles(self._load_preflight(path), schema)
 
     def test_previous_program_and_token_policies_cannot_resume_an_import(self):
+        """Reject prior mappings whose program or credential decisions differ."""
         from carlos_ctl import o19import
         schema = o19manifest.load("o19map-schema")
         for profile in [schema] + list(schema["PROFILES"].values()):

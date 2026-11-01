@@ -35,7 +35,15 @@ def load_generator():
 
 
 class TestExplicitSourceCommit(unittest.TestCase):
+    def test_quoted_reference_column_names_keep_spaces(self):
+        """BC reference columns must not collapse into a single phantom Fee field."""
+        schema = load_generator().Schema()
+        schema.apply_create("sample", "`Fee Item` VARCHAR(255), `Fee Item Description` TEXT")
+        self.assertEqual(schema.tables["sample"],
+                         {"Fee Item": "VARCHAR(255)", "Fee Item Description": "TEXT"})
+
     def test_block_comment_apostrophes_do_not_hide_or_invent_ddl(self):
+        """Comments cannot change quote state or create executable declarations."""
         generator = load_generator()
         sql = "/* clinic's CREATE TABLE fake(id INT); */ CREATE TABLE real(id INT /* patient's note */);"
         statements = list(generator.walk_ddl(sql))
@@ -46,6 +54,7 @@ class TestExplicitSourceCommit(unittest.TestCase):
         self.assertEqual([(s.kind, s.table) for s in statements], [("create", "real")])
 
     def test_escaped_quotes_do_not_expose_literal_ddl(self):
+        """Both MySQL quote escape forms keep embedded DDL inside its literal."""
         generator = load_generator()
         for literal in (r"'clinic\'s ALTER TABLE fake ADD value INT;'", "'clinic''s ALTER TABLE fake ADD value INT;'", "'/* clinic comment */ ALTER TABLE fake ADD value INT;'"):
             with self.subTest(literal=literal):
@@ -54,6 +63,7 @@ class TestExplicitSourceCommit(unittest.TestCase):
                 self.assertEqual([(s.kind, s.table) for s in statements], [("create", "real")])
 
     def test_dynamic_ddl_fragments_are_not_column_declarations(self):
+        """Only the real ALTER following a CONCAT changes the parsed schema."""
         generator = load_generator()
         sql = "CREATE TABLE sample(id INT, value TEXT); SET @sql=CONCAT('ALTER TABLE sample MODIFY value LONGTEXT', ' NOT NULL'); ALTER TABLE sample MODIFY value MEDIUMTEXT;"
         statements = list(generator.walk_ddl(sql))

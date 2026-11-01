@@ -481,6 +481,7 @@ class Schema:
 
     def apply_create(self, name: str, body: str,
                      if_not_exists: bool = False) -> None:
+        """Read complete quoted column names and retain union/guarded CREATE rules."""
         # CREATE TABLE IF NOT EXISTS on an existing table is a NO-OP in
         # MySQL — the restore migrations (V1.0.5/V1.0.6) re-issue old
         # definitions guarded this way, and replacing the baseline's
@@ -501,10 +502,10 @@ class Schema:
             part = part.strip()
             if not part:
                 continue
-            m = re.match(r"(`?)(\w+)`?\s*(.*)", part, re.S)
+            m = re.match(r"(?:`([^`]+)`|(\w+))\s*(.*)", part, re.S)
             if not m:
                 continue
-            quoted, first = m.group(1) == "`", m.group(2)
+            quoted, first = m.group(1) is not None, m.group(1) or m.group(2)
             # A BACKTICKED first token is a column name, never a
             # constraint keyword -- MySQL requires the quoting precisely
             # so a column may be called `key`, `index` or `check`. Without
@@ -545,6 +546,7 @@ class Schema:
             del self.pks[name]
 
     def apply_alter(self, name: str, clause_text: str) -> None:
+        """Apply ordered column/key changes while retaining names and declarations."""
         if name not in self.tables:
             # ALTER against a table this source set never created (e.g. a
             # BC-only table altered by a shared update script) — ignore.
@@ -1084,6 +1086,10 @@ def load_schema(files: List[Path],
         elif f.name == "V1.0.59__archive_security_mfa_setting.sql":
             schema.apply_alter("SecurityArchive", "ADD COLUMN IF NOT EXISTS "
                                "usingMfa TINYINT(1) NULL DEFAULT NULL")
+        elif f.name == "V1.0.57__preserve_rourke2020_immunization_notes.sql":
+            for column in ("p3_immunization", "p4_immunization"):
+                schema.apply_alter("formRourke2020", "ADD COLUMN IF NOT EXISTS "
+                                   + column + " TEXT NULL")
     return schema
 
 
@@ -1105,24 +1111,33 @@ def carlos_migration_files(dirs: List[Path]) -> List[Path]:
     return sorted(files, key=lambda f: (flyway_version(f), f.name))
 
 
-def expand_sources(base: Path, patterns: List[str]) -> List[Path]:
+def expand_sources(base: Path, patterns: List[str], strict: bool = False) -> List[Path]:
     """Resolve the configured source patterns against `base`, globs sorted
     for determinism.
 
     A missing NON-glob file warns rather than dying: the source list
     spans several OSCAR 19 patch levels and not every checkout carries
-    every file."""
+    every file. Audits use strict mode: every configured file or glob must
+    resolve before any source declarations can be trusted."""
     out: List[Path] = []
+    missing = []
     for pat in patterns:
         if "*" in pat:
-            out.extend(sorted(base.glob(pat)))
+            matches = sorted(path for path in base.glob(pat) if path.is_file())
+            out.extend(matches)
+            if not matches:
+                missing.append(str(base / pat))
         else:
             p = base / pat
             if p.is_file():
                 out.append(p)
             else:
-                print("warning: missing O19 source {}".format(p),
-                      file=sys.stderr)
+                missing.append(str(p))
+                if not strict:
+                    print("warning: missing O19 source {}".format(p),
+                          file=sys.stderr)
+    if strict and missing:
+        raise FileNotFoundError("incomplete OSCAR source checkout: " + ", ".join(missing))
     return out
 
 

@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 CARLOS Contributors
 """The migrated schema must hold the pinned OSCAR source capacities."""
 
 import importlib.util
@@ -7,7 +8,9 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import tempfile
 import unittest
+from unittest import mock
 import uuid
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -22,6 +25,33 @@ audit_spec.loader.exec_module(capacity_audit)
 
 
 class TestHistoricalDeclarations(unittest.TestCase):
+    def test_missing_source_or_empty_glob_refuses_audit_before_parsing(self):
+        """A partial checkout must not produce an apparently complete inventory."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for pattern in ("missing.sql", "updates/*.sql"):
+                with self.subTest(pattern=pattern), \
+                        mock.patch.object(capacity_audit.g, "o19_sql_sources", return_value=[pattern]), \
+                        mock.patch.object(capacity_audit.g, "load_schema") as parse:
+                    with self.assertRaises(FileNotFoundError):
+                        capacity_audit.audit(root, root, {})
+                    parse.assert_not_called()
+
+    def test_fixed_width_recommendations_over_255_use_valid_variable_types(self):
+        """Audit fixed targets against real wider source declarations."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "source.sql").write_text("CREATE TABLE sample(value VARCHAR(300), bytes VARBINARY(300));")
+            migration = root / "database/mysql/migration/common"
+            migration.mkdir(parents=True)
+            (migration / "V1__base.sql").write_text("CREATE TABLE sample(value CHAR(1), bytes BINARY(1));")
+            tables = {"sample": {"class": "copy", "cols": ["value", "bytes"]}}
+            manifest = {"TABLES": tables, "PROFILES": {"bc": {"TABLES": tables}}}
+            with mock.patch.object(capacity_audit.g, "o19_sql_sources", return_value=["source.sql"]):
+                rows = capacity_audit.audit(root, root, manifest)
+            self.assertEqual({row["column"]: row["new_type"] for row in rows},
+                             {"value": "varchar(300)", "bytes": "varbinary(300)"})
+
     def test_overlapping_creates_preserve_the_largest_declaration(self):
         schema = capacity_audit.SourceCapacitySchema("union")
         schema.apply_create("sample", "value VARCHAR(1)")
@@ -38,6 +68,7 @@ class TestHistoricalDeclarations(unittest.TestCase):
 
 class TestPhysicalColumnInventory(unittest.TestCase):
     def test_existing_columns_keep_attributes_and_never_lose_capacity(self):
+        """Compare old and new physical contracts for unintended destructive changes."""
         contracts = ROOT / "database/mysql/schema-contract"
         for province in ("on", "bc"):
             before = json.loads((contracts / ("o19-pre-copy-" + province + ".json")).read_text())
@@ -57,6 +88,7 @@ class TestPhysicalColumnInventory(unittest.TestCase):
                         self.assertGreaterEqual(current[1], required)
 
     def test_manifest_columns_equal_independently_exported_physical_columns(self):
+        """Ensure each shipped destination inventory matches physical metadata."""
         manifest = json.loads((ROOT / "debian/assets/o19-manifest/o19map_schema.json").read_text())
         for province in ("on", "bc"):
             profile = manifest if province == "on" else manifest["PROFILES"][province]
@@ -72,17 +104,21 @@ class TestPhysicalColumnInventory(unittest.TestCase):
 class TestOscarTextCapacity(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        """Reuse exported physical types instead of reparsing both migration trees."""
         cls.cases = json.loads((ROOT / "scripts/migration/o19/fixtures/schema-capacity.json").read_text())["columns"]
-        cls.schemas = {p: generator.load_schema(generator.carlos_schema_files(p))
-                       for p in ("on", "bc")}
+        cls.columns = {}
+        for province in ("on", "bc"):
+            contract = json.loads((ROOT / "database/mysql/schema-contract" / (province + ".json")).read_text())
+            cls.columns[province] = {(row[0], row[1]): row[2] for row in contract["schema"]["columns"]}
 
     def test_supported_text_fields_have_the_required_capacity(self):
+        """Verify every audited source limit fits its migrated physical target."""
         byte_limits = {"tinytext": 255, "text": 65535,
                        "mediumtext": 16777215, "longtext": 4294967295}
         for case in self.cases:
             for province in case["provinces"]:
                 with self.subTest(province=province, table=case["table"], column=case["column"]):
-                    declaration = self.schemas[province].tables[case["table"]][case["column"]].lower()
+                    declaration = self.columns[province][case["table"], case["column"]].lower()
                     kind = re.match(r"\w+", declaration).group()
                     if case["required_utf8_bytes"]:
                         self.assertGreaterEqual(byte_limits[kind], case["required_utf8_bytes"])

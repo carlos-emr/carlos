@@ -102,7 +102,7 @@ The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen)
 and the collation/index corrections occupy `common/V1.0.59.6` and `common/V1.0.59.7`.
 The Messenger's PDF attachment column widening (#5444) is `common/V1.0.59.8`.
 The CDS import migrations occupy `V1.0.59.8.1` and `V1.0.59.9`–`V1.0.59.26`.
-OSCAR 19 text capacities are preserved by common `V1.0.59.27`, Ontario `V1.0.59.28`, and BC `V1.0.59.29`; common `V1.0.59.30` enforces the audited Consent history rule (issue #5503).
+OSCAR 19 text capacities are preserved by common `V1.0.59.27`, Ontario `V1.0.59.28`, and BC `V1.0.59.29` plus `V1.0.59.31` for the BCAR 2007 urine-culture field; common `V1.0.59.30` enforces the audited Consent history rule (issue #5503).
 The next unallocated number for ANY location — shared or province — is `V1.0.59.32`.
 `V1.0.59.1` is an intentional gap: #5067's migration was renumbered as release migrations merged first.
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to

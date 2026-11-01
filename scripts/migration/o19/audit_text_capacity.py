@@ -23,6 +23,7 @@ blob_caps = {k.replace("text", "blob"): v for k, v in text_caps.items()}
 
 
 def capacity(decl):
+    """Describe a SQL text/binary declaration, including its size unit."""
     decl = decl.strip()
     match = re.match(r"\w+", decl.lower())
     kind = match.group() if match else ""
@@ -52,6 +53,7 @@ class SourceCapacitySchema(BASE_SCHEMA):
         self.largest = {}
 
     def remember(self, table, columns=None):
+        """Record maximum historical capacities independently of union precedence."""
         for col, declaration in (
             self.tables.get(table, {}) if columns is None else columns
         ).items():
@@ -63,6 +65,7 @@ class SourceCapacitySchema(BASE_SCHEMA):
                 self.largest.setdefault(table, {})[col] = declaration
 
     def apply_create(self, name, body, if_not_exists=False):
+        """Inspect each incoming CREATE even when union mode retains an earlier one."""
         incoming = BASE_SCHEMA()
         incoming.apply_create(name, body)
         self.remember(name, incoming.tables.get(name, {}))
@@ -70,19 +73,23 @@ class SourceCapacitySchema(BASE_SCHEMA):
         self.remember(name)
 
     def apply_alter(self, name, clauses):
+        """Record each intermediate ALTER so a later narrowing cannot hide it."""
         for clause in g._split_top_level(clauses):
             super().apply_alter(name, clause)
             self.remember(name)
 
 
 def audit(oscar_src, carlos_baseline, manifest):
+    """Recommend lossless capacities only after validating every configured source."""
+    source_files = {province: g.expand_sources(oscar_src, g.o19_sql_sources(province), strict=True)
+                    for province in ("on", "bc")}
     changes = {}
     for province in ("on", "bc"):
         original_schema = g.Schema
         g.Schema = SourceCapacitySchema
         try:
             source = g.load_schema(
-                g.expand_sources(oscar_src, g.o19_sql_sources(province)),
+                source_files[province],
                 if_not_exists_mode="union",
             ).largest
         finally:
@@ -114,7 +121,9 @@ def audit(oscar_src, carlos_baseline, manifest):
                 if required <= target_limit:
                     continue
                 if not target_bytes and source_limit <= 16383:
-                    newtype = target_kind + "(" + str(source_limit) + ")"
+                    kind = ({"char": "varchar", "binary": "varbinary"}.get(
+                        target_kind, target_kind) if source_limit > 255 else target_kind)
+                    newtype = kind + "(" + str(source_limit) + ")"
                 else:
                     if family == "text" and not source_bytes and not target_bytes:
                         required *= (
@@ -155,6 +164,7 @@ def audit(oscar_src, carlos_baseline, manifest):
 
 
 def main():
+    """Write a complete source audit; a failed audit leaves existing output intact."""
     ap = argparse.ArgumentParser(
         description="Audit OSCAR historical text capacity against a CARLOS baseline checkout."
     )
