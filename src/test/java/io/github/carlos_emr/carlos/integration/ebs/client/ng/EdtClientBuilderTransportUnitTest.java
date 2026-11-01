@@ -34,6 +34,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import jakarta.xml.ws.BindingProvider;
 import jakarta.xml.ws.WebServiceException;
@@ -78,6 +79,7 @@ class EdtClientBuilderTransportUnitTest {
     private static EbsHttpsTestFixture.Keys keys;
     private final List<Client> clients = new ArrayList<>();
     private final ConcurrentLinkedQueue<InputStream> replays = new ConcurrentLinkedQueue<>();
+    private final AtomicInteger faultChains = new AtomicInteger();
     private Bus previousBus;
     private Bus bus;
     private EbsHttpsTestFixture peer;
@@ -184,6 +186,61 @@ class EdtClientBuilderTransportUnitTest {
         assertThat(replays).isEmpty(); // Rejected during caching, before hand-off to CXF.
         assertThat(AttachmentCachingInterceptor.getAttachments()).isNull();
         try (var files = Files.list(temporaryDirectory)) { assertThat(files).isEmpty(); }
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = EbsHttpsTestFixture.Mode.class, names = {"SOAP_FAULT", "ENCRYPTED_SOAP_FAULT"})
+    void shouldReleaseReplay_withSignedServerSoapFault(EbsHttpsTestFixture.Mode mode) throws Exception {
+        HCValidation client = client(HCValidation.class);
+        peer.mode = mode;
+        assertThatThrownBy(() -> client.validate(new Requests(), "en"))
+                .isInstanceOf(SOAPFaultException.class).hasMessageContaining("synthetic service fault");
+        peer.assertHealthy();
+        assertThat(faultChains).hasValue(1);
+        assertReplaysReleased();
+        try (var files = Files.list(temporaryDirectory)) { assertThat(files).isEmpty(); }
+        peer.mode = EbsHttpsTestFixture.Mode.NORMAL;
+        assertThat(client.validate(new Requests(), "en").getAuditUID()).isEqualTo(EbsHttpsTestFixture.AUDIT);
+        assertReplaysReleased();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = EbsHttpsTestFixture.Mode.class, names = {"SOAP_FAULT", "ENCRYPTED_SOAP_FAULT"})
+    void shouldClearAttachments_withMultipartServerFault(EbsHttpsTestFixture.Mode mode) throws Exception {
+        EDTDelegate client = client(EDTDelegate.class);
+        peer.mode = mode;
+        assertThatThrownBy(() -> client.download(List.of(BigInteger.ONE)))
+                .isInstanceOf(SOAPFaultException.class).hasMessageContaining("synthetic service fault");
+        peer.assertHealthy();
+        assertThat(faultChains).hasValue(1);
+        assertReplaysReleased();
+        peer.mode = EbsHttpsTestFixture.Mode.NORMAL;
+        assertThat(client.download(List.of(BigInteger.ONE)).getData().getFirst().getContent())
+                .containsExactly(EbsHttpsTestFixture.PAYLOAD);
+        assertReplaysReleased();
+    }
+
+    @Test
+    void shouldReleaseReplay_whenInboundFaultProcessingFails() throws Exception {
+        EDTDelegate client = client(EDTDelegate.class);
+        peer.mode = EbsHttpsTestFixture.Mode.SOAP_FAULT;
+        Client cxf = ClientProxy.getClient(client);
+        var failure = new AbstractPhaseInterceptor<Message>(Phase.UNMARSHAL) {
+            { addBefore(org.apache.cxf.binding.soap.interceptor.Soap11FaultInInterceptor.class.getName()); }
+            @Override public void handleMessage(Message message) {
+                throw new org.apache.cxf.interceptor.Fault(new IOException("synthetic fault handler failure"));
+            }
+        };
+        cxf.getInFaultInterceptors().add(failure);
+        assertThatThrownBy(() -> client.download(List.of(BigInteger.ONE))).isInstanceOf(WebServiceException.class);
+        assertThat(faultChains).hasValue(1);
+        peer.assertHealthy();
+        assertReplaysReleased();
+        cxf.getInFaultInterceptors().remove(failure);
+        peer.mode = EbsHttpsTestFixture.Mode.NORMAL;
+        assertThat(client.download(List.of(BigInteger.ONE)).getData().getFirst().getContent())
+                .containsExactly(EbsHttpsTestFixture.PAYLOAD);
+        assertReplaysReleased();
     }
 
     @Test
@@ -328,6 +385,9 @@ class EdtClientBuilderTransportUnitTest {
         T port = builder.build(contract);
         Client cxf = ClientProxy.getClient(port);
         clients.add(cxf);
+        cxf.getInFaultInterceptors().add(new AbstractPhaseInterceptor<Message>(Phase.RECEIVE) {
+            @Override public void handleMessage(Message message) { faultChains.incrementAndGet(); }
+        });
         cxf.getInInterceptors().add(new AbstractPhaseInterceptor<Message>(Phase.RECEIVE) {
             {
                 addAfter(DynamicWSS4JInInterceptor.class.getName());

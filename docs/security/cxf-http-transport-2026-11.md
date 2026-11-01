@@ -45,8 +45,11 @@ by this choice.
 
 The application retains ownership of its disk-backed response replay until
 completion or fault, closing it explicitly even if MIME/security processing
-replaces the message stream. Downstream faults also clear the attachment
-ThreadLocal. This does not claim ownership of every cache inside CXF.
+replaces the message stream. Cleanup is installed on both normal and inbound-fault
+chains: a valid SOAP Fault switches chains without normal fault callbacks. An
+early fault guard also releases state if fault processing itself fails. Downstream
+faults clear the attachment ThreadLocal. This does not claim ownership of every
+cache inside CXF.
 
 ## Consumer inventory
 
@@ -76,8 +79,14 @@ truncation, progressing bodies, shared-Bus isolation, concurrent clients and
 application replay cleanup. The separate default-transport smoke tests use an
 exact conduit-class assertion after adapter removal.
 
-Ubuntu 26.04.1 with Temurin 25.0.3 passed 132 focused tests through the normal
-Maven lifecycle. A supplemental isolated classpath restored the original HTTP 4
+Review regression cases cover signed and signed/encrypted server SOAP Faults,
+both plain and multipart, plus a failure inside the inbound-fault chain. The
+multipart cases reproduced retained attachment state before the fault-chain
+cleanup fix. Each case checks replay/ThreadLocal release before a recovery call.
+
+Ubuntu 26.04.1 with Temurin 25.0.3 passed 137 focused tests through the normal
+Maven lifecycle, including all 22 builder cases after the fault-chain review fix.
+A supplemental isolated classpath restored the original HTTP 4
 adapter and all four legacy jars without adding them to the project or WAR:
 six builder scenarios (HCV, MTOM, stalled body, tampered signature, truncation,
 concurrency) passed under both `ASYNC_ONLY` and `ALWAYS`. The probe asserted that
@@ -89,6 +98,11 @@ completed signed/encrypted download** at a deliberately low spill threshold.
 Allocation traces identify `AttachmentDataSource.cache()` during WSS4J
 attachment signature processing, separately from the application's replay.
 Closing the final attachment stream did not release that cache in the probe.
+An isolated control compiled the original production builder and cleanup classes
+from `2c4a886804d` and forced the original Apache 4 backend; it reproduced the
+same 32,768-byte cache after a successful download, confirming this finding
+predates the scoped change. The [control and source](https://github.com/carlos-emr/carlos/pull/5467#issuecomment-6551757367)
+are on the ticket.
 The replay tests intentionally verify the application's streams; they do not
 claim that all CXF attachment caches are released. This finding remains open
 for investigation and must be assessed before release promotion.

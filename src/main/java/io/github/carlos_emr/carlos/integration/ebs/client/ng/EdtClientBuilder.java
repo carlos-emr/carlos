@@ -256,6 +256,8 @@ public class EdtClientBuilder {
         client.getEndpoint().getInInterceptors().add(new DynamicWSS4JInInterceptor(this));
 
         client.getEndpoint().getInInterceptors().add(new AttachmentCleanupInterceptor());
+        // A valid SOAP Fault switches chains without invoking normal-chain handleFault callbacks.
+        client.getEndpoint().getInFaultInterceptors().add(new AttachmentCleanupInterceptor());
     }
 
     /**

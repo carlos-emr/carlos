@@ -1,9 +1,13 @@
 package io.github.carlos_emr.carlos.integration.ebs.client.ng;
 
+import java.util.Collection;
+import java.util.List;
+
 import org.apache.cxf.interceptor.Fault;
 import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.AbstractPhaseInterceptor;
 import org.apache.cxf.phase.Phase;
+import org.apache.cxf.phase.PhaseInterceptor;
 
 /**
  * Clears the attachment ThreadLocal and closes the application's response replay.
@@ -30,6 +34,28 @@ public class AttachmentCleanupInterceptor extends
 	public AttachmentCleanupInterceptor() {
 		super(Phase.POST_INVOKE);
 	}
+
+    /** Arms cleanup before processing, including when the inbound-fault chain itself fails. */
+    @Override
+    public Collection<PhaseInterceptor<? extends Message>> getAdditionalInterceptors() {
+        return List.of(new FaultCleanupGuard());
+    }
+
+    private static final class FaultCleanupGuard extends AbstractPhaseInterceptor<Message> {
+        private FaultCleanupGuard() {
+            super(Phase.RECEIVE);
+        }
+
+        @Override
+        public void handleMessage(Message message) {
+            // Keep the replay open until normal completion or a later processing failure.
+        }
+
+        @Override
+        public void handleFault(Message message) {
+            cleanup(message);
+        }
+    }
 
 	/**
 	 * Handles the incoming message by clearing cached attachments.

@@ -127,7 +127,8 @@ final class EbsHttpsTestFixture implements AutoCloseable {
     }
 
     enum Mode { NORMAL, UNSIGNED, TAMPERED_SIGNATURE, UNTRUSTED_SIGNER, EXPIRED,
-        STALLED_HEADERS, STALLED_BODY, PROGRESSING_BODY, TRUNCATED, TAMPERED_ATTACHMENT }
+        STALLED_HEADERS, STALLED_BODY, PROGRESSING_BODY, TRUNCATED, TAMPERED_ATTACHMENT,
+        SOAP_FAULT, ENCRYPTED_SOAP_FAULT }
 
     record Keys(Path clientProperties, KeyManager[] clientIdentity, TrustManager[] trust,
                 SSLContext tlsServer, Merlin serverCrypto, Merlin rogueCrypto) { }
@@ -200,7 +201,7 @@ final class EbsHttpsTestFixture implements AutoCloseable {
                 pause();
             }
             exchange.getResponseHeaders().set("Content-Type", reply.contentType());
-            exchange.sendResponseHeaders(200, reply.bytes().length);
+            exchange.sendResponseHeaders(isSoapFault(responseMode) ? 500 : 200, reply.bytes().length);
             if (responseMode == Mode.TRUNCATED) {
                 exchange.getResponseBody().write(reply.bytes(), 0, reply.bytes().length / 2);
             } else if (responseMode == Mode.STALLED_BODY) {
@@ -296,7 +297,13 @@ final class EbsHttpsTestFixture implements AutoCloseable {
         Element body = (Element) doc.getElementsByTagNameNS(SOAP, "Body").item(0);
         Object value;
         Map<String, Attachment> attachments = new LinkedHashMap<>();
-        if (operation.equals("validate")) {
+        if (isSoapFault(responseMode)) {
+            Element fault = doc.createElementNS(SOAP, "s:Fault");
+            Element code = doc.createElementNS(null, "faultcode"); code.setTextContent("s:Server");
+            Element description = doc.createElementNS(null, "faultstring"); description.setTextContent("synthetic service fault");
+            fault.appendChild(code); fault.appendChild(description); body.appendChild(fault);
+            value = null;
+        } else if (operation.equals("validate")) {
             HcvResults result = new HcvResults(); result.setAuditUID(AUDIT);
             ValidateResponse response = new ValidateResponse(); response.setResults(result);
             value = new ca.ontario.health.hcv.ObjectFactory().createValidateResponse(response);
@@ -314,9 +321,18 @@ final class EbsHttpsTestFixture implements AutoCloseable {
             DownloadResponse response = new DownloadResponse(); response.setReturn(result);
             value = new ca.ontario.health.edt.ObjectFactory().createDownloadResponse(response);
         } else throw new IOException("Unexpected synthetic EBS operation");
-        binding.createMarshaller().marshal(value, body);
+        if (value != null) binding.createMarshaller().marshal(value, body);
         if (operation.equals("download")) {
-            Element content = (Element) doc.getElementsByTagName("content").item(0);
+            Element content;
+            if (isSoapFault(responseMode)) {
+                Element fault = (Element) doc.getElementsByTagNameNS(SOAP, "Fault").item(0);
+                Element detail = doc.createElementNS(null, "detail");
+                content = doc.createElementNS("urn:synthetic:fault", "fixture:content");
+                content.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:fixture", "urn:synthetic:fault");
+                detail.appendChild(content); fault.appendChild(detail);
+            } else {
+                content = (Element) doc.getElementsByTagName("content").item(0);
+            }
             content.setTextContent("");
             Element xop = doc.createElementNS("http://www.w3.org/2004/08/xop/include", "xop:Include");
             xop.setAttributeNS(XMLConstants.XMLNS_ATTRIBUTE_NS_URI, "xmlns:xop",
@@ -344,17 +360,19 @@ final class EbsHttpsTestFixture implements AutoCloseable {
                 signature.setAttachmentCallbackHandler(callback);
             }
             signature.build(responseMode == Mode.UNTRUSTED_SIGNER ? keys.rogueCrypto() : keys.serverCrypto());
-            WSSecEncrypt encrypt = new WSSecEncrypt(security); encrypt.setUserInfo("client");
-            encrypt.setKeyIdentifierType(WSConstants.BST_DIRECT_REFERENCE);
-            encrypt.setKeyEncAlgo(WSConstants.KEYTRANSPORT_RSA15);
-            encrypt.setSymmetricEncAlgorithm(WSConstants.AES_128);
-            encrypt.getParts().add(new WSEncryptionPart("Body", SOAP, "Content"));
-            if (!attachments.isEmpty()) {
-                encrypt.getParts().add(new WSEncryptionPart("cid:Attachments", "Content"));
-                encrypt.setAttachmentCallbackHandler(callback);
+            if (responseMode != Mode.SOAP_FAULT) {
+                WSSecEncrypt encrypt = new WSSecEncrypt(security); encrypt.setUserInfo("client");
+                encrypt.setKeyIdentifierType(WSConstants.BST_DIRECT_REFERENCE);
+                encrypt.setKeyEncAlgo(WSConstants.KEYTRANSPORT_RSA15);
+                encrypt.setSymmetricEncAlgorithm(WSConstants.AES_128);
+                encrypt.getParts().add(new WSEncryptionPart("Body", SOAP, "Content"));
+                if (!attachments.isEmpty()) {
+                    encrypt.getParts().add(new WSEncryptionPart("cid:Attachments", "Content"));
+                    encrypt.setAttachmentCallbackHandler(callback);
+                }
+                KeyGenerator generator = KeyGenerator.getInstance("AES"); generator.init(128);
+                encrypt.build(keys.serverCrypto(), generator.generateKey());
             }
-            KeyGenerator generator = KeyGenerator.getInstance("AES"); generator.init(128);
-            encrypt.build(keys.serverCrypto(), generator.generateKey());
             if (responseMode == Mode.TAMPERED_SIGNATURE) {
                 Element digest = (Element) doc.getElementsByTagNameNS(WSConstants.SIG_NS, "DigestValue").item(0);
                 String original = digest.getTextContent();
@@ -380,6 +398,10 @@ final class EbsHttpsTestFixture implements AutoCloseable {
         write(wire, "\r\n--" + boundary + "--\r\n");
         return new Wire(wire.toByteArray(), "multipart/related; boundary=\"" + boundary
                 + "\"; type=\"application/xop+xml\"; start=\"<root>\"; start-info=\"text/xml\"", encrypted);
+    }
+
+    private static boolean isSoapFault(Mode mode) {
+        return mode == Mode.SOAP_FAULT || mode == Mode.ENCRYPTED_SOAP_FAULT;
     }
 
     private static final class Attachments implements CallbackHandler {
