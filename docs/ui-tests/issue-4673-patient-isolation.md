@@ -22,6 +22,14 @@ counts and controls below remain the historical results of this issue's original
 | Legacy navigation (`casemgmt/navigation.jsp`) | links from a session-wide copy of the bean; its messenger list named the session-wide `casemgmt_msgBeans` as a literal string, so every rendering stopped there with a 500 | links from the request's patient and entry; the messenger list shows that patient's own messages (with `_msg` read), encoded |
 | `messenger/generatePreviewPDF.jsp` (writer) | replaced the bean with a bare one | no longer touches it |
 
+The legacy print refusal contract retains the shared clinical gate's policy (#5448):
+an omitted patient reaches the print page's required-patient check and returns **400**;
+a supplied malformed, zero or conflicting patient scope is refused by
+`ViewClinical2Action` with **403**, before the print page runs. The
+`echart-two-patient-isolation` workflow checks both print routes in both patient
+directions for each case, requires that neither patient's name appears in a refused
+response, and identifies the route and scope case if an assertion fails.
+
 ## The legacy encounter editor
 
 `encounter/Index2.jsp` renders the editor only with the CAISI module (`caisi=on`) and only for an
