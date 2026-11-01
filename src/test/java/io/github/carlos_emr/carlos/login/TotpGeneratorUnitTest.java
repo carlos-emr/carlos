@@ -32,6 +32,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 class TotpGeneratorUnitTest {
     private final TotpGenerator generator = new TotpGenerator();
+    // RFC 6238 appendix B publishes this test key; it is not an application credential.
+    @SuppressWarnings("PMD.HardCodedCryptoKey")
     private final SecretKeySpec key = new SecretKeySpec(
             "12345678901234567890".getBytes(StandardCharsets.US_ASCII), "HmacSHA1");
 
