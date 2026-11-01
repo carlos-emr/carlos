@@ -185,6 +185,7 @@ class EdtClientBuilderTransportUnitTest {
         peer.mode = EbsHttpsTestFixture.Mode.TRUNCATED;
         assertThatThrownBy(() -> client.download(RESOURCE_IDS)).isInstanceOf(WebServiceException.class);
         peer.assertHealthy();
+        assertThat(peer.requests).as("truncation follows peer request verification").hasSize(1);
         assertThat(replays).isEmpty(); // Rejected during caching, before hand-off to CXF.
         assertThat(AttachmentCachingInterceptor.getAttachments()).isNull();
         try (var files = Files.list(temporaryDirectory)) { assertThat(files).isEmpty(); }
