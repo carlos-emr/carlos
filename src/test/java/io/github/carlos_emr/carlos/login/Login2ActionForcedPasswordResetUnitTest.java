@@ -47,7 +47,6 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
 import io.github.carlos_emr.carlos.util.AlertTimer;
 
-import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.logging.log4j.Level;
@@ -871,7 +870,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         stagePendingMfa(security);
         when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
 
-        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("000000")) {
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("000000")) {
             Login2Action action = newAction(null, null, null);
             action.setCode("123456");
             action.setMfaRegistrationFlow(true);
@@ -895,8 +894,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         String token = currentPendingMfaToken();
         when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
 
-        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored =
-                     mockConstruction(TimeBasedOneTimePasswordGenerator.class, (mock, context) -> {
+        try (MockedConstruction<TotpGenerator> ignored =
+                     mockConstruction(TotpGenerator.class, (mock, context) -> {
                          when(mock.getAlgorithm()).thenReturn("HmacSHA1");
                          when(mock.getTimeStep()).thenReturn(java.time.Duration.ofSeconds(30));
                          when(mock.generateOneTimePasswordString(any(), any()))
@@ -939,8 +938,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         String token = currentPendingMfaToken();
         when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
 
-        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored =
-                     mockConstruction(TimeBasedOneTimePasswordGenerator.class, (mock, context) -> {
+        try (MockedConstruction<TotpGenerator> ignored =
+                     mockConstruction(TotpGenerator.class, (mock, context) -> {
                          when(mock.getAlgorithm()).thenReturn("HmacSHA1");
                          when(mock.getTimeStep()).thenReturn(java.time.Duration.ofSeconds(30));
                          when(mock.generateOneTimePasswordString(any(), any())).thenReturn("654321");
@@ -968,7 +967,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         stagePendingMfa(security);
         when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
 
-        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("654321")) {
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("654321")) {
             String result = null;
             for (int attempt = 0; attempt < 5; attempt++) {
                 Login2Action action = newAction(null, null, null);
@@ -992,7 +991,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         stagePendingMfa(security, STR_AUTH, "JBSWY3DPEHPK3PXP");
         when(mfaManager.getQRCodeImageData(security.getId(), "JBSWY3DPEHPK3PXP")).thenReturn("qr-data");
 
-        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored =
+        try (MockedConstruction<TotpGenerator> ignored =
                      mockTotpReturning("654321")) {
             Login2Action action = newAction(null, null, null);
             action.setCode("123456");
@@ -1020,8 +1019,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         stubSuccessfulProviderLogin();
         when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
 
-        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored =
-                     mockConstruction(TimeBasedOneTimePasswordGenerator.class, (mock, context) -> {
+        try (MockedConstruction<TotpGenerator> ignored =
+                     mockConstruction(TotpGenerator.class, (mock, context) -> {
                          when(mock.getAlgorithm()).thenReturn("HmacSHA1");
                          when(mock.getTimeStep()).thenReturn(java.time.Duration.ofSeconds(30));
                          when(mock.generateOneTimePasswordString(any(), any())).thenReturn("123456");
@@ -1049,7 +1048,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         when(providerDao.getFacilityIds("999998")).thenReturn(Arrays.asList(10, 11));
         when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
 
-        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
             Login2Action action = newAction(null, null, null);
             action.setCode("123456");
 
@@ -1073,7 +1072,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         when(providerDao.getFacilityIds("999998")).thenReturn(Collections.singletonList(10));
         when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
 
-        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
             Login2Action action = newAction(null, null, null);
             action.setCode("123456");
 
@@ -1101,7 +1100,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         when(facilityDao.find(42)).thenReturn(fallbackFacility);
         when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
 
-        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
             Login2Action action = newAction(null, null, null);
             action.setCode("123456");
 
@@ -1138,7 +1137,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
         try {
             CarlosProperties.getInstance().setProperty("caisi", "yes");
-            try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+            try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
                 Login2Action action = newAction(null, null, null);
                 action.setCode("123456");
 
@@ -1176,7 +1175,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
         try {
             CarlosProperties.getInstance().setProperty("caisi", "yes");
-            try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456");
+            try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456");
                  LogCapture capture = LogCapture.forLogger(Login2Action.class)) {
                 Login2Action action = newAction(null, null, null);
                 action.setCode("123456");
@@ -1222,7 +1221,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
         try {
             CarlosProperties.getInstance().setProperty("caisi", "yes");
-            try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456");
+            try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456");
                  LogCapture capture = LogCapture.forLogger(Login2Action.class)) {
                 Login2Action action = newAction(null, null, null);
                 action.setCode("123456");
@@ -1262,7 +1261,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             CarlosProperties.getInstance().setProperty("ALERT_POLL_FREQUENCY", "120000");
             CarlosProperties.getInstance().setProperty("CDM_ALERTS", "A,B");
             try (MockedStatic<AlertTimer> alertTimerMock = mockStatic(AlertTimer.class);
-                 MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+                 MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
                 alertTimerMock.when(() -> AlertTimer.getInstance(any(String[].class), eq(120000L)))
                         .thenReturn(mock(AlertTimer.class));
                 Login2Action action = newAction(null, null, null);
@@ -1298,7 +1297,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             CarlosProperties.getInstance().setProperty("CDM_ALERTS", "A,B");
             try (MockedStatic<AlertTimer> alertTimerMock = mockStatic(AlertTimer.class);
                  LogCapture capture = LogCapture.forLogger(Login2Action.class);
-                 MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+                 MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
                 Login2Action action = newAction(null, null, null);
                 action.setCode("123456");
 
@@ -1339,7 +1338,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             CarlosProperties.getInstance().setProperty("CDM_ALERTS", "A,B");
             try (MockedStatic<AlertTimer> alertTimerMock = mockStatic(AlertTimer.class);
                  LogCapture capture = LogCapture.forLogger(Login2Action.class);
-                 MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+                 MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
                 Login2Action action = newAction(null, null, null);
                 action.setCode("123456");
 
@@ -1376,7 +1375,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             CarlosProperties.getInstance().setProperty("CDM_ALERTS", "A,B");
             try (MockedStatic<AlertTimer> alertTimerMock = mockStatic(AlertTimer.class);
                  LogCapture capture = LogCapture.forLogger(Login2Action.class);
-                 MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+                 MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
                 Login2Action action = newAction(null, null, null);
                 action.setCode("123456");
 
@@ -1413,7 +1412,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             CarlosProperties.getInstance().setProperty("CDM_ALERTS", "");
             try (MockedStatic<AlertTimer> alertTimerMock = mockStatic(AlertTimer.class);
                  LogCapture capture = LogCapture.forLogger(Login2Action.class);
-                 MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+                 MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
                 Login2Action action = newAction(null, null, null);
                 action.setCode("123456");
 
@@ -1453,7 +1452,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
             CarlosProperties.getInstance().setProperty("CDM_ALERTS", "A,B");
             try (MockedStatic<AlertTimer> alertTimerMock = mockStatic(AlertTimer.class);
                  LogCapture capture = LogCapture.forLogger(Login2Action.class);
-                 MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+                 MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
                 alertTimerMock.when(() -> AlertTimer.getInstance(any(String[].class), eq(120000L)))
                         .thenThrow(new RuntimeException("timer failed"));
                 Login2Action action = newAction(null, null, null);
@@ -1485,7 +1484,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         stubSuccessfulProviderLogin();
         when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
 
-        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
             Login2Action action = newAction(null, null, null);
             action.setCode("123456");
 
@@ -1511,7 +1510,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
         try {
             CarlosProperties.getInstance().setProperty("useProgramLocation", "true");
-            try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+            try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
                 Login2Action action = newAction(null, null, null);
                 action.setCode("123456");
 
@@ -1539,7 +1538,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
         try {
             CarlosProperties.getInstance().setProperty("useProgramLocation", "true");
-            try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+            try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
                 Login2Action action = newAction(null, null, null);
                 action.setCode("123456");
 
@@ -1569,7 +1568,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
 
         try {
             CarlosProperties.getInstance().setProperty("useProgramLocation", "true");
-            try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+            try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
                 Login2Action action = newAction(null, null, null);
                 action.setCode("123456");
 
@@ -1599,7 +1598,7 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         stubSuccessfulProviderLogin();
         when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
 
-        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored = mockTotpReturning("123456")) {
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
             Login2Action action = newAction(null, null, null);
             action.setCode("123456");
 
@@ -1628,8 +1627,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         doThrow(new IllegalStateException("save failed"))
                 .when(mfaManager).saveMfaSecret(any(), any(), anyString());
 
-        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored =
-                     mockConstruction(TimeBasedOneTimePasswordGenerator.class, (mock, context) -> {
+        try (MockedConstruction<TotpGenerator> ignored =
+                     mockConstruction(TotpGenerator.class, (mock, context) -> {
                          when(mock.getAlgorithm()).thenReturn("HmacSHA1");
                          when(mock.getTimeStep()).thenReturn(java.time.Duration.ofSeconds(30));
                          when(mock.generateOneTimePasswordString(any(), any())).thenReturn("123456");
@@ -1658,8 +1657,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         action.setCode("123456");
         action.setMfaRegistrationFlow(true);
 
-        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored =
-                     mockConstruction(TimeBasedOneTimePasswordGenerator.class, (mock, context) -> {
+        try (MockedConstruction<TotpGenerator> ignored =
+                     mockConstruction(TotpGenerator.class, (mock, context) -> {
                          when(mock.getAlgorithm()).thenReturn("HmacSHA1");
                          when(mock.getTimeStep()).thenReturn(java.time.Duration.ofSeconds(30));
                          when(mock.generateOneTimePasswordString(any(), any())).thenReturn("123456");
@@ -1685,8 +1684,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         when(providerManager.getProvider("999998")).thenReturn(null);
         when(providerPreferenceDao.find("999998")).thenReturn(new ProviderPreference());
 
-        try (MockedConstruction<TimeBasedOneTimePasswordGenerator> ignored =
-                     mockConstruction(TimeBasedOneTimePasswordGenerator.class, (mock, context) -> {
+        try (MockedConstruction<TotpGenerator> ignored =
+                     mockConstruction(TotpGenerator.class, (mock, context) -> {
                          when(mock.getAlgorithm()).thenReturn("HmacSHA1");
                          when(mock.getTimeStep()).thenReturn(java.time.Duration.ofSeconds(30));
                          when(mock.generateOneTimePasswordString(any(), any())).thenReturn("123456");
@@ -2215,8 +2214,8 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
         when(facilityDao.findAll(true)).thenReturn(Collections.emptyList());
     }
 
-    private MockedConstruction<TimeBasedOneTimePasswordGenerator> mockTotpReturning(String generatedCode) {
-        return mockConstruction(TimeBasedOneTimePasswordGenerator.class, (mock, context) -> {
+    private MockedConstruction<TotpGenerator> mockTotpReturning(String generatedCode) {
+        return mockConstruction(TotpGenerator.class, (mock, context) -> {
             when(mock.getAlgorithm()).thenReturn("HmacSHA1");
             when(mock.getTimeStep()).thenReturn(java.time.Duration.ofSeconds(30));
             when(mock.generateOneTimePasswordString(any(), any())).thenReturn(generatedCode);

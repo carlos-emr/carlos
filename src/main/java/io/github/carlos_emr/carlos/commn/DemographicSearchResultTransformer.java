@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.commn;
 
@@ -32,7 +33,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import org.apache.tools.ant.util.DateUtils;
+import io.github.carlos_emr.carlos.utility.IsoDateUtils;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
@@ -49,7 +50,7 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 public class DemographicSearchResultTransformer {
 
     private DemographicDao demographicDao;
-    private SimpleDateFormat sdf = new SimpleDateFormat(DateUtils.ISO8601_DATE_PATTERN);
+    private SimpleDateFormat sdf = new SimpleDateFormat(IsoDateUtils.ISO8601_DATE_PATTERN);
     private DemographicMerged dm = new DemographicMerged();
 
     public DemographicSearchResultTransformer() {
