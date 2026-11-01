@@ -21,14 +21,14 @@
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const h = require('./playwright-harness');
-const {authenticatedProbe}=require('./authenticated-probe');
+const {authenticatedProbe,authenticationStateProbe}=require('./authenticated-probe');
 
 const APPLICATION_HEADER = 'x-permitted-cross-domain-policies';
 
 /** One request through a login's browser context; never follows redirects. */
-async function probe(context, url, { method = 'GET', needles = [], baseUrl = h.validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos') } = {}) {
+async function probeWithTransport(context, url, { method = 'GET', needles = [], baseUrl = h.validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos') } = {}, transport) {
   try {
-    const response = await authenticatedProbe({context,config:{baseUrl}},url,
+    const response = await transport({context,config:{baseUrl}},url,
       {method,timeout:40000,allowSecurityErrorRedirect:true});
     const body = method === 'HEAD' ? Buffer.alloc(0) : await response.body();
     const headers = response.headers();
@@ -58,6 +58,10 @@ async function probe(context, url, { method = 'GET', needles = [], baseUrl = h.v
     return { status: 0, error: String(error.message).slice(0, 80), found: [], lead: '' };
   }
 }
+
+function probe(context,url,options){return probeWithTransport(context,url,options,authenticatedProbe);}
+// Only login/facility/logout protocol checks use this deliberately unauthenticated read.
+function probeAuthenticationState(context,url,options){return probeWithTransport(context,url,options,authenticationStateProbe);}
 
 /** 'refused' | 'error' | 'served' | 'empty' (a 2xx with no body, e.g. a HEAD or an unconfigured fragment). */
 function classify(result) {
@@ -127,4 +131,4 @@ function ledger() {
   };
 }
 
-module.exports = { probe, classify, forbiddenByApp, refusedByApp, refusedHead, urlFor, signIn, ledger };
+module.exports = { probe, probeAuthenticationState, classify, forbiddenByApp, refusedByApp, refusedHead, urlFor, signIn, ledger };

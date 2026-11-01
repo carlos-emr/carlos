@@ -53,6 +53,7 @@ test('real Playwright HTTP transport sends the Secure cookie to a local refusal 
   let live=true;
   const server = http.createServer((req, res) => {
     seen.push({method: req.method, cookie: req.headers.cookie, path:req.url});
+    if(req.url==='/carlos/pending'||req.url==='/carlos/loggedout'){res.writeHead(302,{'x-permitted-cross-domain-policies':'none',location:req.url==='/carlos/pending'?'/carlos/select_facility':'/carlos/logoutPage'});res.end();return;}
     if(req.url.endsWith('/status/SessionHeartbeat')){res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({valid:live&&req.headers.cookie==='JSESSIONID=synthetic'}));return;}
     res.writeHead(req.headers.cookie === 'JSESSIONID=synthetic' ? 405 : 302,
       {'x-permitted-cross-domain-policies': 'none', location: '/login'});
@@ -81,6 +82,14 @@ test('real Playwright HTTP transport sends the Secure cookie to a local refusal 
   live=false;
   await assert.rejects(authenticatedProbe(session,'/carlos/save'),/session is invalid/);
   assert.equal(seen.filter(row=>row.path==='/carlos/save').length,3,'An invalidated session must not reach the always-405 mutator');
+  const {probeAuthenticationState}=require('./lib/authz-read-probe');
+  const heartbeatCount=seen.filter(row=>row.path.endsWith('/status/SessionHeartbeat')).length;
+  const pending=await probeAuthenticationState(session.context,new URL('/carlos/pending',baseUrl).href,{baseUrl});
+  assert.equal(pending.status,302);assert.equal(pending.location,'/carlos/select_facility');
+  const loggedOut=await probeAuthenticationState({...session.context,cookies:async()=>[]},new URL('/carlos/loggedout',baseUrl).href,{baseUrl});
+  assert.equal(loggedOut.status,302);assert.equal(loggedOut.location,'/carlos/logoutPage');
+  assert.equal(seen.filter(row=>row.path.endsWith('/status/SessionHeartbeat')).length,heartbeatCount,'Authentication state reads must not require a live login');
+  assert(!seen.some(row=>row.path==='/carlos/logoutPage'||row.path==='/carlos/select_facility'),'Authentication state reads followed a redirect');
 });
 
 
@@ -121,4 +130,12 @@ test('a retained cookie cannot turn a malformed or logged-out heartbeat into aut
     session.context.request.fetch=async url=>{count++;assert.match(url,/status\/SessionHeartbeat$/);return {status:()=>result.status,json:async()=>result.body,dispose:async()=>{disposed=true;}};};
     await assert.rejects(authenticatedProbe(session,'/carlos/save'),/session is invalid/);assert.equal(count,1);assert.equal(disposed,true);
   }
+});
+
+test('authentication-state transport remains origin-bound and read-only without requiring login',async()=>{
+  const {authenticationStateProbe}=require('./lib/authenticated-probe'),{session,calls}=fixture([],302);
+  const response=await authenticationStateProbe(session,'/carlos/login');assert.equal(response.status(),302);assert.equal(calls.length,1);assert.equal(calls[0][1].maxRedirects,0);
+  await assert.rejects(authenticationStateProbe(session,'https://other.invalid/carlos/login'),/origin/);
+  await assert.rejects(authenticationStateProbe(session,'/carlos/login',{method:'POST'}),/GET and HEAD/);
+  assert.equal(calls.length,1);
 });

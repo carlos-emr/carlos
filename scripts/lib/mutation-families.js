@@ -610,7 +610,7 @@ function allergyAdd(s) {
  * Provider update (admin/ProviderUpdate) of a provider the check owns: the target is a second
  * throwaway login of the authz fixture (`target` = {providerNo}), so no real provider is edited.
  */
-function providerUpdate(s, { target }) {
+function providerUpdate(s, { target, configureForm }) {
   // provider.team is varchar(20): the run marker's last eight hex digits keep the tag unique.
   const prefix = `PW${s.marker.slice(-8)}`;
   const no = () => q(target.providerNo);
@@ -648,6 +648,7 @@ function providerUpdate(s, { target }) {
       const form = frame.locator('form[name="updatearecord"]');
       h.assert(await form.locator('input[name="provider_no"]').inputValue() === target.providerNo, 'The edit form holds another provider');
       await form.locator('input[name="team"]').fill(prefix + tag);
+      if(configureForm)await configureForm(form);
       const captured = await captureInContext(s.context, pathIs(this.route), () => navigate(form.locator('input[name="subbutton"]')));
       if (admin !== s.schedule && !admin.isClosed()) await admin.close().catch(() => {});
       else await h.gotoApp(s.schedule, s.config.baseUrl, '/provider/providercontrol?displaymode=day&dboperation=searchappointmentday&viewall=1');

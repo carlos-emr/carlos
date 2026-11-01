@@ -10,6 +10,24 @@ const {openMasterRecord}=require('./master-record-tabs-playwright-checks');
 const {masterRecordLink}=require('./lib/master-record-link');
 const {openChart,waitForNavbars}=require('./echart-navbar-modules-playwright-checks');
 
+async function reopenCanaries(s) {
+    const browser=await h.launchBrowser(s.config);s.cleanup(()=>browser.close());
+    const context=await h.newContext(browser,s.config);context.setDefaultTimeout(30000);
+    context.on('page',page=>h.wireStrictPage(page,'deb-upgrade-canaries',s.recorder));
+    const schedule=await h.login(context,s.config,s.recorder);
+    const {masterPage:master}=await openMasterRecord(context,schedule,s.recorder,{searchTerm:s.marker,preferredDemographicNo:s.patient,timeout:30000});
+    h.assert(new URL(master.url()).searchParams.get('demographic_no')===s.patient,'Upgrade reopened another patient');
+    const ticklers=await ui.clickOpensPopup(master,masterRecordLink(master,'/tickler/ViewTicklerMain').first(),{context,recorder:s.recorder,label:'upgraded-ticklers',timeout:30000});
+    await ticklers.getByText(`${s.marker}-TA-UPGRADE`,{exact:false}).first().waitFor({state:'visible'});
+    const chart=await openChart(context,master,s.recorder,30000);await waitForNavbars(chart,30000);
+    // A reopened note may be the active editor. innerText omits textarea
+    // values; wait for the chart's asynchronous notes and inspect both views.
+    await chart.waitForFunction(text=>document.body.innerText.includes(text)
+      ||Array.from(document.querySelectorAll('textarea[name="caseNote_note"]')).some(field=>field.value.includes(text)),`${s.marker}-NS-UPGRADE`,{timeout:30000});
+    const rx=await ui.clickOpensPopup(master,masterRecordLink(master,'/rx/choosePatient').first(),{context,recorder:s.recorder,label:'upgraded-prescription',timeout:30000});
+    await rx.locator('#drugProfile').getByText(`${s.marker}-RX-UPGRADE`,{exact:false}).first().waitFor({state:'visible'});
+}
+
 async function workflow(s) {
   h.assert(process.env.CARLOS_DISPOSABLE_HOST==='true','Upgrade canaries require a disposable install');
   const families=[appointmentAdd(s),ticklerAdd(s),chartNoteSave(s),rxSave(s)];
@@ -32,23 +50,7 @@ async function workflow(s) {
     execFileSync('bash',['/root/carlos/scripts/lib/deb-upgrade-install.sh'],{stdio:'inherit',timeout:900000});
     queries.forEach((query,index)=>h.assert(JSON.stringify(s.sql.rows(query))===before[index],`Upgrade changed retained clinical canary ${index}`));
   });
-  await s.step('sign in again and reopen the retained patient, tasks, chart note and prescription',async()=>{
-    const browser=await h.launchBrowser(s.config);s.cleanup(()=>browser.close());
-    const context=await h.newContext(browser,s.config);context.setDefaultTimeout(30000);
-    context.on('page',page=>h.wireStrictPage(page,'deb-upgrade-canaries',s.recorder));
-    const schedule=await h.login(context,s.config,s.recorder);
-    const {masterPage:master}=await openMasterRecord(context,schedule,s.recorder,{searchTerm:s.marker,preferredDemographicNo:s.patient,timeout:30000});
-    h.assert(new URL(master.url()).searchParams.get('demographic_no')===s.patient,'Upgrade reopened another patient');
-    const ticklers=await ui.clickOpensPopup(master,masterRecordLink(master,'/tickler/ViewTicklerMain').first(),{context,recorder:s.recorder,label:'upgraded-ticklers',timeout:30000});
-    await ticklers.getByText(`${s.marker}-TA-UPGRADE`,{exact:false}).first().waitFor({state:'visible'});
-    const chart=await openChart(context,master,s.recorder,30000);await waitForNavbars(chart,30000);
-    // A reopened note may be the active editor. innerText omits textarea
-    // values; wait for the chart's asynchronous notes and inspect both views.
-    await chart.waitForFunction(text=>document.body.innerText.includes(text)
-      ||Array.from(document.querySelectorAll('textarea[name="caseNote_note"]')).some(field=>field.value.includes(text)),`${s.marker}-NS-UPGRADE`,{timeout:30000});
-    const rx=await ui.clickOpensPopup(master,masterRecordLink(master,'/rx/choosePatient').first(),{context,recorder:s.recorder,label:'upgraded-prescription',timeout:30000});
-    await rx.getByText(`${s.marker}-RX-UPGRADE`,{exact:false}).first().waitFor({state:'visible'});
-  });
+  await s.step('sign in again and reopen the retained patient, tasks, chart note and prescription',()=>reopenCanaries(s));
 }
 if(require.main===module)runWorkflow('deb-upgrade-canaries',workflow,{openPatient:true});
-module.exports={workflow};
+module.exports={workflow,reopenCanaries};

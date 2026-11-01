@@ -43,3 +43,10 @@ for(const signal of ['SIGINT','SIGTERM'])test(`profile supervisor restores confi
   assert.equal(fs.readFileSync(file,'utf8'),original);
   assert.equal(fs.readFileSync(path.join(dir,'restarts'),'utf8'),'restart\nrestart\n');
 });
+
+test('every declared profile Spring module has a shipped application context',()=>{
+  const {PROFILES}=require('./lib/property-profiles');
+  for(const properties of Object.values(PROFILES))for(const module of (properties.ModuleNames||'').split(',').filter(Boolean)) {
+    assert.equal(fs.existsSync(path.join(__dirname,'../src/main/resources',`applicationContext${module}.xml`)),true,`Profile requests absent Spring module ${module}`);
+  }
+});

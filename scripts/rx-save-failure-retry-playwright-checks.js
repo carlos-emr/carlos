@@ -112,7 +112,7 @@ async function workflow(s) {
     for(const card of cards)h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient} AND provider_no=${q(provider)} AND customName=${q(card.name)} AND special=${q(card.instructions)} AND archived=0`)==='1','Final medication clinical values differ or are duplicated');
     if(source)h.assert(sql.value(`SELECT archived FROM drugs WHERE drugid=${source}`)==='1','Successful renewal did not archive its source');
     await rx.reload({waitUntil:'networkidle'});
-    for(const card of cards)await rx.getByText(card.name,{exact:false}).first().waitFor();
+    for(const card of cards)await rx.locator('#drugProfile').getByText(card.name,{exact:false}).first().waitFor();
     const script=sql.value(`SELECT script_no FROM prescription WHERE demographic_no=${patient}`);
     await rx.getByRole('link',{name:'Reprint',exact:true}).first().click();
     await rx.locator(`#reprint a[onclick*="reprint2('${script}')"]`).first().click();

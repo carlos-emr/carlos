@@ -9,18 +9,39 @@ const {openInbox,openSidebar,setMode,search}=require('./inbox-file-forward-playw
 const {openMasterRecord}=require('./master-record-tabs-playwright-checks');
 const {masterRecordLink}=require('./lib/master-record-link');
 const {openChart,waitForNavbars}=require('./echart-navbar-modules-playwright-checks');
-const {chartNoteSave}=require('./lib/mutation-families');
+const {chartNoteSave,providerUpdate}=require('./lib/mutation-families');
+const {authzReadFixture}=require('./lib/authz-read-fixture');
 const {retireOwnedChartPages}=require('./lib/owned-chart-page-cleanup');
 const q=h.sqlString;
 async function workflow(s) {
   const {sql,patient,provider,marker}=s;
-  const clinician={providerNo:provider,username:s.config.testUser};
+  const fixture=authzReadFixture({sql,marker,provider,testUser:s.config.testUser});
+  let activated=false;
+  s.cleanup(()=>{h.assert(!activated,'Owned clinician cache retirement failed; retain the account for recovery');fixture.cleanup();});
+  const clinician=fixture.addLogin('doctor');
+  h.assert(clinician.providerNo!==provider,'The reviewer must be distinct from the document sender');
+  if(!fixture.joinTestLoginPrograms(clinician))throw new h.SkipCheck('Document follow-up requires a configured program membership to copy to the owned clinician');
+  const activation=providerUpdate(s,{target:clinician});s.cleanup(()=>activation.cleanup());
+  s.cleanup(()=>{
+    h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(clinician.providerNo)} AND last_name=${q(marker)}`)==='1','Clinician ownership changed');
+    sql.execute(`DELETE FROM provider_default_program WHERE provider_no=${q(clinician.providerNo)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM provider_default_program WHERE provider_no=${q(clinician.providerNo)}`)==='0','Owned clinician default program remains');
+  });
+  // SQL fixture creation alone does not evict the active-provider picker cache.
+  // A native edit publishes this owned clinician; a native inactive edit below
+  // removes it from the cache before the SQL fixture is deleted.
+  activated=true;
+  try {
+  await s.step('a native staff edit publishes the distinct owned reviewer to provider pickers',async()=>{
+    await s.schedule.goto(s.scheduleUrl,{waitUntil:'networkidle'}); // nosemgrep: captured authenticated schedule URL
+    await activation.perform('STAFF');
+  });
   const {docs,openViewer}=viewerDocuments(s,['primary','control']);
   const primary=docs.primary,control=docs.control;
   // This synthetic document starts unrouted to the chosen clinician; the real
   // Forward control below must create that assignment. Other owned routes remain.
-  sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${primary.id} AND provider_no=${q(provider)}`);
-  const [[lastName,firstName]]=sql.rows(`SELECT last_name,first_name FROM provider WHERE provider_no=${q(provider)}`);
+  sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${primary.id} AND provider_no=${q(clinician.providerNo)}`);
+  const [[lastName,firstName]]=sql.rows(`SELECT last_name,first_name FROM provider WHERE provider_no=${q(clinician.providerNo)}`);
   const routing=id=>sql.rows(`SELECT provider_no,status,comment FROM providerLabRouting WHERE lab_type='DOC' AND lab_no=${id} ORDER BY id`);
   const controlDocument=JSON.stringify({document:sql.rows(`SELECT * FROM document WHERE document_no=${control.id}`),routing:routing(control.id)});
   const taskMessage=marker+'-followup',controlMessage=marker+'-control-task';
@@ -102,8 +123,12 @@ async function workflow(s) {
     const chart=await openChart(who.context,masterPage,s.recorder,30000);await waitForNavbars(chart,30000);
     const action=marker+`-NS-Reviewed document ${primary.id}; discussed findings and completed the clinical follow-up.`;
     await chart.locator('#encMainDiv textarea[name="caseNote_note"]').first().fill(action);
-    const [saved]=await Promise.all([chart.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/CaseManagementEntry')),
-      chart.locator('#saveImg').first().click()]);h.assert(saved.status()===200,'Clinical action note failed');
+    const [saved]=await Promise.all([chart.waitForResponse(r=>{
+      if(r.request().method()!=='POST'||!new URL(r.url()).pathname.endsWith('/CaseManagementEntry'))return false;
+      const body=new URLSearchParams(r.request().postData()||'');
+      return ['save','ajaxsave'].includes(body.get('method'))&&(body.get('caseNote_note')||body.get('noteTxt'))===action;
+    }),
+      chart.locator('#saveImg').first().click()]);h.assert(saved.status()===200,'Clinical action note failed');await saved.finished();
     await expectValue(sql,`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient} AND provider_no=${q(clinician.providerNo)} AND note=${q(action)}`,'1','Clinical action note, patient or clinician attribution differs');
     editor=await popup(list,row.locator('a[onclick*="openTicklerEdit"]'),'complete-clinical-followup');
     h.assert((await editor.locator('#attachmentNames').innerText()).includes(primary.label),'Reopened task does not show the reviewed document');
@@ -115,6 +140,14 @@ async function workflow(s) {
     h.assert(JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no=${controlTask}`))===controlTaskState,'Completing follow-up changed the unrelated control task');
     h.assert(JSON.stringify({document:sql.rows(`SELECT * FROM document WHERE document_no=${control.id}`),routing:routing(control.id)})===controlDocument,'Review/follow-up changed the unrelated control document');
   });
+  } finally {
+    await s.schedule.goto(s.scheduleUrl,{waitUntil:'networkidle'}); // nosemgrep: captured authenticated schedule URL
+    const retirement=providerUpdate(s,{target:clinician,configureForm:form=>form.locator('#statusInactive').check()});
+    await retirement.perform('RETIRED');
+    await expectValue(sql,`SELECT status FROM provider WHERE provider_no=${q(clinician.providerNo)}`,'0','Owned reviewer was not retired from native provider pickers');
+    activated=false;
+  }
+
 }
 if(require.main===module)runWorkflow('document-clinical-followup',workflow,{openPatient:true});
 module.exports={workflow};

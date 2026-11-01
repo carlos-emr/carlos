@@ -6,7 +6,7 @@
  * Chromium sends them. Replay only this application's cookies explicitly, with
  * redirects disabled so a refusal probe cannot leak them to another origin.
  */
-async function authenticatedProbe(session, target, options = {}) {
+async function prepareRead(session, target, options, requireSessionCookie) {
   const {allowSecurityErrorRedirect = false, ...requestOptions} = options;
   const base = session.config.baseUrl;
   const url = new URL(target, base);
@@ -35,10 +35,23 @@ async function authenticatedProbe(session, target, options = {}) {
   }
   const cookieHeader=destination=>{
     const cookies=cookiesFor(destination);
-    if(!cookies.some(cookie=>cookie.name==='JSESSIONID'&&cookie.value))throw new Error('Authenticated probe requires an application session cookie');
+    if(requireSessionCookie&&!cookies.some(cookie=>cookie.name==='JSESSIONID'&&cookie.value))throw new Error('Authenticated probe requires an application session cookie');
     return cookies.map(cookie=>`${cookie.name}=${cookie.value}`).join('; ');
   };
   const targetCookie=cookieHeader(url);
+  return {base,url,cookieHeader,allowSecurityErrorRedirect,requestOptions,
+    headers:{...Object.fromEntries(Object.entries(options.headers||{}).filter(([name])=>name.toLowerCase()!=='cookie')),
+      ...(targetCookie?{Cookie:targetCookie}:{})}};
+}
+
+/** Authentication protocol assertions may deliberately precede login or facility selection. */
+async function authenticationStateProbe(session,target,options={}) {
+  const {url,headers,requestOptions}=await prepareRead(session,target,options,false);
+  return session.context.request.fetch(url.href,{...requestOptions,headers,maxRedirects:0,failOnStatusCode:false});
+}
+
+async function authenticatedProbe(session,target,options={}) {
+  const {base,url,cookieHeader,allowSecurityErrorRedirect,requestOptions,headers}=await prepareRead(session,target,options,true);
   // A retained cookie is not proof of a live server-side session. The method
   // guard can answer 405 even after logout or a service restart. Verify the
   // actual session immediately before EACH probe using this same transport.
@@ -51,8 +64,7 @@ async function authenticatedProbe(session, target, options = {}) {
   } finally {await proof.dispose();}
   const response = await session.context.request.fetch(url.href, {
     ...requestOptions,
-    headers: { ...Object.fromEntries(Object.entries(options.headers || {}).filter(([name]) => name.toLowerCase() !== 'cookie')),
-      Cookie: targetCookie },
+    headers,
     maxRedirects: 0,
     failOnStatusCode: false,
   });
@@ -74,4 +86,4 @@ async function authenticatedProbe(session, target, options = {}) {
   return response;
 }
 
-module.exports = { authenticatedProbe };
+module.exports = { authenticatedProbe, authenticationStateProbe };

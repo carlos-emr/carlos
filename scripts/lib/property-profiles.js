@@ -6,7 +6,7 @@ const PROFILES = Object.freeze({
   'address-lock': {login_lock: 'false',login_max_failed_times:'3',login_max_duration:'10',login_local_ip:'127.0.0.1'},
   'no-pin': {'mfa.legacy.pin.enable': 'false'},
   multisite: {multisites: 'on', rma_enabled: 'true', moh_file_management_enabled: 'true'},
-  'caisi-admin': {caisi: 'on', 'caisi.search.workflow': 'false',ModuleNames:'Caisi,HRM'},
+  'caisi-admin': {caisi: 'on', 'caisi.search.workflow': 'false',ModuleNames:'Caisi'},
   'legacy-contacts': {NEW_CONTACTS_UI: 'false'},
   'private-consent': {privateConsentEnabled: 'true',STUDENT_PARTICIPATION_CONSENT:'false'},
   'appointment-options': {mc_number: 'true', emailApptReminder: 'yes'},

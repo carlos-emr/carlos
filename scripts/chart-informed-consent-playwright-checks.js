@@ -41,14 +41,14 @@ async function workflow(s) {
   const stored=`SELECT COUNT(*) FROM demographicExt WHERE demographic_no=${patient} AND key_val='informedConsent' AND value='yes'`;
   await s.step('cancelled informed-consent confirmation leaves the banner and stored consent unchanged',async()=>{
     await chart.locator('#informedConsentDiv').waitFor({state:'visible'});
-    const dialogs=await h.withExpectedDialogs(chart,()=>chart.locator('#informedConsentCheck').check(),{accept:false});
+    const dialogs=await h.withExpectedDialogs(chart,()=>chart.locator('#informedConsentCheck').click(),{accept:false});
     h.assert(dialogs.length===1&&dialogs[0].type==='confirm','Consent did not ask for confirmation');
     h.assert(sql.value(stored)==='0'&&await chart.locator('#informedConsentDiv').isVisible(),'Cancelled consent was recorded');
     h.assert(!await chart.locator('#informedConsentCheck').isChecked(),'Cancelled consent remains selected');
   });
   await s.step('confirmed informed consent stores the originating patient extension and stays collected after reopening',async()=>{
     const [response]=await Promise.all([chart.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/DemographicExtService')),
-      h.withExpectedDialogs(chart,()=>chart.locator('#informedConsentCheck').check())]);
+      h.withExpectedDialogs(chart,()=>chart.locator('#informedConsentCheck').click())]);
     h.assert(response.status()===200,'Recording informed consent failed');
     const sent=new URLSearchParams(response.request().postData()||'');
     h.assert(sent.get('demographicNo')===patient&&sent.get('key')==='informedConsent'&&sent.get('value')==='yes','Consent POST targeted a different patient or extension');

@@ -7,6 +7,9 @@ test('signal inventory follows actual calls through cyclic dependencies without 
   const write=(name,source)=>{const file=path.join(root,name+'.js');fs.writeFileSync(file,source);return file;};
   const fake=write('fake',"// runCheck()\nconst text='runWorkflow()'; module.exports={runCheck(){}};");
   assert.equal(hasSignalEntryPoint(fake),false);
+  const imported=write('imported',"if(require.main===module)h.runCheck({});");
+  const caller=write('caller',"require('./imported');");
+  assert.equal(hasSignalEntryPoint(imported),true);assert.equal(hasSignalEntryPoint(caller),false,'Importing an unused CLI guard must not certify the caller');
   const first=write('first',"require('./second');require('./safe');"),second=write('second',"require('./first');");
   write('safe',"h.runCheck({run:()=>{}});");
   assert.equal(hasSignalEntryPoint(first),true);assert.equal(hasSignalEntryPoint(second),true);
