@@ -26,6 +26,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.commn.dao.BillingDao;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +39,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /** Regression tests for the legacy billing-ID CSV embedded in submission diagnostics. */
 @Tag("unit")
 @Tag("billing")
-class TeleplanSubmissionUnitTest {
+class TeleplanSubmissionUnitTest extends CarlosUnitTestBase {
+    @BeforeEach
+    void setUp() {
+        registerMock(BillingDao.class, org.mockito.Mockito.mock(BillingDao.class));
+    }
+
     @Test
     void shouldPreserveCsvRendering_withNullElementsAndLiteralNull() {
         ArrayList<String> ids = new ArrayList<>(Arrays.asList("one", null, "null", ""));
