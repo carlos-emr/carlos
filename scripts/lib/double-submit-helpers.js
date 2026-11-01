@@ -112,7 +112,7 @@ async function settledCount(sql, query, { min = 1, quietMs = 3000, timeoutMs = 2
  * passed through to the browser untouched. Returns an async disarm function.
  */
 async function armSlowServer(context, pattern, ms = 1800) {
-  const pending=new Set();
+  const pending=new Set();let unknown;
   const handler = async (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     const operation=(async()=>{
@@ -121,6 +121,7 @@ async function armSlowServer(context, pattern, ms = 1800) {
         response=await route.fetch({maxRedirects:0});
         await sleep(ms);await route.fulfill({response});
       } catch(error) {
+        if(!response){require('./uncertain-server-writes').retainFixtures(context);unknown=new Error('POST response outcome is unknown; retain fixtures for reconciliation');}
         // The second navigation may abandon the first response; storage is
         // judged independently by each caller's exact owned-row assertions.
         if(process.env.DS_DEBUG)console.log('    [slow] handler error',String(error.message).split('\n')[0]);
@@ -128,6 +129,7 @@ async function armSlowServer(context, pattern, ms = 1800) {
         if(!/Target page, context or browser has been closed|Browser has been closed/i.test(error.message))throw error;
       });}
     })();
+    require('./uncertain-server-writes').trackWrite(context,operation);
     pending.add(operation);try{await operation;}finally{pending.delete(operation);}
   };
   await context.route(pattern,handler);
@@ -136,6 +138,7 @@ async function armSlowServer(context, pattern, ms = 1800) {
       if(!/Target page, context or browser has been closed|Browser has been closed/i.test(error.message))failure=error;
     }
     const drained=await Promise.allSettled([...pending]);
+    if(unknown)throw unknown;
     if(failure)throw failure;
     const rejected=drained.find(result=>result.status==='rejected');if(rejected)throw rejected.reason;
   };

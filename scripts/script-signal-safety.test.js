@@ -26,3 +26,9 @@ test('unused local or imported function bodies do not certify a signal entry poi
   assert.equal(hasSignalEntryPoint(write('called',"function start(){h.runCheck({});} start();")),true);
   assert.equal(hasSignalEntryPoint(write('iife',"(async()=>{h.runCheck({});})();")),true);
 });
+
+test('local calls discover nested reachable functions without accepting an unused sibling',t=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-signals-nested-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+ const file=path.join(root,'nested.js');fs.writeFileSync(file,'function outer(){function inner(){h.runCheck({});}inner();}outer();');assert.equal(hasSignalEntryPoint(file),true);
+ const unused=path.join(root,'unused.js');fs.writeFileSync(unused,'function outer(){function inner(){h.runCheck({});}}outer();');assert.equal(hasSignalEntryPoint(unused),false);
+});

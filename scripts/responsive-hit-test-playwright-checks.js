@@ -10,13 +10,17 @@ async function workflow(s) {
       await page.setViewportSize(viewport);
       await page.waitForLoadState('networkidle');
       // Resize handlers and widget replacement can run after network idle.
-      await page.waitForFunction(selector=>{
-        const visible=[...document.querySelectorAll(selector)].filter(e=>e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden');
-        const signature=visible.map(e=>{const r=e.getBoundingClientRect();return [e.id,e.name,e.tagName,r.x,r.y,r.width,r.height].join(':');}).join('|');
-        const previous=window.__carlosHitReadiness;
-        if(!previous||previous.signature!==signature){window.__carlosHitReadiness={signature,since:performance.now()};return false;}
-        return visible.length>0&&performance.now()-previous.since>=750;
-      },selector,{timeout:15000,polling:100});
+      let previous='',since=Date.now(),ready=false;
+      const deadline=Date.now()+15000;
+      while(Date.now()<deadline) {
+        const signature=JSON.stringify(await page.locator(selector).filter({visible:true}).evaluateAll(nodes=>nodes.map(e=>{
+          const r=e.getBoundingClientRect();return [e.id,e.name,e.tagName,r.x,r.y,r.width,r.height];
+        })));
+        if(signature!==previous){previous=signature;since=Date.now();}
+        else if(signature!=='[]'&&Date.now()-since>=750){ready=true;break;}
+        await new Promise(resolve=>setTimeout(resolve,100));
+      }
+      h.assert(ready,`${label} controls did not reach a stable visible layout`);
       // Native widgets hide/replace their original controls during initialization.
       // Freeze the visible identities after readiness instead of re-indexing a live list.
       const controls=await page.locator(selector).filter({visible:true}).elementHandles();

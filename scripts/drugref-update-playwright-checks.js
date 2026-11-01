@@ -95,7 +95,7 @@ if (trigger) {
 const requireStatus = process.env.DRUGREF_UPDATE_REQUIRE_STATUS === 'true';
 const timeoutSec = Number(process.env.DRUGREF_UPDATE_TIMEOUT_SEC || '3600');
 const searchTerm = process.env.DRUG_SEARCH_TERM || 'amox';
-assert(Number.isFinite(timeoutSec) && timeoutSec > 0, `DRUGREF_UPDATE_TIMEOUT_SEC must be a positive number, got ${process.env.DRUGREF_UPDATE_TIMEOUT_SEC}`);
+assert(Number.isInteger(timeoutSec) && timeoutSec > 0 && timeoutSec <= 86400, `DRUGREF_UPDATE_TIMEOUT_SEC must be an integer from 1 to 86400, got ${process.env.DRUGREF_UPDATE_TIMEOUT_SEC}`);
 
 // Context-relative: BASE_URL carries the webapp context (/carlos), and the page's own
 // calls are made against it.
@@ -479,4 +479,4 @@ legacyHarness.runLegacyCheck('drugref-update',async({cancellation})=>{
   } finally {
     await browser.close();
   }
-});
+},{cancellationGraceMs:(timeoutSec+120)*1000});

@@ -132,7 +132,7 @@ function validateMysqlHost(rawHost, env = process.env) {
   const host = String(rawHost || '').trim().toLowerCase();
   const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
   const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
-  if (!normalizedHost) throw new Error('MYSQL_HOST must not be empty');
+  if (!normalizedHost) throw new Error('non-loopback MYSQL_HOST: value must not be empty');
   if (!loopbackHosts.has(normalizedHost) && env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
     throw new Error(`Refusing to seed fixtures into non-loopback MYSQL_HOST ${host}; set ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable test database`);
   }
@@ -947,7 +947,7 @@ function getLaunchOptions(chromePath) {
   if (process.env.EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX !== 'true') {
     args.unshift('--no-sandbox');
   }
-  const launchOptions = { headless: true, args };
+  const launchOptions = { ...NO_PLAYWRIGHT_SIGNAL_HANDLING, headless: true, args };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
   }
@@ -1584,7 +1584,8 @@ async function runCheck(options) {
   const out = options.stdout || console;
   const processRef = options.processRef || process;
   const createCancellation = options.createCancellation || createGracefulSignalCancellation;
-  const cancellation = createCancellation({ signalProcess: processRef });
+  if(options.cancellationGraceMs!==undefined)assert(Number.isInteger(options.cancellationGraceMs)&&options.cancellationGraceMs>0&&options.cancellationGraceMs<=2147483647,'Invalid cancellation grace budget');
+  const cancellation = createCancellation({ signalProcess: processRef,...(options.cancellationGraceMs===undefined?{}:{graceMs:options.cancellationGraceMs}) });
   const started = options.now ? options.now() : Date.now();
   let outcome = 'PASS';
   let detail = '';

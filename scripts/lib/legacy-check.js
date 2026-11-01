@@ -21,8 +21,8 @@ function armInterruption(context) {
       context.cancellation.throwIfCancelled=checkpoint;context.throwIfCancelled=checkpoint;
     }
 }
-function runLegacyCheck(name,operation) {
-  return h.runCheck({name,async run(context) {
+function runLegacyCheck(name,operation,{cancellationGraceMs}={}) {
+  return h.runCheck({name,cancellationGraceMs,async run(context) {
     armInterruption(context);
     await operation(context);
     context.throwIfCancelled();

@@ -21,9 +21,9 @@ async function workflow(s) {
     for(const key of ids)sql.execute(`DELETE FROM clinic_nbr WHERE nbr_id=${key} AND nbr_value=${q(code)} AND nbr_string IN (${descriptions.map(q).join(',')})`);
     h.assert(sql.value(`SELECT COUNT(*) FROM clinic_nbr WHERE nbr_value=${q(code)} AND nbr_string IN (${descriptions.map(q).join(',')})`)==='0','Owned clinic NBR remains');
   });
-  let admin,frame;
+  let admin,frame,adminIsSchedule=false;
   async function openManager() {
-    if(!admin||admin.isClosed())({page:admin}=await ui.clickOpensPopupOrNavigates(s.schedule,s.schedule.locator('#admin-panel,#admin2').first(),{context:s.context,recorder:s.recorder,label:'clinic-nbr-administration',timeout:30000}));
+    if(!admin||admin.isClosed()||adminIsSchedule){const opened=await ui.clickOpensPopupOrNavigates(s.schedule,s.schedule.locator('#admin-panel,#admin2').first(),{context:s.context,recorder:s.recorder,label:'clinic-nbr-administration',timeout:30000});admin=opened.page;adminIsSchedule=!opened.isPopup;}
   const menu=admin.locator('a[rel$="/admin/ViewClinicNbrManage"]').first();await revealAuditLink(admin,menu,30000);
   const loaded=admin.waitForEvent('framenavigated',{predicate:f=>f.parentFrame()&&new URL(f.url()).pathname.endsWith('/admin/ViewClinicNbrManage')});await menu.click();frame=await loaded;
   await frame.locator('#nbr_value').waitFor();

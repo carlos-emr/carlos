@@ -99,7 +99,7 @@ function normalizeHost(rawHost) {
   return String(rawHost).toLowerCase().replace(/^\[|\]$/g, '');
 }
 
-// Shared validation requires explicit non-loopback opt-in; TLS exceptions stay loopback-only.
+// Shared validation requires explicit non-loopback opt-in; TLS exceptions default to loopback; ALLOW_UNVERIFIED_TLS is a separate explicit override.
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');

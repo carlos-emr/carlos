@@ -618,7 +618,7 @@ require('./lib/legacy-check').runLegacyCheck('lab-acknowledge',async({cancellati
     seedEarlierAcknowledgement();
     seedQueueLink();
 
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...getLaunchOptions(config.chromePath),...require('./lib/playwright-harness').NO_PLAYWRIGHT_SIGNAL_HANDLING});
     context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
 
     await login(context, config, recorder);

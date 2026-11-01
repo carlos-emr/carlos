@@ -29,7 +29,7 @@ function hasSignalEntryPoint(file,seen=new Set(),isRoot=true) {
       const called=node.callee.type==='Identifier'?node.callee.name:node.callee.type==='MemberExpression'&&!node.callee.computed?node.callee.property.name:'';
       if(ENTRY_POINTS.has(called))direct=true;
       if(node.callee.type==='Identifier')reachableCalls.add(node.callee.name);
-      if(isFunction(node.callee))visit(node.callee.body);
+      if(isFunction(node.callee)){collect(node.callee.body);visit(node.callee.body);}
       if(node.callee.type==='Identifier'&&node.callee.name==='require'&&node.arguments[0]?.type==='Literal') {
         const name=node.arguments[0].value;
         if(typeof name==='string'&&name.startsWith('.'))dependencies.push(name);
@@ -38,7 +38,7 @@ function hasSignalEntryPoint(file,seen=new Set(),isRoot=true) {
     for(const value of Object.values(node))if(Array.isArray(value))value.forEach(visit);else if(value&&typeof value==='object')visit(value);
   }
   visit(tree);
-  for(const name of reachableCalls)if(functions.has(name)&&!visitedFunctions.has(name)){visitedFunctions.add(name);visit(functions.get(name).body);}
+  for(const name of reachableCalls)if(functions.has(name)&&!visitedFunctions.has(name)){visitedFunctions.add(name);collect(functions.get(name).body);visit(functions.get(name).body);}
   scanned.set(key,{direct,dependencies});if(direct)return true;
   return dependencies.some(name=>dependencyHasEntry(file,name,seen));
 }

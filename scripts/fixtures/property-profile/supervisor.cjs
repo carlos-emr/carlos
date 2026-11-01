@@ -6,4 +6,4 @@ const root=process.env.PROFILE_TEST_DIR;
 withPropertyProfile('address-lock',({signal})=>runProfileChild([path.join(__dirname,'worker.cjs')],'address-lock',signal,{file:path.join(root,'properties'),env:{...process.env,CARLOS_DISPOSABLE_HOST:'true'}}),{
   env:{CARLOS_DISPOSABLE_HOST:'true'},file:path.join(root,'properties'),readRestarts:()=> '0',
   restart:()=>fs.appendFileSync(path.join(root,'restarts'),'restart\n'),
-}).then(()=>{process.exitCode=0;},error=>{console.error(error.message);process.exitCode=20;});
+}).then(code=>{process.exitCode=code;},error=>{console.error(error.message);process.exitCode=20;});

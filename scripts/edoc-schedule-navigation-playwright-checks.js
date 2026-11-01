@@ -80,7 +80,7 @@ const { createGracefulSignalCancellation, settleOperations } = require('./gracef
 const { removeOwnedDocumentFile } = require('./local-fixture-cleanup');
 
 // The shared guard requires explicit opt-in for non-loopback app and SQL targets.
-// Only loopback may relax TLS verification.
+// Loopback relaxes TLS by default; ALLOW_UNVERIFIED_TLS is a separate explicit override.
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
 function normalizeHost(rawHost) {

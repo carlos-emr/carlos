@@ -54,6 +54,7 @@ async function workflow(s) {
     await search.locator('#keyword, input[name="keyword"]').first().fill(term);
     const {failureMark,consumeExpectedFailure}=require('./lib/concurrency-support'),mark=failureMark(s.recorder);
     const responsePromise=search.waitForResponse(response=>response.request().isNavigationRequest()&&response.request().method()==='POST'&&new URL(response.url()).pathname.endsWith('/demographic/DemographicSearch'));
+    responsePromise.catch(()=>{});
     await ui.clickAndAwaitReload(search, search.locator("input[type='submit']").first(), { timeout: TIMEOUT, label: `search ${mode}` });
     const response=await responsePromise;
     if(allowWafRefusal&&response.status()===403&&h.isWafPage(response.status(),await response.text())) {
@@ -103,11 +104,11 @@ async function workflow(s) {
     h.assert(guarded||(await k.readResultRows(search)).length === 0, 'SQL-shaped input widened the patient search');
   });
 
-  await s.step('markup-shaped keywords remain literal text and cannot create executable elements', async () => {
+  await s.step('markup-shaped keywords are refused or rendered literally without executable elements', async () => {
     const term = '<img src="x" onerror="window.__searchKeywordXss=1">';
-    await find('search_address', term, apostropheId);
-    h.assert((await k.readResultRows(search)).length === 0, 'Markup-shaped input returned unrelated patients');
-    h.assert((await search.locator('#searchResults').innerText()).includes(term),
+    await find('search_address', term, apostropheId,{allowWafRefusal:true});
+    h.assert(guarded||(await k.readResultRows(search)).length === 0, 'Markup-shaped input returned unrelated patients');
+    h.assert(guarded||(await search.locator('#searchResults').innerText()).includes(term),
       'The rendered search description did not preserve the literal keyword');
     h.assert(await search.locator('#searchResults img[src="x"]').count() === 0,
       'A search keyword was interpreted as an HTML element');

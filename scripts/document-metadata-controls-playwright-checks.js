@@ -35,7 +35,7 @@ async function workflow(s) {
     const expected=stableBefore;
     for(const [selector,index] of [['[name="docDesc"]',0],['[name="docType"]',1],['[name="source"]',4],['[name="sourceFacility"]',5],['[name="observationDate"]',6],['[name="docClass"]',10]]) {
       const value=await editor.locator(selector).inputValue();
-      h.assert(value===expected[index],`Reopened metadata ${selector} differs from its unchanged clinical value`);
+      h.assert(value===(index===6?expected[index].slice(0,10).replace(/-/g,'/'):expected[index]),`Reopened metadata ${selector} differs from its unchanged clinical value`);
     }
     return editor;
   }

@@ -256,3 +256,10 @@ test('timestamp restoration refuses a newly introduced symlink without deleting 
   const ledger=createOutboxLedger({outbox});fs.writeFileSync(file,'2026-11-01T03:30:12.123Z');
   ledger.restore();assert.equal(fs.readFileSync(file,'utf8'),'baseline bytes');
 });
+
+test('timestamp restoration preserves mode and owner for existing and recreated files',t=>{
+  const {outbox}=scratch(t),file=path.join(outbox,'.timestamp');fs.writeFileSync(file,'baseline',{mode:0o600});fs.chmodSync(file,0o600);
+  const original=fs.statSync(file),ledger=createOutboxLedger({outbox});fs.writeFileSync(file,'2026-11-01T03:30:12Z');ledger.restore();
+  let restored=fs.statSync(file);assert.equal(restored.uid,original.uid);assert.equal(restored.gid,original.gid);assert.equal(restored.mode&0o7777,0o600);
+  fs.unlinkSync(file);ledger.restore();restored=fs.statSync(file);assert.equal(restored.uid,original.uid);assert.equal(restored.gid,original.gid);assert.equal(restored.mode&0o7777,0o600);assert.equal(fs.readFileSync(file,'utf8'),'baseline');
+});

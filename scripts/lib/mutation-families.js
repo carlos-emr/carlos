@@ -458,7 +458,7 @@ function chartNoteSave(s) {
           acceptRequest:request=>{
             const form=new URLSearchParams(request.postData()||'');
             return ['save','ajaxsave'].includes(form.get('method'))
-              && (form.get('caseNote_note')||form.get('noteTxt')||'')===text;
+              && (form.get('caseNote_note')||form.get('noteTxt')||'').replace(/\r\n?/g,'\n')===text.replace(/\r\n?/g,'\n');
           },
         });
     },
@@ -578,7 +578,7 @@ function allergyAdd(s) {
       h.assert(s.sql.value(`SELECT COUNT(*) FROM allergies WHERE demographic_no=${s.patient}
         AND reaction LIKE ${q(`${prefix}%`)}`) === '0', 'Owned allergies were not removed');
     },
-    async perform(tag, {text = `${prefix}${tag} note text`} = {}) {
+    async perform(tag) {
       const chart = await s.chart();
       const page = await s.popup(chart, chart.locator('a[onclick*="showAllergy"]').first(), 'allergy-list');
       const form = page.locator('#RxAddAllergyForm');
@@ -699,7 +699,7 @@ function eformAdd(s) {
       h.assert(s.sql.value(`SELECT (SELECT COUNT(*) FROM eform WHERE form_name=${q(formName)})
         + (SELECT COUNT(*) FROM eform_data WHERE form_name=${q(formName)})`) === '0', 'Owned eForm rows were not removed');
     },
-    async perform(tag, {text = `${prefix}${tag} note text`} = {}) {
+    async perform(tag) {
       const chart = await s.chart();
       // The Add eForm list stays open: unloading it throws on a null window.opener (covered by eform-groups).
       list = await s.popup(chart, chart.locator('#menuTitleeforms a').first(), 'eform-add-list');
@@ -796,7 +796,7 @@ function consultationRequest(s) {
       s.sql.execute(`DELETE FROM DigitalSignature WHERE demographicId=${s.patient} AND ModuleType='CONSULTATION'`);
       h.assert(ids().length === 0, 'Owned consultation requests were not removed');
     },
-    async perform(tag, {text = `${prefix}${tag} note text`} = {}) {
+    async perform(tag) {
       const chart = await s.chart();
       const form = await s.popup(chart, chart.locator('a[onclick*="ViewConsultationFormRequest?de="]').first(), 'consult-form');
       await form.locator('#EctConsultationFormRequest2Form').waitFor({ state: 'attached', timeout: TIMEOUT });
@@ -825,7 +825,7 @@ function preventionAdd(s) {
         DELETE FROM preventions WHERE demographic_no=${s.patient}`);
       h.assert(s.sql.value(`SELECT COUNT(*) FROM preventions WHERE demographic_no=${s.patient}`) === '0', 'Owned preventions were not removed');
     },
-    async perform(tag, {text = `${prefix}${tag} note text`} = {}) {
+    async perform(tag) {
       const chart = await s.chart();
       const list = await s.popup(chart, chart.locator('a[onclick*="ViewPreventionIndex"]').first(), 'prevention-index');
       await list.locator('#immunization').fill('Fluzone');
@@ -856,7 +856,7 @@ function measurementSave(s) {
       s.sql.execute(`DELETE FROM measurements WHERE demographicNo=${s.patient}; DELETE FROM measurementsDeleted WHERE demographicNo=${s.patient}`);
       h.assert(s.sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${s.patient}`) === '0', 'Owned measurements were not removed');
     },
-    async perform(tag, {text = `${prefix}${tag} note text`} = {}) {
+    async perform(tag) {
       const chart = await s.chart();
       await chart.locator('#menuTitle3 a').hover();
       const item = chart.locator('#menu3 a.menuItemleft').filter({ hasText: 'Vitals' });

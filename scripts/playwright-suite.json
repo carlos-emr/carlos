@@ -8978,7 +8978,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Two synthetic patients with apostrophe/CJK surnames, accented/CJK first names and an address containing quotes and Unicode; cleanup deletes them and asserts none remain.",
-      "notes": "Verifies literal special-character searches and sort postbacks, rejection of SQL-shaped over-matching, and safe HTML rendering of a markup-shaped search term."
+      "notes": "Verifies literal special-character searches and sort postbacks, rejection of SQL-shaped over-matching, and WAF rejection or safe literal HTML rendering of a markup-shaped search term."
     },
     {
       "name": "boundary-appointment-text",
@@ -18057,7 +18057,11 @@
       "env": [
         "DOCUMENT_DIR"
       ],
-      "fixtures": "Owned patient, two PDFs, routing/queue rows and two tasks; a distinct throwaway doctor with copied native program memberships. A native provider edit publishes the reviewer into cached pickers; native retirement removes it before SQL account cleanup. Sender Forward, fresh reviewer Inbox/task/clinical note/completion, control preservation. Exclusive shared document routing and provider picker caches."
+      "fixtures": "Owned patient, two PDFs, routing/queue rows and two tasks; a distinct throwaway doctor with copied native program memberships. A native provider edit publishes the reviewer into cached pickers; native retirement removes it before SQL account cleanup. Sender Forward, fresh reviewer Inbox/task/clinical note/completion, control preservation. Exclusive shared document routing and provider picker caches.",
+      "expectedFailure": {
+        "finding": 348,
+        "step": "the forwarded Inbox row displays its exact seeded description and patient identity"
+      }
     },
     {
       "name": "appointment-calendar-new-jan29",

@@ -166,6 +166,7 @@ async function runChartSession(t, { options, navbarError, navigationError, searc
   const sandbox = { module: { exports: {} }, console, URL, setTimeout, require(name) {
     if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
     if (name === 'node:crypto') return require(name);
+    if (name === './uncertain-server-writes') return require('./lib/uncertain-server-writes');
     if (name === './provider-navigation-fixture') return {providerNavigationFixture:()=>null};
     if (name === './playwright-harness') return h;
     if (name === './playwright-ui') return require('./lib/playwright-ui');
@@ -308,4 +309,10 @@ test('shouldFlagCleanupFailure_whenOwnedCleanupFailsAfterAStepFailure', async (t
   assert.equal(result.outcome, 'FAIL');
   assert.equal(result.failedStep, 'the known step');
   assert.equal(result.cleanupFailed, true);
+});
+
+test('provider preference restoration remains independent when patient ownership changes',async()=>{
+  const f=fixture({owned:false});f.independentCleanups=[()=>f.events.push('restore provider preferences')];
+  await assert.rejects(cleanupOwnedWorkflow(f),/ownership changed/);
+  assert.deepEqual(f.events,['close browser','restore provider preferences','dispose credentials']);
 });

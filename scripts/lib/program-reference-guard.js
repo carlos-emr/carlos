@@ -10,6 +10,6 @@ function programReferenceGuard(sql,program) {
         AND k.TABLE_NAME=c.TABLE_NAME AND k.COLUMN_NAME=c.COLUMN_NAME AND LOWER(k.REFERENCED_TABLE_NAME)='program'))`);
   for(const [table,column] of refs)h.assert(/^[A-Za-z_][A-Za-z0-9_]*$/.test(table)&&/^[A-Za-z_][A-Za-z0-9_]*$/.test(column),'Unsafe program reference metadata');
   h.assert(refs.length>0,'Program reference discovery found no schema references');
-  return {assertUnused(){for(const [table,column] of refs)h.assert(sql.value(`SELECT COUNT(*) FROM \`${table}\` WHERE \`${column}\`=${program}`)==='0',`Program ID is referenced by ${table}; retain the fixture and choose an unused ID`);}};
+  return {assertUnused(){for(const [table,column] of refs)h.assert(sql.value(`SELECT COUNT(*) FROM \`${table}\` WHERE \`${column}\`=${h.sqlString(String(program))}`)==='0',`Program ID is referenced by ${table}; retain the fixture and choose an unused ID`);}};
 }
 module.exports={programReferenceGuard};

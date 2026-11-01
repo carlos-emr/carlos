@@ -342,7 +342,7 @@ async function run(env = process.env,{cancellation}={}) {
     sample(); h.assert(!metricsFailure && report.memory.samples >= 2,'Required stable-process resident-memory measurements failed');
     await qualify(); report.status='PASSED'; save();
     console.log('PASS large ingress: two actual64MiB transfers, exact framed chunk receipts, oversize refusals, zero clinical acceptance');
-  } catch (_) { report.status='FAILED'; save(); throw new Error('Large-ingress gate failed; inspect protected evidence and retained upload IDs'); }
+  } catch (error) { if(cancellation?.isCancellation(error)){report.status='INTERRUPTED';save();throw error;}report.status='FAILED'; save(); throw new Error('Large-ingress gate failed; inspect protected evidence and retained upload IDs'); }
   finally { clearInterval(metricTimer); if (browser) await browser.close(); if (sql) sql.dispose(); }
 }
 if (require.main === module) require('./lib/legacy-check').runLegacyCheck('demographic-cds-large-ingress',context=>run(process.env,context)).catch(error => { console.error(error.message); process.exitCode=1; });

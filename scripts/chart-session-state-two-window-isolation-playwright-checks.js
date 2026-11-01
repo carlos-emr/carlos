@@ -170,7 +170,7 @@ async function settle(page, label) {
  * excused; every other failure stays a finding.
  */
 async function reloadChart(s, chart, label) {
-  await chart.waitForLoadState('networkidle',{timeout:TIMEOUT});
+  await chart.waitForLoadState('networkidle',{timeout:TIMEOUT}).catch(()=>{});
   const mark = s.recorder.requestFailures.length;
   await chart.reload();
   await settle(chart, label);

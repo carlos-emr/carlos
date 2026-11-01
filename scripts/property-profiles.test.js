@@ -74,3 +74,10 @@ test('profile readiness budget is validated before any configuration mutation',a
   await assert.rejects(withPropertyProfile('address-lock',()=>assert.fail('must not run'),{file,env:{CARLOS_DISPOSABLE_HOST:'true',CARLOS_PROFILE_READINESS_SECONDS:'0'},restart(){restarted=true;}}),/10 to 1800/);
   assert.equal(fs.readFileSync(file,'utf8'),'original');assert.equal(restarted,false);
 });
+
+test('supervisor preserves a failed child handoff status and restores configuration',t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-profile-invalid-child-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const file=path.join(dir,'properties');fs.writeFileSync(file,'original');
+  const result=require('node:child_process').spawnSync(process.execPath,[path.join(__dirname,'fixtures/property-profile/supervisor.cjs')],{env:{...process.env,PROFILE_TEST_DIR:dir,PROFILE_TEST_REJECT_HANDOFF:'true'},encoding:'utf8',timeout:10000});
+  assert.ok([1,20].includes(result.status),result.stderr);assert.match(result.stderr,/private parent handoff/);assert.equal(fs.existsSync(path.join(dir,'ready')),false);assert.equal(fs.readFileSync(file,'utf8'),'original');
+});

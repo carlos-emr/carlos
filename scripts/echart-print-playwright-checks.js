@@ -621,6 +621,7 @@ async function printChart(page, noteText, flags, expectAutosave) {
 }
 
 require('./lib/legacy-check').runLegacyCheck('echart-print',async({cancellation})=>{
+  try {
   const sql = h.createSqlRunner(h.readConfig().mysql);
   const ownedMarker = newOwnedMarker();
   patientMarker = ownedMarker;
@@ -842,7 +843,7 @@ require('./lib/legacy-check').runLegacyCheck('echart-print',async({cancellation}
       }
     }
   }
-}).catch((error) => {
+  } catch(error) {
   console.error('FAIL eChart print Playwright check');
   console.error(error.stack || error.message);
   if (printResults.length) {
@@ -852,5 +853,6 @@ require('./lib/legacy-check').runLegacyCheck('echart-print',async({cancellation}
     console.error(`HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
   }
   try { h.assertStrictPage(recorder); } catch (diagnostic) { console.error(diagnostic.message); }
-  process.exit(1);
+  throw error;
+  }
 });

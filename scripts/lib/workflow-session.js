@@ -8,7 +8,7 @@ const { openChart, waitForNavbars } = require('../echart-navbar-modules-playwrig
 
 // Each scenario owns its patient and child rows. No reset of a shared demo chart.
 // REST workflows may retain the patient fixture without opening its master record.
-async function runWorkflow(name, workflow, { openPatient = true, openMaster = true, preflightConfig, preflight, patientFixtureFactory, contextOptions = {} } = {}) {
+async function runWorkflow(name, workflow, { openPatient = true, openMaster = true, preflightConfig, preflight, patientFixtureFactory, contextOptions = {}, cancellationGraceMs } = {}) {
   let browser;
   let sql;
   let patient;
@@ -18,7 +18,7 @@ async function runWorkflow(name, workflow, { openPatient = true, openMaster = tr
   const marker = `FAKE-PW${randomBytes(8).toString('hex')}`;
   const recorder = h.createRecorder();
   const result = await h.runCheck({
-    name,
+    name,cancellationGraceMs,
     async run({ cancellation }) {
       const config = h.readConfig();
       // Environment-only prerequisites must be able to SKIP without database
@@ -102,9 +102,12 @@ async function runWorkflow(name, workflow, { openPatient = true, openMaster = tr
 
 async function cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups, patientFixture, independentCleanups=[] }) {
   const failures = [];
+  await require('./uncertain-server-writes').drainWrites(browser);
   let browserClosed = !browser;
   try { if (browser) await browser.close(); browserClosed = true; } catch (error) { failures.push(error); }
-  if(browserClosed)for(const cleanup of independentCleanups) {try{await cleanup();}catch(error){failures.push(error);}}
+  const serverSettled=!require('./uncertain-server-writes').hasUncertainWrites(browser);
+  if(!serverSettled)failures.push(new Error('Server write outcome is unknown; retain fixtures for reconciliation'));
+  if(browserClosed&&serverSettled)for(const cleanup of independentCleanups) {try{await cleanup();}catch(error){failures.push(error);}}
   else if(independentCleanups.length)failures.push(new Error('Provider navigation retained: browser close is unconfirmed'));
   // Check ownership before touching children. A replaced fixture must never cause
   // cleanup to erase another patient's records.
@@ -121,7 +124,7 @@ async function cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups, p
       owned = true;
     }
   } catch (error) { failures.push(error); }
-  if (owned) {
+  if (owned&&serverSettled) {
     let childrenRemoved = true;
     for (const cleanup of [...cleanups].reverse()) {
       try { await cleanup(); } catch (error) {

@@ -110,6 +110,7 @@ function removeOwnedPdfDocuments({ sql, marker, patient, files, docs }) {
   const ids = [...new Set([...byMarker, ...capturedIds(docs)])];
   h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Invalid owned document identity');
   if (ids.length) {
+    h.assert(sql.value(`SELECT COUNT(*) FROM ctl_document WHERE document_no IN (${ids.join(',')}) AND NOT (module='demographic' AND module_id=${patient})`)==='0','Owned document acquired an external document link; retain it');
     h.assert(sql.value(`SELECT COUNT(*) FROM patientLabRouting WHERE lab_type='DOC' AND lab_no IN (${ids.join(',')}) AND demographic_no<>${patient}`)==='0','Owned document acquired another patient link; retain it');
     sql.execute(`DELETE FROM patientLabRouting WHERE lab_type='DOC' AND lab_no IN (${ids.join(',')}) AND demographic_no=${patient};
       DELETE FROM ctl_document WHERE document_no IN (${ids.join(',')}) AND module='demographic' AND module_id=${patient};

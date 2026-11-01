@@ -939,7 +939,8 @@ function rows(s, ctx) {
       drive: 'replay: real UI (Inbox ▸ lab ▸ Acknowledge ▸ comment prompt), then the captured POST',
       fields,
       prepare() {
-        const template = s.sql.rows(labCandidates())[0][0];
+        const template = s.sql.rows(labCandidates())[0]?.[0];
+        if(!template)throw new h.SkipCheck('The install has no routed HL7 lab template to clone');
         h.assert(/^[1-9]\d*$/.test(template), 'the lab template id is invalid');
         const owned = createOwnedLab({sql:query=>s.sql.value(query),sqlRows:query=>s.sql.rows(query),lockNotShared:LOCK_NOT_SHARED});
         s.cleanup(()=>owned.removeOwnedLab());
@@ -1019,8 +1020,7 @@ function rows(s, ctx) {
       // control body would test a stale editor, rather than the WAF prose rule.
       const chart=await s.chart();await chart.reload({waitUntil:'networkidle'});
       const captured=await family.perform('CORPUS',{text:values.caseNote_note});
-      const response=await captured.request.response();h.assert(response,'The native corpus Save has no response');
-      await response.finished();return response;
+      h.assert(captured.response,'The native corpus Save has no response');return captured.response;
     };
     return row;
   };
@@ -1238,6 +1238,7 @@ async function workflow(s) {
     const keep = Object.fromEntries(['pageErrors', 'consoleIssues', 'requestFailures', 'badResponses', 'unexpectedDialogs']
       .map((key) => [key, s.recorder[key].length]));
     try { await s.step(label, body); return true; } catch (error) {
+      if(error instanceof h.SkipCheck)throw error;
       const own = !judged || error instanceof RowFailure;
       failures.push({ label: own ? label : `${label} -- the drive failed before the corpus could be judged`, error });
       console.error(`  FAIL ${label}: ${error.message}`);

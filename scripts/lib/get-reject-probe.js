@@ -89,11 +89,13 @@ async function captureRequest(page, match, act, { timeout = 20000, method = 'POS
   for (const [k, v] of body) params.append(k, v);
   const response = await request.response().catch(() => null);
   if(response?.finished)await response.finished();
-  return {
+  const captured={
     path: url.pathname, params, method: request.method(), status: response ? response.status() : 0,
     query: new URLSearchParams(url.search), body, headers, contentType: type, postData: request.postData() || '',
     frameUrl,
   };
+  Object.defineProperty(captured,'response',{value:response});
+  return captured;
 }
 
 /**

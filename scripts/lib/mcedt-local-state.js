@@ -171,13 +171,13 @@ function createOutboxLedger({ outbox }) {
   const beside = path.join(parent, `${path.basename(dir)}.timestamp`);
   const timestampPaths = [inside, beside];
 
-  const readOptional = file => {
-    try{return readRegular(file)?.bytes??null;}catch{throw new Error('MCEDT timestamp must be a regular owned-store file, not a symlink or directory');}
-  };
+  const readTimestampRecord=file=>{try{return readRegular(file);}catch{throw new Error('MCEDT timestamp must be a regular owned-store file, not a symlink or directory');}};
+  const readOptional=file=>readTimestampRecord(file)?.bytes??null;
+  const timestampRecords=new Map(timestampPaths.map(file=>[file,readTimestampRecord(file)]));
   const found = {
     listing: listDirectory(dir),
     parent: fs.readdirSync(parent, { withFileTypes: true }).map((entry) => `${entry.name}:${entry.isDirectory() ? 'dir' : 'file'}`).sort(),
-    timestamps: new Map(timestampPaths.map((file) => [file, readOptional(file)])),
+    timestamps: new Map(timestampPaths.map(file=>[file,timestampRecords.get(file)?.bytes??null])),
   };
   // Files the run may have caused under a known name, each with the bytes the run knows it wrote.
   const copies = [];
@@ -243,13 +243,14 @@ function createOutboxLedger({ outbox }) {
             }
             let fd;
             try {
-              fd=fs.openSync(file,fs.constants.O_RDWR|fs.constants.O_NOFOLLOW|(now===null?fs.constants.O_CREAT|fs.constants.O_EXCL:0),0o640);
-              assert(fs.fstatSync(fd).isFile(),'Timestamp replacement is not a regular file');
+              fd=fs.openSync(file,fs.constants.O_RDWR|fs.constants.O_NOFOLLOW|fs.constants.O_NONBLOCK|(now===null?fs.constants.O_CREAT|fs.constants.O_EXCL:0),0o640);
+              const stat=fs.fstatSync(fd),original=timestampRecords.get(file).stat;
+              assert(stat.isFile(),'Timestamp replacement is not a regular file');
+              if(now!==null)assert(stat.uid===original.uid&&stat.gid===original.gid&&(stat.mode&0o7777)===(original.mode&0o7777),'Timestamp ownership or mode changed; retain it');
               const current=fs.readFileSync(fd);
               assert(current.equals(was)||current.length===0||TIMESTAMP_TEXT.test(current.toString('latin1')),'Timestamp changed during restoration');
               fs.writeSync(fd,was,0,was.length,0);fs.ftruncateSync(fd,was.length);
-              const owner=fs.statSync(path.dirname(file));
-              try{fs.fchownSync(fd,owner.uid,owner.gid);}catch(error){if(process.getuid?.()===0)throw error;}
+              if(now===null){fs.fchmodSync(fd,original.mode&0o7777);fs.fchownSync(fd,original.uid,original.gid);}
             } finally {if(fd!==undefined)fs.closeSync(fd);}
           }
         } catch (error) {

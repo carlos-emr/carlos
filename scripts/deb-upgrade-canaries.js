@@ -1,12 +1,10 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 'use strict';
-const {spawn}=require('node:child_process');
-async function installPackages() {
-  await new Promise((resolve,reject)=>{
-    const child=spawn('bash',['/root/carlos/scripts/lib/deb-upgrade-install.sh'],{stdio:'inherit',timeout:900000});
-    child.once('error',reject);child.once('close',(code,signal)=>code===0?resolve():reject(new Error(`Upgrade installer failed (${signal||code})`)));
-  });
+const {runOwnedInstaller}=require('./lib/owned-installer');
+async function installPackages(s) {
+  try {await runOwnedInstaller('bash',['/root/carlos/scripts/lib/deb-upgrade-install.sh']);}
+  catch(error){if(error.uncertain)require('./lib/uncertain-server-writes').retainFixtures(s.context);throw error;}
 }
 const h=require('./lib/playwright-harness');
 const ui=require('./lib/playwright-ui');
@@ -62,10 +60,10 @@ async function workflow(s) {
   const before=queries.map(query=>JSON.stringify(s.sql.rows(query)));
   await s.step('upgrade the packages and verify the pre/post installation contract',async()=>{
     await s.context.browser().close();
-    await installPackages();
+    await installPackages(s);
     queries.forEach((query,index)=>h.assert(JSON.stringify(s.sql.rows(query))===before[index],`Upgrade changed retained clinical canary ${index}`));
   });
   await s.step('sign in again and reopen the retained patient, tasks, chart note and prescription',()=>reopenCanaries(s));
 }
-if(require.main===module)runWorkflow('deb-upgrade-canaries',workflow,{openPatient:true});
+if(require.main===module)runWorkflow('deb-upgrade-canaries',workflow,{openPatient:true,cancellationGraceMs:1020000});
 module.exports={workflow,reopenCanaries};
