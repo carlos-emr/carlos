@@ -34,8 +34,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Hashtable;
 import java.util.List;
-
-import org.apache.commons.collections4.KeyValue;
+import java.util.Map;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -72,11 +71,11 @@ public class ReportEvaluator {
         evaluate(loggedInInfo, deno, numer, numer2, null, true);
     }
 
-    public void evaluate(LoggedInInfo loggedInInfo, Denominator deno, Numerator numer, List<KeyValue> additionalFields) {
+    public void evaluate(LoggedInInfo loggedInInfo, Denominator deno, Numerator numer, List<Map.Entry<String, String>> additionalFields) {
         evaluate(loggedInInfo, deno, numer, null, additionalFields, true);
     }
 
-    public void evaluate(LoggedInInfo loggedInInfo, Denominator deno, Numerator numer, Numerator[] numers, List<KeyValue> additionalFields, boolean includeFalseResults) {
+    public void evaluate(LoggedInInfo loggedInInfo, Denominator deno, Numerator numer, Numerator[] numers, List<Map.Entry<String, String>> additionalFields, boolean includeFalseResults) {
         denominator = deno;
         numerator = numer;
         this.numerators = numers;
@@ -103,7 +102,7 @@ public class ReportEvaluator {
             h.put("_report_result", Boolean.valueOf(bool && bool2));
 
             if (additionalFields != null) {
-                for (KeyValue field : additionalFields) {
+                for (Map.Entry<String, String> field : additionalFields) {
                     String key = (String) field.getKey();
                     String val = (String) field.getValue();
 

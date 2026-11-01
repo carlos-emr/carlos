@@ -34,8 +34,8 @@ import java.io.InputStream;
 import java.util.Hashtable;
 import java.util.Iterator;
 
-import org.apache.commons.collections4.OrderedMap;
-import org.apache.commons.collections4.map.LinkedMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
@@ -122,8 +122,8 @@ public class OntarioMD {
         return ret;
     }
 
-    public OrderedMap getDiseaseList() {
-        OrderedMap map = new LinkedMap();
+    public Map<String, String> getDiseaseList() {
+        Map<String, String> map = new LinkedHashMap<>();
      /*
       Disease Community Keyword 
       */

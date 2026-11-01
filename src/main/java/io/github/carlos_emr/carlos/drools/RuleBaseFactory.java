@@ -28,7 +28,6 @@ package io.github.carlos_emr.carlos.drools;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import org.apache.commons.lang3.time.DateUtils;
 import org.kie.api.KieBase;
 import io.github.carlos_emr.carlos.utility.QueueCache;
 
@@ -89,7 +88,7 @@ public final class RuleBaseFactory {
      *
      * <p>Configuration: 4 queue buckets, 2048 max entries, 24-hour TTL, no expiry callback.</p>
      */
-    private static QueueCache<String, KieBase> ruleBaseInstances = new QueueCache<String, KieBase>(4, 2048, DateUtils.MILLIS_PER_DAY, null);
+    private static QueueCache<String, KieBase> ruleBaseInstances = new QueueCache<String, KieBase>(4, 2048, java.time.Duration.ofDays(1).toMillis(), null);
 
     /**
      * Retrieves a cached KieBase instance by its source key.
@@ -170,7 +169,7 @@ public final class RuleBaseFactory {
     public static void flushAllCached() {
         lock.writeLock().lock();
         try {
-            ruleBaseInstances = new QueueCache<String, KieBase>(4, 2048, DateUtils.MILLIS_PER_DAY, null);
+            ruleBaseInstances = new QueueCache<String, KieBase>(4, 2048, java.time.Duration.ofDays(1).toMillis(), null);
         } finally {
             lock.writeLock().unlock();
         }
