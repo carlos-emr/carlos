@@ -19,6 +19,8 @@
  * deletes one uniquely named temporary eForm.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -248,7 +250,7 @@ async function importZip(page, zipPath) {
   ]);
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-admin-schedule-navigation',async({cancellation})=>{
   const recorder = createRecorder();
   const runId = `${Date.now()}_${process.pid}`;
   const formName = `Playwright Admin Nav ${runId}`;
@@ -262,45 +264,63 @@ async function importZip(page, zipPath) {
   const screenshots = [];
 
   try {
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     context = await browser.newContext({
       acceptDownloads: true,
       // The packaged deployment serves a self-signed certificate by default.
       ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
       viewport: { width: 1440, height: 1400 },
     });
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     page = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(page, 'eform-admin-schedule-navigation', recorder);
     await openFocusedManager(page);
+    cancellation?.throwIfCancelled();
     screenshots.push(await screenshot(
       page,
       config.screenshotDir,
       'eform-admin-nav-before-upload',
     ));
+    cancellation?.throwIfCancelled();
 
     await uploadHtml(page, fixture.htmlPath, formName, formSubject);
+    cancellation?.throwIfCancelled();
     await assertFocusedAdministration(page, 'HTML Upload redirect');
+    cancellation?.throwIfCancelled();
     screenshots.push(await screenshot(
       page,
       config.screenshotDir,
       'eform-admin-nav-after-upload',
     ));
+    cancellation?.throwIfCancelled();
     const uploaded = await findLibraryEform(page, formName);
+    cancellation?.throwIfCancelled();
     const zipPath = await exportEform(page, uploaded.row, fixture.tempDir);
+    cancellation?.throwIfCancelled();
     await deleteEform(page, uploaded.fid, formName);
+    cancellation?.throwIfCancelled();
 
     await openFocusedManager(page);
+    cancellation?.throwIfCancelled();
     await importZip(page, zipPath);
+    cancellation?.throwIfCancelled();
     await assertFocusedAdministration(page, 'ZIP Import redirect');
+    cancellation?.throwIfCancelled();
     screenshots.push(await screenshot(
       page,
       config.screenshotDir,
       'eform-admin-nav-after-import',
     ));
+    cancellation?.throwIfCancelled();
     const imported = await findLibraryEform(page, formName);
+    cancellation?.throwIfCancelled();
     importedFid = imported.fid;
     importedExists = true;
 
@@ -363,4 +383,4 @@ async function importZip(page, zipPath) {
     }
     fs.rmSync(fixture.tempDir, { recursive: true, force: true });
   }
-})();
+});

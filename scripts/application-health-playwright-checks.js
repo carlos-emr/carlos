@@ -14,6 +14,8 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
@@ -188,7 +190,7 @@ async function checkProtectedRedirect(browser, appPath) {
   await context.close();
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('application-health',async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -197,21 +199,26 @@ async function checkProtectedRedirect(browser, appPath) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   try {
     for (const appPath of protectedRoutes) {
       await checkProtectedRedirect(browser, appPath);
+    cancellation?.throwIfCancelled();
     }
 
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
+    cancellation?.throwIfCancelled();
     context.on('page', page => h.wireStrictPage(page, 'application-health-page', recorder, { baseline: [] }));
     const schedulePage = await login(context);
+    cancellation?.throwIfCancelled();
     if (!findings.some((finding) => finding.label === 'post-login' && finding.type === 'login-failed')) {
       for (const route of authenticatedRoutes) {
         await checkAuthenticatedRoute(context, route);
+    cancellation?.throwIfCancelled();
       }
     }
     await schedulePage.close();
+    cancellation?.throwIfCancelled();
 
     console.log(JSON.stringify({ visited, findings }, null, 2));
     const blockingFindings = findings.filter((finding) => finding.type !== 'dialog');
@@ -224,7 +231,7 @@ async function checkProtectedRedirect(browser, appPath) {
   } finally {
     await browser.close();
   }
-})().catch((error) => {
+}).catch((error) => {
   console.error('FAIL application health Playwright check');
   console.error(error.stack || error.message);
   console.error(JSON.stringify(h.buildFailureDetails(recorder), null, 2));

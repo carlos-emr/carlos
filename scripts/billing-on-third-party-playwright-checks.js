@@ -64,6 +64,8 @@
  *   BILLING_ON_ARTIFACT_DIR=/tmp/carlos-billing-on-playwright
  *   ALLOW_NON_LOCAL_BASE_URL=true for any target that is not loopback
  */
+
+const legacyHarness=require('./lib/legacy-check');
 const fs = require('fs');
 const { unbilledReportParams, isConfiguredUnbilledLink } = require('./lib/billing-on-unbilled-report-links');
 const { chromium } = require('playwright');
@@ -276,8 +278,8 @@ async function unbilledBillLinks(page) {
   return urls;
 }
 
-async function run() {
-  const browser = await chromium.launch(getLaunchOptions(process.env.CHROME_PATH || undefined));
+async function run({cancellation}={}) {
+  const browser = await chromium.launch({...(getLaunchOptions(process.env.CHROME_PATH || undefined)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   // Certificate verification is only relaxed for loopback, where the packaged
   // install serves its own self-signed cert. A non-local target opted in via
   // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
@@ -292,15 +294,19 @@ async function run() {
 
   try {
     await login(page);
+    cancellation?.throwIfCancelled();
 
     await gotoApp(page, baseUrl, billEntryPath());
+    cancellation?.throwIfCancelled();
     const entry = await describeBillPage(page);
+    cancellation?.throwIfCancelled();
     check('the Ontario bill form opens for the configured appointment', entry.isOntarioForm,
       `codes=${JSON.stringify(entry.codes)} at ${redactUrl(entry.url)}; set BILLING_APPOINTMENT_NO/BILLING_DEMOGRAPHIC_NO to a billable appointment`);
     if (!entry.isOntarioForm) return;
 
     const options = await page.locator('select[name="xml_billtype"] option')
       .evaluateAll((nodes) => nodes.map((node) => node.value));
+    cancellation?.throwIfCancelled();
     const wanted = [...THIRD_PARTY_PREFIXES, BONUS_PREFIX]
       .map((prefix) => ({ prefix, value: options.find((value) => value.startsWith(prefix)) }))
       .filter((option) => Boolean(option.value));
@@ -316,6 +322,7 @@ async function run() {
 
     for (const { prefix, value } of wanted) {
       const outcome = await switchBillType(page, value, prefix);
+    cancellation?.throwIfCancelled();
       const label = prefix === BONUS_PREFIX ? `bonus codes (${prefix})` : `3rd party (${prefix})`;
 
       check(`${label} actually navigates on selection`,
@@ -346,6 +353,7 @@ async function run() {
       let status = null;
       try {
         const response = await gotoApp(page, baseUrl, path);
+    cancellation?.throwIfCancelled();
         status = response ? response.status() : null;
       } catch (error) {
         status = null;
@@ -355,6 +363,7 @@ async function run() {
       if (!loaded) continue;
 
       const links = await unbilledBillLinks(page);
+    cancellation?.throwIfCancelled();
       check(`${report} exposes the configured unbilled appointment`,
         links.some((href) => isConfiguredUnbilledLink(href, baseUrl, {
           appointmentNo, demographicNo, providerNo, appointmentDate,
@@ -374,7 +383,7 @@ async function run() {
   }
 }
 
-run()
+legacyHarness.runLegacyCheck('billing-on-third-party',run)
   .catch((error) => check('script completed without error', false, error.message))
   .finally(() => {
     // buildArtifactPath validates the directory (restricted to /tmp or the

@@ -40,6 +40,8 @@
  * accumulate rather than collide.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('fs');
 const os = require('os');
@@ -103,9 +105,9 @@ async function uploadImage(context, recorder, imagePath, name) {
   }
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-image-delete',async({cancellation})=>{
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-eform-image-delete-'));
   const imagePath = path.join(tempDir, imageName); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal -- imageName is generated from a timestamp and validated below before joining under a private temp directory
   assert(/^[A-Za-z0-9_.-]+$/.test(imageName), `Invalid generated image fixture name: ${imageName}`);
@@ -131,26 +133,36 @@ if (config.baseUrl.protocol !== 'https:') {
       ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl),
       viewport: { width: 1400, height: 900 },
     });
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     await uploadImage(context, recorder, imagePath, imageName);
+    cancellation?.throwIfCancelled();
     for (const method of ['GET', 'HEAD']) {
       const rejected = await authenticatedProbe({context, config}, config.baseUrl.origin + config.baseUrl.pathname + '/eform/deleteImage',
         {method, params: {filename: imageName}});
+    cancellation?.throwIfCancelled();
       assert(rejected.status() === 405, method + ' must not delete an image');
       assert(rejected.headers().allow === 'POST', '405 must advertise Allow: POST');
     }
 
     for (const scenario of ['standalone', 'administration', 'token-failure']) {
       if (scenario !== 'standalone') await uploadImage(context, recorder, imagePath, imageName);
+    cancellation?.throwIfCancelled();
       const managerPage = await context.newPage();
+    cancellation?.throwIfCancelled();
       wirePage(managerPage, 'image-delete-' + scenario, recorder);
       const inShell = scenario !== 'standalone';
       if (inShell) {
         await gotoApp(managerPage, config.baseUrl, '/administration?scheduleNav=1');
+    cancellation?.throwIfCancelled();
         await managerPage.waitForLoadState('networkidle');
+    cancellation?.throwIfCancelled();
         await managerPage.locator('#firstTable').waitFor({state: 'visible'});
+    cancellation?.throwIfCancelled();
       }
 
       let releaseToken;
@@ -180,11 +192,15 @@ if (config.baseUrl.protocol !== 'https:') {
         }
         return route.continue();
       });
+    cancellation?.throwIfCancelled();
       try {
         if (inShell) {
           await managerPage.locator('button[data-bs-target="#collapseForms"]').first().click();
+    cancellation?.throwIfCancelled();
           await managerPage.locator('a.defaultImageUpload').first().click();
+    cancellation?.throwIfCancelled();
           await managerPage.locator('#dynamic-content #tblImage').waitFor({state: 'visible'});
+    cancellation?.throwIfCancelled();
           assert(new URL(managerPage.url()).pathname.endsWith('/administration'),
             'Image Library did not load through the Administration fragment path');
           // The shell may already have tokens from other panels. Force the same empty-token
@@ -192,12 +208,16 @@ if (config.baseUrl.protocol !== 'https:') {
           await managerPage.locator('input[name="CSRF-TOKEN"]').evaluateAll(inputs => {
             for (const input of inputs) input.value = '';
           });
+    cancellation?.throwIfCancelled();
         } else {
           await gotoApp(managerPage, config.baseUrl, '/eform/efmimagemanager');
+    cancellation?.throwIfCancelled();
           await managerPage.waitForLoadState('load');
+    cancellation?.throwIfCancelled();
         }
         assert(await managerPage.locator('input[name="CSRF-TOKEN"]').first().inputValue() === '',
           'The fixture must exercise an empty CSRF token before clicking Delete');
+    cancellation?.throwIfCancelled();
         managerPage.removeAllListeners('dialog');
         managerPage.on('dialog', async dialog => {
           recorder.dialogs.push({label: scenario, type: dialog.type(), text: dialog.message()});
@@ -206,6 +226,7 @@ if (config.baseUrl.protocol !== 'https:') {
         const row = managerPage.locator('#tblImage tbody tr', {hasText: imageName}).first();
         const deleteLink = row.locator('a[onclick^="deleteImg"]').first();
         await deleteLink.waitFor({state: 'visible'});
+    cancellation?.throwIfCancelled();
         let deletePosts = 0;
         managerPage.on('request', request => {
           if (request.url().includes('/eform/deleteImage') && request.method() === 'POST') deletePosts++;
@@ -214,9 +235,12 @@ if (config.baseUrl.protocol !== 'https:') {
         if (scenario === 'token-failure') {
           const alert = managerPage.waitForEvent('dialog', {predicate: d => d.type() === 'alert'});
           await deleteLink.click();
+    cancellation?.throwIfCancelled();
           assert((await alert).message().length > 0, 'Token failure did not give a user-facing message');
+    cancellation?.throwIfCancelled();
           assert(deletePosts === 0, 'Token failure submitted a delete request');
           assert(await row.count() === 1, 'Token failure removed the image row');
+    cancellation?.throwIfCancelled();
           console.log('PASS token failure: alert shown, no delete POST, image retained');
           tokenMode = 'hold';
         }
@@ -225,11 +249,13 @@ if (config.baseUrl.protocol !== 'https:') {
           r => r.url().includes('/eform/deleteImage') && r.request().method() === 'POST',
           {timeout: 60000});
         await deleteLink.click();
+    cancellation?.throwIfCancelled();
         let timer;
         try {
           await Promise.race([tokenRequested, new Promise((_, reject) => {
             timer = setTimeout(() => reject(new Error('Delete did not request a CSRF token')), 15000);
           })]);
+    cancellation?.throwIfCancelled();
           assert(deletePosts === 0, 'Delete posted before the stalled token fetch completed');
           if (scenario === 'administration') {
             assert(transientFailures === 1, 'Administration must recover from one failed token fetch');
@@ -240,6 +266,7 @@ if (config.baseUrl.protocol !== 'https:') {
           releaseToken();
         }
         const deleteResponse = await responsePromise;
+    cancellation?.throwIfCancelled();
         assertNotBlocked(deleteResponse, 'Deleting an eForm image');
         assert(deleteResponse.status() >= 300 && deleteResponse.status() < 400,
           'Successful deletion must use POST/redirect/GET');
@@ -249,17 +276,24 @@ if (config.baseUrl.protocol !== 'https:') {
         await managerPage.waitForURL(url => inShell
           ? url.pathname.endsWith('/administration') && url.searchParams.get('show') === 'ImageUpload'
           : url.pathname.endsWith('/eform/efmimagemanager'));
+    cancellation?.throwIfCancelled();
         await managerPage.waitForLoadState('networkidle');
+    cancellation?.throwIfCancelled();
         if (inShell) {
           assert(new URL(managerPage.url()).searchParams.get('scheduleNav') === '1',
             'Delete redirect lost scheduleNav=1');
           await managerPage.locator('#firstTable').waitFor({state: 'visible'});
+    cancellation?.throwIfCancelled();
           await managerPage.locator('#dynamic-content #tblImage').waitFor({state: 'visible'});
+    cancellation?.throwIfCancelled();
         }
         await managerPage.reload({waitUntil: 'networkidle'});
+    cancellation?.throwIfCancelled();
         await managerPage.locator('#tblImage').waitFor({state: 'visible'});
+    cancellation?.throwIfCancelled();
         assert(await managerPage.locator('#tblImage a.viewImage', {hasText: imageName}).count() === 0,
           'Uploaded image still appears after delete and reload');
+    cancellation?.throwIfCancelled();
         assert(deletePosts === 1, 'A single delete click submitted more than one POST');
         console.log('PASS ' + scenario + ': stalled token, redirect, navigation and deletion persistence');
       } finally {
@@ -269,6 +303,7 @@ if (config.baseUrl.protocol !== 'https:') {
     }
     assertNoPageErrors(recorder);
     await context.close();
+    cancellation?.throwIfCancelled();
 
     console.log(
       `PASS eForm Image Library delete (${imageName}): delete was not CSRF-blocked and the `
@@ -283,4 +318,4 @@ if (config.baseUrl.protocol !== 'https:') {
     await browser.close();
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
-})();
+});
