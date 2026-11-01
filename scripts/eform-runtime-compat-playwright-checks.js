@@ -32,6 +32,8 @@
  *   node scripts/eform-runtime-compat-playwright-checks.js
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -231,7 +233,7 @@ function jqueryAliasesPage(withPreloadedJquery) {
     </script></body></html>`;
 }
 
-async function main() {
+async function main({cancellation}={}) {
   const shim = fs.readFileSync(SHIM_PATH, 'utf8');
   const jquery = fs.readFileSync(JQUERY_PATH, 'utf8');
   const jsignature = fs.readFileSync(JSIGNATURE_PATH, 'utf8');
@@ -307,12 +309,17 @@ async function main() {
   let browser;
   const failures = [];
   try {
-    browser = await chromium.launch(getLaunchOptions(process.env.CHROME_PATH || ''));
+    browser = await chromium.launch({...(getLaunchOptions(process.env.CHROME_PATH || '')),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext();
+    cancellation?.throwIfCancelled();
     const tab = await context.newPage();
+    cancellation?.throwIfCancelled();
 
-    await tab.goto(`${base}/embedded`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
+    await tab.goto(`${base}/embedded`);
+    cancellation?.throwIfCancelled(); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
     const served = await tab.evaluate('window.__result');
+    cancellation?.throwIfCancelled();
     try {
       assert(JSON.stringify(served.ht.dataAtReturn) === '["101.5","99"]',
         `HT values not present when send() returned: ${JSON.stringify(served.ht.dataAtReturn)}`);
@@ -338,8 +345,10 @@ async function main() {
     }
 
     const hitsAfterEmbedded = networkHits.length;
-    await tab.goto(`${base}/absent`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
+    await tab.goto(`${base}/absent`);
+    cancellation?.throwIfCancelled(); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
     const unserved = await tab.evaluate('window.__result');
+    cancellation?.throwIfCancelled();
     try {
       assert(unserved.ht.status === 404,
         `missing payload must fail visibly, got status ${unserved.ht.status}`);
@@ -350,8 +359,10 @@ async function main() {
       failures.push(`absent payload: ${error.message}`);
     }
 
-    await tab.goto(`${base}/signature`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
+    await tab.goto(`${base}/signature`);
+    cancellation?.throwIfCancelled(); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
     const signature = await tab.evaluate('window.__signatureResult');
+    cancellation?.throwIfCancelled();
     try {
       assert(signature && signature.installed, 'jSignature guard was not installed before window load');
       assert(signature.guardInstalledAtSpySetup === false && signature.guardWrapsSpy,
@@ -372,8 +383,10 @@ async function main() {
       failures.push(`jSignature compatibility: ${error.message}`);
     }
 
-    await tab.goto(`${base}/signature-async`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
+    await tab.goto(`${base}/signature-async`);
+    cancellation?.throwIfCancelled(); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
     const asyncSignature = await tab.evaluate('window.__asyncSignatureResult');
+    cancellation?.throwIfCancelled();
     try {
       assert(asyncSignature && asyncSignature.absentAtReady === true,
         'async fixture must load the real plugin after DOMContentLoaded');
@@ -387,8 +400,10 @@ async function main() {
 
     for (const preloaded of [false, true]) {
       const label = preloaded ? 'with preloaded jQuery' : 'without preloaded jQuery';
-      await tab.goto(`${base}/aliases-${preloaded ? 'with' : 'no'}-preload`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
+      await tab.goto(`${base}/aliases-${preloaded ? 'with' : 'no'}-preload`);
+    cancellation?.throwIfCancelled(); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- base is this script's own loopback fixture server bound to 127.0.0.1 on an ephemeral port and every path segment is a string literal
       const aliases = await tab.evaluate('window.__aliasesResult');
+    cancellation?.throwIfCancelled();
       try {
         assert(aliases && aliases.readyState === 'loading',
           `${label}: aliases were not exercised by the immediate inline consumer`);
@@ -416,7 +431,7 @@ async function main() {
     + 'and immediate jQuery aliases after replacement.');
 }
 
-main().catch((error) => {
+legacyHarness.runLegacyCheck('eform-runtime-compat',main).catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });

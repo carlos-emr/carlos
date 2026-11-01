@@ -12,6 +12,8 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
@@ -89,7 +91,7 @@ async function assertLoggedOutPage(page, label) {
   assert(!/provider\/(providercontrol|ViewAppointmentAdminDay)/i.test(url), `${label} stayed on authenticated URL ${url}`);
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('logout-session-invalidation',async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -98,14 +100,17 @@ async function assertLoggedOutPage(page, label) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
 
   try {
     const primary = await context.newPage();
+    cancellation?.throwIfCancelled();
     await login(primary);
+    cancellation?.throwIfCancelled();
 
     await safeGoto(primary, '/logoutPage', { waitUntil: 'domcontentloaded' });
+    cancellation?.throwIfCancelled();
     // logout.jsp auto-POSTs to /logout ~500ms after load, and Logout2Action
     // redirects /logout -> /index. The browser therefore SETTLES on /index (the
     // /logout POST is a transient 302, never a landing URL), so waiting for a
@@ -115,12 +120,18 @@ async function assertLoggedOutPage(page, label) {
       const p = url.pathname;
       return p === baseUrl.pathname + '/index' || p === baseUrl.pathname + '/logout';
     }, { timeout: 15000 });
+    cancellation?.throwIfCancelled();
     await assertLoggedOutPage(primary, 'logout action destination');
+    cancellation?.throwIfCancelled();
 
     const postLogoutPage = await context.newPage();
+    cancellation?.throwIfCancelled();
     await safeGoto(postLogoutPage, '/provider/providercontrol', { waitUntil: 'domcontentloaded' });
+    cancellation?.throwIfCancelled();
     await postLogoutPage.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertLoggedOutPage(postLogoutPage, 'post-logout protected navigation');
+    cancellation?.throwIfCancelled();
 
 
     console.log('PASS logout invalidated same-context session for future protected navigation');
@@ -128,7 +139,7 @@ async function assertLoggedOutPage(page, label) {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
   }
-})().catch((error) => {
+}).catch((error) => {
   console.error(error && error.stack ? error.stack : error);
   process.exit(1);
 });

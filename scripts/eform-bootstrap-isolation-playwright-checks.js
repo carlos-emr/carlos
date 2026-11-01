@@ -53,6 +53,8 @@
  *                                       shown, and one with the attachment picker open
  */
 'use strict';
+const legacyHarness=require('./lib/legacy-check');
+
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -297,24 +299,27 @@ async function checkRenderer(page, origin, renderer, expected) {
   await page.locator('.ui-dialog').waitFor({ state: 'hidden' });
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-bootstrap-isolation',async({cancellation})=>{
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const origin = `http://127.0.0.1:${server.address().port}`;
-  const browser = await chromium.launch(getLaunchOptions(process.env.CHROME_PATH));
+  const browser = await chromium.launch({...(getLaunchOptions(process.env.CHROME_PATH)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   const pageErrors = [];
   let failed = false;
   try {
     const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
+    cancellation?.throwIfCancelled();
     page.on('pageerror', (error) => pageErrors.push(error.message));
     page.on('response', (response) => {
       if (response.status() >= 400) pageErrors.push(`${response.status()} ${new URL(response.url()).pathname}`);
     });
     const expected = await baseline(page, origin);
+    cancellation?.throwIfCancelled();
     // Guard the comparison itself: the fixture must show the defaults Bootstrap's reboot overrides.
     assert.equal(expected.screen.body.style.marginTop, '8px', 'fixture: the bare eForm should keep the default body margin');
     assert.equal(expected.screen.patientName.style.boxSizing, 'content-box', 'fixture: inputs should start content-box');
     for (const renderer of RENDERERS) {
       await checkRenderer(page, origin, renderer, expected);
+    cancellation?.throwIfCancelled();
       console.log(`PASS ${renderer}.jsp: eForm geometry unchanged on screen and in print; chrome styled`);
     }
     assert.deepEqual(pageErrors, [], 'the page reported errors or failed requests');
@@ -326,5 +331,5 @@ async function checkRenderer(page, origin, renderer, expected) {
     await browser.close();
     server.close();
   }
-  process.exit(failed ? 1 : 0);
-})();
+  {process.exitCode=failed ? 1 : 0;return;}
+});

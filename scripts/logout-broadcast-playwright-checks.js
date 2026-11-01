@@ -14,6 +14,8 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
@@ -127,7 +129,7 @@ async function waitForClosedOrLoginRedirect(page, label, timeoutMs = 5000) {
   throw new Error(`${label} did not close or redirect after logout; final URL: ${page.url()}`);
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('logout-broadcast',async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -136,35 +138,47 @@ async function waitForClosedOrLoginRedirect(page, label, timeoutMs = 5000) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
 
   try {
     const primary = await context.newPage();
+    cancellation?.throwIfCancelled();
     await login(primary);
+    cancellation?.throwIfCancelled();
 
     const popup = await openScriptOwnedAppWindow(primary, 'script-owned popup');
+    cancellation?.throwIfCancelled();
     const secondPopup = await openScriptOwnedAppWindow(primary, 'second script-owned popup');
+    cancellation?.throwIfCancelled();
 
     const tab = await context.newPage();
+    cancellation?.throwIfCancelled();
     await safeGoto(tab, '/provider/providercontrol', { waitUntil: 'domcontentloaded' });
+    cancellation?.throwIfCancelled();
     await tab.waitForURL(/provider\/(providercontrol|ViewAppointmentAdminDay)/, { timeout: 20000 });
+    cancellation?.throwIfCancelled();
     await assertAuthenticatedPage(tab, 'same-session tab');
+    cancellation?.throwIfCancelled();
 
     await safeGoto(primary, '/logoutPage', { waitUntil: 'domcontentloaded' });
+    cancellation?.throwIfCancelled();
     await Promise.all([
       waitForClosed(popup, 'script-owned popup'),
       waitForClosed(secondPopup, 'second script-owned popup'),
     ]);
+    cancellation?.throwIfCancelled();
     const tabResult = await waitForClosedOrLoginRedirect(tab, 'same-session tab');
+    cancellation?.throwIfCancelled();
     await primary.waitForURL(/\/index|\/logout|login/i, { timeout: 10000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
 
     console.log(`PASS logout broadcast closed script-owned windows and ${tabResult} same-session tab`);
   } finally {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});
   }
-})().catch((error) => {
+}).catch((error) => {
   console.error(error && error.stack ? error.stack : error);
   process.exit(1);
 });

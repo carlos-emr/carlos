@@ -55,6 +55,8 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { validateBaseUrl } = require('./lib/playwright-harness');
 const fs = require('fs');
 const { createJournalLogSource } = require('./logout-journal-log');
@@ -404,7 +406,7 @@ function checkLogDelta(snapshot) {
   }
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('logout-redirect',async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -414,21 +416,27 @@ function checkLogDelta(snapshot) {
   }
 
   const logSnapshot = captureLogSnapshot();
-  const browser = await chromium.launch(launchOptions);
+  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   try {
     for (const route of affectedRoutes) {
       await checkUnauthenticatedRoute(browser, route);
+    cancellation?.throwIfCancelled();
     }
 
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context);
+    cancellation?.throwIfCancelled();
     if (!findings.some((finding) => finding.label === 'post-login' && finding.type === 'login-failed')) {
       for (const route of pageRoutes) {
         await checkAuthenticatedPageRoute(context, route);
+    cancellation?.throwIfCancelled();
       }
     }
     await landingPage.close();
+    cancellation?.throwIfCancelled();
     await context.close();
+    cancellation?.throwIfCancelled();
   } finally {
     await browser.close();
   }
@@ -442,7 +450,7 @@ function checkLogDelta(snapshot) {
   }
 
   console.log('PASS logout redirect surfaces rendered without auth, HTTP, browser, or response-commit failures');
-})().catch((error) => {
+}).catch((error) => {
   console.error('FAIL logout redirect Playwright check');
   console.error(error.stack || error.message);
   if (findings.length) {

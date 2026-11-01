@@ -41,6 +41,8 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
@@ -143,7 +145,7 @@ async function assertLogoutPageNoLoop(browser) {
   console.log(`PASS unauthenticated logoutPage completed without redirect loop (${paths.join(' -> ') || current})`);
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('multiple-session',async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -152,25 +154,30 @@ async function assertLogoutPageNoLoop(browser) {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
+  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   const contextA = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   const contextB = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
 
   try {
     const pageA = await login(contextA, 'browser A');
+    cancellation?.throwIfCancelled();
     const pageB = await login(contextB, 'browser B');
+    cancellation?.throwIfCancelled();
 
     await assertStillAuthenticated(pageA, 'browser A after browser B login');
+    cancellation?.throwIfCancelled();
     await assertStillAuthenticated(pageB, 'browser B after browser A recheck');
+    cancellation?.throwIfCancelled();
     console.log('PASS same user can keep two independent browser sessions authenticated');
 
     await assertLogoutPageNoLoop(browser);
+    cancellation?.throwIfCancelled();
   } finally {
     await contextA.close().catch(() => {});
     await contextB.close().catch(() => {});
     await browser.close().catch(() => {});
   }
-})().catch((error) => {
+}).catch((error) => {
   console.error(error && error.stack ? error.stack : error);
   process.exit(1);
 });
