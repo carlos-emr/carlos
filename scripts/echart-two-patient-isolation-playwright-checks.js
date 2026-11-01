@@ -1362,11 +1362,16 @@ async function run(s) {
         }
       }
       h.assert(JSON.stringify(sql.rows(schedules)) === schedulesBefore, 'A refused immunization schedule request wrote a schedule');
-      for (const route of ['/encounter/immunization/ViewSchedule', '/encounter/immunization/ViewScheduleConfig',
-        `/encounter/immunization/ViewScheduleConfig?demographic_no=${d.patient}&demographicNo=${d.other}`]) {
+      for (const [route, expectedStatus] of [
+        ['/encounter/immunization/ViewSchedule', 400],
+        ['/encounter/immunization/ViewScheduleConfig', 400],
+        [`/encounter/immunization/ViewScheduleConfig?demographic_no=${d.patient}&demographicNo=${d.other}`, 403],
+      ]) {
         const refused = await read(route);
-        h.assert(refused.status === 400 && !namesA(refused.body) && !namesB(refused.body),
-          `An immunization schedule page without one valid patient answered HTTP ${refused.status}`);
+        h.assert(refused.status === expectedStatus,
+          `${route} answered HTTP ${refused.status}; expected ${expectedStatus}`);
+        h.assert(!namesA(refused.body) && !namesB(refused.body),
+          `${route} exposed a patient name`);
       }
     });
   }

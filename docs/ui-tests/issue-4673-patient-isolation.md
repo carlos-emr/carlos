@@ -28,7 +28,10 @@ a supplied malformed, zero or conflicting patient scope is refused by
 `ViewClinical2Action` with **403**, before the print page runs. The
 `echart-two-patient-isolation` workflow checks both print routes in both patient
 directions for each case, requires that neither patient's name appears in a refused
-response, and identifies the route and scope case if an assertion fails.
+response, and identifies the route and scope case if an assertion fails. The later
+immunization view checks follow the same shared-gate contract: missing patients
+return 400 and conflicting aliases return 403. Schedule mutation refusals retain
+their separate 400 contract.
 
 ## The legacy encounter editor
 
