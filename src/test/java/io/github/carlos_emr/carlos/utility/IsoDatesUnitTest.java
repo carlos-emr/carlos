@@ -30,18 +30,18 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
 @Tag("unit")
-class IsoDateUtilsUnitTest {
+class IsoDatesUnitTest {
     @Test
     void shouldKeepLeniencyAndPrefixParsing_forLegacyRestDates() throws Exception {
-        assertThat(IsoDateUtils.parseIso8601Date("2026-13-01"))
-                .isEqualTo(IsoDateUtils.parseIso8601Date("2027-01-01"));
-        assertThat(IsoDateUtils.parseIso8601Date("2026-02-30 trailing"))
-                .isEqualTo(IsoDateUtils.parseIso8601Date("2026-03-02"));
-        assertThat(IsoDateUtils.parseIso8601Date("2026-01-02T10:00"))
-                .isEqualTo(IsoDateUtils.parseIso8601Date("2026-01-02"));
-        assertThatThrownBy(() -> IsoDateUtils.parseIso8601Date("invalid"))
+        assertThat(IsoDates.parseIso8601Date("2026-13-01"))
+                .isEqualTo(IsoDates.parseIso8601Date("2027-01-01"));
+        assertThat(IsoDates.parseIso8601Date("2026-02-30 trailing"))
+                .isEqualTo(IsoDates.parseIso8601Date("2026-03-02"));
+        assertThat(IsoDates.parseIso8601Date("2026-01-02T10:00"))
+                .isEqualTo(IsoDates.parseIso8601Date("2026-01-02"));
+        assertThatThrownBy(() -> IsoDates.parseIso8601Date("invalid"))
                 .isInstanceOf(ParseException.class);
-        assertThatThrownBy(() -> IsoDateUtils.parseIso8601Date(null))
+        assertThatThrownBy(() -> IsoDates.parseIso8601Date(null))
                 .isInstanceOf(NullPointerException.class);
     }
 
@@ -56,7 +56,7 @@ class IsoDateUtilsUnitTest {
                 Calendar expected = Calendar.getInstance();
                 expected.clear();
                 expected.set(2026, Calendar.JANUARY, 2);
-                assertThat(IsoDateUtils.parseIso8601Date("2026-01-02"))
+                assertThat(IsoDates.parseIso8601Date("2026-01-02"))
                         .as("default time zone %s", id).isEqualTo(expected.getTime());
             }
         } finally {

@@ -26,10 +26,10 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /** Preserves the legacy Ant ISO date parser's leniency, prefix parsing and JVM defaults. */
-public final class IsoDateUtils {
+public final class IsoDates {
     public static final String ISO8601_DATE_PATTERN = "yyyy-MM-dd";
 
-    private IsoDateUtils() {
+    private IsoDates() {
     }
 
     /**

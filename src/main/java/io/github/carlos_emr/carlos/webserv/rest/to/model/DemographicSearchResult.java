@@ -32,13 +32,13 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-import io.github.carlos_emr.carlos.utility.IsoDateUtils;
+import io.github.carlos_emr.carlos.utility.IsoDates;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
 public class DemographicSearchResult {
 
-    private SimpleDateFormat sdf = new SimpleDateFormat(IsoDateUtils.ISO8601_DATE_PATTERN);
+    private SimpleDateFormat sdf = new SimpleDateFormat(IsoDates.ISO8601_DATE_PATTERN);
 
     private Integer demographicNo;
     private String lastName;

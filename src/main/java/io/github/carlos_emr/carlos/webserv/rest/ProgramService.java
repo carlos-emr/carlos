@@ -43,7 +43,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
-import io.github.carlos_emr.carlos.utility.IsoDateUtils;
+import io.github.carlos_emr.carlos.utility.IsoDates;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
@@ -90,10 +90,10 @@ public class ProgramService extends AbstractServiceImpl {
         AbstractSearchResponse<AdmissionTo1> response = new AbstractSearchResponse<AdmissionTo1>();
 
         if (day == null) {
-            day = DateFormatUtils.format(Calendar.getInstance(), IsoDateUtils.ISO8601_DATE_PATTERN);
+            day = DateFormatUtils.format(Calendar.getInstance(), IsoDates.ISO8601_DATE_PATTERN);
         }
 
-        Date d = new SimpleDateFormat(IsoDateUtils.ISO8601_DATE_PATTERN).parse(day);
+        Date d = new SimpleDateFormat(IsoDates.ISO8601_DATE_PATTERN).parse(day);
 
         if (programNo == null) {
             //get default

@@ -50,7 +50,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.utility.IsoDateUtils;
+import io.github.carlos_emr.carlos.utility.IsoDates;
 import io.github.carlos_emr.carlos.appointment.search.FilterDefinition;
 import io.github.carlos_emr.carlos.appointment.search.FilterRegistry;
 import io.github.carlos_emr.carlos.appointment.search.Provider;
@@ -153,7 +153,7 @@ public class ScheduleService extends AbstractServiceImpl {
             if ("today".equals(date)) {
                 dateObj = new Date();
             } else {
-                dateObj = IsoDateUtils.parseIso8601Date(date);
+                dateObj = IsoDates.parseIso8601Date(date);
             }
 
             if ("".equals(providerNo)) {
@@ -517,8 +517,8 @@ public class ScheduleService extends AbstractServiceImpl {
             Date sDate = null;
             Date eDate = null;
             try {
-                sDate = IsoDateUtils.parseIso8601Date(sDateStr);
-                eDate = IsoDateUtils.parseIso8601Date(eDateStr);
+                sDate = IsoDates.parseIso8601Date(sDateStr);
+                eDate = IsoDates.parseIso8601Date(eDateStr);
             } catch (Exception e) {
                 throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity("Path parameter has the wrong format").build());
             }
@@ -677,8 +677,8 @@ public class ScheduleService extends AbstractServiceImpl {
             Date sDate = null;
             Date eDate = null;
             try {
-                sDate = IsoDateUtils.parseIso8601Date(sDateStr);
-                eDate = IsoDateUtils.parseIso8601Date(eDateStr);
+                sDate = IsoDates.parseIso8601Date(sDateStr);
+                eDate = IsoDates.parseIso8601Date(eDateStr);
             } catch (Exception e) {
                 throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity("Path parameter has the wrong format").build());
             }

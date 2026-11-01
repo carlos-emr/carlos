@@ -34,7 +34,7 @@
 package io.github.carlos_emr.carlos.managers;
 
 import java.text.SimpleDateFormat;
-import io.github.carlos_emr.carlos.utility.IsoDateUtils;
+import io.github.carlos_emr.carlos.utility.IsoDates;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -347,8 +347,8 @@ public class ScheduleManagerImpl implements ScheduleManager {
         Date sDate = null;
         Date eDate = null;
         try {
-            sDate = IsoDateUtils.parseIso8601Date(sDateStr);
-            eDate = IsoDateUtils.parseIso8601Date(eDateStr);
+            sDate = IsoDates.parseIso8601Date(sDateStr);
+            eDate = IsoDates.parseIso8601Date(eDateStr);
         } catch (Exception e) {
             throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity("Path parameter has the wrong format").build());
         }

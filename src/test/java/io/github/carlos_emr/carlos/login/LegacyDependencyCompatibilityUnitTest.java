@@ -28,7 +28,7 @@ import com.google.zxing.qrcode.QRCodeWriter;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.utility.ImageIoUtils;
-import io.github.carlos_emr.carlos.utility.IsoDateUtils;
+import io.github.carlos_emr.carlos.utility.IsoDates;
 import io.github.carlos_emr.carlos.utility.QrCodeUtils;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
@@ -113,7 +113,7 @@ class LegacyDependencyCompatibilityUnitTest {
                         TimeZone.setDefault(TimeZone.getTimeZone(id));
                         for (String value : new String[]{"2026-01-02", "2026-01-02T10:00", "2026-13-01",
                                 "2026-02-30", "2026-0-0", "2026-1-2 suffix", " 2026-04-05", "99-1-2"}) {
-                            assertThat(IsoDateUtils.parseIso8601Date(value)).isEqualTo(parse.invoke(null, value));
+                            assertThat(IsoDates.parseIso8601Date(value)).isEqualTo(parse.invoke(null, value));
                         }
                     }
                 }
