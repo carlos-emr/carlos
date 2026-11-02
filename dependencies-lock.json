@@ -1,13 +1,5 @@
 {
   "dependencies" : [ {
-    "groupId" : "antlr",
-    "artifactId" : "antlr",
-    "version" : "2.7.7",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:MRwxFfn2ZR0XEcUtFzniWnDyVFbKy5os3edidJjDCxPXIRM8x1s5RirRiBKoJHLvGzudZPq1q7A3fBK/ggQ6dA=="
-  }, {
     "groupId" : "ca.uhn.hapi.fhir",
     "artifactId" : "hapi-fhir-base",
     "version" : "8.4.3",
@@ -267,7 +259,7 @@
     "groupId" : "com.github.virtuald",
     "artifactId" : "curvesapi",
     "version" : "1.08",
-    "scope" : "compile",
+    "scope" : "test",
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:dysG29MQqKBqDC02Oa0tFsVKeLy4RSdLMD0UBpnrsVxkHU4HjyinVGf8BbWz01vCwF9/xEMk3LHJb3b5A3iCLg=="
@@ -778,22 +770,6 @@
     "integrity" : "sha512:JS9X7gqZ+BpnlUhORxKWbenwtyKaO/joGM8gqP895rN0X5GtaoVCFpahTm1Sj20l+isFUON1AMWQe+N4HGUE4g=="
   }, {
     "groupId" : "net.sf.jasperreports",
-    "artifactId" : "jasperreports-data-adapters",
-    "version" : "7.0.8",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:Uo/73Os00zYA5277ADBW0mg3eqHx7OFzk4l4k4oU/hyLVpdvrN15VWnqeqlflb1sMqKq+2RqtCRK/ym1l0aBCA=="
-  }, {
-    "groupId" : "net.sf.jasperreports",
-    "artifactId" : "jasperreports-excel-poi",
-    "version" : "7.0.8",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:fbSBPzgP/SPMqqcjPB+SwLc+33uqga7++bI3OIXQPMyJVy0IjtQwCopPMrPVgiQAOlxTsDV8iiF7+XR+oThwnw=="
-  }, {
-    "groupId" : "net.sf.jasperreports",
     "artifactId" : "jasperreports-fonts",
     "version" : "7.0.8",
     "scope" : "compile",
@@ -808,14 +784,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:5s53gmaOaxjWMdyz/6FW3OpAA9ZBHYJZ5+U9ayVj+lXumGP6haVLmiA4igwP82//Fhb4kS5ESfUAUlz9kjF9Pw=="
-  }, {
-    "groupId" : "net.sf.jasperreports",
-    "artifactId" : "jasperreports-json",
-    "version" : "7.0.8",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:fj0Jpv3MYOkJeVV30qENR1gRUD9xbdsTSVFzbn5p5hfhshY5quN9dZzWnUl3nkDAKjt+ZnSOhlEIgs1DlYSotA=="
   }, {
     "groupId" : "net.sf.jasperreports",
     "artifactId" : "jasperreports-pdf",
@@ -916,7 +884,7 @@
     "groupId" : "org.apache.commons",
     "artifactId" : "commons-compress",
     "version" : "1.28.0",
-    "scope" : "compile",
+    "scope" : "test",
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:8fFA9PQKs88yZZGdudu5WmMaKap4TjBfKR3k5oh2u3EdkhfWLXk3zd3dOTmC3s33GmCLSzq39OY3XPKK8ok9fw=="
@@ -1220,7 +1188,7 @@
     "groupId" : "org.apache.poi",
     "artifactId" : "poi-ooxml-lite",
     "version" : "5.5.1",
-    "scope" : "compile",
+    "scope" : "test",
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:63M55dPb9l7MvwmK/x9sqNFcrcrs9BePhkyr3Ei2VQm1286ys/vCzOwdMFSqxH721PdURd+zltTXnmyjwyYmdQ=="
@@ -1228,7 +1196,7 @@
     "groupId" : "org.apache.poi",
     "artifactId" : "poi-ooxml",
     "version" : "5.5.1",
-    "scope" : "compile",
+    "scope" : "test",
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:oDzuKsBKtVlvnsx8STSb6ToafloUW5v8nR03rmi4tskZQEoLrI+HRxXr0z6QS10/KzCYpKd4FOtAc2eDl2QFtg=="
@@ -2034,14 +2002,6 @@
     "optional" : false,
     "integrity" : "sha512:gWQtt2NY+/Ex3+nC8dnCgPwjtr/eahai022sxJChoq9OD7Srtc14AFcYux0VikL9aDTNK/5hbsWWJd8BlR8keA=="
   }, {
-    "groupId" : "org.jetbrains",
-    "artifactId" : "annotations",
-    "version" : "26.1.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:8czeWBQ7OM59BksemADNhMQ40/mScnYgoTboYVH+KDnhCnf9KhQk/U51FqpEZcrhaSucwNV/01xBZRyQxZGtAA=="
-  }, {
     "groupId" : "org.jfree",
     "artifactId" : "jfreechart",
     "version" : "1.5.6",
@@ -2474,14 +2434,6 @@
     "optional" : false,
     "integrity" : "sha512:xfsNZo5Jmw2eZhwUMmjcUkjmR7SvBsFxeLsKnaieezipyZq4CJJpEbl7m01Ay57OH5kXE2kwFFuZWUslrjtFqg=="
   }, {
-    "groupId" : "org.seleniumhq.selenium",
-    "artifactId" : "selenium-support",
-    "version" : "4.46.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:7mFxae8aUON9CKjyTM0pTFtUZtrR0BikGrgDVCmYIXismOuVtzX+rsm5V4bPRz0IyNpCv0TctCLFgXFMuuc88A=="
-  }, {
     "groupId" : "org.slf4j",
     "artifactId" : "slf4j-api",
     "version" : "2.0.20",
@@ -2521,14 +2473,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:V20v+aST+XJEq3tS1ba/4UcPMGSAMwlJcjqtcxoYiCrm+wSjc2JCuIVxXggSPPO9CDnCyLjitNfaMaGaZNr34w=="
-  }, {
-    "groupId" : "org.springframework",
-    "artifactId" : "spring-aspects",
-    "version" : "7.0.10",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:EBqZyvA5Of58NDv/HIHXgdT2v+OenG1xtYkeGA1zzokpoHU2H9RXti081TYg4TtDl+cply+TSfrPkqNqcR9/mQ=="
   }, {
     "groupId" : "org.springframework",
     "artifactId" : "spring-beans",

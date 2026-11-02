@@ -491,15 +491,8 @@
                 <artifactId>jakarta.transaction-api</artifactId>
                 <version>2.0.1</version>
             </dependency>
-            <!-- Override transitive Xalan from jakarta.servlet.jsp.jstl to fix CVE-2022-34169
-                 (integer truncation in XSLTC compiler allows arbitrary bytecode execution) -->
-            <dependency>
-                <groupId>xalan</groupId>
-                <artifactId>xalan</artifactId>
-                <version>2.7.3</version>
-            </dependency>
-            <!-- Xalan 2.7.3 requires its companion serializer artifact (provides
-                 org.apache.xml.serializer.OutputPropertiesFactory used by Struts) -->
+            <!-- Struts uses the standalone Xalan serializer; Glassfish JSTL
+                 shades its own Xalan implementation. -->
             <dependency>
                 <groupId>xalan</groupId>
                 <artifactId>serializer</artifactId>
@@ -896,10 +889,12 @@
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
         </dependency>
-        <!-- Required for @Aspect, @Transactional, and @Cacheable proxy weaving -->
+        <!-- Spring's aspectj-autoproxy and WebServiceLoggingAdvice need the
+             AspectJ runtime/weaver, not Spring's compile-time weaving aspects. -->
         <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-aspects</artifactId>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+            <version>1.9.25.1</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
@@ -1016,8 +1011,7 @@
             <artifactId>jakarta.servlet.jsp.jstl</artifactId>
             <version>3.0.1</version>
         </dependency>
-        <!-- Xalan serializer: companion to xalan:xalan (transitive from JSTL above).
-             Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts. -->
+        <!-- Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts. -->
         <dependency>
             <groupId>xalan</groupId>
             <artifactId>serializer</artifactId>
@@ -1159,11 +1153,12 @@
             <version>${jasperreports.version}</version>
         </dependency>
 
-        <!-- JasperReports Excel/POI exporter (split from core in JR7) -->
+        <!-- Jasper's core JRXlsxExporter does not use POI. OOXML is needed
+             only by tests; production HSSF exports use the explicit poi dependency. -->
         <dependency>
-            <groupId>net.sf.jasperreports</groupId>
-            <artifactId>jasperreports-excel-poi</artifactId>
-            <version>${jasperreports.version}</version>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <!-- ==================== Jackson / JSON ==================== -->
@@ -1419,13 +1414,6 @@
             <version>${csrfguard.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <version>26.1.0</version>
-            <scope>compile</scope>
-        </dependency>
-
         <!-- ==================== Testing ==================== -->
 
         <!-- Mockito for Java 21 -->
@@ -1615,7 +1603,7 @@
             <artifactId>opentelemetry-api</artifactId>
         </dependency>
         <!-- Selenium drives the pinned headless Chromium for eForm browser PDF rendering.
-             Deliberately NOT selenium-java: chrome-driver + support keeps the tree to the
+             Deliberately NOT selenium-java: chrome-driver keeps the tree to the
              Chromium path only (no firefox/edge/safari driver artifacts in the WAR). -->
         <dependency>
             <groupId>org.seleniumhq.selenium</groupId>
@@ -1658,12 +1646,6 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        <dependency>
-            <groupId>org.seleniumhq.selenium</groupId>
-            <artifactId>selenium-support</artifactId>
-            <version>${selenium.version}</version>
-        </dependency>
-
         <!-- SpotBugs annotations: provides edu.umd.cs.findbugs.annotations.SuppressFBWarnings for
              per-site, justified suppression of Find Security Bugs findings (e.g. the informational
              IMPROPER_UNICODE case-folding detector). CLASS retention, compile-only; provided scope
