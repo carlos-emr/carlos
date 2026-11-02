@@ -127,6 +127,29 @@ public class MSPReconcile {
     private BeanUtilHlp beanut = new BeanUtilHlp();
     private BillingHistoryDAO dao = new BillingHistoryDAO();
 
+    private boolean failOnReadError;
+
+    /** Strict mode is used by atomic spreadsheet downloads; legacy PDF callers retain their contract. */
+    public MSPReconcile(boolean failOnReadError) {
+        this();
+        this.failOnReadError = failOnReadError;
+        if (failOnReadError) fmt = new SimpleDateFormat(DATE_FORMAT, Locale.CANADA);
+    }
+
+    private void reportReadFailure(Exception exception) {
+        if (failOnReadError) {
+            // Do not attach a cause: JDBC/parsing exception messages can contain patient values.
+            throw new IllegalStateException("Billing export data could not be read");
+        }
+        MiscUtils.getLogger().error("Error", exception);
+    }
+
+    private String convertReportAmount(String value) {
+        return failOnReadError
+                ? io.github.carlos_emr.carlos.report.export.BcRemittanceExportDao.teleplanMoney(value)
+                : convCurValue(value);
+    }
+
     public MSPReconcile() {
         initTeleplanMonetarySuffixes();
         fmt = new SimpleDateFormat(DATE_FORMAT);
@@ -298,6 +321,7 @@ public class MSPReconcile {
                 String s = Integer.toString(i);
                 p.put(s, def);
             } catch (NumberFormatException intEx) {
+                if (failOnReadError) throw new IllegalStateException("Billing explanation data could not be read");
                 MiscUtils.getLogger().error("Error", intEx);
                 MiscUtils.getLogger().debug("Had trouble Parsing int from " + tc.getOfficeFolioClaimNo());
             }
@@ -1297,7 +1321,7 @@ public class MSPReconcile {
                 }
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            reportReadFailure(e);
         }
         return billSearch;
     }
@@ -1433,10 +1457,12 @@ public class MSPReconcile {
                 b.demoName = rs.getString("demographic_name");
 
                 if (!MSPReconcile.BILLTYPE_PRI.equalsIgnoreCase(b.billingtype)) {
-                    b.amount = MSPReconcile.convCurValue(rs.getString("t_paidamt"));
+                    b.amount = convertReportAmount(rs.getString("t_paidamt"));
                 } else {
                     b.amount = String.valueOf(getAmountPaid(rs.getString("bm.billingmaster_no"), MSPReconcile.BILLTYPE_PRI));
-                    if (!StringUtils.isNumeric(b.amount)) {
+                    if (failOnReadError) {
+                        new BigDecimal(b.amount);
+                    } else if (!StringUtils.isNumeric(b.amount)) {
                         throw new RuntimeException("Amount not a number");
                         //     b.amount = this.convCurValue(rs.getString("t_paidamt"));
                     }
@@ -1456,13 +1482,13 @@ public class MSPReconcile {
                 b.adjustmentCode = b.adjustmentCode == null ? "" : b.adjustmentCode;
                 b.adjustmentCodeDesc = "";
                 if (!"".equals(b.adjustmentCode)) {
-                    String adjCode1amt1Str = convCurValue(rs.getString("teleplanS00.t_aja1"));
-                    String adjCode1amt2Str = convCurValue(rs.getString("teleplanS00.t_aja2"));
-                    String adjCode1amt3Str = convCurValue(rs.getString("teleplanS00.t_aja3"));
-                    String adjCode1amt4Str = convCurValue(rs.getString("teleplanS00.t_aja4"));
-                    String adjCode1amt5Str = convCurValue(rs.getString("teleplanS00.t_aja5"));
-                    String adjCode1amt6Str = convCurValue(rs.getString("teleplanS00.t_aja6"));
-                    String adjCode1amt7Str = convCurValue(rs.getString("teleplanS00.t_aja7"));
+                    String adjCode1amt1Str = convertReportAmount(rs.getString("teleplanS00.t_aja1"));
+                    String adjCode1amt2Str = convertReportAmount(rs.getString("teleplanS00.t_aja2"));
+                    String adjCode1amt3Str = convertReportAmount(rs.getString("teleplanS00.t_aja3"));
+                    String adjCode1amt4Str = convertReportAmount(rs.getString("teleplanS00.t_aja4"));
+                    String adjCode1amt5Str = convertReportAmount(rs.getString("teleplanS00.t_aja5"));
+                    String adjCode1amt6Str = convertReportAmount(rs.getString("teleplanS00.t_aja6"));
+                    String adjCode1amt7Str = convertReportAmount(rs.getString("teleplanS00.t_aja7"));
 
                     double adjCode1amt1 = Double.parseDouble(adjCode1amt1Str);
                     double adjCode1amt2 = Double.parseDouble(adjCode1amt2Str);
@@ -1500,14 +1526,14 @@ public class MSPReconcile {
                 }
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            reportReadFailure(e);
         } finally {
             try {
                 if (rs != null) {
                     rs.close();
                 }
             } catch (SQLException ex) {
-                MiscUtils.getLogger().error("Error", ex);
+                reportReadFailure(ex);
             }
 
         }
@@ -1573,6 +1599,7 @@ public class MSPReconcile {
                 b.paymentDate = this.fmt.format(rs.getDate("creation_date"));
                 b.paymentMethod = rs.getString("payment_type_id");
                 b.setPaymentMethodName(this.getPaymentMethodDesc(b.paymentMethod));
+                if (failOnReadError) new BigDecimal(b.amount);
                 double dblAmount = UtilMisc.safeParseDouble(b.amount);
                 b.type = dblAmount > 0 ? "PMT" : "RFD";
                 if (dblAmount != 0) {
@@ -1580,14 +1607,14 @@ public class MSPReconcile {
                 }
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            reportReadFailure(e);
         } finally {
             try {
                 if (rs != null) {
                     rs.close();
                 }
             } catch (SQLException ex) {
-                MiscUtils.getLogger().error("Error", ex);
+                reportReadFailure(ex);
             }
 
         }
@@ -1646,6 +1673,7 @@ public class MSPReconcile {
                 b.paymentDate = this.fmt.format(rs.getDate("creation_date"));
                 b.paymentMethod = rs.getString("payment_type_id");
                 b.setPaymentMethodName(this.getPaymentMethodDesc(b.paymentMethod));
+                if (failOnReadError) new BigDecimal(b.amount);
                 double dblAmount = UtilMisc.safeParseDouble(b.amount);
                 b.type = dblAmount > 0 ? "PMT" : "RFD";
                 if (dblAmount != 0) {
@@ -1653,14 +1681,14 @@ public class MSPReconcile {
                 }
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            reportReadFailure(e);
         } finally {
             try {
                 if (rs != null) {
                     rs.close();
                 }
             } catch (SQLException ex) {
-                MiscUtils.getLogger().error("Error", ex);
+                reportReadFailure(ex);
             }
 
         }

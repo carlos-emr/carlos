@@ -3,6 +3,11 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import io.github.carlos_emr.carlos.report.export.BcBillingCsvWriter;
+import io.github.carlos_emr.carlos.report.export.BcRemittanceExportDao;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -63,10 +68,18 @@ public class CreateBillingReport2Action extends ActionSupport {
     /**
      * Performs Report Generation Logic based on the supplied parameters form the submitted form
      */
-    public String execute() {
+    public String execute() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
+        }
+
+        if ("csv".equals(getDocFormat())) {
+            return exportCsv();
+        }
+        if (!"pdf".equals(getDocFormat()) || !BcBillingCsvWriter.supports(getRepType())) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
 
         request.getSession().getServletContext().getServletContextName();
@@ -235,6 +248,71 @@ public class CreateBillingReport2Action extends ActionSupport {
         }
 
         return NONE;
+    }
+
+    private String exportCsv() throws IOException {
+        if (!BcBillingCsvWriter.supports(getRepType())) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        boolean remittance = MSPReconcile.REP_MSPREM.equals(getRepType()) || MSPReconcile.REP_MSPREMSUM.equals(getRepType());
+        String remittanceId = request.getParameter("rano");
+        if (remittance && (remittanceId == null || !remittanceId.matches("[0-9]+")
+                || (MSPReconcile.REP_MSPREM.equals(getRepType()) && (getSelPayee() == null || getSelPayee().isBlank())))) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        Path file = null;
+        try {
+            file = Files.createTempFile("carlos-bc-export-", ".csv");
+            try (OutputStream output = Files.newOutputStream(file)) {
+                writeCsv(output);
+            }
+            response.setContentType("application/csv; charset=UTF-8");
+            response.setHeader("Content-Disposition", "attachment; filename=\"" + getRepType() + ".csv\"");
+            response.setContentLengthLong(Files.size(file));
+            Files.copy(file, response.getOutputStream());
+        } catch (Exception e) {
+            // Exception messages from data/parsing/JDBC may include patient values.
+            MiscUtils.getLogger().error("BC CSV export failed");
+            if (!response.isCommitted()) {
+                response.reset();
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
+        } finally {
+            if (file != null) {
+                try {
+                    Files.deleteIfExists(file);
+                } catch (IOException cleanupError) {
+                    MiscUtils.getLogger().warn("Could not remove temporary export file");
+                }
+            }
+        }
+        return NONE;
+    }
+
+    protected void writeCsv(OutputStream output) throws Exception {
+        if (MSPReconcile.REP_MSPREM.equals(getRepType()) || MSPReconcile.REP_MSPREMSUM.equals(getRepType())) {
+            try (Connection connection = LegacyJdbcQuery.getConnection()) {
+                BcRemittanceExportDao dao = new BcRemittanceExportDao(connection);
+                if (MSPReconcile.REP_MSPREM.equals(getRepType())) {
+                    dao.writeBilled(output, getSelPayee(), request.getParameter("rano"));
+                } else {
+                    dao.writeSummary(output, request.getParameter("rano"));
+                }
+            }
+            return;
+        }
+        MSPReconcile msp = new MSPReconcile(true);
+        boolean payments = MSPReconcile.REP_PAYREF.equals(getRepType()) || MSPReconcile.REP_PAYREF_SUM.equals(getRepType());
+        BillSearch search = payments
+                ? msp.getPayments(getSelAccount(), getSelPayee(), getSelProv(), getXml_vdate(), getXml_appointment_date(),
+                        !Boolean.parseBoolean(getShowWCB()), !Boolean.parseBoolean(getShowMSP()),
+                        !Boolean.parseBoolean(getShowPRIV()), !Boolean.parseBoolean(getShowICBC()))
+                : msp.getBillsByType(getSelAccount(), getSelPayee(), getSelProv(), getXml_vdate(), getXml_appointment_date(),
+                        !Boolean.parseBoolean(getShowWCB()), !Boolean.parseBoolean(getShowMSP()),
+                        !Boolean.parseBoolean(getShowPRIV()), !Boolean.parseBoolean(getShowICBC()), getRepType());
+        BcBillingCsvWriter.write(output, getRepType(), search.list.stream().map(MSPBill.class::cast).toList());
     }
 
     /**

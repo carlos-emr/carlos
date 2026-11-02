@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
-import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -33,9 +32,6 @@ import net.sf.jasperreports.engine.JasperCompileManager;
 import net.sf.jasperreports.engine.JasperExportManager;
 import net.sf.jasperreports.engine.JasperFillManager;
 import net.sf.jasperreports.engine.data.JRMapCollectionDataSource;
-import net.sf.jasperreports.engine.export.JRCsvExporter;
-import net.sf.jasperreports.export.SimpleExporterInput;
-import net.sf.jasperreports.export.SimpleWriterExporterOutput;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.AfterEach;
@@ -83,7 +79,7 @@ class PayRefSummaryUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"en", "en-CA", "fr-FR", "de-DE"})
-    void shouldRenderCanadianPdfAndCsvAmounts_whenPaymentIncludesRefund(String locale) throws Exception {
+    void shouldRenderCanadianPdfAmounts_whenPaymentIncludesRefund(String locale) throws Exception {
         Locale.setDefault(Locale.Category.FORMAT, Locale.forLanguageTag(locale));
         PayRefSummary paid = new PayRefSummary();
         paid.addIncValue(MSPReconcile.PAYTYPE_CASH, 33.70);
@@ -101,8 +97,7 @@ class PayRefSummaryUnitTest {
         params.put("startDate", "2026-10-19");
         params.put("endDate", "2026-10-19");
 
-        for (String template : List.of("pdf_rep_payref.jrxml", "pdf_rep_payref_sum.jrxml",
-                "csv_rep_payref.jrxml", "csv_rep_payref_sum.jrxml")) {
+        for (String template : List.of("pdf_rep_payref.jrxml", "pdf_rep_payref_sum.jrxml")) {
             try (var stream = getClass().getResourceAsStream("/oscar/oscarBilling/ca/bc/reports/" + template)) {
                 assertThat(stream).as(template).isNotNull();
                 var report = JasperCompileManager.compileReport(stream);
@@ -117,21 +112,10 @@ class PayRefSummaryUnitTest {
                     rows.add(row);
                 }
                 var print = JasperFillManager.fillReport(report, params, new JRMapCollectionDataSource(rows));
-                if (template.startsWith("csv_")) {
-                    StringWriter output = new StringWriter();
-                    JRCsvExporter exporter = new JRCsvExporter();
-                    exporter.setExporterInput(new SimpleExporterInput(print));
-                    exporter.setExporterOutput(new SimpleWriterExporterOutput(output));
-                    exporter.exportReport();
-                    assertThat(output.toString()).as(template).contains("-$10.00").doesNotContain("$13.70", "\u00a4", "\u20ac");
-                    assertThat(output.toString()).as(template)
-                            .contains(template.contains("_sum") ? "$23.70" : "$33.70");
-                } else {
                 byte[] pdf = JasperExportManager.exportReportToPdf(print);
                 try (var document = Loader.loadPDF(pdf)) {
                     String text = new PDFTextStripper().getText(document).replaceAll("\\s+", " ");
                     assertThat(text).as(template).containsPattern("TOTAL:\\s*\\$23\\.70\\b").doesNotContain("$13.70");
-                }
                 }
             }
         }

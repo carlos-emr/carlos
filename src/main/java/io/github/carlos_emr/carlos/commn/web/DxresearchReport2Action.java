@@ -29,9 +29,11 @@
 package io.github.carlos_emr.carlos.commn.web;
 
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import io.github.carlos_emr.carlos.report.export.DxResearchExcelWriter;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -39,7 +41,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -53,7 +54,6 @@ import io.github.carlos_emr.carlos.managers.CodingSystemManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.OscarDocumentCreator;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBean;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListBeanHandler;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxQuickListItemsHandler;
@@ -81,7 +81,6 @@ public class DxresearchReport2Action extends ActionSupport {
     static final String EDIT_DESC_METHOD = "editDesc";
     private DxresearchDAO dxresearchdao = SpringUtils.getBean(DxresearchDAO.class);
     private MyGroupDao mygroupdao = SpringUtils.getBean(MyGroupDao.class);
-    private static final String REPORTS_PATH = "org/oscarehr/common/web/DxResearchReport.jrxml";
 
     /**
      * Allowlist of valid values for the {@code radiovaluestatus} session attribute.
@@ -217,7 +216,7 @@ public class DxresearchReport2Action extends ActionSupport {
      *
      * @return the handler's result; {@code success} renders {@code oscarReportDxReg.jsp}
      */
-    private String dispatch(String method) {
+    private String dispatch(String method) throws IOException {
         if ("patientRegistedAll".equals(method)) {
             return patientRegistedAll();
         } else if ("patientExcelReport".equals(method)) {
@@ -274,38 +273,47 @@ public class DxresearchReport2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    public String patientExcelReport() {
-        String providerNo = getValidatedProviderNo();
-        if (providerNo == null) {
-            return ERROR;
+    public String patientExcelReport() throws IOException {
+        if (getValidatedProviderNo() == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
-
-        ServletOutputStream outputStream = getServletOstream(response);
-
-        List<DxRegistedPTInfo> patients = null;
-
-        if (request.getSession().getAttribute("listview").getClass().getCanonicalName().contains("ArrayList")) {
-            patients = (List<DxRegistedPTInfo>) request.getSession().getAttribute("listview");
-        } else if (request.getSession().getAttribute("listview").getClass().getCanonicalName().contains("DxRegistedPTInfo")) {
-            patients = new ArrayList<DxRegistedPTInfo>();
-            DxRegistedPTInfo info = (DxRegistedPTInfo) request.getSession().getAttribute("listview");
-            patients.add(info);
+        Path file = null;
+        try {
+            Object value = request.getSession().getAttribute("listview");
+            List<DxRegistedPTInfo> patients;
+            if (value instanceof List<?> list) {
+                patients = new ArrayList<>();
+                for (Object patient : list) patients.add((DxRegistedPTInfo) patient);
+            } else if (value instanceof DxRegistedPTInfo patient) {
+                patients = List.of(patient);
+            } else {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            file = Files.createTempFile("carlos-dx-export-", ".xlsx");
+            try (OutputStream output = Files.newOutputStream(file)) {
+                DxResearchExcelWriter.write(output, patients);
+            }
+            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            response.setHeader("Content-disposition", "attachment; filename=dxResearchReport.xlsx");
+            response.setContentLengthLong(Files.size(file));
+            Files.copy(file, response.getOutputStream());
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Dx Research Excel export failed");
+            if (!response.isCommitted()) {
+                response.reset();
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
+        } finally {
+            if (file != null) {
+                try {
+                    Files.deleteIfExists(file);
+                } catch (IOException cleanupError) {
+                    MiscUtils.getLogger().warn("Could not remove temporary export file");
+                }
+            }
         }
-
-        String mode = (String) request.getSession().getAttribute("radiovaluestatus");
-
-        OscarDocumentCreator osc = new OscarDocumentCreator();
-        HashMap<String, String> reportParams = new HashMap<String, String>();
-        reportParams.put("providers", providerNo);
-        reportParams.put("mode", mode);
-
-        InputStream reportInstream = this.getClass().getClassLoader().getResourceAsStream(REPORTS_PATH);
-
-        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        response.setHeader("Content-disposition", "attachment; filename=dxResearchReport.xlsx");
-
-        osc.fillDocumentStream(reportParams, outputStream, OscarDocumentCreator.EXCEL, reportInstream, patients);
-
         return NONE;
     }
 
@@ -325,16 +333,6 @@ public class DxresearchReport2Action extends ActionSupport {
             request.getSession().setAttribute("Counter", patientInfo.size()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- integer derived from list size
         request.getSession().setAttribute("radiovaluestatus", "patientRegistedDistincted"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- hardcoded string literal
         return SUCCESS;
-    }
-
-    protected ServletOutputStream getServletOstream(HttpServletResponse response) {
-        ServletOutputStream outputStream = null;
-        try {
-            outputStream = response.getOutputStream();
-        } catch (IOException ex) {
-            MiscUtils.getLogger().warn("Warning", ex);
-        }
-        return outputStream;
     }
 
     public String patientRegistedDeleted() {

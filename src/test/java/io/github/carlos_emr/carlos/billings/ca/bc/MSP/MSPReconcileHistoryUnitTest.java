@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.entities.Provider;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -88,6 +89,17 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
     @AfterEach
     void closeJdbcMock() {
         jdbc.close();
+    }
+
+    @Test
+    void shouldPropagateReadFailures_withoutPatientDetailsForAtomicExports() throws Exception {
+        var strict = new MSPReconcile(true);
+        when(rows.next()).thenThrow(new SQLException("synthetic patient detail"));
+        assertThatThrownBy(() -> strict.getBillsByType("ALL", "ALL", "ALL", "", "", false, false, false, false,
+                MSPReconcile.REP_ACCOUNT_REC)).isInstanceOf(IllegalStateException.class)
+                .hasMessage("Billing export data could not be read").hasNoCause();
+        assertThatThrownBy(() -> strict.getPayments("ALL", "ALL", "ALL", "", "", false, false, true, false))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Billing export data could not be read").hasNoCause();
     }
 
     private void reportRows(String... types) throws Exception {

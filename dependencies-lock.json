@@ -1,13 +1,5 @@
 {
   "dependencies" : [ {
-    "groupId" : "antlr",
-    "artifactId" : "antlr",
-    "version" : "2.7.7",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:MRwxFfn2ZR0XEcUtFzniWnDyVFbKy5os3edidJjDCxPXIRM8x1s5RirRiBKoJHLvGzudZPq1q7A3fBK/ggQ6dA=="
-  }, {
     "groupId" : "ca.uhn.hapi.fhir",
     "artifactId" : "hapi-fhir-base",
     "version" : "8.4.3",
@@ -778,22 +770,6 @@
     "integrity" : "sha512:JS9X7gqZ+BpnlUhORxKWbenwtyKaO/joGM8gqP895rN0X5GtaoVCFpahTm1Sj20l+isFUON1AMWQe+N4HGUE4g=="
   }, {
     "groupId" : "net.sf.jasperreports",
-    "artifactId" : "jasperreports-data-adapters",
-    "version" : "7.0.8",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:Uo/73Os00zYA5277ADBW0mg3eqHx7OFzk4l4k4oU/hyLVpdvrN15VWnqeqlflb1sMqKq+2RqtCRK/ym1l0aBCA=="
-  }, {
-    "groupId" : "net.sf.jasperreports",
-    "artifactId" : "jasperreports-excel-poi",
-    "version" : "7.0.8",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:fbSBPzgP/SPMqqcjPB+SwLc+33uqga7++bI3OIXQPMyJVy0IjtQwCopPMrPVgiQAOlxTsDV8iiF7+XR+oThwnw=="
-  }, {
-    "groupId" : "net.sf.jasperreports",
     "artifactId" : "jasperreports-fonts",
     "version" : "7.0.8",
     "scope" : "compile",
@@ -808,14 +784,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:5s53gmaOaxjWMdyz/6FW3OpAA9ZBHYJZ5+U9ayVj+lXumGP6haVLmiA4igwP82//Fhb4kS5ESfUAUlz9kjF9Pw=="
-  }, {
-    "groupId" : "net.sf.jasperreports",
-    "artifactId" : "jasperreports-json",
-    "version" : "7.0.8",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:fj0Jpv3MYOkJeVV30qENR1gRUD9xbdsTSVFzbn5p5hfhshY5quN9dZzWnUl3nkDAKjt+ZnSOhlEIgs1DlYSotA=="
   }, {
     "groupId" : "net.sf.jasperreports",
     "artifactId" : "jasperreports-pdf",

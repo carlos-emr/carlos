@@ -205,16 +205,15 @@ async function workflow(s) {
 
   await s.step(STEP.spreadsheet, async () => {
     const report = await createReport('REP_PAYREF_SUM', 'csv');
-    // CreateBillingReport2Action.cfgHeader sends csv as application/csv. Its template prints no provider or payee,
-    // so the type and the absence of a page are what tell a spreadsheet from an error page that downloaded.
+    // The direct CSV writer produces a flat table of plain decimal CAD values.
     h.assert(/^application\/csv\b/i.test(report.type), `The spreadsheet summary came back as ${JSON.stringify(report.type)}`);
     h.assert(report.bytes.length > 0, 'The spreadsheet summary is empty');
     const head = report.bytes.subarray(0, 512).toString('latin1');
     h.assert(!head.startsWith('%PDF-') && !/<html|<!doctype/i.test(head), 'The spreadsheet summary is a PDF or an HTML page');
     const text = report.bytes.toString('utf8');
-    const printedAmounts = (text.match(/\$33\.70/g) || []).length;
+    const printedAmounts = (text.match(/"33\.70"/g) || []).length;
     h.assert(printedAmounts === 2,
-      `The spreadsheet summary prints ${printedAmounts} CAD payment/total amounts, not the expected two $33.70 values`);
+      `The spreadsheet summary prints ${printedAmounts} CAD payment/total amounts, not the expected two 33.70 values`);
     h.assert(!/[\u00a4\u20ac]/.test(text), 'The spreadsheet summary changed CAD into a host-locale currency');
   });
   await admin.close();

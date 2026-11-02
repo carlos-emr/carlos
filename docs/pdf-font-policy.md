@@ -154,7 +154,8 @@ are covered by the tests above.
 
 | Output | Disposition |
 | --- | --- |
-| All 51 shipped templates (labels, referral label, BC billing PDF/CSV reports and remittance, ON year-end statement, lab and billing day sheets, billing invoice, Dx research export, appointment receipt, Rourke 2017/2020, BCAR 2020) | **Fixed:** bundled embedded default and logical-name mapping; policy tests |
+| All 42 shipped templates (labels, referral label, BC billing PDF reports and remittance, ON year-end statement, lab and billing day sheets, billing invoice, appointment receipt, Rourke 2017/2020, BCAR 2020) | **Fixed:** bundled embedded default and logical-name mapping; policy tests |
+| BC accounting/remittance CSV and Dx Research XLSX | **Moved off Jasper (#5438):** Commons CSV / streaming Apache POI; the nine spreadsheet templates were removed; shared remittance PDF subreports remain |
 | ON year-end statement | **Fixed:** template pins DejaVu (port of `main` e2dc6d0d49, byte-identical to #5067) |
 | BC write-off and account-receivable PDFs | **Fixed:** six labels/fields and the insurer header were fixed 10pt boxes holding 10pt text, which no common face fits; they now stretch like their neighbours |
 | BC write-off and payment summary CSVs | **Fixed:** 8pt bundled default style, as #5067 does for the payment CSVs |
