@@ -195,7 +195,7 @@ print("ok")
     /if \[ "\$\{PROVISION_LOCK_HELD\}" = 1 \] && \[ ! -e "\$\{DB_NAME_SENTINEL\}" \]; then/);
   // init-config rewrites carlos.properties and reloads nginx: shared state.
   assert.match(postinst,
-    /if \[ "\$\{PROVISION_LOCK_HELD\}" = 1 \]; then\n\s+carlos-ctl init-config/);
+    /if \[ "\$\{PROVISION_LOCK_HELD\}" = 1 \]; then\n[\s\S]*?carlos-ctl init-config/);
   assert.match(postinst, /if \[ "\$\{PROVISION_LOCK_HELD\}" = 0 \]; then/);
   // Only a MISSING flock(1) falls through to the pre-lock behavior; a lock file
   // that cannot be opened defers provisioning instead of running unserialized.
@@ -379,6 +379,75 @@ ${block}
 
 // Execute the shipped nginx decision block with isolated service commands.
 // A syntax or service failure must survive the earlier clear_incomplete call.
+test('postinst retires the default nginx symlink before init-config, under the provisioning lock', () => {
+  const start = postinst.indexOf('        [ -e /etc/nginx/sites-enabled/carlos-emr ]');
+  const end = postinst.indexOf('        unset CARLOS_CONFIGURE_FIRST_RUN', start);
+  assert.ok(start >= 0 && end > start);
+  for (const kind of ['symlink', 'dangling', 'regular', 'absent']) {
+    for (const locked of [0, 1]) {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-default-site-'));
+      try {
+        const target = path.join(root, 'stock-site');
+        const enabled = path.join(root, 'default');
+        fs.writeFileSync(target, 'listen [::]:80;\n');
+        if (kind === 'symlink') fs.symlinkSync(target, enabled);
+        if (kind === 'dangling') fs.symlinkSync(path.join(root, 'missing'), enabled);
+        if (kind === 'regular') fs.writeFileSync(enabled, 'operator site\n');
+        fs.writeFileSync(path.join(root, 'carlos-ctl'), `#!/bin/sh
+set -e
+[ "$1" = init-config ]
+[ "\${CARLOS_CONFIGURE_FIRST_RUN:-}" = 1 ]
+[ ! -L '${enabled}' ]
+echo rendered
+`, { mode: 0o755 });
+        const block = postinst.slice(start, end).replaceAll('/etc/nginx/sites-enabled', root);
+        const result = spawnSync('sh', ['-c', `set -eu
+PROVISION_LOCK_HELD=${locked}
+PATH='${root}':$PATH
+mark_incomplete() { echo incomplete; }
+${block}
+`], { encoding: 'utf8' });
+        assert.equal(result.status, 0, result.stdout + result.stderr);
+        assert.equal(result.stdout.includes('rendered'), locked === 1);
+        assert.ok(!result.stdout.includes('incomplete'), result.stdout);
+        assert.equal(fs.readFileSync(target, 'utf8'), 'listen [::]:80;\n');
+        if (kind === 'regular') assert.equal(fs.readFileSync(enabled, 'utf8'), 'operator site\n');
+        if (['symlink', 'dangling'].includes(kind)) {
+          const remaining = fs.lstatSync(enabled, { throwIfNoEntry: false });
+          assert.equal(Boolean(remaining), locked === 0);
+          if (remaining) assert.ok(remaining.isSymbolicLink());
+        }
+      } finally { fs.rmSync(root, { recursive: true, force: true }); }
+    }
+  }
+});
+
+test('postinst starts an inactive nginx on first install and reloads on upgrade', () => {
+  const start = postinst.indexOf('        if nginx -t >/dev/null 2>&1; then');
+  const block = postinst.slice(start, postinst.indexOf('\n        ;;', start))
+    .replaceAll('/run/systemd/system', '/tmp');
+  for (const previous of ['', '2026.08.0~beta1']) {
+    for (const active of [0, 1]) {
+      for (const serviceRc of [0, 1]) {
+        const action = previous || active === 0 ? 'reload' : 'start';
+        const result = spawnSync('sh', ['-c', `set -eu
+set -- configure '${previous}'
+nginx() { return 0; }
+systemctl() { [ "$*" = 'is-active --quiet nginx.service' ]; return ${active}; }
+sd_invoke() { echo "service:$*"; return ${serviceRc}; }
+front_door_listening() { return 0; }
+mark_incomplete() { echo "incomplete:$*"; }
+${block}
+`], { encoding: 'utf8' });
+        assert.equal(result.status, 0, result.stderr);
+        assert.match(result.stdout, new RegExp(`service:${action} nginx.service`));
+        assert.equal(result.stdout.includes('incomplete:'), serviceRc !== 0);
+        if (serviceRc) assert.match(result.stdout, new RegExp(`could not ${action}`));
+      }
+    }
+  }
+});
+
 test('postinst records terminal nginx failures and accepts a successful rebind', () => {
   const start = postinst.indexOf('        if nginx -t >/dev/null 2>&1; then');
   assert.ok(start >= 0);
@@ -393,6 +462,7 @@ test('postinst records terminal nginx failures and accepts a successful rebind',
   ]) {
     const script = `set -eu
 nginx() { return ${syntax}; }
+systemctl() { return 0; }
 sd_invoke() { echo "service:$1"; if [ "$1" = reload ]; then return ${reload}; else return ${restart}; fi; }
 calls=0
 front_door_listening() { calls=$((calls + 1)); if [ ${bound} = 2 ]; then [ "$calls" -gt 1 ]; elif [ ${bound} = 3 ]; then return 2; elif [ ${bound} = 4 ]; then if [ "$calls" -gt 1 ]; then return 2; else return 1; fi; else return ${bound}; fi; }
