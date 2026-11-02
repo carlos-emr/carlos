@@ -616,9 +616,12 @@ legacyHarness.runLegacyCheck('tickler-attachments',async({cancellation})=>{
     const afterRefusalForm = await guardPage.locator('form[name="serviceform"]').evaluate((form) =>
       Array.from(new FormData(form).entries()));
     assert(JSON.stringify(afterRefusalForm) === JSON.stringify(beforeRefusalForm), 'refusal lost entered form values or attachment selections');
-    // Keep the fixture active for the re-filed-lab list checks below.
-    await guardPage.locator('#status').selectOption('A');
+    // Revalidate the corrected attachment selection while saving the retained values.
+    await guardPage.locator('#attachmentsSubmitted').evaluate((input) => { input.value = '1'; });
     await submitEditForm(guardPage);
+    assert(db.value(`SELECT CONCAT(status, '|', priority) FROM tickler WHERE tickler_no=${Number(ticklerNo)}`) === 'C|Low',
+      'corrected retry did not save the retained status and priority');
+    assert(JSON.stringify(attachmentRows(ticklerNo)) === beforeUiAttachments, 'corrected retry changed the selected attachments');
     assert(db.value(`SELECT COUNT(*) FROM tickler_comments WHERE tickler_no=${Number(ticklerNo)} AND message=${sqlString(unsavedComment)}`) === '1',
       'corrected retry did not save the retained comment exactly once');
     await guardPage.close();
@@ -656,7 +659,7 @@ legacyHarness.runLegacyCheck('tickler-attachments',async({cancellation})=>{
         'edit form still lists a lab re-filed to another patient');
     cancellation?.throwIfCancelled();
       const movedJson = await movedPage.request.get(
-        `${config.baseUrl.href}/tickler/ListTicklers?demographicNo=${encodeURIComponent(demographicNo)}&status=A&start=0&length=500`,
+        `${config.baseUrl.href}/tickler/ListTicklers?demographicNo=${encodeURIComponent(demographicNo)}&status=C&start=0&length=500`,
       );
     cancellation?.throwIfCancelled();
       const movedRow = (await movedJson.json()).data.find((row) => row.id === Number(ticklerNo));
