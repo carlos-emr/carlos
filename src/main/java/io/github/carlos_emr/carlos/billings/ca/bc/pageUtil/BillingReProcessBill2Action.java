@@ -72,6 +72,7 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
 /**
  * BC invoice list, single-bill adjust page and their saves ({@code billing/CA/BC/reprocessBill}).
+ * Returns 404 on non-BC deployments before loading or saving BC billing data.
  *
  * <p>One route serves every caller, and the request decides what happens:</p>
  * <ul>
@@ -130,6 +131,10 @@ public class BillingReProcessBill2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
+        }
+
+        if (!BcBillingRequestGuards.requireBcProvince(response)) {
+            return NONE;
         }
 
         boolean massEdit = request.getParameter(BILL_CHECK_PARAM) != null;
