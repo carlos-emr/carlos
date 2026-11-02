@@ -72,11 +72,14 @@ The per-client settings do not affect an unrelated client on the same Bus.
 The adapter's absence (since #5469) affects the whole WAR, so that isolation
 test does not establish compatibility for external asynchronous consumers.
 
-Without the per-client settings, an EBS client on a classpath without the
-adapter uses CXF's JDK `HttpClient` conduit, which reproduced
-`Unsupported protocol: TLS` with the builder's TLS parameters. The settings are
-therefore required on any branch that already carries #5469, not only on one
-that removes the adapter itself.
+Without the per-client settings, the EBS client uses CXF's JDK `HttpClient`
+conduit for its synchronous calls, which rejects the builder's generic `TLS`
+protocol name: every builder exchange that kept that setting failed with
+`Unsupported protocol: TLS`. A control on Ubuntu 26.04 / JDK 25 reproduced this
+both on the current classpath (no adapter, after #5469) and with the HTTP 4
+adapter restored under its default `ASYNC_ONLY` policy, so the failure predates
+#5469 rather than being caused by it. The settings are required on any CXF 4.1
+branch, whether or not the adapter is present.
 
 ## Regression contract and remaining gates
 
