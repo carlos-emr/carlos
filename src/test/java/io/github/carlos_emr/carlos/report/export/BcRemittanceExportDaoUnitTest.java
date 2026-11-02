@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.report.export;
 
 import java.io.ByteArrayOutputStream;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.List;
@@ -53,7 +54,7 @@ class BcRemittanceExportDaoUnitTest {
             assertThat(rows.get(2)).contains("Practitioner", "Synthetic Doctor");
             assertThat(rows.get(3)).contains("Adjustment", "Synthetic adjustment", "1.00", "2.00", "3.00", "4.00", "5.00", "6.00");
             assertThat(rows.get(4)).contains("Message", "\t=synthetic,Élodie");
-            assertThat(output.toString()).doesNotContain("Deleted", "Excluded", "Other Clinic");
+            assertThat(output.toString(StandardCharsets.UTF_8)).doesNotContain("Deleted", "Excluded", "Other Clinic");
             assertThatThrownBy(() -> new BcRemittanceExportDao(db).writeSummary(new ByteArrayOutputStream(), "1 OR 1=1"))
                     .isInstanceOf(java.sql.SQLException.class);
         }
@@ -68,12 +69,15 @@ class BcRemittanceExportDaoUnitTest {
                 Locale.setDefault(locale);
                 var output = new ByteArrayOutputStream();
                 new BcRemittanceExportDao(db).writeBilled(output, "001", "1");
-                if (expected == null) expected = output.toString();
-                assertThat(output.toString()).isEqualTo(expected).contains("-1234.51", "Synthetic Élodie(1)", "02-Oct-26");
+                if (expected == null) expected = output.toString(StandardCharsets.UTF_8);
+                assertThat(output.toString(StandardCharsets.UTF_8)).isEqualTo(expected).contains("-1234.51", "Synthetic Élodie(1)", "02-Oct-26");
             }
             var output = new ByteArrayOutputStream();
             new BcRemittanceExportDao(db).writeBilled(output, "001' OR '1'='1", "1");
-            assertThat(CSVFormat.DEFAULT.parse(new StringReader(output.toString())).getRecords()).hasSize(1);
+            assertThat(CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords()).hasSize(1);
+            output.reset();
+            new BcRemittanceExportDao(db).writeBilled(output, "%", "1");
+            assertThat(CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords()).hasSize(1);
         } finally {
             Locale.setDefault(old);
         }
@@ -83,6 +87,9 @@ class BcRemittanceExportDaoUnitTest {
     void shouldDecodeTeleplanOverpunch_withoutLoggingOrRoundingInput() {
         assertThat(TeleplanAmount.decode("12345J")).isEqualTo("-1234.51");
         assertThat(TeleplanAmount.decode("12345}")).isEqualTo("-1234.50");
+        assertThat(TeleplanAmount.decode("  123450  ")).isEqualTo("1234.50");
+        assertThat(TeleplanAmount.decode("  12345J  ")).isEqualTo("-1234.51");
+        assertThat(TeleplanAmount.decode("   ")).isEqualTo("0.00");
         assertThatThrownBy(() -> TeleplanAmount.decode("invalid")).isInstanceOf(NumberFormatException.class);
     }
 }

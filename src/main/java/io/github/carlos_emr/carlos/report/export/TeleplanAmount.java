@@ -11,6 +11,7 @@ public final class TeleplanAmount {
     /** Decodes Teleplan signed, implied-cents amounts without rounding through double or logging input. */
     public static String decode(String value) {
         if (value == null || value.isBlank()) return "0.00";
+        value = value.strip();
         String negativeDigits = "}JKLMNOPQR";
         int last = negativeDigits.indexOf(value.charAt(value.length() - 1));
         String digits = last < 0 ? value : "-" + value.substring(0, value.length() - 1) + last;

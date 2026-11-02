@@ -2,7 +2,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 /*
  * BC Administration ▸ Billing ▸ Accounting Reports: the Write-Off, Payments and Refunds, and Payments and Refunds
- * summary reports, as PDFs, and the summary as a spreadsheet, for one provider and one payee. Nothing else drives
+ * summary reports, as PDFs and CSV spreadsheets, for one provider and one payee. Nothing else drives
  * this page or reads what its reports print.
  *
  * User path: Schedule ▸ Administration ▸ Billing ▸ Accounting Reports (billing/CA/BC/ViewBillingAccountReports, in
@@ -10,7 +10,7 @@
  * (POST billing/CA/BC/createBillingReportAction) ▸ the report downloads.
  * Asserted: the menu item opens the report form; the Write-Off PDF names the chosen provider and payee, each on its
  * own label; the Payments and Refunds PDF and its summary PDF print the chosen provider's and payee's initials and
- * total the seeded $33.70 payment; the summary as a spreadsheet downloads.
+ * total the seeded $33.70 payment; all three CSV downloads retain their claim/payment values and flat headers.
  *
  * Fixtures: the owned FAKE- patient (lib/workflow-session.js), two FAKE providers inserted by SQL (provider "Quinn"
  * and payee "Yara", last name = the run marker, each with its own free 5-digit provider/OHIP number and a
@@ -36,8 +36,8 @@ const MENU_ROUTE = '/billing/CA/BC/ViewBillingAccountReports';
 /** The step labels the manifest's notes name; one place, so the script and the manifest agree. */
 const STEP = {
   open: 'Administration ▸ Billing ▸ Accounting Reports opens the report form',
-  writeOff: 'the Write-Off PDF names the chosen provider and payee',
-  payRef: "the Payments and Refunds PDF prints the chosen provider's and payee's initials",
+  writeOff: 'the Write-Off PDF names the chosen provider and payee, and its CSV preserves the claim',
+  payRef: "the Payments and Refunds PDF prints the chosen provider's and payee's initials, and its CSV preserves the payment",
   payRefSummary: "the Payments and Refunds summary PDF prints the chosen provider's and payee's initials",
   spreadsheet: 'the Payments and Refunds summary downloads as a spreadsheet',
 };

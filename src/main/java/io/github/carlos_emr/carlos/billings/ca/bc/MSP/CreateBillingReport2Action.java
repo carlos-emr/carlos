@@ -274,7 +274,7 @@ public class CreateBillingReport2Action extends ActionSupport {
             Files.copy(file, response.getOutputStream());
         } catch (Exception e) {
             // Exception messages from data/parsing/JDBC may include patient values.
-            MiscUtils.getLogger().error("BC CSV export failed");
+            MiscUtils.getLogger().error("BC CSV export failed ({})", e.getClass().getName());
             if (!response.isCommitted()) {
                 response.reset();
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

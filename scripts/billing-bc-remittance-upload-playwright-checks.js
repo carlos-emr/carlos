@@ -19,7 +19,7 @@
  * line with its explanation and nothing paid; Summary lists the practitioner's billed and paid totals;
  * the refused claim is marked refused (F); MSP Reconciliation Reports opens from the menu; LAST, that list's
  * Billed PDF names the owned claims (patient number and both fee codes) and its Summary PDF the payee and
- * practitioner numbers.
+ * practitioner numbers; both CSV links download flat tables containing the same identifiers.
  * Known failures, recorded in the manifest notes: on 2026.08 Submit stores the remittance and then
  * answers HTTP 500 (#4806; #4808 is its release fix), so the upload step fails; MSP Reconciliation
  * Reports from the menu fails on every BC install (#4439, D6); the list's PDF links answer HTTP 404 until
@@ -57,12 +57,13 @@ const STEP = {
   summary: "the remittance's Summary lists the practitioner's billed and paid totals",
   refused: 'the claim MSP refused is marked refused (F)',
   menu: 'Administration ▸ Billing ▸ MSP Reconciliation Reports opens the reconciliation list',
-  pdfs: "the list's Billed PDF and Summary PDF are PDFs that name the remittance's claims, payee and practitioner",
+  pdfs: "the list's Billed and Summary PDF/CSV downloads name the remittance's claims, payee and practitioner",
 };
 
 const text = (value, width) => String(value).padEnd(width, ' ').slice(0, width);
 const digits = (value, width) => String(value).padStart(width, '0').slice(-width);
-const cents = (amount, width) => digits(amount.replace('.', ''), width);
+// Keep the importer's fixed-width space padding so CSV/PDF decoding must handle it.
+const cents = (amount, width) => amount.replace('.', '').padStart(width, ' ');
 
 /**
  * The FAKE remittance's four records, fixed width as genTA.jsp reads them (S21, S01 and S22 are

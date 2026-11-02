@@ -94,6 +94,35 @@ class SpreadsheetExportsUnitTest {
     }
 
     @Test
+    void shouldKeepRefundSubsetsAndNetTotals_whenPaymentsIncludeMultipleMethodsAndAdjustments() throws Exception {
+        MSPBill paid = bill(); paid.setAmount("33.70"); paid.setAdjustmentCodeAmt("2.00");
+        MSPBill refunded = bill(); refunded.setAmount("-10.00");
+        MSPBill visaRefund = bill(); visaRefund.setPaymentMethod("3"); visaRefund.setAmount("-5.25");
+        MSPBill electronic = bill(); electronic.setPaymentMethod("6"); electronic.setAmount("25.00");
+        var output = new ByteArrayOutputStream();
+        BcBillingCsv.write(output, "REP_PAYREF_SUM", List.of(paid, refunded, visaRefund, electronic));
+        var rows = CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords();
+        assertThat(rows.get(1).toList()).containsExactly("Cash", "23.70", "-10.00");
+        assertThat(rows.get(3).toList()).containsExactly("Visa", "-5.25", "-5.25");
+        assertThat(rows.get(6).toList()).containsExactly("Electronic", "27.00", "0.00");
+        assertThat(rows.get(9).toList()).containsExactly("Total", "45.45", "-15.25");
+    }
+
+    @Test
+    void shouldAssignEachClaimToOneAgingColumn_atEveryAgeBoundary() throws Exception {
+        var reportDate = java.time.LocalDate.of(2026, 11, 2);
+        for (var entry : java.util.Map.of(0, 7, 30, 7, 31, 6, 60, 6, 61, 5, 90, 5, 91, 4).entrySet()) {
+            MSPBill b = bill();
+            b.setServiceDate(reportDate.minusDays(entry.getKey()).format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE));
+            var output = new ByteArrayOutputStream();
+            BcBillingCsv.write(output, "REP_ACCOUNT_REC", List.of(b), reportDate);
+            var row = CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords().get(1);
+            assertThat(row.get(entry.getValue())).as("age %s", entry.getKey()).isEqualTo("-1234.50");
+            assertThat(row.toList().subList(4, 8)).filteredOn(v -> !v.isEmpty()).containsExactly("-1234.50");
+        }
+    }
+
+    @Test
     void shouldRejectMalformedAmountsAndDates_beforeDownload() {
         assertThatThrownBy(() -> BcBillingCsv.money("synthetic invalid amount")).isInstanceOf(NumberFormatException.class);
         assertThatThrownBy(() -> BcBillingCsv.date("20260230")).isInstanceOf(java.time.DateTimeException.class);

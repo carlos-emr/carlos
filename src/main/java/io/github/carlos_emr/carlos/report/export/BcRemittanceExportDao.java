@@ -24,7 +24,7 @@ public final class BcRemittanceExportDao {
                   JOIN billingmaster bm ON t.t_officeno = bm.billingmaster_no
                   JOIN billing b ON bm.billing_no = b.billing_no
                   JOIN provider p ON p.ohip_no = t.t_practitionerno
-                 WHERE t.s21_id = ? AND t.t_practitionerno <> '' AND t.t_payeeno LIKE ?
+                 WHERE t.s21_id = ? AND t.t_practitionerno <> '' AND t.t_payeeno = ?
                  ORDER BY p.first_name, bm.service_date, b.demographic_name
                 """;
         try (var csv = new TabularExport(output, "Account", "Type", "ServDate", "Payment Date", "Data Centre", "Patient",

@@ -300,7 +300,7 @@ public class DxresearchReport2Action extends ActionSupport {
             response.setContentLengthLong(Files.size(file));
             Files.copy(file, response.getOutputStream());
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Dx Research Excel export failed");
+            MiscUtils.getLogger().error("Dx Research Excel export failed ({})", e.getClass().getName());
             if (!response.isCommitted()) {
                 response.reset();
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

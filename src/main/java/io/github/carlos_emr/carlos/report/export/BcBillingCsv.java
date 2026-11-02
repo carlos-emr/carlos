@@ -45,6 +45,10 @@ public final class BcBillingCsv {
     }
 
     public static void write(OutputStream output, String type, List<MSPBill> bills) throws IOException {
+        write(output, type, bills, LocalDate.now());
+    }
+
+    static void write(OutputStream output, String type, List<MSPBill> bills, LocalDate reportDate) throws IOException {
         if (MSPReconcile.REP_PAYREF_SUM.equals(type)) {
             writePaymentSummary(output, bills);
             return;
@@ -64,12 +68,13 @@ public final class BcBillingCsv {
         };
         try (var csv = new TabularExport(output, headers)) {
             for (MSPBill b : bills) {
+                String bucket = MSPReconcile.REP_ACCOUNT_REC.equals(type) ? ageBucket(b.getServiceDate(), reportDate) : "";
                 switch (type) {
                     case MSPReconcile.REP_ACCOUNT_REC -> csv.row(b.getBillingtype(), patient(b), date(b.getServiceDate()), invoice(b),
-                            "4".equals(ageBucket(b.getServiceDate())) ? money(b.getAmount()) : "",
-                            "3".equals(ageBucket(b.getServiceDate())) ? money(b.getAmount()) : "",
-                            "2".equals(ageBucket(b.getServiceDate())) ? money(b.getAmount()) : "",
-                            "1".equals(ageBucket(b.getServiceDate())) ? money(b.getAmount()) : "", text(b.getReason()) + text(b.getExpString()));
+                            "4".equals(bucket) ? money(b.getAmount()) : "",
+                            "3".equals(bucket) ? money(b.getAmount()) : "",
+                            "2".equals(bucket) ? money(b.getAmount()) : "",
+                            "1".equals(bucket) ? money(b.getAmount()) : "", text(b.getReason()) + text(b.getExpString()));
                     case MSPReconcile.REP_INVOICE -> csv.row(initial(b.getProviderFirstName()) + initial(b.getProviderLastName()),
                             b.getBillingtype(), date(b.getServiceDate()), invoice(b), patient(b), b.getBillingUnit(), b.getCode(),
                             money(b.getAmount()), money(b.getAmtOwing()), b.getReason(), b.getAdjustmentCode());
@@ -89,9 +94,9 @@ public final class BcBillingCsv {
         }
     }
 
-    private static String ageBucket(String serviceDate) {
+    private static String ageBucket(String serviceDate, LocalDate reportDate) {
         if (serviceDate == null || serviceDate.isBlank() || "00000000".equals(serviceDate)) return "0";
-        long days = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.parse(serviceDate, DateTimeFormatter.BASIC_ISO_DATE), LocalDate.now());
+        long days = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.parse(serviceDate, DateTimeFormatter.BASIC_ISO_DATE), reportDate);
         return days < 0 ? "0" : days <= 30 ? "1" : days <= 60 ? "2" : days <= 90 ? "3" : "4";
     }
 
