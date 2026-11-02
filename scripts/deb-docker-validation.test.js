@@ -312,6 +312,34 @@ test('unsupported container networks are refused before Docker',t=>{
   const box=sandbox(t),result=run(['up'],{...box.env,CARLOS_DISPOSABLE_HOST:'true',CONTAINER_NETWORK:'public-network'});
   assert.equal(result.status,1);assert.match(result.stderr,/CONTAINER_NETWORK must be host or bridge/);assert.equal(fs.existsSync(box.calls),false);
 });
+
+test('bridge setup refuses bare, ported and slash-terminated loopback proxies before Docker',t=>{
+  const box=sandbox(t);
+  for(const proxy of ['http://localhost','https://LOCALHOST','http://127.0.0.1','http://127.1',
+    'http://localhost:8080','http://127.0.0.1/']) {
+    const result=run(['up'],{...box.env,CARLOS_DISPOSABLE_HOST:'true',CONTAINER_NETWORK:'bridge',BUILD_PROXY:proxy});
+    assert.equal(result.status,1);assert.match(result.stderr,/Bridge containers need a BUILD_PROXY address reachable/);
+  }
+  assert(!fs.existsSync(box.calls));
+  const remote=run(['print-preseed'],{...box.env,CONTAINER_NETWORK:'bridge',BUILD_PROXY:'http://localhost.example.invalid'});
+  assert.equal(remote.status,0,remote.stderr);
+});
+
+test('relative CA bundles with spaces reach docker run as absolute bind sources',t=>{
+  const box=sandbox(t),debs=path.join(box.dir,'debs'),cgroups=path.join(box.dir,'cgroups');
+  fs.mkdirSync(debs);fs.mkdirSync(cgroups);fs.writeFileSync(path.join(cgroups,'cgroup.controllers'),'cpu memory');
+  for(const name of ['carlos-emr_1_amd64.deb','carlos-emr-drugref_1_all.deb','carlos-ctl_1_all.deb'])fs.writeFileSync(path.join(debs,name),'');
+  const relative='trust files/proxy bundle.pem';fs.mkdirSync(path.join(box.dir,'trust files'));
+  fs.writeFileSync(path.join(box.dir,relative),'synthetic trust bundle');
+  fs.writeFileSync(path.join(box.dir,'bin','docker'),`#!${process.execPath}\nconst fs=require('node:fs');const args=process.argv.slice(2);
+if(args[0]==='inspect')process.exit(1);if(args[0]==='build')process.exit(0);
+if(args[0]==='run'){fs.writeFileSync(${JSON.stringify(box.calls)},JSON.stringify(args));process.exit(7);}process.exit(9);\n`,{mode:0o755});
+  const result=spawnSync('bash',[SCRIPT,'up'],{cwd:box.dir,encoding:'utf8',env:{...box.env,CARLOS_DISPOSABLE_HOST:'true',
+    DEBS_DIR:debs,CGROUP_ROOT:cgroups,CONTAINER_NETWORK:'bridge',BUILD_PROXY:'http://proxy:8080',BUILD_CA_BUNDLE:relative}});
+  assert.equal(result.status,7,result.stdout+result.stderr);
+  const args=JSON.parse(fs.readFileSync(box.calls,'utf8'));
+  assert(args.includes(`${fs.realpathSync(path.join(box.dir,relative))}:/run/carlos-validation-ca.pem:ro`));
+});
 test('upgrade refreshes only build identity and preserves provisioned credentials and fixtures',t=>{
   const box=sandbox(t),environment=path.join(box.dir,'suite-env.sh'),properties=path.join(box.dir,'build.properties');
   const original="export TEST_PASSWORD='owned-password'\nexport CONSULT_DEMO_NO=42\nexport DOCUMENT_DIR='/owned/store'\nexport RX_EXPECTED_BUILD_TAG='beta2 (old 1)' EXPECTED_BUILD_VERSION='beta2'\n";

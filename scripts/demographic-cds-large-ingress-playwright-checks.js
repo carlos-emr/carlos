@@ -203,6 +203,7 @@ async function run(env = process.env,{cancellation}={}) {
   const save = () => fs.writeFileSync(path.join(evidence,'proof.json'), JSON.stringify(report, null, 2), {mode:0o600});
   metricTimer.unref();save(); let browser; let sql;
   try {
+   try {
     const config = h.readConfig();
     h.assert(env.CDS_LARGE_INGRESS_BASE_URL && /^[0-9a-f]{32}$/.test(env.CDS_LARGE_INGRESS_PROXY_TOKEN || ''),
       'An explicit owned real reverse-proxy URL and independently recorded route nonce are required');
@@ -346,10 +347,16 @@ async function run(env = process.env,{cancellation}={}) {
     probeOwnership.phase='ABANDONED';save();
     report.after = clinicalCounts(); h.assert(report.after === before,'Ingress gate changed clinical jobs, checkpoints, native rows or holds');
     sample(); h.assert(!metricsFailure && report.memory.samples >= 2,'Required stable-process resident-memory measurements failed');
-    await qualify(); report.status='PASSED'; save();
+    await qualify(); cancellation?.throwIfCancelled();
+   } finally {
+    clearInterval(metricTimer);
+    try {if (browser) await browser.close();}
+    finally {if (sql) sql.dispose();}
+   }
+    cancellation?.throwIfCancelled();
+    report.status='PASSED'; save();
     console.log('PASS large ingress: two actual64MiB transfers, exact framed chunk receipts, oversize refusals, zero clinical acceptance');
   } catch (error) { if(cancellation?.isCancellation(error)){report.status='INTERRUPTED';save();throw error;}report.status='FAILED'; save(); throw new Error('Large-ingress gate failed; inspect protected evidence and retained upload IDs'); }
-  finally { clearInterval(metricTimer); if (browser) await browser.close(); if (sql) sql.dispose(); }
 }
 if (require.main === module) require('./lib/legacy-check').runLegacyCheck('demographic-cds-large-ingress',context=>run(process.env,context)).catch(error => { console.error(error.message); process.exitCode=1; });
 module.exports = {writeFixture,journalRow,rawPost,interruptPost,assertMetadataVersion,serverSample,verifyUploadedBody,run};

@@ -287,6 +287,15 @@ and routing-lock migration in an isolated MariaDB database; it covers expected
 forwarding, stale locks, foreign/NULL/HL7 routes, a reference inserted after
 preflight, and complete owned cleanup.
 
+A fresh review also moved upgrade-canary authorization into the lifecycle's
+configuration preflight and made address-lock validation require the managed
+profile plus matching installed settings before SQL/browser/fixture work.
+Ingress success is written only after qualification, browser shutdown and a final
+cancellation check; interruption retains an `INTERRUPTED` proof. Docker validation
+rejects bare/case-varied loopback proxies in bridge mode and resolves supplied
+CA bundles to absolute paths before building and mounting them. Focused tests
+exercise these refusal boundaries and cancellation during final shutdown.
+
 The image-upload collision comment identifies a remaining **product limitation**:
 `ImageUpload2Action` opens destinations with replacement semantics. The harness's
 random run marker and preflight existence check do not provide atomic no-replace

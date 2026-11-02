@@ -42,8 +42,11 @@ async function reopenCanaries(s) {
     await rx.locator('#drugProfile').getByText(`${s.marker}-RX-UPGRADE`,{exact:false}).first().waitFor({state:'visible'});
 }
 
+function preflight(env=process.env) {
+  h.assert(env.CARLOS_DISPOSABLE_HOST==='true','Upgrade canaries require a disposable install');
+}
+
 async function workflow(s) {
-  h.assert(process.env.CARLOS_DISPOSABLE_HOST==='true','Upgrade canaries require a disposable install');
   const families=[appointmentAdd(s),ticklerAdd(s),chartNoteSave(s),rxSave(s)];
   for(const family of families)s.cleanup(()=>family.cleanup());
   for(const family of families)await s.step(`create retained ${family.key} through the UI`,async()=>{
@@ -66,5 +69,5 @@ async function workflow(s) {
   });
   await s.step('sign in again and reopen the retained patient, tasks, chart note and prescription',()=>reopenCanaries(s));
 }
-if(require.main===module)runWorkflow('deb-upgrade-canaries',workflow,{openPatient:true,cancellationGraceMs:1020000});
-module.exports={workflow,reopenCanaries};
+if(require.main===module)runWorkflow('deb-upgrade-canaries',workflow,{openPatient:true,cancellationGraceMs:1020000,preflightConfig:()=>preflight()});
+module.exports={workflow,reopenCanaries,preflight};

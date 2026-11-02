@@ -34,6 +34,20 @@ for(const status of [200,409,'transport failure'])test(`cancellation after a chu
   assert(events.indexOf('saved')<events.indexOf('chunk settled'));
 });
 
+for(const phase of ['qualification','browser shutdown'])test(`cancellation during final ${phase} cannot publish a passing ingress proof`,async()=>{
+  const vm=require('node:vm'),source=fs.readFileSync(path.join(__dirname,'demographic-cds-large-ingress-playwright-checks.js'),'utf8');
+  const finalStart=source.lastIndexOf('    await qualify();'),end=source.indexOf('\n}\nif (require.main',finalStart);
+  assert(finalStart>0&&end>finalStart);
+  const interrupted=new Error('cancelled during final qualification'),report={status:'RUNNING'};let saved=false,cancelled=false;
+  await assert.rejects(vm.runInNewContext('(async()=>{try {try {'+source.slice(finalStart,end)+'})()',{
+    report,metricTimer:undefined,clearInterval(){},sql:{dispose(){}},console:{log(){}},
+    browser:{async close(){if(phase==='browser shutdown')cancelled=true;}},
+    async qualify(){if(phase==='qualification')cancelled=true;},
+    cancellation:{throwIfCancelled(){if(cancelled)throw interrupted;},isCancellation:error=>error===interrupted},save(){saved=true;},
+  }),error=>error===interrupted);
+  assert.equal(report.status,'INTERRUPTED');assert.equal(saved,true);
+});
+
 function observeRawPostListeners(t) {
   const observations=[];const warnings=[];const original=http.request;
   t.mock.method(http,'request',function(...args){

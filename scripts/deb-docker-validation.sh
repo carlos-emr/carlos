@@ -128,7 +128,7 @@ case "$RESET_PASSWORD" in
 esac
 [ -z "$BUILD_PROXY" ] || [[ "$BUILD_PROXY" =~ ^https?://[A-Za-z0-9._:-]+/?$ ]] \
   || die "BUILD_PROXY must be a plain http(s)://host:port URL"
-if [ "$CONTAINER_NETWORK" = bridge ] && [[ "$BUILD_PROXY" =~ ^https?://(localhost|127\.[0-9.]+)(:|/) ]]; then
+if [ "$CONTAINER_NETWORK" = bridge ] && [[ "${BUILD_PROXY,,}" =~ ^https?://(localhost|127\.[0-9.]+)(:|/|$) ]]; then
   die "Bridge containers need a BUILD_PROXY address reachable from the container; host loopback is not reachable"
 fi
 
@@ -232,6 +232,10 @@ find_one_deb() {
 
 cmd_up() {
   require_disposable
+  if [ -n "$BUILD_CA_BUNDLE" ]; then
+    [ -f "$BUILD_CA_BUNDLE" ] && [ -r "$BUILD_CA_BUNDLE" ] || die "BUILD_CA_BUNDLE must be a readable file"
+    BUILD_CA_BUNDLE="$(realpath -- "$BUILD_CA_BUNDLE")"
+  fi
   [ -n "${DEBS_DIR:-}" ] && [ -d "$DEBS_DIR" ] || die "DEBS_DIR must name the directory holding the .debs"
   DEBS_DIR="$(cd "$DEBS_DIR" && pwd)"
   local emr drugref ctl port

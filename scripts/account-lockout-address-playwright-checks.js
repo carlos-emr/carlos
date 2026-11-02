@@ -8,6 +8,13 @@ const {runWorkflow}=require('./lib/workflow-session');
 const {revealAuditLink}=require('./lib/playwright-link-audit');
 const {throwawayLoginFixture,submitLoginForm}=require('./lib/throwaway-login-fixture');
 const {loopbackSourceProxy}=require('./lib/loopback-source-proxy');
+function preflight(env=process.env,file='/etc/carlos-emr/carlos.properties') {
+  h.assert(env.EXCLUSIVE==='1','Address-lock validation requires EXCLUSIVE=1 on a disposable deployment');
+  if(env.CARLOS_PROPERTY_PROFILE_ACTIVE!=='address-lock')throw new h.SkipCheck('Address-lock validation requires the managed address-lock profile (login_lock=false); run through the suite with --profile address-lock');
+  // The suite verifies the private profile handoff and restarts the application.
+  // Recheck its installed settings before this child can create any fixtures.
+  require('./lib/property-profiles').handoffRecord('address-lock',env,file);
+}
 async function workflow(s) {
   h.assert(process.env.EXCLUSIVE==='1','Address-lock validation requires EXCLUSIVE=1 on a disposable deployment');
   const owned=[0,1].map(()=>throwawayLoginFixture({sql:s.sql,marker:'FAKE-PW'+randomBytes(8).toString('hex'),provider:s.provider,testUser:s.config.testUser}));
@@ -72,5 +79,5 @@ async function workflow(s) {
     }
   }
 }
-if(require.main===module)runWorkflow('account-lockout-address',workflow,{openPatient:false});
-module.exports={workflow};
+if(require.main===module)runWorkflow('account-lockout-address',workflow,{openPatient:false,preflightConfig:()=>preflight()});
+module.exports={workflow,preflight};
