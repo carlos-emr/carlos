@@ -171,6 +171,23 @@ class RptDownloadCSVServletTest {
         assertThat(subQuery.params()).containsExactly("Smith", "French");
     }
 
+    @Test
+    void shouldReturnFailureInsteadOfEmptyCsv_whenFormReportReadFails() throws Exception {
+        MockHttpServletRequest request = baseRequest();
+        request.getSession(true);
+        request.setParameter("id", "5549");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var reports = org.mockito.Mockito.mockConstruction(
+                io.github.carlos_emr.carlos.report.data.RptReportItem.class,
+                (report, context) -> org.mockito.Mockito.when(report.getReportName("5549"))
+                        .thenThrow(new java.sql.SQLException("synthetic read failure")))) {
+            new RptDownloadCSVServlet().service(request, response);
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getErrorMessage()).isEqualTo("Unable to generate report");
+            assertThat(response.getContentAsString()).isEmpty();
+        }
+    }
+
     private MockHttpServletRequest baseRequest() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");

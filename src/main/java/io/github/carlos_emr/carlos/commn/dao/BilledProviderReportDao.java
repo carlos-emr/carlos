@@ -308,7 +308,7 @@ public class BilledProviderReportDao {
             numbered.append(ch);
             if (ch == '?') numbered.append(++position);
         }
-        var query = entityManager.createNativeQuery(numbered.toString());
+        var query = entityManager.createNativeQuery(numbered.toString()); // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- private helper receives only fixed report SQL literals; provider, code and date values are bound below
         for (int i = 0; i < parameters.length; i++) query.setParameter(i + 1, parameters[i]);
         return ((Number) query.getSingleResult()).longValue();
     }

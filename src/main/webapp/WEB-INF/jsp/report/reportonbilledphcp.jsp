@@ -1,3 +1,4 @@
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BilledProviderReportDao" %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" buffer="64kb" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -49,8 +50,8 @@
     ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", request.getLocale());
     // select provider list
     Properties prop = new Properties();
-    var reportDao = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.BilledProviderReportDao.class);
-    for (var provider : reportDao.providerRoles()) {
+    BilledProviderReportDao reportDao = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.BilledProviderReportDao.class);
+    for (BilledProviderReportDao.ProviderRole provider : reportDao.providerRoles()) {
         prop = new Properties();
         prop.setProperty("providerNo", provider.providerNo());
         prop.setProperty("firstName", provider.firstName());
@@ -205,7 +206,7 @@
                 int indexNum = 0;
                 Vector vec = new Vector();
                 if (bDx) {
-                    for (var category : reportDao.categories()) {
+                    for (BilledProviderReportDao.Category category : reportDao.categories()) {
                         prop = new Properties();
                         prop.setProperty("dxcode", category.code());
                         prop.setProperty("level1", category.level1());
@@ -214,13 +215,13 @@
                         propCatCode.setProperty(category.code(), String.valueOf(indexNum++));
                     }
                 }
-                for (var code : reportDao.codes(bDx, startDate, endDate)) {
+                for (BilledProviderReportDao.Code code : reportDao.codes(bDx, startDate, endDate)) {
                     vServiceCode.add(code.code());
                     vServiceDesc.add(code.description());
                 }
 
                 for (int i = 0; i < vServiceCode.size(); i++) {
-                    for (var count : reportDao.counts(bDx, providerNo, startDate, endDate,
+                    for (BilledProviderReportDao.MetricCount count : reportDao.counts(bDx, providerNo, startDate, endDate,
                             (String) vServiceCode.get(i), (String) vServiceDesc.get(i))) {
                         props.setProperty(vServiceCode.get(i) + count.key() + vServiceDesc.get(i), String.valueOf(count.value()));
                     }

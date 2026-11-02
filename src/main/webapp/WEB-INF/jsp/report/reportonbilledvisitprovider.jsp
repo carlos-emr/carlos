@@ -1,3 +1,4 @@
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.BilledProviderReportDao" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -78,15 +79,15 @@
     Properties oldRoleProp = new Properties();
     Vector vec = new Vector();
     Vector oldRoleList = new Vector();
-    var reportDao = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.BilledProviderReportDao.class);
-    for (var provider : reportDao.providerRoles()) {
+    BilledProviderReportDao reportDao = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.BilledProviderReportDao.class);
+    for (BilledProviderReportDao.ProviderRole provider : reportDao.providerRoles()) {
         oldRoleProp.setProperty(provider.providerNo(), provider.role());
         oldRoleList.add(provider.firstName());
         oldRoleList.add(provider.lastName());
         oldRoleList.add(provider.role());
         oldRoleList.add(provider.providerNo());
     }
-    for (var provider : reportDao.providers()) {
+    for (BilledProviderReportDao.ProviderDetails provider : reportDao.providers()) {
         if (provider.lastName().isEmpty() || oldRoleProp.containsKey(provider.providerNo())) continue;
         prop = new Properties();
         prop.setProperty("provider_no", provider.providerNo());

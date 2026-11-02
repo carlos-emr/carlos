@@ -123,7 +123,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
         super.init(config);
     }
 
-    private String formReport(HttpServletRequest request) {
+    private String formReport(HttpServletRequest request) throws ServletException {
 
 
         String SAVE_AS = "default";
@@ -165,7 +165,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
 
 
         } catch (Exception e1) {
-            _logger.error("service() - form report");
+            throw new ServletException("Unable to generate form report", e1);
         }
         return in;
     }

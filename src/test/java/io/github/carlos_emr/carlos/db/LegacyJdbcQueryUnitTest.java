@@ -354,6 +354,42 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
         return connections;
     }
 
+    @Test
+    void shouldApplyBudgetsAndReleaseResources_whenBoundedReportTimesOut() throws Exception {
+        DataSource dataSource = mock(DataSource.class);
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        when(dataSource.getConnection()).thenReturn(connection);
+        when(connection.prepareStatement(anyString(), org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyInt())).thenReturn(statement);
+        when(statement.executeQuery()).thenThrow(new java.sql.SQLTimeoutException("synthetic timeout"));
+        registerMock(DataSource.class, dataSource);
+
+        assertThatThrownBy(() -> LegacyJdbcQuery.getBoundedReportResultSet(
+                LegacyJdbcQuery.trustedReportSelectSql("select 1 where 1=?"), 10, 2, 1))
+                .isInstanceOf(java.sql.SQLTimeoutException.class);
+
+        InOrder order = inOrder(statement, connection);
+        order.verify(statement).setMaxRows(11);
+        order.verify(statement).setQueryTimeout(2);
+        order.verify(statement).setObject(1, 1);
+        order.verify(statement).executeQuery();
+        order.verify(statement).close();
+        order.verify(connection).close();
+    }
+
+    @Test
+    void shouldRejectInvalidBudgets_beforeAcquiringReportConnection() throws Exception {
+        DataSource dataSource = mock(DataSource.class);
+        registerMock(DataSource.class, dataSource);
+        var sql = LegacyJdbcQuery.trustedReportSelectSql("select 1");
+        assertThatThrownBy(() -> LegacyJdbcQuery.getBoundedReportResultSet(sql, 0, 1))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> LegacyJdbcQuery.getBoundedReportResultSet(sql, 1, 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(dataSource, never()).getConnection();
+    }
+
     private boolean usesDeprecatedDatabaseBoundary(Path path) {
         try {
             String content = Files.readString(path);
