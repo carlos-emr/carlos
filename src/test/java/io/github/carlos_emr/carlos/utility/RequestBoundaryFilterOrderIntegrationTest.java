@@ -281,7 +281,7 @@ public class RequestBoundaryFilterOrderIntegrationTest {
                 assertThat(response.statusCode()).isEqualTo(200);
                 awaitOutermostExit();
                 assertThat(Probe.cleanupRuns).as("Struts never reaches a filter mapped after it").isEmpty();
-                assertThat(Probe.leaked).hasSize(4).allSatisfy(c -> assertThat(isClosed(c)).isFalse());
+                assertThat(Probe.leaked).hasSize(3).allSatisfy(c -> assertThat(isClosed(c)).isFalse());
                 assertThat(dataSource.getNumActive()).isGreaterThan(0);
             } finally {
                 Probe.closeLeaked();
