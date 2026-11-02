@@ -39,7 +39,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * BC billing pages' own links: the service-code tray list pages through its action, and the
+ * BC billing pages' own links: the service-code tray list pages locally, and the
  * reconciliation, dx-code and Teleplan code pages link only stylesheets that exist.
  */
 @Tag("unit")
@@ -78,6 +78,7 @@ class BcBillingPageLinksRegressionTest {
         String page = read("billingSVCTrayAssoc.jsp");
         assertThat(page).contains("data-carlos-table").contains("data-page-size=\"50\"")
                 .doesNotContain("<display:table").doesNotContain("requestURI=");
+        // The view is still entered through its read-only action; paging stays local.
         assertThat(Files.readString(Path.of("src/main/webapp/WEB-INF/classes/struts-billing.xml"), StandardCharsets.UTF_8))
                 .containsSubsequence("<action name=\"billing/CA/BC/supServiceCodeAssocAction\"",
                         "/WEB-INF/jsp/billing/CA/BC/billingSVCTrayAssoc.jsp");

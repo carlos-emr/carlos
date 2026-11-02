@@ -33,8 +33,13 @@ class MeasurementChartSmokeIntegrationTest {
         series.addOrUpdate(new MeasurementChart.Day(new Date(1_700_086_400_000L)), 63);
         var collection = new MeasurementChart.SeriesCollection();
         collection.addSeries(series);
+        var secondary = new MeasurementChart.Series("Synthetic temperature");
+        secondary.addOrUpdate(new MeasurementChart.Day(new Date(1_700_000_000_000L)), 36.5);
+        secondary.addOrUpdate(new MeasurementChart.Day(new Date(1_700_086_400_000L)), 37.2);
+        var secondaryCollection = new MeasurementChart.SeriesCollection();
+        secondaryCollection.addSeries(secondary);
         MeasurementChart chart = MeasurementChart.lines("Synthetic chart", "Days", "kg", collection)
-                .withSecondAxis("Secondary units", collection)
+                .withSecondAxis("C", secondaryCollection)
                 .withReferenceRanges(List.of(new MeasurementChart.ReferenceRange(new Date(1_700_000_000_000L), 55, 70)))
                 .withMedications(List.of(Map.of("name", "Synthetic medication", "start", 1_699_900_000_000L, "end", 1_700_100_000_000L)));
         var context = new MockServletContext("src/main/webapp", new FileSystemResourceLoader());

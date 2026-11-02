@@ -204,14 +204,14 @@
                         <caisi:isModuleLoad
                                 moduleName="pmm.client.search.outside.of.domain.enabled">
                             <th><label for="attachSearchOutsideDomain">Search all clients</label> <button type="button"
-                                    aria-label="Help: Search all clients" onclick="popupHelp('domain')">?</span></th>
+                                    aria-label="Help: Search all clients" onclick="popupHelp('domain')">?</button></th>
                             <td><input type="checkbox" id="attachSearchOutsideDomain" name="criteria.searchOutsideDomain" value="true" ${criteria.searchOutsideDomain ? 'checked' : ''}/></td>
                         </caisi:isModuleLoad>
                     </tr>
 
                     <tr>
                         <th><label for="attachSoundex">Soundex on names</label> <button type="button"
-                                aria-label="Help: Soundex on names" onclick="popupHelp('soundex')">?</span></th>
+                                aria-label="Help: Soundex on names" onclick="popupHelp('soundex')">?</button></th>
                         <td><input type="checkbox" id="attachSoundex" name="criteria.searchUsingSoundex" value="true" ${criteria.searchUsingSoundex ? 'checked' : ''}/></td>
                     </tr>
                     <tr>

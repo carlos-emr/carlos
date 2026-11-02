@@ -104,7 +104,7 @@ public class ScatterPlotChartServlet extends HttpServlet {
         } catch (Exception t) {
             MiscUtils.getLogger().error("Error", t);
             if (!httpServletResponse.isCommitted()) {
-                httpServletResponse.reset();
+                httpServletResponse.resetBuffer();
                 httpServletResponse.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             }
         }

@@ -53,7 +53,9 @@ mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,MeasurementCh
 CARLOS_SMOKE_CHROMIUM=/path/to/chrome npm run test:dependency-tables-playwright
 ```
 
-The browser suites are opt-in and require the local service URL and browser binary above; the legacy Selenium smoke class name remains for operator command compatibility.
+The PDF/chart browser smoke suites are opt-in and require the local service URL and browser binary above; the legacy Selenium smoke class name remains for operator command compatibility.
+
+The standalone table Playwright check requires only Chromium; it loads a static DOM fixture without network navigation or a driver service.
 
 The PDF tests assert authored pagination and a real text layer. The chart smoke checks real
 PNG/JPEG rendering with clinical series, reference bounds and medication intervals. Playwright

@@ -98,7 +98,9 @@
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             if (!response.isCommitted()) {
-                response.reset();
+                response.resetBuffer();
+                response.setHeader("Content-Disposition", null);
+                response.setContentType("text/plain;charset=UTF-8");
                 response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             }
         }

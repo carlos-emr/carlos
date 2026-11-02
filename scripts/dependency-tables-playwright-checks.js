@@ -16,7 +16,13 @@ async function main() {
         data-page-size="2" data-default-sort="1" data-default-order="descending">
         <thead><tr><th><span data-table-sort>Number</span></th>
         <th><span data-table-sort>Code</span></th><th>Options</th></tr></thead>
-        <tbody>${rows}</tbody></table></form></body></html>`;
+        <tbody>${rows}</tbody></table></form>
+        <table id="participation" data-carlos-table data-default-sort="1">
+          <thead><tr><th><span data-table-sort>Participation</span></th></tr></thead>
+          <tbody><tr><td data-sort-value="10" data-sort-type="number">10/20 (0 waiting)</td></tr>
+          <tr><td data-sort-value="9" data-sort-type="number">9/20 (0 waiting)</td></tr>
+          <tr><td data-sort-value="2" data-sort-type="number">2/20 (0 waiting)</td></tr></tbody>
+        </table></body></html>`;
     let browser;
     try {
         browser = await chromium.launch({ executablePath: process.env.CARLOS_SMOKE_CHROMIUM || '/usr/bin/chromium',
@@ -37,6 +43,8 @@ async function main() {
             }));
         });
         const visible = () => page.locator('#codes tbody tr:visible td:first-child').allTextContents();
+        assert.deepEqual(await page.locator('#participation tbody td').allTextContents(),
+            ['2/20 (0 waiting)', '9/20 (0 waiting)', '10/20 (0 waiting)']);
         assert.deepEqual(await visible(), ['100', '12']);
         assert.equal(await page.getByRole('button', {name: 'Previous', exact: true}).isDisabled(), true);
         await page.locator('input[name="records"][value="100"]').check();
