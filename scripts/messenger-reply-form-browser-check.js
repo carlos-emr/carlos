@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { chromium } = require('playwright');
 const { assertReplyPost } = require('./messenger-reply-send-archive-playwright-checks');
 
@@ -15,7 +17,7 @@ const { assertReplyPost } = require('./messenger-reply-send-archive-playwright-c
       body: `<!doctype html><meta charset="utf-8"><form method="post" accept-charset="UTF-8">
         <input name="archiveMessageId" value="123">
         <input name="subject">
-        <textarea name="message"></textarea>
+        <textarea name="message"></textarea><div id="messagediv"></div>
         <input name="provider" type="checkbox" value="1-0" checked disabled>
         <button type="submit">Send</button></form>` }));
     await page.goto('https://fixture.test/');
@@ -43,6 +45,29 @@ const { assertReplyPost } = require('./messenger-reply-send-archive-playwright-c
     missing.delete('message');
     assert.throws(() => assertReplyPost(missing, expected));
     console.log('PASS messenger reply native form encoding and refusal assertions');
+
+    // Use the actual compose-page initialization and editor. A restored draft
+    // used to gain a leading newline on every refusal, hidden by textarea-only checks.
+    await page.goto('https://fixture.test/');
+    await page.locator('textarea').fill(expected.message);
+    await page.addScriptTag({ path: path.join(__dirname, '../src/main/webapp/library/toastui/toastui-editor-all.min.js') });
+    const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/messenger/CreateMessage.jsp'), 'utf8');
+    const initialize = jsp.match(/editor\.setMarkdown\([^;]+;\s*editor\.moveCursorToStart\(\);/)[0];
+    const recovered = await page.evaluate(source => {
+      const editor = new toastui.Editor({ el: document.getElementById('messagediv'), initialEditType: 'wysiwyg',
+        usageStatistics: false });
+      const initializeEditor = new Function('editor', 'submissionerror', source);
+      initializeEditor(editor, 'No valid recipients selected');
+      const draft = editor.getMarkdown();
+      initializeEditor(editor, 'No valid recipients selected');
+      const repeated = editor.getMarkdown();
+      initializeEditor(editor, '');
+      return { draft, repeated, freshReply: editor.getMarkdown() };
+    }, initialize);
+    assert.equal(recovered.draft, expected.message, 'The restored editor must retain the draft without a new blank line');
+    assert.equal(recovered.repeated, expected.message, 'Repeated refusal must preserve the draft');
+    assert.equal(recovered.freshReply, `\n${expected.message}`, 'Fresh replies retain the blank line before their quote');
+    console.log('PASS messenger refused draft editor restoration');
   } finally {
     await browser.close();
   }
