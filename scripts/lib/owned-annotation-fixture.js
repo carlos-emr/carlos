@@ -3,6 +3,7 @@
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
 const h=require('./playwright-harness');
 const pdf=require('./stored-pdf-documents');
+const {retireOwnedFile}=require('./owned-file-retirement');
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
 function createOwnedAnnotationFixture(config) {
   h.assert(process.env.CARLOS_DISPOSABLE_HOST==='true','Annotation fixture requires a disposable install');
@@ -114,8 +115,8 @@ function createOwnedAnnotationFixture(config) {
           }
         }
         for(const item of files)h.assert(fs.lstatSync(item.file).isFile()&&pdf.sha(item.file)===item.sha,'Annotation file changed before cleanup');
-        if(ids.length)sql.execute(`START TRANSACTION;DELETE FROM ctl_document WHERE document_no IN (${ids.join(',')}) AND module='demographic' AND module_id=${patient};DELETE FROM document WHERE document_no IN (${ids.join(',')});COMMIT;`);
-        for(const item of files){h.assert(pdf.sha(item.file)===item.sha,'Annotation file changed during cleanup');fs.unlinkSync(item.file);}
+        if(ids.length)pdf.removeOwnedPdfDocuments({sql,marker,patient,docs:[...records.values()],files:[]});
+        for(const item of files)retireOwnedFile(item.file,bytes=>hash(bytes)===item.sha);
         h.assert(sql.value(`SELECT COUNT(*) FROM ctl_document WHERE module='demographic' AND module_id=${patient}`)==='0','Annotation links remain');
         sql.execute(`DELETE FROM demographic WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);
         h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient}`)==='0','Annotation patient remains');
