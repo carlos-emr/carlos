@@ -34,7 +34,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.LogTeleplanTxDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
-import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.commn.model.Billing;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -43,11 +42,10 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.HtmlTeleplanHelper;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
+import io.github.carlos_emr.carlos.billings.ca.bc.service.BcBillingService;
 
 import java.io.*;
 import java.math.BigDecimal;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -63,7 +61,6 @@ public class ExtractBean extends Object implements Serializable {
     private static final Pattern SAFE_PARAMETERIZED_DATE_RANGE = Pattern.compile(
             "(?i)^\\s*(?:and\\s+(?:billing_date|visitdate)\\s*(?:=|>=|<=|>|<)\\s*\\?\\s*)+$");
     private LogTeleplanTxDao logTeleplanTxDao = SpringUtils.getBean(LogTeleplanTxDao.class);
-    private BillingDao billingDao = SpringUtils.getBean(BillingDao.class);
     private BillingmasterDAO billingmasterDao = SpringUtils.getBean(BillingmasterDAO.class);
 
 
@@ -73,8 +70,6 @@ public class ExtractBean extends Object implements Serializable {
     private String ohipFilename;
     private String htmlFilename;
     private String value;
-    private String query;
-    private String query2;
     private String providerNo;
     private String ohipVer;
     private String ohipCenter;
@@ -119,237 +114,101 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     public void dbQuery() {
+        SpringUtils.getBean(BcBillingService.class).generateExtract(this);
+    }
+
+    /** Publishes the assembled report after the owning transaction commits. */
+    public void publishExtract() {
+        if ("1".equals(eFlag)) writeHtml(htmlCode);
+    }
+
+    /** Called by the Spring service inside one transaction; failures roll back all claim/status writes. */
+    public void buildExtract() {
         String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
-        try {
+        if (vsFlag == 0) {
+            logNo = eFlag.equals("1") ? getSequence() : "1";
+            batchHeader = "VS1" + dataCenterId + forwardZero(logNo, 7) + "V6242" + "OSCAR_MCMASTER           " + "V1.1      " + "20030930" + "OSCAR MCMASTER                          " + "(905) 575-1300 " + space(25) + space(57) + "\r";
+            errorMsg = checkData.checkVS1("VS1", dataCenterId, forwardZero(logNo, 7), "V6242", "OSCAR_MCMASTER           ", "V1.1      ", "20030930", "OSCAR MCMASTER                          ", "(905) 575-1300 ", space(25), space(57));
 
-            if (vsFlag == 0) {
-                logNo = eFlag.equals("1") ? getSequence() : "1";
-                batchHeader = "VS1" + dataCenterId + forwardZero(logNo, 7) + "V6242" + "OSCAR_MCMASTER           " + "V1.1      " + "20030930" + "OSCAR MCMASTER                          " + "(905) 575-1300 " + space(25) + space(57) + "\r";
-                errorMsg = checkData.checkVS1("VS1", dataCenterId, forwardZero(logNo, 7), "V6242", "OSCAR_MCMASTER           ", "V1.1      ", "20030930", "OSCAR MCMASTER                          ", "(905) 575-1300 ", space(25), space(57));
-
-                logValue = batchHeader;
-                if (eFlag.equals("1")) setLog(logNo, logValue);
-                vsFlag = 1;
-            } else {
-                batchHeader = "";
-            }
-
-            // Header, rows and footer are built by HtmlTeleplanHelper so provider/claim values are
-            // HTML-encoded at construction; errorMsg is already-encoded CheckBillingData row markup.
-            htmlContentHeader = HtmlTeleplanHelper.htmlContentHeaderGen(providerNo, output.substring(0, 8), errorMsg);
-            errorMsg = "";
-
-            // htmlFooter =  "<tr>    <td colspan='11' class='bodytext'>&nbsp;</td>  </tr>  <tr>    <td colspan='5' class='bodytext'>Billing No: 016096: 173 RECORDS PROCESSED</td>    <td colspan='6' class='bodytext'>TOTAL: 11277.32</td>  </tr></table></body></html>";
-            // htmlContentHeader = "<table width='100%' border='0' cellspacing='0' cellpadding='0'><tr><td colspan='4' class='bodytext'>Billing Invoice for Billing No." + providerNo +"</td><td colspan='4' class='bodytext'>Payment date of " + output.substring(0,8) + "</td></tr>";
-            // htmlContentHeader = htmlContentHeader + "<tr><td class='bodytext'>ACCT NO</td><td class='bodytext'>NAME</td><td class='bodytext'>HEALTH #</td><td class='bodytext'>BILLDATE</td><td class='bodytext'>CODE</td><td align='right' class='bodytext'>BILLED</td><td align='right' class='bodytext'>DX</td><td align='right' class='bodytext'>Comment</td></tr>";
-            // htmlValue = htmlContentHeader;
-            value = batchHeader;
-            try (dbExtract dbExt = new dbExtract()) {
-                MiscUtils.getLogger().debug("1st billing query d");
-
-                dbExt.openConnection();
-                query = "select * from billing where provider_ohip_no=? and (status='O' or status='W') " + dateRange;
-                MiscUtils.getLogger().debug("1st billing query prepared");
-                ResultSet rs = dbExt.executeQuery(query, billingQueryParams());
-                if (rs != null) {
-                    while (rs.next()) {
-                    patientCount = patientCount + 1;
-                    invNo = rs.getString("billing_no");
-                    //  ohipVer = rs.getString("organization_spec_code");
-                    //  inPatient = rs.getString("clinic_no");
-                    //  hin = rs.getString("hin");
-                    //  dob = rs.getString("dob");
-                    demoName = rs.getString("demographic_name");
-                    //  	      visitType = rs.getString("visittype");
-                    // outPatient = rs.getString("clinic_ref_code");
-                    // outPatientDate = rs.getDate("visitdate").toString();
-                    //    visitDate = rs.getDate("visitdate");
-                    //    referral = "";
-                    //    referralDoc = "000000";
-                    //    hcFlag = "";
-                    //    referral = oscar.SxmlMisc.getXmlContent(rs.getString("content"),"<xml_referral>","</xml_referral>");
-                    //    hcType = oscar.SxmlMisc.getXmlContent(rs.getString("content"),"<hctype>","</hctype>");
-                    //    m_review = oscar.SxmlMisc.getXmlContent(rs.getString("content"),"<mreview>","</mreview>");
-                    //      if (m_review == null){  m_review = space(1);
-                    //		  m_Flag = "";}
-                    //    if (m_review.compareTo("checked") == 0){
-                    //		  m_review = "Y";
-                    //		  m_Flag = "M";
-                    //	  } else {
-                    //		  m_review = space(1);
-                    //		  m_Flag = "";
-                    //	  }
-                    //    if (hcType == null || hcType.compareTo("ON")==0 || hcType.compareTo("") == 0 ){hcFlag = "";}
-                    //   else{
-                    //		 demoSex = oscar.SxmlMisc.getXmlContent(rs.getString("content"),"<demosex>","</demosex>");
-                    //		 hcFlag = "H";
-                    //       hcLast = demoName.substring(0, demoName.indexOf(",")).toUpperCase();
-                    //       hcFirst = demoName.substring(demoName.indexOf(",")+1).toUpperCase();
-                    //       if (hcLast.length() <9) {hcLast = hcLast + space(9-hcLast.length()); } else{ hcLast = hcLast.substring(0,9);}
-                    //       if (hcFirst.length() <5) {hcFirst = hcFirst + space(5-hcFirst.length()); } else{ hcFirst = hcFirst.substring(0,5);}
-                    //
-                    //	 }
-                    //    if (referral == null){referral = "";}
-                    //    referralDoc = oscar.SxmlMisc.getXmlContent(rs.getString("content"),"<rdohip>","</rdohip>");
-                    //    if (referral.compareTo("checked")==0 ){
-                    //    if (referralDoc == null || referralDoc.compareTo("000000")==0){
-                    //		 referral = "";
-                    //		 referralDoc = space(6);
-                    //	  }else{
-                    //		referral = "R";
-                    //		referralDoc = referralDoc + space(6-referralDoc.length());
-                    //	  }
-                    //  }
-                    //	  else{
-                    //		  referral = "";
-                    //		  	 referralDoc = space(6);
-                    //	  }
-                    //      if (visitDate == null) {
-                    //      	outPatientDateValue = space(8);
-                    //    } else {
-                    //    	outPatientDate = visitDate.toString();
-                    //     outPatientDateValue = outPatientDate.substring(0,4) + outPatientDate.substring(5,7) + outPatientDate.substring(outPatientDate.length()-2);
-                    //
-                    //    	}
-                    //    specCode = rs.getString("status");
-
-                    //    if (specCode.compareTo("O") == 0){
-                    //    	spec = "HCP";
-                    //    }
-                    //    else
-                    //    {
-                    //          spec = "WCB";
-                    //    }
-                    //    if (hin.length() < 12) {
-                    //    	hin = hin + space(12-hin.length());
-                    //    }
-                    //    else
-                    //    {
-                    //    	hin = hin.substring(0,12);
-                    //    }
-                    //    hin = hin.toUpperCase();
-                    //    count = invNo.length();
-                    //    count = 8 - count;
-                    //    hcHin =hin;
-                    //    if (hcFlag.compareTo("H")==0){ spec="RMB"; healthcardCount = healthcardCount + 1;hcHin =hin; hin = space(12); patientHeader2 = "\n" + HE + "R" + hcHin + hcLast + hcFirst + demoSex + hcType + space(47) + "\r"; }else{patientHeader2 = ""; }
-                    //    if (visitType == null){
-                    //    	 patientHeader = HE + "H" + hin + dob + zero(count) + invNo + spec + "P" + referralDoc + space(4) + space(8) + space(4) + m_review + inPatient + space(11) + space(6);
-                    //} else{
-                    //    if (visitType.compareTo("00") == 0){
-                    //    patientHeader = HE + "H" + hin + dob + zero(count) + invNo + spec + "P" + referralDoc + space(4) + space(8) + space(4) + m_review + inPatient + space(11) + space(6);
-                    //}
-                    //else{
-                    //	  patientHeader = HE + "H" + hin + dob + zero(count) + invNo + spec + "P" +referralDoc + outPatient + outPatientDateValue + space(4) + m_review + inPatient + space(11) + space(6);
-                    //}
-                    //}
-
-
-                    //    value = value + "\n" + patientHeader + "\r" + patientHeader2;
-
-
-                    invCount = 0;
-                    if (invNo == null || !invNo.matches("^[0-9]+$")) {
-                        logger.warn("Skipping billing record due to invalid invoice number: {}", invNo);
-                        continue;
-                    }
-                    query2 = "select * from billingmaster where billing_no=? and billingstatus='O'";
-
-                    ResultSet rs2 = dbExt.executeQuery2(query2, invNo);
-                    while (rs2.next()) {
-                        recordCount = recordCount + 1;
-
-                        logNo = eFlag.equals("1") ? getSequence() : "1";
-
-                        //String dataLine =     rs2.getString("claimcode") + rs2.getString("datacenter") + forwardZero(logNo,7) + rs2.getString("payee_no") + rs2.getString("practitioner_no") +     forwardZero(rs2.getString("phn"),10)    + rs2.getString("name_verify") + rs2.getString("dependent_num") + forwardZero(rs2.getString("billing_unit"),3) + rs2.getString("clarification_code") + rs2.getString("anatomical_area") + rs2.getString("after_hour") + rs2.getString("new_program") + rs2.getString("billing_code") + moneyFormat(rs2.getString("bill_amount"),7) + rs2.getString("payment_mode") + rs2.getString("service_date") +rs2.getString("service_to_day") + rs2.getString("submission_code") + space(1) + backwardSpace(rs2.getString("dx_code1"), 5) + backwardSpace(rs2.getString("dx_code2"), 5) + backwardSpace(rs2.getString("dx_code3"), 5)+ space(15) + rs2.getString("service_location")+ forwardZero(rs2.getString("referral_flag1"), 1) + forwardZero(rs2.getString("referral_no1"),5)+ forwardZero(rs2.getString("referral_flag2"),1) + forwardZero(rs2.getString("referral_no2"),5) + forwardZero(rs2.getString("time_call"),4) + zero(4) + zero(4)+ forwardZero(rs2.getString("birth_date"),8) + forwardZero(rs2.getString("billingmaster_no"), 7) +rs2.getString("correspondence_code")+ space(20) + rs2.getString("mva_claim_code") + rs2.getString("icbc_claim_no") + rs2.getString("original_claim") + rs2.getString("facility_no")+ rs2.getString("facility_sub_no")+ space(58) + backwardSpace(rs2.getString("oin_insurer_code"),2) + backwardSpace(rs2.getString("oin_registration_no"),12)+ backwardSpace(rs2.getString("oin_birthdate"),8)+backwardSpace(rs2.getString("oin_first_name"),12) +backwardSpace(rs2.getString("oin_second_name"),1) + backwardSpace(rs2.getString("oin_surname"),18)+ backwardSpace(rs2.getString("oin_sex_code"),1) + backwardSpace(rs2.getString("oin_address"),25) + backwardSpace(rs2.getString("oin_address2"),25) + backwardSpace(rs2.getString("oin_address3"),25)+ backwardSpace(rs2.getString("oin_address4"),25)+ backwardSpace(rs2.getString("oin_postalcode"),6);
-                        String dataLine = getClaimDetailRecord(rs2, logNo);
-                        if (dataLine.length() != 424) {
-                            MiscUtils.getLogger().debug("dataLine2 {} Len{}", logNo, dataLine.length());
-                        }
-                        value = value + "\n" + dataLine + "\r";
-                        logValue = dataLine;
-                        if (eFlag.equals("1")) setLog(logNo, logValue);
-                        dFee = Double.parseDouble(rs2.getString("bill_amount"));
-                        bdFee = new BigDecimal(dFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-                        BigTotal = BigTotal.add(bdFee);
-
-                        if (invCount == 0) {
-                            htmlContent = htmlContent + HtmlTeleplanHelper.htmlLine(rs2.getString("billingmaster_no"), invNo, demoName,
-                                    rs2.getString("phn"), rs2.getString("service_date"), rs2.getString("billing_code"),
-                                    rs2.getString("bill_amount"), rs2.getString("dx_code1"), rs2.getString("dx_code2"),
-                                    rs2.getString("dx_code3"));
-                        } else {
-                            htmlContent = htmlContent + HtmlTeleplanHelper.continuationLine(rs2.getString("billingmaster_no"),
-                                    rs2.getString("billing_code"), rs2.getString("bill_amount"), rs2.getString("dx_code1"),
-                                    rs2.getString("dx_code2"), rs2.getString("dx_code3"));
-                        }
-
-                        errorMsg = checkData.checkC02(rs2.getString("billingmaster_no"), rs2);
-                        htmlContent += errorMsg;
-
-                        invCount = invCount + 1;
-                        if (eFlag.compareTo("1") == 0) {
-                            setAsBilledMaster(rs2.getString("billingmaster_no"));
-                        }
-                    }
-                    if (eFlag.compareTo("1") == 0) {
-                        setAsBilled(invNo);
-                    }
-                    }
-                    //      hcCount = hcCount + healthcardCount;
-                    pCount = pCount + patientCount;
-                    rCount = rCount + recordCount;
-                    //      flagOrder = 4 - pCount.length();
-                    //      secondFlag = 5 - rCount.length();
-                    //      thirdFlag= 4 - hcCount.length();
-                    //      percent = new BigDecimal(0.01).setScale(2, BigDecimal.ROUND_HALF_UP);
-                    //      BigTotal = BigTotal.multiply(percent);
-                    //      value = value + "\n" + HE + "E" + zero(flagOrder) + pCount + zero(thirdFlag) +hcCount + zero(secondFlag) + rCount + space(63) + "\r";
-                    // htmlContent = htmlContent + "<tr><td colspan='8' class='bodytext'>&nbsp;</td></tr><tr><td colspan='4' class='bodytext'>Billing No: "+ providerNo+": "+ pCount+" RECORDS PROCESSED</td><td colspan='4' class='bodytext'>TOTAL: " + BigTotal.toString().substring(0,BigTotal.toString().length() -2)  +"</td></tr>";
-                    // totalAmount = BigTotal.toString();
-                    //  writeFile(value);
-                    //      htmlValue = htmlValue + htmlContent + "</table>";
-                    //      htmlHeader = "<html><body><style type='text/css'><!-- .bodytext{  font-family: Arial, Helvetica, sans-serif;  font-size: 12px; font-style: normal;  line-height: normal;  font-weight: normal;  font-variant: normal;  text-transform: none;  color: #003366;  text-decoration: none; --></style>";
-
-                    htmlFooter = HtmlTeleplanHelper.htmlFooter(providerNo, pCount, BigTotal) + HtmlTeleplanHelper.htmlBottom();
-                    htmlCode = htmlContentHeader + htmlContent + htmlFooter;
-
-                    if (eFlag.compareTo("1") == 0) {
-                        writeHtml(htmlCode);
-                    }
-
-                    ohipReciprocal = String.valueOf(hcCount);
-                    ohipRecord = String.valueOf(rCount);
-                    ohipClaim = String.valueOf(pCount);
-                }
-            }
-
-        } catch (SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
+            logValue = batchHeader;
+            if (eFlag.equals("1")) setLog(logNo, logValue);
+            vsFlag = 1;
+        } else {
+            batchHeader = "";
         }
 
+        htmlContentHeader = HtmlTeleplanHelper.htmlContentHeaderGen(providerNo, output.substring(0, 8), errorMsg);
+        errorMsg = "";
+
+        value = batchHeader;
+        for (Billing bill : billingmasterDao.findBcExtractBills(providerNo, dateRange, dateRangeParams)) {
+            patientCount = patientCount + 1;
+            invNo = bill.getId().toString();
+            demoName = bill.getDemographicName();
+
+            invCount = 0;
+            if (invNo == null || !invNo.matches("^[0-9]+$")) {
+                logger.warn("Skipping billing record due to invalid invoice number: {}", invNo);
+                continue;
+            }
+            for (Billingmaster bm : billingmasterDao.findBcExtractClaims(Integer.parseInt(invNo))) {
+                recordCount = recordCount + 1;
+
+                logNo = eFlag.equals("1") ? getSequence() : "1";
+
+                String dataLine = getClaimDetailRecord(bm, logNo);
+                if (dataLine.length() != 424) {
+                    MiscUtils.getLogger().debug("dataLine2 {} Len{}", logNo, dataLine.length());
+                }
+                value = value + "\n" + dataLine + "\r";
+                logValue = dataLine;
+                if (eFlag.equals("1")) setLog(logNo, logValue);
+                dFee = Double.parseDouble(bm.getBillAmount());
+                bdFee = new BigDecimal(dFee).setScale(2, BigDecimal.ROUND_HALF_UP);
+                BigTotal = BigTotal.add(bdFee);
+
+                if (invCount == 0) {
+                    htmlContent = htmlContent + HtmlTeleplanHelper.htmlLine(String.valueOf(bm.getBillingmasterNo()), invNo, demoName,
+                            bm.getPhn(), bm.getServiceDate(), bm.getBillingCode(),
+                            bm.getBillAmount(), bm.getDxCode1(), bm.getDxCode2(),
+                            bm.getDxCode3());
+                } else {
+                    htmlContent = htmlContent + HtmlTeleplanHelper.continuationLine(String.valueOf(bm.getBillingmasterNo()),
+                            bm.getBillingCode(), bm.getBillAmount(), bm.getDxCode1(),
+                    bm.getDxCode2(), bm.getDxCode3());
+                }
+
+                errorMsg = checkData.checkC02(String.valueOf(bm.getBillingmasterNo()), bm);
+                htmlContent += errorMsg;
+
+                invCount = invCount + 1;
+                if (eFlag.compareTo("1") == 0) {
+                    setAsBilledMaster(String.valueOf(bm.getBillingmasterNo()));
+                }
+            }
+            if (eFlag.compareTo("1") == 0) {
+                setAsBilled(invNo);
+            }
+        }
+        pCount = pCount + patientCount;
+        rCount = rCount + recordCount;
+
+        htmlFooter = HtmlTeleplanHelper.htmlFooter(providerNo, pCount, BigTotal) + HtmlTeleplanHelper.htmlBottom();
+        htmlCode = htmlContentHeader + htmlContent + htmlFooter;
+
+        ohipReciprocal = String.valueOf(hcCount);
+        ohipRecord = String.valueOf(rCount);
+        ohipClaim = String.valueOf(pCount);
     }
 
 
     public void setAsBilled(String newInvNo) {
-        if (eFlag.equals("1")) {
-            Billing b = billingDao.find(Integer.parseInt(newInvNo));
-            if (b != null) {
-                b.setStatus("B");
-                billingDao.merge(b);
-            }
-        }
+        if (eFlag.equals("1")) SpringUtils.getBean(BcBillingService.class).markBillBilled(Integer.parseInt(newInvNo));
     }
 
     public void setAsBilledMaster(String newInvNo) {
-        if (eFlag.equals("1")) {
-            Billingmaster b = billingmasterDao.getBillingmaster(Integer.parseInt(newInvNo));
-            if (b != null) {
-                b.setBillingstatus("B");
-                billingmasterDao.update(b);
-            }
-        }
+        if (eFlag.equals("1")) SpringUtils.getBean(BcBillingService.class).markMasterBilled(Integer.parseInt(newInvNo));
     }
-
 
     public void setLog(String x, String logValue) {
         if (eFlag.equals("1")) {
@@ -585,14 +444,6 @@ public class ExtractBean extends Object implements Serializable {
         dateRangeParams = params.toArray(new String[0]);
     }
 
-    private Object[] billingQueryParams() {
-        Object[] params = new Object[dateRangeParams.length + 1];
-        params[0] = providerNo;
-        System.arraycopy(dateRangeParams, 0, params, 1, dateRangeParams.length);
-        return params;
-    }
-
-
     public String roundUp(String str) {
         String retval = "1";
         try {
@@ -603,61 +454,61 @@ public class ExtractBean extends Object implements Serializable {
         return retval;
     }
 
-    public String getClaimDetailRecord(ResultSet rs2, String LogNo) throws SQLException {
-        String dataLine = forwardSpace(rs2.getString("claimcode"), 3)            //p00   3
-                + forwardSpace(rs2.getString("datacenter"), 5)           //p02   5
-                + forwardZero(logNo, 7)                                  //p04   7
-                + forwardSpace(rs2.getString("payee_no"), 5)             //p06   5
-                + forwardSpace(rs2.getString("practitioner_no"), 5)      //p08   5
-                + forwardZero(rs2.getString("phn"), 10)                  //p14  10
-                + forwardSpace(rs2.getString("name_verify"), 4)          //p16   4
-                + forwardSpace(rs2.getString("dependent_num"), 2)        //p18   2
-                + forwardZero(roundUp(rs2.getString("billing_unit")), 3)          //p20   3
-                + forwardZero(rs2.getString("clarification_code"), 2)    //p22   2
-                + forwardSpace(rs2.getString("anatomical_area"), 2)     //p23   2
-                + forwardSpace(rs2.getString("after_hour"), 1)           //p24   1
-                + forwardZero(rs2.getString("new_program"), 2)           //p25   2
-                + forwardZero(rs2.getString("billing_code"), 5)          //p26   5
-                + moneyFormat(rs2.getString("bill_amount"), 7)           //p27   7
-                + forwardZero(rs2.getString("payment_mode"), 1)         //p28   1
-                + forwardSpace(rs2.getString("service_date"), 8)        //p30   8
-                + forwardZero(rs2.getString("service_to_day"), 2)        //p32   2
-                + forwardSpace(rs2.getString("submission_code"), 1)     //p34   1
+    public String getClaimDetailRecord(Billingmaster bm, String LogNo) {
+        String dataLine = forwardSpace(bm.getClaimcode(), 3)            //p00   3
+                + forwardSpace(bm.getDatacenter(), 5)           //p02   5
+                + forwardZero(LogNo, 7)                                  //p04   7
+                + forwardSpace(bm.getPayeeNo(), 5)             //p06   5
+                + forwardSpace(bm.getPractitionerNo(), 5)      //p08   5
+                + forwardZero(bm.getPhn(), 10)                  //p14  10
+                + forwardSpace(bm.getNameVerify(), 4)          //p16   4
+                + forwardSpace(bm.getDependentNum(), 2)        //p18   2
+                + forwardZero(roundUp(bm.getBillingUnit()), 3)          //p20   3
+                + forwardZero(bm.getClarificationCode(), 2)    //p22   2
+                + forwardSpace(bm.getAnatomicalArea(), 2)     //p23   2
+                + forwardSpace(bm.getAfterHour(), 1)           //p24   1
+                + forwardZero(bm.getNewProgram(), 2)           //p25   2
+                + forwardZero(bm.getBillingCode(), 5)          //p26   5
+                + moneyFormat(bm.getBillAmount(), 7)           //p27   7
+                + forwardZero(bm.getPaymentMode(), 1)         //p28   1
+                + forwardSpace(bm.getServiceDate(), 8)        //p30   8
+                + forwardZero(bm.getServiceToDay(), 2)        //p32   2
+                + forwardSpace(bm.getSubmissionCode(), 1)     //p34   1
                 + space(1)                                              //p35   1
-                + backwardSpace(rs2.getString("dx_code1"), 5)           //p36   5
-                + backwardSpace(rs2.getString("dx_code2"), 5)           //p37   5
-                + backwardSpace(rs2.getString("dx_code3"), 5)           //p38   5
+                + backwardSpace(bm.getDxCode1(), 5)           //p36   5
+                + backwardSpace(bm.getDxCode2(), 5)           //p37   5
+                + backwardSpace(bm.getDxCode3(), 5)           //p38   5
                 + space(15)                                             //p39  15
-                + forwardSpace(rs2.getString("service_location"), 1)    //p40   1
-                + forwardZero(rs2.getString("referral_flag1"), 1)       //p41   1
-                + forwardZero(rs2.getString("referral_no1"), 5)          //p42   5
-                + forwardZero(rs2.getString("referral_flag2"), 1)        //p44   1
-                + forwardZero(rs2.getString("referral_no2"), 5)          //p46   5
-                + forwardZero(rs2.getString("time_call"), 4)             //p47   4
-                + forwardZero(rs2.getString("service_start_time"), 4)    //p48   4
-                + forwardZero(rs2.getString("service_end_time"), 4)      //p50   4
-                + forwardZero(rs2.getString("birth_date"), 8)            //p52   8
-                + forwardZero(rs2.getString("billingmaster_no"), 7)     //p54   7
-                + forwardSpace(rs2.getString("correspondence_code"), 1) //p56   1
+                + forwardSpace(bm.getServiceLocation(), 1)    //p40   1
+                + forwardZero(bm.getReferralFlag1(), 1)       //p41   1
+                + forwardZero(bm.getReferralNo1(), 5)          //p42   5
+                + forwardZero(bm.getReferralFlag2(), 1)        //p44   1
+                + forwardZero(bm.getReferralNo2(), 5)          //p46   5
+                + forwardZero(bm.getTimeCall(), 4)             //p47   4
+                + forwardZero(bm.getServiceStartTime(), 4)    //p48   4
+                + forwardZero(bm.getServiceEndTime(), 4)      //p50   4
+                + forwardZero(bm.getBirthDate(), 8)            //p52   8
+                + forwardZero(String.valueOf(bm.getBillingmasterNo()), 7)     //p54   7
+                + forwardSpace(bm.getCorrespondenceCode(), 1) //p56   1
                 + space(20)                                             //p58  20
-                + forwardSpace(rs2.getString("mva_claim_code"), 1)       //p60   1
-                + forwardZero(rs2.getString("icbc_claim_no"), 8)        //p62   8
-                + forwardZero(rs2.getString("original_claim"), 20)     //p64  20
-                + forwardZero(rs2.getString("facility_no"), 5)          //p70   5
-                + forwardZero(rs2.getString("facility_sub_no"), 5)      //p72   5
+                + forwardSpace(bm.getMvaClaimCode(), 1)       //p60   1
+                + forwardZero(bm.getIcbcClaimNo(), 8)        //p62   8
+                + forwardZero(bm.getOriginalClaim(), 20)     //p64  20
+                + forwardZero(bm.getFacilityNo(), 5)          //p70   5
+                + forwardZero(bm.getFacilitySubNo(), 5)      //p72   5
                 + space(58)                                             //p80  58
-                + backwardSpace(rs2.getString("oin_insurer_code"), 2)    //p100  2
-                + backwardSpace(rs2.getString("oin_registration_no"), 12)//p102 12
-                + backwardSpace(rs2.getString("oin_birthdate"), 8)       //p104  8
-                + backwardSpace(rs2.getString("oin_first_name"), 12)     //p106 12
-                + backwardSpace(rs2.getString("oin_second_name"), 1)     //p108  1
-                + backwardSpace(rs2.getString("oin_surname"), 18)        //p110 18
-                + backwardSpace(rs2.getString("oin_sex_code"), 1)        //p112  1
-                + backwardSpace(rs2.getString("oin_address"), 25)        //p114 25
-                + backwardSpace(rs2.getString("oin_address2"), 25)       //p116 25
-                + backwardSpace(rs2.getString("oin_address3"), 25)       //p118 25
-                + backwardSpace(rs2.getString("oin_address4"), 25)       //p120 25
-                + backwardSpace(rs2.getString("oin_postalcode"), 6);     //p122  6
+                + backwardSpace(bm.getOinInsurerCode(), 2)    //p100  2
+                + backwardSpace(bm.getOinRegistrationNo(), 12)//p102 12
+                + backwardSpace(bm.getOinBirthdate(), 8)       //p104  8
+                + backwardSpace(bm.getOinFirstName(), 12)     //p106 12
+                + backwardSpace(bm.getOinSecondName(), 1)     //p108  1
+                + backwardSpace(bm.getOinSurname(), 18)        //p110 18
+                + backwardSpace(bm.getOinSexCode(), 1)        //p112  1
+                + backwardSpace(bm.getOinAddress(), 25)        //p114 25
+                + backwardSpace(bm.getOinAddress2(), 25)       //p116 25
+                + backwardSpace(bm.getOinAddress3(), 25)       //p118 25
+                + backwardSpace(bm.getOinAddress4(), 25)       //p120 25
+                + backwardSpace(bm.getOinPostalcode(), 6);     //p122  6
         return dataLine;
     }
 }

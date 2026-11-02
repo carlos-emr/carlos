@@ -29,7 +29,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
-import java.sql.ResultSet;
 import java.util.Date;
 
 import org.apache.struts2.ServletActionContext;
@@ -47,7 +46,8 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.commn.dao.BillingBCDao;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -71,7 +71,6 @@ class ViewWCB2ActionUnitTest extends CarlosUnitTestBase {
 
     private MockHttpServletRequest request;
     private MockedStatic<ServletActionContext> servlet;
-    private MockedStatic<LegacyJdbcQuery> jdbc;
     private DemographicManager demographics;
     private BillingmasterDAO billingmasterDao;
 
@@ -94,18 +93,14 @@ class ViewWCB2ActionUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(DiagnosticCodeDao.class);
         createAndRegisterMock(BillingBCDao.class);
 
-        // The billing provider's practitioner and payee numbers come from a plain JDBC lookup.
-        ResultSet provider = mock(ResultSet.class);
-        when(provider.next()).thenReturn(true);
-        when(provider.getString("ohip_no")).thenReturn("91234");
-        when(provider.getString("billing_no")).thenReturn("81234");
-        jdbc = mockStatic(LegacyJdbcQuery.class);
-        jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(anyString(), eq(PROVIDER))).thenReturn(provider);
+        Provider provider = new Provider();
+        provider.setOhipNo("91234");
+        provider.setBillingNo("81234");
+        when(createAndRegisterMock(ProviderDao.class).getProvider(PROVIDER)).thenReturn(provider);
     }
 
     @AfterEach
     void close() {
-        jdbc.close();
         servlet.close();
     }
 

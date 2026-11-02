@@ -29,8 +29,6 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -45,7 +43,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.Misc;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
@@ -116,14 +114,10 @@ public class ViewWCB2Action extends ActionSupport {
                 form.setInjuryLocations(data.getInjuryLocationList());
 
                 //Retrieve provider ohip number and payee number
-                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
-                        "select ohip_no,billing_no from provider where provider_no = ?", providerNo)) {
-                    if (rs != null && rs.next()) {
-                        form.setW_pracno(rs.getString("ohip_no"));
-                        form.setW_payeeno(rs.getString("billing_no"));
-                    }
-                } catch (SQLException e) {
-                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Error retrieving provider data", e);
+                var provider = SpringUtils.getBean(ProviderDao.class).getProvider(providerNo);
+                if (provider != null) {
+                    form.setW_pracno(provider.getOhipNo());
+                    form.setW_payeeno(provider.getBillingNo());
                 }
 
                 form.setProviderNo(providerNo);

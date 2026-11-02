@@ -41,6 +41,10 @@ public class MariaDbDaoTestContextInitializer
             throw new IllegalArgumentException("MariaDB test schema must be generated or flyway");
         }
         boolean migrated = "flyway".equals(schemaMode);
+        String province = System.getenv().getOrDefault("CARLOS_TEST_MARIADB_PROVINCE", "on");
+        if (!List.of("on", "bc").contains(province)) {
+            throw new IllegalArgumentException("MariaDB test province must be on or bc");
+        }
         String database = "carlos_test_5399_dao_" + UUID.randomUUID().toString().replace("-", "");
         String jdbcUrl = server + database + "?connectionCollation=utf8mb4_general_ci"
                 + "&zeroDateTimeBehavior=CONVERT_TO_NULL&jdbcCompliantTruncation=false&useInformationSchema=false";
@@ -64,7 +68,7 @@ public class MariaDbDaoTestContextInitializer
             if (migrated) Flyway.configure().dataSource(jdbcUrl, credentials.getProperty("user"),
                             credentials.getProperty("password"))
                     .initSql("SET SESSION sql_mode='', collation_connection='utf8mb4_general_ci'")
-                    .locations("classpath:db/migration/common", "classpath:db/migration/on")
+                    .locations("classpath:db/migration/common", "classpath:db/migration/" + province)
                     .failOnMissingLocations(true).ignoreMigrationPatterns(new String[0]).load().migrate();
         } catch (Exception failure) {
             try {
