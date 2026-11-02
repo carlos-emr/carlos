@@ -119,7 +119,6 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     private static Logger logger = MiscUtils.getLogger();
     private static final String TELEPHONE_LABEL = "RxPreview.msgTel";
-    private static final String INVALID_SATELLITE_ADDRESS = "Invalid satellite clinic address";
     /** Distance from the page top to the patient heading's top edge. */
     private static final float PATIENT_HEADER_TOP_OFFSET = 110f;
     /** Historical distance from the page top to the narrow-page pharmacy block. */
@@ -427,15 +426,6 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     private ByteArrayOutputStream generatePDFDocumentBytesOrReportFaxFailure(HttpServletRequest request,
             byte[] signatureImage, boolean isFax, HttpServletResponse response) throws DocumentException, IOException {
-        if (Boolean.parseBoolean(request.getParameter("useSC"))) {
-            try {
-                parseSCAddress(request.getParameter("scAddress"));
-            } catch (IllegalArgumentException _) {
-                // Refuse malformed input before opening a PDF or committing response headers.
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, INVALID_SATELLITE_ADDRESS);
-                return null;
-            }
-        }
         try {
             return generatePDFDocumentBytes(request, getServletContext(), signatureImage);
         } catch (IOException | RuntimeException failure) {
@@ -986,21 +976,11 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      *
      * @param s String the HTML-formatted satellite clinic address
      * @return HashMap containing "clinicName", "clinicTel", and "clinicFax" entries
-     * @throws IllegalArgumentException when the block is missing or lacks the five clinic lines
      */
     static HashMap<String, String> parseSCAddress(String s) {
         HashMap<String, String> hm = new HashMap<String, String>();
-        if (s == null) {
-            throw new IllegalArgumentException(INVALID_SATELLITE_ADDRESS);
-        }
         String[] ar = s.split("</b>", 2);
-        if (ar.length != 2 || !ar[1].startsWith("<br>")) {
-            throw new IllegalArgumentException(INVALID_SATELLITE_ADDRESS);
-        }
         String[] ar2 = ar[1].split("<br>", -1);
-        if (ar2.length < 6) {
-            throw new IllegalArgumentException(INVALID_SATELLITE_ADDRESS);
-        }
         ArrayList<String> lst = new ArrayList<String>(Arrays.asList(ar2));
         lst.remove(0);
         // Values may literally contain <br>, </b> or entity text. Split only the
