@@ -118,6 +118,11 @@ Run against physical MariaDB using the existing isolated test harness, never an
 operator database. The optional province selector defaults to `on`; `bc` loads
 the actual published BC schema, which owns `billingmaster`:
 
+Start MariaDB with the repository's compatibility configuration (32 KiB InnoDB
+pages for a fresh test datadir, `innodb_strict_mode=0` and the configured empty
+SQL mode). The BC baseline contains legacy wide tables; stock strict defaults
+can reject that schema before any test runs.
+
 ```sh
 CARLOS_TEST_MARIADB_DAO=true \
 CARLOS_TEST_MARIADB_URL=jdbc:mysql://127.0.0.1:3306/ \
