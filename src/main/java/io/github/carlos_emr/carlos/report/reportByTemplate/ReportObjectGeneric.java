@@ -142,9 +142,9 @@ public class ReportObjectGeneric implements ReportObject {
             else { //if multiple values
                 //DynamicElement curelement = getDynamicElement(dynamicElementId);
                 if (cursor1 != 0 && (sql.charAt(cursor1 - 1) == '\'' || sql.charAt(cursor1 - 1) == '\"')) {
-                    sql = sql.substring(0, cursor1) + StringUtils.join(substValues, sql.charAt(cursor1 - 1) + "," + sql.charAt(cursor1 - 1)) + sql.substring(cursor2 + 1);
+                    sql = sql.substring(0, cursor1) + String.join(sql.charAt(cursor1 - 1) + "," + sql.charAt(cursor1 - 1), substValues) + sql.substring(cursor2 + 1);
                 } else {
-                    sql = sql.substring(0, cursor1) + StringUtils.join(substValues, ",") + sql.substring(cursor2 + 1);
+                    sql = sql.substring(0, cursor1) + String.join(",", substValues) + sql.substring(cursor2 + 1);
                 }
 
             }
@@ -184,9 +184,9 @@ public class ReportObjectGeneric implements ReportObject {
             else { //if multiple values
                 //DynamicElement curelement = getDynamicElement(dynamicElementId);
                 if (cursor1 != 0 && (sql.charAt(cursor1 - 1) == '\'' || sql.charAt(cursor1 - 1) == '\"')) {
-                    sql = sql.substring(0, cursor1) + StringUtils.join(substValues, sql.charAt(cursor1 - 1) + "," + sql.charAt(cursor1 - 1)) + sql.substring(cursor2 + 1);
+                    sql = sql.substring(0, cursor1) + String.join(sql.charAt(cursor1 - 1) + "," + sql.charAt(cursor1 - 1), substValues) + sql.substring(cursor2 + 1);
                 } else {
-                    sql = sql.substring(0, cursor1) + StringUtils.join(substValues, ",") + sql.substring(cursor2 + 1);
+                    sql = sql.substring(0, cursor1) + String.join(",", substValues) + sql.substring(cursor2 + 1);
                 }
 
             }

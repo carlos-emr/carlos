@@ -35,7 +35,6 @@
 <%@ page import="java.text.MessageFormat" %>
 <%@ page import="io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
-<%@ page import="org.springframework.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -541,6 +540,8 @@
         for (int i = 0; i < vec.size(); i++) {
             Properties item = vec.get(i);
             String providerNo = item.getProperty("provider_no", "");
+            String roleId = item.getProperty("role_id");
+            boolean hasRoleId = roleId != null && !roleId.isBlank();
     %>
       <form name="myform" class="myform myform-<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>" action="${pageContext.request.contextPath}/admin/ProviderRole" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
         <tr>
@@ -589,9 +590,9 @@
                     <input type="submit" name="submit" class="btn btn-primary"
                            value="<fmt:message key="global.btnAdd"/>" disabled="disabled">
                     <input type="submit" name="buttonUpdate" class="btn btn-info"
-                           value="<fmt:message key="global.update"/>" <%= StringUtils.hasText(item.getProperty("role_id"))?"":"disabled"%>>
+                           value="<fmt:message key="global.update"/>" <%= hasRoleId ? "" : "disabled"%>>
                     <input type="submit" name="submit" class="btn btn-link" style="color:red;"
-                           value="<fmt:message key="global.btnDelete"/>" <%= StringUtils.hasText(item.getProperty("role_id"))?"":"disabled"%>>
+                           value="<fmt:message key="global.btnDelete"/>" <%= hasRoleId ? "" : "disabled"%>>
                 </div>
             </td>
         </tr>

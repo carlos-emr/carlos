@@ -86,6 +86,19 @@ class SecurityManagerUnitTest extends CarlosUnitTestBase {
         return sec;
     }
 
+
+    @Test
+    void shouldKeepCxfBlankContract_forSecurityFields() {
+        for (String value : Arrays.asList(null, "", " ", "\u0000\t\u001f")) {
+            assertThat(manager.isSecurityObjectValid(createValidSecurity(null, "111", "user", value))).isFalse();
+            assertThat(manager.isSecurityObjectValid(createValidSecurity(null, value, "user", "pass"))).isFalse();
+            assertThat(manager.isSecurityObjectValid(createValidSecurity(null, "111", value, "pass"))).isFalse();
+        }
+        for (String value : List.of("null", " NULL ", "\u2003", "\u00a0")) {
+            assertThat(manager.isSecurityObjectValid(createValidSecurity(null, value, value, value))).isTrue();
+        }
+    }
+
     // -----------------------------------------------------------------------
     // isSecurityObjectValid
     // -----------------------------------------------------------------------

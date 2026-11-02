@@ -133,6 +133,49 @@ class StringUtilsUnitTest {
         }
     }
 
+    @Test
+    void shouldAcceptDoubleSyntax_forLegacyNumericValues() {
+        for (String value : List.of("1e5", "NaN", "Infinity", "-Infinity", "0x1p3", " 42 ")) {
+            assertThat(StringUtils.isNumeric(value)).as(value).isTrue();
+        }
+        for (String value : List.of("", " ", "null", " NULL ", "１２３")) {
+            assertThat(StringUtils.isNumeric(value)).as(value).isFalse();
+        }
+    }
+
+    @Test
+    void shouldRetainLegacyBlankSemantics_forNullTextAndUnicodeWhitespace() {
+        for (String value : Arrays.asList(null, "", " ", "\t\r\n", "null", " NULL ", " NuLl ")) {
+            assertThat(StringUtils.isNullOrEmpty(value)).isTrue();
+            assertThat(StringUtils.empty(value)).isTrue();
+            assertThat(StringUtils.filled(value)).isFalse();
+            assertThat(StringUtils.noNull(value)).isEmpty();
+        }
+        for (String value : List.of(" nullish ", "\u2003", "\u00a0")) {
+            assertThat(StringUtils.empty(value)).isFalse();
+            assertThat(StringUtils.filled(value)).isTrue();
+            assertThat(StringUtils.noNull(value)).isEqualTo(value);
+        }
+    }
+
+    @Test
+    void shouldDropEmptyTokens_withTokenizerDelimiters() {
+        assertThat(StringUtils.splitToStringArray(",a,,b;c;", ",;")).containsExactly("a", "b", "c");
+    }
+
+    @Test
+    void shouldPreserveDefaultLocaleCaseExpansion_withLegacySubstringMatching() {
+        Locale original = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.GERMAN);
+            assertThat(StringUtils.containsIgnoreCase("Straße", "STRASSE")).isTrue();
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            assertThat(StringUtils.containsIgnoreCase("i", "I")).isFalse();
+        } finally {
+            Locale.setDefault(original);
+        }
+    }
+
     @Nested
     @DisplayName("isInteger")
     class IsInteger {
@@ -147,136 +190,15 @@ class StringUtilsUnitTest {
         @DisplayName("should return false for decimal")
         void shouldReturnFalse_forDecimal() {
             assertThat(StringUtils.isInteger("3.14")).isFalse();
+            assertThat(StringUtils.isInteger(" 42 ")).isFalse();
+            assertThat(StringUtils.isInteger("null")).isFalse();
+            assertThat(StringUtils.isInteger("2147483648")).isFalse();
         }
 
         @Test
         @DisplayName("should return false for null")
         void shouldReturnFalse_forNull() {
             assertThat(StringUtils.isInteger(null)).isFalse();
-        }
-    }
-
-    @Nested
-    @DisplayName("join")
-    class Join {
-
-        @Test
-        @DisplayName("should join string array with delimiter")
-        void shouldJoinArray_withDelimiter() {
-            assertThat(StringUtils.join(new String[]{"a", "b", "c"}, ",")).isEqualTo("a,b,c");
-        }
-
-        @Test
-        @DisplayName("should return single element without delimiter")
-        void shouldReturnSingleElement_withoutDelimiter() {
-            assertThat(StringUtils.join(new String[]{"only"}, ",")).isEqualTo("only");
-        }
-
-        @Test
-        @DisplayName("should join list with delimiter")
-        void shouldJoinList_withDelimiter() {
-            List<String> list = List.of("x", "y", "z");
-            assertThat(StringUtils.join(list, "-")).isEqualTo("x-y-z");
-        }
-    }
-
-    @Nested
-    @DisplayName("split")
-    class Split {
-
-        @Test
-        @DisplayName("should split string by delimiter")
-        void shouldSplit_byDelimiter() {
-            ArrayList<String> result = StringUtils.split("a,b,c", ",");
-            assertThat(result).containsExactly("a", "b", "c");
-        }
-
-        @Test
-        @DisplayName("should return single element when no delimiter found")
-        void shouldReturnSingle_whenNoDelimiter() {
-            ArrayList<String> result = StringUtils.split("abc", ",");
-            assertThat(result).containsExactly("abc");
-        }
-    }
-
-    @Nested
-    @DisplayName("getCSV")
-    class GetCSV {
-
-        @Test
-        @DisplayName("should convert list to CSV string")
-        void shouldConvertList_toCSV() {
-            List<String> list = List.of("one", "two", "three");
-            assertThat(StringUtils.getCSV(list)).isEqualTo("one,two,three");
-        }
-
-        @Test
-        @DisplayName("should return empty string for null list")
-        void shouldReturnEmpty_forNull() {
-            assertThat(StringUtils.getCSV(null)).isEmpty();
-        }
-    }
-
-    @Nested
-    @DisplayName("transformNullInEmptyString")
-    class TransformNull {
-
-        @Test
-        @DisplayName("should return empty string for null")
-        void shouldReturnEmpty_forNull() {
-            assertThat(StringUtils.transformNullInEmptyString(null)).isEmpty();
-        }
-
-        @Test
-        @DisplayName("should return original for non-null")
-        void shouldReturnOriginal_forNonNull() {
-            assertThat(StringUtils.transformNullInEmptyString("hello")).isEqualTo("hello");
-        }
-    }
-
-    @Nested
-    @DisplayName("replaceChar")
-    class ReplaceChar {
-
-        @Test
-        @DisplayName("should replace character in string")
-        void shouldReplaceChar() {
-            assertThat(StringUtils.replaceChar(' ', '_', "hello world")).isEqualTo("hello_world");
-        }
-
-        @Test
-        @DisplayName("should return null for null input")
-        void shouldReturnNull_forNull() {
-            assertThat(StringUtils.replaceChar(' ', '_', null)).isNull();
-        }
-    }
-
-    @Nested
-    @DisplayName("nullSafeEquals")
-    class NullSafeEquals {
-
-        @Test
-        @DisplayName("should return true for both null")
-        void shouldReturnTrue_forBothNull() {
-            assertThat(StringUtils.nullSafeEquals(null, null)).isTrue();
-        }
-
-        @Test
-        @DisplayName("should return true for equal strings")
-        void shouldReturnTrue_forEqual() {
-            assertThat(StringUtils.nullSafeEquals("abc", "abc")).isTrue();
-        }
-
-        @Test
-        @DisplayName("should return false for different strings")
-        void shouldReturnFalse_forDifferent() {
-            assertThat(StringUtils.nullSafeEquals("abc", "xyz")).isFalse();
-        }
-
-        @Test
-        @DisplayName("should return false when first is null")
-        void shouldReturnFalse_whenFirstNull() {
-            assertThat(StringUtils.nullSafeEquals(null, "abc")).isFalse();
         }
     }
 
@@ -350,46 +272,19 @@ class StringUtilsUnitTest {
 
         @Test
         @DisplayName("should replace line breaks with single space")
-        void shouldReplaceLineBreaks() {
+        void shouldReplaceLineBreaks_withSingleSpaces() {
             String result = StringUtils.lineBreaks("hello\nworld");
             assertThat(result).isEqualTo("hello world");
         }
 
         @Test
         @DisplayName("should collapse multiple spaces")
-        void shouldCollapseMultipleSpaces() {
+        void shouldCollapseMultipleSpaces_withSingleSpace() {
             String result = StringUtils.lineBreaks("hello   world");
             assertThat(result).isEqualTo("hello world");
         }
     }
 
-    @Nested
-    @DisplayName("isValidDate")
-    class IsValidDate {
-
-        @Test
-        @DisplayName("should return true for valid date")
-        void shouldReturnTrue_forValidDate() {
-            assertThat(StringUtils.isValidDate("2026-03-31", "yyyy-MM-dd")).isTrue();
-        }
-
-        @Test
-        @DisplayName("should return false for invalid date")
-        void shouldReturnFalse_forInvalidDate() {
-            assertThat(StringUtils.isValidDate("not-a-date", "yyyy-MM-dd")).isFalse();
-        }
-    }
-
-    @Nested
-    @DisplayName("getStrIn")
-    class GetStrIn {
-
-        @Test
-        @DisplayName("should join array to comma string")
-        void shouldJoinArray_toCommaString() {
-            assertThat(StringUtils.getStrIn(new String[]{"1", "2", "3"})).isEqualTo("1,2,3");
-        }
-    }
     @Test
     void shouldReturnEmptyString_whenNoNullReceivesNullBlankOrLiteralNull() {
         assertThat(StringUtils.noNull(null)).isEmpty();

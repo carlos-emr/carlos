@@ -117,4 +117,31 @@ class ReportObjectGenericUnitTest extends CarlosUnitTestBase {
         assertThat(ReportObjectGeneric.splitSequencedSql("select * from provider;\n  \t"))
                 .containsExactly("select * from provider");
     }
+    @Test
+    void shouldPreserveLegacyJoinedValues_withNullElementsAndNullText() {
+        try (var construction = org.mockito.Mockito.mockConstruction(ReportManager.class,
+                (manager, context) -> org.mockito.Mockito.when(manager.getSQL("test"))
+                        .thenReturn("select '{values}';select {values}"))) {
+            ReportObjectGeneric report = new ReportObjectGeneric("test", "test");
+            Map<String, String[]> params = Map.of("values", new String[] {"one", null, "null"});
+            assertThat(report.getPreparedSQL(params))
+                    .isEqualTo("select 'one','null','null';select one,null,null");
+            assertThat(report.getPreparedSQL(0, params)).isEqualTo("select 'one','null','null'");
+            assertThat(report.getPreparedSQL(1, params)).isEqualTo("select one,null,null");
+        }
+    }
+
+    @Test
+    void shouldPreserveEmptyLegacySelections_withNoJoinedElements() {
+        try (var construction = org.mockito.Mockito.mockConstruction(ReportManager.class,
+                (manager, context) -> org.mockito.Mockito.when(manager.getSQL("test"))
+                        .thenReturn("select '{values}';select {values}"))) {
+            ReportObjectGeneric report = new ReportObjectGeneric("test", "test");
+            Map<String, String[]> params = Map.of("values", new String[0]);
+            assertThat(report.getPreparedSQL(params)).isEqualTo("select '';select ");
+            assertThat(report.getPreparedSQL(0, params)).isEqualTo("select ''");
+            assertThat(report.getPreparedSQL(1, params)).isEqualTo("select ");
+        }
+    }
+
 }
