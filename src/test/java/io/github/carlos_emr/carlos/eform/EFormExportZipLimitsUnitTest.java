@@ -39,10 +39,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 @Tag("unit")
 @Tag("eform")
 class EFormExportZipLimitsUnitTest {
+    private static final byte[] FORM_PROPERTIES =
+            "form.name=Synthetic\nform.htmlFilename=form.html\n".getBytes(StandardCharsets.UTF_8);
     @TempDir Path images;
 
     private void entry(ZipOutputStream zip, String name, int size) throws IOException {
@@ -58,7 +62,7 @@ class EFormExportZipLimitsUnitTest {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
             zip.putNextEntry(new ZipEntry("eform.properties"));
-            zip.write("form.name=Synthetic\nform.htmlFilename=form.html\n".getBytes(StandardCharsets.UTF_8));
+            zip.write(FORM_PROPERTIES);
             zip.closeEntry();
             entry(zip, "form.html", 20);
             entry(zip, "asset.png", 20);
@@ -109,6 +113,89 @@ class EFormExportZipLimitsUnitTest {
     void shouldAcceptManyEntries_whenCountReachesDefaultLimit() throws Exception {
         // The three content entries plus 9,997 metadata entries exactly fill the entry budget.
         accepted(archive("__MACOSX/._asset", 9997, 0), "asset.png", 20);
+    }
+
+    @Test
+    void shouldAcceptArchive_whenExpansionReachesDefaultAggregateLimit() throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
+            zip.putNextEntry(new ZipEntry("eform.properties"));
+            zip.write(FORM_PROPERTIES);
+            zip.closeEntry();
+            entry(zip, "form.html", 20);
+            entry(zip, "asset.png", 20);
+            for (int i = 0; i < 3; i++) entry(zip, "__MACOSX/._asset" + i, 256 << 20);
+            // Include properties and both content entries: total expansion is exactly 1 GiB.
+            entry(zip, "__MACOSX/._last", (256 << 20) - FORM_PROPERTIES.length - 40);
+        }
+        accepted(bytes.toByteArray(), "asset.png", 20);
+    }
+
+    private byte[] textArchive(String htmlFilename, int forms, int htmlSize, int propertiesPadding) throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
+            entry(zip, "asset.png", 20);
+            for (int i = 0; i < forms; i++) {
+                zip.putNextEntry(new ZipEntry("form" + i + "/eform.properties"));
+                zip.write(("form.name=Synthetic" + i + "\nform.htmlFilename=" + i + htmlFilename + "\n#")
+                        .getBytes(StandardCharsets.UTF_8));
+                byte[] block = new byte[8192];
+                for (int left = propertiesPadding; left > 0; left -= Math.min(left, block.length)) {
+                    zip.write(block, 0, Math.min(left, block.length));
+                }
+                zip.closeEntry();
+                entry(zip, i + htmlFilename, htmlSize);
+            }
+        }
+        return bytes.toByteArray();
+    }
+
+    private void rejectedText(byte[] archive) throws Exception {
+        try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
+            folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            assertThatThrownBy(() -> new EFormExportZip().importForm(new ByteArrayInputStream(archive)))
+                    .isInstanceOf(IOException.class).hasMessageContaining("text byte limit");
+            forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)), never());
+        }
+        try (var staged = Files.list(images.resolve("extractFolder")); var published = Files.list(images)) {
+            assertThat(staged).isEmpty();
+            assertThat(published.map(p -> p.getFileName().toString())).containsExactly("extractFolder");
+        }
+    }
+
+    @Test
+    void shouldRejectLargeHtml_whenPropertiesReferenceAnAssetExtension() throws Exception {
+        rejectedText(textArchive(".png", 1, (16 << 20) + 1, 0));
+    }
+
+    @Test
+    void shouldRejectLargeProperties_beforeParsingAnExpandedLine() throws Exception {
+        rejectedText(textArchive(".html", 1, 20, 16 << 20));
+    }
+
+    @Test
+    void shouldRejectRetainedText_whenMultipleFormsExceedCombinedBudget() throws Exception {
+        rejectedText(textArchive(".html", 5, 16 << 20, 0));
+    }
+
+    @Test
+    void shouldAcceptHtml_whenTextEntryReachesDefaultLimit() throws Exception {
+        accepted(textArchive(".html", 1, 16 << 20, 0), "asset.png", 20);
+    }
+
+    @Test
+    void shouldCloseInput_whenStagingParentCannotBeCreated() throws Exception {
+        Files.writeString(images.resolve("extractFolder"), "blocks directory creation");
+        ByteArrayInputStream input = spy(new ByteArrayInputStream(archive("unused", 0, 0)));
+        try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
+            folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            assertThatThrownBy(() -> new EFormExportZip().importForm(input)).isInstanceOf(IOException.class);
+            verify(input).close();
+            forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)), never());
+        }
+        try (var published = Files.list(images)) {
+            assertThat(published.map(p -> p.getFileName().toString())).containsExactly("extractFolder");
+        }
     }
 
     @Test

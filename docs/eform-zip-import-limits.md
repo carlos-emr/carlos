@@ -8,12 +8,17 @@ resource exhaustion while accepting large images and bulk form packages:
 | Expanded bytes in one entry | 256 MiB (268,435,456 bytes) |
 | Expanded bytes across the archive | 1 GiB (1,073,741,824 bytes) |
 | ZIP entries, including directories and archiver metadata | 10,000 |
+| Expanded bytes in one properties or form HTML entry | 16 MiB (16,777,216 bytes) |
+| Expanded bytes across properties and retained form HTML | 64 MiB (67,108,864 bytes) |
 
 These are abuse backstops, not recommended image sizes. Large images, image-heavy
-forms and multi-form packages within these ceilings must import successfully;
+forms and multi-form packages within all applicable ceilings must import successfully;
 users should not need to downsample ordinary assets or split ordinary packages.
-Assets stream to private staging files using a fixed-size copy buffer. The ceilings
-also bound disk expansion and the HTML and properties subsequently loaded into memory.
+Assets stream to private staging files using a fixed-size copy buffer. The larger
+ceilings bound disk expansion. The separate text ceilings bound properties parsed
+and HTML retained in memory, including HTML whose filename has a non-HTML extension.
+Properties are staged and checked before parsing; all retained HTML is checked
+before any asset or form is published. Properties from skipped forms also count.
 They apply to bytes actually decompressed, independently of ZIP size metadata or
 the compressed upload size. The eForm importer has no compression-ratio limit:
 high compression alone is not grounds for rejection.

@@ -68,6 +68,9 @@ public class EFormExportZip {
     private static final long MAX_IMPORT_ENTRY_BYTES = 256L << 20;
     private static final long MAX_IMPORT_TOTAL_BYTES = 1L << 30;
     private static final int MAX_IMPORT_ENTRIES = 10_000;
+    // Parsed properties and retained HTML need a smaller heap budget than streamed assets.
+    private static final long MAX_IMPORT_TEXT_ENTRY_BYTES = 16L << 20;
+    private static final long MAX_IMPORT_TEXT_TOTAL_BYTES = 64L << 20;
 
     /**
      * Converts an eForm display title to one safe generated filename component.
@@ -259,6 +262,8 @@ public class EFormExportZip {
      * Generous abuse safeguards allow 256 MiB per entry, 1 GiB expanded overall and 10,000
      * entries, including directories and skipped archiver metadata. Large image assets and
      * multi-form packages within these ceilings are accepted without a compression-ratio limit.
+     * Properties and form HTML additionally allow 16 MiB per entry and 64 MiB combined,
+     * checked before parsing properties or publishing any form or asset.
      * Counters use actual decompressed bytes, including when ZIP sizes are absent or false.
      * A limit failure closes the input and removes this import's private staging directory
      * before any form registration or public asset publication occurs.
@@ -281,15 +286,8 @@ public class EFormExportZip {
         ArrayList<String> errors = new ArrayList<String>();
         _log.info("Importing eforms");
 
-        File imageDir = ImageUpload2Action.getImageFolder();
-        File imageExtractDir = PathValidationUtils.validateGeneratedChildPath("extractFolder", imageDir);
-        // The parent is shared and retained; each import exclusively owns its
-        // child. Millisecond timestamps can collide across simultaneous users,
-        // causing one import to read or delete another import's staged files.
-        Files.createDirectories(imageExtractDir.toPath());
-        File imageTempFolderDir = PathValidationUtils.validateExistingPath(
-                Files.createTempDirectory(imageExtractDir.toPath(), "extract-").toFile(), imageExtractDir);
-
+        File imageTempFolderDir = null;
+        long textBytes = 0;
         Hashtable<String, EForm> eformTable = new Hashtable<String, EForm>(); //stores eforms constructed from eform.properties, no HTML
         Hashtable<String, EForm> eformTableFailed = new Hashtable<String, EForm>();  //stores eforms that are constructed from eform.properties that alredy exist and do not need to be imported
         Hashtable<String, File> tempFiles = new Hashtable<String, File>(); //references extracted files in the temp folder
@@ -300,6 +298,13 @@ public class EFormExportZip {
             //first runthrough, get the properties files, construct eforms, cache files
             try (ZipInputStream zis = new ImportZipInputStream(importInputStream,
                     maxEntryBytes, maxTotalBytes, maxEntries)) {
+                File imageDir = ImageUpload2Action.getImageFolder();
+                File imageExtractDir = PathValidationUtils.validateGeneratedChildPath("extractFolder", imageDir);
+                // Each import owns a unique child of the retained, shared staging parent.
+                // Establish stream ownership before staging setup, which can itself fail.
+                Files.createDirectories(imageExtractDir.toPath());
+                imageTempFolderDir = Files.createTempDirectory(imageExtractDir.toPath(), "extract-").toFile();
+                imageTempFolderDir = PathValidationUtils.validateExistingPath(imageTempFolderDir, imageExtractDir);
                 ZipEntry ze = null;
                 while ((ze = zis.getNextEntry()) != null) {
                     // The path is validated BEFORE anything is skipped: an absolute or traversal name
@@ -320,7 +325,20 @@ public class EFormExportZip {
                     _log.info("Unzipping..." + LogSafe.sanitize(zipEntryFileName));
                     if (zipEntryFileName.equalsIgnoreCase("eform.properties")) {
                         Properties properties = new Properties();
-                        properties.load(zis);
+                        // Stage first: Properties.load can allocate a full expanded line before
+                        // returning, so reject oversized text before giving it to the parser.
+                        File propertiesFile = Files.createTempFile(imageTempFolderDir.toPath(), "properties-", ".tmp").toFile();
+                        try {
+                            try (FileOutputStream output = new FileOutputStream(propertiesFile)) {
+                                inputToOutput(zis, output);
+                            }
+                            textBytes = countImportTextBytes(propertiesFile, textBytes);
+                            try (FileInputStream input = new FileInputStream(propertiesFile)) {
+                                properties.load(input);
+                            }
+                        } finally {
+                            Files.deleteIfExists(propertiesFile.toPath());
+                        }
                         EForm newEForm = this.createEFormFromProperties(properties);
                         //check for errors or existing forms
                         if (newEForm.getFormName() == null || newEForm.getFormName().isEmpty()) {
@@ -349,13 +367,17 @@ public class EFormExportZip {
                         try (FileOutputStream fos = new FileOutputStream(tempFile)) {
                             inputToOutput(zis, fos);
                         }
-                        //store temp files in memory
-                        /*ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                        inputToOutput(zis, baos);
-                        tempFiles.put(file.getName(), baos.toByteArray());
-                        baos.close();*/
                     }
                     zis.closeEntry();
+                }
+            }
+
+            // Check every retained HTML entry before the publication loop can expose an
+            // asset. Match by the properties filename, not by an attacker-chosen extension.
+            for (Entry<String, File> tempFile : tempFiles.entrySet()) {
+                if (eformTable.containsKey(tempFile.getKey())) {
+                    File htmlFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
+                    textBytes = countImportTextBytes(htmlFile, textBytes);
                 }
             }
 
@@ -404,6 +426,15 @@ public class EFormExportZip {
             deleteDirectory(imageTempFolderDir);
         }
         return errors;
+    }
+
+    /** Counts actual staged text bytes before any parser or full-entry buffer sees them. */
+    private long countImportTextBytes(File file, long totalBytes) throws IOException {
+        long entryBytes = Files.size(file.toPath());
+        if (entryBytes > MAX_IMPORT_TEXT_ENTRY_BYTES || entryBytes > MAX_IMPORT_TEXT_TOTAL_BYTES - totalBytes) {
+            throw new IOException("ZIP import text byte limit exceeded");
+        }
+        return totalBytes + entryBytes;
     }
 
     /**
