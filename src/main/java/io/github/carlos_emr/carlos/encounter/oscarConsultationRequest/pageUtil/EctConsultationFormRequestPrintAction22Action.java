@@ -22,6 +22,7 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -72,8 +73,6 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import com.sun.xml.messaging.saaj.util.ByteInputStream;
-import com.sun.xml.messaging.saaj.util.ByteOutputStream;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -173,8 +172,8 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         }
         ArrayList<Object> alist = new ArrayList<Object>();
         byte[] buffer;
-        ByteInputStream bis;
-        ByteOutputStream bos;
+        ByteArrayInputStream bis;
+        ByteArrayOutputStream bos;
         CommonLabResultData consultLabs = new CommonLabResultData();
         ArrayList<InputStream> streams = new ArrayList<InputStream>();
 
@@ -190,12 +189,12 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         Exception exception = null;
         try {
 
-            bos = new ByteOutputStream();
+            bos = new ByteArrayOutputStream();
             ConsultationPDFCreator cpdfc = new ConsultationPDFCreator(request, bos);
             cpdfc.printPdf(loggedInInfo);
 
-            buffer = bos.getBytes();
-            bis = new ByteInputStream(buffer, bos.getCount());
+            buffer = bos.toByteArray();
+            bis = new ByteArrayInputStream(buffer);
             bos.close();
             streams.add(bis);
             alist.add(bis);
@@ -237,14 +236,14 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                 EDoc doc = docs.get(i);
                 if (doc.isPrintable()) {
                     if (doc.isImage()) {
-                        bos = new ByteOutputStream();
+                        bos = new ByteArrayOutputStream();
                         request.setAttribute("imagePath", path + doc.getFileName());
                         request.setAttribute("imageTitle", doc.getDescription());
                         ImagePDFCreator ipdfc = new ImagePDFCreator(request, bos);
                         ipdfc.printPdf();
 
-                        buffer = bos.getBytes();
-                        bis = new ByteInputStream(buffer, bos.getCount());
+                        buffer = bos.toByteArray();
+                        bis = new ByteArrayInputStream(buffer);
                         bos.close();
                         streams.add(bis);
                         alist.add(bis);
@@ -273,7 +272,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                         // tempLabPDF comes from File.createTempFile and passes the allowed-temp check.
                         // nosemgrep: carlos.httpservlet-path-traversal
                         FileOutputStream fileOutputStream = new FileOutputStream(tempLabPDF);
-                        ByteOutputStream byteOutputStream = new ByteOutputStream();
+                        ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
                 ) {
                     request.setAttribute("segmentID", labs.get(i).segmentID);
                     LabPDFCreator labPDFCreator = new LabPDFCreator(request, fileOutputStream);
@@ -282,8 +281,8 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
                     // Transferring PDF to an input stream to be concatenated with
                     // the rest of the documents.
-                    buffer = byteOutputStream.getBytes();
-                    bis = new ByteInputStream(buffer, byteOutputStream.getCount());
+                    buffer = byteOutputStream.toByteArray();
+                    bis = new ByteArrayInputStream(buffer);
                     streams.add(bis);
                     alist.add(bis);
                 }
@@ -293,11 +292,11 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             // attached HRMs
             ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments = consultationManager.getAttachedHRMDocuments(loggedInInfo, demoNo, reqId);
             for (HashMap<String, ? extends Object> attachedHRMDocument : attachedHRMDocuments) {
-                bos = new ByteOutputStream();
+                bos = new ByteArrayOutputStream();
                 HRMPDFCreator hrmPdf = new HRMPDFCreator(bos, (Integer) attachedHRMDocument.get("id"), loggedInInfo);
                 hrmPdf.printPdf();
-                buffer = bos.getBytes();
-                bis = new ByteInputStream(buffer, bos.getCount());
+                buffer = bos.toByteArray();
+                bis = new ByteArrayInputStream(buffer);
                 bos.close();
                 streams.add(bis);
                 alist.add(bis);
@@ -315,7 +314,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
             if (alist.size() > 0) {
 
-                bos = new ByteOutputStream();
+                bos = new ByteArrayOutputStream();
                 int skipped = ConcatPDF.concat(alist, bos);
                 if (skipped > 0) {
                     // A document PDFBox could not parse was dropped — do not stream a consultation
@@ -331,7 +330,8 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                         "inline; filename=\"combinedPDF-"
                                 + UtilDateUtilities.getToday("yyyy-mm-dd.hh.mm.ss")
                                 + ".pdf\"");
-                response.getOutputStream().write(bos.getBytes(), 0, bos.getCount());
+                // writeTo emits only the written bytes, matching SAAJ's buffer/count pair.
+                bos.writeTo(response.getOutputStream());
             }
 
         } catch (DocumentException de) {

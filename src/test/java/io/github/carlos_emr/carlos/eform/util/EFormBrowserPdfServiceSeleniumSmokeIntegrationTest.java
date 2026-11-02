@@ -34,6 +34,7 @@ import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import com.sun.net.httpserver.HttpServer;
 
@@ -41,6 +42,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.openqa.selenium.WebDriverException;
+import org.openqa.selenium.SessionNotCreatedException;
+import org.openqa.selenium.remote.NoSuchDriverException;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.chromium.HasCdp;
@@ -295,34 +298,24 @@ class EFormBrowserPdfServiceSeleniumSmokeIntegrationTest {
     }
 
     private static ChromeDriver startDriverOrSkip(ChromeOptions options) {
+        // Same bounded per-command client timeouts as production createDriver.
+        return startDriverOrSkip(() -> new ChromeDriver(options, EFormBrowserPdfService.rendererClientConfig()));
+    }
+
+    static ChromeDriver startDriverOrSkip(Supplier<ChromeDriver> startDriver) {
         try {
-            // Same per-command client timeouts as production createDriver, so the smoke run
-            // exercises the bounded-connection configuration against a real chromedriver.
-            return new ChromeDriver(options, EFormBrowserPdfService.rendererClientConfig());
+            return startDriver.get();
         } catch (WebDriverException e) {
-            // Skip ONLY when chromedriver itself is genuinely unobtainable (offline host, Selenium
-            // Manager can't resolve/download a matching driver). findChromiumBinary() already
-            // guarantees a real Chromium binary exists, so a browser that starts then crashes, is
-            // missing shared libraries ("...libnss3.so: No such file"), or is a stale wrapper
-            // ("cannot find Chrome binary") is a renderer regression and must FAIL, not become a
-            // green skip. Classification is by exception TYPE only — see below for why matching on
-            // the message cannot work.
-            // The substring fallback above described an invariant Selenium does not honour, so it is
-            // gone. WebDriverException.getMessage() does not return the raw message: it calls
-            // createMessage(), which appends getAdditionalInformation(), and
-            // RemoteWebDriver.populateWebDriverException adds
-            // "Driver info: org.openqa.selenium.chrome.ChromeDriver" to EVERY session-creation
-            // failure. Lower-cased, that contains "chromedriver" — so the discriminator always
-            // passed, the classification collapsed to the OR-group, and a stale wrapper reporting
-            // "unknown error: cannot find Chrome binary" (the exact case the old comment said must
-            // FAIL) became a green skip while production aborts startup for the same condition.
-            //
-            // NoSuchDriverException is Selenium Manager's precise "could not obtain a driver" signal
-            // and needs no message parsing. A broken browser is not that exception, so it now fails.
-            boolean driverUnavailable = e instanceof org.openqa.selenium.remote.NoSuchDriverException;
-            if (driverUnavailable) {
-                assumeTrue(false, "chromedriver unavailable: " + e.getMessage());
-                throw new IllegalStateException("unreachable");
+            // A missing driver or a driver/browser version mismatch makes this optional smoke
+            // environment unavailable. Other session failures (sandbox, missing shared libraries,
+            // stale binary wrapper, browser crash) must still fail the test.
+            // Use the raw message: getMessage() appends driver metadata to every failure.
+            String rawMessage = e.getRawMessage();
+            boolean versionMismatch = e instanceof SessionNotCreatedException && rawMessage != null
+                    && rawMessage.contains("This version of ChromeDriver only supports Chrome version")
+                    && rawMessage.contains("Current browser version is");
+            if (e instanceof NoSuchDriverException || versionMismatch) {
+                assumeTrue(false, "matching chromedriver unavailable: " + rawMessage);
             }
             throw e;
         }
