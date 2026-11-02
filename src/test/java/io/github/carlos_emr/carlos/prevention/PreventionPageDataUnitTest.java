@@ -25,7 +25,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -58,6 +57,8 @@ import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.CVCImmunization;
+import io.github.carlos_emr.carlos.commn.model.CVCMapping;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager;
@@ -153,7 +154,7 @@ class PreventionPageDataUnitTest extends CarlosUnitTestBase {
         assertThat(again).isSameAs(first);
         assertThat(first).singleElement().satisfies(row -> {
             assertThat(row).containsEntry("id", "11").containsEntry("type", "Flu");
-            assertThat(row.get("age")).isEqualTo(
+            assertThat(row).containsEntry("age",
                     UtilDateUtilities.calcAgeAtDate(patient.getBirthDay().getTime(), flu.getPreventionDate()));
         });
         verify(preventionDao, times(1)).findByTypeAndDemoNo("Flu", 7);
@@ -255,7 +256,7 @@ class PreventionPageDataUnitTest extends CarlosUnitTestBase {
 
         assertThat(config.display(user, adults, PATIENT, 0)).isTrue();
         assertThat(config.display(user, children, PATIENT, 0)).isFalse();
-        verify(demographicManager, times(2)).getDemographic(eq(user), eq(PATIENT));
+        verify(demographicManager, times(2)).getDemographic(user, PATIENT);
     }
 
     @Test
@@ -307,6 +308,71 @@ class PreventionPageDataUnitTest extends CarlosUnitTestBase {
                 assertThat(event.getLevel()).isEqualTo(Level.ERROR);
                 assertThat(event.getThrown()).isInstanceOf(NumberFormatException.class);
             });
+        }
+    }
+
+    @Test
+    @DisplayName("should preserve the record threshold override of age and sex filters")
+    void shouldPreserveRecordOverride_whenPatientDoesNotMatchFilters() throws Exception {
+        PreventionDisplayConfig config = newDisplayConfig();
+        Map<String, String> type = Map.of("name", "Flu", "minAge", "200", "sex", "M", "showIfMinRecordNum", "1");
+        assertThat(config.display(type, patient, 0)).isFalse();
+        assertThat(config.display(type, patient, 1)).isTrue();
+        assertThat(config.display(Map.of("name", "Flu", "minAge", "invalid", "showIfMinRecordNum", "1"), patient, 1))
+                .isTrue();
+        when(preventionManager.hideItem("Flu")).thenReturn(true);
+        assertThat(config.display(Map.of("name", "Flu", "showIfMinRecordNum", "0"), patient, 0)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should apply demographic filters when the record threshold has not been reached")
+    void shouldApplyFilters_whenRecordThresholdIsNotReached() throws Exception {
+        PreventionDisplayConfig config = newDisplayConfig();
+        assertThat(config.display(Map.of("name", "Flu", "minAge", "18", "sex", "F", "showIfMinRecordNum", "2"), patient, 1))
+                .isTrue();
+        assertThat(config.display(Map.of("name", "Flu", "showIfMinRecordNum", "2"), patient, 1)).isFalse();
+        assertThat(config.display(Map.of("name", "Flu"), patient, 0)).isFalse();
+    }
+
+    @Test
+    @DisplayName("should preserve mapped items, preferred replacements and generic deduplication")
+    void shouldPreserveCatalogueMapping_whenLoadingConfiguredPreventions() throws Exception {
+        PreventionDisplayConfig config = newDisplayConfig();
+        CVCMappingDao savedMappings = PreventionDisplayConfig.cvcMapping;
+        CVCImmunizationDao savedImmunizations = PreventionDisplayConfig.cvcImmunizationDao;
+        CanadianVaccineCatalogueManager savedCatalogue = PreventionDisplayConfig.cvcManager;
+        CVCMappingDao mappings = mock(CVCMappingDao.class);
+        CVCImmunizationDao immunizations = mock(CVCImmunizationDao.class);
+        CanadianVaccineCatalogueManager catalogue = mock(CanadianVaccineCatalogueManager.class);
+        CVCMapping mapped = new CVCMapping();
+        mapped.setCvcSnomedId("FAKE-Td");
+        CVCMapping preferred = new CVCMapping();
+        preferred.setPreferCVC(true);
+        CVCImmunization td = mock(CVCImmunization.class);
+        when(td.getSnomedConceptId()).thenReturn("FAKE-Td");
+        when(td.getPicklistName()).thenReturn("FAKE-Td-picklist");
+        CVCImmunization mmr = mock(CVCImmunization.class);
+        when(mmr.getSnomedConceptId()).thenReturn("FAKE-MMR");
+        when(mmr.getPicklistName()).thenReturn("FAKE-MMR-picklist");
+        when(mappings.findByOscarName("Td")).thenReturn(mapped);
+        when(mappings.findByOscarName("MMR")).thenReturn(preferred);
+        when(immunizations.findBySnomedConceptId("FAKE-Td")).thenReturn(td);
+        when(catalogue.getGenericImmunizationList()).thenReturn(List.of(td, mmr));
+        try {
+            PreventionDisplayConfig.cvcMapping = mappings;
+            PreventionDisplayConfig.cvcImmunizationDao = immunizations;
+            PreventionDisplayConfig.cvcManager = catalogue;
+            config.loadPreventions();
+            assertThat(config.getPrevention("Inf")).isNotNull();
+            assertThat(config.getPrevention("Td")).containsEntry("snomedConceptCode", "FAKE-Td")
+                    .containsEntry("cvcName", "FAKE-Td-picklist");
+            assertThat(config.getPrevention("FAKE-Td-picklist")).isNull();
+            assertThat(config.getPrevention("MMR")).isNull();
+            assertThat(config.getPrevention("FAKE-MMR-picklist")).containsEntry("showIfMinRecordNum", "1");
+        } finally {
+            PreventionDisplayConfig.cvcMapping = savedMappings;
+            PreventionDisplayConfig.cvcImmunizationDao = savedImmunizations;
+            PreventionDisplayConfig.cvcManager = savedCatalogue;
         }
     }
 
