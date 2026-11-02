@@ -14,10 +14,22 @@ import jakarta.xml.bind.annotation.adapters.XmlAdapter;
 public final class RestXmlAnnotationIntrospector extends JakartaXmlBindAnnotationIntrospector {
     private static final long serialVersionUID = 1L;
 
+    /**
+     * Creates the REST introspector with the mapper's type resolution configuration.
+     *
+     * @param typeFactory TypeFactory used to resolve adapter input and output types
+     */
     public RestXmlAnnotationIntrospector(TypeFactory typeFactory) {
         super(typeFactory);
     }
 
+    /**
+     * Retains existing JSON adapter conversions while ignoring the XML-only compatibility adapter family.
+     *
+     * @param adapter XmlAdapter&lt;?, ?&gt; declared by the JAXB annotations
+     * @param forSerialization boolean indicating serialization rather than deserialization
+     * @return Converter&lt;Object, Object&gt; for ordinary adapters, or null for an XmlCompatibilityAdapter
+     */
     @Override
     protected Converter<Object, Object> _converter(XmlAdapter<?, ?> adapter, boolean forSerialization) {
         // In particular, XML's empty NUL element must remain JSON's "\u0000", including list items.

@@ -15,12 +15,14 @@ import jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter;
 /** JAXB does not apply a package's Character adapter to the generated Map entry key. */
 public final class CharacterIntegerMapXmlAdapter
         extends XmlCompatibilityAdapter<CharacterIntegerMapXmlAdapter.Entries, Map<Character, Integer>> {
+    /** XML container for ordered map entries; an empty container represents a present, empty map. */
     @jakarta.xml.bind.annotation.XmlType(name = "")
     @XmlAccessorType(XmlAccessType.FIELD)
     public static final class Entries {
         public List<Entry> entry = new ArrayList<>();
     }
 
+    /** One XML entry with a {@link Character} key and a {@link Integer} value. */
     @jakarta.xml.bind.annotation.XmlType(name = "")
     @XmlAccessorType(XmlAccessType.FIELD)
     public static final class Entry {
@@ -29,6 +31,12 @@ public final class CharacterIntegerMapXmlAdapter
         public Integer value;
     }
 
+    /**
+     * Converts a map to XML entries, preserving MOXy's omission of null and empty maps.
+     *
+     * @param value Map&lt;Character, Integer&gt; to serialize, or null
+     * @return Entries containing the map entries, or null for a null or empty map so the element is omitted
+     */
     @Override
     public Entries marshal(Map<Character, Integer> value) {
         if (value == null || value.isEmpty()) return null;
@@ -42,6 +50,12 @@ public final class CharacterIntegerMapXmlAdapter
         return result;
     }
 
+    /**
+     * Converts a present XML container to an insertion-ordered map, including an empty map.
+     *
+     * @param value Entries from XML, or null when the element is absent
+     * @return Map&lt;Character, Integer&gt; of entries, or null only when the element is absent
+     */
     @Override
     public Map<Character, Integer> unmarshal(Entries value) {
         if (value == null) return null;

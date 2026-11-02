@@ -91,8 +91,10 @@ under MOXy to 200 under Glassfish. Three other existing defects exposed by the
 inventory are corrected:
 
 - `ProfessionalSpecialist` attempted to pad a short address array by assigning past
-  its end. Actual array expansion now permits those XML setter paths to complete
-  and retains comma separators when later city/postal/province edits rebuild it.
+  its end. Single-component, empty and form-supplied replacements now rebuild the
+  component cache. Missing components are padded with empty strings; commas are
+  added only when serializing the stored address, so later street/city/postal/
+  province edits preserve separators without exposing them in component getters.
 - `ConsultationRequestTo1` initialized JAXB live collections with immutable empty
   lists, preventing the reader from adding attachments or extras. They now start
   as mutable empty lists.

@@ -1,11 +1,31 @@
-/*
+/**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
- * Licensed under the GNU General Public License, version 2 or later.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.commn.model;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Tag("unit")
@@ -18,6 +38,71 @@ class ProfessionalSpecialistAddressUnitTest {
         specialist.setPostal("A1A 1A1");
         specialist.setProvince("ON");
         assertThat(specialist.getStreetAddress()).isEqualTo("Synthetic street,Replacement city,A1A 1A1,ON,,");
-        assertThat(specialist.getAddressArray()).hasSize(5);
+        assertThat(specialist.getAddressArray()).containsExactly("Synthetic street", "Replacement city", "A1A 1A1", "ON", "");
+        assertThat(specialist.getAddress()).isEqualTo("Synthetic street");
+        assertThat(specialist.getCity()).isEqualTo("Replacement city");
+        assertThat(specialist.getPostal()).isEqualTo("A1A 1A1");
+        assertThat(specialist.getProvince()).isEqualTo("ON");
+    }
+
+    @Test
+    void shouldRetainSingleComponentStreet_whenSettingCity() {
+        ProfessionalSpecialist specialist = new ProfessionalSpecialist();
+        specialist.setStreetAddress("New street");
+        specialist.setCity("New city");
+        assertThat(specialist.getStreetAddress()).isEqualTo("New street,New city,,,,");
+        assertThat(specialist.getAddressArray()).containsExactly("New street", "New city", "", "", "");
+    }
+
+    @Test
+    void shouldDiscardStaleComponents_whenReplacingWithSingleComponentStreet() {
+        ProfessionalSpecialist specialist = new ProfessionalSpecialist();
+        specialist.setStreetAddress("Old street,Old city,A1A 1A1,ON,Canada");
+        specialist.setStreetAddress("New street");
+        specialist.setCity("New city");
+        assertThat(specialist.getStreetAddress()).isEqualTo("New street,New city,,,,");
+        assertThat(specialist.getAddressArray()).containsExactly("New street", "New city", "", "", "");
+    }
+
+    @Test
+    void shouldInitializeMissingComponents_whenSettingPostalOnFreshObject() {
+        ProfessionalSpecialist specialist = new ProfessionalSpecialist();
+        specialist.setPostal("A1A 1A1");
+        assertThat(specialist.getStreetAddress()).isEqualTo(",,A1A 1A1,,,");
+        assertThat(specialist.getPostal()).isEqualTo("A1A 1A1");
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", ",", ",,,,"})
+    void shouldClearOldComponents_whenReplacingWithEmptyAddress(String address) {
+        ProfessionalSpecialist specialist = new ProfessionalSpecialist();
+        specialist.setStreetAddress("Old street,Old city,A1A 1A1,ON,Canada");
+        specialist.setStreetAddress(address);
+        specialist.setCity("New city");
+        assertThat(specialist.getStreetAddress()).isEqualTo(",New city,,,,");
+        assertThat(specialist.getAddressArray()).containsExactly("", "New city", "", "", "");
+    }
+
+    @Test
+    void shouldPreserveCountryAndComponentValues_whenEditingCompleteAddressRepeatedly() {
+        ProfessionalSpecialist specialist = new ProfessionalSpecialist();
+        specialist.setStreetAddress("Old street,Old city,A1A 1A1,ON,Canada,");
+        specialist.setCity("New city");
+        specialist.setPostal("B2B 2B2");
+        specialist.setProvince("BC");
+        specialist.setAddress("New street");
+        specialist.setCity("Final city");
+        assertThat(specialist.getStreetAddress()).isEqualTo("New street,Final city,B2B 2B2,BC,Canada,");
+        assertThat(specialist.getAddressArray()).containsExactly("New street", "Final city", "B2B 2B2", "BC", "Canada");
+    }
+
+    @Test
+    void shouldUseFormReplacement_whenUpdatingComponents() {
+        ProfessionalSpecialist specialist = new ProfessionalSpecialist();
+        specialist.setStreetAddress("Old street,Old city");
+        specialist.setStreetAddressFromForm("New street");
+        specialist.setCity("New city");
+        assertThat(specialist.getStreetAddress()).isEqualTo("New street,New city,,,,");
     }
 }
