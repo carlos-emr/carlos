@@ -39,6 +39,7 @@ import jakarta.servlet.ServletContextEvent;
 import java.util.List;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.apache.xml.security.utils.resolver.ResourceResolver;
 import org.springframework.mock.web.MockServletContext;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
@@ -97,7 +98,9 @@ class ContextStartupListenerUnitTest {
         when(maintenance.isClinicalAccessBlocked()).thenReturn(true);
         var context = new MockServletContext();
         var listener = new ContextStartupListener();
-        try (var spring = mockStatic(SpringUtils.class)) {
+        // Startup's Santuario resolver registration must not leak into other suites in this JVM.
+        try (var spring = mockStatic(SpringUtils.class);
+                var resolvers = mockStatic(ResourceResolver.class)) {
             spring.when(() -> SpringUtils.getBean(CdsImportMaintenanceService.class)).thenReturn(maintenance);
             spring.when(() -> SpringUtils.getBean(CdsImportService.class)).thenReturn(imports);
             listener.contextInitialized(new ServletContextEvent(context));
@@ -119,7 +122,9 @@ class ContextStartupListenerUnitTest {
         var listener=spy(new ContextStartupListener());
         doThrow(new IllegalStateException("synthetic startup failure")).when(listener).initializeDefaultData(transactions);
         var context=new MockServletContext();
-        try(var spring=mockStatic(SpringUtils.class)) {
+        // The independent EBS test peer must retain WSS4J's attachment resolver.
+        try(var spring=mockStatic(SpringUtils.class);
+                var resolvers=mockStatic(ResourceResolver.class)) {
             spring.when(()->SpringUtils.getBean(CdsImportMaintenanceService.class)).thenReturn(maintenance);
             spring.when(()->SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactions);
             assertThatThrownBy(()->listener.contextInitialized(new ServletContextEvent(context)))
