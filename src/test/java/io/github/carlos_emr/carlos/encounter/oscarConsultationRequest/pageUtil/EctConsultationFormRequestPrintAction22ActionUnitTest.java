@@ -37,6 +37,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -44,6 +45,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -228,7 +230,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 31, 32, 33, 1025})
     @SuppressWarnings("unchecked")
-    void shouldPreserveExactPdfBytes_whenBuffersHaveUnusedCapacity(int length) throws Exception {
+    void shouldPreserveExactPdfBytes_whenBuffersHaveUnusedCapacity(int length) {
         byte[] payload = new byte[length];
         Arrays.fill(payload, (byte) 0x5a);
         consultationPdfCreatorConstruction.close();
@@ -258,6 +260,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         when(consultationManager.getAttachedHRMDocuments(loggedInInfo, "1", "42"))
                 .thenReturn(new ArrayList<>(List.of(hrm)));
 
+        List<Path> labFiles = new ArrayList<>();
         try (MockedConstruction<ImagePDFCreator> images = mockConstruction(ImagePDFCreator.class, (creator, context) ->
                      doAnswer(invocation -> {
                          ((OutputStream) context.arguments().get(1)).write(payload);
@@ -265,6 +268,12 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
                      }).when(creator).printPdf());
              MockedConstruction<LabPDFCreator> labs = mockConstruction(LabPDFCreator.class, (creator, context) ->
                      doAnswer(invocation -> {
+                         Path labFile = invocation.getArgument(0, File.class).toPath();
+                         labFiles.add(labFile);
+                         if (Files.getFileStore(labFile).supportsFileAttributeView("posix")) {
+                             assertThat(Files.getPosixFilePermissions(labFile)).containsExactlyInAnyOrder(
+                                     PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE);
+                         }
                          invocation.getArgument(1, OutputStream.class).write(payload);
                          return null;
                      }).when(creator).addEmbeddedDocuments(any(), any()));
@@ -289,6 +298,8 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
             assertThat(images.constructed()).hasSize(1);
             assertThat(labs.constructed()).hasSize(1);
             assertThat(hrms.constructed()).hasSize(1);
+            assertThat(labFiles).hasSize(1);
+            assertThat(labFiles.getFirst()).doesNotExist();
         }
     }
 
@@ -381,7 +392,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
                 Files.delete(rendered);
                 try {
                     Files.createSymbolicLink(rendered, foreign);
-                } catch (UnsupportedOperationException | java.io.IOException unavailable) {
+                } catch (UnsupportedOperationException | java.io.IOException _) {
                     // Windows without the privilege, or a filesystem without symlinks: the direct case still runs.
                     org.junit.jupiter.api.Assumptions.assumeTrue(false, "symbolic links are not available here");
                 }

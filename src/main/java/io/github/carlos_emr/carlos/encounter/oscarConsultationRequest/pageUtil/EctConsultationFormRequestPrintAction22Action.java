@@ -107,9 +107,13 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
 
     private static final Logger logger = MiscUtils.getLogger();
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    // Struts creates this action per request; its Spring services are not serialized.
+    @SuppressWarnings("java:S1948")
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    private ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
+    // Retain the per-request Spring binding rather than serializing a service proxy.
+    @SuppressWarnings("java:S1948")
+    private final ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
 
     private static FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
@@ -251,25 +255,30 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                     } else if (doc.isPDF()) {
                         alist.add(path + doc.getFileName());
                     } else {
-                        logger.error("EctConsultationFormRequestPrintAction: {} is marked as printable but no means have been established to print it.", LogSafe.sanitize(doc.getType()));
+                        if (logger.isErrorEnabled()) {
+                            logger.error("EctConsultationFormRequestPrintAction: {} is marked as printable but no means have been established to print it.", LogSafe.sanitize(doc.getType()));
+                        }
                     }
                 }
             }
 
             // Iterating over requested labs.
             for (int i = 0; labs != null && i < labs.size(); i++) {
-                File tempLabPDF = File.createTempFile("lab" + labs.get(i).segmentID, "pdf");
+                // Keep generated lab content owner-only, including on hosts with a shared temp root.
+                File tempLabPDF = PathValidationUtils.createSecureTempFile("lab" + labs.get(i).segmentID, "pdf");
 
                 // Defense-in-depth: verify temp file is in an allowed temp directory
                 if (!PathValidationUtils.isInAllowedTempDirectory(tempLabPDF)) {
-                    logger.error("Temp file not in allowed temp directory: {}", LogSafe.sanitize(tempLabPDF.getAbsolutePath()));
-                    tempLabPDF.delete();
+                    if (logger.isErrorEnabled()) {
+                        logger.error("Temp file not in allowed temp directory: {}", LogSafe.sanitize(tempLabPDF.getAbsolutePath()));
+                    }
+                    deleteTemporaryLab(tempLabPDF);
                     throw new SecurityException("Temp file created outside allowed temp directory");
                 }
 
                 // Storing the lab in PDF format inside a byte stream.
                 try (
-                        // tempLabPDF comes from File.createTempFile and passes the allowed-temp check.
+                        // tempLabPDF is securely created and passes the allowed-temp check.
                         // nosemgrep: carlos.httpservlet-path-traversal
                         FileOutputStream fileOutputStream = new FileOutputStream(tempLabPDF);
                         ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
@@ -286,7 +295,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                     streams.add(bis);
                     alist.add(bis);
                 }
-                tempLabPDF.delete();
+                deleteTemporaryLab(tempLabPDF);
             }
 
             // attached HRMs
@@ -380,6 +389,16 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
      * The patient the stored consultation request was written for, or {@code null} when the id is
      * missing, not a number or does not name a consultation.
      */
+    /** Keeps lab-file cleanup best-effort, as with the former File.delete call. */
+    @SuppressWarnings("java:S1166") // Preserve nonfatal cleanup without logging patient-correlating paths.
+    private static void deleteTemporaryLab(File temporaryLab) {
+        try {
+            Files.deleteIfExists(temporaryLab.toPath());
+        } catch (IOException _) {
+            // An I/O cleanup failure must not change the consultation's PDF response.
+        }
+    }
+
     private Integer findConsultationDemographicNo(String reqId) {
         if (reqId == null) {
             return null;

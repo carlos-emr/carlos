@@ -60,7 +60,8 @@ class InboxResponseUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @ValueSource(strings = {"-", "2147483648", "-2147483649", "999999999999999999999"})
     void shouldPreserveParseFailure_whenCountIsNotAnInteger(String input) {
-        assertThatThrownBy(() -> responseWithCount(input).getLabResultData(null))
+        InboxResponse response = responseWithCount(input);
+        assertThatThrownBy(() -> response.getLabResultData(null))
                 .isInstanceOf(NumberFormatException.class);
     }
 
