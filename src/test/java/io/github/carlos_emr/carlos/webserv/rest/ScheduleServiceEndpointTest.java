@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Calendar;
@@ -33,7 +34,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -47,11 +47,13 @@ import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.dao.AppointmentSearchDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.AppointmentManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
+import io.github.carlos_emr.carlos.managers.ScheduleManagerImpl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -60,7 +62,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * CXF local-transport endpoint tests for {@link ScheduleService} using CXF local transport.
  *
  * <p>These tests verify path routing, JSON serialization, and HTTP status codes
- * for the schedule/appointment REST API. All dependencies are mocked.</p>
+ * for the schedule/appointment REST API. Persistence and authorization dependencies are mocked.</p>
  *
  * @since 2026-03-31
  * @see CarlosRestTestBase
@@ -84,9 +86,11 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
     @Mock
     private BillingONCHeader1Dao mockBillingONCHeader1Dao;
 
+    private ScheduleService service;
+
     @Override
     protected Object getServiceBean() {
-        ScheduleService service = new ScheduleService();
+        service = new ScheduleService();
         injectDependency(service, "scheduleManager", mockScheduleManager);
         injectDependency(service, "appointmentManager", mockAppointmentManager);
         injectDependency(service, "demographicManager", mockDemographicManager);
@@ -115,14 +119,17 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
         })
         @DisplayName("should return the manager's 400 and message when either date is malformed")
         void shouldReturnBadRequest_whenEitherDateIsMalformed(String startDate, String endDate) {
-            when(mockScheduleManager.listProviderAppointmentCounts(any(LoggedInInfo.class), eq(startDate), eq(endDate)))
-                    .thenThrow(new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
-                            .entity("Path parameter has the wrong format").build()));
+            ScheduleManagerImpl manager = new ScheduleManagerImpl();
+            OscarAppointmentDao appointmentDao = mock(OscarAppointmentDao.class);
+            injectDependency(manager, "securityInfoManager", mockSecurityInfoManager);
+            injectDependency(manager, "oscarAppointmentDao", appointmentDao);
+            injectDependency(service, "scheduleManager", manager);
 
             try (Response response = request().path("/schedule/fetchProvidersApptsCount/" + startDate + "/" + endDate).get()) {
                 assertThat(response.getStatus()).isEqualTo(400);
                 assertThat(response.readEntity(String.class)).isEqualTo("Path parameter has the wrong format");
             }
+            verifyNoInteractions(appointmentDao);
         }
 
         @Test

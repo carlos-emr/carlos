@@ -631,6 +631,8 @@ public class ScheduleService extends AbstractServiceImpl {
      * @param sDateStr start date in format "yyyy-MM-dd"
      * @param eDateStr end date in format "yyyy-MM-dd"
      * @return ProviderApptsCountResponse containing appointment counts
+     * @throws WebApplicationException with HTTP 400 for missing or malformed dates,
+     *         or an HTTP error response if the appointment count lookup fails
      */
     @GET
     @Path("/fetchProvidersApptsCount/{sDate}/{eDate}")
