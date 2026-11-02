@@ -24,8 +24,11 @@ jobs:
           project = 'carlos-emr_carlos'
           print('QUALITY', json.dumps(get('qualitygates/project_status', projectKey=project, pullRequest=5543)))
           print('MEASURES', json.dumps(get('measures/component', component=project, pullRequest=5543, metricKeys='new_code_smells,new_technical_debt,new_development_cost,new_sqale_debt_ratio,new_maintainability_rating,new_lines')))
-          print('TARGET_ANALYSES', json.dumps(get('project_analyses/search', project=project, branch='release/2026.08', ps=3)))
-          print('BRANCHES', json.dumps(get('project_branches/list', project=project)))
+          for label, path, params in [('TARGET_ANALYSES','project_analyses/search',{'project':project,'branch':'release/2026.08','ps':3}),('BRANCHES','project_branches/list',{'project':project})]:
+              try:
+                  print(label, json.dumps(get(path, **params)))
+              except urllib.error.HTTPError as failure:
+                  print(label, 'ERROR', failure.code, failure.read().decode())
           for extra in [{}, {'sinceLeakPeriod': 'true'}, {'inNewCodePeriod': 'true'}]:
               try:
                   data = get('issues/search', componentKeys=project, pullRequest=5543, resolved='false', ps=500, **extra)
@@ -34,5 +37,5 @@ jobs:
                       for issue in data.get('issues', []):
                           print('ISSUE', json.dumps({key: issue.get(key) for key in ['key','rule','component','line','message','debt','effort','creationDate','isNew','textRange','flows']}))
               except Exception as failure:
-                  print('FILTER_ERROR', extra, type(failure).__name__, str(failure))
+                  print('FILTER_ERROR', extra, type(failure).__name__, str(failure), failure.read().decode() if isinstance(failure, urllib.error.HTTPError) else '')
           PY
