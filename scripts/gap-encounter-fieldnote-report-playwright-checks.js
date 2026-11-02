@@ -26,6 +26,7 @@
  * provider) with their eform_values on the owned patient, and a throwaway login with an owned
  * _admin.fieldnote grant. Cleanup removes them and restores the property, asserting each. Implements gap-encounter "field note report".
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates, clickDownloadsOrOpens } = require('./lib/playwright-ui');
@@ -313,7 +314,7 @@ async function workflow(s) {
       await page.locator('form[name="fieldNoteReportForm"]').waitFor();
       h.assert(await page.locator('input[onclick*="fieldnoteselect"]').count() === 0,
         'A read-only report user was offered the selection control');
-      const response = await context.request.get(`${base}/fieldnoteselect?selected_eform=${fid}`);
+      const response = await authenticatedProbe({context, config}, `${base}/fieldnoteselect?selected_eform=${fid}`);
       h.assert(response.status() === 405, 'GET was not refused for a field-note selection change');
       h.assert(response.headers().allow === 'POST', 'The mutation response advertises an unsafe method');
       await response.dispose();

@@ -18,6 +18,7 @@
  * billing-on-batch-clipboard.
  */
 
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const path = require('node:path');
 const { randomInt } = require('node:crypto');
@@ -195,7 +196,7 @@ async function workflow(s) {
   await s.step('GET against the batch submit and remove mutators is refused and writes nothing', async () => {
     const value = `${CODE};${DX};${patient};${ids.providerNo}`;
     for (const method of ['doBatchBill', 'remove']) {
-      const response = await s.context.request.get(h.appUrl(s.config.baseUrl, '/billing/CA/ON/BatchBill'), {
+      const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/billing/CA/ON/BatchBill'), {
         params: { method, bill: value, providers: ids.providerNo, service_code: 'all' }, maxRedirects: 0,
       });
       h.assert(response.status() === 405 && response.headers().allow === 'POST', `GET ${method} was not refused with 405`);

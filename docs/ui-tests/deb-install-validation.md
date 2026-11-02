@@ -3835,3 +3835,10 @@ pinned ref, and carlos-ctl 1.2.1 from its release asset. The packages were insta
 new step then **FAIL**s: "The report shows 29/10/2026 5:02 a.m., -240 minutes from the clinic's time
 29/10/2026 01:02". The race itself is reproduced by the unit tests (eight threads, distinct synthetic dates),
 not by this check: every request formats the same cached instant.
+
+### Harness coverage PR #5456 (1 November 2026)
+
+The local Ubuntu 26.04 package provenance, per-ticket runtime results, profile
+runs and published-beta2 upgrade validation are recorded in
+[harness-coverage-5456.md](harness-coverage-5456.md). That record distinguishes
+passing workflows from product findings and unavailable fixture prerequisites.

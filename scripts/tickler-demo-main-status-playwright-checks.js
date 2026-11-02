@@ -20,6 +20,7 @@
  * Env: DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR), the installed document directory; the check SKIPs
  * without it.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
@@ -186,6 +187,13 @@ async function workflow(s) {
     await offers({ complete: true, delete: true, erase: false });
   });
 
+  if(process.env.DIALOG_CONFIRMATION_TARGET==='tickler') await s.step('dismissing task Delete confirms once and preserves every task and status history',async()=>{
+    await box('first').check();const before=statuses(),history=JSON.stringify(sql.rows(`SELECT * FROM tickler_update WHERE tickler_no IN (${Object.values(tickler).join(',')}) ORDER BY id`));
+    const dialogs=await h.withExpectedDialogs(list,()=>list.locator(BUTTON.delete).click(),{accept:false});
+    if(!dialogs.length)await list.waitForLoadState('networkidle',{timeout:TIMEOUT});
+    h.assert(dialogs.length===1&&dialogs[0].type==='confirm'&&statuses()===before&&JSON.stringify(sql.rows(`SELECT * FROM tickler_update WHERE tickler_no IN (${Object.values(tickler).join(',')}) ORDER BY id`))===history,'Task Delete did not offer cancellable confirmation or changed a task after dismissal');
+  });
+
   await s.step('Delete with one tickler ticked marks only that one deleted and returns to the patient\'s list', async () => {
     await box('first').check();
     await press('delete');
@@ -245,7 +253,7 @@ async function workflow(s) {
     const fields = { checkbox: tickler.third, submit_form: 'Delete', demoview: patient, updateParent: 'true' };
     const route = h.appUrl(s.config.baseUrl, '/tickler/DbTicklerDemoMain');
     await h.assertRefused(s, { label: 'GET DbTicklerDemoMain', table: 'tickler', where, before: '1',
-      response: await s.context.request.get(route, { params: fields, maxRedirects: 0 }) });
+      response: await authenticatedProbe(s, route, { params: fields, maxRedirects: 0 }) });
     await h.assertRefused(s, { label: 'POST DbTicklerDemoMain without a CSRF token', table: 'tickler', where, before: '1',
       response: await s.context.request.post(route, { form: fields, maxRedirects: 0 }) });
     h.assert(statuses() === 'DDC', `A refused request changed a tickler (first/second/third: ${statuses()})`);

@@ -43,6 +43,8 @@
  * a form_html that predates the inputs), RTL_SCREENSHOT_DIR (default /tmp), CHROME_PATH (optional).
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
@@ -126,32 +128,43 @@ async function clickAndFindStamp(page, buttonName, label) {
   }, before);
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-rtl-signature-stamp',async({cancellation})=>{
   const recorder = createRecorder();
   const results = [];
   const step = (name, ok, detail) => { results.push({ name, ok }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`); };
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   try {
     // A self-signed front door is only acceptable on the loopback install the runbook describes.
     const loopbackTarget = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(config.baseUrl);
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    cancellation?.throwIfCancelled();
     const landing = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landing.close();
+    cancellation?.throwIfCancelled();
     const manager = await openManager(context, config, recorder, 'rtl-stamp-manager');
+    cancellation?.throwIfCancelled();
     const { fid } = await findLibraryEform(manager, config.formName);
+    cancellation?.throwIfCancelled();
     await manager.close();
+    cancellation?.throwIfCancelled();
 
     const page = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(page, 'rtl-stamp', recorder);
     await gotoApp(page, config.baseUrl, `/eform/efmformadd_data?fid=${encodeURIComponent(fid)}&demographic_no=${encodeURIComponent(config.demographicNo)}`);
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(page, 'rtl-stamp');
+    cancellation?.throwIfCancelled();
     await waitForEditor(page);
+    cancellation?.throwIfCancelled();
 
     // ---------- 1. The stored letter carries the identity inputs ----------
     const inputs = await page.evaluate(() => {
       const read = (id) => { const el = document.getElementById(id); return el ? { type: el.type, value: el.value } : null; };
       return { user_id: read('user_id'), user_ohip_no: read('user_ohip_no'), doctor_provider_no: read('doctor_provider_no') };
     });
+    cancellation?.throwIfCancelled();
     if (config.allowApFallback) {
       console.log(`[info] RTL_STAMP_ALLOW_AP_FALLBACK=true: inputs on the page: ${JSON.stringify(inputs)}`);
     } else {
@@ -164,6 +177,7 @@ async function clickAndFindStamp(page, buttonName, label) {
 
     // ---------- 2. Stamp inserts the provider's stored signature ----------
     const stamp = await clickAndFindStamp(page, 'stamp', 'Stamp');
+    cancellation?.throwIfCancelled();
     const m = /imagefile=(consult_sig_(\d+)\.png)$/.exec(stamp.src || '');
     let expected = config.expectSigner;
     if (!expected && inputs.user_id && inputs.user_ohip_no && inputs.doctor_provider_no) {
@@ -177,9 +191,11 @@ async function clickAndFindStamp(page, buttonName, label) {
     step('the stamped signature image loads (the consult_sig fixture exists and is served)', stamp.loaded,
       `naturalWidth=${stamp.width}`);
     await screenshot(page, config.screenshotDir, 'rtl-signature-stamp');
+    cancellation?.throwIfCancelled();
 
     // ---------- 3. Closing Salutation carries the same signature ----------
     const closing = await clickAndFindStamp(page, 'Closing', 'Closing Salutation');
+    cancellation?.throwIfCancelled();
     step('Closing Salutation inserts the same signature as Stamp', !!m && closing.src === stamp.src && closing.loaded,
       `src="${closing.src}" loaded=${closing.loaded}`);
 
@@ -189,6 +205,7 @@ async function clickAndFindStamp(page, buttonName, label) {
       const el = document.getElementById('carlos-apcache-lookup-failure');
       return el ? el.textContent : '';
     });
+    cancellation?.throwIfCancelled();
     step('Stamp and Closing Salutation raise no "could not be filled in" AP lookup banner', lookupNotice === '', lookupNotice);
 
     // ---------- 4. No JS failures ----------
@@ -199,7 +216,9 @@ async function clickAndFindStamp(page, buttonName, label) {
     step('no unexpected dialogs', recorder.dialogs.length === 0, JSON.stringify(recorder.dialogs));
     // Discard the unsaved letter without the unload prompt.
     await page.evaluate(() => { window.needToConfirm = false; window.onbeforeunload = null; });
+    cancellation?.throwIfCancelled();
     await page.close();
+    cancellation?.throwIfCancelled();
   } catch (error) {
     console.error('RTL signature stamp check failed:', error && error.stack || error);
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
@@ -209,5 +228,5 @@ async function clickAndFindStamp(page, buttonName, label) {
   }
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
-  process.exit(failed.length ? 1 : 0);
-})();
+  {process.exitCode=failed.length ? 1 : 0;return;}
+});
