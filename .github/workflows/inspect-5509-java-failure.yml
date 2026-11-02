@@ -1,4 +1,4 @@
-name: Inspect preserved Java failure report
+name: Classify preserved EBS peer resolver failure
 on:
   push:
     branches: [diagnostics/5509-ebs-failure]
@@ -10,120 +10,46 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Inspect sanitized artifact from run 41451705953
+      - name: Classify resolver failures without publishing raw logs
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
-          import hashlib, io, os, re, urllib.request, zipfile
-          import xml.etree.ElementTree as ET
-          url = 'https://api.github.com/repos/carlos-emr/carlos/actions/artifacts/13145603393/zip'
-          request = urllib.request.Request(url, headers={'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'})
-          request.add_unredirected_header('Authorization', 'Bearer ' + os.environ['GH_TOKEN'])
-          with urllib.request.urlopen(request, timeout=60) as response:
-              data = response.read(4 * 1024 * 1024 + 1)
-          if len(data) > 4 * 1024 * 1024:
-              raise RuntimeError('Artifact exceeds diagnostic limit')
-          expected = '757bfc9304357054da369aa7d3094a0ce8d3df6d5be01ec4b12a5e69311ff401'
-          if hashlib.sha256(data).hexdigest() != expected:
-              raise RuntimeError('Artifact digest differs from GitHub metadata')
-          def annotate(text):
+          import os, re, urllib.request
+          url = 'https://api.github.com/repos/carlos-emr/carlos/actions/jobs/125332170753/logs'
+          req = urllib.request.Request(url, headers={'Accept': 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28'})
+          req.add_unredirected_header('Authorization', 'Bearer ' + os.environ['GH_TOKEN'])
+          with urllib.request.urlopen(req, timeout=60) as response:
+              data = response.read(64 * 1024 * 1024 + 1)
+          if len(data) > 64 * 1024 * 1024:
+              raise RuntimeError('Log exceeds diagnostic limit')
+          text = data.decode('utf-8', errors='replace')
+          def note(text):
               safe = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-              print('::notice title=Preserved Java failure::' + safe)
-          failures = 0
-          with zipfile.ZipFile(io.BytesIO(data)) as archive:
-              for entry in archive.infolist():
-                  if not entry.filename.endswith('.xml'):
-                      continue
-                  if entry.file_size > 16 * 1024 * 1024:
-                      raise RuntimeError('XML report exceeds diagnostic limit')
-                  root = ET.fromstring(archive.read(entry))
-                  for case in root.iter('testcase'):
-                      for problem in case:
-                          if problem.tag not in {'error', 'failure'}:
-                              continue
-                          failures += 1
-                          test_id = case.get('classname', '') + '.' + case.get('name', '')
-                          details = [test_id, problem.tag, problem.get('type', '')]
-                          trace = problem.text or ''
-                          details.append('elapsed seconds: ' + str(float(case.get('time', '0'))))
-                          for condition in ['Connection reset', 'Broken pipe', 'Socket closed', 'Unexpected end of file', 'Read timed out', 'Connection refused', 'Too many open files', 'timed out after', 'Unexpected EOF']:
-                              if condition.lower() in trace.lower():
-                                  details.append('network condition: ' + condition)
-                          causes = re.findall(r'Caused by: ([\w.$]+)', trace)
-                          frames = re.findall(r'at ([\w.$]+)\(([^)]*\.java:\d+)\)', trace)
-                          for cause in causes[:8]:
-                              details.append('cause class: ' + cause)
-                          for method, location in frames[:8]:
-                              details.append('frame: ' + method + ' (' + location + ')')
-                          annotate(' | '.join(details))
-          annotate('Failing cases in preserved report: ' + str(failures))
-          PY
-
-  reproduce:
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    permissions:
-      contents: read
-      packages: read
-    steps:
-      - name: Checkout diagnostic source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - name: Start the normal CI runtime
-        uses: ./.github/actions/dev-container
-        with:
-          token: ${{ github.token }}
-          maven-cache: restore
-      - name: Expose peer exceptions in the disposable checkout
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilderTransportUnitTest.java')
-          old = '        if (peer != null) peer.close();'
-          text = p.read_text()
-          if text.count(old) != 1:
-              raise SystemExit('Expected teardown diagnostic insertion point changed')
-          text = text.replace(old, '        if (peer != null) {\n            peer.close();\n            peer.assertHealthy();\n        }')
-          p.write_text(text)
-          PY
-      - name: Normal build then focused EBS transport cases
-        run: |
-          docker exec carlos-tomcat-dev bash -c 'make install && mvn --batch-mode --no-transfer-progress -Dtest=EdtClientBuilderTransportUnitTest test'
-      - name: Complete suite in the same CI runtime
-        run: docker exec carlos-tomcat-dev mvn --batch-mode --no-transfer-progress test
-      - name: Publish sanitized peer failure classification
-        if: always()
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re, subprocess
-          import xml.etree.ElementTree as ET
-          def annotate(text):
-              safe = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-              print('::notice title=CI peer diagnostic::' + safe)
-          runtime = subprocess.run(['docker', 'exec', 'carlos-tomcat-dev', 'java', '-version'],
-                                   capture_output=True, text=True)
-          annotate('Runtime: ' + (runtime.stderr or runtime.stdout).splitlines()[0])
-          for p in Path('target/surefire-reports').glob('TEST-*EdtClientBuilderTransportUnitTest*.xml'):
-              root = ET.parse(p).getroot()
-              annotate('EBS report: ' + ' '.join(k + '=' + root.get(k, '?') for k in ('tests', 'failures', 'errors', 'skipped')))
-              for case in root.iter('testcase'):
-                  for problem in case:
-                      if problem.tag not in {'error', 'failure'}:
-                          continue
-                      trace = problem.text or ''
-                      parts = [case.get('classname', '') + '.' + case.get('name', ''), problem.tag,
-                               problem.get('type', ''), 'elapsed=' + case.get('time', '')]
-                      for condition in ['Unexpected end of file', 'Connection reset', 'Broken pipe', 'Read timed out', 'Connection refused', 'NoSuchAlgorithm', 'InvalidKey', 'BadPadding', 'replay', 'expired', 'signature', 'decrypt', 'attachment', 'digest', 'keystore', 'certificate', 'nonce']:
-                          if condition.lower() in trace.lower():
-                              parts.append('condition: ' + condition)
-                      for cause in re.findall(r'(?:Caused by|Suppressed): ([\w.$]+)', trace)[:16]:
-                          parts.append('cause class: ' + cause)
-                      frames = re.findall(r'at ([\w.$]+)\(([^)]*\.java:\d+)\)', trace)
-                      local = [(m, l) for m, l in frames if 'EbsHttpsTestFixture' in m or 'EdtClientBuilderTransportUnitTest' in m]
-                      for method, location in local[:16]:
-                          parts.append('source: ' + method + ' (' + location + ')')
-                      annotate(' | '.join(parts))
+              print('::notice title=Resolver failure classification::' + safe)
+          snippets = [text[m.start():m.start()+30000] for m in re.finditer('Synthetic EBS peer failed', text)]
+          seen = set()
+          count = 0
+          for snippet in snippets:
+              for match in re.finditer(r'org\.apache\.xml\.security\.utils\.resolver\.ResourceResolverException:([^\n]*)', snippet):
+                  message = match.group(1)
+                  categories = []
+                  for label, pattern in [
+                      ('NO_RESOLVER', r'no resolver|could not find a resolver'),
+                      ('MISSING_ELEMENT_ID', r'cannot resolve element|cannot find.*element'),
+                      ('DUPLICATE_ID', r'multiple.*same.*id|duplicate'),
+                      ('MISSING_ATTACHMENT', r'attachment.*not found|no attachment|cannot.*attachment'),
+                      ('UNSUPPORTED_PROTOCOL', r'unknown protocol|no protocol|unsupported protocol'),
+                      ('RESOLVER_NOT_THREAD_SAFE', r'thread.safe'),
+                  ]:
+                      if re.search(pattern, message, re.I): categories.append(label)
+                  schemes = [s for s in ('cid:', 'http:', 'https:', 'file:') if s in message]
+                  tail = snippet[match.end():match.end()+6000]
+                  frames = re.findall(r'at ([\w.$]+)\(([^)]*\.java:\d+)\)', tail)[:10]
+                  details = ['categories=' + ','.join(categories or ['UNCLASSIFIED']), 'uri_schemes=' + ','.join(schemes)]
+                  details.extend(method + ' (' + location + ')' for method, location in frames)
+                  safe = ' | '.join(details)
+                  if safe not in seen:
+                      note(safe); seen.add(safe); count += 1
+          note('Fixture exception markers=' + str(len(snippets)) + '; distinct resolver classifications=' + str(count))
           PY
