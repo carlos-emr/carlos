@@ -64,7 +64,8 @@ class LegacyJdbcJpaDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     void shouldRollBackBothWrites_whenFailureFollowsEarlierWrites() throws Exception {
-        assertThatThrownBy(() -> new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+        TransactionTemplate transaction = new TransactionTemplate(transactionManager);
+        assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
             assertThat(writeBoth()).isPositive();
             // Observe through another physical connection: neither write has auto-committed.
             try {
