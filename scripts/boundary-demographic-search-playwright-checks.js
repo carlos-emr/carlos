@@ -9,7 +9,8 @@
  * apostrophe (O'Brien), a first name with an accent (René), a first name in CJK and an address with an
  * apostrophe, and the same address typed through to its ampersand, are each found by the text a user would type. The patients are stored
  * correctly (checked byte for byte first) so a miss is the search, not the data. Sort postbacks must retain the keyword.
- * SQL-shaped input must not widen results, and markup-shaped keywords must remain literal text in the rendered page.
+ * Deliberate SQL/XSS probes may be refused by the packaged WAF. If they reach CARLOS,
+ * SQL-shaped input must not widen results and markup-shaped keywords must remain literal text.
  * Fixtures: two synthetic patients inserted by SQL whose surname starts with the run tag; cleanup removes
  * their rows and asserts none remain.
  * Implements the wave-6 "boundary values" pattern (special characters round trip: "search finds it").
@@ -22,6 +23,17 @@ const { runWorkflow } = require('./lib/workflow-session');
 const { removeMarkedPatients } = require('./lib/gap-records-fixtures');
 
 const TIMEOUT = 30000;
+
+/** Distinguish the WAF front door from CARLOS/CSRF refusals for deliberate attacks (#5244). */
+async function isVerifiedAttackRefusal(response) {
+  const status = response.status();
+  const body = await response.text();
+  const fromApplication = Object.hasOwn(response.headers(), h.APPLICATION_HEADER);
+  if (!fromApplication && h.isWafPage(status, body)) return true;
+  h.assert(status === 200 && fromApplication,
+    `The attack search did not reach application results or a verified WAF refusal (HTTP ${status})`);
+  return false;
+}
 
 async function workflow(s) {
   const { sql, marker } = s;
@@ -58,7 +70,7 @@ async function workflow(s) {
     responsePromise.catch(()=>{});
     await ui.clickAndAwaitReload(search, search.locator("input[type='submit']").first(), { timeout: TIMEOUT, label: `search ${mode}` });
     const response=await responsePromise;
-    if(allowWafRefusal&&response.status()===403&&h.isWafPage(response.status(),await response.text())) {
+    if (allowWafRefusal && await isVerifiedAttackRefusal(response)) {
       h.assert(await search.locator('a[title="Master Demographic File"]').count()===0,'Rejected search disclosed patient results');
       consumeExpectedFailure(s.recorder,mark,{status:403,path:/\/demographic\/DemographicSearch$/});guarded=true;return false;
     }
@@ -120,4 +132,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('boundary-demographic-search', workflow, { openPatient: false });
-module.exports = { workflow };
+module.exports = { workflow, isVerifiedAttackRefusal };
