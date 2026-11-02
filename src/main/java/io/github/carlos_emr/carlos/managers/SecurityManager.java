@@ -28,7 +28,6 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
-import org.apache.cxf.common.util.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.SecurityArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
@@ -277,15 +276,15 @@ public class SecurityManager {
             return false;
         }
 
-        if (StringUtils.isEmpty(security.getPassword())) {
+        if (security.getPassword() == null || security.getPassword().trim().isEmpty()) {
             return false;
         }
 
-        if (StringUtils.isEmpty(security.getProviderNo())) {
+        if (security.getProviderNo() == null || security.getProviderNo().trim().isEmpty()) {
             return false;
         }
 
-        if (StringUtils.isEmpty(security.getUserName())) {
+        if (security.getUserName() == null || security.getUserName().trim().isEmpty()) {
             return false;
         }
 

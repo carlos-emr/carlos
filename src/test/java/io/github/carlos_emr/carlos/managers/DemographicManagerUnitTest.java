@@ -1152,6 +1152,36 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         }
 
         @Test
+        void shouldArchiveNullToLiteralNullChange_whenUpdatingCustomFields() {
+            DemographicCust existing = createTestDemographicCust(TEST_DEMO_NO);
+            DemographicCust updated = createTestDemographicCust(TEST_DEMO_NO);
+            existing.setAlert(null);
+            updated.setAlert("null");
+            when(mockDemographicCustDao.find(TEST_DEMO_NO)).thenReturn(existing);
+
+            manager.createUpdateDemographicCust(mockLoggedInInfo, updated);
+
+            verify(mockDemographicCustArchiveDao).archiveDemographicCust(existing);
+            verify(mockDemographicCustDao).merge(updated);
+        }
+
+        @Test
+        void shouldPreserveNullEquality_whenCustomFieldsAreUnchanged() {
+            DemographicCust existing = createTestDemographicCust(TEST_DEMO_NO);
+            DemographicCust updated = createTestDemographicCust(TEST_DEMO_NO);
+            existing.setAlert(null);
+            updated.setAlert(null);
+            existing.setNotes("null");
+            updated.setNotes("null");
+            when(mockDemographicCustDao.find(TEST_DEMO_NO)).thenReturn(existing);
+
+            manager.createUpdateDemographicCust(mockLoggedInInfo, updated);
+
+            verify(mockDemographicCustArchiveDao, never()).archiveDemographicCust(any());
+            verify(mockDemographicCustDao).merge(updated);
+        }
+
+        @Test
         @DisplayName("should not archive when DemographicCust unchanged")
         void shouldNotArchive_whenDemographicCustUnchanged() {
             DemographicCust existing = createTestDemographicCust(TEST_DEMO_NO);
