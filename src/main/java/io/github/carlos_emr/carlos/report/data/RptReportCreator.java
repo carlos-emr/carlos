@@ -387,7 +387,7 @@ public final class RptReportCreator {
      */
     public String getRltSubQuery(String sql, Object... params) throws SQLException {
         List<String> ids = new ArrayList<>();
-        for (var row : ConfiguredReportQuery.read(sql, params).rows()) ids.add(String.valueOf(row.firstInteger()));
+        for (Integer id : ConfiguredReportQuery.identifiers(sql, params)) ids.add(String.valueOf(id));
         return ids.isEmpty() ? "0" : String.join(",", ids);
     }
 

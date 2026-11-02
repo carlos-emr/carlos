@@ -88,7 +88,8 @@ public class SQLDenominator implements Denominator {
                 list.add(row.text(resultString));
             }
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Clinical report denominator query failed — results may be incomplete", e);
+            MiscUtils.getLogger().error("Clinical report denominator query failed", e);
+            throw new IllegalStateException("Clinical report could not be completed; narrow the filters or retry", e);
         }
         return list;
     }

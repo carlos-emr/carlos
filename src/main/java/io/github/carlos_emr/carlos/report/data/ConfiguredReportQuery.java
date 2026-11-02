@@ -37,6 +37,7 @@ import java.util.TreeMap;
 public final class ConfiguredReportQuery {
     public static final int MAX_ROWS = 10_000;
     public static final int TIMEOUT_SECONDS = 30;
+    public static final int MAX_IDENTIFIER_ROWS = 100_000;
     public static final int MAX_OUTPUT_CHARACTERS = 5 * 1024 * 1024;
 
     private ConfiguredReportQuery() { }
@@ -67,12 +68,16 @@ public final class ConfiguredReportQuery {
             return integerValue(value(column));
         }
 
-        public int firstInteger() {
+        public int firstInteger() throws SQLException {
             return integerValue(values.get(0));
         }
 
-        private static int integerValue(String value) {
-            return value == null ? 0 : new java.math.BigDecimal(value.trim()).intValue();
+        private static int integerValue(String value) throws SQLException {
+            try {
+                return value == null ? 0 : new java.math.BigDecimal(value.trim()).intValueExact();
+            } catch (NumberFormatException | ArithmeticException e) {
+                throw new SQLException("Report identifier is not a valid integer", e);
+            }
         }
     }
 
@@ -83,17 +88,45 @@ public final class ConfiguredReportQuery {
         }
     }
 
+    /** A budget breach is distinct from a query/connection failure for report feedback. */
+    public static class LimitExceededException extends SQLException {
+        private static final long serialVersionUID = 1L;
+        public LimitExceededException(String message) { super(message); }
+    }
+
+    /** Reads the first matching row only, for clinical numerator existence/output checks. */
+    public static Result readFirst(String sql, Object... parameters) throws SQLException {
+        return readRows(sql, true, parameters);
+    }
+
+    /** Bounded internal identifier sets can exceed the rendered report's 10,000-row budget. */
+    public static List<Integer> identifiers(String sql, Object... parameters) throws SQLException {
+        try (var rows = LegacyJdbcQuery.getBoundedReportResultSet(
+                LegacyJdbcQuery.trustedReportSelectSql(sql), MAX_IDENTIFIER_ROWS, TIMEOUT_SECONDS, parameters)) {
+            List<Integer> result = new ArrayList<>();
+            while (rows.next()) {
+                if (result.size() == MAX_IDENTIFIER_ROWS) throw new LimitExceededException("Report identifier budget exceeded; narrow the filters");
+                result.add(rows.getInt(1));
+            }
+            return List.copyOf(result);
+        }
+    }
+
     /** Reads the complete bounded result and releases all JDBC resources before returning. */
     public static Result read(String sql, Object... parameters) throws SQLException {
+        return readRows(sql, false, parameters);
+    }
+
+    private static Result readRows(String sql, boolean firstOnly, Object... parameters) throws SQLException {
         try (var rows = LegacyJdbcQuery.getBoundedReportResultSet(
-                LegacyJdbcQuery.trustedReportSelectSql(sql), MAX_ROWS, TIMEOUT_SECONDS, parameters)) {
+                LegacyJdbcQuery.trustedReportSelectSql(sql), firstOnly ? 1 : MAX_ROWS, TIMEOUT_SECONDS, parameters)) {
             var metadata = rows.getMetaData();
             List<String> names = new ArrayList<>();
             for (int i = 1; i <= metadata.getColumnCount(); i++) names.add(metadata.getColumnName(i));
             List<Row> result = new ArrayList<>();
             long characters = names.stream().mapToLong(String::length).sum();
             while (rows.next()) {
-                if (result.size() == MAX_ROWS) throw new SQLException("Report row budget exceeded; narrow the report filters");
+                if (result.size() == MAX_ROWS) throw new LimitExceededException("Report row budget exceeded; narrow the report filters");
                 Map<String, String> columns = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
                 List<String> values = new ArrayList<>();
                 for (int i = 1; i <= names.size(); i++) {
@@ -106,9 +139,10 @@ public final class ConfiguredReportQuery {
                         columns.put(table + "." + names.get(i - 1), value);
                     }
                     characters += value == null ? 0 : value.length();
-                    if (characters > MAX_OUTPUT_CHARACTERS) throw new SQLException("Report output budget exceeded; narrow the report filters");
+                    if (characters > MAX_OUTPUT_CHARACTERS) throw new LimitExceededException("Report output budget exceeded; narrow the report filters");
                 }
                 result.add(new Row(columns, values));
+                if (firstOnly) break;
             }
             return new Result(names, result);
         }

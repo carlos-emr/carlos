@@ -26,7 +26,6 @@ import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.util.List;
-import java.util.Date;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("dao")
 class AntenatalReportDaoIntegrationTest extends CarlosTestBase {
     @Autowired private DemographicExtDao extensions;
+    @Autowired private AntenatalReportDao reports;
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager entityManager;
 
     @Test
@@ -50,11 +50,32 @@ class AntenatalReportDaoIntegrationTest extends CarlosTestBase {
         extension(firstPatient, "another key", "outside key", 4000);
         entityManager.flush();
         assertThat(extensions.findReportValues("report5549", List.of(firstPatient, secondPatient), true))
-                .extracting(DemographicExt::getId).containsExactly(newer.getId());
+                .extracting(DemographicExtDao.ReportValue::id).containsExactly(newer.getId());
         assertThat(extensions.findReportValues("report5549", List.of(firstPatient, secondPatient), false))
-                .extracting(DemographicExt::getId).containsExactly(older.getId(), newer.getId());
+                .extracting(DemographicExtDao.ReportValue::id).containsExactly(older.getId(), newer.getId());
         assertThat(extensions.findReportValues("report5549", List.of(), true)).isEmpty();
         assertThat(extensions.findReportValues("report5549' or '1'='1", List.of(firstPatient, secondPatient), false)).isEmpty();
+    }
+
+    @Test
+    void shouldMapDistinctIdentifiersAndNulls_forBirthSummaryRows() {
+        entityManager.createNativeQuery("create temporary table formBCBirthSumMo (demographic_no integer)").executeUpdate();
+        try {
+            entityManager.createNativeQuery("insert into formBCBirthSumMo values (7), (7), (null), (11)").executeUpdate();
+            assertThat(reports.birthSummaryDemographics()).containsExactlyInAnyOrder(7, 0, 11);
+        } finally {
+            entityManager.createNativeQuery("drop table formBCBirthSumMo").executeUpdate();
+        }
+    }
+
+    @Test
+    void shouldChooseHighestIdentifier_whenLatestDatesTie() {
+        int patient = patient();
+        extension(patient, "tie5549", "first", 2000);
+        DemographicExt second = extension(patient, "tie5549", "second", 2000);
+        entityManager.clear();
+        assertThat(extensions.findReportValues("tie5549", List.of(patient), true))
+                .extracting(DemographicExtDao.ReportValue::id).containsExactly(second.getId());
     }
 
     private int patient() {
@@ -72,8 +93,11 @@ class AntenatalReportDaoIntegrationTest extends CarlosTestBase {
 
     private DemographicExt extension(int demographic, String key, String value, long date) {
         DemographicExt row = new DemographicExt("5549", demographic, key, value);
-        row.setDateCreated(new Date(date));
         entityManager.persist(row);
+        entityManager.flush();
+        // Lifecycle callbacks replace dateCreated on JPA writes; set the native fixture after persist.
+        entityManager.createNativeQuery("update demographicExt set date_time=?1 where id=?2")
+                .setParameter(1, new java.sql.Timestamp(date)).setParameter(2, row.getId()).executeUpdate();
         return row;
     }
 }

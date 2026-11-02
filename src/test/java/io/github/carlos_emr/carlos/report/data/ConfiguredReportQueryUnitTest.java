@@ -97,4 +97,48 @@ class ConfiguredReportQueryUnitTest {
         }
         verify(rows).close();
     }
+
+    @Test
+    void shouldReadOnlyFirstMatch_forNumeratorOutput() throws Exception {
+        ResultSet rows = mock(ResultSet.class);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(rows.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnCount()).thenReturn(1);
+        when(metadata.getColumnName(1)).thenReturn("value");
+        when(metadata.getColumnLabel(1)).thenReturn("value");
+        when(rows.next()).thenReturn(true); // Would exceed every row budget if fully materialized.
+        when(rows.getString(1)).thenReturn("first match");
+        try (var jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), eq(1), eq(30), any(Object[].class))).thenReturn(rows);
+            assertThat(ConfiguredReportQuery.readFirst("select value from report").rows())
+                    .singleElement().satisfies(row -> assertThat(row.values()).containsExactly("first match"));
+        }
+        verify(rows, times(1)).next();
+        verify(rows).close();
+    }
+
+    @Test
+    void shouldRejectInvalidOrOverflowingIdentifiers_withSqlExceptions() throws Exception {
+        for (String value : List.of("2147483648", "-2147483649", "1.5", "not a number")) {
+            var row = new ConfiguredReportQuery.Row(java.util.Map.of("id", value), List.of(value));
+            assertThatThrownBy(() -> row.integer("id")).isInstanceOf(SQLException.class);
+            assertThatThrownBy(row::firstInteger).isInstanceOf(SQLException.class);
+        }
+        var row = new ConfiguredReportQuery.Row(java.util.Map.of("id", "2147483647"), List.of("2147483647"));
+        assertThat(row.firstInteger()).isEqualTo(Integer.MAX_VALUE);
+    }
+
+    @Test
+    void shouldAllowLargeInternalIdentifierSets_beyondRenderedRowLimit() throws Exception {
+        ResultSet rows = mock(ResultSet.class);
+        var count = new java.util.concurrent.atomic.AtomicInteger();
+        when(rows.next()).thenAnswer(call -> count.getAndIncrement() < 10_001);
+        when(rows.getInt(1)).thenReturn(7);
+        try (var jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), eq(100_000), eq(30), any(Object[].class))).thenReturn(rows);
+            assertThat(ConfiguredReportQuery.identifiers("select id from report")).hasSize(10_001).containsOnly(7);
+        }
+        verify(rows).close();
+    }
+
 }

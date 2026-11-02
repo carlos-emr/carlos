@@ -20,7 +20,7 @@
             out.clearBuffer();
             // This JSP lives below WEB-INF; use the registered servlet name so relocation and
             // the Struts URL mapper cannot turn the authenticated CSV export into a 404.
-            request.getServletContext().getNamedDispatcher("reportDownload").include(request, response);
+            request.getServletContext().getNamedDispatcher("reportDownload").forward(request, response);
             return;
         }
     }

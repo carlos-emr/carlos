@@ -30,9 +30,9 @@ SQL through the clinical EntityManager:
 
 | Workflow | Execution boundary and limits |
 | --- | --- |
-| Query by Example | Unchanged `RptByExampleData` and `ReportingConnectionService`: separate least-privileged reporting account, `QueryByExampleSqlValidator` table/column allowlists, 15 second timeout, 1,000 rows, 1,000,000 output characters, cancellation and audit. It fails closed when that account is unavailable. |
-| Configured form/antenatal exports and clinical denominator/numerator SQL | `ConfiguredReportQuery`: validated report SELECT, bound values, managed legacy JDBC datasource, 30 seconds, 10,000 rows, 5 Mi characters per query. Results detach before returning; excess rows/output fail instead of returning partial results. The CSV servlet also rejects downloads exceeding 5 MiB in UTF-8. Existing form-table/column validation and configuration permissions remain in their callers. |
-| Report by Template | `ReportObjectGeneric` parameterization/validation and active-template checks remain. `SQLReporter` retains its metadata-dependent HTML/CSV rendering on a managed JDBC result, with the same 30 second, 10,000 row, 5 Mi character read budget and existing 5 MiB CSV cap. All resources close on success, timeout, limit rejection, and rendering failure. |
+| Query by Example | Unchanged `RptByExampleData` and `ReportingConnectionService`: separate least-privileged reporting account, `QueryByExampleSqlValidator` table/column allowlists checked before execution (including favourites), 15 second timeout, 1,000 rows, 1,000,000 output characters, cancellation and audit. It fails closed when that account is unavailable. |
+| Configured form/antenatal exports and clinical denominator/numerator SQL | `ConfiguredReportQuery`: validated report SELECT, bound values, managed legacy JDBC datasource, 30 seconds, 10,000 rows, 5 Mi characters per query. Results detach before returning; excess rows/output fail instead of returning partial results. Internal identifier sets use a separate 100,000-ID limit and the same 30 second timeout; the rendered row budget is applied only to result rows. The CSV servlet also rejects downloads exceeding 5 MiB in UTF-8. Existing form-table/column validation and configuration permissions remain in their callers. |
+| Report by Template | Template SQL is validated when saved and again before execution; `ReportObjectGeneric` parameterization and active-template checks remain. `SQLReporter` retains its metadata-dependent HTML/CSV rendering on a managed JDBC result, with the same 30 second, 10,000 row, 5 Mi character read budget and existing 5 MiB CSV cap. All resources close on success, timeout, limit rejection, and rendering failure. |
 | Form column discovery | The existing encounterForm table allowlist and bare-identifier validation remain; a bounded metadata read returns column names even when the table is empty. |
 
 Configured clinical and legacy form reports continue using their existing managed
@@ -41,6 +41,11 @@ requires a separate compatibility and grant review; the Query by Example policy
 must not be widened to accommodate them. Timeout cancellation is performed by the
 JDBC driver's `setQueryTimeout`; closing the wrapper releases the statement and
 Spring-managed connection. No report SQL or patient values are added to audit logs.
+
+Query failures and budget breaches intentionally propagate instead of becoming successful empty
+exports. Clinical denominator/numerator failures abort the report rather than reporting a zero
+population or silently excluding patients. Numerator existence/output checks read only their first
+matching row. Caption lookup retains its legacy empty-caption fallback for database failures.
 
 ## Jasper and remaining legacy APIs
 

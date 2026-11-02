@@ -227,7 +227,7 @@ public class SQLReporter implements Reporter {
                 }
             }
         } catch (SQLException sqe) {
-            csv = null;
+            csv = sqe instanceof ConfiguredReportQuery.LimitExceededException ? null : "";
             String detail = sqe.getCause() != null ? sqe.getCause().toString() : sqe.getMessage();
             rsHtml += Encode.forHtml(detail);
             MiscUtils.getLogger().error("Error", sqe);
@@ -244,11 +244,11 @@ public class SQLReporter implements Reporter {
         long characters = 0;
         int columns = rs.getMetaData().getColumnCount();
         while (rs.next()) {
-            if (++rowCount > ConfiguredReportQuery.MAX_ROWS) throw new SQLException("Report row budget exceeded");
+            if (++rowCount > ConfiguredReportQuery.MAX_ROWS) throw new ConfiguredReportQuery.LimitExceededException("Report row budget exceeded");
             for (int i = 1; i <= columns; i++) {
                 String value = rs.getString(i);
                 characters += value == null ? 0 : value.length();
-                if (characters > ConfiguredReportQuery.MAX_OUTPUT_CHARACTERS) throw new SQLException("Report output budget exceeded");
+                if (characters > ConfiguredReportQuery.MAX_OUTPUT_CHARACTERS) throw new ConfiguredReportQuery.LimitExceededException("Report output budget exceeded");
             }
         }
         rs.beforeFirst();

@@ -62,6 +62,8 @@ import org.apache.commons.csv.CSVPrinter;
 public class RptDownloadCSVServlet extends HttpServlet {
 
     private static final Logger _logger = MiscUtils.getLogger();
+    public static final int MAX_CSV_EXPORT_BYTES = 5 * 1024 * 1024;
+
     String reportName = "";
     String DELIMETER = "\t";
 
@@ -83,7 +85,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
         }
 
         if (in != null && in.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
-                > ConfiguredReportQuery.MAX_OUTPUT_CHARACTERS) {
+                > MAX_CSV_EXPORT_BYTES) {
             response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, "Report is too large; narrow the report filters");
             return;
         }
@@ -98,8 +100,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 int len = b.length;
                 int n = 0;
                 int FIXED_LEN = 2048;
-                String contentType = "application/unknow";
-                MiscUtils.getLogger().debug("contentType: " + contentType);
+                response.setContentType("text/csv; charset=UTF-8");
                 response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
                 while (n <= len - FIXED_LEN) {
                     out.write(b, n, FIXED_LEN); // b.flush();
@@ -412,8 +413,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
                         for (var extension : SpringUtils.getBean(
                                 DemographicExtDao.class)
                                 .findReportValues(temp[i].trim(), numbers, true)) {
-                            propSpecValue.setProperty(extension.getDemographicNo() + temp[i],
-                                    extension.getValue() == null ? "" : extension.getValue());
+                            propSpecValue.setProperty(extension.demographicNo() + temp[i],
+                                    extension.value() == null ? "" : extension.value());
                         }
                     }
                 } else {
@@ -435,8 +436,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 List<Object> subQueryParams = new ArrayList<>();
                 subQueryParams.addAll(demoFilterParams);
                 subQueryParams.addAll(specFilterParams);
-                for (var row : ConfiguredReportQuery.read(subQuery, subQueryParams.toArray()).rows()) {
-                    subDemoNoList.add(String.valueOf(row.integer("demographic.demographic_no")));
+                for (Integer number : ConfiguredReportQuery.identifiers(subQuery, subQueryParams.toArray())) {
+                    subDemoNoList.add(String.valueOf(number));
                 }
                 // Build comma-separated string — subFormDemoNo built from row.integer() (integer-only)
                 String subFormDemoNo = subDemoNoList.isEmpty() ? "0" : String.join(",", subDemoNoList);
@@ -449,8 +450,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
                         for (var extension : SpringUtils.getBean(
                                 DemographicExtDao.class)
                                 .findReportValues(temp[i].trim(), numbers, true)) {
-                            propSpecValue.setProperty(extension.getDemographicNo() + temp[i],
-                                    extension.getValue() == null ? "" : extension.getValue());
+                            propSpecValue.setProperty(extension.demographicNo() + temp[i],
+                                    extension.value() == null ? "" : extension.value());
                         }
                     }
                 } else {
@@ -498,8 +499,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
             List<Object> subQueryParams = new ArrayList<>();
             subQueryParams.addAll(demoFilterParams);
             subQueryParams.addAll(arFilterParams);
-            for (var row : ConfiguredReportQuery.read(subQuery, subQueryParams.toArray()).rows()) {
-                subFormId += (subFormId.length() > 0 ? "," : "") + row.integer("max(ID)");
+            for (Integer number : ConfiguredReportQuery.identifiers(subQuery, subQueryParams.toArray())) {
+                subFormId += (subFormId.length() > 0 ? "," : "") + number;
             }
 
             sTempEle = sARSelect.length() > 0 ? ("," + sARSelect) : "";
@@ -540,8 +541,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 List<Object> subQueryParams = new ArrayList<>();
                 subQueryParams.addAll(demoFilterParams);
                 subQueryParams.addAll(arFilterParams);
-                for (var row : ConfiguredReportQuery.read(subQuery, subQueryParams.toArray()).rows()) {
-                    subFormId += (subFormId.length() > 0 ? "," : "") + row.integer("max(ID)");
+                for (Integer number : ConfiguredReportQuery.identifiers(subQuery, subQueryParams.toArray())) {
+                    subFormId += (subFormId.length() > 0 ? "," : "") + number;
                 }
 
                 sTempEle = sARSelect.length() > 0 ? ("," + sARSelect) : "";
@@ -581,8 +582,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
                         for (var extension : SpringUtils.getBean(
                                 DemographicExtDao.class)
                                 .findReportValues(temp[i].trim(), numbers, false)) {
-                            propSpecValue.setProperty(extension.getDemographicNo() + temp[i],
-                                    extension.getValue() == null ? "" : extension.getValue());
+                            propSpecValue.setProperty(extension.demographicNo() + temp[i],
+                                    extension.value() == null ? "" : extension.value());
                         }
                     }
                 } else {
@@ -606,8 +607,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 List<Object> subQueryParams1 = new ArrayList<>();
                 subQueryParams1.addAll(demoFilterParams);
                 subQueryParams1.addAll(specFilterParams);
-                for (var row : ConfiguredReportQuery.read(subQuery, subQueryParams1.toArray()).rows()) {
-                    subDemoNoList.add(String.valueOf(row.integer("demographic.demographic_no")));
+                for (Integer number : ConfiguredReportQuery.identifiers(subQuery, subQueryParams1.toArray())) {
+                    subDemoNoList.add(String.valueOf(number));
                 }
                 // get value for spec
                 String[] temp = sSpecSelect.replaceAll("demographicExt.", "").split(",");
@@ -618,8 +619,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
                         for (var extension : SpringUtils.getBean(
                                 DemographicExtDao.class)
                                 .findReportValues(temp[i].trim(), numbers, true)) {
-                            propSpecValue.setProperty(extension.getDemographicNo() + temp[i],
-                                    extension.getValue() == null ? "" : extension.getValue());
+                            propSpecValue.setProperty(extension.demographicNo() + temp[i],
+                                    extension.value() == null ? "" : extension.value());
                         }
                     }
                 } else {
@@ -638,8 +639,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 List<Object> subQueryParams2 = new ArrayList<>();
                 subQueryParams2.addAll(demoFilterParams);
                 subQueryParams2.addAll(arFilterParams);
-                for (var row : ConfiguredReportQuery.read(subQuery, subQueryParams2.toArray()).rows()) {
-                    subFormId += (subFormId.length() > 0 ? "," : "") + row.integer("max(ID)");
+                for (Integer number : ConfiguredReportQuery.identifiers(subQuery, subQueryParams2.toArray())) {
+                    subFormId += (subFormId.length() > 0 ? "," : "") + number;
                 }
 
                 // total — subFormDemoNo and subFormId built from row.integer() (integer-only)

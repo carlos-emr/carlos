@@ -126,8 +126,12 @@ public class RptTableFieldNameCaption {
 
     public Properties getNameCaptionProp(String tableName) {
         Properties ret = new Properties();
-        for (ReportTableFieldCaption r : dao().findByTableName(tableName)) {
-            ret.setProperty(RptReportConfigData.text(r.getName()), RptReportConfigData.text(r.getCaption()));
+        try {
+            for (ReportTableFieldCaption r : dao().findByTableName(tableName)) {
+                ret.setProperty(RptReportConfigData.text(r.getName()), RptReportConfigData.text(r.getCaption()));
+            }
+        } catch (org.springframework.dao.DataAccessException | jakarta.persistence.PersistenceException e) {
+            logger.error("getNameCaptionProp() database read failed", e);
         }
         return ret;
     }

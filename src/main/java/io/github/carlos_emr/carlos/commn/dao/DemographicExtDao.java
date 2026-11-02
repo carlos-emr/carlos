@@ -39,11 +39,18 @@ import io.github.carlos_emr.carlos.commn.model.enumerator.DemographicExtKey;
 
 public interface DemographicExtDao extends AbstractDao<DemographicExt> {
 
+    /** Scalar export projection that avoids loading patient associations. */
+    record ReportValue(Integer id, Integer demographicNo, String value) { }
+
     /**
-     * Fixed antenatal export lookup. latestOnly preserves the legacy single latest row across
-     * the entire selected cohort, rather than changing it to one latest row per patient.
+     * Finds fixed antenatal export values in timestamp and identifier order.
+     * latestOnly preserves the legacy single latest row across the entire selected cohort.
+     * @param key String extension key
+     * @param demographicNumbers Collection of Integer patient identifiers
+     * @param latestOnly boolean whether to return only the latest cohort value
+     * @return List of ReportValue scalar rows, empty for an empty cohort
      */
-    List<DemographicExt> findReportValues(String key, Collection<Integer> demographicNumbers, boolean latestOnly);
+    List<ReportValue> findReportValues(String key, Collection<Integer> demographicNumbers, boolean latestOnly);
 
     public DemographicExt getDemographicExt(Integer id);
 

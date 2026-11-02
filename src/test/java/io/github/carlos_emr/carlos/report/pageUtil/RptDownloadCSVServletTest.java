@@ -55,7 +55,7 @@ class RptDownloadCSVServletTest {
     private static Method demoReportMethod;
 
 
-    private MockedStatic<ConfiguredReportQuery> dbHelpMock;
+    private MockedStatic<ConfiguredReportQuery> configuredQueryMock;
 
     @BeforeAll
     static void setUpReflection() throws NoSuchMethodException {
@@ -65,14 +65,14 @@ class RptDownloadCSVServletTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        dbHelpMock = mockStatic(ConfiguredReportQuery.class);
+        configuredQueryMock = mockStatic(ConfiguredReportQuery.class);
     }
 
     @AfterEach
     void tearDown() {
-        if (dbHelpMock != null) {
-            dbHelpMock.close();
-            dbHelpMock = null;
+        if (configuredQueryMock != null) {
+            configuredQueryMock.close();
+            configuredQueryMock = null;
         }
     }
 
@@ -188,6 +188,22 @@ class RptDownloadCSVServletTest {
         }
     }
 
+    @Test
+    void shouldRejectUtf8ByteOversize_whenCharacterCountFits() throws Exception {
+        String value = "€".repeat(RptDownloadCSVServlet.MAX_CSV_EXPORT_BYTES / 2);
+        var row = new ConfiguredReportQuery.Row(java.util.Map.of("last_name", value), List.of(value));
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(
+                        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenReturn(new ConfiguredReportQuery.Result(List.of("last_name"), List.of(row)));
+        var request = baseRequest(); request.getSession(true);
+        request.setParameter("demoReport", "true"); request.setParameter("last_name", "on");
+        addFilter(request, 1, "demographic.demographic_no=42", "unused", "");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        new RptDownloadCSVServlet().service(request, response);
+        assertThat(response.getStatus()).isEqualTo(413);
+        assertThat(response.getContentAsString()).isEmpty();
+    }
+
     private MockHttpServletRequest baseRequest() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
@@ -208,10 +224,16 @@ class RptDownloadCSVServletTest {
 
     private List<SqlCall> invokeDemoReport(MockHttpServletRequest request) throws Exception {
         List<SqlCall> sqlCalls = new ArrayList<>();
-        dbHelpMock.when(() -> ConfiguredReportQuery.read(
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.any(Object[].class)))
-                .thenAnswer(invocation -> captureDbHelpCall(sqlCalls, invocation));
+                .thenAnswer(invocation -> captureConfiguredQueryCall(sqlCalls, invocation));
+        configuredQueryMock.when(() -> ConfiguredReportQuery.identifiers(
+                        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    sqlCalls.add(new SqlCall(invocation.getArgument(0), extractBindParameters(invocation.getArguments())));
+                    return List.of();
+                });
 
         try {
             demoReportMethod.invoke(new RptDownloadCSVServlet(), request);
@@ -225,7 +247,7 @@ class RptDownloadCSVServletTest {
         return sqlCalls;
     }
 
-    private ConfiguredReportQuery.Result captureDbHelpCall(List<SqlCall> sqlCalls, InvocationOnMock invocation) {
+    private ConfiguredReportQuery.Result captureConfiguredQueryCall(List<SqlCall> sqlCalls, InvocationOnMock invocation) {
         sqlCalls.add(new SqlCall(
                 invocation.getArgument(0),
                 extractBindParameters(invocation.getArguments())));

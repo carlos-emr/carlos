@@ -93,5 +93,27 @@ public class ReportFilterDaoIntegrationTest extends CarlosTestBase {
             long count = reportFilterDao.getCountAll();
             assertThat(count).isEqualTo(1);
         }
+    }    @Test
+    void shouldFilterReportAndStatusInOrder_forConfiguredFilters() {
+        var later = reportFilter(55491, 1, 3);
+        var earlier = reportFilter(55491, 1, 1);
+        var deleted = reportFilter(55491, 0, 2);
+        var other = reportFilter(55492, 1, 1);
+        assertThat(reportFilterDao.findByReportIdAndStatus(55491, 1))
+                .extracting(ReportFilter::getId).containsExactly(earlier.getId(), later.getId());
+        assertThat(reportFilterDao.findByReportIdAndStatus(55491, 0))
+                .extracting(ReportFilter::getId).containsExactly(deleted.getId());
+        assertThat(reportFilterDao.findByReportIdAndStatus(null, 1))
+                .extracting(ReportFilter::getId).contains(earlier.getId(), later.getId(), other.getId()).doesNotContain(deleted.getId());
     }
+
+    private ReportFilter reportFilter(int report, int status, int order) {
+        ReportFilter row = new ReportFilter();
+        row.setReportId(report); row.setStatus(status); row.setOrderNo(order);
+        row.setDescription("synthetic filter"); row.setValue("1=1"); row.setPosition("");
+        row.setJavascript(""); row.setDateFormat("");
+        reportFilterDao.persist(row);
+        return row;
+    }
+
 }

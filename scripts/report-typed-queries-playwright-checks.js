@@ -9,7 +9,13 @@ async function workflow(s) {
   const page = await s.context.newPage();
   const base = String(s.config.baseUrl).replace(/\/$/, '');
   let reportId, billingId;
+  const roleProvider = `R${marker.slice(-5)}`;
+  let ownsRoleProvider = false;
   s.cleanup(() => {
+    if (ownsRoleProvider) {
+      sql.execute(`DELETE FROM secUserRole WHERE provider_no=${q(roleProvider)}; DELETE FROM provider WHERE provider_no=${q(roleProvider)} AND last_name=${q(marker)}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(roleProvider)} AND last_name=${q(marker)}`) === '0', 'Owned role provider remains');
+    }
     // Recover generated IDs by the owned markers even if navigation failed after a committed write.
     const reports = sql.rows(`SELECT id FROM reportItem WHERE report_name=${q(marker)}`).map(row => row[0]);
     for (const id of reports) {
@@ -47,11 +53,21 @@ async function workflow(s) {
     await h.assertNotErrorPage(page, 'typed report filter list');
   });
   await s.step('typed provider-role and PHCP report pages render native billed counts', async () => {
+    h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(roleProvider)}`) === '0', 'Synthetic role provider identifier is already in use');
+    ownsRoleProvider = true;
+    sql.execute(`INSERT INTO provider (provider_no,first_name,last_name,provider_type,sex,specialty,ohip_no) VALUES (${q(roleProvider)},'Workflow',${q(marker)},'doctor','F','',''); INSERT INTO secUserRole (provider_no,role_name,orgcd,activeyn) VALUES (${q(roleProvider)},'doctor','',1)`);
     await page.goto(`${base}/report/ViewReportonbilledvisitprovider`);
     await h.assertNotErrorPage(page, 'typed provider role report');
+    const roleSelect = page.locator(`select[name="name${roleProvider}"]`);
+    h.assert(await roleSelect.inputValue() === 'doctor', 'Typed provider projection lost the confirmed role');
+    h.assert((await roleSelect.locator('xpath=ancestor::tr').textContent()).includes(marker), 'Typed provider projection lost the provider name');
     billingId = sql.value(`INSERT INTO billing (demographic_no,demographic_name,provider_no,creator,billing_date,status) VALUES (${patient},${q(marker)},${q(provider)},${q(provider)},'2026-08-01','O'); SELECT LAST_INSERT_ID()`);
     sql.execute(`INSERT INTO billingdetail (billing_no,service_code,service_desc,billing_amount,diagnostic_code,appointment_date,status) VALUES (${billingId},'Q5549',${q(marker)},'12.30','311','2026-08-01','O')`);
-    await page.goto(`${base}/report/ViewReportonbilledphcp?submit=Go&codeType=ServiceCode&startDate=2026-08-01&endDate=2026-08-01&providerNoDoctor=${provider}`);
+    try {
+      await page.goto(`${base}/report/ViewReportonbilledphcp?submit=Go&codeType=ServiceCode&startDate=2026-08-01&endDate=2026-08-01&providerNoDoctor=${provider}`);
+    } catch {
+      throw new Error('Unable to open the typed PHCP report');
+    }
     await h.assertNotErrorPage(page, 'typed PHCP report');
     const row = page.locator('tr').filter({has:page.locator('td').filter({hasText:marker})}).last();
     const cells = await row.locator('td').allTextContents();
@@ -67,8 +83,15 @@ async function workflow(s) {
       value_1:`demographic.demographic_no=${patient}`, dateFormat_1:''
     }});
     h.assert(response.status()===200, `CSV failed with HTTP ${response.status()}`);
+    h.assert((response.headers()['content-disposition'] || '').startsWith('attachment;'), 'CSV lost its attachment response header');
+    h.assert((response.headers()['content-type'] || '').includes('text/csv'), 'CSV lost its content type');
     const csv = await response.text();
     h.assert(csv.includes(marker) && csv.includes('Last Name'), 'CSV omitted the selected synthetic demographic or header');
+    const failed = await s.context.request.post(`${base}/report/ViewReportResult`, {headers:{'CSRF-TOKEN':token},form:{
+      'CSRF-TOKEN':token, submit:'Report in CSV', demoReport:'true', last_name:'on', filter_1:'on',
+      value_1:'demographic.missing_report_column_5549=1', dateFormat_1:''
+    }});
+    h.assert(failed.status() === 500, 'Failed gated CSV query did not retain its HTTP error status');
   });
 }
 if (require.main === module) runWorkflow('report-typed-queries', workflow, {openPatient: true, openMaster: false});

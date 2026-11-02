@@ -111,7 +111,8 @@ public class SQLNumerator implements Numerator {
             }
             MiscUtils.getLogger().debug("demo " + demographicNo + " eval: " + evalTrue);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Clinical report numerator query failed", e);
+            throw new IllegalStateException("Clinical report could not be completed; narrow the filters or retry", e);
         }
 
         return evalTrue;
@@ -131,7 +132,7 @@ public class SQLNumerator implements Numerator {
             Object[] params = buildParams(sql, processString, demographicNo);
             String paramSql = parameterizedSqlForProcessString();
             MiscUtils.getLogger().debug("SQL Statement: " + sql);
-            var rows = ConfiguredReportQuery.read(paramSql, params).rows();
+            var rows = ConfiguredReportQuery.readFirst(paramSql, params).rows();
             if (!rows.isEmpty()) {
                 evalTrue = true;
                 if (outputfields != null) {
@@ -142,7 +143,8 @@ public class SQLNumerator implements Numerator {
             }
             MiscUtils.getLogger().debug("demo " + demographicNo + " eval: " + evalTrue);
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
+            MiscUtils.getLogger().error("Clinical report numerator query failed", e);
+            throw new IllegalStateException("Clinical report could not be completed; narrow the filters or retry", e);
         }
 
         return evalTrue;

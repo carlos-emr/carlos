@@ -120,17 +120,20 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
         when(report.buildParameterizedSql(0, parameters)).thenReturn(new ParameterizedSql("select 1", List.of()));
         when(report.buildParameterizedSql(1, parameters)).thenReturn(null);
 
-        ResultSet resultSet = mock(ResultSet.class);
-        when(resultSet.isBeforeFirst()).thenReturn(true);
-
-        // Exercise the configured production cap so the regression test detects drift.
-        String oversizedCell = "a".repeat(SQLReporter.MAX_CSV_EXPORT_LENGTH + 1);
-        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
-        when(resultSet.getMetaData()).thenReturn(metadata);
-        when(metadata.getColumnCount()).thenReturn(1);
-        when(metadata.getColumnLabel(1)).thenReturn("synthetic");
-        when(resultSet.next()).thenReturn(true, false);
-        when(resultSet.getString(1)).thenReturn(oversizedCell);
+        // Stay below the result character budget and exceed only the UTF-8 CSV byte cap.
+        String oversizedCell = "€".repeat(SQLReporter.MAX_CSV_EXPORT_LENGTH / 2);
+        var metadata = new javax.sql.rowset.RowSetMetaDataImpl();
+        metadata.setColumnCount(1);
+        metadata.setColumnName(1, "synthetic");
+        metadata.setColumnLabel(1, "synthetic");
+        metadata.setColumnType(1, java.sql.Types.VARCHAR);
+        var resultSet = javax.sql.rowset.RowSetProvider.newFactory().createCachedRowSet();
+        resultSet.setMetaData(metadata);
+        resultSet.moveToInsertRow();
+        resultSet.updateString(1, oversizedCell);
+        resultSet.insertRow();
+        resultSet.moveToCurrentRow();
+        resultSet.beforeFirst();
         try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class,
                 (mock, context) -> {
                     when(mock.getReportTemplateNoParam("1")).thenReturn(report);
@@ -148,4 +151,28 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
             verify(request).setAttribute("errormsg", SQLReporter.CSV_EXPORT_LIMIT_MESSAGE);
         }
     }
+
+    @Test
+    void shouldKeepQueryFailureSeparate_fromCsvSizeWarning() throws Exception {
+        var dao = mock(ReportTemplatesDao.class);
+        registerMock(ReportTemplatesDao.class, dao);
+        ReportTemplates template = new ReportTemplates();
+        template.setActive(1);
+        when(dao.find(1)).thenReturn(template);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getParameter("templateId")).thenReturn("1");
+        when(request.getParameterMap()).thenReturn(Map.of());
+        ReportObjectGeneric report = mock(ReportObjectGeneric.class);
+        when(report.buildParameterizedSql(Map.of())).thenReturn(new ParameterizedSql("select 1", List.of()));
+        try (var managers = mockConstruction(ReportManager.class,
+                     (manager, context) -> when(manager.getReportTemplateNoParam("1")).thenReturn(report));
+             var jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), eq(10_000), eq(30), any(Object[].class)))
+                    .thenThrow(new java.sql.SQLException("synthetic query failure"));
+            assertThat(new SQLReporter().generateReport(request)).isTrue();
+            verify(request).setAttribute("csv", "");
+            verify(request, never()).setAttribute("errormsg", SQLReporter.CSV_EXPORT_LIMIT_MESSAGE);
+        }
+    }
+
 }

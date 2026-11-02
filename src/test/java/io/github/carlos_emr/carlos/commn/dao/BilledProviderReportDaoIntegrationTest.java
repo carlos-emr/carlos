@@ -78,6 +78,28 @@ class BilledProviderReportDaoIntegrationTest extends CarlosTestBase {
                 .allMatch(count -> count.value() == 0);
     }
 
+    @Test
+    void shouldPreserveDuplicateRolesAndNameOrdering_forProviderReport() {
+        provider("R54901", "Z5549", "Last");
+        provider("R54902", "A5549", "Last");
+        provider("R54903", "A5549", "");
+        entityManager.createNativeQuery("insert into secUserRole (provider_no, role_name, orgcd, activeyn) values "
+                + "('R54901','doctor','',1), ('R54901','doctor','',1), ('R54902','nurse','',1)").executeUpdate();
+        entityManager.flush(); entityManager.clear();
+        var roles = reports.providerRoles().stream().filter(row -> row.providerNo().startsWith("R549")).toList();
+        assertThat(roles).extracting(BilledProviderReportDao.ProviderRole::providerNo)
+                .containsExactly("R54902", "R54901", "R54901");
+        var providers = reports.providers().stream().filter(row -> row.providerNo().startsWith("R549")).toList();
+        assertThat(providers).extracting(BilledProviderReportDao.ProviderDetails::providerNo)
+                .containsExactly("R54903", "R54902", "R54901");
+        assertThat(providers.getFirst().lastName()).isEmpty();
+    }
+
+    private void provider(String number, String first, String last) {
+        var provider = new io.github.carlos_emr.carlos.commn.model.Provider(number, last, "doctor", "F", "", first);
+        entityManager.persist(provider);
+    }
+
     private Billing billing(int patient, String provider, String status, String date) {
         Billing row = new Billing();
         row.setDemographicNo(patient);

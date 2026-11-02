@@ -146,12 +146,14 @@ class ReportConfigurationDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldRejectCrossReportRemoval_forMismatchedVariant() {
+    void shouldRejectRemoval_forMismatchedReportOrSavedVariant() {
         cleanup();
         try {
             ReportConfig first = config("first", 1, "A");
             service.insertWithOrder(first);
             assertThatThrownBy(() -> service.shiftAndRemove(5549, "B", first.getId(), 1))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> service.shiftAndRemove(5550, "A", first.getId(), 1))
                     .isInstanceOf(IllegalArgumentException.class);
             assertThat(configurations.find(first.getId())).isNotNull();
         } finally {

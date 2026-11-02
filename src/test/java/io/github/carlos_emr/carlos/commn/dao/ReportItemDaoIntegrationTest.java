@@ -93,5 +93,18 @@ public class ReportItemDaoIntegrationTest extends CarlosTestBase {
             long count = reportItemDao.getCountAll();
             assertThat(count).isEqualTo(1);
         }
+    }    @Test
+    void shouldFilterStatusesAndOrderIdentifiers_forReportLists() {
+        ReportItem first = new ReportItem();
+        first.setReportName("typed-report-first"); first.setStatus(1); reportItemDao.persist(first);
+        ReportItem deleted = new ReportItem();
+        deleted.setReportName("typed-report-deleted"); deleted.setStatus(0); reportItemDao.persist(deleted);
+        ReportItem last = new ReportItem();
+        last.setReportName("typed-report-last"); last.setStatus(1); reportItemDao.persist(last);
+        assertThat(reportItemDao.findByStatus(1)).extracting(ReportItem::getId)
+                .containsSubsequence(first.getId(), last.getId()).doesNotContain(deleted.getId());
+        assertThat(reportItemDao.findByStatus(0)).extracting(ReportItem::getId)
+                .contains(deleted.getId()).doesNotContain(first.getId(), last.getId());
     }
+
 }
