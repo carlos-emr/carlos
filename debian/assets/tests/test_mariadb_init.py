@@ -93,7 +93,7 @@ class TestMariaDBInitialization(unittest.TestCase):
         files = {name: name.encode() for name in (
             "ibdata1", "ib_logfile0", "ibtmp1", "undo001", "aria_log_control",
             "aria_log.00000001", "ddl_recovery.log", "binlog.000001", "binlog.index",
-            "binlog.state", "binlog.000001.idx")}
+            "binlog.state", "binlog.000001.idx", "debian-11.8.flag")}
         for name, body in files.items():
             (self.datadir / name).write_bytes(body)
         (self.datadir / "lost+found").mkdir()

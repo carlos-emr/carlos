@@ -20,12 +20,14 @@ import sys
 STATE = Path("/var/lib/carlos-emr")
 IMPORT_GUARD = "/usr/lib/carlos-emr/carlos-emr-o19-guard"
 # Files a failed first start can leave before any database has been created.
-# Upgrade/version markers are deliberately absent: they identify an existing
+# Upgrade-info markers are deliberately absent: they identify an existing
 # installation whose missing system schema needs recovery, not initialization.
+# Older distribution postinsts touch debian-<version>.flag BEFORE initializing.
 STARTUP_FILE = re.compile(
     r"(?:aria_log\.[0-9]+|aria_log_control|ib_buffer_pool|ibdata1|"
     r"ib_logfile[0-9]+|ibtmp1|undo[0-9]+|ddl_recovery(?:-backup)?\.log|"
-    r"multi-master\.info|tc\.log|binlog\.(?:[0-9]+(?:\.idx)?|index|state))\Z"
+    r"multi-master\.info|tc\.log|debian-[0-9.]+\.flag|"
+    r"binlog\.(?:[0-9]+(?:\.idx)?|index|state))\Z"
 )
 
 

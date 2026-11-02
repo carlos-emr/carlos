@@ -480,8 +480,8 @@ contains nothing except files a failed first start can create. It reads the
 configured datadir (including custom paths), keeps every existing file,
 uses socket authentication for root, and creates no test database. It
 refuses to initialize when a database process, another provisioning run or
-an OSCAR 19 import owns the database, or when any existing schema, version
-marker or unrecognized file is present. A partial mysql schema also needs
+an OSCAR 19 import owns the database, or when any existing schema, upgrade-info
+file or unrecognized file is present. A partial mysql schema also needs
 manual recovery, as does a datadir with whitespace (unsupported by the
 vendor's shell initializer). A refusal leaves the normal install-incomplete notice.
 
