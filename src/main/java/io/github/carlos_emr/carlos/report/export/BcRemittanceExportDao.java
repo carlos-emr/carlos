@@ -35,6 +35,7 @@ public final class BcRemittanceExportDao {
      * @throws IOException if CSV output fails
      * @throws java.time.DateTimeException if a report date is invalid
      * @throws NumberFormatException if a Teleplan amount is invalid
+     * @throws ArithmeticException if a Teleplan amount contains fractional cents
      */
     public void writeBilled(OutputStream output, String payee, String s21) throws SQLException, IOException {
         String sql = """
@@ -71,6 +72,7 @@ public final class BcRemittanceExportDao {
      * @throws IOException if CSV output fails
      * @throws java.time.DateTimeException if a report date is invalid
      * @throws NumberFormatException if a Teleplan amount is invalid
+     * @throws ArithmeticException if a Teleplan amount contains fractional cents
      */
     public void writeSummary(OutputStream output, String s21) throws SQLException, IOException {
         String[] headers = {"Record Type", "Payment Date", "Payee No", "Payee Name", "Billed (CAD)", "Paid (CAD)",
