@@ -1903,6 +1903,35 @@
             <version>10.7.0</version>
         </dependency>
 
+        <!-- Additional direct imports in the current release branch (SOAP interceptors,
+             CDS JSON timestamps and nullable diagnostics). Preserve their resolved versions;
+             aligning JavaTimeModule to jackson.version is a separate dependency upgrade. -->
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-core</artifactId>
+            <version>${cxf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-bindings-soap</artifactId>
+            <version>${cxf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-frontend-simple</artifactId>
+            <version>${cxf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>2.17.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+            <version>1.0.1</version>
+        </dependency>
+
         <!-- SpotBugs annotations: provides edu.umd.cs.findbugs.annotations.SuppressFBWarnings for
              per-site, justified suppression of Find Security Bugs findings (e.g. the informational
              IMPROPER_UNICODE case-folding detector). CLASS retention, compile-only; provided scope
