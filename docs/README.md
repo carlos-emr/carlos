@@ -14,7 +14,7 @@ This directory contains technical documentation for CARLOS EMR (Clinical Assisti
 | **Migration** | [OSCAR 19 → CARLOS Migration Plan](oscar19-to-carlos-migration-plan.md)<br>[Importing an OSCAR 19 clinic (.deb)](o19-import-deb.md)<br>[OSCAR 19 importer — review ledger](o19-review-ledger.md)<br>[Jasypt → Spring Crypto](migration/jasypt-to-spring-crypto.md) | Design and operational spec plus the operator runbook for the experimental OSCAR 19 clinic import, the per-finding audit record of the review behind it, and the credential-encryption migration |
 | **CDS Import** | [CDS documentation index](cds-import.md)<br>[Architecture and framework integration](cds-import-architecture.md)<br>[Operator guide](cds-import-operator-guide.md)<br>[Recovery runbook](cds-import-recovery-runbook.md)<br>[JDK XML providers and schema metadata](cds-xml-providers.md) | Shared web/CLI import, clinical normalization, CARLOS DAO composition, durable jobs, reporting, recovery, bounded-resource design and verification gates |
 | **Testing** | [📂 test/](test/)<br>[📂 ui-tests/](ui-tests/)<br>[eForm PDF Render Smoke Test](ui-tests/eform-pdf-render-smoke-test.md) | Modern test framework docs, browser-backed UI testing, and the eForm PDF smoke runbook |
-| **Architecture** | [Struts Actions Summary](struts-actions-summary.md)<br>[Struts Actions Detailed](struts-actions-detailed.md)<br>[Struts Web Endpoints](struts-web-endpoints.md)<br>[Integrator System Architecture](integrator-system-architecture.md) | System architecture, action mappings, and current endpoint/JSP routing rules |
+| **Architecture** | [Struts Actions Summary](struts-actions-summary.md)<br>[Struts Actions Detailed](struts-actions-detailed.md)<br>[Struts Web Endpoints](struts-web-endpoints.md)<br>[Integrator System Architecture](integrator-system-architecture.md)<br>[Raw JDBC Accessor Retirement](architecture/raw-jdbc-retirement.md) | System architecture, action mappings, and current endpoint/JSP routing rules |
 | **Security** | [Password System](Password_System.md) | Authentication and security architecture |
 | **APIs** | [API Collections Index](api-collections-index.md) | REST API documentation and collections |
 | **Development** | [Release Process](release-process.md)<br>[DS Guideline](dsGuideline.md)<br>[Copyright Header (Magenta)](copyright-header-magenta.md) | Branching, releases, and development standards |
@@ -36,6 +36,7 @@ Key testing resources:
 
 | Document | Description |
 |----------|-------------|
+| [Spreadsheet exports](spreadsheet-exports.md) | BC billing CSV and Dx Research XLSX column contracts, compatibility changes, and failure behavior |
 | [MyDrugref](MyDrugref.md) | Drug reference system documentation |
 | [Form Resources README](README-form-resources.md) | Medical forms and resources |
 | [eForm chrome styling](eform-chrome-bootstrap-scope.md) | Why the eForm toolbar, alert and picker use a scoped Bootstrap copy, and the rule against global stylesheets on eForm pages |

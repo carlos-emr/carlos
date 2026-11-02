@@ -1,7 +1,7 @@
 # Dependency replacements for #5472
 
 The WAR no longer carries POI, JFreeChart, Selenium or displaytag. The dependency lock
-contains 283 compile/runtime dependencies, down from 307 on the current release branch. POI is a test-only independent
+contains 283 compile/runtime dependencies, down from 307 in the original release baseline. POI is a test-only independent
 reader for the spreadsheet round trips. The JSTL API is declared directly, because Tomcat
 does not supply it; the existing WAR packaging check also requires the API and implementation.
 
@@ -12,6 +12,9 @@ does not supply it; the existing WAR packaging check also requires the API and i
   writer keeps string cells (including identifiers, Unicode and formula-looking text) separate
   from numeric cells. Report-by-template retains its conservative numeric conversion; clinical
   export retains its existing numeric conversion. CSV is unchanged.
+* The release branch's direct Dx Research XLSX export also uses the JDK writer. It retains
+  its sheet name, eleven string columns, frozen header and 22-character column widths.
+  Rows are serialized one at a time, without adding a runtime POI dependency.
 * Measurement endpoints still return PNG/JPEG at their existing dimensions, so image, print and
   document callers keep working. Chart.js supplies the visual styling. Series values, daily
   replacement semantics, separate blood-pressure series, reference bounds, secondary axes and
@@ -25,6 +28,8 @@ does not supply it; the existing WAR packaging check also requires the API and i
   controls. Without JavaScript all rows remain readable; sort controls are added only when the enhancement script runs. Sorting no longer navigates or repeats
   search parameters, CSRF tokens or rejected form values into URLs. Existing row actions remain
   in the JSPs, including billing edit/delete and referral labels.
+  Disease registry results retain their existing DataTables search and sorting, with
+  DataTables as their sole enhancer and all matching rows on one page.
 
 These changes are proposed for review; #5472 requires sign-off on output differences before
 merging. A byte-identical XLS or chart image is not claimed.

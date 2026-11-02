@@ -48,8 +48,10 @@ The repository also checks the export contracts directly:
 - `DemographicLabelPdfUnitTest` reads the label's auto-print JavaScript
   back from the generated PDF.
 - `JasperExporterCompatibilityUnitTest` checks `OscarDocumentCreator`
-  auto-print JavaScript, Unicode PDF text, embedded DejaVu fonts and Excel
-  cell values with the application's POI version.
+  auto-print JavaScript, Unicode PDF text and embedded DejaVu fonts, plus
+  direct `DxResearchExcel` cell values with the application's POI version.
+  Spreadsheet exports use Commons CSV and POI directly after #5438; see
+  [spreadsheet output contracts](spreadsheet-exports.md).
 - `AppointmentReceiptTemplateUnitTest` exports the actual receipt template
   with its `force.linebreak.policy` property, checking wrapped Unicode names,
   all booking details, embedded fonts and every glyph's page bounds in
