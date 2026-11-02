@@ -52,6 +52,19 @@ async function clickAndLoad(page, locator, pathname) {
   await settle(page);
 }
 
+// A textarea exposes LF in the DOM; native form submission encodes CRLF, which
+// the server also stores. Compare the text without treating that encoding as loss.
+function messageText(value) {
+  return value?.replace(/\r\n/g, '\n');
+}
+
+function assertReplyPost(posted, { messageId, subject, message }) {
+  h.assert(posted.getAll('provider').length === 0, 'The disabled recipient was included in the refusal POST');
+  h.assert(posted.get('archiveMessageId') === messageId, 'The refusal POST lost the original reply carrier');
+  h.assert(posted.get('subject') === subject, 'The refusal POST changed the typed subject');
+  h.assert(messageText(posted.get('message')) === messageText(message), 'The refusal POST changed the typed message');
+}
+
 async function workflow(s) {
   const { sql, marker } = s;
   const self = s.provider;
@@ -143,9 +156,7 @@ async function workflow(s) {
       inbox.locator('button[type="submit"]').click(),
     ]);
     const posted = new URLSearchParams(refused.request().postData() || '');
-    h.assert(posted.getAll('provider').length === 0 && posted.get('archiveMessageId') === messageId
-      && posted.get('subject') === rawSubject && posted.get('message') === retryBody,
-    'The controlled disabled-recipient POST lost the original reply carrier or typed fields');
+    assertReplyPost(posted, { messageId, subject: rawSubject, message: retryBody });
     h.assert(refused.status() === 200 && Object.hasOwn(refused.headers(), h.APPLICATION_HEADER),
       'The no-recipient send did not return the real application compose page');
     await settle(inbox);
@@ -181,7 +192,7 @@ async function workflow(s) {
     await settle(inbox);
     const replies = sql.rows(`SELECT messageid, sentbyNo FROM messagetbl WHERE thesubject=${h.sqlString(`Re:${subject}`)}`);
     h.assert(replies.length === 1 && replies[0][1] === self, `Send and Archive stored ${replies.length} replies, not one from ${self}`);
-    h.assert(sql.value(`SELECT themessage FROM messagetbl WHERE messageid=${replies[0][0]}`) === retryBody,
+    h.assert(messageText(sql.value(`SELECT themessage FROM messagetbl WHERE messageid=${replies[0][0]}`)) === messageText(retryBody),
       'The retried reply did not store the exact recovered message text');
     const delivered = sql.rows(`SELECT provider_no FROM messagelisttbl WHERE message=${replies[0][0]} ORDER BY provider_no`).map(row => row[0]);
     h.assert(JSON.stringify(delivered) === JSON.stringify([SENDER]), `The reply was delivered to ${JSON.stringify(delivered)}, not to ${SENDER}`);
@@ -203,4 +214,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('messenger-reply-send-archive', workflow, { openPatient: false });
-module.exports = { workflow };
+module.exports = { workflow, assertReplyPost };

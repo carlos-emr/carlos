@@ -453,7 +453,9 @@ function validateFields() {
 
         document.getElementsByName("message")[0].setAttribute("style", "display:none;");
         if (typeof editor !== 'undefined') {
-            editor.setMarkdown("<br>" + document.getElementsByName("message")[0].value);
+            // A refused send restores a draft, so do not add the blank line used
+            // before a fresh reply's quote: it would become part of the retry.
+            editor.setMarkdown((submissionerror ? "" : "<br>") + document.getElementsByName("message")[0].value);
             editor.moveCursorToStart();
         }
 
