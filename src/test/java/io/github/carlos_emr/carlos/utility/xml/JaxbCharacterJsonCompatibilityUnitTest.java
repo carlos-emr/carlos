@@ -72,6 +72,37 @@ class JaxbCharacterJsonCompatibilityUnitTest {
         }
     }
 
+    @Test
+    @org.junit.jupiter.api.parallel.ResourceLock("java.util.TimeZone")
+    void shouldPreserveEnvelopeDates_inXmlAndJson() throws Exception {
+        java.util.TimeZone previous = java.util.TimeZone.getDefault();
+        try {
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Toronto"));
+            java.util.Calendar date = java.util.Calendar.getInstance();
+            date.clear();
+            date.set(2026, java.util.Calendar.JULY, 15, 13, 14, 15);
+            date.set(java.util.Calendar.MILLISECOND, 120);
+            for (Class<?> type : List.of(
+                    io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse.class,
+                    io.github.carlos_emr.carlos.webserv.rest.to.OscarSearchResponse.class)) {
+                Object envelope = type.getConstructor().newInstance();
+                type.getMethod("setTimestamp", Date.class).invoke(envelope, date.getTime());
+                jakarta.xml.bind.JAXBContext context = jakarta.xml.bind.JAXBContext.newInstance(type);
+                java.io.StringWriter written = new java.io.StringWriter();
+                @SuppressWarnings({"unchecked", "rawtypes"})
+                var root = new jakarta.xml.bind.JAXBElement(new javax.xml.namespace.QName("value"), type, envelope);
+                context.createMarshaller().marshal(root, written);
+                assertThat(written.toString()).contains("<timestamp>2026-07-15T13:14:15.12-04:00</timestamp>");
+                for (ObjectMapper mapper : List.of(ProductionRestObjectMappers.oauthSurface(), ProductionRestObjectMappers.sessionSurface())) {
+                    JsonNode json = mapper.valueToTree(envelope);
+                    assertThat(json.path("timestamp").longValue()).isEqualTo(date.getTimeInMillis());
+                }
+            }
+        } finally {
+            java.util.TimeZone.setDefault(previous);
+        }
+    }
+
     private static Object fixture(Class<?> type, String scenario) throws Exception {
         Object bean = type.getConstructor().newInstance();
         Character character = switch (scenario) {

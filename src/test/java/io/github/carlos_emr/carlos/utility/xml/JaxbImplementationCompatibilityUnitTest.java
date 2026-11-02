@@ -61,9 +61,23 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @Tag("unit")
 @Tag("xml")
+@org.junit.jupiter.api.parallel.ResourceLock("java.util.TimeZone")
 class JaxbImplementationCompatibilityUnitTest {
     private static final String BASE = "io.github.carlos_emr.carlos.";
     private static final TimeZone TORONTO = TimeZone.getTimeZone("America/Toronto");
+    private static TimeZone originalTimeZone;
+
+    @org.junit.jupiter.api.BeforeAll
+    static void useTorontoTimeZone() {
+        originalTimeZone = TimeZone.getDefault();
+        TimeZone.setDefault(TORONTO);
+    }
+
+    @org.junit.jupiter.api.AfterAll
+    static void restoreTimeZone() {
+        TimeZone.setDefault(originalTimeZone);
+    }
+
 
     @TestFactory
     Stream<DynamicTest> shouldPreserveXml_forEveryBoundClass() throws Exception {
@@ -148,17 +162,19 @@ class JaxbImplementationCompatibilityUnitTest {
             }
             String newXml = xml(glassfish, type, value);
             structure(newXml);
-            if (moxy == null) continue; // No legacy XML existed: exact failure is pinned above.
-            String oldXml = xml(moxy, type, value);
             String frozen = BASELINE_XML.getOrDefault(type.getName(), Map.of()).get(populated ? "populated" : "default");
-            if (frozen != null && type.getName().endsWith(".BpmhForm2Bean")) {
-                // Formatting machinery was serialized as implementation-specific data (and invalid XML with Glassfish).
+            boolean formatterFix = frozen != null && type.getName().endsWith(".BpmhForm2Bean");
+            if (formatterFix) {
+                // Run this even when the legacy context fails: the removed formatter must be
+                // the only difference from the independently captured production XML.
                 assertThat(frozen).contains("<formatter>");
                 assertThat(newXml).doesNotContain("<formatter>");
-            } else if (frozen != null) {
-                oldXml = frozen;
+                assertThat(structure(newXml)).isEqualTo(withoutFormatter(frozen));
             }
-            assertThat(structure(newXml)).as(type + " populated=" + populated).isEqualTo(structure(oldXml));
+            if (moxy == null) continue; // No legacy XML existed: exact failure is pinned above.
+            String oldXml = frozen == null ? xml(moxy, type, value) : frozen;
+            assertThat(structure(newXml)).as(type + " populated=" + populated)
+                    .isEqualTo(formatterFix ? withoutFormatter(oldXml) : structure(oldXml));
             Object read = glassfish.createUnmarshaller()
                     .unmarshal(new javax.xml.transform.stream.StreamSource(new StringReader(oldXml)), type).getValue();
             Object oldRead = moxy.createUnmarshaller()
@@ -372,6 +388,18 @@ class JaxbImplementationCompatibilityUnitTest {
             try { return owner.getDeclaredField(property); } catch (NoSuchFieldException absent) { /* inherited property */ }
         }
         return null;
+    }
+
+    private static String withoutFormatter(String xml) throws Exception {
+        var factory = XmlUtils.createSecureDocumentBuilderFactory();
+        factory.setNamespaceAware(true);
+        Element root = factory.newDocumentBuilder().parse(new InputSource(new StringReader(xml))).getDocumentElement();
+        for (Node child = root.getFirstChild(); child != null; ) {
+            Node next = child.getNextSibling();
+            if (child instanceof Element element && "formatter".equals(element.getLocalName())) root.removeChild(child);
+            child = next;
+        }
+        return structure(root);
     }
 
     /** Namespace-aware tree; namespace declaration placement and attribute order are irrelevant. */
