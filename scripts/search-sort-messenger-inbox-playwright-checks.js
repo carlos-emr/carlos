@@ -138,7 +138,7 @@ async function workflow(s) {
       const changes = flags.filter((f, i) => i > 0 && f !== flags[i - 1]).length;
       if (changes > 1) defects.push(`Linked ${dir}: the 9 linked and 18 unlinked messages are not grouped (${flags.join('')})`);
       const expectedFirst = dir === 'ascending' ? 'L' : 'u';
-      if (flags[0] !== expectedFirst) defects.push(`Linked ${dir}: the linked group did not move to the expected end (${flags.join('')})`);
+      if (flags[0] !== expectedFirst) defects.push(`Linked ${dir}: the linked and unlinked groups are in the wrong order (${flags.join('')})`);
     }
   });
 
