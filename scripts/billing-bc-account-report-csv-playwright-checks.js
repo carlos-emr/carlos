@@ -262,13 +262,10 @@ async function workflow(s) {
   // Last: the Rejection report's claim cells (a failure here leaves the other reports' steps standing).
   await s.step(STEP.rejection, async () => {
     const rows = await spreadsheet('REP_REJ');
-    // Each claim's block is followed by a row that labels the patient's birth date "DOB:"; the date is the next field.
-    const dobRow = rows.find(row => row.some(f => f.trim() === 'DOB:'));
-    h.assert(dobRow, 'The Rejection spreadsheet has no DOB row for the rejected claim');
-    const dob = (dobRow.slice(dobRow.findIndex(f => f.trim() === 'DOB:') + 1).find(f => f.trim()) || '').trim();
-    // The billing row's birth date is 1980-01-02, whatever the date format.
-    h.assert(/^(1\/2\/80|1980-01-02|02-Jan-(19)?80|Jan 2, 1980)\b/.test(dob),
-      `The Rejection spreadsheet prints the patient's birth date (1980-01-02) as ${JSON.stringify(dob)}`);
+    const dobColumn = rows[0].indexOf('DOB');
+    h.assert(dobColumn >= 0, 'The Rejection spreadsheet has no DOB column');
+    h.assert(rows.length === 2, 'The Rejection spreadsheet must have one header and one claim row');
+    h.assert(rows[1][dobColumn] === '19800102', 'The Rejection spreadsheet must preserve DOB as stored text');
   });
   await admin.close();
 }
