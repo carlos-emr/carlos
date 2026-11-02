@@ -10602,7 +10602,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "The owned synthetic patient, 27 messagetbl/messagelisttbl rows for the test provider and 9 msgDemoMap links inserted by SQL (subjects carry the run marker); cleanup deletes them and asserts none remain. Nothing is sent, read, archived or deleted through the UI.",
-      "notes": "Expected to FAIL at the last step 'every messenger sort and page listed the owned messages correctly': the Inbox Linked header does not group linked messages (the sort key is 'm.messageid is null', never true)."
+      "notes": "Checks 27 owned messages across both pages in ascending and descending order by Subject, From, Status and Date, and verifies Linked groups move to opposite ends. Header clicks exclude box tabs and paging links that preserve the current order."
     },
     {
       "name": "search-sort-billing-dx-search",
