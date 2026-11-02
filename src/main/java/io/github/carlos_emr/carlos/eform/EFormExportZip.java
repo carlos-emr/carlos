@@ -64,10 +64,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class EFormExportZip {
     private static final Logger _log = MiscUtils.getLogger();
 
-    // HTML/properties are subsequently held in memory; see importForm's resource contract.
-    private static final long MAX_IMPORT_ENTRY_BYTES = 16L << 20;
-    private static final long MAX_IMPORT_TOTAL_BYTES = 64L << 20;
-    private static final int MAX_IMPORT_ENTRIES = 1024;
+    // Backstops for egregious expansion, with room for large images and bulk form packages.
+    private static final long MAX_IMPORT_ENTRY_BYTES = 256L << 20;
+    private static final long MAX_IMPORT_TOTAL_BYTES = 1L << 30;
+    private static final int MAX_IMPORT_ENTRIES = 10_000;
 
     /**
      * Converts an eForm display title to one safe generated filename component.
@@ -256,23 +256,28 @@ public class EFormExportZip {
 
     /**
      * Imports an eForm archive after fully staging and validating its expansion.
-     * Limits are 16 MiB per entry, 64 MiB expanded overall and 1024 entries, including
-     * directories and skipped archiver metadata. These fixed budgets accommodate multi-form
-     * packages and image assets while bounding the HTML/properties subsequently held in memory.
+     * Generous abuse safeguards allow 256 MiB per entry, 1 GiB expanded overall and 10,000
+     * entries, including directories and skipped archiver metadata. Large image assets and
+     * multi-form packages within these ceilings are accepted without a compression-ratio limit.
      * Counters use actual decompressed bytes, including when ZIP sizes are absent or false.
      * A limit failure closes the input and removes this import's private staging directory
-     * before any form registration or public asset publication occurs. Split larger packages
-     * into separate imports; an individual oversized form or image must first be reduced.
+     * before any form registration or public asset publication occurs.
      *
      * @param importInputStream compressed archive input, closed by this method
      * @return warnings for skipped forms or existing images
      * @throws IOException if extraction fails or a resource limit is exceeded
      * @throws Exception if validation or form registration fails
      */
+    public List<String> importForm(InputStream importInputStream) throws IOException, Exception {
+        return importForm(importInputStream, MAX_IMPORT_ENTRY_BYTES, MAX_IMPORT_TOTAL_BYTES, MAX_IMPORT_ENTRIES);
+    }
+
+    /** Applies explicit budgets so rejection and cleanup can be tested with small synthetic archives. */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     // FindSecBugs CRLF_INJECTION_LOGS: the logged zip entry name is already passed through LogSafe.sanitize(...), so CR/LF are neutralized.
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "CRLF_INJECTION_LOGS"}, justification = "IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. CRLF_INJECTION_LOGS: logged zip entry name is already wrapped in LogSafe.sanitize(...).")
-    public List<String> importForm(InputStream importInputStream) throws IOException, Exception {
+    List<String> importForm(InputStream importInputStream, long maxEntryBytes, long maxTotalBytes,
+            int maxEntries) throws IOException, Exception {
         ArrayList<String> errors = new ArrayList<String>();
         _log.info("Importing eforms");
 
@@ -294,7 +299,7 @@ public class EFormExportZip {
         try {
             //first runthrough, get the properties files, construct eforms, cache files
             try (ZipInputStream zis = new ImportZipInputStream(importInputStream,
-                    MAX_IMPORT_ENTRY_BYTES, MAX_IMPORT_TOTAL_BYTES, MAX_IMPORT_ENTRIES)) {
+                    maxEntryBytes, maxTotalBytes, maxEntries)) {
                 ZipEntry ze = null;
                 while ((ze = zis.getNextEntry()) != null) {
                     // The path is validated BEFORE anything is skipped: an absolute or traversal name

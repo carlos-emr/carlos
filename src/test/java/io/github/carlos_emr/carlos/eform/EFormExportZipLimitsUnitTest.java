@@ -71,7 +71,9 @@ class EFormExportZipLimitsUnitTest {
         assertThat(archive.length).isLessThan(160_000);
         try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
             folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
-            assertThatThrownBy(() -> new EFormExportZip().importForm(new ByteArrayInputStream(archive)))
+            // Scale down only rejection fixtures; acceptance tests exercise the public defaults.
+            assertThatThrownBy(() -> new EFormExportZip().importForm(
+                    new ByteArrayInputStream(archive), 16L << 20, 64L << 20, 1024))
                     .isInstanceOf(IOException.class).hasMessageContaining(message);
             forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)), never());
         }
@@ -79,6 +81,34 @@ class EFormExportZipLimitsUnitTest {
             assertThat(staged).isEmpty();
             assertThat(published.map(p -> p.getFileName().toString())).containsExactly("extractFolder");
         }
+    }
+
+    private void accepted(byte[] archive, String asset, long expectedBytes) throws Exception {
+        try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
+            folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(archive))).isEmpty();
+            forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)));
+        }
+        assertThat(Files.size(images.resolve(asset))).isEqualTo(expectedBytes);
+        try (var staged = Files.list(images.resolve("extractFolder"))) {
+            assertThat(staged).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldAcceptLargeImage_whenEntryReachesDefaultLimit() throws Exception {
+        accepted(archive("large.png", 1, 256 << 20), "large.png", 256L << 20);
+    }
+
+    @Test
+    void shouldAcceptImageHeavyPackage_whenExpansionExceedsFormerArchiveLimit() throws Exception {
+        accepted(archive("large.png", 4, 17 << 20), "large.png3", 17L << 20);
+    }
+
+    @Test
+    void shouldAcceptManyEntries_whenCountReachesDefaultLimit() throws Exception {
+        // The three content entries plus 9,997 metadata entries exactly fill the entry budget.
+        accepted(archive("__MACOSX/._asset", 9997, 0), "asset.png", 20);
     }
 
     @Test

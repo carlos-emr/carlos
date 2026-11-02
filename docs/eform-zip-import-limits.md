@@ -1,16 +1,22 @@
 # eForm ZIP import limits
 
-The eForm Manager ZIP importer accepts at most:
+The eForm Manager ZIP importer uses generous resource ceilings to stop egregious
+resource exhaustion while accepting large images and bulk form packages:
 
 | Resource | Limit |
 | --- | --- |
-| Expanded bytes in one entry | 16 MiB (16,777,216 bytes) |
-| Expanded bytes across the archive | 64 MiB (67,108,864 bytes) |
-| ZIP entries, including directories and archiver metadata | 1,024 |
+| Expanded bytes in one entry | 256 MiB (268,435,456 bytes) |
+| Expanded bytes across the archive | 1 GiB (1,073,741,824 bytes) |
+| ZIP entries, including directories and archiver metadata | 10,000 |
 
-These fixed limits allow multi-form packages and their image assets while bounding
-the HTML and properties subsequently loaded into memory. They apply to bytes actually
-decompressed, independently of ZIP size metadata or the compressed upload size.
+These are abuse backstops, not recommended image sizes. Large images, image-heavy
+forms and multi-form packages within these ceilings must import successfully;
+users should not need to downsample ordinary assets or split ordinary packages.
+Assets stream to private staging files using a fixed-size copy buffer. The ceilings
+also bound disk expansion and the HTML and properties subsequently loaded into memory.
+They apply to bytes actually decompressed, independently of ZIP size metadata or
+the compressed upload size. The eForm importer has no compression-ratio limit:
+high compression alone is not grounds for rejection.
 Skipped macOS metadata and directory payloads consume the same budgets. Exact limits
 are accepted; the next byte or entry rejects the entire archive with an I/O error.
 
@@ -19,9 +25,9 @@ published. Rejection closes the archive and removes that import's private stagin
 directory. Existing forms, images and other concurrent imports remain untouched.
 Path containment validation still applies to every entry, including skipped entries.
 
-Split oversized multi-form packages into smaller imports. Reduce any individual
-form or image that exceeds the per-entry limit. Limits are defined beside
-`EFormExportZip.importForm`; raising them requires reviewing memory and disk use.
+Limits are defined beside `EFormExportZip.importForm`. If a supported real-world
+package exceeds these generous ceilings, review the budgets against that use case
+and available memory and disk rather than treating large images as abuse.
 
 ## Demographic imports
 
