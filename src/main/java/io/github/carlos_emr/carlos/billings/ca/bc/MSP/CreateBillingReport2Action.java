@@ -6,7 +6,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import io.github.carlos_emr.carlos.report.export.BcBillingCsvWriter;
+import io.github.carlos_emr.carlos.report.export.BcBillingCsv;
 import io.github.carlos_emr.carlos.report.export.BcRemittanceExportDao;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -77,7 +77,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         if ("csv".equals(getDocFormat())) {
             return exportCsv();
         }
-        if (!"pdf".equals(getDocFormat()) || !BcBillingCsvWriter.supports(getRepType())) {
+        if (!"pdf".equals(getDocFormat()) || !BcBillingCsv.supports(getRepType())) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
@@ -251,7 +251,7 @@ public class CreateBillingReport2Action extends ActionSupport {
     }
 
     private String exportCsv() throws IOException {
-        if (!BcBillingCsvWriter.supports(getRepType())) {
+        if (!BcBillingCsv.supports(getRepType())) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
@@ -312,7 +312,7 @@ public class CreateBillingReport2Action extends ActionSupport {
                 : msp.getBillsByType(getSelAccount(), getSelPayee(), getSelProv(), getXml_vdate(), getXml_appointment_date(),
                         !Boolean.parseBoolean(getShowWCB()), !Boolean.parseBoolean(getShowMSP()),
                         !Boolean.parseBoolean(getShowPRIV()), !Boolean.parseBoolean(getShowICBC()), getRepType());
-        BcBillingCsvWriter.write(output, getRepType(), search.list.stream().map(MSPBill.class::cast).toList());
+        BcBillingCsv.write(output, getRepType(), search.list.stream().map(MSPBill.class::cast).toList());
     }
 
     /**

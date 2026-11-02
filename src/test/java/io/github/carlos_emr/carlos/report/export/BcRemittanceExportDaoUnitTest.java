@@ -81,8 +81,8 @@ class BcRemittanceExportDaoUnitTest {
 
     @Test
     void shouldDecodeTeleplanOverpunch_withoutLoggingOrRoundingInput() {
-        assertThat(BcRemittanceExportDao.teleplanMoney("12345J")).isEqualTo("-1234.51");
-        assertThat(BcRemittanceExportDao.teleplanMoney("12345}")).isEqualTo("-1234.50");
-        assertThatThrownBy(() -> BcRemittanceExportDao.teleplanMoney("invalid")).isInstanceOf(NumberFormatException.class);
+        assertThat(TeleplanAmount.decode("12345J")).isEqualTo("-1234.51");
+        assertThat(TeleplanAmount.decode("12345}")).isEqualTo("-1234.50");
+        assertThatThrownBy(() -> TeleplanAmount.decode("invalid")).isInstanceOf(NumberFormatException.class);
     }
 }

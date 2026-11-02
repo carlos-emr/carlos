@@ -146,7 +146,7 @@ public class MSPReconcile {
 
     private String convertReportAmount(String value) {
         return failOnReadError
-                ? io.github.carlos_emr.carlos.report.export.BcRemittanceExportDao.teleplanMoney(value)
+                ? io.github.carlos_emr.carlos.report.export.TeleplanAmount.decode(value)
                 : convCurValue(value);
     }
 

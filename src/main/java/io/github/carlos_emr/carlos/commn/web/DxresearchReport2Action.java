@@ -32,7 +32,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import io.github.carlos_emr.carlos.report.export.DxResearchExcelWriter;
+import io.github.carlos_emr.carlos.report.export.DxResearchExcel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.LinkedHashMap;
@@ -293,7 +293,7 @@ public class DxresearchReport2Action extends ActionSupport {
             }
             file = Files.createTempFile("carlos-dx-export-", ".xlsx");
             try (OutputStream output = Files.newOutputStream(file)) {
-                DxResearchExcelWriter.write(output, patients);
+                DxResearchExcel.write(output, patients);
             }
             response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             response.setHeader("Content-disposition", "attachment; filename=dxResearchReport.xlsx");

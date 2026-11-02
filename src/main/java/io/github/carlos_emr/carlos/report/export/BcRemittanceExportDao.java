@@ -3,7 +3,6 @@ package io.github.carlos_emr.carlos.report.export;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -14,15 +13,6 @@ public final class BcRemittanceExportDao {
 
     public BcRemittanceExportDao(Connection connection) {
         this.connection = connection;
-    }
-
-    /** Decodes Teleplan signed, implied-cents amounts without rounding through double or logging input. */
-    public static String teleplanMoney(String value) {
-        if (value == null || value.isBlank()) return "0.00";
-        String negativeDigits = "}JKLMNOPQR";
-        int last = negativeDigits.indexOf(value.charAt(value.length() - 1));
-        String digits = last < 0 ? value : "-" + value.substring(0, value.length() - 1) + last;
-        return new BigDecimal(digits).movePointLeft(2).setScale(2).toPlainString();
     }
 
     public void writeBilled(OutputStream output, String payee, String s21) throws SQLException, IOException {
@@ -42,10 +32,10 @@ public final class BcRemittanceExportDao {
             statement.setString(1, s21);
             statement.setString(2, payee);
             try (var rs = statement.executeQuery()) {
-                while (rs.next()) csv.row(BcBillingCsvWriter.initial(rs.getString(1)) + BcBillingCsvWriter.initial(rs.getString(2)),
-                        rs.getString(3), BcBillingCsvWriter.date(rs.getString(4)), BcBillingCsvWriter.date(rs.getString(5)),
+                while (rs.next()) csv.row(BcBillingCsv.initial(rs.getString(1)) + BcBillingCsv.initial(rs.getString(2)),
+                        rs.getString(3), BcBillingCsv.date(rs.getString(4)), BcBillingCsv.date(rs.getString(5)),
                         rs.getString(6), text(rs.getString(7)) + "(" + text(rs.getString(8)) + ")",
-                        teleplanMoney(rs.getString(9)), rs.getString(10), rs.getString(11), rs.getString(12));
+                        TeleplanAmount.decode(rs.getString(9)), rs.getString(10), rs.getString(11), rs.getString(12));
             }
         }
     }
@@ -66,9 +56,9 @@ public final class BcRemittanceExportDao {
                 try (var rs = st.executeQuery()) {
                     if (!rs.next()) throw new SQLException("Remittance not available");
                     var row = row("Remittance");
-                    row[1] = BcBillingCsvWriter.date(rs.getString(1)); row[2] = rs.getString(2); row[3] = rs.getString(3);
+                    row[1] = BcBillingCsv.date(rs.getString(1)); row[2] = rs.getString(2); row[3] = rs.getString(3);
                     payee = rs.getString(2);
-                    row[4] = teleplanMoney(rs.getString(4)); row[5] = teleplanMoney(rs.getString(5)); row[6] = teleplanMoney(rs.getString(6));
+                    row[4] = TeleplanAmount.decode(rs.getString(4)); row[5] = TeleplanAmount.decode(rs.getString(5)); row[6] = TeleplanAmount.decode(rs.getString(6));
                     csv.row(row);
                 }
             }
@@ -80,8 +70,8 @@ public final class BcRemittanceExportDao {
                 st.setString(2, payee);
                 try (var rs = st.executeQuery()) {
                     while (rs.next()) {
-                        var row = row("Practitioner"); row[1] = BcBillingCsvWriter.date(rs.getString(1)); row[2] = rs.getString(2);
-                        row[7] = rs.getString(3); row[8] = rs.getString(4); row[4] = teleplanMoney(rs.getString(5)); row[5] = teleplanMoney(rs.getString(6));
+                        var row = row("Practitioner"); row[1] = BcBillingCsv.date(rs.getString(1)); row[2] = rs.getString(2);
+                        row[7] = rs.getString(3); row[8] = rs.getString(4); row[4] = TeleplanAmount.decode(rs.getString(5)); row[5] = TeleplanAmount.decode(rs.getString(6));
                         csv.row(row);
                     }
                 }
@@ -97,7 +87,7 @@ public final class BcRemittanceExportDao {
                     while (rs.next()) {
                         var row = row("Adjustment"); row[7] = rs.getString(1);
                         for (int i = 2; i <= 6; i++) row[i + 7] = rs.getString(i);
-                        for (int i = 7; i <= 12; i++) row[i + 7] = teleplanMoney(rs.getString(i));
+                        for (int i = 7; i <= 12; i++) row[i + 7] = TeleplanAmount.decode(rs.getString(i));
                         csv.row(row);
                     }
                 }

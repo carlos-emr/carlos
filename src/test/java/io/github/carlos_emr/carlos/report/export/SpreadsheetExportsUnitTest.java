@@ -42,7 +42,7 @@ class SpreadsheetExportsUnitTest {
             for (Locale locale : List.of(Locale.ENGLISH, Locale.US, Locale.CANADA)) {
                 Locale.setDefault(locale);
                 var output = new ByteArrayOutputStream();
-                BcBillingCsvWriter.write(output, type, List.of(bill()));
+                BcBillingCsv.write(output, type, List.of(bill()));
                 if (expected == null) expected = output.toByteArray();
                 assertThat(output.toByteArray()).isEqualTo(expected);
                 var records = CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords();
@@ -78,7 +78,7 @@ class SpreadsheetExportsUnitTest {
         var patient = new DxRegistedPTInfo("=1+1", "Élodie,\"name\"\nline", "X", "00100101", "0012345", "0012345678",
                 "icd9", "001", "2026-10-01", "2026-10-02", "A");
         var output = new ByteArrayOutputStream();
-        DxResearchExcelWriter.write(output, Collections.nCopies(205, patient));
+        DxResearchExcel.write(output, Collections.nCopies(205, patient));
         try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(output.toByteArray()))) {
             var sheet = workbook.getSheetAt(0);
             assertThat(sheet.getLastRowNum()).isEqualTo(205);
@@ -95,8 +95,8 @@ class SpreadsheetExportsUnitTest {
 
     @Test
     void shouldRejectMalformedAmountsAndDates_beforeDownload() {
-        assertThatThrownBy(() -> BcBillingCsvWriter.money("synthetic invalid amount")).isInstanceOf(NumberFormatException.class);
-        assertThatThrownBy(() -> BcBillingCsvWriter.date("20260230")).isInstanceOf(java.time.DateTimeException.class);
-        assertThat(BcBillingCsvWriter.date("00000000")).isEmpty();
+        assertThatThrownBy(() -> BcBillingCsv.money("synthetic invalid amount")).isInstanceOf(NumberFormatException.class);
+        assertThatThrownBy(() -> BcBillingCsv.date("20260230")).isInstanceOf(java.time.DateTimeException.class);
+        assertThat(BcBillingCsv.date("00000000")).isEmpty();
     }
 }

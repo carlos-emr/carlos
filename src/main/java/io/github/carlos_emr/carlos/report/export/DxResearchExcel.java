@@ -8,8 +8,8 @@ import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import io.github.carlos_emr.carlos.commn.model.DxRegistedPTInfo;
 
 /** Dx exports are data tables: every field is explicitly a string, never a formula or number. */
-public final class DxResearchExcelWriter {
-    private DxResearchExcelWriter() {
+public final class DxResearchExcel {
+    private DxResearchExcel() {
     }
 
     public static void write(OutputStream output, List<DxRegistedPTInfo> patients) throws IOException {

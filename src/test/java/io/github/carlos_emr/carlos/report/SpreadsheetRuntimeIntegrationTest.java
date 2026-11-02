@@ -91,7 +91,7 @@ class SpreadsheetRuntimeIntegrationTest {
         var output = new ByteArrayOutputStream();
         var patient = new io.github.carlos_emr.carlos.commn.model.DxRegistedPTInfo(TEXT, "Synthetic", "X", "00100101",
                 "0012345", "0012345678", "icd9", "001", "2026-10-01", "2026-10-02", "A");
-        io.github.carlos_emr.carlos.report.export.DxResearchExcelWriter.write(output, java.util.List.of(patient));
+        io.github.carlos_emr.carlos.report.export.DxResearchExcel.write(output, java.util.List.of(patient));
         try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(output.toByteArray()))) {
             assertThat(workbook.getSheetAt(0).getRow(1).getCell(0).getStringCellValue()).isEqualTo(TEXT);
         }

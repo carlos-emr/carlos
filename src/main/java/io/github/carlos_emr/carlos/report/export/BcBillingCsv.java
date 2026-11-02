@@ -12,10 +12,10 @@ import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
 import io.github.carlos_emr.carlos.entities.MSPBill;
 
 /** Stable column contracts for the six BC accounting CSV exports. */
-public final class BcBillingCsvWriter {
+public final class BcBillingCsv {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd-MMM-yy", Locale.CANADA);
 
-    private BcBillingCsvWriter() {
+    private BcBillingCsv() {
     }
 
     public static boolean supports(String type) {
