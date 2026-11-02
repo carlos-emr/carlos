@@ -31,7 +31,7 @@ jobs:
               response = urllib.request.urlopen(location, timeout=60)
           lines = response.read().decode('utf-8-sig', errors='replace').splitlines()
           for line in lines:
-              if re.search(r'heap|JavaOpts|Memory configuration|Scanner Engine JVM|Engine configuration|OutOfMemoryError', line, re.I):
+              if re.search(r'SONAR_SCANNER_JAVA_OPTS|sonar.scanner.javaOpts|heap|JavaOpts|Memory configuration|Scanner Engine JVM|Engine configuration|OutOfMemoryError', line, re.I):
                   print('MEMORY_CONTEXT', line[:1500])
           print('SCANNER_FINAL_CONTEXT')
           for line in lines[-90:]:
