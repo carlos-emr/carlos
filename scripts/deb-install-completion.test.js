@@ -449,6 +449,40 @@ ${block}
   }
 });
 
+test('certificate refresh starts inactive nginx without a failed reload and preserves reload recovery', () => {
+  const cert = read('debian', 'assets', 'bin', 'carlos-emr-cert');
+  const fn = cert.match(/reload_nginx\(\) \{[\s\S]*?\n\}/)[0]
+    .replaceAll('/run/systemd/system', '/tmp');
+  for (const [syntax, active, reload, start, restart, expectedRc, actions] of [
+    [0, 1, 0, 0, 0, 0, ['start']],
+    [0, 1, 0, 1, 0, 1, ['start']],
+    [0, 0, 0, 0, 0, 0, ['reload']],
+    [0, 0, 1, 0, 0, 0, ['reload', 'restart']],
+    [0, 0, 1, 0, 1, 1, ['reload', 'restart']],
+    [1, 0, 0, 0, 0, 1, []],
+    [1, 1, 0, 0, 0, 1, []],
+  ]) {
+    const result = spawnSync('bash', ['-c', `set -eu
+nginx() { return ${syntax}; }
+log() { :; }
+warn() { echo "$*" >&2; }
+systemctl() {
+  case "$1" in
+    is-active) return ${active} ;;
+    reload) echo service:reload; return ${reload} ;;
+    start) echo service:start; return ${start} ;;
+    restart) echo service:restart; return ${restart} ;;
+    *) exit 2 ;;
+  esac
+}
+${fn}
+reload_nginx
+`], { encoding: 'utf8' });
+    assert.equal(result.status, expectedRc, result.stderr);
+    assert.deepEqual(result.stdout.trim().split('\n').filter(Boolean), actions.map(a => `service:${a}`));
+  }
+});
+
 test('postinst records terminal nginx failures and accepts a successful rebind', () => {
   const start = postinst.indexOf('        if nginx -t >/dev/null 2>&1; then');
   assert.ok(start >= 0);
