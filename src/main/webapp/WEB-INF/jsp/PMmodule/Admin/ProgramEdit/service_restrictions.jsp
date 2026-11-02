@@ -137,7 +137,7 @@ Please define the following parameters control the behaviour of new service rest
     </table>
 </div>
 
-<table class="simple" cellspacing="2" cellpadding="3" id="restriction" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<table class="simple" cellspacing="2" cellpadding="3" id="disabled_restriction" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 

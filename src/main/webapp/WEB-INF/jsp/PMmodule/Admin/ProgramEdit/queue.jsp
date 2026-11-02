@@ -90,7 +90,7 @@ function removeFromRemoteQueue(remoteReferralId) {
 		</table>
 	</div>
 	<!--  show current clients -->
-    <table class="simple" cellspacing="2" cellpadding="3" id="queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+    <table class="simple" cellspacing="2" cellpadding="3" id="remote_queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 
