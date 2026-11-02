@@ -14,10 +14,15 @@ include the source references and executable research probes.
 4.4 remain in maintenance for major defects and security fixes. Calling the
 entire HTTP 4 family unsupported would overstate the finding.
 
-The optional `cxf-rt-transports-http-hc` adapter is the resolved path to these
-four HTTP 4 libraries. Its removal, lockfile update and transitive Enforcer ban
-remove five artifacts, without replacing CXF or changing the existing HTTP 5
-dependencies. The wider `apache-cxf` aggregate cleanup remains separate.
+The optional `cxf-rt-transports-http-hc` adapter was the only resolved path to
+these four HTTP 4 libraries, through the `apache-cxf` aggregate. The aggregate
+was replaced by explicit CXF runtime modules in
+[#5469](https://github.com/carlos-emr/carlos/pull/5469), which also dropped the
+adapter and its four libraries from the lockfile. This change keeps them out:
+the `ban-legacy-apache-httpcomponents` Enforcer execution rejects the adapter
+and the legacy `org.apache.httpcomponents` group transitively, so a later
+dependency cannot reintroduce them silently. CXF and the existing HTTP 5
+dependencies are unchanged.
 
 Classpath discovery matters: the adapter registers a conduit factory even
 when application code never imports it. Under CXF 4.1.9's default `ASYNC_ONLY`
@@ -64,8 +69,14 @@ Search of `src/main`, deployment templates, `.devcontainer` and `debian` found:
 | External deployments/extensions | Not inventoried by source search. External bus/JVM transport settings, dynamic clients and custom modules remain a deployment gate. |
 
 The per-client settings do not affect an unrelated client on the same Bus.
-Removing the adapter still affects the whole WAR, so that isolation test does
-not establish compatibility for external asynchronous consumers.
+The adapter's absence (since #5469) affects the whole WAR, so that isolation
+test does not establish compatibility for external asynchronous consumers.
+
+Without the per-client settings, an EBS client on a classpath without the
+adapter uses CXF's JDK `HttpClient` conduit, which reproduced
+`Unsupported protocol: TLS` with the builder's TLS parameters. The settings are
+therefore required on any branch that already carries #5469, not only on one
+that removes the adapter itself.
 
 ## Regression contract and remaining gates
 

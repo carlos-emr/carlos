@@ -8,7 +8,7 @@ import java.util.OptionalInt;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import org.apache.commons.codec.digest.DigestUtils;
+import io.github.carlos_emr.carlos.utility.ContentDigests;
 import io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -51,7 +51,7 @@ public class LabVersionComparator {
     public String isLabDuplicate(String currentSegmentID) {
         // Get the HL7 body for the current lab and remove the first line
         String currentLabBody = ((ExcellerisOntarioHandler) handlerMap.get(currentSegmentID)).getHl7Body();
-        byte[] currentLabHash = DigestUtils.sha256(removeFirstLine(currentLabBody));
+        byte[] currentLabHash = ContentDigests.sha256(removeFirstLine(currentLabBody));
 
         int currentLabIndex = labVersionIds.indexOf(currentSegmentID);
 
@@ -60,7 +60,7 @@ public class LabVersionComparator {
                 .filter(i -> {
                     // Get the HL7 body for the previous lab version and remove the first line
                     String labBody = ((ExcellerisOntarioHandler) handlerMap.get(labVersionIds.get(i))).getHl7Body();
-                    byte[] labHash = DigestUtils.sha256(removeFirstLine(labBody));
+                    byte[] labHash = ContentDigests.sha256(removeFirstLine(labBody));
                     // Compare the same SHA-256 content digests directly, without a hex-string timing warning.
                     return MessageDigest.isEqual(labHash, currentLabHash);
                 })
