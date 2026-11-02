@@ -20,6 +20,12 @@ const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const k = require('./lib/search-sort-helpers');
 
+function sortHeader(page, param, direction) {
+  // Box tabs and paging links preserve the current order; only a header toggles it.
+  const order = direction === 'descending' ? `!${param}` : param;
+  return page.locator(`table.table-striped thead th a[href*="orderby=${order}"]`);
+}
+
 async function readRows(page) {
   return page.$$eval('table.table-striped tbody tr', trs => trs.filter(tr => tr.querySelector('input[name="messageNo"]')).map(tr => {
     const td = i => ((tr.children[i] || {}).textContent || '').replace(/\s+/g, ' ').trim();
@@ -88,10 +94,16 @@ async function workflow(s) {
   /** Read both pages of the current ordering (page one is where a header click lands). */
   const bothPages = async () => {
     const first = await readRows(inbox);
+    h.assert(first.length === 25, `Sorted page one lists ${first.length} rows, not 25`);
     const next = inbox.locator('a[title="next page"]').first();
     h.assert(await next.count() === 1, 'A sorted page one offers no Next link');
     await ui.clickAndAwaitReload(inbox, next, { timeout: 30000, label: 'messenger next page' });
-    return [...first, ...await readRows(inbox)];
+    const second = await readRows(inbox);
+    h.assert(second.length === 2, `Sorted page two lists ${second.length} rows, not 2`);
+    const rows = [...first, ...second];
+    h.assert(owned(rows).length === 27 && new Set(rows.map(r => r.id)).size === 27,
+      'The sorted pages must hold each of the 27 owned messages exactly once');
+    return rows;
   };
   const textCmp = (a, b) => k.collator.compare(a, b);
   // The inbox shows dates as dd-MM-yyyy; order them as dates, not as text.
@@ -103,9 +115,8 @@ async function workflow(s) {
   await s.step('the Subject, From, Status and Date headers order all 27 messages across the page boundary, and a second click reverses it', async () => {
     for (const [label, param, field, cmp] of columns) {
       for (const dir of ['ascending', 'descending']) {
-        await ui.clickAndAwaitReload(inbox, inbox.locator(`a[href*="orderby=${param}"]`).first(), { timeout: 30000, label: `messenger sort by ${label}` });
+        await ui.clickAndAwaitReload(inbox, sortHeader(inbox, param, dir), { timeout: 30000, label: `messenger sort by ${label} ${dir}` });
         const rows = await bothPages();
-        if (owned(rows).length !== 27) { defects.push(`${label} ${dir}: lists ${owned(rows).length} of the 27 messages`); continue; }
         const values = rows.map(r => r[field]);
         const ordered = values.every((v, i) => i === 0 || (dir === 'ascending' ? cmp(values[i - 1], v) <= 0 : cmp(values[i - 1], v) >= 0));
         if (!ordered) defects.push(`${label} ${dir}: not in order (${values.slice(0, 6).map(v => v.replace(marker, '').trim()).join(' | ')} ...)`);
@@ -114,8 +125,8 @@ async function workflow(s) {
   });
 
   await s.step('the Linked header, clicked twice, groups the messages linked to a patient together both ways', async () => {
-    for (const dir of ['first click', 'second click']) {
-      await ui.clickAndAwaitReload(inbox, inbox.locator('a[href*="orderby=linked"]').first(), { timeout: 30000, label: 'messenger sort by Linked' });
+    for (const dir of ['ascending', 'descending']) {
+      await ui.clickAndAwaitReload(inbox, sortHeader(inbox, 'linked', dir), { timeout: 30000, label: `messenger sort by Linked ${dir}` });
       const rows = await bothPages();
       const linked = rows.filter(r => r.linked !== '').length;
       // Zero transitions would also be the answer for 27 empty Linked cells, so the shape of the listing is proven first.
@@ -126,6 +137,8 @@ async function workflow(s) {
       const flags = rows.map(r => (r.linked !== '' ? 'L' : 'u'));
       const changes = flags.filter((f, i) => i > 0 && f !== flags[i - 1]).length;
       if (changes > 1) defects.push(`Linked ${dir}: the 9 linked and 18 unlinked messages are not grouped (${flags.join('')})`);
+      const expectedFirst = dir === 'ascending' ? 'L' : 'u';
+      if (flags[0] !== expectedFirst) defects.push(`Linked ${dir}: the linked group did not move to the expected end (${flags.join('')})`);
     }
   });
 
@@ -148,10 +161,9 @@ async function workflow(s) {
   });
 
   await s.step('every messenger sort and page listed the owned messages correctly', async () => {
-    h.assert(defects.length === 0, `Messenger inbox defects: ${defects.join('; ')} `
-      + '(MsgDisplayMessagesBean.java:524 sorts the inbox by "m.messageid is null", which is never true, so the Linked header cannot group linked messages)');
+    h.assert(defects.length === 0, `Messenger inbox defects: ${defects.join('; ')}`);
   });
 }
 
 if (require.main === module) runWorkflow('search-sort-messenger-inbox', workflow, { openPatient: true, openMaster: false });
-module.exports = { workflow };
+module.exports = { workflow, sortHeader };
