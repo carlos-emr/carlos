@@ -99,13 +99,14 @@
 </table>
 </div>
 <!--  show current staff -->
+<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <table class="simple" cellspacing="2" cellpadding="3" id="provider" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 
     <th scope="col"></th>
-    <th scope="col"><button type="button" class="table-sort">Name</button></th>
-    <th scope="col"><button type="button" class="table-sort">Phone</button></th>
+    <th scope="col"><span data-table-sort>Name</span></th>
+    <th scope="col"><span data-table-sort>Phone</span></th>
     <th scope="col">Team</th>
     <th scope="col">Role</th>
 </tr></thead>
@@ -183,6 +184,3 @@
 		</td>
 	</tr>
 </table>
-
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
-<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

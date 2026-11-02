@@ -97,6 +97,10 @@
             return;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
+            if (!response.isCommitted()) {
+                response.reset();
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
         }
 
     }

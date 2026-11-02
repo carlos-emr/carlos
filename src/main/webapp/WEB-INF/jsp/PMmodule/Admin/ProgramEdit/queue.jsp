@@ -46,18 +46,19 @@ function removeFromRemoteQueue(remoteReferralId) {
 	</table>
 </div>
 <!--  show current clients -->
+<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <table class="simple" cellspacing="2" cellpadding="3" id="queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 
     <th scope="col"></th>
-    <th scope="col"><button type="button" class="table-sort">Client Name</button></th>
-    <th scope="col"><button type="button" class="table-sort">Referral Date</button></th>
-    <th scope="col"><button type="button" class="table-sort">Referring Provider</button></th>
+    <th scope="col"><span data-table-sort>Client Name</span></th>
+    <th scope="col"><span data-table-sort>Referral Date</span></th>
+    <th scope="col"><span data-table-sort>Referring Provider</span></th>
     <caisi:isModuleLoad moduleName="pmm.refer.temporaryAdmission.enabled">
-        <th scope="col"><button type="button" class="table-sort">Temporary Admission</button></th>
+        <th scope="col"><span data-table-sort>Temporary Admission</span></th>
     </caisi:isModuleLoad>
-    <th scope="col"><button type="button" class="table-sort">Notes</button></th>
+    <th scope="col"><span data-table-sort>Notes</span></th>
 </tr></thead>
 <tbody><c:forEach var="queue_entry" items="${queue}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
 
@@ -94,10 +95,10 @@ function removeFromRemoteQueue(remoteReferralId) {
 
 
         <th scope="col"></th>
-        <th scope="col"><button type="button" class="table-sort">Client Name</button></th>
-        <th scope="col"><button type="button" class="table-sort">Referral Date</button></th>
-        <th scope="col"><button type="button" class="table-sort">Referring Provider</button></th>
-        <th scope="col"><button type="button" class="table-sort">Notes</button></th>
+        <th scope="col"><span data-table-sort>Client Name</span></th>
+        <th scope="col"><span data-table-sort>Referral Date</span></th>
+        <th scope="col"><span data-table-sort>Referring Provider</span></th>
+        <th scope="col"><span data-table-sort>Notes</span></th>
     </tr></thead>
 <tbody><c:forEach var="queue_entry" items="${remoteQueue}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
 
@@ -113,6 +114,3 @@ function removeFromRemoteQueue(remoteReferralId) {
 </table>
 <c:if test="${empty remoteQueue}"><p class="table-empty">Queue is empty.</p></c:if>
 </c:if>
-
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
-<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

@@ -22,7 +22,7 @@ does not supply it; the existing WAR packaging check also requires the API and i
   session startup, late-session cleanup and targeted teardown use the existing renderer controls.
 * Former displaytag tables use encoded JSTL rows. Sorting and paging run locally, with typed
   numeric/date keys and case/accent-insensitive text collation, numbered pages and keyboard
-  controls. Without JavaScript all rows remain readable. Sorting no longer navigates or repeats
+  controls. Without JavaScript all rows remain readable; sort controls are added only when the enhancement script runs. Sorting no longer navigates or repeats
   search parameters, CSRF tokens or rejected form values into URLs. Existing row actions remain
   in the JSPs, including billing edit/delete and referral labels.
 
@@ -52,6 +52,8 @@ CARLOS_SMOKE_CHROMIUM=/path/to/chrome \
 mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,MeasurementChartSmokeIntegrationTest
 CARLOS_SMOKE_CHROMIUM=/path/to/chrome npm run test:dependency-tables-playwright
 ```
+
+The browser suites are opt-in and require the local service URL and browser binary above; the legacy Selenium smoke class name remains for operator command compatibility.
 
 The PDF tests assert authored pagination and a real text layer. The chart smoke checks real
 PNG/JPEG rendering with clinical series, reference bounds and medication intervals. Playwright

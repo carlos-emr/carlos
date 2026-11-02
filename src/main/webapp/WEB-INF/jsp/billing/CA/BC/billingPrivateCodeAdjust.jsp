@@ -1,3 +1,4 @@
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <!DOCTYPE html>
 <%--
 
@@ -58,7 +59,8 @@
                 carlosSubmitForm(form);
             }
         </script>
-    </head>
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+</head>
 
     <body>
     <h3><fmt:message key="admin.admin.ManagePrivFrm"/></h3>
@@ -87,12 +89,11 @@
                     arrow = "&darr;";
                 }
         %> <% request.setAttribute("test", list); %>
-        <%-- requestURI: this page is reached by a forward, so without it the sort links name the WEB-INF path (404). --%>
         <table class="table table-hover table-striped" data-carlos-table data-page-size="0" data-default-sort="1" data-default-order="descending">
 <thead><tr>
-            <th scope="col" class="sortable"><button type="button" class="table-sort">Service Code</button></th>
-            <th scope="col" class="sortable"><button type="button" class="table-sort">Description</button></th>
-            <th scope="col" class="sortable"><button type="button" class="table-sort">Price</button></th>
+            <th scope="col" class="sortable"><span data-table-sort>Service Code</span></th>
+            <th scope="col" class="sortable"><span data-table-sort>Description</span></th>
+            <th scope="col" class="sortable"><span data-table-sort>Price</span></th>
             <th scope="col">Options</th>
         </tr></thead>
 <tbody><c:forEach var="tableRow" items="${test}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
@@ -107,6 +108,3 @@
     </div>
     </body>
 </html>
-
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
-<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

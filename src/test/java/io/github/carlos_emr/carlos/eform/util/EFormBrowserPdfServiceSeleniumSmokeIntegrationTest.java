@@ -54,8 +54,9 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * count matches the authored {@code pageN} divs and that carries a real text layer (the raster
  * path this replaced produced image-only pages with zero extractable text).
  *
- * <p>Skips cleanly when no Chromium binary or matching chromedriver is available, so CI hosts
- * without a browser stay green while browser-equipped environments verify the real pipeline.</p>
+ * <p>Opt-in integration suite: set CARLOS_SMOKE_DRIVER_URL to a running local chromedriver and
+ * CARLOS_SMOKE_CHROMIUM to its matching browser. Without those prerequisites the tests skip.
+ * The legacy class name is retained for existing operator commands; the transport is the JDK.</p>
  */
 @DisplayName("EFormBrowserPdfService browser smoke test")
 @Tag("integration")

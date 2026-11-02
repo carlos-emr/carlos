@@ -1267,8 +1267,8 @@ class EFormBrowserPdfServiceUnitTest {
     }
 
     @Test
-    @DisplayName("should bound every WebDriver command at the render budget instead of Selenium's default")
-    void shouldBoundDriverCommandReadTimeout_toRenderBudget() {
+    @DisplayName("should pin the browser command and connection timeout defaults")
+    void shouldPinTimeoutDefaults_forBrowserCommands() {
         assertThat(EFormBrowserPdfService.WEBDRIVER_COMMAND_READ_TIMEOUT).isEqualTo(Duration.ofSeconds(90));
         assertThat(EFormBrowserPdfService.WEBDRIVER_CONNECTION_TIMEOUT).isEqualTo(Duration.ofSeconds(10));
     }

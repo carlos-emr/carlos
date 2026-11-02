@@ -31,16 +31,17 @@
 	</tr>
 </table>
 </div>
+<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <table class="simple" cellspacing="2" cellpadding="3" id="restriction" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 
-    <th scope="col"><button type="button" class="table-sort">Id</button></th>
-    <th scope="col"><button type="button" class="table-sort">Client</button></th>
-    <th scope="col"><button type="button" class="table-sort">Restricted By</button></th>
-    <th scope="col"><button type="button" class="table-sort">Comments</button></th>
-    <th scope="col"><button type="button" class="table-sort">Start date</button></th>
-    <th scope="col"><button type="button" class="table-sort">End date</button></th>
+    <th scope="col"><span data-table-sort>Id</span></th>
+    <th scope="col"><span data-table-sort>Client</span></th>
+    <th scope="col"><span data-table-sort>Restricted By</span></th>
+    <th scope="col"><span data-table-sort>Comments</span></th>
+    <th scope="col"><span data-table-sort>Start date</span></th>
+    <th scope="col"><span data-table-sort>End date</span></th>
 </tr></thead>
 <tbody><c:forEach var="restriction" items="${service_restrictions}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
 
@@ -54,8 +55,3 @@
 </tr></c:forEach></tbody>
 </table>
 <c:if test="${empty service_restrictions}"><p class="table-empty">No service restrictions currently in place for this program.</p></c:if>
-
-
-
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
-<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

@@ -128,10 +128,10 @@ class BcBillingAdminPageLinksRegressionTest {
     }
 
     @Test
-    @DisplayName("should build the private code list's sort links on its gate, not the forwarded page path")
-    void shouldSortOnGate_inPrivateCodeList() throws IOException {
+    @DisplayName("should render browser sort headers without navigation in the private code list")
+    void shouldRenderBrowserSortHeaders_inPrivateCodeList() throws IOException {
         assertThat(read(BC_JSP_DIR.resolve("billingPrivateCodeAdjust.jsp")))
-                .contains("type=\"button\" class=\"table-sort\"")
+                .contains("data-table-sort")
                 .contains("data-carlos-table")
                 .doesNotContain("<display:table");
     }

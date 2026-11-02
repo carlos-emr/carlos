@@ -66,19 +66,20 @@
     </table>
 </div>
 <!-- show current clients -->
+<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <table class="simple" cellspacing="2" cellpadding="3" id="admission" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 
 
     <th scope="col"></th>
-    <th scope="col"><button type="button" class="table-sort">Name</button></th>
-    <th scope="col"><button type="button" class="table-sort">Admission Date</button></th>
+    <th scope="col"><span data-table-sort>Name</span></th>
+    <th scope="col"><span data-table-sort>Admission Date</span></th>
     <caisi:isModuleLoad moduleName="pmm.refer.temporaryAdmission.enabled">
-        <th scope="col"><button type="button" class="table-sort">Temporary Admission</button></th>
+        <th scope="col"><span data-table-sort>Temporary Admission</span></th>
     </caisi:isModuleLoad>
-    <th scope="col"><button type="button" class="table-sort">Admission Notes</button></th>
-    <th scope="col"><button type="button" class="table-sort">Team</button></th>
+    <th scope="col"><span data-table-sort>Admission Notes</span></th>
+    <th scope="col"><span data-table-sort>Team</span></th>
     <th scope="col"></th>
     <th scope="col">Status</th>
 </tr></thead>
@@ -130,6 +131,3 @@
 </tr></c:forEach></tbody>
 </table>
 <c:if test="${empty admissions}"><p class="table-empty">No clients currently admitted to this program.</p></c:if>
-
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
-<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

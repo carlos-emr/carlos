@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SpreadsheetExportUnitTest {
     @Test
     void shouldRoundTripTypedCellsUnicodeWhitespaceAndFormulaLookingText() throws Exception {
-        Object[][] values = {{"Élodie 李 😀 & <report>", "00123", "1234567890123456789", "=1+2", "  spaced  ", "_x0041_", "a\u0001b", 23.5}};
+        Object[][] values = {{"Élodie 李 😀 & <report>", "00123", "1234567890123456789", "=1+2", "  spaced  ", "_x0041_", "a\u0001b\rc\r\nd", 23.5}};
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         SpreadsheetExport.write(output, values);
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(output.toByteArray()))) {
@@ -26,5 +26,13 @@ class SpreadsheetExportUnitTest {
             assertThat(row.getCell(7).getCellType()).isEqualTo(CellType.NUMERIC);
             assertThat(row.getCell(7).getNumericCellValue()).isEqualTo(23.5);
         }
+    }
+
+    @Test
+    void shouldRejectUnsupportedCellTypes_beforeWritingTheResponse() {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> SpreadsheetExport.write(output, new Object[][]{{42}}))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(output.size()).isZero();
     }
 }

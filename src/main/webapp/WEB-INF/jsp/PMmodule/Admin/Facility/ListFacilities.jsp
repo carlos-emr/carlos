@@ -47,7 +47,8 @@
     </table>
 </div>
 <form action="${pageContext.request.contextPath}/PMmodule/FacilityManager" method="post">
-    <table class="simple" cellspacing="2" cellpadding="3" id="facility" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+<table class="simple" cellspacing="2" cellpadding="3" id="facility" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 
@@ -59,10 +60,10 @@
         <th scope="col"></th>
 
 
-        <th scope="col"><button type="button" class="table-sort">Name</button></th>
-        <th scope="col"><button type="button" class="table-sort">Description</button></th>
-        <th scope="col"><button type="button" class="table-sort">Contact name</button></th>
-        <th scope="col"><button type="button" class="table-sort">HIC?</button></th>
+        <th scope="col"><span data-table-sort>Name</span></th>
+        <th scope="col"><span data-table-sort>Description</span></th>
+        <th scope="col"><span data-table-sort>Contact name</span></th>
+        <th scope="col"><span data-table-sort>HIC?</span></th>
     </tr></thead>
 <tbody><c:forEach var="facility" items="${facilities}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
 
@@ -106,6 +107,3 @@
             href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=add">
         Add new facility </a></p>
 </div>
-
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
-<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

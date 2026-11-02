@@ -74,13 +74,14 @@
 </div>
 <input type="hidden" name="function.id" id="function.id" value="${carlos:forHtmlAttribute(function.id)}"/>
 <input type="hidden" name="function.providerNo" id="function.providerNo" value="${carlos:forHtmlAttribute(function.providerNo)}"/>
+<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <table class="simple" cellspacing="2" cellpadding="3" id="functional" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 
     <th scope="col"></th>
-    <th scope="col"><button type="button" class="table-sort">Functional User Type</button></th>
-    <th scope="col"><button type="button" class="table-sort">Provider Name</button></th>
+    <th scope="col"><span data-table-sort>Functional User Type</span></th>
+    <th scope="col"><span data-table-sort>Provider Name</span></th>
 </tr></thead>
 <tbody><c:forEach var="functional" items="${functional_users}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
 
@@ -129,6 +130,3 @@
         </td>
     </tr>
 </table>
-
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
-<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

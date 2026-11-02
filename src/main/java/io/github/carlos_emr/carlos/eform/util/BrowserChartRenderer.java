@@ -112,7 +112,7 @@ public final class BrowserChartRenderer {
                     });ctx.restore();
                 });
             }};
-            new Chart(main,{type:'scatter',data:{datasets:spec.datasets},plugins:[ranges],
+            const mainChart=new Chart(main,{type:'scatter',data:{datasets:spec.datasets},plugins:[ranges],
                 options:{responsive:false,animation:false,devicePixelRatio:1,scales,
                     plugins:{title:{display:true,text:spec.title},legend:{display:true}}}});
             if(medications.length) {
@@ -120,12 +120,32 @@ public final class BrowserChartRenderer {
                 meds.style.display='block';
                 document.body.append(meds);
                 const names=[...new Set(medications.map(m=>m.name))];
-                new Chart(meds,{type:'bar',data:{labels:names,datasets:[{label:'Meds',
+                const medicationChart=new Chart(meds,{type:'bar',data:{labels:names,datasets:[{label:'Meds',
                     data:medications.map(m=>({y:m.name,x:[m.start,m.end]})),backgroundColor:'#4c78a8'}]},
                     options:{indexAxis:'y',responsive:false,animation:false,devicePixelRatio:1,
                         scales:{x:{type:'linear',min:scales.x.min,max:scales.x.max,ticks:{callback:dateLabel},
                             title:{display:true,text:'Date/Time'}},y:{type:'category',labels:names}},
                         plugins:{legend:{display:false}}}});
+                // Matching date bounds alone is insufficient: long medication names consume
+                // more left-axis space. Align the plot rectangles before producing a print image.
+                const panels=[mainChart,medicationChart];
+                for(let attempt=0;attempt<3;attempt++) {
+                    const left=Math.max(...panels.map(chart=>chart.chartArea.left));
+                    const right=Math.min(...panels.map(chart=>chart.chartArea.right));
+                    if(panels.every(chart=>Math.abs(chart.chartArea.left-left)<=1 && Math.abs(chart.chartArea.right-right)<=1)) break;
+                    panels.forEach(chart=>{
+                        const padding=chart.options.layout.padding;
+                        chart.options.layout.padding={
+                            top:padding.top||0,bottom:padding.bottom||0,
+                            left:(padding.left||0)+left-chart.chartArea.left,
+                            right:(padding.right||0)+chart.chartArea.right-right};
+                        chart.update('none');
+                    });
+                }
+                if(Math.abs(mainChart.chartArea.left-medicationChart.chartArea.left)>1 ||
+                   Math.abs(mainChart.chartArea.right-medicationChart.chartArea.right)>1) {
+                    throw new Error('Chart date axes could not be aligned');
+                }
             }
             return true;
             """;

@@ -47,6 +47,7 @@ Key testing resources:
 | [Runtime Directories](runtime-directories.md) | Required filesystem directories and permissions |
 | [Resources Directory](resources-directory.md) | Application resources structure |
 | [Container-provided Jakarta APIs](container-provided-apis.md) | Which web-tier Jakarta APIs Tomcat 11 supplies (`provided`), why JSTL still ships in the WAR, and the checks that hold it |
+| [Dependency footprint replacements](dependency-footprint-5472.md) | Report, chart, browser and table dependency replacements, output differences and validation (#5472) |
 | [JDK equivalents audit](jdk-equivalents-audit.md) | Behaviour-preserving Commons replacements, compatibility coverage and retained legacy semantics (#5483) |
 | [GitHub Issue Management](github-issue-management.md) | Issue tracking and workflow |
 | [Database Schema Management](database-schema-management.md) | Flyway baseline, forward migrations, where migrations run |

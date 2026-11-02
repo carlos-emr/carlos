@@ -59,12 +59,13 @@ function add_status(form) {
 </table>
 </div>
 <!--  show current staff -->
+<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <table class="simple" cellspacing="2" cellpadding="3" id="status" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 
     <th scope="col"></th>
-    <th scope="col"><button type="button" class="table-sort">Name</button></th>
+    <th scope="col"><span data-table-sort>Name</span></th>
 </tr></thead>
 <tbody><c:forEach var="status" items="${client_statuses}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
 
@@ -89,6 +90,3 @@ function add_status(form) {
 		</td>
 	</tr>
 </table>
-
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
-<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

@@ -12,3 +12,4 @@ th[aria-sort="ascending"] .table-sort::after { content: " ▲"; }
 th[aria-sort="descending"] .table-sort::after { content: " ▼"; }
 .pagelinks button { margin: 0 .15rem; }
 .pagelinks [aria-current="page"] { font-weight: bold; }
+.table-empty { margin: .5rem 0; }

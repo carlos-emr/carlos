@@ -131,6 +131,7 @@ String reason ="";
 	HashSet<Long> ageConflict=(HashSet<Long>)request.getAttribute("ageConflict");
 %>
 <!--  show current clients -->
+<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <table class="simple" cellspacing="2" cellpadding="3" id="queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -140,15 +141,15 @@ String reason ="";
 
     <!-- disabled by rwd because visibility of link and permissions in CME are a problem -->
     <%--<th scope="col"></th>--%>
-    <th scope="col"><button type="button" class="table-sort">Client name</button></th>
+    <th scope="col"><span data-table-sort>Client name</span></th>
 
-    <th scope="col"><button type="button" class="table-sort"></button></th>
+    <th scope="col"></th>
 
-    <th scope="col"><button type="button" class="table-sort">Referral Date</button></th>
-    <th scope="col"><button type="button" class="table-sort">Referring Provider</button></th>
-    <th scope="col"><button type="button" class="table-sort">Reason for referral</button></th>
-    <th scope="col"><button type="button" class="table-sort">Presenting problems</button></th>
-    <th scope="col"><button type="button" class="table-sort">Family Id</button></th>
+    <th scope="col"><span data-table-sort>Referral Date</span></th>
+    <th scope="col"><span data-table-sort>Referring Provider</span></th>
+    <th scope="col"><span data-table-sort>Reason for referral</span></th>
+    <th scope="col"><span data-table-sort>Presenting problems</span></th>
+    <th scope="col"><span data-table-sort>Family Id</span></th>
 </tr></thead>
 <tbody><c:forEach var="queue_entry" items="${queue}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
 
@@ -324,11 +325,11 @@ String reason ="";
 
         <th scope="col"></th>
         <th scope="col"></th>
-        <th scope="col"><button type="button" class="table-sort">Client Name</button></th>
-        <th scope="col"><button type="button" class="table-sort">Referral Date</button></th>
-        <th scope="col"><button type="button" class="table-sort">Referring Provider</button></th>
-        <th scope="col"><button type="button" class="table-sort">Reason for referral</button></th>
-        <th scope="col"><button type="button" class="table-sort">Presenting problems</button></th>
+        <th scope="col"><span data-table-sort>Client Name</span></th>
+        <th scope="col"><span data-table-sort>Referral Date</span></th>
+        <th scope="col"><span data-table-sort>Referring Provider</span></th>
+        <th scope="col"><span data-table-sort>Reason for referral</span></th>
+        <th scope="col"><span data-table-sort>Presenting problems</span></th>
     </tr></thead>
 <tbody><c:forEach var="queue_entry" items="${remoteQueue}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
 
@@ -348,6 +349,3 @@ String reason ="";
 </table>
 <c:if test="${empty remoteQueue}"><p class="table-empty">Queue is empty.</p></c:if>
 </c:if>
-
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
-<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

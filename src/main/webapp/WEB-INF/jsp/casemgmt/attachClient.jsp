@@ -53,7 +53,8 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%-- A whole document: CsrfGuardScriptInjectionFilter adds the CSRF client script before </head>,
+<%-- A whole document: CsrfGuardScriptInjectionFilter adds the CSRF client script before <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+</head>,
      and that script is what gives the search form below its token. As a bare fragment the page got
      no script, so every search POST was refused as a CSRF violation (403). The stylesheets named
      ${request.contextPath}, which is not an EL object, and so loaded from outside the application. --%>
@@ -203,14 +204,14 @@
                         <caisi:isModuleLoad
                                 moduleName="pmm.client.search.outside.of.domain.enabled">
                             <th><label for="attachSearchOutsideDomain">Search all clients</label> <button type="button"
-                                    aria-label="Help: Search all clients" onclick="popupHelp('domain')">?</button></th>
+                                    aria-label="Help: Search all clients" onclick="popupHelp('domain')">?</span></th>
                             <td><input type="checkbox" id="attachSearchOutsideDomain" name="criteria.searchOutsideDomain" value="true" ${criteria.searchOutsideDomain ? 'checked' : ''}/></td>
                         </caisi:isModuleLoad>
                     </tr>
 
                     <tr>
                         <th><label for="attachSoundex">Soundex on names</label> <button type="button"
-                                aria-label="Help: Soundex on names" onclick="popupHelp('soundex')">?</button></th>
+                                aria-label="Help: Soundex on names" onclick="popupHelp('soundex')">?</span></th>
                         <td><input type="checkbox" id="attachSoundex" name="criteria.searchUsingSoundex" value="true" ${criteria.searchUsingSoundex ? 'checked' : ''}/></td>
                     </tr>
                     <tr>
@@ -258,21 +259,20 @@
 <br/>
 <c:if test="${requestScope.clients != null}">
     <form method="post" name="mergeform" action="<%=request.getContextPath()%>/admin/MergeRecords">
-        <%-- The paging and sorting links repeat the search's parameters as a GET, which CSRFGuard
-             does not check; the search form's token is left out of them, and so out of URLs. --%>
+        <%-- Local paging excludes hidden-row controls from this merge form. --%>
         <table class="simple" cellspacing="2" cellpadding="3" id="client" data-carlos-table data-page-size="10" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 
 
 
-                <th scope="col"><button type="button" class="table-sort">Client No</button></th>
-            <th scope="col"><button type="button" class="table-sort">Name</button></th>
-            <th scope="col"><button type="button" class="table-sort">Date of Birth</button></th>
-            <th scope="col"><button type="button" class="table-sort">Gender</button></th>
-            <th scope="col"><button type="button" class="table-sort">Chart No</button></th>
-            <th scope="col"><button type="button" class="table-sort">Admitted to Program</button></th>
-            <th scope="col"><button type="button" class="table-sort">H&S Alert</button></th>
+                <th scope="col"><span data-table-sort>Client No</span></th>
+            <th scope="col"><span data-table-sort>Name</span></th>
+            <th scope="col"><span data-table-sort>Date of Birth</span></th>
+            <th scope="col"><span data-table-sort>Gender</span></th>
+            <th scope="col"><span data-table-sort>Chart No</span></th>
+            <th scope="col"><span data-table-sort>Admitted to Program</span></th>
+            <th scope="col"><span data-table-sort>H&S Alert</span></th>
 
             <security:oscarSec roleName="<%=roleName$%>" objectName="_merge"
                                rights="r">
@@ -367,6 +367,3 @@
 </c:if>
 </body>
 </html>
-
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
-<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

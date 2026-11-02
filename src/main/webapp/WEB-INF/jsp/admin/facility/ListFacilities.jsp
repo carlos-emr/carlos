@@ -66,7 +66,8 @@
                 return false;
             }
         </script>
-    </head>
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+</head>
     <body>
     <h1><fmt:message key="admin.facility.list.heading"/></h1>
     <form action="${pageContext.request.contextPath}/FacilityManager" method="post">
@@ -78,8 +79,8 @@
             <fmt:message key="admin.facility.list.msgNoFacilities" var="noFacilitiesMessage"/>
 
 
-            <th scope="col"><button type="button" class="table-sort"><fmt:message key="admin.facility.list.header.name"/></button></th>
-            <th scope="col"><button type="button" class="table-sort"><fmt:message key="admin.facility.list.header.description"/></button></th>
+            <th scope="col"><span data-table-sort><fmt:message key="admin.facility.list.header.name"/></span></th>
+            <th scope="col"><span data-table-sort><fmt:message key="admin.facility.list.header.description"/></span></th>
 
             <th scope="col"></th>
             <!--
@@ -113,7 +114,7 @@
             -->
         </tr></c:forEach></tbody>
 </table>
-<c:if test="${empty facilities}"><p class="table-empty">${noFacilitiesMessage}</p></c:if>
+<c:if test="${empty facilities}"><p class="table-empty"><c:out value="${noFacilitiesMessage}"/></p></c:if>
     </form>
     <!--
             <p><a href="< tml:rewrite action="/FacilityManager"/>?method=add">
@@ -121,6 +122,3 @@
     -->
     </body>
 </html>
-
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
-<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

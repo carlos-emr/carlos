@@ -141,7 +141,8 @@
             }
         </script>
         <link href="${pageContext.request.contextPath}/css/displaytag.css" rel="stylesheet"></link>
-    </head>
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+</head>
 
     <body vlink="#0000FF" class="BodyStyle">
 
@@ -228,7 +229,7 @@
                     <td><c:url var="tableColumnUrl" value="/printReferralLabelAction"><c:param name="billingreferralNo" value="${referral.id}"/></c:url><a href="${carlos:forHtmlAttribute(tableColumnUrl)}"><fmt:message key="admin.billingreferralAdmin.label.link"/></a></td>
                 </tr></c:forEach></tbody>
 </table>
-<c:if test="${empty referrals}"><p class="table-empty">Nothing found to display.</p></c:if>
+<c:if test="${empty referrals}"><p class="table-empty"><fmt:message key="admin.billingreferralAdmin.msgNoResults"/></p></c:if>
             </td>
         </tr>
         <tr>
@@ -275,6 +276,3 @@
     </table>
     <% } %>
 </html>
-
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
-<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

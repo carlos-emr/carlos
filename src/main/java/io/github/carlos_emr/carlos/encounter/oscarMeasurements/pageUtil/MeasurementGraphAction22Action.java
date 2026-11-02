@@ -168,7 +168,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return list;
     }
 
-    private static List<Map<String, Object>> getDrugDataSet(Integer demographicId, String[] dins) {
+    static List<Map<String, Object>> getDrugDataSet(Integer demographicId, String[] dins) {
         List<Map<String, Object>> values = new ArrayList<>();
         RxPrescriptionData prescriptData = new RxPrescriptionData();
         if (dins != null) {
@@ -177,8 +177,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 RxPrescriptionData.Prescription[] prescriptions = prescriptData.getPrescriptionScriptsByPatientRegionalIdentifier(demographicId, din);
                 if (prescriptions == null) continue;
                 for (RxPrescriptionData.Prescription prescription : prescriptions) {
-                    values.add(Map.of("name", prescription.getBrandName(), "start", prescription.getRxDate().getTime(),
-                            "end", prescription.getEndDate().getTime()));
+                    Date start = prescription.getRxDate() != null ? prescription.getRxDate() : prescription.getWrittenDate();
+                    if (start == null) throw new IllegalArgumentException("Prescription has no interval start date");
+                    Date end = prescription.getEndDate() != null ? prescription.getEndDate() : new Date();
+                    values.add(Map.of("name", Objects.toString(prescription.getBrandName(), "Medication"),
+                            "start", start.getTime(), "end", end.getTime()));
                 }
             }
         }

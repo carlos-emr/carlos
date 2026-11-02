@@ -34,6 +34,7 @@ class MeasurementChartSmokeIntegrationTest {
         var collection = new MeasurementChart.SeriesCollection();
         collection.addSeries(series);
         MeasurementChart chart = MeasurementChart.lines("Synthetic chart", "Days", "kg", collection)
+                .withSecondAxis("Secondary units", collection)
                 .withReferenceRanges(List.of(new MeasurementChart.ReferenceRange(new Date(1_700_000_000_000L), 55, 70)))
                 .withMedications(List.of(Map.of("name", "Synthetic medication", "start", 1_699_900_000_000L, "end", 1_700_100_000_000L)));
         var context = new MockServletContext("src/main/webapp", new FileSystemResourceLoader());
@@ -46,11 +47,18 @@ class MeasurementChartSmokeIntegrationTest {
                 assertThat(image).isNotNull();
                 assertThat(image.getWidth()).isEqualTo(1000);
                 assertThat(image.getHeight()).isEqualTo(600);
-                int colored = 0;
-                for (int x = 0; x < 1000; x += 5) for (int y = 0; y < 600; y += 5) {
-                    if ((image.getRGB(x, y) & 0xffffff) != 0xffffff) colored++;
+                int seriesPixels = 0, referencePixels = 0, medicationPixels = 0;
+                for (int x = 40; x < 980; x++) for (int y = 80; y < 580; y++) {
+                    int rgb = image.getRGB(x, y);
+                    int red = (rgb >>> 16) & 255, green = (rgb >>> 8) & 255, blue = rgb & 255;
+                    if (y < 380 && red > 120 && red > green * 1.5 && red > blue * 1.5) seriesPixels++;
+                    if (y < 380 && green > 60 && green > red * 1.3 && green > blue * 1.3) referencePixels++;
+                    if (y > 450 && blue > red + 30 && blue > green + 15) medicationPixels++;
                 }
-                assertThat(colored).isGreaterThan(100);
+                assertThat(seriesPixels).as("measurement series in %s", format).isGreaterThan(20);
+                assertThat(referencePixels).as("reference range in %s", format).isGreaterThan(20);
+                assertThat(medicationPixels).as("medication interval in %s", format).isGreaterThan(1000);
+                java.nio.file.Files.write(java.nio.file.Path.of("target", "measurement-chart-smoke." + format), output.toByteArray());
             }
         }
     }

@@ -14,6 +14,7 @@ import javax.xml.stream.XMLStreamWriter;
 public final class SpreadsheetExport {
     public static final String CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     private static final String NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+    private static final java.util.regex.Pattern EXCEL_ESCAPE = java.util.regex.Pattern.compile("_x([0-9a-fA-F]{4})_");
     private SpreadsheetExport() { }
 
     /** Writes one sheet; the caller owns the response stream. Cells are Strings or finite Doubles. */
@@ -22,6 +23,9 @@ public final class SpreadsheetExport {
         for (Object[] row : rows) {
             if (row.length > 16_384) throw new IllegalArgumentException("Too many spreadsheet columns");
             for (Object cell : row) {
+                if (cell != null && !(cell instanceof String) && !(cell instanceof Double)) {
+                    throw new IllegalArgumentException("Spreadsheet cells must be strings or finite doubles");
+                }
                 if (cell instanceof String text && text.length() > 32_767) {
                     throw new IllegalArgumentException("Spreadsheet cell text is too long");
                 }
@@ -34,6 +38,9 @@ public final class SpreadsheetExport {
         // released by closing the wrapper over a non-closing stream.
         try (ZipOutputStream zip = new ZipOutputStream(new java.io.FilterOutputStream(output) {
             @Override public void close() throws IOException { flush(); }
+            @Override public void write(byte[] bytes, int offset, int length) throws IOException {
+                out.write(bytes, offset, length);
+            }
         }, StandardCharsets.UTF_8)) {
             entry(zip, "[Content_Types].xml", """
                     <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -109,11 +116,11 @@ public final class SpreadsheetExport {
 
     private static String escapeExcelText(String text) {
         // OOXML encodes XML-forbidden controls as _xHHHH_. Escape literal occurrences first.
-        String literal = text.replaceAll("_x([0-9a-fA-F]{4})_", "_x005F_x$1_");
+        String literal = EXCEL_ESCAPE.matcher(text).replaceAll("_x005F_x$1_");
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < literal.length(); i++) {
             char ch = literal.charAt(i);
-            if ((ch < 0x20 && ch != '\t' && ch != '\n' && ch != '\r') || ch == 0xfffe || ch == 0xffff) {
+            if ((ch < 0x20 && ch != '\t' && ch != '\n') || ch == 0xfffe || ch == 0xffff) {
                 result.append(String.format(java.util.Locale.ROOT, "_x%04X_", (int) ch));
             } else result.append(ch);
         }

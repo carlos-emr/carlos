@@ -105,9 +105,8 @@ class EFormBrowserRemoteDriverFakeChromedriverUnitTest {
         try {
             Map<String, Object> result = driver.executeCdpCommand("Page.printToPDF", Map.of());
 
-            // The trap this test exists for: with the cdp field null, this returns Map.of()
-            // WITHOUT ever talking to chromedriver. Both assertions must hold — a non-empty
-            // result AND the command actually crossing the wire.
+            // Exercise the actual CDP bridge: both the PDF data and its request path must survive
+            // transport changes. A canned/empty result must not stand in for a browser command.
             assertThat(result).isNotEmpty();
             assertThat(result).containsKey("data");
             assertThat(requests)

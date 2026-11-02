@@ -41,15 +41,16 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Program History</title>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
-    </head>
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+</head>
     <body>
 
     <table cellspacing="2" cellpadding="9" id="ps" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
-        <th scope="col"><button type="button" class="table-sort">Provider Name</button></th>
-        <th scope="col"><button type="button" class="table-sort">Role</button></th>
-        <th scope="col"><button type="button" class="table-sort">Date</button></th>
+        <th scope="col"><span data-table-sort>Provider Name</span></th>
+        <th scope="col"><span data-table-sort>Role</span></th>
+        <th scope="col"><span data-table-sort>Date</span></th>
     </tr></thead>
 <tbody><c:forEach var="ps" items="${programSignatures}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
 
@@ -86,6 +87,3 @@
 </c:forEach>
 </table>
 -->
-
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
-<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

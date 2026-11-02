@@ -59,7 +59,8 @@
         <script type="text/javascript" language="JavaScript"
                 src="<%= request.getContextPath() %>/share/javascript/Oscar.js"></script>
         <link href="${pageContext.request.contextPath}/css/displaytag.css" rel="stylesheet"></link>
-    </head>
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+</head>
 
     <body vlink="#0000FF" class="BodyStyle">
 
@@ -100,8 +101,10 @@
                     <th scope="col"><fmt:message key='admin.sitesAdmin.col.province'/></th>
                     <th scope="col"><fmt:message key='admin.sitesAdmin.col.postalCode'/></th>
 
+                    <% if (IsPropertiesOn.isProviderFormalizeEnable()) { %>
                     <th scope="col"><fmt:message key='admin.sitesAdmin.col.providerIdFrom'/></th>
                     <th scope="col"><fmt:message key='admin.sitesAdmin.col.providerIdTo'/></th>
+                    <% } %>
 
                 </tr></thead>
 <tbody><c:forEach var="site" items="${sites}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
@@ -138,6 +141,3 @@
     </table>
 
 </html>
-
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
-<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

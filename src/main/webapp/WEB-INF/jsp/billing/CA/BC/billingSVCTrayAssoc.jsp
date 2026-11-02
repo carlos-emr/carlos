@@ -74,7 +74,8 @@
             }
         </script>
         <title>Manage Procedure and Tray Fee Associations</title>
-    </head>
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+</head>
     <body>
     <%-- Validation messages echo the submitted service codes, so every one goes through the
          null-safe CARLOS encoder. This is the only error renderer on the page: the raw
@@ -124,6 +125,3 @@
 <c:if test="${empty list}"><p class="table-empty">Nothing found to display.</p></c:if>
     </body>
 </html>
-
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
-<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

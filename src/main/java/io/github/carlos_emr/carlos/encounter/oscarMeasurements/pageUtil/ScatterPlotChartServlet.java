@@ -96,11 +96,17 @@ public class ScatterPlotChartServlet extends HttpServlet {
             }
 
             if (chart != null) {
+                java.io.ByteArrayOutputStream image = new java.io.ByteArrayOutputStream();
+                BrowserChartRenderer.write(request.getServletContext(), image, chart, width, height, "jpeg");
                 httpServletResponse.setContentType("image/jpeg");
-                BrowserChartRenderer.write(request.getServletContext(), httpServletResponse.getOutputStream(), chart, width, height, "jpeg");
+                image.writeTo(httpServletResponse.getOutputStream());
             }
         } catch (Exception t) {
             MiscUtils.getLogger().error("Error", t);
+            if (!httpServletResponse.isCommitted()) {
+                httpServletResponse.reset();
+                httpServletResponse.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            }
         }
     }
 
@@ -127,7 +133,7 @@ public class ScatterPlotChartServlet extends HttpServlet {
 
     private MeasurementChart createBloodPressureChart(String demo, String type, String mInstrc) {
         long[][] results = generateResult(demo, type, mInstrc);
-        if (results == null || results[0].length == 0) {
+        if (results == null) {
             return null;
         }
 

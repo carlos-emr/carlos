@@ -37,13 +37,14 @@
 	</tr>
 </table>
 </div>
+<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <table class="simple" cellspacing="2" cellpadding="3" id="provider" data-carlos-table data-page-size="0" data-default-sort="3" data-default-order="ascending">
 <thead><tr>
 
     <th scope="col" class="non_sorted_header">Team(s)</th>
-    <th scope="col"><button type="button" class="table-sort">Name</button></th>
-    <th scope="col"><button type="button" class="table-sort">Phone</button></th>
-    <th scope="col"><button type="button" class="table-sort">Role</button></th>
+    <th scope="col"><span data-table-sort>Name</span></th>
+    <th scope="col"><span data-table-sort>Phone</span></th>
+    <th scope="col"><span data-table-sort>Role</span></th>
 </tr></thead>
 <tbody><c:forEach var="provider" items="${providers}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
 
@@ -62,6 +63,3 @@
 </tr></c:forEach></tbody>
 </table>
 <c:if test="${empty providers}"><p class="table-empty">Nothing found to display.</p></c:if>
-
-<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
-<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>
