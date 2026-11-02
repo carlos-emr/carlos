@@ -102,6 +102,16 @@ async function waitForAnnotationFaxCover(page) {
   if (result !== 'ready') throw new Error('Annotation Save and fax was refused before reaching the cover page; inspect the visible save/fax error.');
 }
 
+/** Observe CSS only while the live status region is actually empty. */
+async function emptyAnnotationStatusDisplay(page) {
+  const state=await page.waitForFunction(()=>{
+    const element=document.getElementById('status');
+    return element&&element.textContent===''?{display:getComputedStyle(element).display}:false;
+  },null,{timeout:30000});
+  try {return (await state.jsonValue()).display;}
+  finally {await state.dispose();}
+}
+
 const validatedBaseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const baseUrl = validatedBaseUrl.href.replace(/\/+$/, '');
 const testUser = requireEnv('TEST_USER');
@@ -179,7 +189,7 @@ async function main({cancellation,fixture}={}) {
   let context;
   try {
   context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
-  fixture.bind(context);
+  await fixture.bind(context);
   context.setDefaultTimeout(120000);
   context.setDefaultNavigationTimeout(120000);
 
@@ -322,8 +332,7 @@ async function main({cancellation,fixture}={}) {
     cancellation?.throwIfCancelled();
     check('the browser exposes the status region with the ARIA status role',
       statusRoleCount >= 1, `${statusRoleCount} elements with role=status`);
-    const statusHiddenWhenEmpty = await page.locator('#status')
-      .evaluate(el => getComputedStyle(el).display);
+    const statusHiddenWhenEmpty = await emptyAnnotationStatusDisplay(page);
     cancellation?.throwIfCancelled();
     check('the empty status region is hidden by .status:empty',
       statusHiddenWhenEmpty === 'none', `display: ${statusHiddenWhenEmpty}`);
@@ -1366,7 +1375,7 @@ async function main({cancellation,fixture}={}) {
     await page.route('**/SaveAnnotatedDocument?*', async route => {
       lateSaveSeen();
       await lateSaveHeld;
-      await route.continue();
+      await route.fallback();
     });
     cancellation?.throwIfCancelled();
     await page.locator('#btnSave').click();
@@ -1880,7 +1889,7 @@ async function main({cancellation,fixture}={}) {
       capacitySaveAttempts++;
       return capacitySaveAttempts <= 5 ? route.fulfill({status: 503, contentType: 'application/json',
         headers: {'Retry-After': '1'}, body: JSON.stringify({success: false, retryable: true, error: 'Waiting for capacity'})})
-        : route.continue();
+        : route.fallback();
     };
     await page.route('**/SaveAnnotatedDocument?*', saveCapacity);
     cancellation?.throwIfCancelled();

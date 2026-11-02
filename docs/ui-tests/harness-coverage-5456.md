@@ -19,8 +19,7 @@ and identity check so a replacement cannot be unlinked. The refusal regression
 fails against the preceding implementation. `7af7c699280` addresses both subsequent
 Cubic comments: receipt removal is registered immediately at directory creation,
 and the SQL mock tracks patient links independently. A subsequent transaction
-failure control verifies document/PDF/link/parent/receipt retention without
-pretending a successful InnoDB transaction partially ignored a DELETE.
+failure control also verifies document/PDF/link/parent/receipt retention.
 
 At `7af7c699280`, GitHub's Node suite passes 6,913 tests, with zero failures or
 skips and one existing TODO. The focused annotation, file-retirement, stored-PDF,
@@ -28,6 +27,27 @@ tickler and appointment-JSP batch passes 36/36. The installed-schema MariaDB
 negative control also passes: an owned cross-patient DOC route blocks deletion,
 the document/link/PDF/receipt remain, and exact recovery restores the SQL counts
 and document-store byte/metadata baseline.
+
+The fresh packaged smoke suite passes 12/12, including tickler CRUD, on Chromium
+154.0.8025.0. Its server-log window has no unexplained signatures (six known
+signatures, seven deliberately provoked events).
+
+The full native annotation retake exposed a response-capture race: Save-and-fax
+can navigate before Chromium's response body is read. The fixture now captures
+and records the durable API response before releasing it to the page; delayed
+and capacity-retry POSTs fall through to that capture. Unconfirmed capture still
+retains the fixtures. An additional timing fix observes the status region's CSS
+only while its text is empty. Regressions preserve an incorrectly visible CSS
+result as a failure. The expanded focused batch passes 48/48.
+
+The final annotation browser retake passes every viewer assertion and completes
+Save/fax-cover/cancel in 69.9 seconds. Its owned UI-only sender has polling
+disabled; configuration/polling restore exactly and no fax jobs are created.
+Fixture cleanup leaves no annotation recovery receipt. The initial failed run's
+16 source-linked documents and 28 source/cache files were reconciled using the
+private receipt, exact recorded hashes, creator/patient links and source graph;
+only those verified fixtures and their patient were removed. The first retake's
+status-timing failure remains a failed attempt, separate from the final pass.
 
 The EMR and pinned DrugRef source compile successfully in an Ubuntu 26.04
 container with JDK 25. Full Debian packages include the checksum-verified pinned

@@ -33,10 +33,11 @@ function fixture(t, foreignRoute, failLinkDelete = false) {
       assert.fail('Unexpected SQL read: ' + query);
     },
     rows(query) {
-      if (query.startsWith('SELECT * FROM document')) return [[doc.id, doc.label, doc.filename]];
-      if (query.startsWith('SELECT docdesc')) return [[doc.label, doc.filename, '999998', '']];
+      const current = state.copy && query.endsWith('document_no=' + state.copy.id) ? state.copy : doc;
+      if (query.startsWith('SELECT * FROM document')) return [[current.id, current.label, current.filename]];
+      if (query.startsWith('SELECT docdesc')) return [[current.label, current.filename, '999998', current === doc ? '' : 'annotated-copy-of:' + doc.id]];
       if (query.startsWith('SELECT module,module_id')) return state.link ? [['demographic', '42']] : [];
-      if (query.startsWith('SELECT document_no FROM document')) return state.document ? [[doc.id]] : [];
+      if (query.startsWith('SELECT document_no FROM document')) return state.document ? [doc, state.copy].filter(Boolean).map(row => [row.id]) : [];
       assert.fail('Unexpected SQL rows: ' + query);
     },
     execute(query) {
@@ -61,7 +62,7 @@ function fixture(t, foreignRoute, failLinkDelete = false) {
     if (previous === undefined) delete process.env.CARLOS_DISPOSABLE_HOST;
     else process.env.CARLOS_DISPOSABLE_HOST = previous;
   });
-  const owned = createOwnedAnnotationFixture({mysql: {}, testUser: 'synthetic'});
+  const owned = createOwnedAnnotationFixture({mysql: {}, testUser: 'synthetic', baseUrl: new URL('http://127.0.0.1/carlos')});
   owned.create();
   return {owned, state, doc, receipt};
 }
@@ -114,4 +115,61 @@ test('annotation cleanup preserves a replacement swapped into its PDF path durin
   assert.equal(fs.readFileSync(doc.file, 'utf8'), 'foreign replacement');
   assert.equal(state.patient, true);
   assert.equal(fs.existsSync(receipt), true);
+});
+
+test('annotation save records an accepted copy before navigation can discard its browser response body', async t => {
+  const {owned, state, doc, receipt} = fixture(t, false);
+  const listeners = {};
+  let handler, finishResponse, browserBodyReads = 0, disposed = false;
+  const delivered = new Promise(resolve => {finishResponse = resolve;});
+  const request = {method: () => 'POST', url: () => 'http://127.0.0.1/carlos/documentManager/SaveAnnotatedDocument?docId=7',
+    async response() {await delivered; return {finished: async () => null, json() {browserBodyReads++; throw new Error('No resource with given identifier found');}};}};
+  const context = {on(name, callback) {listeners[name] = callback;}, async route(match, callback) {
+    assert.equal(match(new URL(request.url())), true);
+    assert.equal(match(new URL('http://foreign.invalid/carlos/documentManager/SaveAnnotatedDocument')), false);
+    handler = callback;
+  }};
+  await owned.bind(context);
+  listeners.request(request);
+  const response = {status: () => 200, json: async () => ({success: true, demographicNo: '42', documentNo: '8'}),
+    async dispose() {disposed = true;}};
+  await handler({request: () => request, async fetch(options) {
+    assert.equal(options.maxRedirects, 0);
+    state.copy = {id: '8', label: doc.label + ' (annotated)', filename: 'owned-annotated-copy.pdf', file: path.join(path.dirname(doc.file), 'owned-annotated-copy.pdf')};
+    fs.writeFileSync(state.copy.file, pdf.textPdf(state.copy.label));
+    return response;
+  }, async fulfill(options) {
+    assert.equal(options.response, response);
+    const recovery = JSON.parse(fs.readFileSync(path.join(receipt, 'recovery.json'), 'utf8'));
+    assert.equal(recovery.records.some(([id]) => id === '8'), true);
+    finishResponse();
+  }, abort() {assert.fail('confirmed response must not be aborted');}});
+  await owned.drain();
+  owned.confirmClosed();
+  owned.cleanup();
+  assert.equal(browserBodyReads, 0);
+  assert.equal(disposed, true);
+  assert.equal(fs.existsSync(doc.file), false);
+  assert.equal(fs.existsSync(state.copy.file), false);
+  assert.equal(state.document, false);
+});
+
+test('annotation capture failure retains its rows, PDF and receipt and disposes the fetched response', async t => {
+  const {owned, state, doc, receipt} = fixture(t, false);
+  let handler, disposed = false, aborted = false;
+  const context = {on() {}, async route(match, callback) {handler = callback;}};
+  await owned.bind(context);
+  await handler({request: () => ({method: () => 'POST'}), async fetch() {
+    return {status: () => 200, async json() {throw new Error('capture unavailable');}, async dispose() {disposed = true;}};
+  }, fulfill() {assert.fail('unconfirmed response must not be released');}, async abort() {aborted = true;}});
+  await assert.rejects(owned.drain(), /capture unavailable/);
+  owned.confirmClosed();
+  assert.throws(() => owned.cleanup(), /unconfirmed/);
+  assert.equal(state.document, true);
+  assert.equal(state.link, true);
+  assert.equal(state.patient, true);
+  assert.equal(fs.existsSync(doc.file), true);
+  assert.equal(fs.existsSync(receipt), true);
+  assert.equal(disposed, true);
+  assert.equal(aborted, true);
 });

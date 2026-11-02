@@ -53,6 +53,11 @@ function createOwnedAnnotationFixture(config) {
     const body=await response.json();if(!body.success)return;
     h.assert(String(body.demographicNo)===patient,'Annotation response changed patient context');capture(body.documentNo);
   }
+  async function fetchAnnotatedRoute(route) {
+    let response;
+    try {response=await route.fetch({maxRedirects:0});await observeResponse(response);known.add(route.request());return response;}
+    catch(error){errors.push(error);if(response)await response.dispose().catch(()=>{});try{await route.abort('failed');}catch{}throw error;}
+  }
   return {
     get documentId(){return source.id;},
     create(){
@@ -63,7 +68,7 @@ function createOwnedAnnotationFixture(config) {
       [source]=pdf.ownedPdfDocuments(store,marker,[{key:'annotation-source',pages:12}]);
       pdf.seedOwnedPdfDocuments({sql,store,patient,provider,docs:[source]});capture(source.id,true);
     },
-    bind(context){
+    async bind(context){
       closed=false;
       context.on('request',request=>{
         const url=new URL(request.url());
@@ -80,11 +85,23 @@ function createOwnedAnnotationFixture(config) {
         })().catch(error=>errors.push(error));
         pending.push(operation);
       });
+      // Save-and-fax navigates immediately after reading JSON. Capture the
+      // durable API response and owned copy before releasing it to the page;
+      // Chromium can evict a native response body during that navigation.
+      await context.route(url=>url.origin===config.baseUrl.origin
+        &&url.pathname.endsWith('/documentManager/SaveAnnotatedDocument'),async route=>{
+        if(route.request().method()!=='POST')return route.fallback();
+        const operation=(async()=>{
+          let response;
+          try {response=await fetchAnnotatedRoute(route);await route.fulfill({response});}
+          finally {if(response)await response.dispose();}
+        })();
+        pending.push(operation);
+        try {await operation;}
+        catch(error){errors.push(error);try{await route.abort('failed');}catch{}}
+      });
     },
-    async fetch(route){
-      try {const response=await route.fetch();await observeResponse(response);known.add(route.request());return response;}
-      catch(error){errors.push(error);try{await route.abort('failed');}catch{}throw error;}
-    },
+    fetch:fetchAnnotatedRoute,
     abort(route,reason){known.add(route.request());return route.abort(reason);},
     async drain(){
       let count,timer;
