@@ -11,7 +11,7 @@ function createOwnedAnnotationFixture(config) {
   let store;
   try {store=pdf.directory('DOCUMENT_DIR','DOCUMENT_DIR','RX_FAX_DOCUMENT_DIR');}
   catch(error){sql.dispose();throw error;}
-  const cache=path.join(path.dirname(store),'document_cache'),records=new Map(),pending=[],known=new WeakSet(),errors=[];
+  const cache=path.join(path.dirname(store),'document_cache'),records=new Map(),pending=[],known=new WeakSet(),errors=new Set();
   let receiptDir;
   try {receiptDir=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-annotation-fixture-'));}
   catch(error){sql.dispose();throw error;}
@@ -56,7 +56,7 @@ function createOwnedAnnotationFixture(config) {
   async function fetchAnnotatedRoute(route) {
     let response;
     try {response=await route.fetch({maxRedirects:0});await observeResponse(response);known.add(route.request());return response;}
-    catch(error){errors.push(error);if(response)await response.dispose().catch(()=>{});try{await route.abort('failed');}catch{}throw error;}
+    catch(error){errors.add(error);if(response)await response.dispose().catch(()=>{});try{await route.abort('failed');}catch{}throw error;}
   }
   return {
     get documentId(){return source.id;},
@@ -82,7 +82,7 @@ function createOwnedAnnotationFixture(config) {
           const failure=await response.finished();
           if(failure){if(write&&!known.has(request))throw new Error('Annotation response did not finish; retain fixtures');return;}
           if(write&&!known.has(request))await observeResponse(response);
-        })().catch(error=>errors.push(error));
+        })().catch(error=>errors.add(error));
         pending.push(operation);
       });
       // Save-and-fax navigates immediately after reading JSON. Capture the
@@ -98,7 +98,7 @@ function createOwnedAnnotationFixture(config) {
         })();
         pending.push(operation);
         try {await operation;}
-        catch(error){errors.push(error);try{await route.abort('failed');}catch{}}
+        catch(error){errors.add(error);try{await route.abort('failed');}catch{}}
       });
     },
     fetch:fetchAnnotatedRoute,
@@ -108,13 +108,13 @@ function createOwnedAnnotationFixture(config) {
       try {
         const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Annotation work did not settle; retain fixtures')),180000);});
         await Promise.race([(async()=>{do {count=pending.length;await Promise.all(pending);}while(pending.length!==count);})(),timeout]);
-      } catch(error){errors.push(error);throw error;}finally{clearTimeout(timer);}
-      h.assert(!errors.length,errors.map(error=>error.message).join('; '));
+      } catch(error){errors.add(error);throw error;}finally{clearTimeout(timer);}
+      h.assert(!errors.size,[...errors].map(error=>error.message).join('; '));
     },
     confirmClosed(){closed=true;},
     cleanup(){
       try {
-        h.assert(closed&&!errors.length,'Annotation work is unconfirmed; retain the recovery receipt and fixtures');
+        h.assert(closed&&!errors.size,'Annotation work is unconfirmed; retain the recovery receipt and fixtures');
         if(!patient) {
           h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE last_name=${h.sqlString(marker)}`)==='0','Annotation patient creation is unconfirmed; retain receipt');
           fs.rmSync(receiptDir,{recursive:true,force:true});return;
