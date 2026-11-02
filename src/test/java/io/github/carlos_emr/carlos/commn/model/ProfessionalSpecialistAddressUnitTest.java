@@ -105,4 +105,20 @@ class ProfessionalSpecialistAddressUnitTest {
         specialist.setCity("New city");
         assertThat(specialist.getStreetAddress()).isEqualTo("New street,New city,,,,");
     }
+
+    @Test
+    void shouldRemoveEmbeddedDelimiters_whenEditingAddressComponents() {
+        ProfessionalSpecialist specialist = new ProfessionalSpecialist();
+        specialist.setStreetAddress("Old street,Old city,A1A 1A1,ON,Canada,");
+        specialist.setCity("New, city");
+        specialist.setPostal("B2B, 2B2");
+        specialist.setProvince("B,C");
+        specialist.setAddress("New, street");
+        assertThat(specialist.getStreetAddress()).isEqualTo("New street,New city,B2B 2B2,BC,Canada,");
+        assertThat(specialist.getAddressArray()).containsExactly("New street", "New city", "B2B 2B2", "BC", "Canada");
+        assertThat(specialist.getAddress()).isEqualTo("New street");
+        assertThat(specialist.getCity()).isEqualTo("New city");
+        assertThat(specialist.getPostal()).isEqualTo("B2B 2B2");
+        assertThat(specialist.getProvince()).isEqualTo("BC");
+    }
 }

@@ -475,7 +475,8 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
         if (this.addressArray == null || this.addressArray.length < 5) {
             setStreetAddress(this.streetAddress);
         }
-        this.addressArray[index] = value;
+        // The legacy storage format reserves commas as field delimiters.
+        this.addressArray[index] = value.replace(",", "");
         setStreetAddress(this.addressArray);
     }
 
