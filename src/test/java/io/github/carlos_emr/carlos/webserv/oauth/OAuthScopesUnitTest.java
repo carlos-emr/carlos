@@ -257,6 +257,14 @@ class OAuthScopesUnitTest {
             assertThat(OAuthScopes.requiredScope("   ", "/services/measurements/123"))
                     .isEqualTo("measurement.write");
         }
+
+        @Test
+        @DisplayName("should require measurement.read when a GET lists the measurement types")
+        void shouldRequireRead_forMeasurementTypesList() {
+            // GET /services/measurements/types is a safe method, so it is a read under the measurements root (#5452).
+            assertThat(OAuthScopes.requiredScope("GET", "/services/measurements/types"))
+                    .isEqualTo("measurement.read");
+        }
     }
 
     @Nested
