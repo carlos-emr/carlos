@@ -310,11 +310,11 @@ public class DemographicManagerImpl implements DemographicManager {
             // Archive previous demoCust
             DemographicCust prevCust = demographicCustDao.find(demoCust.getId());
             if (prevCust != null) {
-                if (!(StringUtils.nullSafeEquals(prevCust.getAlert(), demoCust.getAlert())
-                        && StringUtils.nullSafeEquals(prevCust.getMidwife(), demoCust.getMidwife())
-                        && StringUtils.nullSafeEquals(prevCust.getNurse(), demoCust.getNurse())
-                        && StringUtils.nullSafeEquals(prevCust.getResident(), demoCust.getResident())
-                        && StringUtils.nullSafeEquals(prevCust.getNotes(), demoCust.getNotes()))) {
+                if (!(Objects.equals(prevCust.getAlert(), demoCust.getAlert())
+                        && Objects.equals(prevCust.getMidwife(), demoCust.getMidwife())
+                        && Objects.equals(prevCust.getNurse(), demoCust.getNurse())
+                        && Objects.equals(prevCust.getResident(), demoCust.getResident())
+                        && Objects.equals(prevCust.getNotes(), demoCust.getNotes()))) {
                     demographicCustArchiveDao.archiveDemographicCust(prevCust);
                 }
             }

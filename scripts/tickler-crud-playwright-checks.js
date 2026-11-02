@@ -259,11 +259,11 @@ async function setTicklerListStatus(page, status) {
 }
 
 async function findRowInList(page, message, expectedStatus) {
-  await page.locator('#ticklerResults_filter input[type="search"]').fill('');
   const previousDraw = await page.evaluate(() => (
     window.jQuery('#ticklerResults').DataTable().settings()[0].iDraw
   ));
   await page.evaluate(() => {
+    document.querySelector('#ticklerResults_filter input[type="search"]').value = '';
     window.jQuery('#ticklerResults').DataTable().search('').order([4, 'desc']).draw();
   });
   try {
@@ -313,28 +313,37 @@ async function findRowInList(page, message, expectedStatus) {
   return row;
 }
 
+async function fillTicklerSearch(page, needle) {
+  const previousDraw = await page.evaluate(() => (
+    window.jQuery('#ticklerResults').DataTable().settings()[0].iDraw
+  ));
+  // Exercise the input handler once and wait through its server-side debounce.
+  const [searchResponse] = await Promise.all([
+    page.waitForResponse(response => {
+      const url = new URL(response.url());
+      return response.request().method() === 'GET'
+        && url.pathname.endsWith('/tickler/ListTicklers')
+        && url.searchParams.get('search[value]') === needle;
+    }, { timeout: 30000 }),
+    page.locator('#ticklerResults_filter input[type="search"]').fill(needle),
+  ]);
+  assert(searchResponse.ok(), `tickler search returned HTTP ${searchResponse.status()}`);
+  assert(await searchResponse.finished() === null, 'tickler search did not finish');
+  await page.waitForFunction(({ previousDraw, needle }) => {
+    const settings = window.jQuery('#ticklerResults').DataTable().settings()[0];
+    return settings.iDraw > previousDraw && settings.oPreviousSearch.sSearch === needle
+      && !settings.bDrawing && settings.jqXHR && settings.jqXHR.readyState === 4;
+  }, { previousDraw, needle }, { timeout: 30000 });
+}
+
 async function probeTicklerSearch(page, message) {
-  await page.locator('#ticklerResults_filter input[type="search"]').fill(message);
-  await page.evaluate(() => {
-    const needle = document.querySelector('#ticklerResults_filter input[type="search"]').value;
-    window.jQuery('#ticklerResults').DataTable().search(needle).draw();
-  });
-  await page.waitForTimeout(1500);
+  await fillTicklerSearch(page, message);
   const found = await page.evaluate(() => {
     const needle = document.querySelector('#ticklerResults_filter input[type="search"]').value;
     const table = window.jQuery('#ticklerResults').DataTable();
     return table.rows({ search: 'applied' }).data().toArray().some((row) => row.message === needle);
   });
-  await page.locator('#ticklerResults_filter input[type="search"]').fill('');
-  await page.evaluate(() => {
-    window.jQuery('#ticklerResults').DataTable().search('').draw();
-  });
-  // The clear starts a server-side draw. Drain it before the next operation
-  // starts another draw or navigation; otherwise DataTables aborts our own read.
-  await page.waitForFunction(() => {
-    const settings=window.jQuery('#ticklerResults').DataTable().settings()[0];
-    return !settings.bDrawing && (!settings.jqXHR || settings.jqXHR.readyState===4);
-  }, null, {timeout:30000});
+  await fillTicklerSearch(page, '');
   return found;
 }
 
@@ -386,16 +395,7 @@ async function editTicklerFromList(context, listPage, ticklerNo) {
   await editPage.locator('#newMessage').fill(editedMessage);
   await editPage.locator('#priority').selectOption('Low');
   await editPage.locator('#xml_appointment_date').fill('2026-02-19');
-  const openerRefresh=listPage.waitForResponse(response => response.request().method()==='GET'
-    && new URL(response.url()).pathname.endsWith('/tickler/ListTicklers'), {timeout:30000});
-  openerRefresh.catch(() => {});
-  await editPage.locator('input[name="updateTickler"]').click();
-  await editPage.waitForFunction(() => {
-    const frame = document.getElementById('ticklerEditFrame');
-    return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok');
-  }, null, { timeout: 30000 });
-  await (await openerRefresh).finished();
-  await waitForTicklerListReady(listPage);
+  await saveTicklerEdit(editPage, listPage);
   await editPage.close().catch(() => {});
 
   const rows = getTicklerRows();
@@ -418,20 +418,29 @@ async function completeTicklerViaEdit(context, listPage, ticklerNo) {
     { timeout: 30000, waitUntil: 'domcontentloaded' });
   await page.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 30000 });
   await page.locator('#status').selectOption('C');
-  const openerRefresh=listPage.waitForResponse(response => response.request().method()==='GET'
-    && new URL(response.url()).pathname.endsWith('/tickler/ListTicklers'), {timeout:30000});
-  openerRefresh.catch(() => {});
-  await page.locator('input[name="updateTickler"]').click();
-  await page.waitForFunction(() => {
-    const frame = document.getElementById('ticklerEditFrame');
-    return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok');
-  }, null, { timeout: 30000 });
-  await (await openerRefresh).finished();
-  await waitForTicklerListReady(listPage);
+  await saveTicklerEdit(page, listPage);
   await page.close().catch(() => {});
 
   const rows = getTicklerRows();
   assert(rows.length === 1 && rows[0].status === 'C', `completed tickler status was ${rows[0] && rows[0].status}`);
+}
+
+async function saveTicklerEdit(editPage, listPage) {
+  // The iframe's success marker precedes the BroadcastChannel refresh. Capture
+  // that actual request before saving, then finish it before another draw.
+  const [refreshResponse] = await Promise.all([
+    listPage.waitForResponse(response => response.request().method() === 'GET'
+      && new URL(response.url()).pathname.endsWith('/tickler/ListTicklers'),
+    { timeout: 30000 }),
+    editPage.locator('input[name="updateTickler"]').click(),
+    editPage.waitForFunction(() => {
+      const frame = document.getElementById('ticklerEditFrame');
+      return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok');
+    }, null, { timeout: 30000 }),
+  ]);
+  assert(refreshResponse.ok(), `tickler edit refresh returned HTTP ${refreshResponse.status()}`);
+  assert(await refreshResponse.finished() === null, 'tickler edit refresh did not finish');
+  await waitForTicklerListReady(listPage);
 }
 
 async function deleteTicklerFromList(page, message) {
@@ -504,14 +513,10 @@ const signalHandlers = installCleanupSignalHandlers(() => {
     assert(searchFoundCreated, 'Tickler list search did not return the created message');
 
     await editTicklerFromList(context, listPage, ticklerNo);
-    await listPage.reload({ waitUntil: 'domcontentloaded' });
-    await waitForTicklerListReady(listPage);
     const editedRow = await findRowInList(listPage, createdMessage, 'A');
     assert(String(editedRow.id) === String(ticklerNo), `edited list row id ${editedRow.id} did not match ${ticklerNo}`);
 
     await completeTicklerViaEdit(context, listPage, ticklerNo);
-    await listPage.reload({ waitUntil: 'domcontentloaded' });
-    await waitForTicklerListReady(listPage);
     await setTicklerListStatus(listPage, 'C');
     await findRowInList(listPage, createdMessage, 'C');
 

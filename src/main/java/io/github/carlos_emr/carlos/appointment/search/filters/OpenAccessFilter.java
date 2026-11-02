@@ -35,7 +35,6 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.appointment.search.SearchConfig;
 import io.github.carlos_emr.carlos.appointment.search.TimeSlot;
@@ -72,7 +71,7 @@ public class OpenAccessFilter implements AvailableTimeSlotFilter {
             if (entry.getDate().equals(timeSlot)) {
                 char c = entry.getScheduleCode();
                 if (Arrays.binarySearch(openAccessCodes, c) >= 0) {
-                    return (entry.getDate().getTimeInMillis() < (currentTimeMillis + DateUtils.MILLIS_PER_DAY));
+                    return (entry.getDate().getTimeInMillis() < (currentTimeMillis + java.time.Duration.ofDays(1).toMillis()));
                 }
             }
         }
