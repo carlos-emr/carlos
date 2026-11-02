@@ -375,8 +375,17 @@ freshly compiled production DAO. These were included in the 47-case, zero-skip r
 
 ### Bounded schema diagnostics and dynamic type state
 
+> **Superseded by the [JDK XML migration](#jdk-xml-migration-5464) below.** This section records the
+> Xerces-era design. The compiled-grammar cursor and the Xerces PSVI oracle it describes no longer exist; the
+> cursor now reads `CdsSchemaModel` metadata and the oracle uses the JDK validator. The bounded-diagnostic,
+> dynamic-type and identity contracts described here still hold.
+
 A later constrained CI run reproduced heap exhaustion in the pinned Xerces validator's document-wide PSVI error contexts. The application already streamed its diagnostic JSONL, but Xerces also retained every formatted error until the ancestor elements closed. The importer now disables that duplicate augmentation and obtains type metadata from the same compiled, hash-pinned schema through `CdsSchemaTypeCursor`. Implicit `xsi:*` metadata uses the pinned validator's built-in schema-instance declarations. Full XSD validation and default emission remain with `ValidatorHandler`.
 
 The cursor follows local/anonymous declarations in the parent's content model and namespace scopes. When no local declaration matches, it follows the validator's global-declaration fallback without replacing an existing local declaration. Misplaced global reports therefore retain streaming binary/text handling even without `xsi:type`; the validator still rejects their placement. A recognized `xsi:type` guides streaming even when the validator rejects its derivation or surrounding element, preventing malformed numeric or binary input from selecting an unbounded validation path. Intrinsic string types retain their actual lexical checks. Dynamic XML identity types have independent aggregate token/character guards before validator retention; crossing a guard preserves source, reports an explicit resource failure and leaves the parse unsealed.
 
 The separate performance class retains all five original 64 MiB modes and adds mixed diagnostics/large payloads, malformed dynamic types, excessive ID/IDREF state, and misplaced global reports without type overrides. The diagnostic fixture keeps category order valid and checks every expected occurrence and both error rows for each of 120,000 invalid Severity values, including the final occurrence. Golden metadata comparisons use Xerces PSVI independently across six complete fixtures, dynamic/attribute contexts and misplaced global reports. Duplicate IDs, unresolved references, intrinsic lexical checks, fixed defaults and separate identity token/character limits remain covered. These focused checks supplement the complete native CI and deployed web/CLI release gates.
+
+### JDK XML migration (#5464)
+
+The importer now uses JDK SAX and JAXP validation and removes standalone Xerces. The earlier compiled-grammar cursor above is replaced by owned classification metadata read from the same hash-pinned XSD bytes as validation. The JDK remains authoritative for schema validity; metadata handles only the pinned schemas' supported constructs and rejects unsupported constructs. The independent PSVI oracle now uses the JDK validator. Source preservation, type descriptors, whitespace, bounded witnesses, identity limits and diagnostics retain their existing contracts. All six clinical fixtures produce identical field descriptors and value hashes before and after migration. See [the provider and metadata design](cds-xml-providers.md).

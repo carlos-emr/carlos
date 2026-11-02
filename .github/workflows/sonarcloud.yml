@@ -179,13 +179,16 @@ jobs:
                 \"-Dsonar.pullrequest.base=\$PR_BASE\" \
                             "
 
-      - name: Report PR security and reliability after server processing
+      - name: Report PR quality findings after server processing
         if: always() && github.event_name == 'pull_request'
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPORT_COMMIT: ${{ github.event.pull_request.head.sha }}
           SONAR_REPORT_PATH: ${{ runner.temp }}/sonar-quality-after-analysis.json
+          # The authoritative gate also includes maintainability. Preserve its
+          # complete findings so the uploaded diagnostics explain every failure.
+          SONAR_INCLUDE_MAINTAINABILITY: 'true'
         run: python3 scripts/sonar_reliability_report.py
 
       - name: Preserve complete Sonar PR diagnostics

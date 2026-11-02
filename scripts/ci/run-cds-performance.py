@@ -143,9 +143,24 @@ def service_sample(pid: int) -> dict | None:
         return None  # A completed JVM may disappear before its supervisor is reaped.
     if re.search(r'^State:\s+[ZX]',status,re.M) and not re.search(r'^VmRSS:',status,re.M):
         return None
-    return {'started':started,'uid':int(re.search(r'^Uid:\s+(\d+)',status,re.M)[1]),
-            'rss':int(re.search(r'^VmRSS:\s+(\d+) kB$',status,re.M)[1])*1024,
-            'highWater':int(re.search(r'^VmHWM:\s+(\d+) kB$',status,re.M)[1])*1024}
+    uid = re.search(r'^Uid:\s+(\d+)',status,re.M)
+    rss = re.search(r'^VmRSS:\s+(\d+) kB$',status,re.M)
+    high_water = re.search(r'^VmHWM:\s+(\d+) kB$',status,re.M)
+    if uid is None or rss is None or high_water is None:
+        # Linux can drop mm before publishing the zombie state. Re-read stat:
+        # PF_EXITING (include/linux/sched.h) confirms that exit is in progress.
+        # Missing measurements from a live JVM must still fail the resource gate.
+        try:
+            final = Path(f'/proc/{pid}/stat').read_text().rsplit(')',1)[1].split()
+        except FileNotFoundError:
+            return None
+        if final[19] != started:
+            raise RuntimeError('service JVM identity changed during resource sampling')
+        if final[0] in ('Z','X') or int(final[6]) & 0x00000004:
+            return None
+        raise RuntimeError('live service JVM memory measurements are unavailable')
+    return {'started':started,'uid':int(uid[1]),
+            'rss':int(rss[1])*1024,'highWater':int(high_water[1])*1024}
 
 
 def private_json(path: Path, value: dict, *, exclusive: bool = False) -> None:
