@@ -35,7 +35,9 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.managers.MeasurementManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.webserv.rest.conversion.MeasurementTypeConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.MeasurementResponse;
+import io.github.carlos_emr.carlos.webserv.rest.to.MeasurementTypeResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -106,6 +108,30 @@ public class MeasurementService extends AbstractServiceImpl {
     @Autowired
     public void setCdsLegacyProjectionService(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService service) {
         this.projections = java.util.Objects.requireNonNull(service);
+    }
+
+    /**
+     * Lists the configured measurement types (code, display name, description, instruction).
+     *
+     * <p>The catalogue holds no patient data, so the check is "_measurement" read with no patient.
+     * The privilege is checked before the manager is touched. Only the four public fields are
+     * returned; {@code id}, {@code validation} and {@code createDate} stay server-side. Read-only.</p>
+     *
+     * @return MeasurementTypeResponse with the types in display-name order
+     * @throws ForbiddenException if the caller lacks "_measurement" read access
+     */
+    @GET
+    @Path("/types")
+    @Produces(MediaType.APPLICATION_JSON)
+    public MeasurementTypeResponse getMeasurementTypes() {
+        LoggedInInfo loggedInInfo = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", null)) {
+            throw new ForbiddenException("Access Denied: measurement access is restricted");
+        }
+        MeasurementTypeResponse response = new MeasurementTypeResponse();
+        response.setMeasurementTypes(new MeasurementTypeConverter()
+                .getAllAsTransferObjects(loggedInInfo, measurementManager.getMeasurementTypes(loggedInInfo)));
+        return response;
     }
 
     /**

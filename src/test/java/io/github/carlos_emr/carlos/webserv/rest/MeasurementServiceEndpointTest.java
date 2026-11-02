@@ -47,6 +47,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.model.Measurement;
+import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.managers.MeasurementManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
@@ -63,6 +64,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 @Tag("rest")
 @DisplayName("MeasurementService REST endpoint tests")
 class MeasurementServiceEndpointTest extends CarlosRestTestBase {
+    private static final int BASELINE_GET_STATUS = 405; // observed at HEAD before the endpoint existed
     @Mock
     private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
 
@@ -236,6 +238,102 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
 
             assertThat(response.getStatus()).isEqualTo(400);
             verifyNoInteractions(mockSecurityInfoManager, mockMeasurementManager);
+        }
+    }
+
+    private MeasurementType sampleType(String type, String display, String description, String instruction) {
+        MeasurementType t = new MeasurementType();
+        t.setType(type);
+        t.setTypeDisplayName(display);
+        t.setTypeDescription(description);
+        t.setMeasuringInstruction(instruction);
+        t.setValidation("FAKE-VALIDATION-RULE");
+        return t;
+    }
+
+    @Nested
+    @DisplayName("GET /measurements/types")
+    class GetMeasurementTypes {
+
+        @Test
+        @DisplayName("should return 200 with the four public fields in manager order")
+        void shouldReturn200_withTypesInManagerOrder() {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), eq(null)))
+                .thenReturn(true);
+            when(mockMeasurementManager.getMeasurementTypes(any(LoggedInInfo.class))).thenReturn(List.of(
+                sampleType("FAKE-A", "FAKE Alpha", "FAKE alpha description", "FAKE alpha instruction"),
+                sampleType("FAKE-B", "FAKE Beta", "FAKE beta description", "FAKE beta instruction")));
+
+            Response response = request().path("/measurements/types").get();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            assertThat(wireJson.at("/measurementTypes")).hasSize(2);
+            assertThat(wireJson.at("/measurementTypes/0/type").textValue()).isEqualTo("FAKE-A");
+            assertThat(wireJson.at("/measurementTypes/0/typeDisplayName").textValue()).isEqualTo("FAKE Alpha");
+            assertThat(wireJson.at("/measurementTypes/0/typeDescription").textValue()).isEqualTo("FAKE alpha description");
+            assertThat(wireJson.at("/measurementTypes/0/measuringInstruction").textValue()).isEqualTo("FAKE alpha instruction");
+            assertThat(wireJson.at("/measurementTypes/1/type").textValue()).isEqualTo("FAKE-B");
+            assertThat(wireJson.at("/measurementTypes/1/typeDisplayName").textValue()).isEqualTo("FAKE Beta");
+            assertThat(wireJson.at("/measurementTypes/0").size()).isEqualTo(4);
+        }
+
+        @Test
+        @DisplayName("should return 200 with an empty list when no types are configured")
+        void shouldReturn200_withEmptyListWhenNoTypes() {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), eq(null)))
+                .thenReturn(true);
+            when(mockMeasurementManager.getMeasurementTypes(any(LoggedInInfo.class))).thenReturn(Collections.emptyList());
+
+            Response response = request().path("/measurements/types").get();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            assertThat(wireJson.at("/measurementTypes").isArray()).isTrue();
+            assertThat(wireJson.at("/measurementTypes")).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should deny without the measurement privilege and never touch the manager")
+        void shouldReturn403_whenMeasurementPrivilegeMissing() {
+            Response response = request().path("/measurements/types").get();
+
+            assertThat(response.getStatus()).isEqualTo(403);
+            verify(mockSecurityInfoManager).hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), eq(null));
+            verifyNoInteractions(mockMeasurementManager);
+        }
+
+        @Test
+        @DisplayName("should not expose id, validation or createDate")
+        void shouldNotExposeInternalFields_inTypeJson() {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), eq(null)))
+                .thenReturn(true);
+            MeasurementType t = sampleType("FAKE-A", "FAKE Alpha", "FAKE alpha description", "FAKE alpha instruction");
+            when(mockMeasurementManager.getMeasurementTypes(any(LoggedInInfo.class))).thenReturn(List.of(t));
+
+            Response response = request().path("/measurements/types").get();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var node = responseJson(response).at("/measurementTypes/0");
+            assertThat(node.has("id")).isFalse();
+            assertThat(node.has("validation")).isFalse();
+            assertThat(node.has("createDate")).isFalse();
+            assertThat(node.toString()).doesNotContain("FAKE-VALIDATION-RULE");
+        }
+
+        @Test
+        @DisplayName("should keep GET and POST on /measurements/{demographicNo} behaving as before")
+        void shouldKeepNumericPathRouting_unchanged() {
+            Response get = request().path("/measurements/123").get();
+            assertThat(get.getStatus()).as("GET baseline").isEqualTo(BASELINE_GET_STATUS);
+
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), eq("123")))
+                .thenReturn(true);
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(LoggedInInfo.class), eq(123))).thenReturn(true);
+            when(mockMeasurementManager.getMeasurementByType(any(LoggedInInfo.class), eq(123), any()))
+                .thenReturn(Collections.emptyList());
+            Response post = request().path("/measurements/123").post(Entity.json("{\"types\":[\"BP\"]}"));
+            assertThat(post.getStatus()).isEqualTo(200);
         }
     }
 }
