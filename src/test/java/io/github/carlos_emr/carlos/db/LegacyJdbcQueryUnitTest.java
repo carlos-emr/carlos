@@ -229,9 +229,6 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
             try (Stream<Path> files = Files.walk(sourceRoot)) {
                 offenders.addAll(files
                     .filter(this::isProductionSourceFile)
-                    .filter(path -> !path.endsWith(Path.of("db", "DBHandler.java")))
-                    .filter(path -> !path.endsWith(Path.of("db", "DBPreparedHandler.java")))
-                    .filter(path -> !path.endsWith(Path.of("db", "DBPreparedHandlerParam.java")))
                     .filter(this::usesDeprecatedDatabaseBoundary)
                     .toList());
             }
