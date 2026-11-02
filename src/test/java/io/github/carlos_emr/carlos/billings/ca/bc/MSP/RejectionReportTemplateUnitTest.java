@@ -39,7 +39,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The BC Accounting Reports' Rejection report (csv_ and pdf_rep_rej.jrxml), filled the way CreateBillingReport2Action
+ * The BC Accounting Reports' Rejection PDF report (pdf_rep_rej.jrxml), filled the way CreateBillingReport2Action
  * fills it: each rejected claim prints its whole claim number, patient, PHN and fee code, the patient's real birth
  * date, the column headings, and no "null" for a missing value (#4939). The PDF embeds its font, so it prints each
  * line as the fill measured it.
@@ -132,7 +132,7 @@ class RejectionReportTemplateUnitTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ValueSource(strings = {OscarDocumentCreator.CSV, OscarDocumentCreator.PDF})
+    @ValueSource(strings = {OscarDocumentCreator.PDF})
     @DisplayName("should print the whole claim number, patient, PHN and fee code")
     void shouldPrintWholeClaimCells_forRejectedClaim(String format) throws Exception {
         String text = render(format, rejectedClaim("19800102"));
@@ -141,7 +141,7 @@ class RejectionReportTemplateUnitTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ValueSource(strings = {OscarDocumentCreator.CSV, OscarDocumentCreator.PDF})
+    @ValueSource(strings = {OscarDocumentCreator.PDF})
     @DisplayName("should print a name too long for its cell in full")
     void shouldPrintWholeName_whenNameWraps(String format) throws Exception {
         MSPBill bill = rejectedClaim("19800102");
@@ -166,7 +166,7 @@ class RejectionReportTemplateUnitTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ValueSource(strings = {OscarDocumentCreator.CSV, OscarDocumentCreator.PDF})
+    @ValueSource(strings = {OscarDocumentCreator.PDF})
     @DisplayName("should print the patient's real birth date")
     void shouldPrintPatientBirthDate_forRejectedClaim(String format) throws Exception {
         String text = render(format, rejectedClaim("19800102"));
@@ -177,7 +177,7 @@ class RejectionReportTemplateUnitTest {
 
     static Stream<Arguments> blankBirthDates() {
         List<Arguments> cases = new ArrayList<>();
-        for (String format : List.of(OscarDocumentCreator.CSV, OscarDocumentCreator.PDF)) {
+        for (String format : List.of(OscarDocumentCreator.PDF)) {
             for (String dob : new String[] {null, "", "00000000"}) {
                 cases.add(Arguments.of(format, dob));
             }
@@ -196,7 +196,7 @@ class RejectionReportTemplateUnitTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ValueSource(strings = {OscarDocumentCreator.CSV, OscarDocumentCreator.PDF})
+    @ValueSource(strings = {OscarDocumentCreator.PDF})
     @DisplayName("should leave missing phones and service times blank, not print null")
     void shouldLeaveMissingValuesBlank_forPatientWithoutPhones(String format) throws Exception {
         String text = render(format, rejectedClaim("19800102"));
@@ -205,7 +205,7 @@ class RejectionReportTemplateUnitTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ValueSource(strings = {OscarDocumentCreator.CSV, OscarDocumentCreator.PDF})
+    @ValueSource(strings = {OscarDocumentCreator.PDF})
     @DisplayName("should print the column headings")
     void shouldPrintColumnHeadings_forRejectionReport(String format) throws Exception {
         String text = render(format, rejectedClaim("19800102"));

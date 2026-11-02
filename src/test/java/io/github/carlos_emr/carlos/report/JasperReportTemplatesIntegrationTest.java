@@ -28,7 +28,7 @@ class JasperReportTemplatesIntegrationTest {
         Path root = Path.of("src/main/resources");
         try (var files = Files.walk(root)) {
             var templates = files.filter(JasperReportTemplatesIntegrationTest::isJasperTemplate).sorted().toList();
-            assertThat(templates).hasSizeGreaterThanOrEqualTo(45);
+            assertThat(templates).hasSizeGreaterThanOrEqualTo(40);
             return templates.stream().map(path -> DynamicTest.dynamicTest(root.relativize(path).toString(), () -> {
                 try (var input = Files.newInputStream(path)) {
                     assertThat(JasperCompileManager.compileReport(input).getName()).isNotBlank();

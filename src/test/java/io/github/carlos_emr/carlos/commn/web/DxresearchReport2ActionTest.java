@@ -217,7 +217,8 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
 
             String result = executeAction(action);
 
-            assertThat(result).isEqualTo(ActionSupport.ERROR);
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(getMockResponse().getStatus()).isEqualTo(400);
         }
 
         @Test
@@ -228,7 +229,8 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
 
             String result = executeAction(action);
 
-            assertThat(result).isEqualTo(ActionSupport.ERROR);
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(getMockResponse().getStatus()).isEqualTo(400);
         }
 
         @Test
@@ -252,6 +254,26 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
             assertThat(getMockResponse().getContentAsByteArray())
                     .startsWith((byte) 0x50, (byte) 0x4B, (byte) 0x03, (byte) 0x04);
         }
+    }
+
+    @Test
+    void shouldReturnBadRequest_whenExcelSessionRowsAreMissing() throws Exception {
+        addRequestParameter("method", "patientExcelReport");
+        addRequestParameter("provider_no", "doc1");
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(400);
+        assertThat(getMockResponse().getHeader("Content-disposition")).isNull();
+    }
+
+    @Test
+    void shouldDiscardExcelOutput_whenSessionContainsAnInvalidRow() throws Exception {
+        addRequestParameter("method", "patientExcelReport");
+        addRequestParameter("provider_no", "doc1");
+        setSessionAttribute("listview", List.of("synthetic invalid row"));
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(500);
+        assertThat(getMockResponse().getHeader("Content-disposition")).isNull();
+        assertThat(getMockResponse().getContentAsByteArray()).isEmpty();
     }
 
     // ── patientRegistedActive ───────────────────────────────────────────

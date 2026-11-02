@@ -1146,11 +1146,10 @@
             <version>${jasperreports.version}</version>
         </dependency>
 
-        <!-- JasperReports Excel/POI exporter (split from core in JR7) -->
+        <!-- Direct XLSX writer for tabular exports. Version aligned with poi via dependencyManagement. -->
         <dependency>
-            <groupId>net.sf.jasperreports</groupId>
-            <artifactId>jasperreports-excel-poi</artifactId>
-            <version>${jasperreports.version}</version>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
         </dependency>
 
         <!-- ==================== Jackson / JSON ==================== -->
