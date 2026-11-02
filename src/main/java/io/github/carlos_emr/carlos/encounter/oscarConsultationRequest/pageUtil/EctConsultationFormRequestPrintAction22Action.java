@@ -385,10 +385,6 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
     }
 
-    /**
-     * The patient the stored consultation request was written for, or {@code null} when the id is
-     * missing, not a number or does not name a consultation.
-     */
     /** Keeps lab-file cleanup best-effort, as with the former File.delete call. */
     @SuppressWarnings("java:S1166") // Preserve nonfatal cleanup without logging patient-correlating paths.
     private static void deleteTemporaryLab(File temporaryLab) {
@@ -399,6 +395,10 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         }
     }
 
+    /**
+     * The patient the stored consultation request was written for, or {@code null} when the id is
+     * missing, not a number or does not name a consultation.
+     */
     private Integer findConsultationDemographicNo(String reqId) {
         if (reqId == null) {
             return null;
