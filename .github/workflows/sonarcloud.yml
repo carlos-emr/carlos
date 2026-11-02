@@ -1,48 +1,29 @@
-name: Issue 5533 release baseline refresh
+name: Issue 5533 refreshed baseline diagnostics
 on:
   push:
     branches: [codex/issue-5533-sonar-diagnostics]
 permissions:
   contents: read
-  packages: read
 jobs:
-  baseline:
-    name: Refresh actual release analysis with bounded scanner heap
+  diagnostics:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    env:
-      SONAR_SCANNER_JAVA_OPTS: -Xmx8g
+    timeout-minutes: 5
     steps:
-      - name: Checkout exact release commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: 4ef47a2654f8a56b1f5dc23fceb8a8cdcefe87b4
-          persist-credentials: false
-          fetch-depth: 0
-      - name: Prepare SonarCloud cache
-        run: mkdir -p .sonar-cache
-      - name: Start normal dev container
-        uses: ./.github/actions/dev-container
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          maven-cache: restore
-          extra-run-args: -v ${{ github.workspace }}/.sonar-cache:/root/.sonar/cache
-      - name: Build and analyze exact release source
+      - name: Read release baseline and PR findings
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          test "$(git rev-parse HEAD)" = 4ef47a2654f8a56b1f5dc23fceb8a8cdcefe87b4
-          docker exec \
-            -e GITHUB_TOKEN \
-            -e SONAR_TOKEN \
-            -e SONAR_SCANNER_JAVA_OPTS \
-            carlos-tomcat-dev bash -c '
-              mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
-                -Pskip-dependency-lock \
-                -Dmaven.test.failure.ignore=true \
-                -Dsonar.host.url=https://sonarcloud.io \
-                -Dsonar.projectKey=carlos-emr_carlos \
-                -Dsonar.branch.name=release/2026.08 \
-                -Dsonar.scm.revision=4ef47a2654f8a56b1f5dc23fceb8a8cdcefe87b4
-            '
+          python3 - <<'PY'
+          import base64, json, os, urllib.parse, urllib.request
+          def get(path, **params):
+              request = urllib.request.Request('https://sonarcloud.io/api/' + path + '?' + urllib.parse.urlencode(params), headers={'Authorization':'Basic ' + base64.b64encode((os.environ['SONAR_TOKEN']+':').encode()).decode()})
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+          project='carlos-emr_carlos'
+          print('BRANCHES', json.dumps(get('project_branches/list', project=project)))
+          print('PR_METADATA', json.dumps([pr for pr in get('project_pull_requests/list', project=project).get('pullRequests',[]) if str(pr.get('key'))=='5543']))
+          print('QUALITY', json.dumps(get('qualitygates/project_status', projectKey=project, pullRequest=5543)))
+          print('MEASURES', json.dumps(get('measures/component', component=project, pullRequest=5543, metricKeys='new_code_smells,new_technical_debt,new_development_cost,new_sqale_debt_ratio,new_maintainability_rating,new_lines')))
+          data=get('issues/search',componentKeys=project,pullRequest=5543,resolved='false',ps=500)
+          print('ISSUE_TOTAL', data.get('paging'))
+          PY
