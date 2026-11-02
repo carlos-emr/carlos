@@ -14,6 +14,7 @@
  * Requires: the server running with USE_NEW_PATIENT_CONSENT_MODULE=true and privateConsentEnabled=true.
  * Fixtures: the runWorkflow FAKE- patient; its Consent rows (and the update's archive rows) are removed in cleanup.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
@@ -92,7 +93,7 @@ async function workflow(s) {
     const url = new URL('demographic/DemographicUpdate', `${config.baseUrl.href.replace(/\/$/, '')}/`);
     url.searchParams.set('demographic_no', patient);
     url.searchParams.set(TYPE, '0');
-    const response = await s.context.request.get(url.href, { maxRedirects: 0 });
+    const response = await authenticatedProbe(s, url.href, { maxRedirects: 0 });
     h.assert(response.status() === 405 || response.status() === 403, `GET Update Record answered ${response.status()}`);
     h.assert(JSON.stringify(consents()) === before, 'A GET to Update Record changed the consent');
   });

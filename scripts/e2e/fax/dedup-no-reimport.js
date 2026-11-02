@@ -19,6 +19,7 @@
 'use strict';
 const { execFileSync } = require('child_process');
 const { cfg } = require('./lib');
+const {runCheck}=require('../../lib/playwright-harness');
 
 const MARIADB = (process.env.MARIADB || 'mariadb').split(/\s+/);
 const DB = process.env.CARLOS_DB_NAME || 'carlos';
@@ -37,7 +38,7 @@ if (!Number.isInteger(WAIT_MS) || WAIT_MS < 130000) {
   throw new Error('DEDUP_WAIT_MS must be an integer >= 130000 (more than two 60s scheduler cycles)');
 }
 
-async function main() {
+async function main({cancellation}) {
   cfg({ srfax: false }); // validates BASE_URL/login env even though we drive the DB
 
   const account = sql(`SELECT faxNumber FROM fax_config WHERE faxNumber IS NOT NULL ORDER BY id DESC LIMIT 1`)
@@ -72,7 +73,7 @@ async function main() {
   console.log(`STEP 3 waiting ${Math.round(WAIT_MS / 1000)}s (> two 60s scheduler cycles) to confirm no re-import...`);
   const start = Date.now();
   while (Date.now() - start < WAIT_MS) {
-    execFileSync('sleep', ['15']);
+    await new Promise(resolve=>setTimeout(resolve,15000));cancellation.throwIfCancelled();
     const now = inCount();
     must(now <= before, `inbound fax count grew from ${before} to ${now} — an already-held fax was re-imported`);
   }
@@ -83,4 +84,4 @@ async function main() {
   console.log('DEDUP NO-REIMPORT: PASS');
 }
 
-main().catch((e) => { console.error('DEDUP NO-REIMPORT: FAIL —', e.message); process.exit(1); });
+runCheck({name:'fax-dedup-no-reimport',run:main});

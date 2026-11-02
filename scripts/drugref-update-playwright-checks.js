@@ -51,6 +51,8 @@
  *   DRUGREF_UPDATE_SCREENSHOT_DIR (default /tmp), DRUG_SEARCH_TERM (default "amox").
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
@@ -93,7 +95,7 @@ if (trigger) {
 const requireStatus = process.env.DRUGREF_UPDATE_REQUIRE_STATUS === 'true';
 const timeoutSec = Number(process.env.DRUGREF_UPDATE_TIMEOUT_SEC || '3600');
 const searchTerm = process.env.DRUG_SEARCH_TERM || 'amox';
-assert(Number.isFinite(timeoutSec) && timeoutSec > 0, `DRUGREF_UPDATE_TIMEOUT_SEC must be a positive number, got ${process.env.DRUGREF_UPDATE_TIMEOUT_SEC}`);
+assert(Number.isInteger(timeoutSec) && timeoutSec > 0 && timeoutSec <= 86400, `DRUGREF_UPDATE_TIMEOUT_SEC must be an integer from 1 to 86400, got ${process.env.DRUGREF_UPDATE_TIMEOUT_SEC}`);
 
 // Context-relative: BASE_URL carries the webapp context (/carlos), and the page's own
 // calls are made against it.
@@ -252,9 +254,9 @@ async function checkUncertainUpdateResponse(context) {
   }
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('drugref-update',async({cancellation})=>{
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   try {
     // Certificate validation is bypassed for loopback only. BASE_URL can be pointed at a
     // remote deployment with ALLOW_NON_LOCAL_BASE_URL=true, and this check logs in as an
@@ -263,18 +265,26 @@ async function checkUncertainUpdateResponse(context) {
     const loopback = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
     const isLoopback = loopback.has(config.baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase());
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl), viewport: { width: 1280, height: 900 } });
+    cancellation?.throwIfCancelled();
     const landing = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landing.close();
+    cancellation?.throwIfCancelled();
 
     // Reach the page the way an operator does: the Administration panel's link
     // opens it in a popup window.
     const admin = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(admin, 'admin-panel', recorder);
     await gotoApp(admin, config.baseUrl, '/admin/ViewAdmin');
+    cancellation?.throwIfCancelled();
     await admin.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(admin, 'administration panel');
+    cancellation?.throwIfCancelled();
     const link = admin.locator('a', { hasText: /^\s*Update Drugref\s*$/i }).first();
     await link.waitFor({ state: 'attached', timeout: 20000 });
+    cancellation?.throwIfCancelled();
     // Registered BEFORE the click: the popup fetches its CSRF token and fires the verify
     // probe from its own DOMContentLoaded, which can complete before a waiter attached to
     // the popup afterwards exists — a 30s timeout on a page that worked.
@@ -289,12 +299,16 @@ async function checkUncertainUpdateResponse(context) {
       context.waitForEvent('page', { timeout: 20000 }),
       link.evaluate((a) => a.click()),
     ]);
+    cancellation?.throwIfCancelled();
     wirePage(popup, 'update-drugref', recorder);
     await popup.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     // A new popup's initial about:blank document can finish before its real
     // navigation. Require the actual page's DOM before inspecting its body.
     await popup.locator('#dbInfo').waitFor({ state: 'attached', timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(popup, 'Update Drugref page');
+    cancellation?.throwIfCancelled();
     const popupUrl = new URL(popup.url());
     assert(popupUrl.origin === config.baseUrl.origin
       && popupUrl.pathname === config.baseUrl.pathname.replace(/\/$/, '') + '/admin/ViewUpdateDrugref',
@@ -302,16 +316,21 @@ async function checkUncertainUpdateResponse(context) {
 
     // Step 1: the verify probe answered and the panel shows a real dataset.
     const verifyResponse = await verifyResponsePromise;
+    cancellation?.throwIfCancelled();
     assert(verifyResponse.status() === 200, `verify probe answered HTTP ${verifyResponse.status()}`);
     const verify = await verifyResponse.json();
+    cancellation?.throwIfCancelled();
     assert(
       verify && verify.lastUpdate && verify.lastUpdate !== 'updating',
       `verify answered ${JSON.stringify(verify)}: DrugRef is unavailable, has no data, or an update is already running`,
     );
     await popup.locator('#statusDisplay').waitFor({ state: 'visible', timeout: 20000 });
+    cancellation?.throwIfCancelled();
     const dateBefore = (await popup.locator('#dbDateTime').innerText()).trim();
+    cancellation?.throwIfCancelled();
     assert(dateBefore === verify.lastUpdate, `panel shows "${dateBefore}" but verify said "${verify.lastUpdate}"`);
     assert((await popup.locator('#drugDatabase').innerText()).trim().length > 0, 'panel shows no database name');
+    cancellation?.throwIfCancelled();
     console.log(`STEP 1 verify: PASS (${verify.drugDatabase} ${verify.version}, last update ${dateBefore})`);
 
     // Step 1b: drug search works BEFORE the update. Without this the post-update search below
@@ -321,11 +340,13 @@ async function checkUncertainUpdateResponse(context) {
     // and searchDrugs would sit out its 60s timeout instead of saying why.
     assert(searchTerm.length >= 3, `DRUG_SEARCH_TERM must be at least 3 characters, got "${searchTerm}"`);
     const foundBefore = await searchDrugs(context, config, recorder, searchTerm, 'drug-search-before');
+    cancellation?.throwIfCancelled();
     assert(foundBefore > 0, `drug search for "${searchTerm}" found nothing BEFORE any update: the installed dataset is already unusable`);
     console.log(`STEP 1b search (before): PASS ("${searchTerm}" -> ${foundBefore} result(s))`);
 
     // Step 2: the status relay answers JSON with a state the page can act on.
     const statusReply = await callStatus(popup);
+    cancellation?.throwIfCancelled();
     assert(statusReply.status === 200, `status relay answered HTTP ${statusReply.status}`);
     assert(/json/i.test(statusReply.contentType), `status relay answered "${statusReply.contentType}", not JSON`);
     let status;
@@ -347,12 +368,16 @@ async function checkUncertainUpdateResponse(context) {
     // reports a definite state, so this asserts the page positively enabled the trigger
     // rather than merely never having hidden it.
     assert(await popup.locator('#updatedb').isVisible(), 'the Update Drugref button is not visible');
+    cancellation?.throwIfCancelled();
 
     await checkRollbackFailureDisplay(context, recorder);
+    cancellation?.throwIfCancelled();
     await checkUncertainUpdateResponse(context);
+    cancellation?.throwIfCancelled();
 
     if (!trigger) {
       await screenshot(popup, config.screenshotDir, 'drugref-update-page');
+    cancellation?.throwIfCancelled();
       console.log('STEP 3 trigger: SKIPPED (set DRUGREF_UPDATE_TRIGGER=true to rebuild the DrugRef database)');
     } else {
       // Step 3: click, and follow the run to its end.
@@ -408,6 +433,7 @@ async function checkUncertainUpdateResponse(context) {
       assert(last.state !== 'FAILED', `update FAILED: ${last.message}`);
       console.log(`STEP 3b run: PASS (${sawRunning ? 'observed RUNNING, then ' : ''}${last.state}${last.message ? ': ' + last.message : ''})`);
 
+      cancellation?.throwIfCancelled();
       // The page must have followed the run and now show the new date.
       await popup.waitForFunction(
         (before) => {
@@ -417,9 +443,12 @@ async function checkUncertainUpdateResponse(context) {
         dateBefore,
         { timeout: 60000 },
       );
+    cancellation?.throwIfCancelled();
       const dateAfter = (await popup.locator('#dbDateTime').innerText()).trim();
+    cancellation?.throwIfCancelled();
       assert(dateAfter > dateBefore, `last-update date did not move forward: "${dateBefore}" -> "${dateAfter}"`);
       const resultText = (await popup.locator('#updateResult').innerText()).trim();
+    cancellation?.throwIfCancelled();
       assert(/completed/i.test(resultText), `page reports "${resultText}" after the run ended`);
       console.log(`STEP 3c page: PASS (panel now shows ${dateAfter}; "${resultText.slice(0, 100)}")`);
 
@@ -427,15 +456,20 @@ async function checkUncertainUpdateResponse(context) {
       // matters: the original defect left the drug tables empty, so search answered nothing
       // and the page reported success anyway.
       const foundAfter = await searchDrugs(context, config, recorder, searchTerm, 'drug-search-after');
+    cancellation?.throwIfCancelled();
       assert(foundAfter > 0, `drug search for "${searchTerm}" found ${foundBefore} result(s) before the update and NOTHING after it: the rebuild destroyed the dataset`);
       console.log(`STEP 3d search (after): PASS ("${searchTerm}" -> ${foundAfter} result(s), was ${foundBefore} before)`);
       await screenshot(popup, config.screenshotDir, 'drugref-update-done');
+    cancellation?.throwIfCancelled();
     }
 
     await popup.close();
+    cancellation?.throwIfCancelled();
     await admin.close();
+    cancellation?.throwIfCancelled();
     assertNoPageErrors(recorder);
     await context.close();
+    cancellation?.throwIfCancelled();
     console.log('PASS drugref update page');
   } catch (error) {
     console.error('FAIL drugref update Playwright check');
@@ -445,4 +479,4 @@ async function checkUncertainUpdateResponse(context) {
   } finally {
     await browser.close();
   }
-})();
+},{cancellationGraceMs:(timeoutSec+120)*1000});

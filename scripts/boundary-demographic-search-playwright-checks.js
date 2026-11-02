@@ -24,19 +24,14 @@ const { removeMarkedPatients } = require('./lib/gap-records-fixtures');
 
 const TIMEOUT = 30000;
 
-/** Probe attacks without replacing the results page with nginx's block page (#5244). */
-async function probeAttackKeyword(context, baseUrl, fields, keyword) {
-  h.assert(fields['CSRF-TOKEN'], 'The attack probe needs the search form\'s CSRF token');
-  const response = await context.request.post(h.appUrl(baseUrl, '/demographic/DemographicSearch'), {
-    form: { ...fields, search_mode: 'search_address', keyword },
-    maxRedirects: 0,
-  });
+/** Distinguish the WAF front door from CARLOS/CSRF refusals for deliberate attacks (#5244). */
+async function isVerifiedAttackRefusal(response) {
   const status = response.status();
   const body = await response.text();
   const fromApplication = Object.hasOwn(response.headers(), h.APPLICATION_HEADER);
   if (!fromApplication && h.isWafPage(status, body)) return true;
   h.assert(status === 200 && fromApplication,
-    `The attack probe did not reach the search results or a verified WAF refusal (HTTP ${status})`);
+    `The attack search did not reach application results or a verified WAF refusal (HTTP ${status})`);
   return false;
 }
 
@@ -61,24 +56,29 @@ async function workflow(s) {
     b.assertStored(sql, 'demographic', 'first_name', `demographic_no=${cjkId}`, T.cjk, 'Fixture CJK first name');
   });
 
-  const search = await ui.clickOpensPopup(s.schedule, s.schedule.locator('#search a, a:has-text("Search")').first(),
+  const openSearch=()=>ui.clickOpensPopup(s.schedule, s.schedule.locator('#search a, a:has-text("Search")').first(),
     { context: s.context, recorder: s.recorder, label: 'name-search', timeout: TIMEOUT });
-  async function find(mode, term, id) {
+  let search=await openSearch();
+  let guarded=false;
+  async function find(mode, term, id,{allowWafRefusal=false}={}) {
+    guarded=false;
+    if(await search.locator('select[name="search_mode"]').count()===0){await search.close();search=await openSearch();}
     await search.locator('select[name="search_mode"]').selectOption(mode);
     await search.locator('#keyword, input[name="keyword"]').first().fill(term);
+    const {failureMark,consumeExpectedFailure}=require('./lib/concurrency-support'),mark=failureMark(s.recorder);
+    const responsePromise=search.waitForResponse(response=>response.request().isNavigationRequest()&&response.request().method()==='POST'&&new URL(response.url()).pathname.endsWith('/demographic/DemographicSearch'));
+    responsePromise.catch(()=>{});
     await ui.clickAndAwaitReload(search, search.locator("input[type='submit']").first(), { timeout: TIMEOUT, label: `search ${mode}` });
+    const response=await responsePromise;
+    if (allowWafRefusal && await isVerifiedAttackRefusal(response)) {
+      h.assert(await search.locator('a[title="Master Demographic File"]').count()===0,'Rejected search disclosed patient results');
+      consumeExpectedFailure(s.recorder,mark,{status:403,path:/\/demographic\/DemographicSearch$/});guarded=true;return false;
+    }
+    h.assert(response.status()===200,`Patient search answered HTTP ${response.status()}`);
     const submitted = mode === 'search_name' ? term.toLowerCase() : term;
     h.assert(await search.locator('#search-sort input[name="keyword"]').inputValue() === submitted,
       'The search keyword changed while being rendered into the sort form');
     return await search.locator(`a[title="Master Demographic File"][onclick*="demographic_no=${id}"]`).count() > 0;
-  }
-  async function wafRefusesAttack(term) {
-    // Use the real form and its session token. API requests leave the UI and its strict
-    // recorder intact; no browser error, unrelated 403, or CSRF refusal is suppressed.
-    const fields = await search.locator('#search-sort').evaluate(form => Object.fromEntries(new FormData(form)));
-    if (!await probeAttackKeyword(s.context, s.config.baseUrl, fields, term)) return false;
-    console.log('    Attack keyword refused by the WAF front door; CARLOS was not reached');
-    return true;
   }
 
   await s.step('a control search by the plain run tag finds both patients', async () => {
@@ -113,18 +113,15 @@ async function workflow(s) {
   });
 
   await s.step('SQL-shaped keywords do not return unrelated patients', async () => {
-    const term = "' OR 1=1 --";
-    if (await wafRefusesAttack(term)) return;
-    await find('search_address', term, apostropheId);
-    h.assert((await k.readResultRows(search)).length === 0, 'SQL-shaped input widened the patient search');
+    await find('search_address', "' OR 1=1 --", apostropheId,{allowWafRefusal:true});
+    h.assert(guarded||(await k.readResultRows(search)).length === 0, 'SQL-shaped input widened the patient search');
   });
 
-  await s.step('markup-shaped keywords remain literal text and cannot create executable elements', async () => {
+  await s.step('markup-shaped keywords are refused or rendered literally without executable elements', async () => {
     const term = '<img src="x" onerror="window.__searchKeywordXss=1">';
-    if (await wafRefusesAttack(term)) return;
-    await find('search_address', term, apostropheId);
-    h.assert((await k.readResultRows(search)).length === 0, 'Markup-shaped input returned unrelated patients');
-    h.assert((await search.locator('#searchResults').innerText()).includes(term),
+    await find('search_address', term, apostropheId,{allowWafRefusal:true});
+    h.assert(guarded||(await k.readResultRows(search)).length === 0, 'Markup-shaped input returned unrelated patients');
+    h.assert(guarded||(await search.locator('#searchResults').innerText()).includes(term),
       'The rendered search description did not preserve the literal keyword');
     h.assert(await search.locator('#searchResults img[src="x"]').count() === 0,
       'A search keyword was interpreted as an HTML element');
@@ -135,4 +132,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('boundary-demographic-search', workflow, { openPatient: false });
-module.exports = { workflow, probeAttackKeyword };
+module.exports = { workflow, isVerifiedAttackRefusal };

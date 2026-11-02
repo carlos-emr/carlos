@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 // Opt-in: changes the disposable deployment's agreement text, then restores it.
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
@@ -71,7 +72,7 @@ async function workflow(s) {
     const url = new URL(page.url());
     url.searchParams.set('validDurationNumber', '17');
     url.searchParams.set('validDurationPeriod', 'days');
-    const response = await s.context.request.get(url.toString());
+    const response = await authenticatedProbe(s, url.toString());
     h.assert(response.status() === 405 && response.headers().allow === 'POST', 'Agreement mutation by GET was accepted');
     h.assert(JSON.stringify(s.sql.rows(`SELECT id,name,value FROM property WHERE ${condition} ORDER BY id`)) === JSON.stringify(before),
       'Rejected GET changed agreement validity');
