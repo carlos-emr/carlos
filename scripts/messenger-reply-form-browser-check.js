@@ -35,15 +35,20 @@ const { assertReplyPost } = require('./messenger-reply-send-archive-playwright-c
     assertReplyPost(posted, expected);
     // Only newline encoding is equivalent: missing carriers, whitespace loss,
     // changed text, and a recipient that should be disabled must still fail.
-    for (const [field, value] of [['archiveMessageId', '999'], ['subject', expected.subject.trim()],
-      ['message', expected.message.replace('café', 'cafe')], ['provider', '1-0']]) {
+    for (const [field, value, error] of [['archiveMessageId', '999', /lost the original reply carrier/],
+      ['subject', expected.subject.trim(), /changed the typed subject/],
+      ['message', expected.message.replace('café', 'cafe'), /changed the typed message/],
+      ['provider', '1-0', /disabled recipient was included/]]) {
       const changed = new URLSearchParams(posted);
       changed.set(field, value);
-      assert.throws(() => assertReplyPost(changed, expected));
+      assert.throws(() => assertReplyPost(changed, expected), error);
     }
-    const missing = new URLSearchParams(posted);
-    missing.delete('message');
-    assert.throws(() => assertReplyPost(missing, expected));
+    for (const [field, error] of [['archiveMessageId', /lost the original reply carrier/],
+      ['subject', /changed the typed subject/], ['message', /changed the typed message/]]) {
+      const missing = new URLSearchParams(posted);
+      missing.delete(field);
+      assert.throws(() => assertReplyPost(missing, expected), error);
+    }
     console.log('PASS messenger reply native form encoding and refusal assertions');
 
     // Use the actual compose-page initialization and editor. A restored draft
