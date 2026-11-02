@@ -27,7 +27,7 @@ const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
-const { requirePoppler, pdfTextBuffer } = require('./lib/export-content-helpers');
+const { requirePoppler, pdfTextBuffer, parseCsv } = require('./lib/export-content-helpers');
 const { runWorkflow } = require('./lib/workflow-session');
 
 const TIMEOUT = 60000;
@@ -185,6 +185,10 @@ async function workflow(s) {
     // The write-off names are "first last".
     h.assert(/Provider:\s*Quinn\b/.test(text), 'The Write-Off PDF does not name the chosen provider on its Provider label');
     h.assert(/Payee:\s*Yara\b/.test(text), 'The Write-Off PDF does not name the chosen payee on its Payee label');
+    const csv = await createReport('REP_WO', 'csv');
+    const grid = parseCsv(csv.bytes.toString('utf8'));
+    h.assert(grid.length === 2 && grid[0].includes('Type'), 'Write-Off CSV must have a full Type header and one claim');
+    h.assert(grid[1].includes('33.70') && grid[1].includes('WO'), 'Write-Off CSV lost the claim amount or type');
   });
 
   await s.step(STEP.payRef, async () => {
@@ -194,6 +198,10 @@ async function workflow(s) {
     h.assert(/Payee:\s*YF\b/.test(text), "The Payments and Refunds PDF does not print the payee's initials");
     // Check the total field, including on a C.UTF-8 JVM whose currency symbol is the generic ¤.
     h.assert(/TOTAL:\s*(?:CA)?[$¤]33\.70\b/.test(text), 'The Payments and Refunds PDF does not total the 33.70 payment');
+    const csv = await createReport('REP_PAYREF', 'csv');
+    const grid = parseCsv(csv.bytes.toString('utf8'));
+    h.assert(grid.length === 2 && grid[0].includes('Adjustment Amount'), 'Payments CSV must have one payment and separate adjustment columns');
+    h.assert(grid[1].includes('33.70'), 'Payments CSV lost the payment amount');
   });
 
   await s.step(STEP.payRefSummary, async () => {

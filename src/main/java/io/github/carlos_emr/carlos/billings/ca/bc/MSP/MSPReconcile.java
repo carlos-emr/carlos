@@ -819,7 +819,7 @@ public class MSPReconcile {
         TeleplanS00Dao dao = SpringUtils.getBean(TeleplanS00Dao.class);
         for (TeleplanS00 s : dao.findByOfficeNumber(forwardZero(billingmaster_no, 7))) {
             //this line fixes a bug where the amounts weren't calculating negative values
-            String strAmount = convCurValue(s.getPaidAmount());
+            String strAmount = convertReportAmount(s.getPaidAmount());
             double amount = Double.valueOf(strAmount).doubleValue();
             retval += amount;
         }
@@ -1250,7 +1250,14 @@ public class MSPReconcile {
                 // WCB SECTION ---------------------------------------------------------
                 if (b.isWCB()) {
                     String wcbQry = "select bill_amount, w_feeitem, w_icd9 from wcb where billing_no = ?";
-                    String[] wcbRow = SqlUtils.getRow(wcbQry, b.billing_no);
+                    String[] wcbRow;
+                    if (failOnReadError) {
+                        try (ResultSet wcb = LegacyJdbcQuery.getPreparedResultSet(wcbQry, b.billing_no)) {
+                            wcbRow = wcb.next() ? new String[]{wcb.getString(1), wcb.getString(2), wcb.getString(3)} : null;
+                        }
+                    } else {
+                        wcbRow = SqlUtils.getRow(wcbQry, b.billing_no);
+                    }
                     if (wcbRow != null) {
                         b.amount = wcbRow[0];
                         b.code = wcbRow[1];
@@ -1370,19 +1377,19 @@ public class MSPReconcile {
             for (TeleplanS00 s : dao.findByOfficeNumber(forwardZero(billingMasterNo, 7))) {
                 if ("HS".equals(s.getExp1())) {
                     totalPaidFromS00 = Double.parseDouble(amountBilled);
-                    log.debug("Bill has HS setting the totalPaid to amountBilled  " + amountBilled);
+                    if (!failOnReadError) log.debug("Bill has HS setting the totalPaid to amountBilled  " + amountBilled);
                     break;
                 }
                 String paidAmount = s.getPaidAmount();
-                paidAmount = MSPReconcile.convCurValue(paidAmount);
+                paidAmount = convertReportAmount(paidAmount);
                 Double dblAmtPaid = Double.valueOf(paidAmount);
                 totalPaidFromS00 += dblAmtPaid.doubleValue();
-                log.debug("paidAmount " + paidAmount);
+                if (!failOnReadError) log.debug("paidAmount " + paidAmount);
             }
         }
-        log.debug("amtPaid = totalPaidFromHistory + totalPaidFromS00; " + totalPaidFromHistory + "+" + totalPaidFromS00);
+        if (!failOnReadError) log.debug("amtPaid = totalPaidFromHistory + totalPaidFromS00; " + totalPaidFromHistory + "+" + totalPaidFromS00);
         double amtPaid = totalPaidFromHistory + totalPaidFromS00;
-        log.debug("amtPaid " + amtPaid);
+        if (!failOnReadError) log.debug("amtPaid " + amtPaid);
         double dblAmountOwing = amtPaid < 0 ? dbltBilled + amtPaid : dbltBilled - amtPaid;
         dblAmountOwing = UtilMisc.toCurrencyDouble(dblAmountOwing);
         return dblAmountOwing;
@@ -1502,7 +1509,7 @@ public class MSPReconcile {
                     b.adjustmentCodeAmt = adjCodeAmt;
                     b.adjustmentCodeDesc = getAdjustmentCodeDesc(b.adjustmentCode) + "(" + b.adjustmentCode + ")";
                     if (b.adjustmentCodeDesc.equals("")) {
-                        MiscUtils.getLogger().debug("no description for b.adjustmentCode:" + b.adjustmentCode);
+                        if (!failOnReadError) MiscUtils.getLogger().debug("no description for b.adjustmentCode:" + b.adjustmentCode);
                     }
                 }
 

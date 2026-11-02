@@ -40,7 +40,7 @@ const ui = require('./lib/playwright-ui');
 const bc = require('./lib/bc-billing-fixture');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow } = require('./lib/workflow-session');
-const { requirePoppler, pdfTextBuffer, squash } = require('./lib/export-content-helpers');
+const { requirePoppler, pdfTextBuffer, squash, parseCsv, saveDownload, scratchDir } = require('./lib/export-content-helpers');
 
 const TIMEOUT = 60000;
 const UPLOAD_ROUTE = '/billing/CA/BC/ViewBillingTA';
@@ -284,6 +284,17 @@ async function workflow(s) {
       const text = squash(pdfTextBuffer(await response.body()));
       const missing = wanted.filter(value => !text.includes(squash(value)));
       h.assert(missing.length === 0, `The ${label} does not name ${JSON.stringify(missing)}: ${text.slice(0, 300)}`);
+      const directory = scratchDir();
+      s.cleanup(() => fs.rmSync(directory, { recursive: true, force: true }));
+      const csvLink = listRow().locator(`a[href*="docFormat=csv&repType=${type}&"]`);
+      h.assert(await csvLink.count() === 1, `The remittance row has no ${type} CSV link`);
+      const file = await saveDownload(admin, directory, () => csvLink.click(), { route: /createBillingReportAction$/ });
+      h.assert(file.status === 200 && /^application\/csv\b/.test(file.headers['content-type'] || ''), `${type} CSV failed to download`);
+      const csv = file.bytes.toString('utf8');
+      const grid = parseCsv(csv);
+      h.assert(grid.length > 1 && grid.every(row => row.length === grid[0].length), `${type} CSV has inconsistent rows`);
+      h.assert(wanted.every(value => csv.includes(value)), `${type} CSV lost claim/payee/practitioner fields`);
+      if (type === 'REP_MSPREMSUM') h.assert(grid[0][0] === 'Record Type', 'Summary CSV is missing its flat record-type column');
     }
   });
   await admin.close();
