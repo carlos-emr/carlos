@@ -102,8 +102,9 @@ import java.util.Set;
  * {@value #RESPONSE_MAX_SIZE} (default {@link #DEFAULT_MAX_RESPONSE_BYTES}, 1 GiB), read the same
  * way, so a runaway or hostile response cannot fill the spill directory (or the heap, with a high
  * threshold) before CXF and WSS4J get to reject it; the copy stops at the first chunk that would
- * cross the cap, and the partial cache is deleted. The read itself is bounded in time by the
- * HTTP conduit receive timeout {@link EdtClientBuilder} configures for this client. Only a bounded
+ * cross the cap, and the partial cache is deleted. Individual socket reads use the
+ * HTTP conduit receive timeout {@link EdtClientBuilder} configures for this client. This is a
+ * socket idle-read timeout, not a deadline for a continuously progressing response. Only a bounded
  * prefix of at
  * most {@link #DEFAULT_MAX_SCAN_BYTES} bytes is read into memory for the scan: it must contain
  * the whole plain SOAP envelope, or the MIME preamble, the root part and the delimiter that ends
@@ -112,7 +113,8 @@ import java.util.Set;
  * has been configured and added to the chain; if anything before that fails (the copy, the scan,
  * loading the WSS4J configuration, or adding the interceptor), the replay is closed at once, so
  * any spilled temporary file is deleted rather than left for CXF's
- * {@code CachedOutputStreamCleaner}. After hand-off, closing the replay deletes the file.</p>
+ * {@code CachedOutputStreamCleaner}. After hand-off, {@link AttachmentCleanupInterceptor}
+ * closes the replay on success; {@link #handleFault(Message)} closes it on downstream failure.</p>
  *
  * <p>Message content is never logged or placed in fault messages: MCEDT payloads can contain
  * claims and patient data.</p>
@@ -120,6 +122,7 @@ import java.util.Set;
  * @since 2025-08-13
  */
 public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message> {
+    private static final String REPLAY_STREAM = DynamicWSS4JInInterceptor.class.getName() + ".replay";
 
     /**
      * Upper bound, applied separately, on the direct {@code EncryptedKey}, {@code EncryptedData}
@@ -247,9 +250,10 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
             wssProps.put(ConfigurationConstants.ACTION, buildAction(detection.result()));
 
             message.getInterceptorChain().add(new WSS4JInInterceptor(wssProps));
-            // Hand-off is last: until here this method owns the replay. Once it is the
-            // message's content, CXF reads and closes it (deleting any spilled temp file).
+            // Retain ownership separately: MIME/WSS4J may replace the message stream
+            // without closing the original replay on either success or a security fault.
             if (detection.replay() != null) {
+                message.put(REPLAY_STREAM, detection.replay());
                 message.setContent(InputStream.class, detection.replay());
             }
         } catch (IOException | XMLStreamException | RuntimeException e) {
@@ -260,6 +264,20 @@ public class DynamicWSS4JInInterceptor extends AbstractPhaseInterceptor<Message>
                 closeQuietly(detection.replay(), e);
             }
             throw e instanceof Fault fault ? fault : new Fault(e);
+        }
+    }
+
+    /** Releases the cached entity when a later interceptor rejects the response. */
+    @Override
+    public void handleFault(Message message) {
+        AttachmentCleanupInterceptor.cleanup(message);
+    }
+
+    /** Releases the original replay even when downstream processing replaced the content stream. */
+    static void closeReplay(Message message) {
+        Object replay = message.remove(REPLAY_STREAM);
+        if (replay instanceof InputStream stream) {
+            closeSource(stream);
         }
     }
 

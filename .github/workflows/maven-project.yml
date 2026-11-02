@@ -212,6 +212,10 @@ jobs:
                       kind = problem.tag.rsplit("}", 1)[-1]
                       if kind not in {"failure", "error"}:
                           continue
+                      # Publish identifiers only; messages/stacks stay in the sanitized artifact.
+                      test_id = f"{case.get('classname', '')}.{case.get('name', '')}"
+                      escaped_id = test_id.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+                      print(f"::error title=Java test {kind}::{escaped_id}")
                       lines.extend([f"{kind.upper()}: {case.get('classname', '')}.{case.get('name', '')}",
                                     problem.get("type", ""), problem.get("message", ""), problem.text or ""])
               (destination / (report.stem.removeprefix("TEST-") + ".txt")).write_text(

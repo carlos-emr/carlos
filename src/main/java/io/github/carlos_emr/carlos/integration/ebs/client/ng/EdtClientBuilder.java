@@ -162,7 +162,7 @@ public class EdtClientBuilder {
         T port = newDelegate(clientClass);
 
         Client client = ClientProxy.getClient(port);
-        // Set up SSL trust-all if needed
+        // Configure TLS with the JVM's trusted certificate authorities.
         configureSsl((HTTPConduit) client.getConduit());
 
         // Add sec interceptors
@@ -171,6 +171,11 @@ public class EdtClientBuilder {
 
         // Enable MTOM on SOAPBinding if configured
         BindingProvider bp = (BindingProvider) port;
+        // EBS needs URLConnection's TLS protocol handling and socket read timeout,
+        // including while receiving signed/encrypted MTOM bodies. Keep this per
+        // client: unrelated CXF clients must retain their default transport.
+        bp.getRequestContext().put("use.async.http.conduit", Boolean.FALSE);
+        bp.getRequestContext().put("force.urlconnection.http.conduit", Boolean.TRUE);
         SOAPBinding sb = (SOAPBinding) bp.getBinding();
         if (getConfig().isMtomEnabled()) {
             sb.setMTOMEnabled(true);
@@ -254,6 +259,8 @@ public class EdtClientBuilder {
         client.getEndpoint().getInInterceptors().add(new DynamicWSS4JInInterceptor(this));
 
         client.getEndpoint().getInInterceptors().add(new AttachmentCleanupInterceptor());
+        // A valid SOAP Fault switches chains without invoking normal-chain handleFault callbacks.
+        client.getEndpoint().getInFaultInterceptors().add(new AttachmentCleanupInterceptor());
     }
 
     /**
