@@ -34,7 +34,6 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
 
 <html>
@@ -89,15 +88,25 @@
                 }
         %> <% request.setAttribute("test", list); %>
         <%-- requestURI: this page is reached by a forward, so without it the sort links name the WEB-INF path (404). --%>
-        <display:table name="test" defaultsort="1" defaultorder="descending"
-                       decorator="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillCodesTableWrapper"
-                       class="table table-hover table-striped" requestURI="/billing/CA/BC/ViewBillingPrivateCodeAdjust">
-            <display:column property="serviceCode" title="Service Code" sortable="true" headerClass="sortable"/>
-            <display:column property="description" title="Description" sortable="true" headerClass="sortable"/>
-            <display:column property="value" title="Price" sortable="true" headerClass="sortable"/>
-            <display:column property="billingserviceNo" title="Options"/>
-        </display:table>
+        <table class="table table-hover table-striped" data-carlos-table data-page-size="0" data-default-sort="1" data-default-order="descending">
+<thead><tr>
+            <th scope="col" class="sortable"><button type="button" class="table-sort">Service Code</button></th>
+            <th scope="col" class="sortable"><button type="button" class="table-sort">Description</button></th>
+            <th scope="col" class="sortable"><button type="button" class="table-sort">Price</button></th>
+            <th scope="col">Options</th>
+        </tr></thead>
+<tbody><c:forEach var="tableRow" items="${test}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.serviceCode))}" data-sort-type="${carlos:tableSortType(tableRow.serviceCode)}"><c:out value="${tableRow.serviceCode}"/></td>
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.description))}" data-sort-type="${carlos:tableSortType(tableRow.description)}"><c:out value="${tableRow.description}"/></td>
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.value))}" data-sort-type="${carlos:tableSortType(tableRow.value)}"><c:out value="${tableRow.value}"/></td>
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingserviceNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingserviceNo)}"><a href="ViewBillingEditCode?codeId=${carlos:forUriComponent(tableRow.billingserviceNo)}&amp;code=${carlos:forUriComponent(tableRow.serviceCode)}&amp;desc=${carlos:forUriComponent(tableRow.description)}&amp;value=${carlos:forUriComponent(tableRow.value)}&amp;whereTo=private">Edit</a><br><a href="#" onclick="deletePrivateCode('${carlos:forJavaScriptAttribute(tableRow.billingserviceNo)}'); return false;">Delete</a></td>
+        </tr></c:forEach></tbody>
+</table>
+<c:if test="${empty test}"><p class="table-empty">Nothing found to display.</p></c:if>
         <%}%>
     </div>
     </body>
 </html>
+
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
+<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

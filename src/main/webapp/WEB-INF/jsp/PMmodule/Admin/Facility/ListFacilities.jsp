@@ -47,27 +47,40 @@
     </table>
 </div>
 <form action="${pageContext.request.contextPath}/PMmodule/FacilityManager" method="post">
-    <display:table class="simple" cellspacing="2" cellpadding="3"
-                   id="facility" name="facilities" export="false" pagesize="0"
-                   requestURI="/PMmodule/FacilityManager">
-        <display:setProperty name="paging.banner.placement" value="bottom"/>
-        <display:setProperty name="paging.banner.item_name" value="agency"/>
-        <display:setProperty name="paging.banner.items_name"
-                             value="facilities"/>
-        <display:setProperty name="basic.msg.empty_list"
-                             value="No facilities found."/>
+    <table class="simple" cellspacing="2" cellpadding="3" id="facility" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
 
-        <display:column sortable="false" title="">
+
+
+
+
+        <th scope="col"></th>
+        <th scope="col"></th>
+        <th scope="col"></th>
+
+
+        <th scope="col"><button type="button" class="table-sort">Name</button></th>
+        <th scope="col"><button type="button" class="table-sort">Description</button></th>
+        <th scope="col"><button type="button" class="table-sort">Contact name</button></th>
+        <th scope="col"><button type="button" class="table-sort">HIC?</button></th>
+    </tr></thead>
+<tbody><c:forEach var="facility" items="${facilities}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+
+
+
+        <td>
             <a
                     href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=view&id=${carlos:forUriComponent(facility.id)}">
                 Details </a>
-        </display:column>
-        <display:column sortable="false" title="">
+        </td>
+        <td>
             <a
                     href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=edit&id=${carlos:forUriComponent(facility.id)}">
                 Edit </a>
-        </display:column>
-        <display:column sortable="false" title="">
+        </td>
+        <td>
             <a href="javascript:void(0)"
                     onclick="if(ConfirmDelete('${carlos:forJavaScript(facility.name)}')){document.getElementById('deleteForm_${carlos:forJavaScript(facility.id)}').submit()}">
                 Disable </a>
@@ -77,19 +90,22 @@
                 <input type="hidden" name="id" value="${carlos:forHtmlAttribute(facility.id)}"/>
                 <input type="hidden" name="name" value="${carlos:forHtmlAttribute(facility.name)}"/>
             </form>
-        </display:column>
+        </td>
 
 
-        <display:column property="name" sortable="true" title="Name"/>
-        <display:column property="description" sortable="true"
-                        title="Description"/>
-        <display:column property="contactName" sortable="true"
-                        title="Contact name"/>
-        <display:column property="hic" sortable="true" title="HIC?"/>
-    </display:table>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.name))}" data-sort-type="${carlos:tableSortType(facility.name)}"><c:out value="${facility.name}"/></td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.description))}" data-sort-type="${carlos:tableSortType(facility.description)}"><c:out value="${facility.description}"/></td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.contactName))}" data-sort-type="${carlos:tableSortType(facility.contactName)}"><c:out value="${facility.contactName}"/></td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.hic))}" data-sort-type="${carlos:tableSortType(facility.hic)}"><c:out value="${facility.hic}"/></td>
+    </tr></c:forEach></tbody>
+</table>
+<c:if test="${empty facilities}"><p class="table-empty">No facilities found.</p></c:if>
 </form>
 <div>
     <p><a
             href="<%=request.getContextPath() %>/PMmodule/FacilityManager?method=add">
         Add new facility </a></p>
 </div>
+
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
+<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

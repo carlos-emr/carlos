@@ -21,14 +21,14 @@
  */
 package io.github.carlos_emr.carlos.eform.util;
 
+import io.github.carlos_emr.carlos.eform.util.RenderBrowser.LogEntry;
+
 import java.net.ConnectException;
 import java.net.URI;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.openqa.selenium.SessionNotCreatedException;
-import org.openqa.selenium.WebDriverException;
 
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
@@ -106,7 +106,7 @@ class EFormBrowserRemoteDriverUnitTest {
     void shouldClassifyRefusedConnection_asServiceUnreachable() {
         // By TYPE, never by message: WebDriver messages are assembled from
         // getAdditionalInformation() and are not a stable discriminator.
-        Throwable refused = new WebDriverException("could not start a new session",
+        Throwable refused = new IllegalStateException("could not start a new session",
                 new ConnectException("Connection refused"));
 
         assertThat(EFormBrowserPdfService.isServiceUnreachable(refused)).isTrue();
@@ -118,7 +118,7 @@ class EFormBrowserRemoteDriverUnitTest {
         // Reached chromedriver, but the browser would not start. That is a sandbox/binary problem
         // and must produce the Chromium startup message, not "service unavailable".
         assertThat(EFormBrowserPdfService.isServiceUnreachable(
-                new SessionNotCreatedException("probably user data directory is already in use"))).isFalse();
+                new IllegalStateException("probably user data directory is already in use"))).isFalse();
     }
 
     @Test
@@ -172,11 +172,11 @@ class EFormBrowserRemoteDriverUnitTest {
         // all-null form only ever exercised the FIRST requireNonNull, so deleting the
         // serviceUri or sessionId check — the two invariants that replaced the old
         // non-null-service one — left the test green.
-        org.openqa.selenium.chromium.ChromiumDriver realDriver =
-                org.mockito.Mockito.mock(org.openqa.selenium.chromium.ChromiumDriver.class);
+        RenderBrowser realDriver =
+                org.mockito.Mockito.mock(RenderBrowser.class);
         java.net.URI realUri = java.net.URI.create("http://127.0.0.1:9515/token");
-        org.openqa.selenium.remote.SessionId realSession =
-                new org.openqa.selenium.remote.SessionId("abc123");
+        String realSession =
+                "abc123";
 
         assertThatThrownBy(() -> new EFormBrowserPdfService.RendererBrowser(null, realUri, realSession))
                 .isInstanceOf(NullPointerException.class)

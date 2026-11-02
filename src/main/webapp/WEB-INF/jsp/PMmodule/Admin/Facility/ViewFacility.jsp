@@ -85,21 +85,28 @@
         </tr>
     </table>
 </div>
-<display:table class="simple" cellspacing="2" cellpadding="3"
-               id="program" name="associatedPrograms" export="false"
-               requestURI="${facilityViewUri}">
-    <display:setProperty name="basic.msg.empty_list" value="No programs."/>
-    <display:column sortable="true" sortProperty="name" title="Program Name">
+<table class="simple" cellspacing="2" cellpadding="3" id="program" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+    <th scope="col"><button type="button" class="table-sort">Program Name</button></th>
+    <th scope="col"><button type="button" class="table-sort">Program Type</button></th>
+    <th scope="col"><button type="button" class="table-sort">Clients in Queue</button></th>
+</tr></thead>
+<tbody><c:forEach var="program" items="${associatedPrograms}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.name))}" data-sort-type="${carlos:tableSortType(program.name)}">
         <c:choose>
             <c:when test="${program.facilityId == facility.id}">
                 <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView?id=${carlos:forUriComponent(program.id)}">${carlos:forHtml(program.name)}</a>
             </c:when>
             <c:otherwise>${carlos:forHtml(program.name)}</c:otherwise>
         </c:choose>
-    </display:column>
-    <display:column property="type" sortable="true" title="Program Type"/>
-    <display:column property="queueSize" sortable="true" title="Clients in Queue"/>
-</display:table>
+    </td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.type))}" data-sort-type="${carlos:tableSortType(program.type)}"><c:out value="${program.type}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.queueSize))}" data-sort-type="${carlos:tableSortType(program.queueSize)}"><c:out value="${program.queueSize}"/></td>
+</tr></c:forEach></tbody>
+</table>
+<c:if test="${empty associatedPrograms}"><p class="table-empty">No programs.</p></c:if>
 
 <br/>
 <div class="tabs" id="tabs">
@@ -141,3 +148,6 @@ Automatic discharges in the past 24 hours appear red.
         <a href="${pageContext.request.contextPath}/PMmodule/FacilityManager?method=list">Return to facilities list</a>
     </p>
 </div>
+
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
+<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

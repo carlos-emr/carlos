@@ -28,8 +28,6 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
-
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -396,7 +394,7 @@
                 symptom[4] = "orthopnea" + num;
                 symptom[5] = "PND" + num;
                 var NYHA = new Array(5)
-                NYHA[0] = ""	// I know I know but this makes the iterator= NYHA class level
+                NYHA[0] = ""    // I know I know but this makes the iterator= NYHA class level
                 NYHA[1] = "NYHAI" + num
                 NYHA[2] = "NYHAII" + num
                 NYHA[3] = "NYHAIII" + num
@@ -408,7 +406,7 @@
                     }
                 }
                 for (i = 1; i < 5; i++) {
-                    document.forms[0].elements[NYHA[i]].checked = false; 	//clear all NYHA checkboxes in the series
+                    document.forms[0].elements[NYHA[i]].checked = false;    //clear all NYHA checkboxes in the series
                 }
                 switch (maxSymptom) {
                     case -1:
@@ -844,7 +842,7 @@
 
                 <tr valign="top">
                     <td width="21%" colspan="2">JVP Elevation</td>
-                    <td width="23%"><!--	// onClick="JVPno1.checked=!JVPyes1.checked;" mimics radiobutton behavior, but perhaps the click is in error?
+                    <td width="23%"><!--    // onClick="JVPno1.checked=!JVPyes1.checked;" mimics radiobutton behavior, but perhaps the click is in error?
 	// and the JVP was not assessed and the user wants to leave this blank?  
 	// perhaps better code is onClick="JVPno1.checked=false;"  --> <input
                             tabindex="42" type="checkbox" name="JVPyes1" id="JVPyes1"

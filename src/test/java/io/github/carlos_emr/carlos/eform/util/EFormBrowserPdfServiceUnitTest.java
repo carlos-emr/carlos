@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.eform.util;
 
+import io.github.carlos_emr.carlos.eform.util.RenderBrowser.LogEntry;
+
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -47,12 +49,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 import java.util.logging.Level;
 
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.logging.LogEntries;
-import org.openqa.selenium.logging.LogEntry;
-import org.openqa.selenium.logging.LogType;
-import org.openqa.selenium.remote.http.ClientConfig;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -475,8 +471,8 @@ class EFormBrowserPdfServiceUnitTest {
 
     @Test
     @DisplayName("should pin egress lockdown and capture settings in the browser launch options")
-    void shouldPinSecurityAndCaptureSettings_inChromeOptions() {
-        ChromeOptions options = EFormBrowserPdfService.buildChromeOptions(
+    void shouldPinSecurityAndCaptureSettings_inBrowserOptions() {
+        BrowserOptions options = EFormBrowserPdfService.buildBrowserOptions(
                 "/opt/chromium/chrome", true, "http://127.0.0.1:8080");
 
         Map<String, Object> capabilities = options.asMap();
@@ -523,11 +519,8 @@ class EFormBrowserPdfServiceUnitTest {
         // the console gate silently sees zero script errors on every render, and without
         // PERFORMANCE at ALL the network-event replay has nothing to replay. (The performance
         // leg fails loudly when the log type is missing; the console leg would not.)
-        org.openqa.selenium.logging.LoggingPreferences loggingPreferences =
-                (org.openqa.selenium.logging.LoggingPreferences) capabilities.get("goog:loggingPrefs");
-        assertThat(loggingPreferences).isNotNull();
-        assertThat(loggingPreferences.getLevel(LogType.BROWSER)).isEqualTo(Level.SEVERE);
-        assertThat(loggingPreferences.getLevel(LogType.PERFORMANCE)).isEqualTo(Level.ALL);
+        assertThat(capabilities.get("goog:loggingPrefs"))
+                .isEqualTo(Map.of("browser", "SEVERE", "performance", "ALL"));
     }
 
     @Test
@@ -536,7 +529,7 @@ class EFormBrowserPdfServiceUnitTest {
         // Opt-in hardened posture (EFORM_RENDER_SANDBOX=true -> unsandboxed=false): keep Chromium's OS
         // sandbox, so --no-sandbox must be absent. Assert the args are actually populated first so
         // doesNotContain cannot pass vacuously (SonarCloud S5841).
-        ChromeOptions options = EFormBrowserPdfService.buildChromeOptions(null, false, "http://127.0.0.1:8080");
+        BrowserOptions options = EFormBrowserPdfService.buildBrowserOptions(null, false, "http://127.0.0.1:8080");
 
         @SuppressWarnings("unchecked")
         Map<String, Object> chromeOptions = (Map<String, Object>) options.asMap().get("goog:chromeOptions");
@@ -1276,10 +1269,8 @@ class EFormBrowserPdfServiceUnitTest {
     @Test
     @DisplayName("should bound every WebDriver command at the render budget instead of Selenium's default")
     void shouldBoundDriverCommandReadTimeout_toRenderBudget() {
-        ClientConfig clientConfig = EFormBrowserPdfService.rendererClientConfig();
-
-        assertThat(clientConfig.readTimeout()).isEqualTo(Duration.ofSeconds(90));
-        assertThat(clientConfig.connectionTimeout()).isEqualTo(Duration.ofSeconds(10));
+        assertThat(EFormBrowserPdfService.WEBDRIVER_COMMAND_READ_TIMEOUT).isEqualTo(Duration.ofSeconds(90));
+        assertThat(EFormBrowserPdfService.WEBDRIVER_CONNECTION_TIMEOUT).isEqualTo(Duration.ofSeconds(10));
     }
 
     @Test
@@ -1328,9 +1319,9 @@ class EFormBrowserPdfServiceUnitTest {
         // The performance log is the ONLY detector for failed render-critical subresources (the
         // console gate delegates resource failures to it), so a drain fault must fail closed —
         // returning 0 would let a broken render pass every gate on truncated evidence.
-        ChromeDriver driver = mock(ChromeDriver.class, RETURNS_DEEP_STUBS);
-        when(driver.manage().logs().get(org.openqa.selenium.logging.LogType.PERFORMANCE))
-                .thenThrow(new org.openqa.selenium.WebDriverException("perf log broke"));
+        RenderBrowser driver = mock(RenderBrowser.class, RETURNS_DEEP_STUBS);
+        when(driver.logs("performance"))
+                .thenThrow(new IllegalStateException("perf log broke"));
 
         EFormBrowserPdfService service = new EFormBrowserPdfService();
 
@@ -1344,9 +1335,9 @@ class EFormBrowserPdfServiceUnitTest {
     void shouldFailRender_whenConsoleLogUnavailable() {
         // The console gate is the only defense against capturing a form whose background image
         // never painted; an unreadable console must fail closed, not pass with a zero count.
-        ChromeDriver driver = mock(ChromeDriver.class, RETURNS_DEEP_STUBS);
-        when(driver.manage().logs().get(LogType.BROWSER))
-                .thenThrow(new org.openqa.selenium.WebDriverException("log retrieval broke"));
+        RenderBrowser driver = mock(RenderBrowser.class, RETURNS_DEEP_STUBS);
+        when(driver.logs("browser"))
+                .thenThrow(new IllegalStateException("log retrieval broke"));
 
         EFormBrowserPdfService service = new EFormBrowserPdfService();
 
@@ -1360,7 +1351,7 @@ class EFormBrowserPdfServiceUnitTest {
     // enforceRenderGates rejection coverage: each fail-closed reason exercised in isolation. The
     // CDP performance entries are raw JSON strings shaped exactly as scanNetworkEvents/
     // parsePerformanceMessage parse them ({"message":{"method":...,"params":{...}}}), wrapped in
-    // LogEntry the way renderWithSlot collects them, and the browser console is a real LogEntries
+    // LogEntry the way renderWithSlot collects them, and the browser console is a real List<LogEntry>
     // stubbed onto the deep-stub driver so the console gate reads a deterministic set.
     // ---------------------------------------------------------------------------------------------
 
@@ -1373,7 +1364,7 @@ class EFormBrowserPdfServiceUnitTest {
     void shouldFailRender_whenMainDocumentStatusMissing() {
         // latched=null and no Document responseReceived → the main-document status is unknown, which
         // must fail closed rather than pass a render whose top-level response is unaccounted for.
-        ChromeDriver driver = driverWithConsole(browserConsole());
+        RenderBrowser driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
 
         assertThatThrownBy(() -> service.enforceRenderGates(
@@ -1385,7 +1376,7 @@ class EFormBrowserPdfServiceUnitTest {
     @Test
     @DisplayName("should fail the render when the main document responded with a non-200 status")
     void shouldFailRender_whenMainDocumentStatusNon200() {
-        ChromeDriver driver = driverWithConsole(browserConsole());
+        RenderBrowser driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
 
         assertThatThrownBy(() -> service.enforceRenderGates(
@@ -1397,7 +1388,7 @@ class EFormBrowserPdfServiceUnitTest {
     @Test
     @DisplayName("should report a failed same-origin image as incomplete content")
     void shouldReportMissingContent_whenSameOriginImageFails() throws PDFGenerationException {
-        ChromeDriver driver = driverWithConsole(browserConsole());
+        RenderBrowser driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(
                 perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
@@ -1415,7 +1406,7 @@ class EFormBrowserPdfServiceUnitTest {
     @DisplayName("should fail closed on live egress independently of content approval")
     void shouldFailOnLiveEgress_independentlyOfContentApproval() {
         // Exact incomplete-content approval never overrides a live egress security failure.
-        ChromeDriver driver = driverWithConsole(browserConsole());
+        RenderBrowser driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(
                 perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
@@ -1430,7 +1421,7 @@ class EFormBrowserPdfServiceUnitTest {
     @Test
     @DisplayName("should report failed images and scripts as potentially incomplete")
     void shouldReportIncompleteRender_whenImageOrScriptFailed() throws PDFGenerationException {
-        ChromeDriver driver = driverWithConsole(browserConsole());
+        RenderBrowser driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(
                 perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
@@ -1451,7 +1442,7 @@ class EFormBrowserPdfServiceUnitTest {
         // Same philosophy as the drain-fault gate: an unparseable network event is egress
         // evidence the replay could not account for — passing on truncated evidence would let a
         // broken render through every gate.
-        ChromeDriver driver = driverWithConsole(browserConsole());
+        RenderBrowser driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(
                 perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
@@ -1469,7 +1460,7 @@ class EFormBrowserPdfServiceUnitTest {
         // An off-origin HTTP request (e.g. a form referencing an external font/CDN/image) is already
         // physically blocked by the dead proxy, so by default observing the attempt is advisory and
         // must NOT deny the fax. It stays fail-closed only under the strict network gate.
-        ChromeDriver driver = driverWithConsole(browserConsole());
+        RenderBrowser driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(
                 perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
@@ -1486,7 +1477,7 @@ class EFormBrowserPdfServiceUnitTest {
         // A live bidirectional channel bypasses the dead HTTP proxy and is never opened by a render
         // surface, so it stays an always-on hard fail-closed signal even under the default lenient
         // gate — unlike off-origin HTTP, which the proxy already blocks.
-        ChromeDriver driver = driverWithConsole(browserConsole());
+        RenderBrowser driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(
                 perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)),
@@ -1504,7 +1495,7 @@ class EFormBrowserPdfServiceUnitTest {
         // Default mode carries the error into the completeness report instead of throwing here.
         // The final document gate then treats it as blocking because it may signal omitted clinical
         // content. Strict mode fails earlier, directly in enforceRenderGates.
-        ChromeDriver driver = driverWithConsole(browserConsole(
+        RenderBrowser driver = driverWithConsole(browserConsole(
                 consoleEntry("http://127.0.0.1:8080/carlos/x 12:3 Uncaught TypeError: x is not a function")));
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)));
@@ -1526,7 +1517,7 @@ class EFormBrowserPdfServiceUnitTest {
         // Both entries are SEVERE, but a favicon resource-load 404 (handled type-aware by the network
         // scan) and a CSP-containment notice (the surface's own defense working) are excluded, so a
         // healthy render with a 200 main document and no other errors must NOT fail.
-        ChromeDriver driver = driverWithConsole(browserConsole(
+        RenderBrowser driver = driverWithConsole(browserConsole(
                 consoleEntry("http://127.0.0.1:8080/favicon.ico - Failed to load resource: the server responded with a status of 404 ()"),
                 consoleEntry("Loading plugin data from 'data:text/plain,x' violates the following Content Security Policy directive: \"object-src 'none'\". The action has been blocked.")));
         EFormBrowserPdfService service = new EFormBrowserPdfService();
@@ -1612,7 +1603,7 @@ class EFormBrowserPdfServiceUnitTest {
         // The scan observes a same-origin Document 200 (e.g. a signature iframe), but the status
         // latched immediately after navigation was 500. The latched value must win so a later
         // Document 200 cannot stand in for a failed main-document response.
-        ChromeDriver driver = driverWithConsole(browserConsole());
+        RenderBrowser driver = driverWithConsole(browserConsole());
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> entries = List.of(perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)));
 
@@ -1640,7 +1631,7 @@ class EFormBrowserPdfServiceUnitTest {
         for (int i = 0; i < 12; i++) {
             entries[i] = consoleEntry("http://127.0.0.1:8080/carlos/x " + (i + 1) + ":1 Uncaught TypeError: boom");
         }
-        ChromeDriver driver = driverWithConsole(browserConsole(entries));
+        RenderBrowser driver = driverWithConsole(browserConsole(entries));
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> perf = List.of(perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)));
         List<String> details = new java.util.ArrayList<>();
@@ -1660,7 +1651,7 @@ class EFormBrowserPdfServiceUnitTest {
         // surfaces suppress their \"N more\" overflow below the cap so repeats are not
         // presented as hidden distinct errors.
         LogEntry repeated = consoleEntry("http://127.0.0.1:8080/carlos/x 7:2 Uncaught RangeError: loop");
-        ChromeDriver driver = driverWithConsole(browserConsole(repeated, repeated, repeated, repeated, repeated));
+        RenderBrowser driver = driverWithConsole(browserConsole(repeated, repeated, repeated, repeated, repeated));
         EFormBrowserPdfService service = new EFormBrowserPdfService();
         List<LogEntry> perf = List.of(perfEntry(responseReceivedJson("Document", MAIN_DOC_URL, 200)));
         List<String> details = new java.util.ArrayList<>();
@@ -1698,13 +1689,13 @@ class EFormBrowserPdfServiceUnitTest {
         return new LogEntry(Level.SEVERE, 0L, message);
     }
 
-    private static LogEntries browserConsole(LogEntry... entries) {
-        return new LogEntries(List.of(entries));
+    private static List<LogEntry> browserConsole(LogEntry... entries) {
+        return List.of(entries);
     }
 
-    private static ChromeDriver driverWithConsole(LogEntries console) {
-        ChromeDriver driver = mock(ChromeDriver.class, RETURNS_DEEP_STUBS);
-        when(driver.manage().logs().get(LogType.BROWSER)).thenReturn(console);
+    private static RenderBrowser driverWithConsole(List<LogEntry> console) {
+        RenderBrowser driver = mock(RenderBrowser.class, RETURNS_DEEP_STUBS);
+        when(driver.logs("browser")).thenReturn(console);
         return driver;
     }
 
@@ -1745,7 +1736,7 @@ class EFormBrowserPdfServiceUnitTest {
         // though the base URL was perfectly valid.
         //
         // renderWithSlot() itself cannot be driven end-to-end in a pure unit test past this point:
-        // printToPdf() runs only after createDriver()/buildChromeOptions() launch a real Chromium via
+        // printToPdf() runs only after createDriver()/buildBrowserOptions() launch a real Chromium via
         // chromedriver, which a unit test does not have available (see
         // EFormBrowserPdfServiceSeleniumSmokeIntegrationTest for the real-browser, full-pipeline coverage
         // that assumeTrue()-skips when no Chromium/chromedriver is present). So this test pins the
@@ -1761,17 +1752,14 @@ class EFormBrowserPdfServiceUnitTest {
         // e) around the main try any more, so an IAE raised here necessarily falls through to
         // catch (RuntimeException e) and gets the honest generic "Browser rendering failed..."
         // message instead of a false base-URL configuration diagnosis.
-        ChromeDriver driver = mock(ChromeDriver.class, RETURNS_DEEP_STUBS);
+        RenderBrowser driver = mock(RenderBrowser.class, RETURNS_DEEP_STUBS);
         when(driver.executeCdpCommand(eq("Page.printToPDF"), anyMap()))
                 .thenReturn(Map.of("data", "!!!not-valid-base64!!!"));
         Path outputPdfPath = tempDir.resolve("eform-browser-render-out.pdf");
         long deadlineNanos = System.nanoTime() + Duration.ofMinutes(1).toNanos();
 
         Method printToPdfMethod = EFormBrowserPdfService.class.getDeclaredMethod(
-                // ChromiumDriver, not ChromeDriver: the renderer now connects to an
-                // already-running chromedriver, so the helpers take the wider type. The mock below
-                // is still a ChromeDriver, which extends ChromiumDriver and satisfies it.
-                "printToPdf", org.openqa.selenium.chromium.ChromiumDriver.class, Path.class, long.class);
+                "printToPdf", RenderBrowser.class, Path.class, long.class);
         printToPdfMethod.setAccessible(true);
         EFormBrowserPdfService service = new EFormBrowserPdfService();
 

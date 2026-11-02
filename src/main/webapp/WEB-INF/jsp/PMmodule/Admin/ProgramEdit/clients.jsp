@@ -66,23 +66,38 @@
     </table>
 </div>
 <!-- show current clients -->
-<display:table class="simple" cellspacing="2" cellpadding="3" id="admission" name="admissions" export="false"
-               pagesize="0" requestURI="${programManagerClientsUri}">
-    <display:setProperty name="paging.banner.placement" value="bottom"/>
-    <display:setProperty name="basic.msg.empty_list" value="No clients currently admitted to this program."/>
+<table class="simple" cellspacing="2" cellpadding="3" id="admission" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
 
-    <display:column sortable="false" title="">
+
+
+    <th scope="col"></th>
+    <th scope="col"><button type="button" class="table-sort">Name</button></th>
+    <th scope="col"><button type="button" class="table-sort">Admission Date</button></th>
+    <caisi:isModuleLoad moduleName="pmm.refer.temporaryAdmission.enabled">
+        <th scope="col"><button type="button" class="table-sort">Temporary Admission</button></th>
+    </caisi:isModuleLoad>
+    <th scope="col"><button type="button" class="table-sort">Admission Notes</button></th>
+    <th scope="col"><button type="button" class="table-sort">Team</button></th>
+    <th scope="col"></th>
+    <th scope="col">Status</th>
+</tr></thead>
+<tbody><c:forEach var="admission" items="${admissions}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+
+    <td>
         <a href="javascript:void(0);" onclick="alert('Please discharge clients from the client manager');">
             Discharge </a>
-    </display:column>
-    <display:column property="client.formattedName" sortable="true" title="Name"/>
-    <display:column property="admissionDate" sortable="true" title="Admission Date"/>
+    </td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(admission.client.formattedName))}" data-sort-type="${carlos:tableSortType(admission.client.formattedName)}"><c:out value="${admission.client.formattedName}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(admission.admissionDate))}" data-sort-type="${carlos:tableSortType(admission.admissionDate)}"><c:out value="${admission.admissionDate}"/></td>
     <caisi:isModuleLoad moduleName="pmm.refer.temporaryAdmission.enabled">
-        <display:column property="temporaryAdmission" sortable="true" title="Temporary Admission"/>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(admission.temporaryAdmission))}" data-sort-type="${carlos:tableSortType(admission.temporaryAdmission)}"><c:out value="${admission.temporaryAdmission}"/></td>
     </caisi:isModuleLoad>
-    <display:column property="admissionNotes" sortable="true" title="Admission Notes"/>
-    <display:column property="teamName" sortable="true" title="Team"/>
-    <display:column sortable="false" title="">
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(admission.admissionNotes))}" data-sort-type="${carlos:tableSortType(admission.admissionNotes)}"><c:out value="${admission.admissionNotes}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(admission.teamName))}" data-sort-type="${carlos:tableSortType(admission.teamName)}"><c:out value="${admission.teamName}"/></td>
+    <td>
         <select name="x" onchange="assignTeam('${carlos:forJavaScript(admission.id)}',this);">
             <option value="0">&nbsp;</option>
             <c:forEach var="team" items="${teams}">
@@ -96,8 +111,8 @@
                 </c:choose>
             </c:forEach>
         </select>
-    </display:column>
-    <display:column sortable="false" title="Status">
+    </td>
+    <td>
         <select name="y" onchange="assignStatus('${carlos:forJavaScript(admission.id)}',this);">
             <option value="0">&nbsp;</option>
             <c:forEach var="status" items="${client_statuses}">
@@ -111,5 +126,10 @@
                 </c:choose>
             </c:forEach>
         </select>
-    </display:column>
-</display:table>
+    </td>
+</tr></c:forEach></tbody>
+</table>
+<c:if test="${empty admissions}"><p class="table-empty">No clients currently admitted to this program.</p></c:if>
+
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
+<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

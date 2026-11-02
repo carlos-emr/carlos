@@ -31,14 +31,15 @@
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.A1cPercent;
-import java.awt.Color;
-import java.awt.Font;
-import java.awt.Paint;
 import java.io.IOException;
+import io.github.carlos_emr.carlos.eform.util.BrowserChartRenderer;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementChart.Day;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementChart.Series;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementChart.SeriesCollection;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementChart.ReferenceRange;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.sql.Connection;
-import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -52,34 +53,6 @@ import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.logging.log4j.Logger;
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartUtils;
-import org.jfree.chart.JFreeChart;
-import org.jfree.chart.axis.DateAxis;
-import org.jfree.chart.axis.NumberAxis;
-import org.jfree.chart.axis.SymbolAxis;
-import org.jfree.chart.axis.ValueAxis;
-import org.jfree.chart.labels.StandardXYItemLabelGenerator;
-import org.jfree.chart.labels.StandardXYToolTipGenerator;
-import org.jfree.chart.labels.XYItemLabelGenerator;
-import org.jfree.chart.plot.CombinedDomainXYPlot;
-import org.jfree.chart.plot.XYPlot;
-import org.jfree.chart.renderer.xy.HighLowRenderer;
-import org.jfree.chart.renderer.xy.StandardXYBarPainter;
-import org.jfree.chart.renderer.xy.StandardXYItemRenderer;
-import org.jfree.chart.renderer.xy.XYBarRenderer;
-import org.jfree.chart.renderer.xy.XYItemRenderer;
-import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
-import org.jfree.data.gantt.Task;
-import org.jfree.data.gantt.TaskSeries;
-import org.jfree.data.gantt.TaskSeriesCollection;
-import org.jfree.data.gantt.XYTaskDataset;
-import org.jfree.data.time.Day;
-import org.jfree.data.time.TimeSeries;
-import org.jfree.data.xy.DefaultOHLCDataset;
-import org.jfree.data.xy.OHLCDataItem;
-import org.jfree.data.xy.XYDataset;
-import io.github.carlos_emr.carlos.PMmodule.utility.UtilDateUtilities;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
@@ -147,7 +120,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         String method = request.getParameter("method");
 
         log.debug("Creating graph for demo {} type1: {} type2: {}", LogSafe.sanitizeObject(demographicNo), LogSafe.sanitize(typeIdName), LogSafe.sanitize(typeIdName2));
-        JFreeChart chart = null;
+        MeasurementChart chart = null;
         if (method == null) {
             log.debug("Calling DefaultChart");
             chart = defaultChart(demographicNo, typeIdName, typeIdName2, patientName, chartTitle);
@@ -183,7 +156,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
         response.setContentType("image/png");
         OutputStream o = response.getOutputStream();
-        ChartUtils.writeChartAsPNG(o, chart, width, height);
+        BrowserChartRenderer.write(request.getServletContext(), o, chart, width, height, "png");
         o.close();
         return null;
     }
@@ -195,70 +168,34 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return list;
     }
 
-    private static XYTaskDataset getDrugDataSet(Integer demographicId, String[] dins) {
-
-        TaskSeriesCollection datasetDrug = new TaskSeriesCollection();
+    private static List<Map<String, Object>> getDrugDataSet(Integer demographicId, String[] dins) {
+        List<Map<String, Object>> values = new ArrayList<>();
         RxPrescriptionData prescriptData = new RxPrescriptionData();
-
         if (dins != null) {
             for (String din : dins) {
-                if (din != null) {
-                    RxPrescriptionData.Prescription[] arr = prescriptData.getPrescriptionScriptsByPatientRegionalIdentifier(demographicId, din);
-                    if (arr != null && arr.length > 0) {
-                        TaskSeries ts = new TaskSeries(arr[0].getBrandName());
-                        for (RxPrescriptionData.Prescription pres : arr) {
-                            ts.add(new Task(pres.getBrandName(), pres.getRxDate(), pres.getEndDate()));
-                        }
-                        datasetDrug.add(ts);
-                    }
+                if (din == null) continue;
+                RxPrescriptionData.Prescription[] prescriptions = prescriptData.getPrescriptionScriptsByPatientRegionalIdentifier(demographicId, din);
+                if (prescriptions == null) continue;
+                for (RxPrescriptionData.Prescription prescription : prescriptions) {
+                    values.add(Map.of("name", prescription.getBrandName(), "start", prescription.getRxDate().getTime(),
+                            "end", prescription.getEndDate().getTime()));
                 }
             }
         }
-
-        XYTaskDataset dataset = new XYTaskDataset(datasetDrug);
-        dataset.setTransposed(true);
-        dataset.setSeriesWidth(0.6);
-        return dataset;
+        return values;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private static String[] getDrugSymbol(Integer demographic, String[] dins) {
-        if (dins == null) {
-            return new String[0];
-        }
-
-        String[] ret = new String[dins.length];
-        ArrayList<String> list = new ArrayList<String>();
-        RxPrescriptionData prescriptData = new RxPrescriptionData();
-        for (String din : dins) {
-            if (din != null && !"null".equalsIgnoreCase(din)) {
-                RxPrescriptionData.Prescription[] arr = prescriptData.getPrescriptionScriptsByPatientRegionalIdentifier(demographic, din);
-                String brandName = null;
-                if (arr != null && arr.length > 0) {
-                    brandName = arr[0].getBrandName();
-                }
-                if (brandName != null && brandName.length() > 30) {
-                    brandName = brandName.substring(0, 30) + "...";
-                }
-                list.add(brandName);
-            }
-        }
-        ret = list.toArray(new String[list.size()]);
-        return ret;
-    }
-
-    private JFreeChart referenceRangeChart(Integer demographicNo, String typeIdName, String typeIdName2, String patientName, String chartTitle) {
-        org.jfree.data.time.TimeSeriesCollection dataset = new org.jfree.data.time.TimeSeriesCollection();
+    private MeasurementChart referenceRangeChart(Integer demographicNo, String typeIdName, String typeIdName2, String patientName, String chartTitle) {
+        SeriesCollection dataset = new SeriesCollection();
 
         ArrayList<EctMeasurementsDataBean> list = getList(demographicNo, typeIdName);
-        ArrayList<OHLCDataItem> dataItems = new ArrayList<OHLCDataItem>();
+        ArrayList<ReferenceRange> dataItems = new ArrayList<ReferenceRange>();
 
         if (typeIdName.equals("BP")) {
             log.debug("Using BP LOGIC FOR type 1 ");
             EctMeasurementsDataBean sampleLine = list.get(0);
-            TimeSeries systolic = new TimeSeries("Systolic");
-            TimeSeries diastolic = new TimeSeries("Diastolic");
+            Series systolic = new Series("Systolic");
+            Series diastolic = new Series("Diastolic");
             for (EctMeasurementsDataBean mdb : list) { // dataVector) {
                 String[] str = mdb.getDataField().split("/");
 
@@ -271,10 +208,10 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
         } else {
             log.debug("Not Using BP LOGIC FOR type 1 ");
-            // get the name from the TimeSeries
+            // get the name from the Series
             EctMeasurementsDataBean sampleLine = list.get(0);
             String typeLegendName = sampleLine.getTypeDisplayName();
-            TimeSeries newSeries = new TimeSeries(typeLegendName);
+            Series newSeries = new Series(typeLegendName);
             for (EctMeasurementsDataBean mdb : list) { //dataVector) {
                 String result = (String) mdb.getDataField();
                 if (StringUtils.isNotEmpty(result)) {
@@ -294,7 +231,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                         double low = Double.parseDouble(min.trim());
                         double close = Double.parseDouble(max.trim());
                         double volume = 1045;
-                        dataItems.add(new OHLCDataItem(mdb.getDateObservedAsDate(), open, high, low, close, volume));
+                        dataItems.add(new ReferenceRange(mdb.getDateObservedAsDate(), low, high));
                     }
                 } catch (Exception et) {
                     MiscUtils.getLogger().error("Error", et);
@@ -304,54 +241,14 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             dataset.addSeries(newSeries);
         }
 
-        OHLCDataItem[] ohlc = dataItems.toArray(new OHLCDataItem[dataItems.size()]);
-        JFreeChart chart = ChartFactory.createHighLowChart("HighLowChartDemo2", "Time", "Value", new DefaultOHLCDataset("DREFERENCE RANGE", ohlc), true);
-        XYPlot plot = (XYPlot) chart.getPlot();
-
-//        HighLowRenderer renderer = (HighLowRenderer) plot.getRenderer();
-//        renderer.
-//        renderer.setOpenTickPaint(Color.green);
-//        renderer.setCloseTickPaint(Color.black);
-
-        plot.setDataset(1, dataset);
-
-        plot.getDomainAxis().setAutoRange(true);
-
-
-        //plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin()*6);
-        //plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin()*6);
-        // plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin()*1.7);
-
-        plot.getDomainAxis().setUpperMargin(0.9);
-        plot.getDomainAxis().setLowerMargin(0.9);
-        plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 4);
-
-        ValueAxis va = plot.getRangeAxis();
-        va.setAutoRange(true);
-        XYItemRenderer renderer = plot.getRenderer(); //DateFormat.getInstance()
-        XYItemLabelGenerator generator = new StandardXYItemLabelGenerator("{1} \n {2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.00"));
-        renderer.setSeriesItemLabelGenerator(0, generator); //setLabelGenerator(generator);
-
-        renderer.setDefaultItemLabelsVisible(true);
-
-        plot.setBackgroundPaint(Color.WHITE);
-        plot.setDomainCrosshairPaint(Color.GRAY);
-
-
-        if (renderer instanceof XYLineAndShapeRenderer) {
-            XYLineAndShapeRenderer rend = (XYLineAndShapeRenderer) renderer;
-            rend.setDefaultShapesVisible(true);
-            rend.setDefaultShapesFilled(true);
-        }
-
-
-        plot.setRenderer(renderer);
-        chart.setBackgroundPaint(Color.white);
+        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Time", "Value", dataset);
+        chart.withReferenceRanges(dataItems);
+        chart.withPointLabels(2147483647, 2147483647, true);
         return chart;
     }
 
-    JFreeChart rxAndLabChart(Integer demographicNo, String typeIdName, String typeIdName2, String patientName, String chartTitle) {
-        org.jfree.data.time.TimeSeriesCollection dataset = new org.jfree.data.time.TimeSeriesCollection();
+    MeasurementChart rxAndLabChart(Integer demographicNo, String typeIdName, String typeIdName2, String patientName, String chartTitle) {
+        SeriesCollection dataset = new SeriesCollection();
 
         ArrayList<EctMeasurementsDataBean> list = getList(demographicNo, typeIdName);
 
@@ -361,8 +258,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             log.debug("Using BP LOGIC FOR type 1 ");
             EctMeasurementsDataBean sampleLine = list.get(0);
             typeYAxisName = sampleLine.getTypeDescription();
-            TimeSeries systolic = new TimeSeries("Systolic");
-            TimeSeries diastolic = new TimeSeries("Diastolic");
+            Series systolic = new Series("Systolic");
+            Series diastolic = new Series("Diastolic");
             for (EctMeasurementsDataBean mdb : list) { // dataVector) {
                 String[] str = mdb.getDataField().split("/");
 
@@ -375,11 +272,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
         } else {
             log.debug("Not Using BP LOGIC FOR type 1 ");
-            // get the name from the TimeSeries
+            // get the name from the Series
             EctMeasurementsDataBean sampleLine = list.get(0);
             String typeLegendName = sampleLine.getTypeDisplayName();
             typeYAxisName = sampleLine.getTypeDescription(); // this should be the type of measurement
-            TimeSeries newSeries = new TimeSeries(typeLegendName);
+            Series newSeries = new Series(typeLegendName);
             for (EctMeasurementsDataBean mdb : list) { //dataVector) {
                 String result = (String) mdb.getDataField();
                 if (StringUtils.isNotEmpty(result)) {
@@ -393,97 +290,15 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             dataset.addSeries(newSeries);
         }
 
-        JFreeChart chart = ChartFactory.createTimeSeriesChart(chartTitle, "Days", typeYAxisName, dataset, true, true, true);
-        chart.setBackgroundPaint(Color.decode("#ccccff"));
-
-        XYPlot plot = chart.getXYPlot();
-
-        plot.getDomainAxis().setAutoRange(true);
-
-
-        //plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin()*6);
-        //plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin()*6);
-        // plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin()*1.7);
-
-        plot.getDomainAxis().setUpperMargin(0.9);
-        plot.getDomainAxis().setLowerMargin(0.9);
-        plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 4);
-
-        ValueAxis va = plot.getRangeAxis();
-        va.setAutoRange(true);
-        XYItemRenderer renderer = plot.getRenderer(); //DateFormat.getInstance()
-        XYItemLabelGenerator generator = new StandardXYItemLabelGenerator("{1} \n {2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.00"));
-        renderer.setSeriesItemLabelGenerator(0, generator); //setLabelGenerator(generator);
-
-        renderer.setDefaultItemLabelsVisible(true);
-
-        plot.setBackgroundPaint(Color.WHITE);
-        plot.setDomainCrosshairPaint(Color.GRAY);
-
-
-        if (renderer instanceof XYLineAndShapeRenderer) {
-            XYLineAndShapeRenderer rend = (XYLineAndShapeRenderer) renderer;
-            rend.setDefaultShapesVisible(true);
-            rend.setDefaultShapesFilled(true);
-        }
-
-
-        plot.setRenderer(renderer);
-
-
-        ///////
-
-        TaskSeriesCollection datasetDrug = new TaskSeriesCollection();
-        TaskSeries s1 = new TaskSeries("WARFARIN");
-        TaskSeries s2 = new TaskSeries("ALLOPUINOL");
-        TaskSeries s3 = new TaskSeries("LIPITOR");
-
-        s1.add(new Task("WARFARIN", UtilDateUtilities.StringToDate("2007-01-01"), UtilDateUtilities.StringToDate("2009-01-01")));
-        s2.add(new Task("ALLOPUINOL", UtilDateUtilities.StringToDate("2008-01-01"), new Date()));
-        s3.add(new Task("LIPITOR", UtilDateUtilities.StringToDate("2007-01-01"), UtilDateUtilities.StringToDate("2008-01-01")));
-
-
-        datasetDrug.add(s1);
-        datasetDrug.add(s2);
-        datasetDrug.add(s3);
-
-        XYTaskDataset dataset2 = new XYTaskDataset(datasetDrug);
-        dataset2.setTransposed(true);
-        dataset2.setSeriesWidth(0.6);
-
-        DateAxis xAxis = new DateAxis("Date/Time");
-        SymbolAxis yAxis = new SymbolAxis("Meds", new String[]{"WARFARIN", "ALLOPURINOL", "LIPITOR"});
-        yAxis.setGridBandsVisible(false);
-        XYBarRenderer xyrenderer = new XYBarRenderer();
-        xyrenderer.setUseYInterval(true);
-        xyrenderer.setBarPainter(new StandardXYBarPainter());
-
-
-        Font font = new Font("helvetica", Font.PLAIN, 8);
-        renderer.setDefaultItemLabelFont(font);
-
-        xyrenderer.setDefaultItemLabelGenerator(new StandardXYItemLabelGenerator("HAPPY{1} \n {2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.00")));
-        XYPlot xyplot = new XYPlot(dataset2, xAxis, yAxis, xyrenderer);
-
-        xyplot.getDomainAxis().setUpperMargin(0.9);
-        xyplot.getDomainAxis().setLowerMargin(0.9);
-
-
-        CombinedDomainXYPlot cplot = new CombinedDomainXYPlot(new DateAxis("Date/Time"));
-        cplot.add(plot);
-        cplot.add(xyplot);
-
-        ///////
-
-
-        chart = new JFreeChart("MED + LAB CHART", cplot);
-        chart.setBackgroundPaint(Color.white);
+        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset);
+        chart.withMedications(getDrugDataSet(demographicNo, request.getParameterValues("drug")));
+        chart.withPointLabels(2147483647, 2147483647, true);
         return chart;
     }
 
 
-    JFreeChart labChart(Integer demographicNo, String typeIdName, String typeIdName2, String patientName, String chartTitle) {
-        org.jfree.data.time.TimeSeriesCollection dataset = new org.jfree.data.time.TimeSeriesCollection();
+    MeasurementChart labChart(Integer demographicNo, String typeIdName, String typeIdName2, String patientName, String chartTitle) {
+        SeriesCollection dataset = new SeriesCollection();
         ArrayList<EctMeasurementsDataBean> list = getList(demographicNo, typeIdName);
         String typeYAxisName = "";
 
@@ -491,8 +306,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             log.debug("Using BP LOGIC FOR type 1 ");
             EctMeasurementsDataBean sampleLine = list.get(0);
             typeYAxisName = sampleLine.getTypeDescription();
-            TimeSeries systolic = new TimeSeries("Systolic");
-            TimeSeries diastolic = new TimeSeries("Diastolic");
+            Series systolic = new Series("Systolic");
+            Series diastolic = new Series("Diastolic");
             for (EctMeasurementsDataBean mdb : list) { // dataVector) {
                 String[] str = mdb.getDataField().split("/");
 
@@ -503,11 +318,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             dataset.addSeries(systolic);
         } else {
             log.debug("Not Using BP LOGIC FOR type 1 ");
-            // get the name from the TimeSeries
+            // get the name from the Series
             EctMeasurementsDataBean sampleLine = list.get(0);
             String typeLegendName = sampleLine.getTypeDisplayName();
             typeYAxisName = sampleLine.getTypeDescription(); // this should be the type of measurement
-            TimeSeries newSeries = new TimeSeries(typeLegendName);
+            Series newSeries = new Series(typeLegendName);
             for (EctMeasurementsDataBean mdb : list) { //dataVector) {
                 String result = (String) mdb.getDataField();
                 if (StringUtils.isNotEmpty(result)) {
@@ -521,61 +336,26 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             dataset.addSeries(newSeries);
         }
 
-        JFreeChart chart = ChartFactory.createTimeSeriesChart(chartTitle, "Days", typeYAxisName, dataset, true, true, true);
-
-        XYPlot plot = chart.getXYPlot();
-        plot.getDomainAxis().setAutoRange(true);
-
-
-        plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin() * 6);
-        plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin() * 6);
-        plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 1.7);
-
-        plot.getDomainAxis().setUpperMargin(0.9);
-        plot.getDomainAxis().setLowerMargin(0.9);
-        plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 4);
-
-        ValueAxis va = plot.getRangeAxis();
-        va.setAutoRange(true);
-        XYItemRenderer renderer = plot.getRenderer(); //DateFormat.getInstance()
-
-        Font font = new Font("helvetica", Font.PLAIN, 8);
-        renderer.setDefaultItemLabelFont(font);
-
-        XYItemLabelGenerator generator = new StandardXYItemLabelGenerator("{1} \n {2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.00"));
-        renderer.setSeriesItemLabelGenerator(0, generator); //setLabelGenerator(generator);
-
-        renderer.setDefaultItemLabelsVisible(true);
-
-        plot.setBackgroundPaint(Color.WHITE);
-        plot.setDomainCrosshairPaint(Color.GRAY);
-
-
-        if (renderer instanceof XYLineAndShapeRenderer) {
-            XYLineAndShapeRenderer rend = (XYLineAndShapeRenderer) renderer;
-            rend.setDefaultShapesVisible(true);
-            rend.setDefaultShapesFilled(true);
-        }
-
-        plot.setRenderer(renderer);
+        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset);
+        chart.withPointLabels(2147483647, 2147483647, true);
         return chart;
     }
 
 
-    JFreeChart actualLabChartRef(Integer demographicNo, String labType, String identifier, String testName, String patientName, String chartTitle) throws ParseException {
-        org.jfree.data.time.TimeSeriesCollection dataset = new org.jfree.data.time.TimeSeriesCollection();
+    MeasurementChart actualLabChartRef(Integer demographicNo, String labType, String identifier, String testName, String patientName, String chartTitle) throws ParseException {
+        SeriesCollection dataset = new SeriesCollection();
 
         ArrayList<Map<String, Serializable>> list = CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
 
         String typeYAxisName = "";
-        ArrayList<OHLCDataItem> dataItems = new ArrayList<OHLCDataItem>();
+        ArrayList<ReferenceRange> dataItems = new ArrayList<ReferenceRange>();
 
 
         String typeLegendName = "Lab Value";
         typeYAxisName = "type Y";
 
         boolean nameSet = false;
-        TimeSeries newSeries = new TimeSeries(typeLegendName);
+        Series newSeries = new Series(typeLegendName);
         for (Map<String, Serializable> mdb : list) {
             if (!nameSet) {
                 typeYAxisName = (String) mdb.get("units");
@@ -611,7 +391,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                     if (collectionDate != null) {
                         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
                         Day regularTimePeriod = new Day(simpleDateFormat.parse(collectionDate));
-                        dataItems.add(new OHLCDataItem(regularTimePeriod.getStart(), open, high, low, close, volume));
+                        dataItems.add(new ReferenceRange(regularTimePeriod.getStart(), low, high));
                     }
                 }
             }
@@ -619,76 +399,15 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         }
         dataset.addSeries(newSeries);
 
-        JFreeChart chart = ChartFactory.createTimeSeriesChart(chartTitle, "Days", typeYAxisName, dataset, true, true, true);
-
-        XYPlot plot = chart.getXYPlot();
-        plot.getDomainAxis().setAutoRange(true);
-
-
-        plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin() * 6);
-        plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin() * 6);
-        plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 1.7);
-
-        plot.getDomainAxis().setUpperMargin(0.9);
-        plot.getDomainAxis().setLowerMargin(0.9);
-        plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 4);
-
-        ValueAxis va = plot.getRangeAxis();
-        va.setAutoRange(true);
-        XYItemRenderer renderer = plot.getRenderer(); //DateFormat.getInstance()
-        XYItemLabelGenerator generator = new StandardXYItemLabelGenerator("{2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.###"));
-
-        switch ((int) newSeries.getItemCount() / 10) {
-            case 0:
-                //("0-9");
-                generator = new StandardXYItemLabelGenerator("{1} \n {2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.###"));
-                renderer.setDefaultItemLabelsVisible(true);
-                break;
-            case 1:
-                //("10-19");
-                renderer.setDefaultItemLabelsVisible(true);
-                break;
-            case 2:
-                //("20-29");
-                Font font = new Font("helvetica", Font.PLAIN, 8);
-                renderer.setDefaultItemLabelFont(font);
-                renderer.setDefaultItemLabelsVisible(true);
-                break;
-            default:
-                renderer.setDefaultItemLabelsVisible(false);
-                break;
-        }
-
-        renderer.setSeriesItemLabelGenerator(0, generator); //setLabelGenerator(generator);
-
-        if (renderer instanceof XYLineAndShapeRenderer) {
-            XYLineAndShapeRenderer rend = (XYLineAndShapeRenderer) renderer;
-            rend.setDefaultShapesVisible(true);
-            rend.setDefaultShapesFilled(true);
-        }
-
-        plot.setRenderer(renderer);
-
-
-        if (dataItems != null && dataItems.size() > 0) {
-            OHLCDataItem[] ohlc = dataItems.toArray(new OHLCDataItem[dataItems.size()]);
-            XYDataset referenceRangeDataset = new DefaultOHLCDataset("Normal Reference Range", ohlc);
-            plot.setDataset(1, referenceRangeDataset);
-            plot.mapDatasetToRangeAxis(1, 0);
-            plot.setRenderer(1, new HighLowRenderer());
-
-        }
-        plot.setBackgroundPaint(Color.WHITE);
-        plot.setDomainCrosshairPaint(Color.GRAY);
-        plot.setRangeGridlinePaint(Color.lightGray);
-        plot.setDomainGridlinePaint(Color.lightGray); // grid from x axis
-
+        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset);
+        chart.withReferenceRanges(dataItems);
+        chart.withPointLabels(10, 30, false);
         return chart;
     }
 
 
-    JFreeChart actualLabChartRefPlusMeds(Integer demographicNo, String labType, String identifier, String testName, String patientName, String chartTitle, String[] drugs) throws ParseException {
-        org.jfree.data.time.TimeSeriesCollection dataset = new org.jfree.data.time.TimeSeriesCollection();
+    MeasurementChart actualLabChartRefPlusMeds(Integer demographicNo, String labType, String identifier, String testName, String patientName, String chartTitle, String[] drugs) throws ParseException {
+        SeriesCollection dataset = new SeriesCollection();
 
 
         ArrayList<Map<String, Serializable>> list = new ArrayList<>();
@@ -717,14 +436,14 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             }
         }
         String typeYAxisName = "";
-        ArrayList<OHLCDataItem> dataItems = new ArrayList<OHLCDataItem>();
+        ArrayList<ReferenceRange> dataItems = new ArrayList<ReferenceRange>();
 
 
         String typeLegendName = "Lab Value";
         typeYAxisName = "type Y";
 
         boolean nameSet = false;
-        TimeSeries newSeries = new TimeSeries(typeLegendName);
+        Series newSeries = new Series(typeLegendName);
         for (Map mdb : list) {
             if (!nameSet) {
                 typeYAxisName = (String) mdb.get("units");
@@ -765,7 +484,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                     if (collectionDate != null) {
                         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
                         Day regularTimePeriod = new Day(simpleDateFormat.parse(collectionDate));
-                        dataItems.add(new OHLCDataItem(regularTimePeriod.getStart(), open, high, low, close, volume));
+                        dataItems.add(new ReferenceRange(regularTimePeriod.getStart(), low, high));
                     }
                 }
             }
@@ -773,110 +492,25 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         }
         dataset.addSeries(newSeries);
 
-        JFreeChart chart = ChartFactory.createTimeSeriesChart(chartTitle, "Days", typeYAxisName, dataset, true, true, true);
-
-        XYPlot plot = chart.getXYPlot();
-        plot.getDomainAxis().setAutoRange(true);
-
-
-        plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin() * 6);
-        plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin() * 6);
-        plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 1.7);
-
-        plot.getDomainAxis().setUpperMargin(0.9);
-        plot.getDomainAxis().setLowerMargin(0.9);
-        plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 4);
-
-        ValueAxis va = plot.getRangeAxis();
-        va.setAutoRange(true);
-        XYItemRenderer renderer = plot.getRenderer(); //DateFormat.getInstance()
-        XYItemLabelGenerator generator = new StandardXYItemLabelGenerator("{2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.###"));
-
-        switch ((int) newSeries.getItemCount() / 6) {
-            case 0:
-                //("0-5");
-                generator = new StandardXYItemLabelGenerator("{1} \n {2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.###"));
-                renderer.setDefaultItemLabelsVisible(true);
-                break;
-            case 1:
-                //("6-11");
-                renderer.setDefaultItemLabelsVisible(true);
-                break;
-            case 2:
-                //("12-17");
-                Font font = new Font("helvetica", Font.PLAIN, 8);
-                renderer.setDefaultItemLabelFont(font);
-                renderer.setDefaultItemLabelsVisible(true);
-                break;
-            default:
-                renderer.setDefaultItemLabelsVisible(false);
-                break;
-        }
-        renderer.setSeriesItemLabelGenerator(0, generator); //setLabelGenerator(generator);
-        if (renderer instanceof XYLineAndShapeRenderer) {
-            XYLineAndShapeRenderer rend = (XYLineAndShapeRenderer) renderer;
-            rend.setDefaultShapesVisible(true);
-            rend.setDefaultShapesFilled(true);
-        }
-
-        plot.setRenderer(renderer);
-
-
-        if (dataItems != null && dataItems.size() > 0) {
-            OHLCDataItem[] ohlc = dataItems.toArray(new OHLCDataItem[dataItems.size()]);
-            XYDataset referenceRangeDataset = new DefaultOHLCDataset("Normal Reference Range", ohlc);
-            plot.setDataset(1, referenceRangeDataset);
-            plot.mapDatasetToRangeAxis(1, 0);
-            plot.setRenderer(1, new HighLowRenderer());
-
-        }
-
-        plot.setBackgroundPaint(Color.WHITE);
-        plot.setDomainCrosshairPaint(Color.GRAY);
-        plot.setRangeGridlinePaint(Color.lightGray);
-        plot.setDomainGridlinePaint(Color.lightGray); // grid fro x axis
-
-        XYTaskDataset drugDataset = getDrugDataSet(demographicNo, drugs);
-
-        //DateAxis xAxis = new DateAxis("Date/Time");
-        //DateAxis xAxis = plot.getRangeAxis();
-        SymbolAxis yAxis = new SymbolAxis("Meds", getDrugSymbol(demographicNo, drugs));
-        yAxis.setGridBandsVisible(false);
-        XYBarRenderer xyrenderer = new XYBarRenderer();
-        xyrenderer.setUseYInterval(true);
-        xyrenderer.setBarPainter(new StandardXYBarPainter());
-
-        //XYPlot xyplot = new XYPlot(drugDataset, xAxis, yAxis, xyrenderer);
-        XYPlot xyplot = new XYPlot(drugDataset, plot.getDomainAxis(), yAxis, xyrenderer);
-
-
-        xyplot.getDomainAxis().setUpperMargin(0.9);
-        xyplot.getDomainAxis().setLowerMargin(0.9);
-
-
-        CombinedDomainXYPlot cplot = new CombinedDomainXYPlot(new DateAxis("Date/Time"));
-        cplot.add(plot);
-        cplot.add(xyplot);
-
-        ///////
-        chart = new JFreeChart(chartTitle, cplot);
-        chart.setBackgroundPaint(Color.white);
-
+        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset);
+        chart.withReferenceRanges(dataItems);
+        chart.withMedications(getDrugDataSet(demographicNo, drugs));
+        chart.withPointLabels(6, 18, false);
         return chart;
     }
 
 
-    JFreeChart labChartRef(Integer demographicNo, String typeIdName, String typeIdName2, String patientName, String chartTitle) {
-        org.jfree.data.time.TimeSeriesCollection dataset = new org.jfree.data.time.TimeSeriesCollection();
+    MeasurementChart labChartRef(Integer demographicNo, String typeIdName, String typeIdName2, String patientName, String chartTitle) {
+        SeriesCollection dataset = new SeriesCollection();
         ArrayList<EctMeasurementsDataBean> list = getList(demographicNo, typeIdName);
         String typeYAxisName = "";
-        ArrayList<OHLCDataItem> dataItems = new ArrayList<OHLCDataItem>();
+        ArrayList<ReferenceRange> dataItems = new ArrayList<ReferenceRange>();
         if (typeIdName.equals("BP")) {
             log.debug("Using BP LOGIC FOR type 1 ");
             EctMeasurementsDataBean sampleLine = list.get(0);
             typeYAxisName = sampleLine.getTypeDescription();
-            TimeSeries systolic = new TimeSeries("Systolic");
-            TimeSeries diastolic = new TimeSeries("Diastolic");
+            Series systolic = new Series("Systolic");
+            Series diastolic = new Series("Diastolic");
             for (EctMeasurementsDataBean mdb : list) { // dataVector) {
                 String[] str = mdb.getDataField().split("/");
 
@@ -887,11 +521,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             dataset.addSeries(systolic);
         } else {
             log.debug("Not Using BP LOGIC FOR type 1 ");
-            // get the name from the TimeSeries
+            // get the name from the Series
             EctMeasurementsDataBean sampleLine = list.get(0);
             String typeLegendName = sampleLine.getTypeDisplayName();
             typeYAxisName = sampleLine.getTypeDescription(); // this should be the type of measurement
-            TimeSeries newSeries = new TimeSeries(typeLegendName);
+            Series newSeries = new Series(typeLegendName);
             for (EctMeasurementsDataBean mdb : list) { //dataVector) {
                 String result = (String) mdb.getDataField();
                 if (StringUtils.isNotEmpty(result)) {
@@ -911,7 +545,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                         double low = Double.parseDouble(min.trim());
                         double close = Double.parseDouble(max.trim());
                         double volume = 1045;
-                        dataItems.add(new OHLCDataItem(mdb.getDateObservedAsDate(), open, high, low, close, volume));
+                        dataItems.add(new ReferenceRange(mdb.getDateObservedAsDate(), low, high));
                     }
                 } catch (Exception et) {
                     MiscUtils.getLogger().error("Error", et);
@@ -921,57 +555,16 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         }
 
 
-        JFreeChart chart = ChartFactory.createTimeSeriesChart(chartTitle, "Days", typeYAxisName, dataset, true, true, true);
-
-        XYPlot plot = chart.getXYPlot();
-        plot.getDomainAxis().setAutoRange(true);
-
-
-        plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin() * 6);
-        plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin() * 6);
-        plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 1.7);
-
-        plot.getDomainAxis().setUpperMargin(0.9);
-        plot.getDomainAxis().setLowerMargin(0.9);
-        plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 4);
-
-        ValueAxis va = plot.getRangeAxis();
-        va.setAutoRange(true);
-        XYItemRenderer renderer = plot.getRenderer(); //DateFormat.getInstance()
-        XYItemLabelGenerator generator = new StandardXYItemLabelGenerator("{1} \n {2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.00"));
-        renderer.setSeriesItemLabelGenerator(0, generator); //setLabelGenerator(generator);
-
-        renderer.setDefaultItemLabelsVisible(true);
-        plot.setBackgroundPaint(Color.WHITE);
-        plot.setDomainCrosshairPaint(Color.GRAY);
-
-
-        if (renderer instanceof XYLineAndShapeRenderer) {
-            XYLineAndShapeRenderer rend = (XYLineAndShapeRenderer) renderer;
-            rend.setDefaultShapesVisible(true);
-            rend.setDefaultShapesFilled(true);
-        }
-
-        plot.setRenderer(renderer);
-
-
-        if (dataItems != null && dataItems.size() > 0) {
-            OHLCDataItem[] ohlc = dataItems.toArray(new OHLCDataItem[dataItems.size()]);
-            XYDataset referenceRangeDataset = new DefaultOHLCDataset("Reference Range", ohlc);
-            plot.setRenderer(1, setAxisAndDataSet(1, plot, plot.getRangeAxis(), referenceRangeDataset, Color.GREEN, new HighLowRenderer()));
-        }
-
-
-        /////
-
-
+        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset);
+        chart.withReferenceRanges(dataItems);
+        chart.withPointLabels(2147483647, 2147483647, true);
         return chart;
     }
 
-    JFreeChart defaultChart(Integer demographicNo, String typeIdName,
+    MeasurementChart defaultChart(Integer demographicNo, String typeIdName,
                             String typeIdName2, String patientName,
                             String chartTitle) {
-        org.jfree.data.time.TimeSeriesCollection dataset = new org.jfree.data.time.TimeSeriesCollection();
+        SeriesCollection dataset = new SeriesCollection();
 
         ArrayList<EctMeasurementsDataBean> list = getList(demographicNo, typeIdName);
         String typeYAxisName = "";
@@ -980,8 +573,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             log.debug("Using BP LOGIC FOR type 1 ");
             EctMeasurementsDataBean sampleLine = list.get(0);
             typeYAxisName = sampleLine.getTypeDescription();
-            TimeSeries systolic = new TimeSeries("Systolic");
-            TimeSeries diastolic = new TimeSeries("Diastolic");
+            Series systolic = new Series("Systolic");
+            Series diastolic = new Series("Diastolic");
             for (EctMeasurementsDataBean mdb : list) { // dataVector) {
                 if (!mdb.getDataField().equals("")) {
                     String[] str = mdb.getDataField().split("/");
@@ -997,12 +590,12 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
         } else {
             log.debug("Not Using BP LOGIC FOR type 1 ");
-            // get the name from the TimeSeries
+            // get the name from the Series
             EctMeasurementsDataBean sampleLine = list.get(0);
             String typeLegendName = sampleLine.getTypeDisplayName();
             typeYAxisName = sampleLine.getTypeDescription(); // this should be the type of measurement
 
-            TimeSeries newSeries = new TimeSeries(typeLegendName);
+            Series newSeries = new Series(typeLegendName);
             for (EctMeasurementsDataBean mdb : list) { //dataVector) {
                 String result = (String) mdb.getDataField();
                 if (StringUtils.isNotEmpty(result)) {
@@ -1018,20 +611,19 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             dataset.addSeries(newSeries);
         }
 
-        JFreeChart chart = ChartFactory.createTimeSeriesChart(chartTitle, "Days", typeYAxisName, dataset, true, true, true);
-
+        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset);
         if (typeIdName2 != null) {
             log.debug("type id name 2: {}", LogSafe.sanitize(typeIdName2));
 
             ArrayList<EctMeasurementsDataBean> list2 = getList(demographicNo, typeIdName2);
-            org.jfree.data.time.TimeSeriesCollection dataset2 = new org.jfree.data.time.TimeSeriesCollection();
+            SeriesCollection dataset2 = new SeriesCollection();
 
 
             EctMeasurementsDataBean sampleLine2 = list2.get(0);
             String typeLegendName = sampleLine2.getTypeDisplayName();
             String typeYAxisName2 = sampleLine2.getTypeDescription(); // this should be the type of measurement
 
-            TimeSeries newSeries = new TimeSeries(typeLegendName);
+            Series newSeries = new Series(typeLegendName);
             for (EctMeasurementsDataBean mdb : list2) { //dataVector) {
                 String result = (String) mdb.getDataField();
                 if (StringUtils.isNotEmpty(result)) {
@@ -1046,26 +638,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             }
             dataset2.addSeries(newSeries);
 
-            ////
-            final XYPlot plot = chart.getXYPlot();
-            final NumberAxis axis2 = new NumberAxis(typeYAxisName2);
-            axis2.setAutoRangeIncludesZero(false);
-            plot.setRangeAxis(1, axis2);
-            plot.setDataset(1, dataset2);
-            plot.mapDatasetToRangeAxis(1, 1);
-            final XYItemRenderer renderer = plot.getRenderer();
-            renderer.setDefaultToolTipGenerator(StandardXYToolTipGenerator.getTimeSeriesInstance());
-            if (renderer instanceof StandardXYItemRenderer) {
-                final StandardXYItemRenderer rr = (StandardXYItemRenderer) renderer;
-
-                rr.setBaseShapesFilled(true);
-            }
-
-            final StandardXYItemRenderer renderer2 = new StandardXYItemRenderer();
-            renderer2.setSeriesPaint(0, Color.black);
-            renderer.setDefaultToolTipGenerator(StandardXYToolTipGenerator.getTimeSeriesInstance());
-            plot.setRenderer(1, renderer2);
-
+            chart.withSecondAxis(typeYAxisName2, dataset2);
         }
         return chart;
     }
@@ -1074,34 +647,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
     /*
      * Just Drugs
      */
-    JFreeChart ChartMeds(Integer demographicNo, String patientName, String chartTitle, String[] drugs) {
+    MeasurementChart ChartMeds(Integer demographicNo, String patientName, String chartTitle, String[] drugs) {
         MiscUtils.getLogger().debug("In ChartMeds");
-        org.jfree.data.time.TimeSeriesCollection dataset = new org.jfree.data.time.TimeSeriesCollection();
-        JFreeChart chart = ChartFactory.createTimeSeriesChart(chartTitle, "Days", "MEDS", dataset, true, true, true);
-
-        XYPlot plot = chart.getXYPlot();
-
-        XYTaskDataset drugDataset = getDrugDataSet(demographicNo, drugs);
-
-        SymbolAxis yAxis = new SymbolAxis("Meds", getDrugSymbol(demographicNo, drugs));
-
-
-        yAxis.setGridBandsVisible(false);
-        XYBarRenderer xyrenderer = new XYBarRenderer();
-        xyrenderer.setUseYInterval(true);
-        xyrenderer.setBarPainter(new StandardXYBarPainter());
-
-        //XYPlot xyplot = new XYPlot(drugDataset, xAxis, yAxis, xyrenderer);
-        XYPlot xyplot = new XYPlot(drugDataset, plot.getDomainAxis(), yAxis, xyrenderer);
-
-        xyplot.getDomainAxis().setUpperMargin(0.9);
-        xyplot.getDomainAxis().setLowerMargin(0.9);
-
-        CombinedDomainXYPlot cplot = new CombinedDomainXYPlot(new DateAxis("Date/Time"));
-        cplot.add(xyplot);
-
-        chart = new JFreeChart(chartTitle, cplot);
-        chart.setBackgroundPaint(Color.white);
+        SeriesCollection dataset = new SeriesCollection();
+        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", "MEDS", dataset);
+        chart.withMedications(getDrugDataSet(demographicNo, drugs));
         return chart;
     }
 
@@ -1116,18 +666,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             }
         }
         return hash;
-    }
-
-    private static XYItemRenderer setAxisAndDataSet(int i, XYPlot plot, ValueAxis axis, XYDataset dataset, Paint p, XYItemRenderer renderer) {
-        plot.setRangeAxis(i, axis);
-        plot.setDataset(i, dataset);
-        plot.mapDatasetToRangeAxis(i, i);
-
-
-        renderer.setSeriesPaint(0, p);
-        axis.setLabelPaint(p);
-        axis.setTickLabelPaint(p);
-        return renderer;
     }
 
     /**

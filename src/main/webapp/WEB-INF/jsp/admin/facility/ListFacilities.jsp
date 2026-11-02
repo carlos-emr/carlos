@@ -70,22 +70,18 @@
     <body>
     <h1><fmt:message key="admin.facility.list.heading"/></h1>
     <form action="${pageContext.request.contextPath}/FacilityManager" method="post">
-        <display:table class="simple" cellspacing="2" cellpadding="3"
-                       id="facility" name="facilities" export="false" pagesize="0"
-                       requestURI="/FacilityManager">
-            <display:setProperty name="paging.banner.placement" value="bottom"/>
-            <display:setProperty name="paging.banner.item_name" value="agency"/>
-            <display:setProperty name="paging.banner.items_name" value="facilities"/>
+        <table class="simple" cellspacing="2" cellpadding="3" id="facility" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+
+
             <fmt:message key="admin.facility.list.msgNoFacilities" var="noFacilitiesMessage"/>
-            <display:setProperty name="basic.msg.empty_list" value="${noFacilitiesMessage}"/>
 
-            <display:column property="name" sortable="true" titleKey="admin.facility.list.header.name"/>
-            <display:column property="description" sortable="true" titleKey="admin.facility.list.header.description"/>
 
-            <display:column sortable="false" title="">
-                <a href="<%=request.getContextPath() %>/FacilityManager?method=edit&id=${carlos:forHtmlAttribute(facility.id)}">
-                    <fmt:message key="admin.facility.list.linkEdit"/> </a>
-            </display:column>
+            <th scope="col"><button type="button" class="table-sort"><fmt:message key="admin.facility.list.header.name"/></button></th>
+            <th scope="col"><button type="button" class="table-sort"><fmt:message key="admin.facility.list.header.description"/></button></th>
+
+            <th scope="col"></th>
             <!--
             < isplay:column sortable="false" title="">
             <a href="< tml:rewrite action="/FacilityManager"/>?method=delete&id=< :out value="${facility.id}"/>&name=< :out value="${facility.name}"/>"
@@ -93,7 +89,31 @@
             Delete </a>
             </ isplay:column>
             -->
-        </display:table>
+        </tr></thead>
+<tbody><c:forEach var="facility" items="${facilities}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+
+            <fmt:message key="admin.facility.list.msgNoFacilities" var="noFacilitiesMessage"/>
+
+
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.name))}" data-sort-type="${carlos:tableSortType(facility.name)}"><c:out value="${facility.name}"/></td>
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.description))}" data-sort-type="${carlos:tableSortType(facility.description)}"><c:out value="${facility.description}"/></td>
+
+            <td>
+                <a href="<%=request.getContextPath() %>/FacilityManager?method=edit&id=${carlos:forHtmlAttribute(facility.id)}">
+                    <fmt:message key="admin.facility.list.linkEdit"/> </a>
+            </td>
+            <!--
+            < isplay:column sortable="false" title="">
+            <a href="< tml:rewrite action="/FacilityManager"/>?method=delete&id=< :out value="${facility.id}"/>&name=< :out value="${facility.name}"/>"
+            onclick="return ConfirmDelete('< :out value="${facility.name}"/>')">
+            Delete </a>
+            </ isplay:column>
+            -->
+        </tr></c:forEach></tbody>
+</table>
+<c:if test="${empty facilities}"><p class="table-empty">${noFacilitiesMessage}</p></c:if>
     </form>
     <!--
             <p><a href="< tml:rewrite action="/FacilityManager"/>?method=add">
@@ -101,3 +121,6 @@
     -->
     </body>
 </html>
+
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
+<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

@@ -59,14 +59,23 @@ function add_status(form) {
 </table>
 </div>
 <!--  show current staff -->
-<display:table class="simple" cellspacing="2" cellpadding="3" id="status" name="client_statuses" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
-	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list" value="No statuses are currently defined for this program." />
-	<display:column sortable="false" title="">
+<table class="simple" cellspacing="2" cellpadding="3" id="status" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+
+    <th scope="col"></th>
+    <th scope="col"><button type="button" class="table-sort">Name</button></th>
+</tr></thead>
+<tbody><c:forEach var="status" items="${client_statuses}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+    <td>
 		<a onclick="deleteStatus('${carlos:forJavaScript(status.id)}');return false;" href="javascript:void(0);"> Delete </a>
-	</display:column>
-	<display:column property="name" sortable="true" title="Name" />	
-</display:table>
+    </td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(status.name))}" data-sort-type="${carlos:tableSortType(status.name)}"><c:out value="${status.name}"/></td>
+</tr></c:forEach></tbody>
+</table>
+<c:if test="${empty client_statuses}"><p class="table-empty">No statuses are currently defined for this program.</p></c:if>
 <br />
 <html:hidden property="client_status.id" />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
@@ -80,3 +89,6 @@ function add_status(form) {
 		</td>
 	</tr>
 </table>
+
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
+<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

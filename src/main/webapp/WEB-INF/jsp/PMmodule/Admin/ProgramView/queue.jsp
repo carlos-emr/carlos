@@ -131,13 +131,29 @@ String reason ="";
 	HashSet<Long> ageConflict=(HashSet<Long>)request.getAttribute("ageConflict");
 %>
 <!--  show current clients -->
-<display:table class="simple" cellspacing="2" cellpadding="3"
-	id="queue_entry" name="queue" export="false" pagesize="0"
-	requestURI="/PMmodule/ProgramManagerView">
-	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list"
-		value="Queue is empty." />
-	<display:column sortable="false">
+<table class="simple" cellspacing="2" cellpadding="3" id="queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+
+    <th scope="col"></th>
+    <th scope="col"></th>
+
+    <!-- disabled by rwd because visibility of link and permissions in CME are a problem -->
+    <%--<th scope="col"></th>--%>
+    <th scope="col"><button type="button" class="table-sort">Client name</button></th>
+
+    <th scope="col"><button type="button" class="table-sort"></button></th>
+
+    <th scope="col"><button type="button" class="table-sort">Referral Date</button></th>
+    <th scope="col"><button type="button" class="table-sort">Referring Provider</button></th>
+    <th scope="col"><button type="button" class="table-sort">Reason for referral</button></th>
+    <th scope="col"><button type="button" class="table-sort">Presenting problems</button></th>
+    <th scope="col"><button type="button" class="table-sort">Family Id</button></th>
+</tr></thead>
+<tbody><c:forEach var="queue_entry" items="${queue}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+    <td>
 		<%
 			String action="admit";
     		long clientId=((ProgramQueue)pageContext.getAttribute("queue_entry")).getClientId();
@@ -156,8 +172,8 @@ String reason ="";
 				onclick="select_client('${carlos:forJavaScript(queue_entry.clientId)}','<%=action %>','${carlos:forJavaScript(queue_entry.id)}')" />
 		</caisi:isModuleLoad>
 
-	</display:column>
-	<display:column sortable="false">
+    </td>
+    <td>
 		<caisi:isModuleLoad moduleName="TORONTO_RFQ" reverse="true">
 			<input type="button" value="Reject"
 				<c:if test="${queue_entry.headClientId != null || requestScope.userIsProgramProvider != 'true'}">disabled</c:if>
@@ -169,18 +185,17 @@ String reason ="";
 				<c:if test="${queue_entry.headClientId != null || sessionScope.performAdmissions !='true' || requestScope.userIsProgramProvider != 'true'}">disabled</c:if>
 				onclick="select_client('${carlos:forJavaScript(queue_entry.clientId)}','reject','${carlos:forJavaScript(queue_entry.id)}')" />
 		</caisi:isModuleLoad>
-	</display:column>
+    </td>
 
 	<!-- disabled by rwd because visibility of link and permissions in CME are a problem -->
-	<%--<display:column sortable="false">--%>
+    <%--<td>--%>
 	<!--<a href="javascript:void(0)" title="Case management" onclick="cme_client('${carlos:forHtml(queue_entry.programId)}', '${carlos:forHtml(queue_entry.clientId)}')">-->
 	<!--Case Management Encounter-->
 	<!--</a>-->
-	<%--</display:column>--%>
-	<display:column sortable="true" property="clientFormattedName"
-		title="Client name" />
+    <%--</td>--%>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.clientFormattedName))}" data-sort-type="${carlos:tableSortType(queue_entry.clientFormattedName)}"><c:out value="${queue_entry.clientFormattedName}"/></td>
 		
-	<display:column sortable="true" title="">	
+    <td>
 		<% 
 			if(bShowEncounterLink) {
 				Program program = (Program) request.getAttribute("program");
@@ -199,21 +214,19 @@ String reason ="";
 			key="provider.appointmentProviderAdminDay.btnE" /></a> 
 		
 		
-	<% 	}	} 
+    <%  }   }
 		}
 	%>
-	</display:column>
+    </td>
 	
-	<display:column property="referralDate" sortable="true"
-		title="Referral Date" />
-	<display:column property="providerFormattedName" sortable="true"
-		title="Referring Provider" />
-	<display:column property="notes" sortable="true"
-		title="Reason for referral" />
-	<display:column property="presentProblems" sortable="true"
-		title="Presenting problems" />
-	<display:column property="headRecord" sortable="true" title="Family Id" />
-</display:table>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.referralDate))}" data-sort-type="${carlos:tableSortType(queue_entry.referralDate)}"><c:out value="${queue_entry.referralDate}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.providerFormattedName))}" data-sort-type="${carlos:tableSortType(queue_entry.providerFormattedName)}"><c:out value="${queue_entry.providerFormattedName}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.notes))}" data-sort-type="${carlos:tableSortType(queue_entry.notes)}"><c:out value="${queue_entry.notes}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.presentProblems))}" data-sort-type="${carlos:tableSortType(queue_entry.presentProblems)}"><c:out value="${queue_entry.presentProblems}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.headRecord))}" data-sort-type="${carlos:tableSortType(queue_entry.headRecord)}"><c:out value="${queue_entry.headRecord}"/></td>
+</tr></c:forEach></tbody>
+</table>
+<c:if test="${empty queue}"><p class="table-empty">Queue is empty.</p></c:if>
 <br />
 <br />
 
@@ -305,27 +318,36 @@ String reason ="";
 	</table>
 	</div>
 	<!--  show current clients -->
-	<display:table class="simple" cellspacing="2" cellpadding="3"
-		id="queue_entry" name="remoteQueue" export="false" pagesize="0"
-		requestURI="/PMmodule/ProgramManager">
-		<display:setProperty name="paging.banner.placement" value="bottom" />
-		<display:setProperty name="basic.msg.empty_list"
-			value="Queue is empty." />
-		<display:column sortable="false" title="">
+    <table class="simple" cellspacing="2" cellpadding="3" id="queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+
+        <th scope="col"></th>
+        <th scope="col"></th>
+        <th scope="col"><button type="button" class="table-sort">Client Name</button></th>
+        <th scope="col"><button type="button" class="table-sort">Referral Date</button></th>
+        <th scope="col"><button type="button" class="table-sort">Referring Provider</button></th>
+        <th scope="col"><button type="button" class="table-sort">Reason for referral</button></th>
+        <th scope="col"><button type="button" class="table-sort">Presenting problems</button></th>
+    </tr></thead>
+<tbody><c:forEach var="queue_entry" items="${remoteQueue}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+        <td>
 			<input type="button" value="Admit" onclick="admitFromRemote('${carlos:forJavaScript(queue_entry.referral.referralId)}')" />
-		</display:column>
-		<display:column sortable="false" title="">
+        </td>
+        <td>
 			<input type="button" value="Reject" onclick="removeFromRemoteQueue('${carlos:forJavaScript(queue_entry.referral.referralId)}')" />
-		</display:column>
-		<display:column property="clientName" sortable="true"
-			title="Client Name" />
-		<display:column property="referral.referralDate" sortable="true"
-			title="Referral Date" />
-		<display:column property="providerName" sortable="true"
-			title="Referring Provider" />
-		<display:column property="referral.reasonForReferral" sortable="true"
-			title="Reason for referral" />
-		<display:column property="referral.presentingProblem" sortable="true"
-			title="Presenting problems" />
-	</display:table>
+        </td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.clientName))}" data-sort-type="${carlos:tableSortType(queue_entry.clientName)}"><c:out value="${queue_entry.clientName}"/></td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.referral.referralDate))}" data-sort-type="${carlos:tableSortType(queue_entry.referral.referralDate)}"><c:out value="${queue_entry.referral.referralDate}"/></td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.providerName))}" data-sort-type="${carlos:tableSortType(queue_entry.providerName)}"><c:out value="${queue_entry.providerName}"/></td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.referral.reasonForReferral))}" data-sort-type="${carlos:tableSortType(queue_entry.referral.reasonForReferral)}"><c:out value="${queue_entry.referral.reasonForReferral}"/></td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.referral.presentingProblem))}" data-sort-type="${carlos:tableSortType(queue_entry.referral.presentingProblem)}"><c:out value="${queue_entry.referral.presentingProblem}"/></td>
+    </tr></c:forEach></tbody>
+</table>
+<c:if test="${empty remoteQueue}"><p class="table-empty">Queue is empty.</p></c:if>
 </c:if>
+
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
+<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

@@ -113,7 +113,7 @@ class BcBillingAdminPageLinksRegressionTest {
         for (String page : PAGES) {
             assertThat(getMentionsOfWriters(read(BC_JSP_DIR.resolve(page)))).as(page).isEmpty();
         }
-        assertThat(read(TABLE_WRAPPER)).contains("<a href=\\\"ViewBillingEditCode?codeId=").doesNotContain("\"billingEditCode?");
+        assertThat(read(BC_JSP_DIR.resolve("billingPrivateCodeAdjust.jsp"))).contains("<a href=\"ViewBillingEditCode?codeId=").doesNotContain("\"billingEditCode?");
     }
 
     @Test
@@ -130,15 +130,10 @@ class BcBillingAdminPageLinksRegressionTest {
     @Test
     @DisplayName("should build the private code list's sort links on its gate, not the forwarded page path")
     void shouldSortOnGate_inPrivateCodeList() throws IOException {
-        // A forwarded page's own URI is its WEB-INF path, which displaytag would otherwise use (404).
-        for (String page : PAGES) {
-            Matcher table = Pattern.compile("<display:table\\b[^>]*>").matcher(read(BC_JSP_DIR.resolve(page)));
-            while (table.find()) {
-                assertThat(table.group()).as(page).containsPattern("requestURI=\"/billing/CA/BC/View[A-Za-z]+\"");
-            }
-        }
         assertThat(read(BC_JSP_DIR.resolve("billingPrivateCodeAdjust.jsp")))
-                .contains("requestURI=\"/billing/CA/BC/ViewBillingPrivateCodeAdjust\"");
+                .contains("type=\"button\" class=\"table-sort\"")
+                .contains("data-carlos-table")
+                .doesNotContain("<display:table");
     }
 
     @Test

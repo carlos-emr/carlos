@@ -34,8 +34,6 @@
     Parameters: demographic_no and formId select the patient and form; provNo and appointmentNo supply context.
     @since 2026-07-07
 --%>
-<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
-
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -359,7 +357,7 @@
 
         function wtEnglish2Metric(obj) {
 //if(isNumber(document.forms[0].c_ppWt) ) {
-//	weight = document.forms[0].c_ppWt.value;
+//  weight = document.forms[0].c_ppWt.value;
             if (isNumber(obj)) {
                 weight = obj.value;
                 weightM = Math.round(weight * 10 * 0.4536) / 10;

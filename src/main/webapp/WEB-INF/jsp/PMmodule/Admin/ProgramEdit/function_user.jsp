@@ -74,17 +74,26 @@
 </div>
 <input type="hidden" name="function.id" id="function.id" value="${carlos:forHtmlAttribute(function.id)}"/>
 <input type="hidden" name="function.providerNo" id="function.providerNo" value="${carlos:forHtmlAttribute(function.providerNo)}"/>
-<display:table class="simple" cellspacing="2" cellpadding="3" id="functional" name="functional_users" export="false"
-               pagesize="0" requestURI="${programManagerFunctionUsersUri}">
-    <display:setProperty name="paging.banner.placement" value="bottom"/>
-    <display:setProperty name="basic.msg.empty_list" value="No functional users defined for this program"/>
-    <display:column sortable="false" title="">
+<table class="simple" cellspacing="2" cellpadding="3" id="functional" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+
+    <th scope="col"></th>
+    <th scope="col"><button type="button" class="table-sort">Functional User Type</button></th>
+    <th scope="col"><button type="button" class="table-sort">Provider Name</button></th>
+</tr></thead>
+<tbody><c:forEach var="functional" items="${functional_users}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+    <td>
         <a onclick="deleteFunctionalUser('${carlos:forJavaScript(functional.id)}');return false;" href="javascript:void(0);">
             Delete </a>
-    </display:column>
-    <display:column property="userType.name" sortable="true" title="Functional User Type"/>
-    <display:column property="provider.formattedName" sortable="true" title="Provider Name"/>
-</display:table>
+    </td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(functional.userType.name))}" data-sort-type="${carlos:tableSortType(functional.userType.name)}"><c:out value="${functional.userType.name}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(functional.provider.formattedName))}" data-sort-type="${carlos:tableSortType(functional.provider.formattedName)}"><c:out value="${functional.provider.formattedName}"/></td>
+</tr></c:forEach></tbody>
+</table>
+<c:if test="${empty functional_users}"><p class="table-empty">No functional users defined for this program</p></c:if>
 <br/>
 <br/>
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
@@ -120,3 +129,6 @@
         </td>
     </tr>
 </table>
+
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
+<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

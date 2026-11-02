@@ -44,17 +44,21 @@
     </head>
     <body>
 
-    <display:table cellspacing="2" cellpadding="9" id="ps"
-                   name="programSignatures" export="false" pagesize="0"
-                   requestURI="${programSignaturesUri}">
+    <table cellspacing="2" cellpadding="9" id="ps" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
 
-        <display:column property="providerName" style="white-space: nowrap;"
-                        sortable="true" title="Provider Name"></display:column>
-        <display:column property="caisiRoleName" style="white-space: nowrap;"
-                        sortable="true" title="Role"></display:column>
-        <display:column property="updateDate" style="white-space: nowrap;"
-                        sortable="true" title="Date"></display:column>
-    </display:table>
+        <th scope="col"><button type="button" class="table-sort">Provider Name</button></th>
+        <th scope="col"><button type="button" class="table-sort">Role</button></th>
+        <th scope="col"><button type="button" class="table-sort">Date</button></th>
+    </tr></thead>
+<tbody><c:forEach var="ps" items="${programSignatures}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+        <td style="white-space: nowrap;" data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(ps.providerName))}" data-sort-type="${carlos:tableSortType(ps.providerName)}"><c:out value="${ps.providerName}"/></td>
+        <td style="white-space: nowrap;" data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(ps.caisiRoleName))}" data-sort-type="${carlos:tableSortType(ps.caisiRoleName)}"><c:out value="${ps.caisiRoleName}"/></td>
+        <td style="white-space: nowrap;" data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(ps.updateDate))}" data-sort-type="${carlos:tableSortType(ps.updateDate)}"><c:out value="${ps.updateDate}"/></td>
+    </tr></c:forEach></tbody>
+</table>
+<c:if test="${empty programSignatures}"><p class="table-empty">Nothing found to display.</p></c:if>
 
     </body>
 </html>
@@ -82,3 +86,6 @@
 </c:forEach>
 </table>
 -->
+
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
+<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

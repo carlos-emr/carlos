@@ -92,25 +92,40 @@ Please define the following parameters control the behaviour of new service rest
 </script>
 <html:hidden property="restriction.id" />
 
-<display:table class="simple" cellspacing="2" cellpadding="3" id="restriction" name="service_restrictions" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
-    <display:setProperty name="paging.banner.placement" value="bottom" />
-    <display:setProperty name="basic.msg.empty_list" value="No service restrictions currently in place for this program." />
+<table class="simple" cellspacing="2" cellpadding="3" id="restriction" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
 
-    <display:column sortable="false">
+
+
+    <th scope="col"></th>
+    <th scope="col"><button type="button" class="table-sort">Id</button></th>
+    <th scope="col"><button type="button" class="table-sort">Client</button></th>
+    <th scope="col"><button type="button" class="table-sort">Restricted By</button></th>
+    <th scope="col"><button type="button" class="table-sort">Comments</button></th>
+    <th scope="col"><button type="button" class="table-sort">Start date</button></th>
+    <th scope="col"><button type="button" class="table-sort">End date</button></th>
+</tr></thead>
+<tbody><c:forEach var="restriction" items="${service_restrictions}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+
+    <td>
         <%
             String demographicNo = "" + ((ProgramClientRestriction)pageContext.getAttribute("restriction")).getDemographicNo();
         %>
         <caisirole:SecurityAccess accessName="Disable service restriction" accessType="access" providerNo='<%=((Provider)request.getSession().getAttribute("provider")).getProviderNo()%>' demoNo="<%=demographicNo%>" programId='<%=request.getParameter("id")%>'>
             <a onclick="disableRestriction('${carlos:forJavaScript(restriction.id)}');return false;" href="javascript:void(0);"> Disable </a>
         </caisirole:SecurityAccess>
-    </display:column>
-    <display:column property="id" sortable="true" title="Id" />
-    <display:column property="client.formattedName" sortable="true" title="Client" />
-    <display:column property="provider.formattedName" sortable="true" title="Restricted By"/>
-    <display:column property="comments" sortable="true" title="Comments" />
-    <display:column property="startDate" sortable="true" title="Start date" />
-    <display:column property="endDate" sortable="true" title="End date" />
-</display:table>
+    </td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.id))}" data-sort-type="${carlos:tableSortType(restriction.id)}"><c:out value="${restriction.id}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.client.formattedName))}" data-sort-type="${carlos:tableSortType(restriction.client.formattedName)}"><c:out value="${restriction.client.formattedName}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.provider.formattedName))}" data-sort-type="${carlos:tableSortType(restriction.provider.formattedName)}"><c:out value="${restriction.provider.formattedName}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.comments))}" data-sort-type="${carlos:tableSortType(restriction.comments)}"><c:out value="${restriction.comments}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.startDate))}" data-sort-type="${carlos:tableSortType(restriction.startDate)}"><c:out value="${restriction.startDate}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.endDate))}" data-sort-type="${carlos:tableSortType(restriction.endDate)}"><c:out value="${restriction.endDate}"/></td>
+</tr></c:forEach></tbody>
+</table>
+<c:if test="${empty service_restrictions}"><p class="table-empty">No service restrictions currently in place for this program.</p></c:if>
 
 <br/>
 <div class="tabs" id="tabs">
@@ -121,22 +136,40 @@ Please define the following parameters control the behaviour of new service rest
     </table>
 </div>
 
-<display:table class="simple" cellspacing="2" cellpadding="3" id="restriction" name="disabled_service_restrictions" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
-    <display:setProperty name="paging.banner.placement" value="bottom" />
-    <display:setProperty name="basic.msg.empty_list" value="No service restrictions currently in place for this program." />
+<table class="simple" cellspacing="2" cellpadding="3" id="restriction" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
 
-    <display:column sortable="false">
+
+
+    <th scope="col"></th>
+    <th scope="col"><button type="button" class="table-sort">Id</button></th>
+    <th scope="col"><button type="button" class="table-sort">Client</button></th>
+    <th scope="col"><button type="button" class="table-sort">Restricted By</button></th>
+    <th scope="col"><button type="button" class="table-sort">Comments</button></th>
+    <th scope="col"><button type="button" class="table-sort">Start date</button></th>
+    <th scope="col"><button type="button" class="table-sort">End date</button></th>
+</tr></thead>
+<tbody><c:forEach var="restriction" items="${disabled_service_restrictions}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+
+    <td>
         <%
             String demographicNo = "" + ((ProgramClientRestriction)pageContext.getAttribute("restriction")).getDemographicNo();
         %>
         <caisirole:SecurityAccess accessName="Create service restriction" accessType="access" providerNo='<%=((Provider)request.getSession().getAttribute("provider")).getProviderNo()%>' demoNo="<%=demographicNo%>" programId='<%=request.getParameter("id")%>'>
             <a onclick="enableRestriction('${carlos:forJavaScript(restriction.id)}');return false;" href="javascript:void(0);"> Enable </a>
         </caisirole:SecurityAccess>
-    </display:column>
-    <display:column property="id" sortable="true" title="Id" />
-    <display:column property="client.formattedName" sortable="true" title="Client" />
-    <display:column property="provider.formattedName" sortable="true" title="Restricted By"/>
-    <display:column property="comments" sortable="true" title="Comments" />
-    <display:column property="startDate" sortable="true" title="Start date" />
-    <display:column property="endDate" sortable="true" title="End date" />
-</display:table>
+    </td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.id))}" data-sort-type="${carlos:tableSortType(restriction.id)}"><c:out value="${restriction.id}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.client.formattedName))}" data-sort-type="${carlos:tableSortType(restriction.client.formattedName)}"><c:out value="${restriction.client.formattedName}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.provider.formattedName))}" data-sort-type="${carlos:tableSortType(restriction.provider.formattedName)}"><c:out value="${restriction.provider.formattedName}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.comments))}" data-sort-type="${carlos:tableSortType(restriction.comments)}"><c:out value="${restriction.comments}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.startDate))}" data-sort-type="${carlos:tableSortType(restriction.startDate)}"><c:out value="${restriction.startDate}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.endDate))}" data-sort-type="${carlos:tableSortType(restriction.endDate)}"><c:out value="${restriction.endDate}"/></td>
+</tr></c:forEach></tbody>
+</table>
+<c:if test="${empty disabled_service_restrictions}"><p class="table-empty">No service restrictions currently in place for this program.</p></c:if>
+
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
+<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>

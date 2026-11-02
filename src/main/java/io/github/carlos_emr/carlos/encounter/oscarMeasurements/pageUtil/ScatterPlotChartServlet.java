@@ -29,8 +29,9 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
-import java.awt.Color;
 import java.io.IOException;
+import io.github.carlos_emr.carlos.eform.util.BrowserChartRenderer;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementChart.Series;
 import java.util.Date;
 import java.util.List;
 
@@ -39,14 +40,6 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.jfree.chart.ChartFactory;
-import org.jfree.chart.ChartUtils;
-import org.jfree.chart.JFreeChart;
-import org.jfree.chart.plot.PlotOrientation;
-import org.jfree.chart.plot.XYPlot;
-import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
-import org.jfree.data.xy.XYSeries;
-import org.jfree.data.xy.XYSeriesCollection;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
@@ -67,7 +60,7 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
  * Renders scatter plot and line chart images (JPEG) for clinical measurements
  * such as blood pressure and vitals in the encounter view.
  *
- * <p>Migrated from abandoned jCharts 0.7.5 library to JFreeChart.
+ * <p>Chart.js renders through the confined browser service; callers still receive JPEG images.
  */
 public class ScatterPlotChartServlet extends HttpServlet {
 
@@ -95,7 +88,7 @@ public class ScatterPlotChartServlet extends HttpServlet {
         }
 
         try {
-            JFreeChart chart;
+            MeasurementChart chart;
             if ("BP".equals(type)) {
                 chart = createBloodPressureChart(demographicNo, type, mInstrc);
             } else {
@@ -104,56 +97,45 @@ public class ScatterPlotChartServlet extends HttpServlet {
 
             if (chart != null) {
                 httpServletResponse.setContentType("image/jpeg");
-                ChartUtils.writeChartAsJPEG(httpServletResponse.getOutputStream(), 1.0f, chart, width, height);
+                BrowserChartRenderer.write(request.getServletContext(), httpServletResponse.getOutputStream(), chart, width, height, "jpeg");
             }
         } catch (Exception t) {
             MiscUtils.getLogger().error("Error", t);
         }
     }
 
-    private JFreeChart createScatterPlotChart(String demo, String type, String mInstrc) {
+    private MeasurementChart createScatterPlotChart(String demo, String type, String mInstrc) {
         long[][] results = generateResult(demo, type, mInstrc);
-        if (results == null) {
+        if (results == null || results[0].length == 0) {
             return null;
         }
 
         String chartTitle = type + "-" + mInstrc;
-        XYSeries series = new XYSeries(chartTitle);
+        Series series = new Series(chartTitle);
 
         long baseDay = results[0][0];
         for (int x = 0; x < results[0].length; x++) {
             series.add(results[0][x] - baseDay, results[1][x]);
         }
 
-        XYSeriesCollection dataset = new XYSeriesCollection(series);
-        JFreeChart chart = ChartFactory.createScatterPlot(
-                chartTitle,
+        MeasurementChart chart = MeasurementChart.scatter(chartTitle,
                 "Day (note: only the last data on the same observation date is plotted)",
-                "Test Results",
-                dataset,
-                PlotOrientation.VERTICAL,
-                true, false, false
-        );
-
-        XYPlot plot = chart.getXYPlot();
-        XYLineAndShapeRenderer renderer = new XYLineAndShapeRenderer(false, true);
-        renderer.setSeriesPaint(0, Color.RED);
-        plot.setRenderer(renderer);
+                "Test Results", List.of(series), false);
 
         return chart;
     }
 
-    private JFreeChart createBloodPressureChart(String demo, String type, String mInstrc) {
+    private MeasurementChart createBloodPressureChart(String demo, String type, String mInstrc) {
         long[][] results = generateResult(demo, type, mInstrc);
-        if (results == null) {
+        if (results == null || results[0].length == 0) {
             return null;
         }
 
         String chartTitle = type + "-" + mInstrc;
         int halfLen = results[1].length / 2;
 
-        XYSeries systolicSeries = new XYSeries("Systolic");
-        XYSeries diastolicSeries = new XYSeries("Diastolic");
+        Series systolicSeries = new Series("Systolic");
+        Series diastolicSeries = new Series("Diastolic");
 
         for (int x = 0; x < halfLen; x++) {
             int testNum = x + 1;
@@ -161,24 +143,9 @@ public class ScatterPlotChartServlet extends HttpServlet {
             diastolicSeries.add(testNum, results[1][x + halfLen]);
         }
 
-        XYSeriesCollection dataset = new XYSeriesCollection();
-        dataset.addSeries(systolicSeries);
-        dataset.addSeries(diastolicSeries);
-
-        JFreeChart chart = ChartFactory.createXYLineChart(
-                chartTitle,
+        MeasurementChart chart = MeasurementChart.scatter(chartTitle,
                 "Tests (note: only the last data on the same observation date is plotted)",
-                "Hgmm",
-                dataset,
-                PlotOrientation.VERTICAL,
-                true, false, false
-        );
-
-        XYPlot plot = chart.getXYPlot();
-        XYLineAndShapeRenderer renderer = new XYLineAndShapeRenderer(true, true);
-        renderer.setSeriesPaint(0, Color.RED);
-        renderer.setSeriesPaint(1, Color.BLUE);
-        plot.setRenderer(renderer);
+                "Hgmm", List.of(systolicSeries, diastolicSeries), true);
 
         return chart;
     }

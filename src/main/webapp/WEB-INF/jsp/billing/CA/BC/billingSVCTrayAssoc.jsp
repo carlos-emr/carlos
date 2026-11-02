@@ -1,5 +1,4 @@
 <%@page import="java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@taglib uri="http://displaytag.sf.net" prefix="display" %>
 <%@taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -110,12 +109,21 @@
     </form>
     <%-- This page is reached by a forward, so the paging links need the action's address (without it they name the
          WEB-INF page, 404); excludedParams keeps a refused save's fields out of those GET links. --%>
-    <p/><display:table class="displayGrid" name="list" pagesize="50" requestURI="/billing/CA/BC/supServiceCodeAssocAction"
-                       excludedParams="*" defaultsort="1" defaultorder="descending"
-                       decorator="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillCodesTableWrapper">
-        <display:column property="billingServiceNo" title="Procedure Fee Code"/>
-        <display:column property="billingServiceTrayNo" title="Tray Fee Code"/>
-        <display:column property="associationStatus" title="Options"/>
-    </display:table>
+    <p/><table class="displayGrid" data-carlos-table data-page-size="50" data-default-sort="1" data-default-order="descending">
+<thead><tr>
+        <th scope="col">Procedure Fee Code</th>
+        <th scope="col">Tray Fee Code</th>
+        <th scope="col">Options</th>
+    </tr></thead>
+<tbody><c:forEach var="tableRow" items="${list}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingServiceNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingServiceNo)}"><c:out value="${tableRow.billingServiceNo}"/></td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingServiceTrayNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingServiceTrayNo)}"><c:out value="${tableRow.billingServiceTrayNo}"/></td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.associationStatus))}" data-sort-type="${carlos:tableSortType(tableRow.associationStatus)}"><a href="#" onclick="editAssociation('${carlos:forJavaScriptAttribute(tableRow.billingServiceNo)}','${carlos:forJavaScriptAttribute(tableRow.billingServiceTrayNo)}'); return false;">Edit</a><br><a href="#" onclick="deleteAssociation('${carlos:forJavaScriptAttribute(tableRow.id)}'); return false;">Delete</a></td>
+    </tr></c:forEach></tbody>
+</table>
+<c:if test="${empty list}"><p class="table-empty">Nothing found to display.</p></c:if>
     </body>
 </html>
+
+<link rel="stylesheet" href="${pageContext.request.contextPath}/css/carlos-tables.css"/>
+<script src="${pageContext.request.contextPath}/js/carlos-tables.js" defer></script>
