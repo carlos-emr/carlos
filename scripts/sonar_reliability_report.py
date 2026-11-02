@@ -22,6 +22,8 @@ MAX_PAGE_BYTES = 8 * 1024 * 1024
 MAX_REPORT_BYTES = 32 * 1024 * 1024
 MAX_NOTICE_BYTES = 3000
 MAX_RELATED_LOCATIONS = 128
+# Notices are a log preview; the runner shows only the first few as annotations anyway.
+MAX_NOTICES = 50
 
 
 def source_location(location, flow_index):
@@ -37,13 +39,18 @@ def source_location(location, flow_index):
     return {"flow": flow_index, "component": component, "line": line}
 
 
+def has_locations(flow):
+    """True only when an omitted flow would actually have contributed coordinates."""
+    return isinstance(flow, dict) and isinstance(flow.get("locations"), list) and bool(flow["locations"])
+
+
 def related_locations(issue):
     """Retain bounded source coordinates and explicitly mark omitted context."""
     flows = issue.get("flows", [])
     if not isinstance(flows, list):
         raise ValueError("Invalid Sonar issue flows")
     result = []
-    truncated = len(flows) > MAX_RELATED_LOCATIONS
+    truncated = any(has_locations(flow) for flow in flows[MAX_RELATED_LOCATIONS:])
     for index, flow in enumerate(flows[:MAX_RELATED_LOCATIONS]):
         if not isinstance(flow, dict):
             raise ValueError("Invalid Sonar issue flow")
@@ -55,7 +62,7 @@ def related_locations(issue):
         for location in locations[:remaining]:
             result.append(source_location(location, index))
         if len(result) == MAX_RELATED_LOCATIONS:
-            truncated = truncated or index + 1 < len(flows)
+            truncated = truncated or any(has_locations(flow) for flow in flows[index + 1:])
             break
     return result, truncated
 
@@ -204,9 +211,13 @@ def strict_object(pairs):
     return value
 
 
+def report_scope():
+    return "quality" if os.environ.get("SONAR_INCLUDE_MAINTAINABILITY") == "true" else "security/reliability"
+
+
 def report_failure(category):
     # Callers supply only a status number or exception class, never an exception message or response body.
-    message = "Sonar security/reliability report failed: " + category
+    message = f"Sonar {report_scope()} report failed: " + category
     print(message, file=sys.stderr)
     if os.environ.get("GITHUB_ACTIONS") == "true":
         print("::error title=Sonar diagnostic report incomplete::" + message)
@@ -240,7 +251,7 @@ def main():
             connection.close()
 
     include_maintainability = os.environ.get("SONAR_INCLUDE_MAINTAINABILITY") == "true"
-    scope = "quality" if include_maintainability else "security/reliability"
+    scope = report_scope()
     issues, scanned = collect_issues(fetch_page, pull_request, include_maintainability=include_maintainability)
     findings = report(issues, credentials=(token, auth))
     commit = os.environ.get("REPORT_COMMIT", os.environ.get("GITHUB_SHA", ""))
@@ -262,8 +273,11 @@ def main():
     print(f"Complete JSON findings SHA256: {digest}; analysis may precede commit {commit}.")
     if os.environ.get("GITHUB_ACTIONS") == "true":
         ordered_notices = sorted(findings, key=lambda finding: not security_or_reliability(finding))
-        for index, finding in enumerate(ordered_notices, 1):
+        for index, finding in enumerate(ordered_notices[:MAX_NOTICES], 1):
             print(notice(finding, index, len(findings), scope))
+        if len(findings) > MAX_NOTICES:
+            print(f"{len(findings) - MAX_NOTICES} further {scope} findings are omitted from notices; "
+                  "the complete artifact lists every finding.")
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with Path(summary).open("a", encoding="utf-8") as output:

@@ -130,8 +130,10 @@ class CdsSchemaTypeCursorUnitTest {
                     + "<xs:element name='OmdCds'>" + content + "</xs:element></xs:schema>";
             byte[] main = schema.getBytes(StandardCharsets.UTF_8);
             byte[] datatypes = emptyDatatypes();
-            assertThrows(IllegalStateException.class,
+            IllegalStateException failure = assertThrows(IllegalStateException.class,
                     () -> CdsSchemaModel.read(main, datatypes));
+            assertEquals("CDS_PINNED_SCHEMA_METADATA_UNAVAILABLE", failure.getMessage());
+            assertEquals("CDS_PINNED_SCHEMA_METADATA_UNSUPPORTED", failure.getCause().getMessage(), content);
         }
     }
 

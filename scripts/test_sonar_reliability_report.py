@@ -60,6 +60,15 @@ class SonarReliabilityReportTest(unittest.TestCase):
             finding = sonar.report(selected)[0]
             self.assertEqual(count, len(finding["relatedLocations"]))
             self.assertNotIn("relatedLocationsTruncated", finding)
+        # Flows past the capacity that carry no coordinates omit nothing, so they are not truncation.
+        for flows in ([{"locations": [location]}] * 128 + [{"locations": []}, {}] * 3,
+                      [{"locations": [location] * 128}, {"locations": []}]):
+            issue = {"key": "style", "type": "CODE_SMELL", "flows": flows}
+            selected, _ = sonar.collect_issues(lambda _: {"issues": [issue], "total": 1}, 5347,
+                                             include_maintainability=True)
+            finding = sonar.report(selected)[0]
+            self.assertEqual(128, len(finding["relatedLocations"]))
+            self.assertNotIn("relatedLocationsTruncated", finding)
 
     def test_security_notices_precede_maintainability_without_reordering_the_artifact(self):
         source = [{"key": f"style-{i}", "type": "CODE_SMELL"} for i in range(12)] + [
@@ -85,6 +94,29 @@ class SonarReliabilityReportTest(unittest.TestCase):
             self.assertEqual([x["key"] for x in source], [x["key"] for x in document["findings"]])
             self.assertEqual(hashlib.sha256(sonar.canonical_findings(document["findings"])).hexdigest(),
                              document["findingsSha256"])
+
+    def test_notice_count_is_capped_with_security_first_and_artifact_complete(self):
+        source = [{"key": f"style-{i}", "type": "CODE_SMELL"} for i in range(sonar.MAX_NOTICES + 10)] + [
+            {"key": "bug", "type": "BUG"}]
+        with tempfile.TemporaryDirectory() as directory:
+            artifact = Path(directory) / "report.json"
+            response = io.StringIO(json.dumps({"issues": source, "total": len(source)}))
+            response.status = 200
+            connection = Mock()
+            connection.getresponse.return_value = response
+            output = io.StringIO()
+            with patch.dict(os.environ, {"SONAR_TOKEN": "synthetic-secret", "PR_NUMBER": "5347",
+                                         "GITHUB_ACTIONS": "true", "SONAR_INCLUDE_MAINTAINABILITY": "true",
+                                         "SONAR_REPORT_PATH": str(artifact)}), \
+                    patch.object(sonar, "HTTPSConnection", return_value=connection), contextlib.redirect_stdout(output):
+                sonar.main()
+            lines = output.getvalue().splitlines()
+            notices = [json.loads(line.split("::", 2)[2]) for line in lines if line.startswith("::notice ")]
+            self.assertEqual(sonar.MAX_NOTICES, len(notices))
+            self.assertEqual("bug", notices[0]["key"])
+            self.assertIn("11 further quality findings are omitted from notices; "
+                          "the complete artifact lists every finding.", lines)
+            self.assertEqual(len(source), len(json.loads(artifact.read_text())["findings"]))
 
     def test_reads_every_page_and_includes_classic_and_quality_impact_findings(self):
         calls = []
@@ -154,8 +186,24 @@ class SonarReliabilityReportTest(unittest.TestCase):
         self.assertEqual(1, failure.exception.code)
         self.assertIn("::error title=Sonar diagnostic report incomplete::", output.getvalue())
         self.assertIn("HTTP 401", errors.getvalue())
+        self.assertIn("Sonar security/reliability report failed", errors.getvalue())
         self.assertNotIn("synthetic-secret", output.getvalue() + errors.getvalue())
         response.read.assert_not_called()
+
+    def test_quality_mode_failure_names_the_quality_scope(self):
+        response = Mock(status=500)
+        connection = Mock()
+        connection.getresponse.return_value = response
+        output, errors = io.StringIO(), io.StringIO()
+        with patch.dict(os.environ, {"SONAR_TOKEN": "synthetic-secret", "PR_NUMBER": "5347",
+                                     "GITHUB_ACTIONS": "true", "SONAR_INCLUDE_MAINTAINABILITY": "true"}), \
+                patch("http.client.HTTPSConnection", return_value=connection), \
+                contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+            with self.assertRaises(SystemExit) as failure:
+                runpy.run_path(sonar.__file__, run_name="__main__")
+        self.assertEqual(1, failure.exception.code)
+        self.assertIn("Sonar quality report failed: HTTP 500", errors.getvalue())
+        self.assertIn("::error title=Sonar diagnostic report incomplete::Sonar quality report failed", output.getvalue())
 
     def test_summary_and_notices_cannot_execute_source_markup_or_workflow_commands(self):
         payload = "</pre><script>unsafe</script>\n::error::forged %0A"

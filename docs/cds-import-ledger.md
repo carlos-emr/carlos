@@ -375,6 +375,11 @@ freshly compiled production DAO. These were included in the 47-case, zero-skip r
 
 ### Bounded schema diagnostics and dynamic type state
 
+> **Superseded by the [JDK XML migration](#jdk-xml-migration-5464) below.** This section records the
+> Xerces-era design. The compiled-grammar cursor and the Xerces PSVI oracle it describes no longer exist; the
+> cursor now reads `CdsSchemaModel` metadata and the oracle uses the JDK validator. The bounded-diagnostic,
+> dynamic-type and identity contracts described here still hold.
+
 A later constrained CI run reproduced heap exhaustion in the pinned Xerces validator's document-wide PSVI error contexts. The application already streamed its diagnostic JSONL, but Xerces also retained every formatted error until the ancestor elements closed. The importer now disables that duplicate augmentation and obtains type metadata from the same compiled, hash-pinned schema through `CdsSchemaTypeCursor`. Implicit `xsi:*` metadata uses the pinned validator's built-in schema-instance declarations. Full XSD validation and default emission remain with `ValidatorHandler`.
 
 The cursor follows local/anonymous declarations in the parent's content model and namespace scopes. When no local declaration matches, it follows the validator's global-declaration fallback without replacing an existing local declaration. Misplaced global reports therefore retain streaming binary/text handling even without `xsi:type`; the validator still rejects their placement. A recognized `xsi:type` guides streaming even when the validator rejects its derivation or surrounding element, preventing malformed numeric or binary input from selecting an unbounded validation path. Intrinsic string types retain their actual lexical checks. Dynamic XML identity types have independent aggregate token/character guards before validator retention; crossing a guard preserves source, reports an explicit resource failure and leaves the parse unsealed.
