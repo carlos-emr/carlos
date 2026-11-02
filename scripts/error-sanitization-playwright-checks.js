@@ -74,6 +74,8 @@
  * check working, not a failure.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors, assertStrictPage, wireStrictPage } = require('./lib/playwright-harness');
 const {
@@ -146,22 +148,26 @@ function assertSanitizedErrorPage(label, status, body, contentType) {
   }
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('error-sanitization',async({cancellation})=>{
   if (config.baseUrl.protocol !== 'https:') {
     console.warn(
       'WARN: BASE_URL is not HTTPS. This check also establishes that the packaged front door '
       + 'passes the sanitized error body through unmodified, so run it against :443.',
     );
   }
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   const recorder = createRecorder();
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1400, height: 900 } });
+    cancellation?.throwIfCancelled();
     context.on('page', page => wireStrictPage(page, 'error-sanitization-page', recorder, { baseline: [] }));
     const loginPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await loginPage.close();
+    cancellation?.throwIfCancelled();
 
     const page = await context.newPage();
+    cancellation?.throwIfCancelled();
     wireStrictPage(page, 'error-sanitization', recorder, { baseline: [] });
 
     // page.request shares the context's session cookies, so these are authenticated
@@ -180,7 +186,9 @@ function assertSanitizedErrorPage(label, status, body, contentType) {
       failOnStatusCode: false,
       maxRedirects: 0,
     });
+    cancellation?.throwIfCancelled();
     const escapedBody = await escaped.text();
+    cancellation?.throwIfCancelled();
 
     // Negative control, and the most valuable assertion here: errorpage.jsp means the
     // exception was caught and converted to sendError() somewhere downstream, so the
@@ -208,7 +216,9 @@ function assertSanitizedErrorPage(label, status, body, contentType) {
       failOnStatusCode: false,
       maxRedirects: 0,
     });
+    cancellation?.throwIfCancelled();
     const wsBody = await ws.text();
+    cancellation?.throwIfCancelled();
 
     assert(
       ws.status() !== 401,
@@ -229,7 +239,9 @@ function assertSanitizedErrorPage(label, status, body, contentType) {
     );
 
     await screenshot(page, config.screenshotDir, 'error-sanitization');
+    cancellation?.throwIfCancelled();
     await page.close();
+    cancellation?.throwIfCancelled();
 
     // The intentional failures above use APIRequestContext, which emits no page
     // response/console events. Every observed browser failure remains fatal.
@@ -237,6 +249,7 @@ function assertSanitizedErrorPage(label, status, body, contentType) {
     assertStrictPage(recorder);
 
     await context.close();
+    cancellation?.throwIfCancelled();
 
     console.log(
       'PASS error sanitization: an exception escaping the filter chain and a /ws 5xx both come '
@@ -251,4 +264,4 @@ function assertSanitizedErrorPage(label, status, body, contentType) {
   } finally {
     await browser.close();
   }
-})();
+});

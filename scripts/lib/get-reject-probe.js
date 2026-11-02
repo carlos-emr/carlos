@@ -28,6 +28,7 @@
  * the ledger: unchanged rows alone never prove the application refused the request.
  */
 const h = require('./playwright-harness');
+const { authenticatedProbe } = require('./authenticated-probe');
 
 /** Parse the text fields of a multipart/form-data body (file parts are skipped). */
 function multipartFields(buffer, contentType) {
@@ -62,11 +63,11 @@ function multipartFields(buffer, contentType) {
  * must reload that page uses it, never the Referer header: the packaged front door answers every
  * page with Referrer-Policy: no-referrer, so a browser behind it sends no Referer at all.
  */
-async function captureRequest(page, match, act, { timeout = 20000, method = 'POST' } = {}) {
+async function captureRequest(page, match, act, { timeout = 20000, method = 'POST', acceptRequest = () => true } = {}) {
   // method: null captures whatever verb the page used (to prove a page that WRITES by GET).
   let frameUrl = '';
   const requested = page.waitForRequest((r) => {
-    if (!((!method || r.method() === method) && match(new URL(r.url())))) return false;
+    if (!((!method || r.method() === method) && match(new URL(r.url())) && acceptRequest(r))) return false;
     // Read now: once a form post's response commits, the frame shows the action's URL, and a popup
     // that closes itself after saving has no frame left to ask.
     try { frameUrl = r.frame().url(); } catch { frameUrl = ''; }
@@ -87,11 +88,14 @@ async function captureRequest(page, match, act, { timeout = 20000, method = 'POS
   }
   for (const [k, v] of body) params.append(k, v);
   const response = await request.response().catch(() => null);
-  return {
+  if(response?.finished)await response.finished();
+  const captured={
     path: url.pathname, params, method: request.method(), status: response ? response.status() : 0,
     query: new URLSearchParams(url.search), body, headers, contentType: type, postData: request.postData() || '',
     frameUrl,
   };
+  Object.defineProperty(captured,'response',{value:response});
+  return captured;
 }
 
 /**
@@ -134,7 +138,7 @@ function createLedger(name) {
       h.assert(url.length < 7000, `${label}: the replayed GET is too long for a request line (${url.length})`);
       for (const method of methods) {
         const before = snapshot();
-        const response = await s.context.request.fetch(url, { method, maxRedirects: 0, failOnStatusCode: false });
+        const response = await authenticatedProbe(s, url, { method });
         const status = response.status();
         const body = method === 'GET' ? await response.text().catch(() => '') : '';
         const after = snapshot();
