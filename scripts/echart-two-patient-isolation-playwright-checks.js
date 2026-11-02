@@ -1259,10 +1259,9 @@ async function run(s) {
           const query = new URLSearchParams([['echartid', legacy[d.label].revision], ...parameters]);
           const route = `/encounter/${action}?${query}`;
           const refused = await read(route);
-          // No patient reaches the JSP's required-patient check (400). A supplied invalid or
-          // conflicting scope is refused by ViewClinical2Action before the JSP runs (403).
-          // Keep the shared gate's fail-closed policy; do not weaken it to satisfy this check (#5448).
-          const expectedStatus = label === 'missing' ? 400 : 403;
+          // Missing/malformed IDs are bad requests (400); conflicting valid IDs remain
+          // a scope refusal (403). Neither response may disclose either patient's chart (#5354).
+          const expectedStatus = label.startsWith('conflicting') ? 403 : 400;
           const description = `${d.label}'s ${action} with ${label} patient scope`;
           h.assert(refused.status === expectedStatus,
             `${description} answered HTTP ${refused.status}; expected ${expectedStatus}`);

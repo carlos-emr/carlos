@@ -11,6 +11,8 @@ import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.interactive.action.PDActionJavaScript;
 import org.openpdf.text.pdf.PdfReader;
 import org.openpdf.text.pdf.parser.PdfTextExtractor;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -54,6 +56,22 @@ class DemographicLabelPdfUnitTest {
             jdbc.verifyNoInteractions();
         }
         assertFailure(response);
+    }
+
+    @Test void shouldEmbedAutoPrintScript_whenPrinterPreferenceIsPresent() throws Exception {
+        Connection connection = DriverManager.getConnection("jdbc:h2:mem:labelAutoPrintPdf");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        String script = "this.print({bUI: true, bSilent: false, bShrinkToFit: true});";
+        try (MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(LegacyJdbcQuery::getConnection).thenReturn(connection);
+            DemographicLabelPdf.write(response, Map.of(), template("SELECT 'FAKE Auto Print' AS NAME"), script);
+        }
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(connection.isClosed()).isTrue();
+        try (var pdf = Loader.loadPDF(response.getContentAsByteArray())) {
+            assertThat(pdf.getDocumentCatalog().getNames().getJavaScript().getNames().values())
+                    .extracting(PDActionJavaScript::getAction).containsExactly(script);
+        }
     }
 
     @Test void shouldReturnFailure_whenTemplateIsMissing() throws Exception {
