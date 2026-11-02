@@ -40,6 +40,7 @@ function load({source, tool} = {}) {
   vm.runInNewContext(source || fs.readFileSync(filename, 'utf8'), {
     module, URL, URLSearchParams, console,
     require(name) {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
       if (name === './lib/playwright-harness') return h;
       if (name === './lib/playwright-ui') return {clickOpensPopupOrNavigates: async () => ({page: tool}), clickAndAwaitReload: async () => {}};
       if (name === './lib/workflow-session') return {};

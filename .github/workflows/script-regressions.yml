@@ -117,3 +117,5 @@ jobs:
         run: node scripts/echart-note-lifecycle-browser-check.js
       - name: Check messenger reply native form encoding in Chromium
         run: node scripts/messenger-reply-form-browser-check.js
+      - name: Check Messenger inbox sort headers in Chromium
+        run: node scripts/search-sort-messenger-inbox-browser-check.js

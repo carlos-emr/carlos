@@ -1,0 +1,141 @@
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { authenticatedProbe } = require('./lib/authenticated-probe');
+const cookie = { name: 'JSESSIONID', value: 'synthetic', domain: '127.0.0.1', path: '/carlos', secure: true, expires: -1 };
+function withHeartbeat(fetch) {return async(url,options)=>new URL(url).pathname.endsWith('/status/SessionHeartbeat')?{status:()=>200,json:async()=>({valid:true}),dispose:async()=>{}}:fetch(url,options);}
+function fixture(cookies = [cookie], status = 405) {
+  const calls = [];
+  const session = { config: { baseUrl: new URL('http://127.0.0.1/carlos') }, context: {
+    cookies: async () => cookies,
+    request: { fetch: withHeartbeat(async (...args) => { calls.push(args); return { status: () => status }; }) },
+  } };
+  return { session, calls };
+}
+for (const method of ['GET', 'HEAD']) {
+  test(`${method} explicitly carries the Secure browser session over HTTP loopback`, async () => {
+    const { session, calls } = fixture();
+    await authenticatedProbe(session, '/carlos/save', { method, maxRedirects: 5 });
+    assert.equal(calls[0][1].headers.Cookie, 'JSESSIONID=synthetic');
+    assert.equal(calls[0][1].maxRedirects, 0);
+  });
+}
+test('does not forward unrelated, expired or wrong-path cookies', async () => {
+  const { session, calls } = fixture([cookie,
+    { ...cookie, name: 'other', domain: 'other.invalid' },
+    { ...cookie, name: 'wrongpath', path: '/carlosx' },
+    { ...cookie, name: 'expired', expires: 1 },
+  ]);
+  await authenticatedProbe(session, '/carlos/save');
+  assert.equal(calls[0][1].headers.Cookie, 'JSESSIONID=synthetic');
+});
+test('rejects missing session, foreign origins and mutating methods before sending', async () => {
+  const { session, calls } = fixture([]);
+  await assert.rejects(authenticatedProbe(session, '/carlos/save'), /session cookie/);
+  await assert.rejects(authenticatedProbe(session, 'https://other.invalid/carlos/save'), /origin/);
+  await assert.rejects(authenticatedProbe(session, '/carlos/save', { method: 'POST' }), /GET and HEAD/);
+  assert.equal(calls.length, 0);
+});
+test('rejects login redirects even for callers checking only unchanged rows', async () => {
+  const { session } = fixture([cookie], 302);
+  await assert.rejects(authenticatedProbe(session, '/carlos/save?secret=private', {method: 'HEAD'}), error => {
+    assert.match(error.message, /HEAD \/carlos\/save \(HTTP 302\)/);
+    assert.doesNotMatch(error.message, /secret|private/);
+    return true;
+  });
+});
+
+test('real Playwright HTTP transport sends the Secure cookie to a local refusal endpoint', async t => {
+  const http = require('node:http');
+  const { request } = require('playwright');
+  const seen = [];
+  let live=true;
+  const server = http.createServer((req, res) => {
+    seen.push({method: req.method, cookie: req.headers.cookie, path:req.url});
+    if(req.url==='/carlos/pending'||req.url==='/carlos/loggedout'){res.writeHead(302,{'x-permitted-cross-domain-policies':'none',location:req.url==='/carlos/pending'?'/carlos/select_facility':'/carlos/logoutPage'});res.end();return;}
+    if(req.url.endsWith('/status/SessionHeartbeat')){res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({valid:live&&req.headers.cookie==='JSESSIONID=synthetic'}));return;}
+    res.writeHead(req.headers.cookie === 'JSESSIONID=synthetic' ? 405 : 302,
+      {'x-permitted-cross-domain-policies': 'none', location: '/login'});
+    res.end();
+  });
+  await new Promise((resolve, reject) => {server.once('error', reject); server.listen(0, '127.0.0.1', resolve);});
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const baseUrl = new URL(`http://127.0.0.1:${server.address().port}/carlos`);
+  const context = await request.newContext({storageState: {cookies: [{...cookie, httpOnly: true, sameSite: 'Lax'}], origins: []}});
+  t.after(() => context.dispose());
+  const session = {config: {baseUrl}, context: {
+    cookies: async () => (await context.storageState()).cookies,
+    request: context,
+  }};
+  for (const method of ['GET', 'HEAD']) {
+    const response = await authenticatedProbe(session, '/carlos/save', {method});
+    assert.equal(response.status(), 405);
+    await response.dispose();
+  }
+  const {probe,classify}=require('./lib/authz-read-probe');
+  const roleRead=await probe(session.context,new URL('/carlos/save',baseUrl).href,{baseUrl});
+  assert.equal(classify(roleRead),'refused');
+  assert.deepEqual(seen.filter(row=>row.path==='/carlos/save').map(({method,cookie})=>({method,cookie})), ['GET', 'HEAD','GET'].map(method => ({method, cookie: 'JSESSIONID=synthetic'})));
+  const heartbeats=seen.filter(row=>row.path.endsWith('/status/SessionHeartbeat'));
+  assert.equal(heartbeats.length,3);assert(heartbeats.every(row=>row.cookie==='JSESSIONID=synthetic'));
+  live=false;
+  await assert.rejects(authenticatedProbe(session,'/carlos/save'),/session is invalid/);
+  assert.equal(seen.filter(row=>row.path==='/carlos/save').length,3,'An invalidated session must not reach the always-405 mutator');
+  const {probeAuthenticationState}=require('./lib/authz-read-probe');
+  const heartbeatCount=seen.filter(row=>row.path.endsWith('/status/SessionHeartbeat')).length;
+  const pending=await probeAuthenticationState(session.context,new URL('/carlos/pending',baseUrl).href,{baseUrl});
+  assert.equal(pending.status,302);assert.equal(pending.location,'/carlos/select_facility');
+  const loggedOut=await probeAuthenticationState({...session.context,cookies:async()=>[]},new URL('/carlos/loggedout',baseUrl).href,{baseUrl});
+  assert.equal(loggedOut.status,302);assert.equal(loggedOut.location,'/carlos/logoutPage');
+  assert.equal(seen.filter(row=>row.path.endsWith('/status/SessionHeartbeat')).length,heartbeatCount,'Authentication state reads must not require a live login');
+  assert(!seen.some(row=>row.path==='/carlos/logoutPage'||row.path==='/carlos/select_facility'),'Authentication state reads followed a redirect');
+});
+
+
+test('never sends a Secure cookie to a non-loopback HTTP target', async () => {
+  const { session, calls } = fixture();
+  session.config.baseUrl = new URL('http://192.168.1.2/carlos');
+  await assert.rejects(authenticatedProbe(session, '/carlos/save'), /HTTPS outside loopback/);
+  assert.equal(calls.length, 0);
+});
+test('replaces caller Cookie headers regardless of casing', async () => {
+  const { session, calls } = fixture();
+  await authenticatedProbe(session, '/carlos/save', {headers: {cookie: 'wrong', COOKIE: 'also-wrong', Accept: 'text/html'}});
+  assert.deepEqual(calls[0][1].headers, {Accept: 'text/html', Cookie: 'JSESSIONID=synthetic'});
+});
+
+test('explicit security-redirect preconditions accept only the exact local security route', async () => {
+  const {session,calls}=fixture([cookie],302);
+  for(const location of ['/carlos/login','/login','https://other.invalid/carlos/securityError','/carlos/securityError/other','https://other.invalid/carlos/noRights.html','/carlos/noRights.html/other']) {
+    session.context.request.fetch=withHeartbeat(async()=>({status:()=>302,headers:()=>({location})}));
+    await assert.rejects(authenticatedProbe(session,'/carlos/admin',{allowSecurityErrorRedirect:true}),/redirected/);
+  }
+  session.context.request.fetch=withHeartbeat(async(url,options)=>{calls.push([url,options]);return {status:()=>302,headers:()=>({location:'/carlos/securityError?type=_admin'})};});
+  assert.equal((await authenticatedProbe(session,'/carlos/admin',{allowSecurityErrorRedirect:true})).status(),302);
+  assert.equal(calls.at(-1)[1].headers.Cookie,'JSESSIONID=synthetic');
+  assert.equal(Object.hasOwn(calls.at(-1)[1],'allowSecurityErrorRedirect'),false);
+});
+
+test('explicit refusal redirect option accepts the exact application noRights route without following it',async()=>{
+  const {session,calls}=fixture();
+  session.context.request.fetch=withHeartbeat(async(url,options)=>{calls.push([url,options]);return {status:()=>302,headers:()=>({location:'/carlos/noRights.html'})};});
+  const response=await authenticatedProbe(session,'/carlos/billing',{allowSecurityErrorRedirect:true});
+  assert.equal(response.status(),302);assert.equal(calls[0][1].maxRedirects,0);
+});
+
+test('a retained cookie cannot turn a malformed or logged-out heartbeat into authenticated evidence',async()=>{
+  for(const result of [{status:302,body:{valid:true}},{status:200,body:{valid:false}},{status:200,body:{}},{status:200,body:{valid:'true'}}]) {
+    const {session}=fixture();let disposed=false,count=0;
+    session.context.request.fetch=async url=>{count++;assert.match(url,/status\/SessionHeartbeat$/);return {status:()=>result.status,json:async()=>result.body,dispose:async()=>{disposed=true;}};};
+    await assert.rejects(authenticatedProbe(session,'/carlos/save'),/session is invalid/);assert.equal(count,1);assert.equal(disposed,true);
+  }
+});
+
+test('authentication-state transport remains origin-bound and read-only without requiring login',async()=>{
+  const {authenticationStateProbe}=require('./lib/authenticated-probe'),{session,calls}=fixture([],302);
+  const response=await authenticationStateProbe(session,'/carlos/login');assert.equal(response.status(),302);assert.equal(calls.length,1);assert.equal(calls[0][1].maxRedirects,0);
+  await assert.rejects(authenticationStateProbe(session,'https://other.invalid/carlos/login'),/origin/);
+  await assert.rejects(authenticationStateProbe(session,'/carlos/login',{method:'POST'}),/GET and HEAD/);
+  assert.equal(calls.length,1);
+});

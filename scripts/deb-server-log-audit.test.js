@@ -62,6 +62,16 @@ test('should keep message text out of the report by default', (t) => {
   assert.match(shown.out, /e\.g\. Unexpected error for FAKE-Doe/);
 });
 
+test('should report a recurring missing-patient prevention error as unexplained', (t) => {
+  const r = audit(t, [
+    '2026-10-30 04:40:11,612 ERROR prevention.PreventionDisplayConfig (PreventionDisplayConfig.java:406) - Error',
+    'java.lang.NullPointerException: Cannot invoke "Demographic.getAgeInYears()" because "demograph" is null',
+    '\tat io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig.display(PreventionDisplayConfig.java:352)',
+  ], { baseline: fs.readFileSync(BASELINE, 'utf8') });
+  assert.equal(r.status, 1, r.out + r.err);
+  assert.match(r.out, /^UNKNOWN +1 +ERROR prevention\.PreventionDisplayConfig .*@PreventionDisplayConfig\.display :: java\.lang\.NullPointerException$/m);
+});
+
 test('should name the request path and status without the query string', (t) => {
   const r = audit(t, [
     '2026-10-08 04:43:27,461 ERROR utility.ErrorPageLogger (ErrorPageLogger.java:135) - errorpage.jsp captured exception (method=GET, uri=/carlos/demographic/DemographicEdit?demographic_no=4242, status=500)',

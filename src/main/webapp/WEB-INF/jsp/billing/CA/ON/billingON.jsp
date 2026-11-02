@@ -878,9 +878,11 @@ var _billingForms = [<c:forEach var="bf" items="${formModel.billForm.forms}" var
 								        <input type="text" class="form-control" id="service_date" name="service_date" readonly
                                            value="<carlos:encode value='${formModel.visit.serviceDateDefault}' context='htmlAttribute'/>"
                                            style="width: 80px; height:14px;  vertical-align: bottom;">
-                                        <span class="input-group-text" id="service_date_cal" style="cursor:pointer;">
+                                        <fmt:message key="oscar.billing.ca.on.billingON.chooseDate" var="serviceDateCalendarLabel"/>
+                                        <button type="button" class="input-group-text" id="service_date_cal"
+                                                aria-label="<carlos:encode value='${serviceDateCalendarLabel}' context='htmlAttribute'/>">
                                             <img src="${pageContext.request.contextPath}/images/cal.gif"
-                                                 style="height:14px;" alt="cal"></span></span>
+                                                 style="height:14px;" alt=""></button></span>
                                 </c:when>
                                 <c:otherwise>
                                     <input type="text" id="service_date" name="service_date" readonly

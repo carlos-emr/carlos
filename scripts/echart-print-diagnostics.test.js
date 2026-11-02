@@ -15,7 +15,7 @@ const endpoint = 'http://127.0.0.1:8080/carlos/CaseManagementEntry';
 const note = 'FAKE print regression body';
 function load({ fileSystem } = {}) {
   const source = fs.readFileSync(process.env.ECHART_PRINT_REVIEW_SOURCE || driver, 'utf8');
-  const boundary = source.indexOf('(async () => {');
+  const boundary = source.indexOf("require('./lib/legacy-check').runLegacyCheck(");
   assert.ok(boundary > 0);
   const ownRequire = createRequire(driver);
   const context = vm.createContext({

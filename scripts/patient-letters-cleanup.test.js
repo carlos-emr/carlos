@@ -6,7 +6,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const test = require('node:test');
 const source = fs.readFileSync(path.join(__dirname, 'patient-letters-envelopes-playwright-checks.js'), 'utf8');
-const code = source.slice(source.indexOf('async function cleanup('), source.indexOf('\n(async () => {'));
+const code = source.slice(source.indexOf('async function cleanup('), source.indexOf("\nlegacyHarness.runLegacyCheck('patient-letters-envelopes'"));
 function fixture({filename='letter-7-owned.pdf', failedLookup=false} = {}) {
   const removed = [];
   const writes = [];

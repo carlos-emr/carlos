@@ -23,6 +23,7 @@
  * those rows by id and marker, plus the billing-history rows the page wrote for that FAKE bill line, and asserts they
  * are gone.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
@@ -158,7 +159,7 @@ async function workflow(s) {
     for (const method of ['GET', 'HEAD']) {
       assertOnlyOwnClaim();
       const before = sql.value(`SELECT COUNT(*) FROM billing_history WHERE billingmaster_no=${rows.master}`);
-      const response = await s.context.request.fetch(url, { method, maxRedirects: 0, failOnStatusCode: false });
+      const response = await authenticatedProbe(s, url, { method, maxRedirects: 0, failOnStatusCode: false });
       h.assert(response.status() === 405, `A ${method} with settled=false answered HTTP ${response.status()}, not 405`);
       await h.assertRefused(s, { response, table: 'billing_history', where: `billingmaster_no=${rows.master}`, before,
         label: `a ${method} with settled=false` });
