@@ -419,7 +419,7 @@
                         var attachmentsRefused = iframe.contentDocument &&
                             iframe.contentDocument.getElementById('tickler-edit-attachments-refused');
                         if (attachmentsRefused) {
-                            CarlosTicklerValidation.show(attachmentsRefused.textContent);
+                            CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerEdit.attachments.error") %>' context="javaScriptBlock"/>');
                             enableSubmitButtons();
                             return;
                         }
