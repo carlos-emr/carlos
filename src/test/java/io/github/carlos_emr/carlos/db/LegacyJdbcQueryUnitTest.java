@@ -229,9 +229,6 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
             try (Stream<Path> files = Files.walk(sourceRoot)) {
                 offenders.addAll(files
                     .filter(this::isProductionSourceFile)
-                    .filter(path -> !path.endsWith(Path.of("db", "DBHandler.java")))
-                    .filter(path -> !path.endsWith(Path.of("db", "DBPreparedHandler.java")))
-                    .filter(path -> !path.endsWith(Path.of("db", "DBPreparedHandlerParam.java")))
                     .filter(this::usesDeprecatedDatabaseBoundary)
                     .toList());
             }
@@ -364,7 +361,7 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
             // mention removed APIs should be updated to LegacyJdbcQuery terminology.
             return content.contains("DBHandler.GetPreSQL")
                     || content.contains("new DBPreparedHandler(")
-                    || content.contains("DbConnectionFilter.getThreadLocalDbConnection()");
+                    || content.contains("getThreadLocalDbConnection");
         } catch (Exception e) {
             throw new IllegalStateException("Unable to inspect " + path, e);
         }

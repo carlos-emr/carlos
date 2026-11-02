@@ -41,13 +41,27 @@ test('the external relay streams ordinary native responses unchanged',async () =
 test('only an exact armed contract2 submit is forwarded once and its genuine accepted ACK is withheld',async () => {
   const f=await fixture((reply,{runId,request,body}) => {
     assert.equal(request.headers.cookie,'JSESSIONID=private-unit-cookie');assert.equal(body,f.body);
-    reply.writeHead(202,{'X-CARLOS-CDS-API-Version':'2','Content-Type':'application/json'});
-    reply.end(JSON.stringify({apiVersion:2,ok:true,accepted:true,job:{id:runId}}));});
+    // Acceptance can take longer than the client's withholding observation window.
+    setTimeout(() => {
+      reply.writeHead(202,{'X-CARLOS-CDS-API-Version':'2','Content-Type':'application/json'});
+      reply.end(JSON.stringify({apiVersion:2,ok:true,accepted:true,job:{id:runId}}));
+    },150);});
   try {
     await new Promise((resolve,reject) => {
       const request=http.request({host:'127.0.0.1',port:f.port,path:'/carlos/form/cdsImportSubmit',method:'POST',headers:{Cookie:'JSESSIONID=private-unit-cookie'}},() => reject(Error('The ACK must not reach the client')));
       request.on('error',failure => {if(failure.message==='UNIT_CLIENT_TIMEOUT')resolve();else reject(failure);});
-      request.end(f.body);setTimeout(() => request.destroy(Error('UNIT_CLIENT_TIMEOUT')),100);
+      // Start the 100ms observation only after the relay has published real acceptance.
+      // A fixed deadline from request creation races upstream work on a busy CI runner.
+      let observation;
+      const deadline=setTimeout(() => request.destroy(Error('UNIT_ACCEPTANCE_TIMEOUT')),5000);
+      const receipt=setInterval(() => {
+        if (fs.existsSync(path.join(f.directory,f.attempt + '.accepted.json'))) {
+          clearInterval(receipt);clearTimeout(deadline);
+          observation=setTimeout(() => request.destroy(Error('UNIT_CLIENT_TIMEOUT')),100);
+        }
+      },10);
+      request.once('close',() => {clearInterval(receipt);clearTimeout(deadline);clearTimeout(observation);});
+      request.end(f.body);
     });
     const raw=fs.readFileSync(path.join(f.directory,f.attempt + '.accepted.json'),'utf8'),value=JSON.parse(raw);
     assert.equal(value.runId,f.runId);assert.equal(value.uploadId,f.uploadId);assert.equal(value.status,202);assert.equal(value.withheld,true);
