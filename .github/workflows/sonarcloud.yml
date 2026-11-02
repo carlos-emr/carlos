@@ -58,8 +58,8 @@ jobs:
     timeout-minutes: 60
     env:
       # The scanner engine runs in its own JVM; MAVEN_OPTS does not size it.
-      # Whole-branch analysis otherwise exhausts its default heap in javabugs.
-      SONAR_SCANNER_JAVA_OPTS: -Xmx4g
+      # Whole-branch javabugs analysis exhausts even a 4 GiB engine heap.
+      SONAR_SCANNER_JAVA_OPTS: -Xmx8g
     if: >
       github.actor != 'dependabot[bot]' &&
       (
