@@ -2,5 +2,7 @@
 <beans xmlns="http://www.springframework.org/schema/beans"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd">
+    <!-- Production has both this legacy XML bean and the scanned billingmasterDAO. -->
+    <bean id="BillingmasterDAO" class="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO" autowire="byName"/>
     <bean class="io.github.carlos_emr.carlos.billings.ca.bc.service.BillingDiagnosisService" autowire="constructor"/>
 </beans>

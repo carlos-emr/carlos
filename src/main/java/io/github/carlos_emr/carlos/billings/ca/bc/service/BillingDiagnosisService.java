@@ -4,6 +4,7 @@ package io.github.carlos_emr.carlos.billings.ca.bc.service;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
 import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,7 +20,7 @@ public class BillingDiagnosisService {
     private final BillingmasterDAO bills;
     private final DiagnosticCodeDao codes;
 
-    public BillingDiagnosisService(BillingmasterDAO bills, DiagnosticCodeDao codes) {
+    public BillingDiagnosisService(@Qualifier("billingmasterDAO") BillingmasterDAO bills, DiagnosticCodeDao codes) {
         this.bills = bills;
         this.codes = codes;
     }
