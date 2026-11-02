@@ -82,6 +82,7 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -301,6 +302,75 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
             assertThat(labFiles).hasSize(1);
             assertThat(labFiles.getFirst()).doesNotExist();
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldDeleteLabTemporary_whenRenderingFails(boolean embedding) {
+        prepareOwnedLab();
+        List<Path> labFiles = new ArrayList<>();
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedConstruction<LabPDFCreator> labs = mockConstruction(LabPDFCreator.class, (creator, context) -> {
+                 if (embedding) {
+                     doAnswer(_ -> { throw new IOException("synthetic embedding failure"); })
+                             .when(creator).addEmbeddedDocuments(any(), any());
+                 } else {
+                     doAnswer(_ -> { throw new IOException("synthetic rendering failure"); })
+                             .when(creator).printPdf();
+                 }
+             })) {
+            paths.when(() -> PathValidationUtils.createSecureTempFile(any(), eq("pdf"))).thenAnswer(invocation -> {
+                File file = (File) invocation.callRealMethod();
+                labFiles.add(file.toPath());
+                return file;
+            });
+            assertThat(action.execute()).isEqualTo("error");
+            assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+            assertThat(labFiles).hasSize(1);
+            assertThat(labFiles.getFirst()).doesNotExist();
+        }
+    }
+
+    @Test
+    void shouldWarnWithoutPatientPaths_whenLabCleanupFails() throws IOException {
+        prepareOwnedLab();
+        List<Path> labFiles = new ArrayList<>();
+        try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
+             MockedStatic<Files> files = mockStatic(Files.class, CALLS_REAL_METHODS);
+             MockedConstruction<LabPDFCreator> labs = mockConstruction(LabPDFCreator.class);
+             MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class);
+             LogCapture logs = LogCapture.forLogger(EctConsultationFormRequestPrintAction22Action.class)) {
+            paths.when(() -> PathValidationUtils.createSecureTempFile(any(), eq("pdf"))).thenAnswer(invocation -> {
+                File file = (File) invocation.callRealMethod();
+                labFiles.add(file.toPath());
+                return file;
+            });
+            files.when(() -> Files.deleteIfExists(any())).thenThrow(new IOException("sensitive patient path"));
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(request.getAttribute("printError")).isNull();
+            assertThat(logs.events()).anySatisfy(event -> {
+                assertThat(event.getMessage().getFormattedMessage())
+                        .isEqualTo("Temporary lab PDF cleanup failed (IOException)");
+                assertThat(event.getThrown()).isNull();
+            });
+            assertThat(labFiles).hasSize(1);
+            assertThat(labFiles.getFirst()).exists();
+        } finally {
+            for (Path labFile : labFiles) {
+                Files.deleteIfExists(labFile);
+            }
+        }
+    }
+
+    private void prepareOwnedLab() {
+        commonLabResultDataConstruction.close();
+        LabResultData lab = new LabResultData(LabResultData.HL7TEXT);
+        lab.setSegmentID("30");
+        commonLabResultDataConstruction = mockConstruction(CommonLabResultData.class, (data, context) ->
+                when(data.populateLabResultsData(any(), eq("1"), eq("42"), anyBoolean()))
+                        .thenReturn(new ArrayList<>(List.of(lab))));
+        when(patientLabRoutingDao.findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                .thenReturn(List.of(30));
     }
 
     @Test
