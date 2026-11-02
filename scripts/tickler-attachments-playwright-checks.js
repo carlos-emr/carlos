@@ -585,6 +585,9 @@ legacyHarness.runLegacyCheck('tickler-attachments',async({cancellation})=>{
     await guardPage.locator('#newMessage').fill(unsavedComment);
     await guardPage.locator('#priority').selectOption('Low');
     await guardPage.locator('#status').selectOption('C');
+    await openPicker(guardPage);
+    await guardPage.locator(`#attachDocumentsForm #docNo${storedDocument.documentNo}`).check();
+    await saveAndClosePicker(guardPage);
     const beforeRefusalForm = await guardPage.locator('form[name="serviceform"]').evaluate((form) =>
       Array.from(new FormData(form).entries()));
     await guardPage.evaluate((labNo) => {
@@ -621,7 +624,10 @@ legacyHarness.runLegacyCheck('tickler-attachments',async({cancellation})=>{
     await submitEditForm(guardPage);
     assert(db.value(`SELECT CONCAT(status, '|', priority) FROM tickler WHERE tickler_no=${Number(ticklerNo)}`) === 'C|Low',
       'corrected retry did not save the retained status and priority');
-    assert(JSON.stringify(attachmentRows(ticklerNo)) === beforeUiAttachments, 'corrected retry changed the selected attachments');
+    const expectedAfterRetry = JSON.parse(beforeUiAttachments).map((row) =>
+      row.doctype === 'D' && row.documentNo === storedDocument.documentNo ? { ...row, deleted: '' } : row);
+    assert(JSON.stringify(attachmentRows(ticklerNo)) === JSON.stringify(expectedAfterRetry),
+      'corrected retry did not add the newly selected document while preserving the other attachments');
     assert(db.value(`SELECT COUNT(*) FROM tickler_comments WHERE tickler_no=${Number(ticklerNo)} AND message=${sqlString(unsavedComment)}`) === '1',
       'corrected retry did not save the retained comment exactly once');
     await guardPage.close();

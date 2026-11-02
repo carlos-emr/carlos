@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 package io.github.carlos_emr.carlos.tickler.pageUtil;
@@ -76,7 +77,7 @@ public class EditTickler2Action extends ActionSupport {
      * Rejects every other HTTP method with status 405 and an {@code Allow: POST} header
      * before dispatching or changing data.
      *
-     * @return {@link #NONE} for a rejected method; otherwise the selected handler's
+     * @return String result: {@link #NONE} for a rejected method; otherwise the selected handler's
      *         result ({@code close} on success, {@code attachmentsRefused} for a refused
      *         selection, or {@code failure}/{@code error} on other failures)
      */
