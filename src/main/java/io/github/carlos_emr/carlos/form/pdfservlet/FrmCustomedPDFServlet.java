@@ -426,8 +426,18 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     private ByteArrayOutputStream generatePDFDocumentBytesOrReportFaxFailure(HttpServletRequest request,
             byte[] signatureImage, boolean isFax, HttpServletResponse response) throws DocumentException, IOException {
+        HashMap<String, String> satelliteClinic = null;
+        if (Boolean.parseBoolean(request.getParameter("useSC"))) {
+            try {
+                satelliteClinic = parseSCAddress(request.getParameter("scAddress"));
+            } catch (IllegalArgumentException invalidAddress) {
+                // Refuse malformed input before opening a PDF or committing response headers.
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid satellite clinic address");
+                return null;
+            }
+        }
         try {
-            return generatePDFDocumentBytes(request, getServletContext(), signatureImage);
+            return generatePDFDocumentBytes(request, getServletContext(), signatureImage, satelliteClinic);
         } catch (IOException | RuntimeException failure) {
             // org.openpdf.text.DocumentException in OpenPDF 3 is a RuntimeException,
             // so this includes it (unlike the separate legacy com.lowagie API).
@@ -976,11 +986,21 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      *
      * @param s String the HTML-formatted satellite clinic address
      * @return HashMap containing "clinicName", "clinicTel", and "clinicFax" entries
+     * @throws IllegalArgumentException when the block is missing or lacks the five clinic lines
      */
     static HashMap<String, String> parseSCAddress(String s) {
         HashMap<String, String> hm = new HashMap<String, String>();
+        if (s == null) {
+            throw new IllegalArgumentException("Invalid satellite clinic address");
+        }
         String[] ar = s.split("</b>", 2);
+        if (ar.length != 2 || !ar[1].startsWith("<br>")) {
+            throw new IllegalArgumentException("Invalid satellite clinic address");
+        }
         String[] ar2 = ar[1].split("<br>", -1);
+        if (ar2.length < 6) {
+            throw new IllegalArgumentException("Invalid satellite clinic address");
+        }
         ArrayList<String> lst = new ArrayList<String>(Arrays.asList(ar2));
         lst.remove(0);
         // Values may literally contain <br>, </b> or entity text. Split only the
@@ -1679,13 +1699,15 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      * @param ctx ServletContext for resource resolution
      * @param signatureImage decoded signature image bytes to draw above the signature line, or
      *                       {@code null} to leave the line blank (see {@link #resolveSignatureImage})
+     * @param satelliteClinic validated satellite clinic fields, or {@code null} for the primary clinic
      * @return ByteArrayOutputStream containing the generated PDF bytes
      * @throws DocumentException if an OpenPDF document error occurs during PDF generation
      * @throws IOException if an I/O error occurs during PDF generation
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx, final byte[] signatureImage) throws DocumentException, IOException {
+    private ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx,
+            final byte[] signatureImage, final HashMap<String, String> satelliteClinic) throws DocumentException, IOException {
         logger.debug("***in generatePDFDocumentBytes2 FrmCustomedPDFServlet.java***");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
@@ -1702,13 +1724,10 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         String clinicTel;
         String clinicFax;
         // check if satellite clinic is used
-        String useSatelliteClinic = req.getParameter("useSC");
-        if (useSatelliteClinic != null && useSatelliteClinic.equalsIgnoreCase("true")) {
-            String scAddress = req.getParameter("scAddress");
-            HashMap<String, String> hm = parseSCAddress(scAddress);
-            clinicName = hm.get("clinicName");
-            clinicTel = hm.get("clinicTel");
-            clinicFax = hm.get("clinicFax");
+        if (satelliteClinic != null) {
+            clinicName = satelliteClinic.get("clinicName");
+            clinicTel = satelliteClinic.get("clinicTel");
+            clinicFax = satelliteClinic.get("clinicFax");
         } else {
             // parameters need to be passed to header and footer
             clinicName = req.getParameter("clinicName");

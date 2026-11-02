@@ -2266,6 +2266,60 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         assertThat(parsed.get("clinicName")).isEqualTo("Site Nord\n2 rue Nord\nGatineau, QC J8X 1A1");
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @ValueSource(strings = {" ", "PRIVATE_INVALID_ADDRESS", "<b>Dr A</b>",
+            "<b>Dr A</b>Clinic<br>Street<br>City<br>Tel: 123<br>Fax: 456",
+            "<b>Dr A</b><br>Clinic", "<b>Dr A</b><br>Clinic<br>Street<br>City<br>Tel: 123"})
+    void shouldReturnBadRequest_whenSatelliteAddressIsMalformed(String address) throws Exception {
+        MockHttpServletRequest request = createPreviewRequest();
+        request.setMethod("GET");
+        request.setParameter("useSC", "TrUe");
+        if (address != null) request.setParameter("scAddress", address);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+        servlet.init(new MockServletConfig(new MockServletContext()));
+
+        servlet.service(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getErrorMessage()).isEqualTo("Invalid satellite clinic address");
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getHeader("Content-Disposition")).isNull();
+        verifyFaxWasNotQueued();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"true", "TrUe", "false"})
+    void shouldGeneratePdf_withValidClinicSelection(String useSatellite) throws Exception {
+        MockHttpServletRequest request = createPreviewRequest();
+        request.setParameter("useSC", useSatellite);
+        request.setParameter("scAddress", "false".equals(useSatellite) ? "INVALID_UNUSED_ADDRESS"
+                : RxSatelliteClinicAddress.html("Dr A", "Satellite Clinic", "2 North Ave", "Barrie", "ON",
+                        "L4M 1A1", "", "", "Tel", "Fax"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        try (MockedStatic<LoggedInInfo> login = mockStatic(LoggedInInfo.class);
+             MockedStatic<PrescriptionQrCodeUIBean> qrCode = mockStatic(PrescriptionQrCodeUIBean.class)) {
+            login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+            servlet.init(new MockServletConfig(new MockServletContext()));
+
+            servlet.service(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentType()).isEqualTo("application/pdf");
+            assertThat(new String(response.getContentAsByteArray(), 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
+            try (var reader = new org.openpdf.text.pdf.PdfReader(response.getContentAsByteArray())) {
+                String text = new org.openpdf.text.pdf.parser.PdfTextExtractor(reader).getTextFromPage(1);
+                assertThat(text).contains("false".equals(useSatellite) ? "Test Clinic" : "Satellite Clinic");
+            }
+            verifyFaxWasNotQueued();
+        }
+    }
+
     @Test
     void shouldDecodeSatelliteFields_afterSplittingStructure() {
         String block = RxSatelliteClinicAddress.html("Dr &lt;/b&gt; A", "North <br> &amp; </b> Clinic",
