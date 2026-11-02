@@ -440,7 +440,8 @@ mark_incomplete() { echo "incomplete:$*"; }
 ${block}
 `], { encoding: 'utf8' });
         assert.equal(result.status, 0, result.stderr);
-        assert.match(result.stdout, new RegExp(`service:${action} nginx.service`));
+        assert.deepEqual(result.stdout.split('\n').filter(line => line.startsWith('service:')),
+          [`service:${action} nginx.service`]);
         assert.equal(result.stdout.includes('incomplete:'), serviceRc !== 0);
         if (serviceRc) assert.match(result.stdout, new RegExp(`could not ${action}`));
       }
