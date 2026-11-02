@@ -92,9 +92,51 @@ async function main() {
         assert.equal(await plain.locator('#codes tbody tr:visible').count(), 3);
         assert.equal(await plain.locator('.table-sort').count(), 0);
         await noScript.close();
-        console.log('PASS: typed sorting, default order, paging, keyboard control, row actions, and form isolation');
+        await checkRegistryResults(browser);
+        console.log('PASS: typed sorting, paging, keyboard control, form isolation, and registry result filtering');
     } finally {
         if (browser) await browser.close();
     }
+}
+
+async function checkRegistryResults(browser) {
+    const webapp = path.join(__dirname, '../src/main/webapp');
+    const jsp = fs.readFileSync(path.join(webapp, 'WEB-INF/jsp/oscarReport/oscarReportDxReg.jsp'), 'utf8');
+    const opening = jsp.match(/<table\b[^>]*\bid="listview"[^>]*>/)?.[0];
+    assert.ok(opening, 'registry results table is present');
+    const headers = jsp.slice(jsp.indexOf(opening) + opening.length).match(/<thead>[\s\S]*?<\/thead>/)?.[0];
+    const initializer = jsp.match(/\$\('#listview'\)\.DataTable\(\{[\s\S]*?\}\);/)?.[0];
+    assert.ok(headers && initializer, 'registry results have headers and their DataTables initializer');
+    const columns = headers.match(/<th\b/g).length;
+    const rows = Array.from({length: 12}, (_, index) => {
+        const cells = Array(columns).fill('Synthetic');
+        cells[0] = `Fixture${String(index + 1).padStart(2, '0')}`;
+        cells[1] = index === 0 || index === 11 ? 'SyntheticSelected' : 'SyntheticOther';
+        return `<tr>${cells.map(value => `<td>${value}</td>`).join('')}</tr>`;
+    }).join('');
+    const page = await browser.newPage();
+    const errors = [];
+    page.on('pageerror', error => errors.push(error.message));
+    // Exercise the JSP's actual table markup and initializer with fixed, synthetic rows.
+    await page.setContent(`<!doctype html><html><body>${opening}${headers}<tbody>${rows}</tbody></table></body></html>`);
+    for (const file of ['library/jquery/jquery-3.7.1.min.js',
+        'library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js',
+        'library/DataTables/Responsive-2.4.1/js/dataTables.responsive.min.js', 'js/carlos-tables.js']) {
+        await page.addScriptTag({path: path.join(webapp, file)});
+    }
+    await page.addScriptTag({content: initializer});
+    const firstNames = () => page.locator('#listview tbody tr td:first-child').allTextContents();
+    assert.equal(await page.locator('#listview_wrapper').count(), 1);
+    assert.equal(await page.locator('#listview').getAttribute('data-table-ready'), null);
+    assert.equal(await page.locator('#listview .table-sort').count(), 0);
+    assert.equal(await page.locator('#listview tbody tr:visible').count(), 12);
+    await page.locator('#listview_filter input').fill('SyntheticSelected');
+    assert.deepEqual(await firstNames(), ['Fixture01', 'Fixture12']);
+    await page.locator('#listview th').first().click();
+    assert.deepEqual(await firstNames(), ['Fixture12', 'Fixture01']);
+    await page.locator('#listview_filter input').fill('');
+    assert.equal(await page.locator('#listview tbody tr:visible').count(), 12);
+    assert.deepEqual(errors, []);
+    await page.close();
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
