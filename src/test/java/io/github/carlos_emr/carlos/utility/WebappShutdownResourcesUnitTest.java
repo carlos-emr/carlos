@@ -199,7 +199,7 @@ public class WebappShutdownResourcesUnitTest {
              MockedStatic<LogAction> logAction = mockStatic(LogAction.class);
              MockedStatic<DroolsShutdownResources> droolsShutdown = mockStatic(DroolsShutdownResources.class);
              MockedStatic<QueueCache> queueCache = mockStatic(QueueCache.class)) {
-            dbConnections.when(DbConnectionFilter::releaseAllKnownDbResources)
+            dbConnections.when(DbConnectionFilter::releaseAllThreadDbResources)
                     .thenThrow(new AssertionError("db cleanup failed"));
 
             WebappShutdownResources.ShutdownReport report = WebappShutdownResources.releaseForContext(unrelatedClassLoader);
@@ -226,7 +226,7 @@ public class WebappShutdownResourcesUnitTest {
             audit.when(LogAction::shutdownExecutorService).thenAnswer(call -> { calls.add("audit"); return null; });
             drools.when(DroolsShutdownResources::shutdownExecutors).thenAnswer(call -> { calls.add("drools"); return 0; });
             queues.when(QueueCache::shutdownSharedTimer).thenAnswer(call -> { calls.add("queue"); return null; });
-            db.when(DbConnectionFilter::releaseAllKnownDbResources).thenAnswer(call -> { calls.add("db"); return null; });
+            db.when(DbConnectionFilter::releaseAllThreadDbResources).thenAnswer(call -> { calls.add("db"); return null; });
             tracking.when(OscarTrackingBasicDataSource::clearTrackingState).thenAnswer(call -> { calls.add("tracking"); return null; });
 
             WebappShutdownResources.releaseForContext(new ClassLoader(null) { });

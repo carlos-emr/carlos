@@ -14,6 +14,7 @@ function validateDatabaseEnvironment(env) {
   assert(start >= 0 && end > start && end < source.indexOf('(async () =>'));
   return vm.runInNewContext(source.slice(start, end), {
     process: { env }, assert: (condition, message) => assert.ok(condition, message),
+    require: name => require(name),
   });
 }
 
@@ -69,6 +70,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     await vm.runInNewContext(source, {
       URL, Buffer, process: signalProcess, console: { log() {}, error() {} },
       require(name) {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
         if (name === 'playwright') return { chromium: { async launch(options) {
           launchOptions = options;
           return { async newContext() { return context; }, async close() { events.push('close'); } };
@@ -101,7 +103,10 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
             return { locator() { return { first() { return { async click() {} }; } }; } };
           },
         };
-        if (name === './lib/playwright-harness') return { shouldIgnoreHttpsErrors: () => true };
+        if (name === './lib/playwright-harness') return {
+          shouldIgnoreHttpsErrors: () => true,
+          validateMysqlHost: require('./lib/playwright-harness').validateMysqlHost,
+        };
         throw new Error(`Unexpected dependency: ${name}`);
       },
     });

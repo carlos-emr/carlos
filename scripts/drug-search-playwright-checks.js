@@ -47,6 +47,8 @@
  *   CHROME_PATH, DRUG_SEARCH_SCREENSHOT_DIR (default /tmp).
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors, wireStrictPage, assertStrictPage } = require('./lib/playwright-harness');
 const {
@@ -77,9 +79,9 @@ assert(/^\d+$/.test(demographicNo), `PRESCRIPTION_DEMOGRAPHIC_NO must be numeric
 // the check would pass while testing nothing.
 assert(searchTerm.length >= 3, `DRUG_SEARCH_TERM must be at least 3 characters, got "${searchTerm}"`);
 
-(async () => {
+legacyHarness.runLegacyCheck('drug-search',async({cancellation})=>{
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   try {
     if (config.baseUrl.protocol !== 'https:') {
       console.log(
@@ -89,15 +91,22 @@ assert(searchTerm.length >= 3, `DRUG_SEARCH_TERM must be at least 3 characters, 
     }
 
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
+    cancellation?.throwIfCancelled();
     context.on('page', page => wireStrictPage(page, 'drug-search', recorder, { baseline: [] }));
     const landing = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landing.close();
+    cancellation?.throwIfCancelled();
 
     const rxPage = await context.newPage();
+    cancellation?.throwIfCancelled();
     wireStrictPage(rxPage, 'drug-search', recorder, { baseline: [] });
     await gotoApp(rxPage, config.baseUrl, `/rx/choosePatient?demographicNo=${demographicNo}`);
+    cancellation?.throwIfCancelled();
     await rxPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(rxPage, 'rx module');
+    cancellation?.throwIfCancelled();
 
     // The DrugRef status probe fires on DOMContentLoaded, so it has already
     // run by now. Its banner must be clear before the search is judged: a
@@ -110,7 +119,9 @@ assert(searchTerm.length >= 3, `DRUG_SEARCH_TERM must be at least 3 characters, 
     // satisfy this check vacuously, which is exactly the shape of hollow
     // assertion that let the original six defects ship green.
     await rxPage.locator('#statusDisplay').waitFor({ state: 'attached', timeout: 20000 });
+    cancellation?.throwIfCancelled();
     const statusBefore = (await rxPage.locator('#statusDisplay').innerText()).trim();
+    cancellation?.throwIfCancelled();
     assert(
       !/unavailable/i.test(statusBefore),
       `The DrugRef status banner already reads "${statusBefore}" before any search was made. `
@@ -119,6 +130,7 @@ assert(searchTerm.length >= 3, `DRUG_SEARCH_TERM must be at least 3 characters, 
 
     const searchBox = rxPage.locator('#searchString');
     await searchBox.waitFor({ state: 'visible', timeout: 20000 });
+    cancellation?.throwIfCancelled();
 
     // Type it like a prescriber, one key at a time: the widget debounces at
     // 400ms and only fires at minLength 3, so a fill() can skip the request
@@ -131,6 +143,7 @@ assert(searchTerm.length >= 3, `DRUG_SEARCH_TERM must be at least 3 characters, 
       ),
       searchBox.pressSequentially(searchTerm, { delay: 120 }),
     ]);
+    cancellation?.throwIfCancelled();
 
     const status = searchResponse.status();
     assert(
@@ -150,6 +163,7 @@ assert(searchTerm.length >= 3, `DRUG_SEARCH_TERM must be at least 3 characters, 
     );
 
     const payload = await searchResponse.json();
+    cancellation?.throwIfCancelled();
     assert(Array.isArray(payload.results), 'Drug search JSON has no results array');
     assert(
       payload.results.length > 0,
@@ -159,11 +173,13 @@ assert(searchTerm.length >= 3, `DRUG_SEARCH_TERM must be at least 3 characters, 
 
     // The list must actually render, not just the response arrive.
     await rxPage.locator('ul.ui-autocomplete li').first().waitFor({ state: 'visible', timeout: 20000 });
+    cancellation?.throwIfCancelled();
 
     // And the failure banner must still be clear afterwards: the new error
     // handler writes into #statusDisplay, so a regression that fails the search
     // shows up here even if the assertions above were somehow satisfied.
     const statusAfter = (await rxPage.locator('#statusDisplay').innerText()).trim();
+    cancellation?.throwIfCancelled();
     assert(
       !/unavailable/i.test(statusAfter),
       `After a successful search the DrugRef banner reads "${statusAfter}".`,
@@ -180,15 +196,19 @@ assert(searchTerm.length >= 3, `DRUG_SEARCH_TERM must be at least 3 characters, 
         `#${id} is gone from the DrugRef status panel after a search. Something replaced `
           + "#statusDisplay's innerHTML instead of writing to a child node.",
       );
+    cancellation?.throwIfCancelled();
     }
 
     await screenshot(rxPage, config.screenshotDir, 'drug-search-results');
+    cancellation?.throwIfCancelled();
     await rxPage.close();
+    cancellation?.throwIfCancelled();
 
     assertNoPageErrors(recorder);
     assertStrictPage(recorder);
 
     await context.close();
+    cancellation?.throwIfCancelled();
     assertStrictPage(recorder);
 
     console.log(
@@ -203,4 +223,4 @@ assert(searchTerm.length >= 3, `DRUG_SEARCH_TERM must be at least 3 characters, 
   } finally {
     await browser.close();
   }
-})();
+});
