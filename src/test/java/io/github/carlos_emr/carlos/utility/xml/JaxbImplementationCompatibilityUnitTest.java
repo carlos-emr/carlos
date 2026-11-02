@@ -20,7 +20,6 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
 import java.util.GregorianCalendar;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -38,7 +37,6 @@ import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBElement;
 import jakarta.xml.bind.Marshaller;
 import jakarta.xml.bind.annotation.XmlRegistry;
-import jakarta.xml.bind.annotation.XmlTransient;
 import org.glassfish.jaxb.runtime.v2.runtime.JAXBContextImpl;
 import org.glassfish.jaxb.runtime.v2.model.runtime.RuntimeTypeInfoSet;
 import org.glassfish.jaxb.runtime.v2.model.runtime.RuntimeClassInfo;
@@ -82,8 +80,8 @@ class JaxbImplementationCompatibilityUnitTest {
     @TestFactory
     Stream<DynamicTest> shouldPreserveXml_forEveryBoundClass() throws Exception {
         List<Class<?>> classes = boundClasses();
-        assertThat(classes.size()).as("discovered JAXB types, including nested generated classes")
-                .isGreaterThan(300);
+        assertThat(classes).as("discovered JAXB types, including nested generated classes")
+                .hasSizeGreaterThan(300);
         Files.write(Path.of("target/jaxb-inventory.txt"), classes.stream().map(Class::getName).toList());
         return classes.stream().map(type -> DynamicTest.dynamicTest(type.getName(), () -> {
             try { compare(type); } catch (Exception e) { throw new IllegalStateException(type.getName(), e); }
@@ -237,7 +235,7 @@ class JaxbImplementationCompatibilityUnitTest {
                 for (Class<?> bound : context.getTypeInfoSet().beans().keySet()) {
                     if (bound.getName().startsWith(BASE) || bound.getName().startsWith("ca.ontario.")) addType(bound, found);
                 }
-            } catch (Exception invalidContext) {
+            } catch (Exception _) {
                 // compare() reports the specific invalid root; do not lose discovery of other roots.
             }
         }
@@ -432,7 +430,7 @@ class JaxbImplementationCompatibilityUnitTest {
 
     private static Field backingField(Class<?> type, String property) {
         for (Class<?> owner = type; owner != Object.class; owner = owner.getSuperclass()) {
-            try { return owner.getDeclaredField(property); } catch (NoSuchFieldException absent) { /* inherited property */ }
+            try { return owner.getDeclaredField(property); } catch (NoSuchFieldException _) { /* inherited property */ }
         }
         return null;
     }

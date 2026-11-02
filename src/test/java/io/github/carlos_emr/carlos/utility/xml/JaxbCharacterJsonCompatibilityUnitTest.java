@@ -88,11 +88,12 @@ class JaxbCharacterJsonCompatibilityUnitTest {
                 Object envelope = type.getConstructor().newInstance();
                 type.getMethod("setTimestamp", Date.class).invoke(envelope, date.getTime());
                 jakarta.xml.bind.JAXBContext context = jakarta.xml.bind.JAXBContext.newInstance(type);
-                java.io.StringWriter written = new java.io.StringWriter();
                 @SuppressWarnings({"unchecked", "rawtypes"})
                 var root = new jakarta.xml.bind.JAXBElement(new javax.xml.namespace.QName("value"), type, envelope);
-                context.createMarshaller().marshal(root, written);
-                assertThat(written.toString()).contains("<timestamp>2026-07-15T13:14:15.12-04:00</timestamp>");
+                try (var written = new java.io.StringWriter()) {
+                    context.createMarshaller().marshal(root, written);
+                    assertThat(written.toString()).contains("<timestamp>2026-07-15T13:14:15.12-04:00</timestamp>");
+                }
                 for (ObjectMapper mapper : List.of(ProductionRestObjectMappers.oauthSurface(), ProductionRestObjectMappers.sessionSurface())) {
                     JsonNode json = mapper.valueToTree(envelope);
                     assertThat(json.path("timestamp").longValue()).isEqualTo(date.getTimeInMillis());

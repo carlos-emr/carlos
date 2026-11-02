@@ -71,8 +71,7 @@ class CharacterXmlAdapterUnitTest {
             }
         });
         String schema = schemas.toString();
-        assertThat(schema).contains("name=\"code\" type=\"xs:string\"", "name=\"scheduleCode\" type=\"xs:string\"");
-        assertThat(schema).contains("name=\"date\" type=\"xs:dateTime\"");
-        assertThat(schema).doesNotContain("unsignedShort");
+        assertThat(schema).contains("name=\"code\" type=\"xs:string\"", "name=\"scheduleCode\" type=\"xs:string\"",
+                "name=\"date\" type=\"xs:dateTime\"").doesNotContain("unsignedShort");
     }
 }

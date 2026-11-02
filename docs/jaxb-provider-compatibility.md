@@ -100,6 +100,12 @@ inventory are corrected:
   implementation-specific formatter text; Glassfish generated invalid XML with a
   digit-leading element name. The formatting object is now XML-transient.
 
+Static analysis also exposed a precedence error in `AppointmentExtTo.toString`;
+date formatting now handles absent dates and retains the complete description.
+`AppointmentTransfer.copyTo` explicitly rejects a null target with the same
+`IllegalArgumentException` already enforced by `BeanUtils`, before any date writes.
+Neither change alters the XML or JSON fixtures.
+
 Live verification uses the Ubuntu 26.04 Debian installation with fictitious demo
 records. Capture every endpoint declared in `spring_ws.xml` (currently **14**),
 compare namespace-expanded WSDL names and attributes, and preserve child order in

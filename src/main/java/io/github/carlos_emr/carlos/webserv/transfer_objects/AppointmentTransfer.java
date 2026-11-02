@@ -254,6 +254,8 @@ public final class AppointmentTransfer {
     }
 
     public Appointment copyTo(Appointment appointment) {
+        // Preserve BeanUtils' null-target contract and make it explicit before date writes.
+        if (appointment == null) throw new IllegalArgumentException("Target must not be null");
 
         String[] ignored = {"id", "appointmentDate", "startTime", "endTime", "createDateTime", "updateDateTime", "creator", "lastUpdateUser", "creatorSecurityId"};
         BeanUtils.copyProperties(this, appointment, ignored);

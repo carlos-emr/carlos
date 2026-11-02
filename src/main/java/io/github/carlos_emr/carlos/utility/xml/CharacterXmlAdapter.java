@@ -18,6 +18,7 @@ public final class CharacterXmlAdapter extends XmlCompatibilityAdapter<String, C
     @Override
     public String marshal(Character value) {
         // MOXy omits null but writes the NUL sentinel as an empty element, never a numeric zero.
-        return value == null ? null : value == '\0' ? "" : value.toString();
+        if (value == null) return null;
+        return value == '\0' ? "" : value.toString();
     }
 }
