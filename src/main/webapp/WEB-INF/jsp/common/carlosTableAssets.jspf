@@ -1,14 +1,13 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<fmt:bundle basename="oscarResources">
-    <fmt:message key="table.paging.first" var="tableLabelFirst"/>
-    <fmt:message key="table.paging.previous" var="tableLabelPrevious"/>
-    <fmt:message key="table.paging.next" var="tableLabelNext"/>
-    <fmt:message key="table.paging.last" var="tableLabelLast"/>
-    <fmt:message key="table.paging.page" var="tableLabelPage"/>
-    <fmt:message key="table.paging.pages" var="tableLabelPages"/>
-    <fmt:message key="table.paging.of" var="tableLabelOf"/>
-</fmt:bundle>
+<fmt:setBundle basename="oscarResources" var="tableMessages"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.first" var="tableLabelFirst"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.previous" var="tableLabelPrevious"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.next" var="tableLabelNext"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.last" var="tableLabelLast"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.page" var="tableLabelPage"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.pages" var="tableLabelPages"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.of" var="tableLabelOf"/>
 <template data-carlos-table-labels
           data-first="${carlos:forHtmlAttribute(tableLabelFirst)}"
           data-previous="${carlos:forHtmlAttribute(tableLabelPrevious)}"
