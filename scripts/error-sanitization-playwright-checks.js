@@ -17,20 +17,16 @@
  * the behaviour the filter exists for, and the one thing the rest of the suite
  * never exercised.
  *
- * Every other check drives success paths, so a filter that had stopped
- * sanitizing entirely would have kept the suite green. This one deliberately
- * provokes two real 500s and asserts the client receives the generic
- * "Reference ID" page instead of whatever the failing component produced.
+ * It checks a rejected prescription PDF request and a real web-service 500
+ * through the packaged front door, without disclosing a stack trace.
  *
  * What it pins:
  *
- *   1. An exception that escapes the WHOLE filter chain is answered with the
- *      sanitized page, not a container error page and not a stack trace.
- *      /form/createcustomedpdf is a plain servlet, excluded from Struts via
- *      struts.action.excludePattern, so nothing downstream converts its
- *      NullPointerException into sendError() first -- which is what makes it
- *      one of the few routes that reaches the filter's uncaught-exception
- *      branch at all.
+ *   1. Missing or malformed satellite clinic input is owned by the PDF servlet:
+ *      HTTP 400, rather than an exception escaping the filter chain (#5533).
+ *      Uncaught filter-chain exceptions are covered by
+ *      ResponseSanitizationFilterUnitTest; this check no longer needs a known
+ *      application bug to exercise that branch.
  *   2. A /ws 5xx has its body REPLACED even though the body carries no stack
  *      trace. That rule exists because a serialization failure mid-response
  *      leaves a clean, well-formed JSON prefix -- potentially patient
@@ -64,14 +60,11 @@
  * Optional: CHROME_PATH, ERROR_SANITIZATION_SCREENSHOT_DIR (default /tmp).
  *
  * FIXTURE SAFETY: creates and deletes nothing. Both routes are GETs that fail
- * before any write -- assertion 1 throws before the servlet touches a file, DB
- * or audit trail. Assertion 2's resource records one OscarLog audit row, which
- * is append-only.
+ * before any write -- assertion 1 is rejected before PDF generation or any
+ * outbound fax write. Assertion 2 records one append-only OscarLog audit row.
  *
- * EXPECTED LOG NOISE: this check makes the server log real errors on purpose.
- * "Uncaught exception escaped filter chain" and "Sanitizing ... error response
- * body" ERROR lines in `journalctl -u carlos-emr` during this check are the
- * check working, not a failure.
+ * EXPECTED LOG NOISE: the /ws probe makes the server log a real error on purpose.
+ * The PDF bad-request probes must not produce uncaught-exception ERROR lines.
  */
 
 
@@ -171,41 +164,35 @@ legacyHarness.runLegacyCheck('error-sanitization',async({cancellation})=>{
     wireStrictPage(page, 'error-sanitization', recorder, { baseline: [] });
 
     // page.request shares the context's session cookies, so these are authenticated
-    // requests. It is also NOT a browser navigation, so these deliberate 500s never
+    // requests. It is also NOT a browser navigation, so these deliberate errors never
     // reach the recorder's badResponses -- which is why the cleanliness guard other
     // checks apply would not fight this one.
 
-    // --- 1: an exception escaping the entire chain -------------------------------
-    //
-    // useSC=true with no scAddress makes FrmCustomedPDFServlet.parseSCAddress call
-    // split() on null. It is thrown from the try-with-resources resource expression,
-    // whose catches cover only DocumentException/FileNotFoundException, so it unwinds
-    // past every filter to ResponseSanitizationFilter's own catch.
-    const escapedPath = '/form/createcustomedpdf?useSC=true';
-    const escaped = await page.request.get(`${config.baseUrl.href}${escapedPath}`, {
-      failOnStatusCode: false,
-      maxRedirects: 0,
-    });
-    cancellation?.throwIfCancelled();
-    const escapedBody = await escaped.text();
-    cancellation?.throwIfCancelled();
-
-    // Negative control, and the most valuable assertion here: errorpage.jsp means the
-    // exception was caught and converted to sendError() somewhere downstream, so the
-    // filter's uncaught-exception branch never ran and a green result would be hollow.
-    assert(
-      !escapedBody.includes('CARLOS Error:'),
-      `GET ${escapedPath} returned errorpage.jsp rather than the sanitized page, so the `
-        + 'exception did not escape the chain and this check is no longer exercising the '
-        + "filter's uncaught-exception branch. Re-point it at a route that still throws "
-        + '(see the header comment for the fallback trigger).',
-    );
-    assertSanitizedErrorPage(
-      `GET ${escapedPath}`,
-      escaped.status(),
-      escapedBody,
-      escaped.headers()['content-type'],
-    );
+    // --- 1: invalid satellite clinic blocks are deliberate bad requests ----------
+    const pdfPath = '/form/createcustomedpdf';
+    for (const address of [null, '', 'not-a-clinic-block', '<b>Doctor</b><br>Clinic']) {
+      const url = new URL(`${config.baseUrl.href}${pdfPath}`);
+      url.searchParams.set('useSC', 'TrUe');
+      if (address !== null) url.searchParams.set('scAddress', address);
+      const rejected = await page.request.get(url.href, {
+        failOnStatusCode: false,
+        maxRedirects: 0,
+      });
+      cancellation?.throwIfCancelled();
+      try {
+        assert(rejected.status() === 400,
+          `Invalid satellite clinic address: expected HTTP 400, got ${rejected.status()}`);
+        assert(!/application\/pdf/i.test(rejected.headers()['content-type'] || ''),
+          'Invalid satellite clinic address returned PDF headers');
+        const body = await rejected.text();
+        assert(!body.startsWith('%PDF'), 'Invalid satellite clinic address returned PDF bytes');
+        for (const marker of STACK_TRACE_MARKERS) {
+          assert(!body.includes(marker), `Bad-request response leaked the stack-trace marker "${marker}"`);
+        }
+      } finally {
+        await rejected.dispose();
+      }
+    }
 
     // --- 2: a /ws 5xx body is replaced even with no stack trace -------------------
     //
@@ -252,8 +239,8 @@ legacyHarness.runLegacyCheck('error-sanitization',async({cancellation})=>{
     cancellation?.throwIfCancelled();
 
     console.log(
-      'PASS error sanitization: an exception escaping the filter chain and a /ws 5xx both come '
-      + 'back as the generic Reference ID page, through the packaged front door, with no '
+      'PASS error sanitization: invalid satellite clinic input returns 400 and a /ws 5xx returns '
+      + 'the generic Reference ID page, through the packaged front door, with no '
       + 'stack-trace markers and no underlying entity leaked',
     );
   } catch (error) {

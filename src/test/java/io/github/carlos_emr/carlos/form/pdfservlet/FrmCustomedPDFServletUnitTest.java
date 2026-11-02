@@ -2266,6 +2266,84 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         assertThat(parsed.get("clinicName")).isEqualTo("Site Nord\n2 rue Nord\nGatineau, QC J8X 1A1");
     }
 
+    private static java.util.stream.Stream<String> malformedSatelliteAddresses() {
+        return java.util.stream.Stream.of(null, "", "  ", "PRIVATE_CLINIC_INPUT", "<b>Doctor",
+                "<b>Doctor</b>", "<b>Doctor</b><br>Clinic",
+                "<b>Doctor</b><br>Clinic<br>Street<br>City<br>Tel: 123",
+                "<b>Doctor</b>Clinic<br>Street<br>City<br>Tel: 123<br>Fax: 456",
+                "<b>Doctor</b><br>Clinic<br>Street<br>City<br>Tel: 123<br>Fax: 456<br>extra",
+                "Doctor</b><br>Clinic<br>Street<br>City<br>Tel: 123<br>Fax: 456");
+    }
+
+    private static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> malformedSatelliteRequests() {
+        return java.util.stream.Stream.of("GET", "POST").flatMap(method ->
+                malformedSatelliteAddresses().map(address ->
+                        org.junit.jupiter.params.provider.Arguments.of(method, address)));
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("malformedSatelliteAddresses")
+    void shouldRejectMalformedSatelliteAddress_whenParsingBlock(String address) {
+        assertThatThrownBy(() -> FrmCustomedPDFServlet.parseSCAddress(address))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid satellite clinic address");
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("malformedSatelliteRequests")
+    void shouldReturnBadRequest_whenSatelliteAddressIsMalformed(String method, String address) throws Exception {
+        MockHttpServletRequest request = createPreviewRequest();
+        request.setMethod(method);
+        request.setParameter("useSC", "TrUe");
+        if (address != null) {
+            request.setParameter("scAddress", address);
+        }
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+        servlet.init(new MockServletConfig(new MockServletContext()));
+
+        try (MockedStatic<PdfWriter> pdfWriter = mockStatic(PdfWriter.class)) {
+            serviceAs(servlet, request, response, mock(LoggedInInfo.class));
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(response.getErrorMessage()).isEqualTo("Invalid satellite clinic address");
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            pdfWriter.verifyNoInteractions();
+            verifyFaxWasNotQueued();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"true", "TrUe", "false", "absent"})
+    void shouldRenderClinicHeader_whenSatelliteSelectionIsValidOrDisabled(String selection) throws Exception {
+        MockHttpServletRequest request = createPreviewRequest();
+        request.setMethod("GET");
+        boolean useSatellite = Boolean.parseBoolean(selection);
+        if (!"absent".equals(selection)) {
+            request.setParameter("useSC", selection);
+        }
+        request.setParameter("scAddress", useSatellite
+                ? RxSatelliteClinicAddress.html("Dr A", "Satellite & Clinic", "2 North Ave", "Barrie", "ON", "L4M 1A1",
+                        "", "", "T&eacute;l", "Fax")
+                : "malformed but unused");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+        servlet.init(new MockServletConfig(new MockServletContext()));
+
+        serviceAs(servlet, request, response, mock(LoggedInInfo.class));
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(response.getContentType()).isEqualTo("application/pdf");
+        assertThat(new String(response.getContentAsByteArray(), 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
+        try (org.apache.pdfbox.pdmodel.PDDocument pdf = org.apache.pdfbox.Loader.loadPDF(response.getContentAsByteArray())) {
+            String text = new org.apache.pdfbox.text.PDFTextStripper().getText(pdf);
+            assertThat(text).contains(useSatellite ? "Satellite & Clinic" : "Test Clinic");
+            if (useSatellite) {
+                assertThat(text).contains("2 North Ave", "Barrie, ON L4M 1A1");
+            }
+        }
+    }
+
     @Test
     void shouldDecodeSatelliteFields_afterSplittingStructure() {
         String block = RxSatelliteClinicAddress.html("Dr &lt;/b&gt; A", "North <br> &amp; </b> Clinic",
