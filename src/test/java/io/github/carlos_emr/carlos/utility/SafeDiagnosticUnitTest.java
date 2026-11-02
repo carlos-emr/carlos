@@ -131,7 +131,7 @@ class SafeDiagnosticUnitTest {
     @MethodSource("patientObjects")
     void shouldOmitPatientFields_forModelsAndTransferObjects(Object value) throws Exception {
         fillStrings(value);
-        assertThat(value.toString()).doesNotContain(SENSITIVE, "FAKE-SENSITIVE", "forged-event");
+        assertThat(value.toString()).isNotBlank().doesNotContain(SENSITIVE, "FAKE-SENSITIVE", "forged-event");
     }
 
     static Stream<Object> patientObjects() {
@@ -145,7 +145,7 @@ class SafeDiagnosticUnitTest {
         Object value = mock(Class.forName(typeName), CALLS_REAL_METHODS);
         doCallRealMethod().when(value).toString();
         fillStrings(value);
-        assertThat(value.toString()).doesNotContain(SENSITIVE, "FAKE-SENSITIVE", "forged-event");
+        assertThat(value.toString()).isNotBlank().doesNotContain(SENSITIVE, "FAKE-SENSITIVE", "forged-event");
     }
 
     static Stream<String> formerlyReflectiveTypes() {
