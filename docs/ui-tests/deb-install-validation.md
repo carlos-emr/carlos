@@ -1706,7 +1706,7 @@ Message text is never printed unless `--show-messages` is given, because log
 messages can carry patient data. The baseline explains three kinds of event,
 each entry citing the check, the issue or the findings-log row behind it:
 
-- errors the suite provokes on purpose (the 500s of `error-sanitization`, the
+- errors the suite provokes on purpose (the `/ws` 500 of `error-sanitization`, the
   malformed lab uploads, the refusal and rollback probes, the tokenless CSRF
   replays);
 - the validation environment (no internet, a page closed mid-download, a fixture
