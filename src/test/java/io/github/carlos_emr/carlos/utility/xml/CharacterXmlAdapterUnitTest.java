@@ -36,6 +36,26 @@ class CharacterXmlAdapterUnitTest {
     }
 
     @Test
+    void shouldPreserveArrayEntries_withNullAndSpecialCharacters() throws Exception {
+        var type = io.github.carlos_emr.carlos.webserv.rest.to.model.AllowedAppointmentTypeTransfer.class;
+        var bean = new io.github.carlos_emr.carlos.webserv.rest.to.model.AllowedAppointmentTypeTransfer();
+        bean.setCodes(new Character[]{'A', null, '\0', 'é', '&'});
+        JAXBContext context = JAXBContext.newInstance(type);
+        StringWriter written = new StringWriter();
+        context.createMarshaller().marshal(new jakarta.xml.bind.JAXBElement<>(new javax.xml.namespace.QName("value"), type, bean), written);
+        var factory = io.github.carlos_emr.carlos.utility.XmlUtils.createSecureDocumentBuilderFactory();
+        factory.setNamespaceAware(true);
+        var actual = factory.newDocumentBuilder().parse(new org.xml.sax.InputSource(new java.io.StringReader(written.toString())));
+        try (var input = getClass().getResourceAsStream("/xml/jaxb-character-array-baseline.xml")) {
+            var expected = factory.newDocumentBuilder().parse(input);
+            assertThat(actual.getDocumentElement().isEqualNode(expected.getDocumentElement())).isTrue();
+        }
+        var read = context.createUnmarshaller().unmarshal(new javax.xml.transform.stream.StreamSource(
+                new java.io.StringReader(written.toString())), type).getValue();
+        assertThat(read.getCodes()).containsExactly('A', null, '\0', 'é', '&');
+    }
+
+    @Test
     void shouldDeclareStringCodes_inSoapSchemas() throws Exception {
         JAXBContext context = JAXBContext.newInstance(ScheduleTemplateCodeTransfer.class, CalendarScheduleCodePairTransfer.class);
         assertThat(context.getClass().getName()).startsWith("org.glassfish.jaxb.");

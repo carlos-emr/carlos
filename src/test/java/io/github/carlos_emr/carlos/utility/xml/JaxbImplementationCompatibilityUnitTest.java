@@ -320,6 +320,11 @@ class JaxbImplementationCompatibilityUnitTest {
         }
         for (RuntimeClassInfo info = model.beans().get(type); info != null; info = info.getBaseClass()) {
             for (RuntimePropertyInfo property : info.getProperties()) {
+                // These aliases all mutate the same comma-delimited address. Populate its backing
+                // representation once, rather than exercising UI setter normalization as a fixture builder.
+                if (type.getName().endsWith(".ProfessionalSpecialist") && Set.of(
+                        "address", "address2", "city", "country", "postal", "province", "organizationName")
+                        .contains(property.getName())) continue;
                 Object value = populated(property.getRawType(), branch, depth + 1, model);
                 if (value instanceof String && property.getName().equals("dateOfBirth")) value = "15";
                 if (value instanceof String && property.getName().equals("monthOfBirth")) value = "07";
@@ -329,6 +334,8 @@ class JaxbImplementationCompatibilityUnitTest {
                     value = new ArrayList<>(List.of(new io.github.carlos_emr.carlos.hospitalReportManager.xsd.ObjectFactory()
                             .createPhoneNumberNumber("5550100")));
                 }
+                if (type.getName().endsWith(".ProfessionalSpecialist") && property.getName().equals("streetAddress"))
+                    value = "7,7,7,7,7";
                 if (type.getName().endsWith(".ProfessionalSpecialist") && property.getName().equals("addressArray"))
                     value = new String[]{"7,", "7,", "7,", "7,", "7,"};
                 if (property.getName().equals("content") && type.getName().contains("SearchResponse")) {
