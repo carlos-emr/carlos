@@ -289,7 +289,7 @@
         <!-- Netty Version (for transitive dependency security fixes) -->
         <netty.version>4.1.139.Final</netty.version>
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
-        <drools.version>10.1.0</drools.version>
+        <drools.version>10.2.0</drools.version>
         <!-- Spring -->
         <spring.version>7.0.10</spring.version>
         <spring-security.version>7.1.2</spring-security.version>
