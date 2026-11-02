@@ -67,6 +67,7 @@
  * on a disposable demo database and remove their related rows by document_no.
  */
 
+const { validateCredentialBaseUrl: validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { browserErrorClass } = require('./browser-error-class');
@@ -78,28 +79,14 @@ const path = require('node:path');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
 const { removeOwnedDocumentFile } = require('./local-fixture-cleanup');
 
-/*
- * Hosts that are unambiguously this machine or its compose network. The teardown below
- * DELETEs document rows, so the database target is held to this narrower set rather than
- * BASE_URL's (which also admits private IPv4). Same sets as
- * assign-role-playwright-checks.js, which seeds rows for the same reason.
- */
-const EXACT_LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', 'db', 'carlos']);
-
-/*
- * Strictly this machine's own loopback interface. Deliberately NARROWER than EXACT_LOCAL_HOSTS,
- * which also admits the compose service names: those resolve over a real network, so a
- * certificate served on one has to be verified. Only this set may switch TLS checking off.
- */
+// The shared guard requires explicit opt-in for non-loopback app and SQL targets.
+// Loopback relaxes TLS by default; ALLOW_UNVERIFIED_TLS is a separate explicit override.
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1']);
 
 function normalizeHost(rawHost) {
   return String(rawHost).toLowerCase().replace(/^\[|\]$/g, '');
 }
 
-function isExactLocalHost(rawHost) {
-  return EXACT_LOCAL_HOSTS.has(normalizeHost(rawHost));
-}
 
 function isLoopbackHost(rawHost) {
   return LOOPBACK_HOSTS.has(normalizeHost(rawHost));
@@ -107,11 +94,7 @@ function isLoopbackHost(rawHost) {
 
 /** Refuses to point the fixture teardown's DELETEs at a database that is not plainly local. */
 function validateMysqlHost(rawHost) {
-  if (!isExactLocalHost(rawHost) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
-    throw new Error(`Refusing to delete probe document rows from non-local MYSQL_HOST ${rawHost};`
-      + ' set ALLOW_NON_LOCAL_MYSQL_HOST=true for a disposable test database');
-  }
-  return rawHost;
+  return require('./lib/playwright-harness').validateMysqlHost(rawHost);
 }
 
 const config = {
@@ -146,30 +129,6 @@ const docDescription = `carlos-nav-probe-${randomUUID()}`;
 const linkInputDescription = `${docDescription}-link`;
 const linkDescription = `${linkInputDescription} (link)`;
 const docTypeName = 'CARLOS Nav Probe';
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  // Credentials in the URL would ride along on every navigation and surface in Playwright's
-  // own error messages, which this script prints on failure.
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const octets = host.split('.');
-  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
-  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
-    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
-    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
 
 /** True when BASE_URL points at this machine, the only case where a bad cert is expected. */
 function isLoopbackTarget() {

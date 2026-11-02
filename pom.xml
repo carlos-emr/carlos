@@ -304,16 +304,13 @@
         <!-- Bouncy Castle -->
         <bouncycastle.version>1.86</bouncycastle.version>
         <!-- JasperReports -->
-        <jasperreports.version>7.0.8</jasperreports.version>
+        <jasperreports.version>7.1.0</jasperreports.version>
         <!-- Keep the POI core/OOXML family aligned with its XMLBeans runtime. -->
         <poi.version>5.5.1</poi.version>
         <xmlbeans.version>5.3.0</xmlbeans.version>
-        <!-- Modern OpenPDF uses org.openpdf.* for handwritten PDF code.
-             JasperReports PDF still uses the legacy com.lowagie.* OpenPDF coordinate;
-             keep both coordinates distinct so Maven does not replace the JasperReports
-             runtime classes with the incompatible org.openpdf namespace. -->
-        <openpdf.version>3.0.3</openpdf.version>
-        <jasperreports.openpdf.version>1.3.43</jasperreports.openpdf.version>
+        <!-- One stock Maven Central OpenPDF for JasperReports, application PDF code,
+             Flying Saucer and OpenRTF, all using org.openpdf.* (#5471). -->
+        <openpdf.version>3.0.5</openpdf.version>
         <!-- PDFBox -->
         <pdfbox.version>3.0.8</pdfbox.version>
         <!-- TwelveMonkeys ImageIO -->
@@ -352,16 +349,9 @@
             <url>file://${basedir}/local_repo</url>
         </repository>
 
-        <!-- JitPack fully removed. Every artifact it used to serve is vendored in
-             local_repo, byte-identical to dependencies-lock.json:
-             - com.github.librepdf.openpdf:openpdf 3.0.3 (+ parent POM).
-               These keep the JitPack multi-module coordinates on purpose: the modern
-               org.openpdf.* 3.x line must coexist with com.github.librepdf:openpdf
-               1.3.x (com.lowagie.*) required by JasperReports, and Maven allows only
-               one version per groupId:artifactId.
-             Removing JitPack ends its on-demand rebuilds serving different bytes
-             (SHA512 lock failures) and its shadowing of Maven Central artifacts
-             under alternate groupIds. -->
+        <!-- JitPack is no longer used. OpenPDF resolves from Maven Central;
+             local_repo retains only artifacts unavailable there. Every artifact
+             is checked against dependencies-lock.json, including its SHA512. -->
         <repository>
             <id>central</id>
             <url>https://repo.maven.apache.org/maven2</url>
@@ -1044,13 +1034,11 @@
             <artifactId>serializer</artifactId>
         </dependency>
 
-        <!-- Modern OpenPDF (LGPL) for application code that imports org.openpdf.*.
-             Do not use the com.github.librepdf group here; JasperReports PDF needs that
-             legacy coordinate at 1.3.x because it is compiled against com.lowagie.*.
-             The com.github.librepdf.openpdf coordinates are vendored in local_repo
-             (formerly served by JitPack, now removed). -->
+        <!-- OpenPDF (LGPL), shared by all PDF producers. Keep upstream's Brotli
+             dependency: PdfReader can encounter /BrotliDecode in incoming PDFs.
+             Its native library loads lazily; generated PDFs still use Flate. -->
         <dependency>
-            <groupId>com.github.librepdf.openpdf</groupId>
+            <groupId>com.github.librepdf</groupId>
             <artifactId>openpdf</artifactId>
             <version>${openpdf.version}</version>
             <exclusions>
@@ -1150,20 +1138,19 @@
             </exclusions>
         </dependency>
 
-        <!-- JasperReports PDF exporter (split from core in JR7) -->
+        <!-- JasperReports' OpenPDF 3 exporter. Use stock Central OpenPDF above:
+             CARLOS does not enable the PDF/UA tagging that requires Jaspersoft's
+             patched build. See docs/jasperreports-openpdf3.md (#5471). -->
         <dependency>
             <groupId>net.sf.jasperreports</groupId>
-            <artifactId>jasperreports-pdf</artifactId>
+            <artifactId>jasperreports-openpdf</artifactId>
             <version>${jasperreports.version}</version>
-        </dependency>
-
-        <!-- JasperReports PDF 7.0.x is compiled against OpenPDF's legacy com.lowagie.*
-             package names. Keep this explicit so org.openpdf.* upgrades do not silently
-             remove classes such as com.lowagie.text.SplitCharacter from the webapp. -->
-        <dependency>
-            <groupId>com.github.librepdf</groupId>
-            <artifactId>openpdf</artifactId>
-            <version>${jasperreports.openpdf.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.github.librepdf</groupId>
+                    <artifactId>openpdf</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- JasperReports JDT compiler (required for runtime .jrxml compilation) -->
@@ -2340,10 +2327,8 @@
                 <configuration>
                     <!-- Can be overridden with -Ddependency.lock.filename=xxx -->
                     <filename>${dependency.lock.filename}</filename>
-                    <!-- No exemptions: formerly JitPack-served artifacts (openpdf 3.x) are
-                         vendored in local_repo with deterministic bytes that
-                         match the lock, so full version+integrity checking applies to the
-                         entire tree. -->
+                    <!-- No exemptions: version and integrity checking applies to
+                         the entire tree, including the remaining local artifacts. -->
                 </configuration>
                 <executions>
                     <execution>
@@ -2367,6 +2352,24 @@
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <version>3.6.3</version>
                 <executions>
+                    <execution>
+                        <id>ban-legacy-openpdf</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>com.github.librepdf:openpdf:(,3.0.0)</exclude>
+                                        <exclude>com.github.librepdf.openpdf:*</exclude>
+                                        <exclude>net.sf.jasperreports:jasperreports-pdf</exclude>
+                                    </excludes>
+                                    <message>All PDF producers use stock OpenPDF 3 and jasperreports-openpdf. Legacy com.lowagie and vendored JitPack coordinates must remain absent (#5471).</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
                     <execution>
                         <id>ban-global-xerces-providers</id>
                         <goals>

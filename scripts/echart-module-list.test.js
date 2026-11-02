@@ -100,6 +100,7 @@ for (const appRoot of ['/carlos', '/proxy/carlos', '']) {
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, 'lib/echart-module-list.js'), 'utf8'), {
       module, URL,
       require(name) {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
         if (name === './playwright-harness') return h;
         if (name === './chart-lock-cleanup') return {};
         if (name === '../master-record-tabs-playwright-checks') return { openMasterRecord: async () => ({ masterPage: {} }) };

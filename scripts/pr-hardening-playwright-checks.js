@@ -69,6 +69,8 @@
  * removed) cannot restore a real form as a side effect of running the check.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
@@ -96,21 +98,25 @@ const config = {
 // A fid that cannot exist, so a regression cannot restore a real eForm.
 const UNUSED_FID = '999999999';
 
-(async () => {
+legacyHarness.runLegacyCheck('pr-hardening',async({cancellation})=>{
   if (config.baseUrl.protocol !== 'https:') {
     console.warn(
       'WARN: BASE_URL is not HTTPS. These assertions are about what the packaged front door '
       + 'refuses, so run this through :443 to keep that coverage.',
     );
   }
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   const recorder = createRecorder();
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1400, height: 900 } });
+    cancellation?.throwIfCancelled();
     const loginPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await loginPage.close();
+    cancellation?.throwIfCancelled();
 
     const page = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(page, 'pr-hardening', recorder);
 
     // --- 1 & 2: mutating routes must refuse GET ---------------------------------
@@ -136,6 +142,7 @@ const UNUSED_FID = '999999999';
         failOnStatusCode: false,
         maxRedirects: 0,
       });
+    cancellation?.throwIfCancelled();
       const status = response.status();
       assert(
         status === 405,
@@ -149,6 +156,7 @@ const UNUSED_FID = '999999999';
       `${config.baseUrl.href}/rx/updateDrugrefDB?method=verify`,
       { failOnStatusCode: false, maxRedirects: 0 },
     );
+    cancellation?.throwIfCancelled();
     assert(
       statusProbe.status() < 400,
       `GET on the read-only DrugRef status probe returned HTTP ${statusProbe.status()}. The `
@@ -168,19 +176,25 @@ const UNUSED_FID = '999999999';
     ];
     for (const path of standalonePages) {
       const standalone = await context.newPage();
+    cancellation?.throwIfCancelled();
       wirePage(standalone, `standalone${path.replace(/\//g, '-')}`, recorder);
       const response = await gotoApp(standalone, config.baseUrl, path);
+    cancellation?.throwIfCancelled();
       assert(
         response === null || response.status() < 400,
         `Opening ${path} standalone returned HTTP ${response && response.status()}.`,
       );
       await standalone.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
       await standalone.close();
+    cancellation?.throwIfCancelled();
     }
 
     // --- 5: the admin shell must not paint the "0 error" banner ------------------
     await gotoApp(page, config.baseUrl, '/administration');
+    cancellation?.throwIfCancelled();
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     // Find any contentLink whose href cannot be loaded. These exist by design --
     // they do their work in their own onclick and borrow the class for styling --
     // and loading the literal href is what produced status 0 / "error".
@@ -189,8 +203,11 @@ const UNUSED_FID = '999999999';
     ).first();
     if (await bogusLink.count() > 0) {
       await bogusLink.click({ timeout: 10000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
       await page.waitForTimeout(1500);
+    cancellation?.throwIfCancelled();
       const panelText = (await page.locator('#dynamic-content').innerText().catch(() => '')).trim();
+    cancellation?.throwIfCancelled();
       assert(
         !/Sorry but there was an error/i.test(panelText),
         'Clicking a javascript:/# contentLink in the Administration shell painted the '
@@ -201,9 +218,12 @@ const UNUSED_FID = '999999999';
 
     // --- 6: a rejected lab upload must say so, not 500 and not "complete" --------
     const labPage = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(labPage, 'lab-upload-empty', recorder);
     await gotoApp(labPage, config.baseUrl, '/lab/CA/ALL/ViewInsideLabUpload');
+    cancellation?.throwIfCancelled();
     await labPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     const labFileInput = labPage.locator('input[type="file"]').first();
     if (await labFileInput.count() > 0) {
       const os = require('os');
@@ -214,6 +234,7 @@ const UNUSED_FID = '999999999';
       const emptyHl7 = path.join(dir, 'empty-lab.hl7');
       fs.writeFileSync(emptyHl7, Buffer.alloc(0));
       await labFileInput.setInputFiles(emptyHl7);
+    cancellation?.throwIfCancelled();
       const submit = labPage.locator('input[type="submit"], button[type="submit"]').first();
       if (await submit.count() > 0) {
         const [labResponse] = await Promise.all([
@@ -221,6 +242,7 @@ const UNUSED_FID = '999999999';
             .catch(() => null),
           submit.click().catch(() => {}),
         ]);
+    cancellation?.throwIfCancelled();
         if (labResponse) {
           assert(
             labResponse.status() !== 500,
@@ -228,7 +250,9 @@ const UNUSED_FID = '999999999';
               + 'shared rejection page, not fall through to errorpage.jsp.',
           );
           await labPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
           const labText = (await labPage.locator('body').innerText()).trim();
+    cancellation?.throwIfCancelled();
           assert(
             !/successfully uploaded|upload complete/i.test(labText),
             'A REJECTED lab upload reported success. The "input" result must not resolve to the '
@@ -239,6 +263,7 @@ const UNUSED_FID = '999999999';
       fs.rmSync(dir, { recursive: true, force: true });
     }
     await labPage.close();
+    cancellation?.throwIfCancelled();
 
     // --- 7: a JSP-to-JSP forward must deliver the forwarded body -----------------
     //
@@ -257,6 +282,7 @@ const UNUSED_FID = '999999999';
       `${config.baseUrl.href}/oscarReport/reportByTemplate/ViewViewTemplate`,
       { failOnStatusCode: false, maxRedirects: 0 },
     );
+    cancellation?.throwIfCancelled();
     assert(
       forwardProbe.status() === 200,
       `GET ViewViewTemplate (no templateid) returned HTTP ${forwardProbe.status()}, expected 200. `
@@ -264,6 +290,7 @@ const UNUSED_FID = '999999999';
         + 'the mid-page <jsp:forward> to the report home page errored.',
     );
     const forwardBody = await forwardProbe.text();
+    cancellation?.throwIfCancelled();
     assert(
       forwardBody.includes('<title>Report by Template</title>'),
       `The JSP-to-JSP forward came back without the forwarded page's content (${forwardBody.length} `
@@ -272,7 +299,9 @@ const UNUSED_FID = '999999999';
     );
 
     await screenshot(page, config.screenshotDir, 'pr-hardening');
+    cancellation?.throwIfCancelled();
     await page.close();
+    cancellation?.throwIfCancelled();
 
     // Every page this check drove must be free of uncaught JavaScript. This is
     // assertion 4's real teeth: the standalone pages above are opened precisely
@@ -280,6 +309,7 @@ const UNUSED_FID = '999999999';
     assertNoPageErrors(recorder);
 
     await context.close();
+    cancellation?.throwIfCancelled();
 
     console.log(
       'PASS PR hardening: mutating routes refuse GET, the read-only DrugRef probe still answers '
@@ -295,4 +325,4 @@ const UNUSED_FID = '999999999';
   } finally {
     await browser.close();
   }
-})();
+});

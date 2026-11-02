@@ -22,6 +22,7 @@
  * deletes every BC billing row of the patient, then its appointments and their archive rows, then
  * the physician, and asserts each is gone. BC installs only (billregion=BC).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const bc = require('./lib/bc-billing-fixture');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -184,7 +185,7 @@ async function workflow(s) {
   });
 
   await s.step(STEP.get, async () => {
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl,
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl,
       `${UNBILL_ROUTE}?status=B&appointment_no=${appointments.open}`), { maxRedirects: 0 });
     h.assert(response.status() === 405, `A GET unbill answered ${response.status()}, not 405`);
     h.assert(state(appointments.open) === 'B|O|O', `A refused GET unbill changed the open claim: ${state(appointments.open)}`);
