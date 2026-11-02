@@ -119,6 +119,8 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     private static Logger logger = MiscUtils.getLogger();
     private static final String TELEPHONE_LABEL = "RxPreview.msgTel";
+    private static final String SATELLITE_CLINIC_ADDRESS = "scAddress";
+    private static final String INVALID_SATELLITE_CLINIC_ADDRESS = "Invalid satellite clinic address";
     /** Distance from the page top to the patient heading's top edge. */
     private static final float PATIENT_HEADER_TOP_OFFSET = 110f;
     /** Historical distance from the page top to the narrow-page pharmacy block. */
@@ -426,18 +428,17 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     private ByteArrayOutputStream generatePDFDocumentBytesOrReportFaxFailure(HttpServletRequest request,
             byte[] signatureImage, boolean isFax, HttpServletResponse response) throws DocumentException, IOException {
-        HashMap<String, String> satelliteClinicAddress = null;
         if (Boolean.parseBoolean(request.getParameter("useSC"))) {
             try {
                 // For faxes this is the configured block selected by bindFaxContentToRecord.
-                satelliteClinicAddress = parseSCAddress(request.getParameter("scAddress"));
-            } catch (IllegalArgumentException invalidAddress) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid satellite clinic address");
+                parseSCAddress(request.getParameter(SATELLITE_CLINIC_ADDRESS));
+            } catch (IllegalArgumentException _) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, INVALID_SATELLITE_CLINIC_ADDRESS);
                 return null;
             }
         }
         try {
-            return generatePDFDocumentBytes(request, getServletContext(), signatureImage, satelliteClinicAddress);
+            return generatePDFDocumentBytes(request, getServletContext(), signatureImage);
         } catch (IOException | RuntimeException failure) {
             // org.openpdf.text.DocumentException in OpenPDF 3 is a RuntimeException,
             // so this includes it (unlike the separate legacy com.lowagie API).
@@ -991,17 +992,17 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      */
     static HashMap<String, String> parseSCAddress(String s) {
         if (s == null || !s.startsWith("<b>")) {
-            throw new IllegalArgumentException("Invalid satellite clinic address");
+            throw new IllegalArgumentException(INVALID_SATELLITE_CLINIC_ADDRESS);
         }
         HashMap<String, String> hm = new HashMap<String, String>();
         String[] ar = s.split("</b>", 2);
         if (ar.length != 2) {
-            throw new IllegalArgumentException("Invalid satellite clinic address");
+            throw new IllegalArgumentException(INVALID_SATELLITE_CLINIC_ADDRESS);
         }
         String[] ar2 = ar[1].split("<br>", -1);
         // One leading break and five fields; empty optional fields remain valid.
         if (ar2.length != 6 || !ar2[0].isEmpty()) {
-            throw new IllegalArgumentException("Invalid satellite clinic address");
+            throw new IllegalArgumentException(INVALID_SATELLITE_CLINIC_ADDRESS);
         }
         ArrayList<String> lst = new ArrayList<String>(Arrays.asList(ar2));
         lst.remove(0);
@@ -1208,14 +1209,14 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // differently-cased flag nor a made-up block can reach parseSCAddress. Anything else renders
         // the main clinic bound above.
         String offeredBlock = null;
-        if (RxSatelliteClinicAddress.clinicPart(req.getParameter("scAddress")) != null) {
+        if (RxSatelliteClinicAddress.clinicPart(req.getParameter(SATELLITE_CLINIC_ADDRESS)) != null) {
             String tel = SafeEncode.forHtml(LocaleUtils.getMessage(LocaleUtils.resolveBundleLocale(req), TELEPHONE_LABEL));
             String fax = SafeEncode.forHtml(LocaleUtils.getMessage(LocaleUtils.resolveBundleLocale(req), "RxPreview.msgFax"));
             // A covering provider may legitimately refax this stored prescription. The callback
             // header still belongs to the persisted prescriber whose name and signature are on the
             // document, never to the covering provider who happened to open the fax dialog.
             offeredBlock = RxSatelliteClinicAddress.offeredBlock(
-                    RxSatelliteClinicAddress.blocksFor(prescriber, tel, fax), req.getParameter("scAddress"));
+                    RxSatelliteClinicAddress.blocksFor(prescriber, tel, fax), req.getParameter(SATELLITE_CLINIC_ADDRESS));
             if (offeredBlock == null) {
                 logger.warn("Fax named a satellite clinic block its prescriber is not offered; using the main clinic header");
             }
@@ -1223,7 +1224,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         // Render the original encoded OFFERED block, not the request's copy: the parser
         // separates structural delimiters before decoding each field exactly once.
         bound.put("useSC", offeredBlock != null ? "true" : "false");
-        bound.put("scAddress", offeredBlock != null ? offeredBlock : "");
+        bound.put(SATELLITE_CLINIC_ADDRESS, offeredBlock != null ? offeredBlock : "");
 
         // Reprint annotation. The preview decides "is this a reprint" from the reprint the
         // reprint action recorded for THIS prescription's patient (per patient, #3908: a reprint
@@ -1701,15 +1702,13 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      * @param ctx ServletContext for resource resolution
      * @param signatureImage decoded signature image bytes to draw above the signature line, or
      *                       {@code null} to leave the line blank (see {@link #resolveSignatureImage})
-     * @param satelliteClinicAddress validated satellite header, or {@code null} for the primary clinic
      * @return ByteArrayOutputStream containing the generated PDF bytes
      * @throws DocumentException if an OpenPDF document error occurs during PDF generation
      * @throws IOException if an I/O error occurs during PDF generation
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx,
-            final byte[] signatureImage, final HashMap<String, String> satelliteClinicAddress) throws DocumentException, IOException {
+    private ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx, final byte[] signatureImage) throws DocumentException, IOException {
         logger.debug("***in generatePDFDocumentBytes2 FrmCustomedPDFServlet.java***");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
@@ -1726,10 +1725,13 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         String clinicTel;
         String clinicFax;
         // check if satellite clinic is used
-        if (satelliteClinicAddress != null) {
-            clinicName = satelliteClinicAddress.get("clinicName");
-            clinicTel = satelliteClinicAddress.get("clinicTel");
-            clinicFax = satelliteClinicAddress.get("clinicFax");
+        String useSatelliteClinic = req.getParameter("useSC");
+        if (useSatelliteClinic != null && useSatelliteClinic.equalsIgnoreCase("true")) {
+            String scAddress = req.getParameter(SATELLITE_CLINIC_ADDRESS);
+            HashMap<String, String> hm = parseSCAddress(scAddress);
+            clinicName = hm.get("clinicName");
+            clinicTel = hm.get("clinicTel");
+            clinicFax = hm.get("clinicFax");
         } else {
             // parameters need to be passed to header and footer
             clinicName = req.getParameter("clinicName");
