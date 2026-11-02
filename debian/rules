@@ -54,10 +54,10 @@ MVN        := mvn -B -Dmaven.repo.local=$(MVN_REPO)
 # -Dmaven.compiler.fork=true: the in-process javac of this single-module WAR
 # holds the Maven JVM's jars and the whole compile file set in ONE process and
 # can exhaust a 4096 file-descriptor limit part-way through. Forking splits the
-# load. -Pskip-dependency-lock: JitPack artifacts re-hash between fetches, so
-# the lock check is a false positive on a normal build; a release build that
-# wants it enforced drops the profile.
-MVN_FLAGS  := -DskipTests=true -Dcheckstyle.skip=true -Dmaven.compiler.fork=true -Pskip-dependency-lock
+# load. Keep the normal validate-phase dependency lock check enabled: formerly
+# JitPack-served artifacts are now vendored with deterministic bytes in
+# local_repo, so release builds need no integrity-check exemptions.
+MVN_FLAGS  := -DskipTests=true -Dcheckstyle.skip=true -Dmaven.compiler.fork=true
 
 PKG        := carlos-emr
 DPKG       := carlos-emr-drugref
@@ -147,7 +147,10 @@ ifeq ($(SKIP_DRUGREF),)
 	    $(CURDIR)/debian/fetch-drugref.sh "$(DRUGREF_REF)" $(BUILDDIR)/drugref-src; \
 	    src=$(BUILDDIR)/drugref-src; \
 	  fi; \
-	  $(MVN) -f "$$src/pom.xml" $(MVN_FLAGS) -Dmaven.test.skip=true clean package; \
+	  lock="$$(realpath --relative-to="$$src" "$(CURDIR)/debian/drugref-dependencies-lock.json")"; \
+	  $(MVN) -f "$$src/pom.xml" $(MVN_FLAGS) -Dmaven.test.skip=true \
+	    "-DdependencyLock.filename=$$lock" \
+	    se.vandmo:dependency-lock-maven-plugin:1.1.1:check clean package; \
 	  cp -f "$$src"/target/drugref2*.war $(BUILDDIR)/drugref2.war; \
 	fi
 endif
