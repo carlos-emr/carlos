@@ -1455,6 +1455,15 @@ OAUTH_ACCESS_DEFAULTS
         # not report success over it.
         [ -e /etc/nginx/sites-enabled/carlos-emr ] || export CARLOS_CONFIGURE_FIRST_RUN=1
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
+            # Retire Ubuntu's default site BEFORE init-config refreshes the
+            # certificate or tests nginx. Its unconditional [::]:80 listener
+            # fails on IPv6-less hosts even though our rendered listeners are
+            # IPv4-only. Remove only the symlink, never nginx's conffile or an
+            # operator's regular file. The CARLOS site is enabled below once
+            # its generated includes and certificate are in place.
+            if [ -L /etc/nginx/sites-enabled/default ]; then
+                rm -f /etc/nginx/sites-enabled/default
+            fi
             carlos-ctl init-config || {
                 echo "carlos-emr: WARNING: init-config reported a problem applying the front-door" >&2
                 echo "carlos-emr: WARNING: configuration (see above). The install continues; fix the" >&2
@@ -1758,13 +1767,6 @@ OAUTH_ACCESS_DEFAULTS
 
         # --- nginx ----------------------------------------------------------
         if [ -d /etc/nginx/sites-enabled ]; then
-            # Ubuntu's nginx ships a default site on port 80 that would answer
-            # for any host name this server does not match, including the ACME
-            # challenge. Remove the symlink (never the file — it is another
-            # package's conffile).
-            if [ -L /etc/nginx/sites-enabled/default ]; then
-                rm -f /etc/nginx/sites-enabled/default
-            fi
             ln -sfn /etc/nginx/sites-available/carlos-emr /etc/nginx/sites-enabled/carlos-emr
         fi
         if nginx -t >/dev/null 2>&1; then
@@ -1781,9 +1783,17 @@ OAUTH_ACCESS_DEFAULTS
                 # configured listeners are bound and restart when they are
                 # not (a restart closes every old socket before binding
                 # anew). carlos-ctl init-config does the same.
-                if ! sd_invoke reload nginx.service 2>/dev/null; then
-                    echo "carlos-emr: WARNING: nginx reload failed — the rendered front-door configuration is not live (systemctl status nginx; journalctl -u nginx)" >&2
-                    mark_incomplete "nginx could not reload the rendered front-door configuration"
+                # nginx's own first configure may have failed on the default
+                # site's IPv6 socket. A reload cannot bring up an inactive
+                # unit. Start it on first install, through policy-rc.d as
+                # usual; upgrades keep the existing reload behaviour.
+                nginx_action=reload
+                if [ -z "${2:-}" ] && ! systemctl is-active --quiet nginx.service; then
+                    nginx_action=start
+                fi
+                if ! sd_invoke "${nginx_action}" nginx.service 2>/dev/null; then
+                    echo "carlos-emr: WARNING: nginx ${nginx_action} failed — the rendered front-door configuration is not live (systemctl status nginx; journalctl -u nginx)" >&2
+                    mark_incomplete "nginx could not ${nginx_action} the rendered front-door configuration"
                 elif front_door_listening; then
                     :
                 else
