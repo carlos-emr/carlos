@@ -108,8 +108,7 @@
             <input type="submit" name="submitButton" value="Save Association"
                    onclick="setMode('edit');"/> <input type="reset" value="Clear"/></fieldset>
     </form>
-    <%-- This page is reached by a forward, so the paging links need the action's address (without it they name the
-         WEB-INF page, 404); excludedParams keeps a refused save's fields out of those GET links. --%>
+    <%-- Paging is local; rejected save fields are never repeated into navigation URLs. --%>
     <p/><table class="displayGrid" data-carlos-table data-page-size="50" data-default-sort="1" data-default-order="descending">
 <thead><tr>
         <th scope="col">Procedure Fee Code</th>

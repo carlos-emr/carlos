@@ -2,7 +2,6 @@
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const http = require('node:http');
 const path = require('node:path');
 const { chromium } = require('playwright');
 
@@ -17,12 +16,7 @@ async function main() {
         data-page-size="2" data-default-sort="1" data-default-order="descending">
         <thead><tr><th><span data-table-sort>Number</span></th>
         <th><span data-table-sort>Code</span></th><th>Options</th></tr></thead>
-        <tbody>${rows}</tbody></table></form><script src="/tables.js"></script></body></html>`;
-    const server = http.createServer((request, response) => {
-        response.setHeader('Content-Type', request.url === '/tables.js' ? 'text/javascript; charset=utf-8' : 'text/html; charset=utf-8');
-        response.end(request.url === '/tables.js' ? script : html);
-    });
-    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+        <tbody>${rows}</tbody></table></form></body></html>`;
     let browser;
     try {
         browser = await chromium.launch({ executablePath: process.env.CARLOS_SMOKE_CHROMIUM || '/usr/bin/chromium',
@@ -30,7 +24,8 @@ async function main() {
         const page = await browser.newPage();
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
-        await page.goto(`http://127.0.0.1:${server.address().port}`);
+        await page.setContent(html);
+        await page.addScriptTag({content: script.toString('utf8')});
         await page.evaluate(() => {
             window.submits = 0;
             window.edited = null;
@@ -71,14 +66,13 @@ async function main() {
         assert.deepEqual(errors, []);
         const noScript = await browser.newContext({javaScriptEnabled: false});
         const plain = await noScript.newPage();
-        await plain.goto(`http://127.0.0.1:${server.address().port}`);
+        await plain.setContent(html);
         assert.equal(await plain.locator('#codes tbody tr:visible').count(), 3);
         assert.equal(await plain.locator('.table-sort').count(), 0);
         await noScript.close();
         console.log('PASS: typed sorting, default order, paging, keyboard control, row actions, and form isolation');
     } finally {
         if (browser) await browser.close();
-        await new Promise(resolve => server.close(resolve));
     }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

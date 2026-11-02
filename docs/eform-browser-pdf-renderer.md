@@ -79,7 +79,7 @@ This preserves the legacy per-page geometry contract the form corpus depends on 
 text-layer PDF. (The previous implementation screenshotted each `pageN` region via
 `Page.captureScreenshot` and glued the PNGs with PDFBox `LosslessFactory`, which produced image-only
 PDFs with no extractable text — and clipped pages whose background image was smaller than their
-content.) Equivalence is pinned by the Selenium smoke test
+content.) Equivalence is pinned by the browser smoke test
 (`EFormBrowserPdfServiceSeleniumSmokeIntegrationTest`): the page-div fixture prints to a 2-page PDF
 whose page count matches the authored divs and whose text layer contains the form's text, and the
 free-flow fixture prints to a text-layer PDF with no injected `@page` size.
@@ -816,7 +816,9 @@ key extraction), the render servlet and token service, the capability cookie and
 authorization, the image/signature/APCache servlets, `LoginFilter` least-privilege, and the
 mutator/GET contract.
 
-End-to-end smoke, which skips cleanly on a host without a browser:
+Opt-in end-to-end smoke with a running local driver service and matching browser binary. The legacy
+`SeleniumSmokeIntegrationTest` class name is retained for existing operator commands; its implementation
+uses the JDK transport. Runs without the service URL or browser binary skip cleanly:
 
 ```bash
 CARLOS_SMOKE_DRIVER_URL=http://127.0.0.1:9515 \
