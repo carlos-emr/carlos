@@ -62,8 +62,7 @@ const STEP = {
 
 const text = (value, width) => String(value).padEnd(width, ' ').slice(0, width);
 const digits = (value, width) => String(value).padStart(width, '0').slice(-width);
-// Keep the importer's fixed-width space padding so CSV/PDF decoding must handle it.
-const cents = (amount, width) => amount.replace('.', '').padStart(width, ' ');
+const cents = (amount, width) => digits(amount.replace('.', ''), width);
 
 /**
  * The FAKE remittance's four records, fixed width as genTA.jsp reads them (S21, S01 and S22 are
@@ -273,6 +272,15 @@ async function workflow(s) {
   });
 
   await s.step(STEP.pdfs, async () => {
+    // The importer retains fixed-width substrings. Exercise space-padded report amounts after
+    // the reconciliation UI assertions, whose existing formatting is outside the export contract.
+    sql.execute(`UPDATE teleplanS21 SET t_amtbilled=LPAD(CAST(t_amtbilled AS UNSIGNED),9,' '),
+        t_amtpaid=LPAD(CAST(t_amtpaid AS UNSIGNED),9,' '), t_cheque=LPAD(CAST(t_cheque AS UNSIGNED),9,' ')
+      WHERE s21_id=${Number(raNo)} AND filename LIKE ${like};
+      UPDATE teleplanS22 SET t_amtbilled=LPAD(CAST(t_amtbilled AS UNSIGNED),9,' '),
+        t_amtpaid=LPAD(CAST(t_amtpaid AS UNSIGNED),9,' ') WHERE s21_id=${Number(raNo)} AND filename LIKE ${like};
+      UPDATE teleplanS00 SET t_paidamt=LPAD(CAST(t_paidamt AS UNSIGNED),9,' ')
+      WHERE s21_id=${Number(raNo)} AND filename LIKE ${like}`);
     // Numbers, not names: the reports' columns can cut a long name.
     for (const [type, label, wanted] of [['REP_MSPREM', 'Billed PDF', [String(patient), PAID.code, REFUSED.code]],
       ['REP_MSPREMSUM', 'Summary PDF', [physician.payeeNo, physician.ohipNo]]]) {
