@@ -26,6 +26,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -246,9 +248,9 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
                 assertThat(json.at("/" + i + "/notes").textValue()).isEqualTo("Synthetic notes");
                 assertThat(json.at("/" + i + "/duration").textValue()).isEqualTo("30m ");
             }
-            org.mockito.Mockito.verify(mockDemographicManager)
+            verify(mockDemographicManager)
                 .getDemographicFormattedNames(any(LoggedInInfo.class), eq(List.of(42, 99, 42)));
-            org.mockito.Mockito.verify(mockDemographicManager, org.mockito.Mockito.never())
+            verify(mockDemographicManager, never())
                 .getDemographicFormattedName(any(), any());
         }
 

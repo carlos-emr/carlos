@@ -778,12 +778,12 @@ public class ScheduleService extends AbstractServiceImpl {
             forNewId.setSearchName(appointmentSearch.getSearchName());
             forNewId.setSearchType(appointmentSearch.getSearchType());
 
-            if (currentAppointmentSearch != null) {
-                currentAppointmentSearch.setActive(false);
-                appointmentSearchDao.merge(currentAppointmentSearch);
-            }
+            currentAppointmentSearch.setActive(false);
+            appointmentSearchDao.merge(currentAppointmentSearch);
 
-            logger.info("searchConfig\n" + XmlUtils.toString(d, true));
+            if (logger.isInfoEnabled()) {
+                logger.info("searchConfig\n{}", XmlUtils.toString(d, true));
+            }
         } catch (Exception e) {
             logger.error("save Search Config Error ", e);
             return Response.status(Status.INTERNAL_SERVER_ERROR)
