@@ -7,6 +7,7 @@ const http = require('node:http');
 const path = require('node:path');
 const {chromium} = require('playwright');
 const web = path.join(__dirname, '../src/main/webapp');
+const calendarCss = fs.readFileSync(path.join(web, 'share/calendar/calendar.css'), 'utf8');
 
 // Serves the shipped scripts so calendar.js can resolve flatpickr and the lang file can resolve its
 // locale relative to their own URLs, exactly as on a deployed page.
@@ -77,6 +78,47 @@ const server = http.createServer(async (req, res) => {
     assert.equal(await page.locator('#today').inputValue(), '29-Sep-2026');
     assert.deepEqual(errors, []);
 
+    // The old *_cal CSS rule hid configured controls even after the shim made
+    // them keyboard-usable (#5058/#5258). Exercise the shipped CSS as well as JS.
+    const controls = await browser.newPage();
+    await controls.setContent('<form>'
+      + '<input id="native" value="2026-09-30"><button id="native_cal" type="button" aria-label="Choose date">Calendar</button>'
+      + '<input id="image" value="2026-09-30"><img id="image_cal" alt="Calendar">'
+      + '<input id="span" value="2026-09-30"><span id="span_cal">Calendar</span>'
+      + '<input id="link" value="2026-09-30"><a id="link_cal" href="#">Calendar</a>'
+      + '<input id="optout"><span id="optout_cal" tabindex="-1">Calendar</span>'
+      + '<span id="unused_cal">Unused calendar</span></form>');
+    await controls.addStyleTag({path:path.join(web, 'library/flatpickr/flatpickr.min.css')});
+    await controls.addStyleTag({content:calendarCss.replace(/^@import[^;]+;/m, '')});
+    await controls.addScriptTag({path:path.join(web, 'library/flatpickr/flatpickr.min.js')});
+    await controls.evaluate(() => {window.Calendar = {_flatpickrReady:true}; window.submissions = 0;
+      document.querySelector('form').addEventListener('submit', event => {event.preventDefault(); window.submissions++;});});
+    await controls.addScriptTag({path:path.join(web, 'share/calendar/calendar-setup.js')});
+    await controls.evaluate(() => {
+      for (const id of ['native','image','span','link','optout']) {
+        Calendar.setup({inputField:id, button:`${id}_cal`, ifFormat:'%Y-%m-%d'});
+      }
+    });
+    for (const id of ['native','image','span','link']) {
+      const trigger = controls.locator(`#${id}_cal`);
+      assert.equal(await trigger.isVisible(), true, `${id}: configured calendar trigger is hidden`);
+      assert.match(await trigger.ariaSnapshot(), /^- (button|link) "[^"]+"/);
+      for (const key of id === 'link' ? ['Enter'] : ['Enter','Space']) {
+        await controls.locator(`#${id}`).focus();
+        await controls.keyboard.press('Escape');
+        await controls.keyboard.press('Tab');
+        assert.equal(await trigger.evaluate(el => el === document.activeElement), true);
+        await controls.keyboard.press(key);
+        assert.equal(await controls.locator('.flatpickr-day:focus').count(), 1);
+        await controls.keyboard.press('Escape');
+        assert.equal(await controls.locator('.flatpickr-calendar.open').count(), 0);
+        assert.equal(await trigger.evaluate(el => el === document.activeElement), true);
+      }
+    }
+    assert.equal(await controls.locator('#optout_cal').isVisible(), false);
+    assert.equal(await controls.locator('#unused_cal').isVisible(), false);
+    assert.equal(await controls.evaluate(() => window.submissions), 0);
+
     // Rourke reserves its read-only field for a double-click shortcut; the separate icon
     // must still open the picker, and the shortcut must keep the picker's state in sync.
     const rourke = await browser.newPage();
@@ -85,7 +127,6 @@ const server = http.createServer(async (req, res) => {
     await rourke.setContent('<form id="frmP1"><input id="visit" readonly ondblclick="resetDate(this)"><button id="visit_cal" type="button" aria-label="Calendar"><img alt="" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="></button><input id="other"></form>');
     await rourke.addStyleTag({path:path.join(web, 'library/flatpickr/flatpickr.min.css')});
     // Inline the shipped rules, with their import already loaded above, so no network is needed.
-    const calendarCss = fs.readFileSync(path.join(web, 'share/calendar/calendar.css'), 'utf8');
     await rourke.addStyleTag({content:calendarCss.replace(/^@import[^;]+;/m, '')});
     await rourke.addScriptTag({path:path.join(web, 'library/flatpickr/flatpickr.min.js')});
     await rourke.evaluate(() => {window.Calendar = {_flatpickrReady:true};});
@@ -197,6 +238,6 @@ const server = http.createServer(async (req, res) => {
       return [date.getFullYear(), date.getMonth(), date.getDate(), instance.l10n.months.longhand[8]];
     }), [2026, 8, 30, 'septembre']);
     assert.deepEqual(queuedErrors, []);
-    console.log('PASS calendar preserves eForm initialization values and selects the correct date, directly and after queued replay');
+    console.log('PASS calendar preserves eForm values, keyboard trigger visibility and date selection, directly and after queued replay');
   } finally { releaseFlatpickr(); await browser.close(); server.close(); }
 })().catch(error => {console.error(error); releaseFlatpickr(); server.close(); process.exitCode=1;});
