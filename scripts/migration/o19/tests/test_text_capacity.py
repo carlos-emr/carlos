@@ -25,6 +25,26 @@ audit_spec.loader.exec_module(capacity_audit)
 
 
 class TestHistoricalDeclarations(TestCase):
+    def test_byte_sized_sources_are_compared_in_the_target_size_unit(self):
+        """Do not narrow a VARCHAR merely because a source TEXT counts bytes."""
+        for source_type, target_type, expected in (("TINYTEXT", "VARCHAR(300)", None),
+                                                   ("TINYTEXT", "VARCHAR(200)", "varchar(255)"),
+                                                   ("TEXT", "VARCHAR(300)", "MEDIUMTEXT"),
+                                                   ("TINYBLOB", "VARBINARY(300)", None)):
+            with self.subTest(source=source_type, target=target_type), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                (root / "source.sql").write_text("CREATE TABLE sample(value " + source_type + ");")
+                migration = root / "database/mysql/migration/common"
+                migration.mkdir(parents=True)
+                (migration / "V1__base.sql").write_text("CREATE TABLE sample(value " + target_type + ");")
+                tables = {"sample": {"class": "copy", "cols": ["value"]}}
+                manifest = {"TABLES": tables, "PROFILES": {"bc": {"TABLES": tables}}}
+                with mock.patch.object(capacity_audit.g, "o19_sql_sources", return_value=["source.sql"]):
+                    rows = capacity_audit.audit(root, root, manifest)
+                self.assertEqual([row["new_type"] for row in rows], [expected] if expected else [])
+                if expected == "MEDIUMTEXT":
+                    self.assertEqual(rows[0]["required_utf8_bytes"], 65535 * 4)
+
     def test_renames_keep_wider_historical_declarations(self):
         """Both table and column renames retain a width hidden by an earlier narrowing."""
         schema = capacity_audit.SourceCapacitySchema("union")
@@ -75,6 +95,15 @@ class TestHistoricalDeclarations(TestCase):
 
 
 class TestPhysicalColumnInventory(TestCase):
+    def test_archive_audit_columns_have_physical_datetime_precision(self):
+        """The native schema must preserve time-of-day independently of JPA DDL."""
+        for province in ("on", "bc"):
+            document = json.loads((ROOT / "database/mysql/schema-contract" / (province + ".json")).read_text())
+            physical = {(row[0], row[1]): row[2] for row in document["schema"]["columns"]}
+            for table in ("demographicArchive", "providerArchive"):
+                with self.subTest(province=province, table=table):
+                    self.assertEqual(physical[table, "lastUpdateDate"], "datetime")
+
     def test_all_named_history_fields_fit_live_capacities(self):
         """Check every shared text/binary field across native archive/history pairs."""
         for province in ("on", "bc"):

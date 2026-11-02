@@ -17,7 +17,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Native archive audit timestamps retain the live record's time of day. */
+/**
+ * Verify JPA audit timestamp round trips. Physical Flyway column types and
+ * MariaDB migration replay are checked by the OSCAR 19 text-capacity suite.
+ */
 @Tag("integration")
 @Tag("dao")
 @Transactional
@@ -34,10 +37,10 @@ class ArchiveAuditTimestampIntegrationTest extends CarlosTestBase {
         Date changed = Date.from(Instant.parse("2026-11-01T14:32:17Z"));
         archive.setLastUpdateDate(changed);
         demographicArchiveDao.persist(archive);
-        hibernateTemplate.flush();
-        hibernateTemplate.clear();
+        demographicArchiveDao.flush();
+        demographicArchiveDao.refresh(archive);
 
-        assertThat(demographicArchiveDao.find(archive.getId()).getLastUpdateDate().getTime())
+        assertThat(archive.getLastUpdateDate().getTime())
                 .isEqualTo(changed.getTime());
     }
 
@@ -48,10 +51,10 @@ class ArchiveAuditTimestampIntegrationTest extends CarlosTestBase {
         Date changed = Date.from(Instant.parse("2026-11-01T14:32:17Z"));
         archive.setLastUpdateDate(changed);
         providerArchiveDao.persist(archive);
-        hibernateTemplate.flush();
-        hibernateTemplate.clear();
+        providerArchiveDao.flush();
+        providerArchiveDao.refresh(archive);
 
-        assertThat(providerArchiveDao.find(archive.getId()).getLastUpdateDate().getTime())
+        assertThat(archive.getLastUpdateDate().getTime())
                 .isEqualTo(changed.getTime());
     }
 }

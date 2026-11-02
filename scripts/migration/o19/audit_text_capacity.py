@@ -123,11 +123,12 @@ def audit(oscar_src, carlos_baseline, manifest):
                 a, b = capacity(sd), capacity(td)
                 if not a or not b or a[0] != b[0]:
                     continue
-                family, source_limit, _source_kind, source_bytes = a
+                family, source_limit, _source_kind, _source_bytes = a
                 _, target_limit, target_kind, target_bytes = b
-                required = source_limit * (
-                    4 if family == "text" and (target_bytes or source_bytes) else 1
-                )
+                # A byte-sized source can contain at most this many characters.
+                # Compare using the destination's unit; conversion only expands
+                # the requirement when the destination counts UTF-8 bytes.
+                required = source_limit * (4 if family == "text" and target_bytes else 1)
                 if required <= target_limit:
                     continue
                 if not target_bytes and source_limit <= 16383:
@@ -135,10 +136,7 @@ def audit(oscar_src, carlos_baseline, manifest):
                         target_kind, target_kind) if source_limit > 255 else target_kind)
                     newtype = kind + "(" + str(source_limit) + ")"
                 else:
-                    if family == "text" and not source_bytes and not target_bytes:
-                        required *= (
-                            4  # a VARCHAR that must move to a byte-sized text tier
-                        )
+                    required = source_limit * (4 if family == "text" else 1)
                     options = text_caps if family == "text" else blob_caps
                     candidates = [(v, k) for k, v in options.items() if v >= required]
                     if not candidates:

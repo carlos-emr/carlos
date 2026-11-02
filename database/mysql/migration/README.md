@@ -73,6 +73,7 @@ migration/
            V1.0.59.26__cds_measurements_deleted_capacity.sql
            V1.0.59.27__preserve_oscar19_text_capacity.sql
            V1.0.59.30__one_live_consent_per_type.sql
+           V1.0.59.32__preserve_native_archive_capacity.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -273,7 +274,7 @@ changed any BC antenatal row in Select Forms. Full linked-patient appointment na
 the `V1.0.60` floor. The collation and index corrections follow at `V1.0.59.6` and `V1.0.59.7`, and the
 widening of `messagetbl.pdfattachment` to `MEDIUMBLOB` (#5444) at `V1.0.59.8`.
 The CDS import migrations follow at `V1.0.59.8.1` and `V1.0.59.9`–`V1.0.59.26`.
-The next unallocated version is `V1.0.59.32`. Apply/merge these forward migrations in version order; if their merge
+The next unallocated version is `V1.0.59.33`. Apply/merge these forward migrations in version order; if their merge
 order changes after a release, renumber the still-unreleased migration before
 shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized
