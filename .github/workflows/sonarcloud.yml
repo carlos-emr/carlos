@@ -26,4 +26,8 @@ jobs:
           print('MEASURES', json.dumps(get('measures/component', component=project, pullRequest=5543, metricKeys='new_code_smells,new_technical_debt,new_development_cost,new_sqale_debt_ratio,new_maintainability_rating,new_lines')))
           data=get('issues/search',componentKeys=project,pullRequest=5543,resolved='false',ps=500)
           print('ISSUE_TOTAL', data.get('paging'))
+          print('BRANCH_SETTING', json.dumps(get('settings/values', component=project, keys='sonar.branch.longLivedBranches.regex')))
+          for controller in get('webservices/list').get('webServices',[]):
+              if controller.get('path')=='api/project_branches':
+                  print('BRANCH_API', json.dumps(controller))
           PY
