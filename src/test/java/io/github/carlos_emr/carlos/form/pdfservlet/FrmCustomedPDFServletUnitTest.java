@@ -2304,6 +2304,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
              MockedStatic<PrescriptionQrCodeUIBean> qrCode = mockStatic(PrescriptionQrCodeUIBean.class)) {
             login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                     .thenReturn(loggedInInfo);
+            qrCode.when(() -> PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider("999998"))
+                    .thenReturn(false);
             FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
             servlet.init(new MockServletConfig(new MockServletContext()));
 
