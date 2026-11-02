@@ -40,11 +40,13 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
 import io.github.carlos_emr.carlos.commn.model.MeasurementMap;
+import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -65,7 +67,16 @@ public class MeasurementManagerImpl implements MeasurementManager {
     private MeasurementMapDao measurementMapDao;
 
     @Autowired
+    private MeasurementTypeDao measurementTypeDao;
+
+    @Autowired
     private PatientConsentManager patientConsentManager;
+
+    @Override
+    public List<MeasurementType> getMeasurementTypes(LoggedInInfo loggedInInfo) {
+        // The DAO already returns an unmodifiable list of detached copies; hand it back untouched.
+        return measurementTypeDao.findAllOrderByName();
+    }
 
     @Override
     public List<Measurement> getCreatedAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive,

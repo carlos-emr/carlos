@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.managers;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
+import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.ConsentType;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
@@ -84,6 +86,9 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
     private MeasurementMapDao mockMeasurementMapDao;
 
     @Mock
+    private MeasurementTypeDao mockMeasurementTypeDao;
+
+    @Mock
     private PatientConsentManager mockPatientConsentManager;
 
     @Mock
@@ -119,6 +124,7 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
         // Inject @Autowired dependencies via reflection
         injectDependency(measurementManager, "measurementDao", mockMeasurementDao);
         injectDependency(measurementManager, "measurementMapDao", mockMeasurementMapDao);
+        injectDependency(measurementManager, "measurementTypeDao", mockMeasurementTypeDao);
         injectDependency(measurementManager, "patientConsentManager", mockPatientConsentManager);
     }
 
@@ -592,6 +598,49 @@ public class MeasurementManagerUnitTest extends MeasurementUnitTestBase {
 
             // Then
             verify(mockMeasurementMapDao).getAllMaps();
+        }
+    }
+
+    /**
+     * Tests for {@link MeasurementManagerImpl#getMeasurementTypes(io.github.carlos_emr.carlos.utility.LoggedInInfo)}.
+     *
+     * <p>Verifies the manager hands back the DAO's list untouched; authorization is the caller's job.</p>
+     */
+    @Nested
+    @DisplayName("getMeasurementTypes")
+    @Tag("read")
+    class GetMeasurementTypes {
+
+        private MeasurementType type(String code, String display) {
+            MeasurementType t = new MeasurementType();
+            t.setType(code);
+            t.setTypeDisplayName(display);
+            return t;
+        }
+
+        @Test
+        @DisplayName("should return the DAO list as is, in the same order")
+        void shouldReturnDaoListAsIs_inDaoOrder() {
+            List<MeasurementType> expected = List.of(type("FAKE-A", "Alpha"), type("FAKE-B", "Beta"));
+            when(mockMeasurementTypeDao.findAllOrderByName()).thenReturn(expected);
+
+            List<MeasurementType> results = measurementManager.getMeasurementTypes(mockLoggedInInfo);
+
+            assertThat(results).isSameAs(expected);
+            // Test rows have no id, so entity equals() would throw; compare by identity.
+            assertThat(results).usingElementComparator((a, b) -> a == b ? 0 : 1)
+                    .containsExactlyElementsOf(expected);
+        }
+
+        @Test
+        @DisplayName("should read the DAO exactly once")
+        void shouldReadDaoOnce_perCall() {
+            when(mockMeasurementTypeDao.findAllOrderByName()).thenReturn(Collections.emptyList());
+
+            measurementManager.getMeasurementTypes(mockLoggedInInfo);
+
+            verify(mockMeasurementTypeDao, times(1)).findAllOrderByName();
+            verifyNoMoreInteractions(mockMeasurementTypeDao);
         }
     }
 

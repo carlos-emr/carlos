@@ -45,6 +45,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.MeasurementMap;
+import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -145,6 +146,19 @@ public interface MeasurementManager {
      * @return List<MeasurementMap> all configured measurement mappings
      */
     public List<MeasurementMap> getMeasurementMaps();
+
+    /**
+     * Reads the configured measurement types, ordered by display name.
+     *
+     * <p>No privilege check happens here: the caller must authorize the read (for example
+     * {@code _measurement r}) before calling. The list is returned exactly as
+     * {@code MeasurementTypeDao.findAllOrderByName()} produced it, so it is unmodifiable and holds
+     * detached copies; callers cannot alter the shared cache through it.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the caller's session context
+     * @return List&lt;MeasurementType&gt; all measurement types, unmodifiable
+     */
+    public List<MeasurementType> getMeasurementTypes(LoggedInInfo loggedInInfo);
 
     /**
      * Adds a new measurement to the system with security validation and audit logging.
