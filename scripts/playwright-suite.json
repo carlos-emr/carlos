@@ -505,6 +505,15 @@
       ]
     },
     {
+      "name": "billing-bc-province-guard",
+      "script": "scripts/billing-bc-province-guard-playwright-checks.js",
+      "tiers": ["core"],
+      "assertsDatabase": false,
+      "provinces": ["ON"],
+      "timeoutSec": 120,
+      "env": ["CARLOS_PROPERTIES_FILE"]
+    },
+    {
       "name": "billing-service-code-admin",
       "script": "scripts/billing-service-code-admin-playwright-checks.js",
       "tiers": [
