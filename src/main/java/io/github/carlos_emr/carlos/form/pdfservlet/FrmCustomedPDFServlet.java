@@ -43,7 +43,6 @@ import java.util.*;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -120,6 +119,9 @@ public class FrmCustomedPDFServlet extends HttpServlet {
     private static Logger logger = MiscUtils.getLogger();
     private static final String TELEPHONE_LABEL = "RxPreview.msgTel";
     private static final String SATELLITE_CLINIC_ADDRESS = "scAddress";
+    private static final String CLINIC_NAME = "clinicName";
+    private static final String CLINIC_TEL = "clinicTel";
+    private static final String CLINIC_FAX = "clinicFax";
     private static final String INVALID_SATELLITE_CLINIC_ADDRESS = "Invalid satellite clinic address";
     /** Distance from the page top to the patient heading's top edge. */
     private static final float PATIENT_HEADER_TOP_OFFSET = 110f;
@@ -268,7 +270,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
                     faxNo = faxNo.trim().replaceAll("\\D", "");
                 }
                 String pharmaName = req.getParameter("pharmaName");
-                String faxNumber = req.getParameter("clinicFax");
+                String faxNumber = req.getParameter(CLINIC_FAX);
                 if (faxNumber != null) {
                     faxNumber = faxNumber.trim().replaceAll("\\D", "");
                 }
@@ -428,17 +430,18 @@ public class FrmCustomedPDFServlet extends HttpServlet {
 
     private ByteArrayOutputStream generatePDFDocumentBytesOrReportFaxFailure(HttpServletRequest request,
             byte[] signatureImage, boolean isFax, HttpServletResponse response) throws DocumentException, IOException {
+        Map<String, String> satelliteClinicAddress = null;
         if (Boolean.parseBoolean(request.getParameter("useSC"))) {
             try {
                 // For faxes this is the configured block selected by bindFaxContentToRecord.
-                parseSCAddress(request.getParameter(SATELLITE_CLINIC_ADDRESS));
+                satelliteClinicAddress = parseSCAddress(request.getParameter(SATELLITE_CLINIC_ADDRESS));
             } catch (IllegalArgumentException _) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, INVALID_SATELLITE_CLINIC_ADDRESS);
                 return null;
             }
         }
         try {
-            return generatePDFDocumentBytes(request, getServletContext(), signatureImage);
+            return generatePDFDocumentBytes(request, signatureImage, satelliteClinicAddress);
         } catch (IOException | RuntimeException failure) {
             // org.openpdf.text.DocumentException in OpenPDF 3 is a RuntimeException,
             // so this includes it (unlike the separate legacy com.lowagie API).
@@ -986,7 +989,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      * containing clinic name (3 lines), telephone, and fax.
      *
      * @param s String the HTML-formatted satellite clinic address
-     * @return HashMap containing "clinicName", "clinicTel", and "clinicFax" entries
+     * @return HashMap containing CLINIC_NAME, CLINIC_TEL, and CLINIC_FAX entries
      * @throws IllegalArgumentException if the block does not have the structure composed by
      *                                  {@link RxSatelliteClinicAddress#html}
      */
@@ -1016,9 +1019,9 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         String fax = lst.get(4).replaceFirst("^[^:]*:\\s*", "");
         String clinicName = lst.get(0) + "\n" + lst.get(1) + "\n" + lst.get(2);
         logger.debug("Prescription PDF clinic header details loaded");
-        hm.put("clinicName", clinicName);
-        hm.put("clinicTel", tel);
-        hm.put("clinicFax", fax);
+        hm.put(CLINIC_NAME, clinicName);
+        hm.put(CLINIC_TEL, tel);
+        hm.put(CLINIC_FAX, fax);
 
         return hm;
 
@@ -1194,14 +1197,14 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         String clinicName = clinic == null ? "" : nz(clinic.getClinicName()).replaceAll("\\(\\d{6}\\)", "") + "\n"
                 + nz(clinic.getClinicAddress()) + "\n"
                 + nz(clinic.getClinicCity()) + "   " + nz(clinic.getClinicPostal());
-        bound.put("clinicName", clinicName);
+        bound.put(CLINIC_NAME, clinicName);
         bound.put("clinicPhone", clinic == null ? "" : nz(clinic.getClinicPhone()));
         // The header's "Fax:" is the clinic's OFFICIAL fax number -- the clinic row's fax, or the
         // prescriber's own "faxnumber" preference, exactly as RxProviderData resolves it for the
         // preview -- not the outgoing line. The request's clinicFax is the fax_config line the fax
         // is SENT from; service() still reads that from the original request to pick the line, but
         // an outgoing line is only that, and it must not print as the pharmacy's call-back number.
-        bound.put("clinicFax", clinic == null ? "" : nz(clinic.getClinicFax()));
+        bound.put(CLINIC_FAX, clinic == null ? "" : nz(clinic.getClinicFax()));
 
         // useSC/scAddress select a satellite clinic block that generatePDFDocumentBytes parses INSTEAD
         // of clinicName/clinicPhone/clinicFax. The flag is ALWAYS rebound, never read: it is true
@@ -1699,21 +1702,21 @@ public class FrmCustomedPDFServlet extends HttpServlet {
      * page frame rendering.
      *
      * @param req HttpServletRequest containing all prescription form parameters
-     * @param ctx ServletContext for resource resolution
      * @param signatureImage decoded signature image bytes to draw above the signature line, or
      *                       {@code null} to leave the line blank (see {@link #resolveSignatureImage})
+     * @param satelliteClinicAddress validated satellite header, or {@code null} for the primary clinic
      * @return ByteArrayOutputStream containing the generated PDF bytes
      * @throws DocumentException if an OpenPDF document error occurs during PDF generation
      * @throws IOException if an I/O error occurs during PDF generation
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final ServletContext ctx, final byte[] signatureImage) throws DocumentException, IOException {
+    private ByteArrayOutputStream generatePDFDocumentBytes(final HttpServletRequest req, final byte[] signatureImage,
+            final Map<String, String> satelliteClinicAddress) throws DocumentException, IOException {
         logger.debug("***in generatePDFDocumentBytes2 FrmCustomedPDFServlet.java***");
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(req);
         String newline = System.getProperty("line.separator");
-        String method = req.getParameter("__method");
         String origPrintDate = null;
         String numPrint = null;
         if ("true".equals(req.getParameter("rxReprint"))) {
@@ -1725,18 +1728,15 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         String clinicTel;
         String clinicFax;
         // check if satellite clinic is used
-        String useSatelliteClinic = req.getParameter("useSC");
-        if (useSatelliteClinic != null && useSatelliteClinic.equalsIgnoreCase("true")) {
-            String scAddress = req.getParameter(SATELLITE_CLINIC_ADDRESS);
-            HashMap<String, String> hm = parseSCAddress(scAddress);
-            clinicName = hm.get("clinicName");
-            clinicTel = hm.get("clinicTel");
-            clinicFax = hm.get("clinicFax");
+        if (satelliteClinicAddress != null) {
+            clinicName = satelliteClinicAddress.get(CLINIC_NAME);
+            clinicTel = satelliteClinicAddress.get(CLINIC_TEL);
+            clinicFax = satelliteClinicAddress.get(CLINIC_FAX);
         } else {
             // parameters need to be passed to header and footer
-            clinicName = req.getParameter("clinicName");
+            clinicName = req.getParameter(CLINIC_NAME);
             clinicTel = req.getParameter("clinicPhone");
-            clinicFax = req.getParameter("clinicFax");
+            clinicFax = req.getParameter(CLINIC_FAX);
         }
         String patientPhone = req.getParameter("patientPhone");
         String patientCityPostal = req.getParameter("patientCityPostal");
@@ -1756,41 +1756,26 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         String title = req.getParameter("__title") != null ? req.getParameter("__title") : "Unknown";
         String additNotes = req.getParameter("additNotes");
 
-        if (clinicName == null) clinicName = "";
-        if (clinicTel == null) clinicTel = "";
-        if (clinicFax == null) clinicFax = "";
-        if (patientPhone == null) patientPhone = "";
-        if (patientCityPostal == null) patientCityPostal = "";
-        if (patientAddress == null) patientAddress = "";
-        if (sigDoctorName == null) sigDoctorName = "";
-        if (patientHIN == null) patientHIN = "";
-        if (patientChartNo == null) patientChartNo = "";
-        if (pracNo == null) pracNo = "";
+        clinicName = Objects.requireNonNullElse(clinicName, "");
+        clinicTel = Objects.requireNonNullElse(clinicTel, "");
+        clinicFax = Objects.requireNonNullElse(clinicFax, "");
+        patientPhone = Objects.requireNonNullElse(patientPhone, "");
+        patientCityPostal = Objects.requireNonNullElse(patientCityPostal, "");
+        patientAddress = Objects.requireNonNullElse(patientAddress, "");
+        sigDoctorName = Objects.requireNonNullElse(sigDoctorName, "");
+        patientHIN = Objects.requireNonNullElse(patientHIN, "");
+        patientChartNo = Objects.requireNonNullElse(patientChartNo, "");
+        pracNo = Objects.requireNonNullElse(pracNo, "");
 
         boolean isShowDemoDOB = (showPatientDOB != null && showPatientDOB.equalsIgnoreCase("true"));
         if (!isShowDemoDOB)
             patientDOB = "";
-        if (rx == null) {
-            rx = "";
-        }
+        rx = Objects.requireNonNullElse(rx, "");
 
         // parse prescript and put into a list of prescript;
         List<String> listRx = splitRenderedRxBlocks(rx, newline);
 
-        // A0-A10, LEGAL, LETTER, HALFLETTER, _11x17, LEDGER, NOTE, B0-B5, ARCH_A-ARCH_E, FLSA
-        // and FLSE
-        // the following shows a temp way to get a print page size
-        Rectangle pageSize = PageSize.LETTER;
-        String pageSizeParameter = req.getParameter("rxPageSize");
-        if (pageSizeParameter != null) {
-            if ("PageSize.HALFLETTER".equals(pageSizeParameter)) {
-                pageSize = PageSize.HALFLETTER;
-            } else if ("PageSize.A6".equals(pageSizeParameter)) {
-                pageSize = PageSize.A6;
-            } else if ("PageSize.A4".equals(pageSizeParameter)) {
-                pageSize = PageSize.A4;
-            }
-        }
+        Rectangle pageSize = prescriptionPageSize(req.getParameter("rxPageSize"));
 
         ByteArrayOutputStream baosPDF = new ByteArrayOutputStream();
 
@@ -1849,23 +1834,39 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             document.add(p);
         }
 
-        // render QrCode
-        if (PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider(loggedInInfo.getLoggedInProviderNo())) {
-            int scriptId = Integer.parseInt(req.getParameter("scriptId"));
-            byte[] qrCodeImage = PrescriptionQrCodeUIBean.getPrescriptionHl7QrCodeImage(scriptId);
-            Image qrCode = null;
-            if (qrCodeImage != null) {
-                qrCode = Image.getInstance(qrCodeImage);
-            }
-            if (qrCode != null) {
-                document.add(qrCode);
-            }
-        }
+        addPrescriptionQrCode(document, req, loggedInInfo.getLoggedInProviderNo());
 
         document.close();
 
         logger.debug("***END in generatePDFDocumentBytes2 FrmCustomedPDFServlet.java***");
         return baosPDF;
 
+    }
+
+    /** Matches the page-size tokens submitted by the prescription preview. */
+    private static Rectangle prescriptionPageSize(String pageSize) {
+        return switch (pageSize) {
+            case "PageSize.HALFLETTER" -> PageSize.HALFLETTER;
+            case "PageSize.A6" -> PageSize.A6;
+            case "PageSize.A4" -> PageSize.A4;
+            case null, default -> PageSize.LETTER;
+        };
+    }
+
+    /** Adds the stored prescription's QR image only when the provider enables it. */
+    private static void addPrescriptionQrCode(Document document, HttpServletRequest request, String providerNo)
+            throws DocumentException, IOException {
+        if (!PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider(providerNo)) {
+            return;
+        }
+        int scriptId = Integer.parseInt(request.getParameter("scriptId"));
+        byte[] imageBytes = PrescriptionQrCodeUIBean.getPrescriptionHl7QrCodeImage(scriptId);
+        if (imageBytes == null) {
+            return;
+        }
+        Image image = Image.getInstance(imageBytes);
+        if (image != null) {
+            document.add(image);
+        }
     }
 }

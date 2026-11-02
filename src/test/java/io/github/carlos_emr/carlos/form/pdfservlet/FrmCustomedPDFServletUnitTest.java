@@ -2356,6 +2356,42 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         assertThat(parsed.get("clinicFax")).isEqualTo("789</b>012");
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRenderPrescriptionQrCode_whenProviderEnablesFeature(boolean imageAvailable) throws Exception {
+        MockHttpServletRequest request = createPreviewRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+        servlet.init(new MockServletConfig(new MockServletContext()));
+
+        try (MockedStatic<LoggedInInfo> loginMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<PrescriptionQrCodeUIBean> qrMock = mockStatic(PrescriptionQrCodeUIBean.class)) {
+            loginMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            qrMock.when(() -> PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider("999998"))
+                    .thenReturn(true);
+            qrMock.when(() -> PrescriptionQrCodeUIBean.getPrescriptionHl7QrCodeImage(SCRIPT_ID))
+                    .thenReturn(imageAvailable ? tinyPng() : null);
+
+            servlet.service(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            qrMock.verify(() -> PrescriptionQrCodeUIBean.getPrescriptionHl7QrCodeImage(SCRIPT_ID));
+            try (org.apache.pdfbox.pdmodel.PDDocument pdf = org.apache.pdfbox.Loader.loadPDF(response.getContentAsByteArray())) {
+                int images = 0;
+                var resources = pdf.getPage(0).getResources();
+                for (var name : resources.getXObjectNames()) {
+                    if (resources.getXObject(name) instanceof org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject) {
+                        images++;
+                    }
+                }
+                assertThat(images).isEqualTo(imageAvailable ? 1 : 0);
+            }
+        }
+    }
+
     @Test
     void shouldPreserveConfiguredSatelliteDelimiterText_whenBindingAndParsing() throws Exception {
         String previousMultisites = (String) CarlosProperties.getInstance().get("multisites");
