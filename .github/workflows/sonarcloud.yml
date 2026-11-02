@@ -1,63 +1,52 @@
-name: Issue 5533 baseline and capacity diagnostics
+name: Issue 5533 scanner failure diagnostics
 on:
   push:
     branches: [codex/issue-5533-sonar-diagnostics]
 permissions:
   contents: read
-  packages: read
+  actions: read
 jobs:
-  capacity:
+  diagnostics:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     steps:
-      - name: Measure remaining hosted image storage after existing cleanup
-        run: |
-          test "$RUNNER_ENVIRONMENT" = github-hosted
-          test "$RUNNER_OS" = Linux
-          sudo rm -rf -- /usr/local/lib/android /opt/ghc /usr/share/dotnet \
-            /opt/hostedtoolcache /usr/local/.ghcup /usr/local/share/boost \
-            /usr/local/share/powershell /usr/local/share/chromium \
-            /usr/share/swift /usr/share/miniconda /usr/lib/jvm
-          docker image prune --all --force
-          df -h /
-          sudo du -xhd1 /opt /usr/local /usr/local/share /usr/share /usr/lib /var/lib /mnt | sort -h
-  baseline:
-    name: Refresh actual release analysis with bounded scanner heap
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    env:
-      SONAR_SCANNER_JAVA_OPTS: -Xmx4g
-    steps:
-      - name: Checkout exact release commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: 4ef47a2654f8a56b1f5dc23fceb8a8cdcefe87b4
-          persist-credentials: false
-          fetch-depth: 0
-      - name: Prepare SonarCloud cache
-        run: mkdir -p .sonar-cache
-      - name: Start normal dev container
-        uses: ./.github/actions/dev-container
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          maven-cache: restore
-          extra-run-args: -v ${{ github.workspace }}/.sonar-cache:/root/.sonar/cache
-      - name: Build and analyze exact release source
+      - name: Read bounded scanner failure context
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTIONS_READ_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import os, re, urllib.request, urllib.error
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, request, fp, code, message, headers, newurl):
+                  return None
+          request = urllib.request.Request('https://api.github.com/repos/carlos-emr/carlos/actions/jobs/125605841417/logs', headers={'Authorization':'Bearer ' + os.environ['ACTIONS_READ_TOKEN'], 'Accept':'application/vnd.github+json'})
+          try:
+              response = urllib.request.build_opener(NoRedirect).open(request, timeout=30)
+          except urllib.error.HTTPError as failure:
+              if failure.code != 302:
+                  raise
+              location = failure.headers['Location']
+              if not location.startswith('https://'):
+                  raise RuntimeError('Expected HTTPS log redirect')
+              response = urllib.request.urlopen(location, timeout=60)
+          lines = response.read().decode('utf-8-sig', errors='replace').splitlines()
+          for line in lines:
+              if re.search(r'heap|JavaOpts|Memory configuration|Scanner Engine JVM|Engine configuration|OutOfMemoryError', line, re.I):
+                  print('MEMORY_CONTEXT', line[:1500])
+          print('SCANNER_FINAL_CONTEXT')
+          for line in lines[-90:]:
+              print(line[:2000])
+          PY
+      - name: Read actual release branch and PR quality state
+        env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          test "$(git rev-parse HEAD)" = 4ef47a2654f8a56b1f5dc23fceb8a8cdcefe87b4
-          docker exec \
-            -e GITHUB_TOKEN \
-            -e SONAR_TOKEN \
-            -e SONAR_SCANNER_JAVA_OPTS \
-            carlos-tomcat-dev bash -c '
-              mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
-                -Pskip-dependency-lock \
-                -Dmaven.test.failure.ignore=true \
-                -Dsonar.host.url=https://sonarcloud.io \
-                -Dsonar.projectKey=carlos-emr_carlos \
-                -Dsonar.branch.name=release/2026.08 \
-                -Dsonar.scm.revision=4ef47a2654f8a56b1f5dc23fceb8a8cdcefe87b4
-            '
+          python3 - <<'PY'
+          import base64, json, os, urllib.parse, urllib.request
+          def get(path, **params):
+              request = urllib.request.Request('https://sonarcloud.io/api/' + path + '?' + urllib.parse.urlencode(params), headers={'Authorization':'Basic ' + base64.b64encode((os.environ['SONAR_TOKEN']+':').encode()).decode()})
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+          print('BRANCHES', json.dumps(get('project_branches/list', project='carlos-emr_carlos')))
+          print('QUALITY', json.dumps(get('qualitygates/project_status', projectKey='carlos-emr_carlos', pullRequest=5543)))
+          PY
