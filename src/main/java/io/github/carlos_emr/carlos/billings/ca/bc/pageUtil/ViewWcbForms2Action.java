@@ -26,6 +26,7 @@ import org.apache.struts2.ServletActionContext;
  * {@code _billing} {@code r} privilege before forwarding to the
  * JSP at its {@code /WEB-INF/jsp/} location. Created as part of the BC
  * billing migration to gate direct-access paths behind Struts2 actions.
+ * Returns 404 on non-BC deployments before the view queries the BC-only {@code wcb} table.
  *
  * @since 2026-04-13
  */
@@ -49,6 +50,10 @@ public final class ViewWcbForms2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
+        }
+
+        if (!BcBillingRequestGuards.requireBcProvince(ServletActionContext.getResponse())) {
+            return NONE;
         }
 
         return SUCCESS;
