@@ -107,7 +107,7 @@ public class OscarJobType extends AbstractModel<Integer> {
     }
 
     public String toString() {
-        return getClass().getSimpleName() + "[protected]";
+        return super.toString();
     }
 
 }

@@ -217,6 +217,6 @@ public class FormBPMH extends AbstractModel<Integer> {
 
     @Override
     public String toString() {
-        return getClass().getSimpleName() + "[protected]";
+        return super.toString();
     }
 }

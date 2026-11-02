@@ -30,11 +30,13 @@ import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.NoteTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.RxDsMessageTo1;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.DemographicTransfer;
 import jakarta.servlet.http.HttpSession;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.Locale;
+import java.util.HashMap;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -50,6 +52,19 @@ import static org.mockito.Mockito.when;
 @Tag("security")
 class SafeDiagnosticUnitTest {
     private static final String SENSITIVE = "FAKE-SENSITIVE-MARKER\r\nforged-event";
+
+    @Test
+    void shouldPreserveInteractionFields_withoutFormattingInputMap() {
+        HashMap<String, Object> interaction = new HashMap<>() {
+            @Override public String toString() { throw new AssertionError("interaction dump"); }
+        };
+        interaction.put("name", SENSITIVE);
+        interaction.put("body", SENSITIVE);
+        RxDsMessageTo1 message = new RxDsMessageTo1(interaction, null, Locale.CANADA);
+        assertThat(message.getName()).isEqualTo(SENSITIVE);
+        assertThat(message.getBody()).isEqualTo(SENSITIVE);
+        assertThat(message.toString()).doesNotContain(SENSITIVE);
+    }
 
     @Test
     void shouldOmitAllCredentialFields_forSecurityRecord() throws Exception {

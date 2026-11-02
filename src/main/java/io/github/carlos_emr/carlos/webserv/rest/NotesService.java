@@ -85,6 +85,7 @@ import io.github.carlos_emr.carlos.commn.model.ProviderDefaultProgram;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.EncounterUtil;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -1724,7 +1725,7 @@ public class NotesService extends AbstractServiceImpl {
         String strNote = json.get("note") != null ? json.get("note").asText() : null;
         Integer noteId = json.get("noteId") != null ? json.get("noteId").asInt() : null;
 
-        logger.debug("Saving note");
+        logger.debug("Saving note id={}", LogSafe.sanitize(String.valueOf(noteId)));
 
         ObjectNode tickler = (ObjectNode) json.get("tickler");
         Integer ticklerId = tickler.get("id") != null ? tickler.get("id").asInt() : null;

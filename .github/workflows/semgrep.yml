@@ -104,8 +104,9 @@ jobs:
 
       - name: Prevent reflective object methods in application code
         run: |
-          semgrep --test --config .semgrep/reflective-diagnostics-carlos.yml \
-            src/test/semgrep/reflective-diagnostics-carlos.java
+          for fixture in src/test/semgrep/reflective-diagnostics-carlos.*; do
+            semgrep --test --config .semgrep/reflective-diagnostics-carlos.yml "$fixture"
+          done
           semgrep scan --error --config .semgrep/reflective-diagnostics-carlos.yml src/main
 
       - name: Filter suppressed Semgrep SARIF results

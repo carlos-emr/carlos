@@ -1447,7 +1447,7 @@ public class Billingmaster {
     }
 
     public String toString() {
-        return getClass().getSimpleName() + "[protected]";
+        return getClass().getSimpleName() + "[billingmasterNo=" + billingmasterNo + "]";
     }
 
     ////

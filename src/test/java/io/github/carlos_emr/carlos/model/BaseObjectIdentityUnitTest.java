@@ -28,12 +28,58 @@ import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
 import java.util.HashSet;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.proxy.LazyInitializer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doReturn;
 
 /** Identifier equality must not depend on clinical fields or mutable associations. */
 @Tag("unit")
 class BaseObjectIdentityUnitTest {
+    @Test
+    void shouldComparePersistentTypesAndKeys_withoutReadingProxyFields() {
+        LazyInitializer initializer = mock(LazyInitializer.class);
+        doReturn(Issue.class).when(initializer).getPersistentClass();
+        when(initializer.getInternalIdentifier()).thenReturn(31L);
+        IssueProxy proxy = new IssueProxy(initializer);
+        Issue entity = new Issue();
+        entity.setId(31L);
+        assertThat(entity).isEqualTo(proxy).hasSameHashCodeAs(proxy);
+        assertThat(proxy).isEqualTo(entity);
+        entity.setId(32L);
+        assertThat(entity).isNotEqualTo(proxy);
+    }
+
+    private static class IssueProxy extends Issue implements HibernateProxy {
+        private final LazyInitializer initializer;
+
+        IssueProxy(LazyInitializer initializer) {
+            this.initializer = initializer;
+        }
+
+        @Override public LazyInitializer getHibernateLazyInitializer() { return initializer; }
+        @Override public Object writeReplace() { return this; }
+        @Override public Long getId() { throw new AssertionError("proxy field traversal"); }
+    }
+
+    @Test
+    void shouldCompareFieldDefinitionKeys_withoutComparingMutableValues() {
+        FieldDefValue left = new FieldDefValue();
+        FieldDefValue right = new FieldDefValue();
+        left.setTableId("fake-table");
+        right.setTableId("fake-table");
+        left.setFieldName("fake-column");
+        right.setFieldName("fake-column");
+        left.setVal("FAKE-private-value");
+        assertThat(left).isEqualTo(right).hasSameHashCodeAs(right);
+        right.setFieldName("other-column");
+        assertThat(left).isNotEqualTo(right);
+        assertThat(new FieldDefValue()).isNotEqualTo(new FieldDefValue());
+    }
+
     @Test
     void shouldComparePersistedKeys_withoutComparingPatientContent() {
         CaseManagementCPP left = new CaseManagementCPP();

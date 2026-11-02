@@ -1,0 +1,7 @@
+<%-- Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. --%>
+<%
+    // ruleid: carlos-no-reflective-object-methods
+    boolean unsafe = EqualsBuilder.reflectionEquals(left, right);
+    // ok: carlos-no-reflective-object-methods
+    boolean safe = java.util.Objects.equals(leftId, rightId);
+%>

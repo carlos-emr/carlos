@@ -15,7 +15,8 @@ ID, including when no user is logged in; it never formats the session, provider,
 facility, or security object.
 
 The former reflective DTO and value-object diagnostics report only
-`Type[protected]`. New diagnostic fields require an explicit review of whether
+`Type[protected]`, except for explicitly allowed numeric keys and FHIR configuration
+enum names/boolean flags. New diagnostic fields require an explicit review of whether
 they can contain patient data or credentials. Adding a field to a model no longer
 automatically adds it to the logs.
 
@@ -43,7 +44,8 @@ concatenation, collection/string formatting, and JSP/scriptlet/EL uses.
   CodeFilterManager, RxManagerImpl and prescription discontinuation. RecordUxService
   now logs operation names without the summary object or patient/context pairing.
   Removed the related NotesService request JSON/note-body dumps and RxWebService
-  drug-list dump. HRM logs only the result count.
+  drug-list dump and RxDsMessageTo1 constructor's interaction-map dump. HRM logs
+  only the result count.
 - Explicit affected-object `toString()` callers were diagnostics/audit text,
   including `CheckBoxBean`, prescription auditing and FHIR retrieval auditing.
   No affected reflective representation was found being parsed, compared, used
@@ -62,8 +64,11 @@ the broader audit-quality backlog is tracked separately in #4172 and #5322.
 `BaseObject` now uses reference identity for unsaved instances and explicit
 persistent-key equality for CaseManagementCPP, ClientImage and Issue. Its hash
 is stable when an ID is assigned and never reads clinical fields or associations.
+Persistent type/key extraction recognizes Hibernate proxies without initializing
+their fields.
 CaseManagementNote and CaseManagementIssue retain their existing identifier-based
-overrides; FieldDefValue retains its existing `(tableId, fieldName)` equality.
+overrides; FieldDefValue explicitly uses its `(tableId, fieldName)` composite key
+through the existing JpaId value type, excluding mutable lookup values.
 This replaces accidental all-field equality, including formatter/blob/content
 state, with model identity. `CtlDocumentPK` explicitly compares all three key
 parts with null safety. No entity-wide reflective equals/hashCode remains.

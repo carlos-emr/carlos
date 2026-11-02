@@ -861,7 +861,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 
     @Override
     public String toString() {
-        return getClass().getSimpleName() + "[protected]";
+        return super.toString();
     }
 
     /**

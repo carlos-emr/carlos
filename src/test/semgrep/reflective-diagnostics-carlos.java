@@ -20,6 +20,21 @@ class DiagnosticExamples {
         return HashCodeBuilder.reflectionHashCode(value);
     }
 
+    void unsafeAppend(Object left, Object right) {
+        // ruleid: carlos-no-reflective-object-methods
+        new EqualsBuilder().reflectionAppend(left, right);
+    }
+
+    int unsafeCompare(Object left, Object right) {
+        // ruleid: carlos-no-reflective-object-methods
+        return CompareToBuilder.reflectionCompare(left, right);
+    }
+
+    Object unsafeDiff(Object left, Object right) {
+        // ruleid: carlos-no-reflective-object-methods
+        return ReflectionDiffBuilder.builder().setLeft(left).setRight(right).build();
+    }
+
     String safe(Integer id) {
         // ok: carlos-no-reflective-object-methods
         return "Security[id=" + id + "]";

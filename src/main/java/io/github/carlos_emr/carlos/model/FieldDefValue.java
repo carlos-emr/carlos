@@ -33,6 +33,15 @@ import io.github.carlos_emr.carlos.commons.KeyConstants;
 @jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
 @jakarta.persistence.IdClass(FieldDefValue.JpaId.class)
 public class FieldDefValue extends BaseObject {
+    @Override
+    protected Object equalityId() {
+        if (getTableId() == null || getFieldName() == null) return null;
+        JpaId key = new JpaId();
+        key.tableId = getTableId();
+        key.fieldName = getFieldName();
+        return key;
+    }
+
     private String tableId;
     private String fieldName;
     private String fieldDesc;

@@ -335,6 +335,6 @@ public class Clinic extends AbstractModel<Integer> implements Serializable, Cont
     }
 
     public String toString() {
-        return getClass().getSimpleName() + "[protected]";
+        return super.toString();
     }
 }

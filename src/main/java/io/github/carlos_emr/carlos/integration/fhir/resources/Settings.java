@@ -70,7 +70,9 @@ public class Settings {
     }
 
     public String toString() {
-        return getClass().getSimpleName() + "[protected]";
+        return "Settings[region=" + (region == null ? null : region.name())
+                + ", fhirDestination=" + (fhirDestination == null ? null : fhirDestination.name())
+                + ", includeSenderEndpoint=" + includeSenderEndpoint + "]";
     }
 
 }

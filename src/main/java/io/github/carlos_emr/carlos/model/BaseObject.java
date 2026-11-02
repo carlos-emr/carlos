@@ -28,6 +28,8 @@
 package io.github.carlos_emr.carlos.model;
 
 import java.io.Serializable;
+import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.proxy.LazyInitializer;
 
 
 
@@ -50,14 +52,24 @@ public class BaseObject implements Serializable {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Object id = equalityId();
-        return id != null && id.equals(((BaseObject) o).equalityId());
+        if (!(o instanceof BaseObject other) || persistentType(this) != persistentType(other)) return false;
+        Object id = persistentId(this);
+        return id != null && id.equals(persistentId(other));
     }
 
     @Override
     public int hashCode() {
         // Stable when an unsaved entity receives its ID; never touches a lazy association.
-        return getClass().hashCode();
+        return persistentType(this).hashCode();
+    }
+
+    private static Class<?> persistentType(BaseObject value) {
+        LazyInitializer proxy = HibernateProxy.extractLazyInitializer(value);
+        return proxy == null ? value.getClass() : proxy.getPersistentClass();
+    }
+
+    private static Object persistentId(BaseObject value) {
+        LazyInitializer proxy = HibernateProxy.extractLazyInitializer(value);
+        return proxy == null ? value.equalityId() : proxy.getInternalIdentifier();
     }
 }
