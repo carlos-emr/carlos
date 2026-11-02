@@ -586,6 +586,9 @@ public class BillingmasterDAO {
 
     // Keep MariaDB TO_DAYS, decimal coercion, LIKE, NULL and ordering semantics. The
     // connection belongs to the persistence context; only our statement/cursor is closed here.
+    // FindSecBugs SQL_INJECTION_JDBC: this private helper accepts only DAO-owned static SQL or
+    // fully allowlisted column/operator/placeholder fragments. Runtime values use setObject below.
+    @SuppressFBWarnings(value = "SQL_INJECTION_JDBC", justification = "private DAO callers use static SQL or fully allowlisted syntax; all runtime values are bound JDBC parameters")
     private <T> List<T> readBcRows(String sql, Object[] params, BcRowMapper<T> mapper) {
         if (entityManager.isJoinedToTransaction()) entityManager.flush();
         return entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
