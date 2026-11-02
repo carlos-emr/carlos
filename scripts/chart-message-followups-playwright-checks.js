@@ -132,7 +132,7 @@ async function workflow(s) {
       } finally { await response.dispose(); }
     }
     for (const query of ['', '?demographic_no=invalid', '?demographicNo=0',
-      '?demographicNo=-1', '?demographicNo=2147483648', '?demographicNo=']) {
+      '?demographicNo=-1', '?demographicNo=9999999999', '?demographicNo=']) {
       const response = await context.request.get(url('/casemgmt/ViewChartNotes' + query));
       try { h.assert(response.status() === 400,
         `Chart notes with ${query || 'no patient parameter'} returned HTTP ${response.status()}, expected 400`); }
