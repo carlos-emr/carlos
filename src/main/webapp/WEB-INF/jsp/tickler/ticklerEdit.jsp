@@ -416,6 +416,13 @@
                             enableSubmitButtons();
                             return;
                         }
+                        var attachmentsRefused = iframe.contentDocument &&
+                            iframe.contentDocument.getElementById('tickler-edit-attachments-refused');
+                        if (attachmentsRefused) {
+                            CarlosTicklerValidation.show(attachmentsRefused.textContent);
+                            enableSubmitButtons();
+                            return;
+                        }
                         // Verify success by checking for sentinel element in the response
                         var saveOk = iframe.contentDocument && iframe.contentDocument.getElementById('tickler-edit-ok');
                         if (!saveOk) {

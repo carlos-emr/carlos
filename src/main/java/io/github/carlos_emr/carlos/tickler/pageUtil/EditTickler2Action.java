@@ -77,7 +77,8 @@ public class EditTickler2Action extends ActionSupport {
      * before dispatching or changing data.
      *
      * @return {@link #NONE} for a rejected method; otherwise the selected handler's
-     *         result ({@code close} on success, or {@code failure}/{@code error} on failure)
+     *         result ({@code close} on success, {@code attachmentsRefused} for a refused
+     *         selection, or {@code failure}/{@code error} on other failures)
      */
     @Override
     public String execute() {
@@ -189,7 +190,8 @@ public class EditTickler2Action extends ActionSupport {
                 logger.warn("Refused tickler attachments: ticklerNo={}: {}",
                         LogSafe.sanitize(String.valueOf(ticklerNo)), LogSafe.sanitize(e.getMessage()));
                 addActionError(getText("tickler.ticklerEdit.attachments.error"));
-                return "error";
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return "attachmentsRefused";
             } catch (Exception e) {
                 logger.error("Failed to store tickler attachments: ticklerNo={}",
                         LogSafe.sanitize(String.valueOf(ticklerNo)), e);
