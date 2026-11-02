@@ -113,7 +113,8 @@ class RenderBrowser implements AutoCloseable {
 
     private JsonNode command(String method, String path, Object body) {
         try {
-            String base = serviceUri.toString().replaceAll("/+$", "");
+            // Validation already rejects a trailing slash, including on capability prefixes.
+            String base = serviceUri.toString();
             HttpRequest request = HttpRequest.newBuilder(URI.create(base + path))
                     .timeout(readTimeout).header("Content-Type", "application/json; charset=utf-8")
                     .method(method, body == null ? HttpRequest.BodyPublishers.noBody()

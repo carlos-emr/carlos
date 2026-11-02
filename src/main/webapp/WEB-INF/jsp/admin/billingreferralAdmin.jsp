@@ -215,8 +215,10 @@
                         }
                     %>
 
-                    <td><input type="checkbox" name="checked_${carlos:forHtmlAttribute(referral.id)}"
-                                           onChange="checkUncheck('${carlos:forJavaScriptAttribute(referral.id)}')"/></td>
+                    <td><input type="checkbox" id="referral-select-${carlos:forHtmlAttribute(referral.id)}"
+                               name="checked_${carlos:forHtmlAttribute(referral.id)}"
+                               onChange="checkUncheck('${carlos:forJavaScriptAttribute(referral.id)}')"/>
+                        <label class="table-selection-label" for="referral-select-${carlos:forHtmlAttribute(referral.id)}"><fmt:message key="dms.incomingDocs.select"/> <c:out value="${referral.firstName}"/> <c:out value="${referral.lastName}"/></label></td>
                     <td><a href="javascript:void(0)"
                                        onclick="openEditSpecialist('${carlos:forJavaScriptAttribute(referral.id)}')"><carlos:encode value='<%= linkName %>'/>
                     </a></td>
