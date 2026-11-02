@@ -318,6 +318,7 @@ override_dh_auto_install:
 	# (/usr/lib/carlos-ctl, /usr/sbin/carlos-ctl and the carlosctl alias);
 	# through 2026.08.0~alpha15 (snapshot24) it was installed here.
 	install -d $(STAGE)/$(LIBDIR)
+	install -m 0755 debian/assets/bin/carlos-emr-mariadb-init $(STAGE)/$(LIBDIR)/
 	install -m 0755 debian/assets/bin/carlos-emr-backup $(STAGE)/$(LIBDIR)/carlos-emr-backup
 	install -m 0755 debian/assets/bin/carlos-emr-cert $(STAGE)/$(LIBDIR)/carlos-emr-cert
 	install -m 0755 debian/assets/bin/carlos-emr-tomcat $(STAGE)/$(LIBDIR)/carlos-emr-tomcat

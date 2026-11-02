@@ -1,0 +1,133 @@
+#!/usr/bin/python3
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 CARLOS Contributors
+"""Finish a failed first MariaDB initialization without resetting existing data.
+
+The distribution's postinst deliberately ignores mariadb-install-db failures.
+A later service start can then leave only engine/log files in the datadir and
+abort because mysql.db is absent. Retry initialization only in that narrow case.
+Never remove files, initialize a populated/damaged database, or stop a server.
+"""
+
+import fcntl
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+
+STATE = Path("/var/lib/carlos-emr")
+IMPORT_GUARD = "/usr/lib/carlos-emr/carlos-emr-o19-guard"
+# Files a failed first start can leave before any database has been created.
+# Upgrade/version markers are deliberately absent: they identify an existing
+# installation whose missing system schema needs recovery, not initialization.
+STARTUP_FILE = re.compile(
+    r"(?:aria_log\.[0-9]+|aria_log_control|ib_buffer_pool|ibdata1|"
+    r"ib_logfile[0-9]+|ibtmp1|undo[0-9]+|ddl_recovery(?:-backup)?\.log|"
+    r"multi-master\.info|tc\.log|binlog\.(?:[0-9]+(?:\.idx)?|index|state))\Z"
+)
+
+
+def say(message):
+    print("carlos-emr: " + message, file=sys.stderr)
+
+
+def run(args, timeout=30, env=None):
+    return subprocess.run(args, text=True, stdout=subprocess.PIPE,
+                          stderr=subprocess.PIPE, timeout=timeout, env=env, check=False)
+
+
+def initialize():
+    if os.geteuid() != 0:
+        say("MariaDB initialization requires root.")
+        return 1
+
+    # Use the same lock and paused-import guard as both package postinsts and
+    # finish-install. Taking it here must not block the install's own later
+    # acquisition: the descriptor closes before this helper returns.
+    STATE.mkdir(parents=True, exist_ok=True)
+    fd = os.open(STATE / ".finish-install.lock",
+                 os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "r+") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            say("MariaDB initialization deferred: another provisioning run holds the database lock.")
+            return 1
+        if os.path.isfile(IMPORT_GUARD) and run([IMPORT_GUARD]).returncode != 0:
+            say("MariaDB initialization deferred: an OSCAR 19 import owns the database.")
+            return 1
+
+        service = run(["systemctl", "is-active", "mariadb.service"])
+        if service.stdout.strip() not in ("failed", "inactive"):
+            return 0
+        # is-active cannot see a mariadbd started by hand. Refuse that too,
+        # even when systemd considers its own service stopped.
+        for name in ("mariadbd", "mysqld"):
+            probe = run(["pgrep", "-x", name])
+            if probe.returncode != 1:
+                say("MariaDB initialization deferred: a database process is running or could not be checked.")
+                return 1
+
+        # Read the server's effective configuration, including its compiled
+        # default. Ubuntu 26.04 uses /var/lib/mariadb, older systems commonly
+        # use /var/lib/mysql, and an operator may have moved either one.
+        help_result = run(["mariadbd", "--verbose", "--help"])
+        match = re.search(r"^datadir[ \t]+(.+?)[ \t]*$", help_result.stdout, re.MULTILINE)
+        if help_result.returncode != 0 or match is None:
+            say("Could not determine MariaDB's configured data directory; leaving it unchanged.")
+            return 1
+        datadir = Path(match.group(1))
+        # The vendor's shell initializer splits datadir internally even when
+        # we pass it as one argv entry. Do not attempt a path it cannot handle.
+        if re.search(r"\s", str(datadir)):
+            say("MariaDB's data directory contains whitespace unsupported by mariadb-install-db; "
+                "leaving it unchanged for manual recovery.")
+            return 1
+        if not datadir.is_absolute() or not datadir.is_dir():
+            say("MariaDB's configured data directory is absent or invalid; leaving it unchanged.")
+            return 1
+        if (datadir / "mysql").exists():
+            if not (datadir / "mysql" / "db.frm").is_file():
+                say("MariaDB's existing mysql system schema is incomplete; refusing to reinitialize it. "
+                    "See 'Missing MariaDB system tables' in README.Debian.")
+                return 1
+            return 0
+        for entry in datadir.iterdir():
+            if (entry.name in ("lost+found", "#binlog_cache_files") and not entry.is_symlink()
+                    and entry.is_dir() and not any(entry.iterdir())):
+                continue
+            if entry.is_symlink() or not entry.is_file() or not STARTUP_FILE.fullmatch(entry.name):
+                say(f"MariaDB's mysql system schema is missing in {datadir}, but existing data is present. "
+                    "Refusing to initialize it; restore the system schema from a matching backup "
+                    "(see 'Missing MariaDB system tables' in README.Debian).")
+                return 1
+
+        say(f"Initializing missing MariaDB system tables in {datadir}; existing files are retained.")
+        # timeout also terminates the initializer's bootstrap-server children.
+        # Match the distribution's workaround for libpam-tmpdir (#1022994).
+        result = run(["timeout", "--kill-after=10", "180", "mariadb-install-db",
+                      f"--datadir={datadir}", "--user=mysql",
+                      "--auth-root-authentication-method=socket", "--skip-test-db",
+                      "--disable-log-bin"], timeout=200,
+                     env={**os.environ, "TMPDIR": ""})
+        if result.returncode != 0 or not (datadir / "mysql" / "db.frm").is_file():
+            say("MariaDB system-table initialization failed; no files were removed. "
+                "See the initializer output below and README.Debian.")
+            print(result.stdout + result.stderr, file=sys.stderr, end="")
+            return 1
+        say("MariaDB system tables initialized; retrying the service start.")
+        return 0
+
+
+def main():
+    try:
+        return initialize()
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        say(f"MariaDB initialization could not finish: {exc}. No files were removed.")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

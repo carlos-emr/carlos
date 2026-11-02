@@ -465,6 +465,40 @@ log setting in the drop-in is therefore RELATIVE (log_bin = binlog) so that it
 follows the datadir; an absolute /var/lib/mysql/binlog stops the server from
 starting on this release.
 
+Missing MariaDB system tables. After a purge/reinstall, MariaDB may abort
+with "Table 'mysql.db' doesn't exist" (often also mysql.servers and
+mysql.gtid_slave_pos). These are MariaDB's own system tables, created by
+mariadb-install-db, before CARLOS can provision its application schema.
+The distribution's MariaDB postinst ignores initializer failures, so a
+configured mariadb-server package does not guarantee those tables exist.
+The systemd message about unset MYSQLD_OPTS/_WSREP_NEW_CLUSTER is not the
+reason the server aborts.
+
+When mariadb.service fails during configure, this package retries the
+initializer only if the effective data directory has no mysql schema and
+contains nothing except files a failed first start can create. It reads the
+configured datadir (including custom paths), keeps every existing file,
+uses socket authentication for root, and creates no test database. It
+refuses to initialize when a database process, another provisioning run or
+an OSCAR 19 import owns the database, or when any existing schema, version
+marker or unrecognized file is present. A partial mysql schema also needs
+manual recovery, as does a datadir with whitespace (unsupported by the
+vendor's shell initializer). A refusal leaves the normal install-incomplete notice.
+
+After installing the fixed package, retry with:
+
+    sudo dpkg-reconfigure carlos-emr
+    sudo dpkg-reconfigure carlos-emr-drugref     (if installed)
+
+If the helper refuses existing data, stop and recover the mysql system
+schema from a matching backup before running `sudo carlos-ctl finish-install`.
+Do not delete the data directory, remove ibdata1, or run an initializer over
+a populated database to make the startup error disappear: CARLOS and DrugRef
+may still hold data even though MariaDB cannot open its privilege tables.
+To see which directory the server actually uses (do not assume a path):
+
+    sudo mariadbd --verbose --help 2>/dev/null | awk '$1 == "datadir" {print $2}'
+
 MariaDB runs on this host, listening on loopback only, with four
 least-privilege accounts and no application ever connecting as root:
 
