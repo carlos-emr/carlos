@@ -28,6 +28,7 @@ function fixture(t, foreignRoute, failLinkDelete = false) {
       if (query.includes('FROM security')) return '999998';
       if (query.startsWith('INSERT INTO demographic')) return '42';
       if (query.includes('FROM patientLabRouting')) return foreignRoute ? '1' : '0';
+      if (query.includes('FROM providerLabRouting')) return '0';
       if (query.includes('FROM ctl_document')) return query.includes('AND NOT') || !state.link ? '0' : '1';
       if (query.includes('FROM demographic')) return state.patient ? '1' : '0';
       assert.fail('Unexpected SQL read: ' + query);
@@ -54,6 +55,7 @@ function fixture(t, foreignRoute, failLinkDelete = false) {
   t.mock.method(pdf, 'seedOwnedPdfDocuments', ({docs}) => {
     [doc] = docs;
     doc.id = '7';
+    doc.routingFloor = '7';doc.routingProviders = ['999998'];
     fs.writeFileSync(doc.file, pdf.textPdf(doc.label));
   });
   const previous = process.env.CARLOS_DISPOSABLE_HOST;

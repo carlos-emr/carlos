@@ -49,6 +49,10 @@ async function workflow(s) {
     const clearance=age>0?Math.round((140-age)*80/(100*0.8)*(testCase.sex==='F'?0.85:1)):undefined;
     await rx.waitForFunction(({id,token})=>document.querySelector(id)?.textContent.includes(token),
       {id:`#renalDosing_${card}`,token:clearance===undefined?'N/A':`Clcr ${clearance} =`});
+    const refreshedEquation=(await panel.locator('table.equation').innerText()).replace(/\s+/g,' ');
+    for(const token of ['80.0','100.0 sCr','2025-Jan-02']) {
+      h.assert(refreshedEquation.includes(token),`Refreshed renal equation did not reread ${token}`);
+    }
     h.assert(await panel.locator('table.sofT tr.selected').count()===0,'Restored valid high clearance retained the previous recommendation');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${s.patient}`)==='0','Input checking unexpectedly saved a prescription');
   });

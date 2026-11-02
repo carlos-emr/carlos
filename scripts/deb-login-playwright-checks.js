@@ -121,16 +121,19 @@ legacyHarness.runLegacyCheck('deb-login',async context=>{
     }
   };
 
-  const browser = await launchBrowser({
-    headless: true,
-    chromePath: process.env.CHROME_PATH || process.env.CHROMIUM_PATH || '',
-  });
-  const context = await browser.newContext({ ignoreHTTPSErrors });
-  const page = await context.newPage();
-  const consoleErrors = [];
-  page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
-
+  let browser;
+  let resetSubmitted = false;
+  let resetCommitted = false;
   try {
+    browser = await launchBrowser({
+      headless: true,
+      chromePath: process.env.CHROME_PATH || process.env.CHROMIUM_PATH || '',
+    });
+    const context = await browser.newContext({ ignoreHTTPSErrors });
+    const page = await context.newPage();
+    const consoleErrors = [];
+    page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+
     await record('front door serves the login page over TLS', async () => {
       const response = await page.goto(appUrl('/'), { waitUntil: 'domcontentloaded', timeout: LOGIN_NAVIGATION_TIMEOUT_MS }); // nosemgrep
       assert(response && response.status() === 200, `login page status ${response && response.status()}`);
@@ -168,9 +171,15 @@ legacyHarness.runLegacyCheck('deb-login',async context=>{
       await page.locator('input[name="oldPassword"]').fill(creds.password);
       await page.locator('input[name="newPassword"]').fill(newPassword);
       await page.locator('input[name="confirmPassword"]').fill(newPassword);
+      cancellation?.throwIfCancelled();
+      // Keep recovery evidence even when the server commits but navigation fails.
+      console.log('The password reset will use NEW_PASSWORD; retain it until the outcome is confirmed.');
+      if (!process.env.NEW_PASSWORD) console.log(`generated password: ${newPassword}`);
+      resetSubmitted = true;
       await submitLoginDocument(page, page.locator('input[type="submit"]').first(),
         { label: 'the password reset button' });
       await expectSchedulePage(page, 'after the forced reset');
+      resetCommitted = true;
     });
     cancellation?.throwIfCancelled();
 
@@ -205,15 +214,17 @@ legacyHarness.runLegacyCheck('deb-login',async context=>{
     });
     cancellation?.throwIfCancelled();
   } finally {
-    await browser.close();
+    // Report before shutdown: a stuck close must not hide the changed credential.
+    if (resetSubmitted) {
+      console.log(resetCommitted
+        ? 'The administrator password is now the NEW_PASSWORD given or generated for this run.'
+        : 'The password reset was submitted but its outcome is unconfirmed; NEW_PASSWORD may now be active. Retain it for recovery.');
+    }
+    if (browser) await browser.close();
   }
 
   const failed = results.filter((r) => !r.ok).length;
   console.log(`\n== ${results.length - failed} passed, ${failed} failed ==`);
-  if (failed === 0) {
-    console.log(`The administrator password is now the NEW_PASSWORD given or generated for this run.`);
-    if (!process.env.NEW_PASSWORD) console.log(`generated password: ${newPassword}`);
-  }
   {process.exitCode=failed ? 1 : 0;return;}
 })(context).catch((err) => {
   console.error(err);

@@ -67,7 +67,7 @@
  * on a disposable demo database and remove their related rows by document_no.
  */
 
-const { validateBaseUrl } = require('./lib/playwright-harness');
+const { validateCredentialBaseUrl: validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { browserErrorClass } = require('./browser-error-class');

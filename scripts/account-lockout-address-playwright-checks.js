@@ -17,7 +17,9 @@ async function workflow(s) {
   const contexts=[];
   for(const source of ['127.0.0.2','127.0.0.3']) {
     const relay=await loopbackSourceProxy(s.config.baseUrl,source);relays.push(relay);
-    contexts.push(await h.newContext(s.context.browser(),s.config,{proxy:relay.proxy}));
+    const context=await h.newContext(s.context.browser(),s.config,{proxy:relay.proxy});
+    context.on('page',page=>h.wireStrictPage(page,`address-lock-${source}`,s.recorder,{baseline:[]}));
+    contexts.push(context);
   }
   const {page:admin}=await ui.clickOpensPopupOrNavigates(s.schedule,s.schedule.locator('#admin-panel,#admin2').first(),
     {context:s.context,recorder:s.recorder,label:'address-unlock-administration',timeout:20000});

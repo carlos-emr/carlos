@@ -262,3 +262,38 @@ The four tickets left open are #4102, #5445, #4492 and #5177 for the target-bran
 maintainer-decision and real-environment prerequisites stated above. The remaining
 16 tickets concern implemented coverage; exact product findings do not imply the
 release product was changed or that the corresponding behavior passed.
+
+### Subsequent review follow-up
+
+The later Cubic review identified additional harness issues after the previous
+final-head refresh. Credentialed EDoc/tickler checks now reject remote HTTP;
+packaged password-reset recovery is reported before browser shutdown on success,
+cancellation, or an unconfirmed response. Browser setup is covered by teardown,
+restricted-role setup requires a proven application 403 even when no failure was
+recorded, proxy login pages use the strict recorder, and long uploads observe
+cancellation after each settled chunk/retry. Renal Refresh checks the restored
+weight, creatinine and source date as well as clearance. Upgrade verification
+normalizes `other` to Ontario and explicitly rejects alpha1–alpha17 predecessor
+package layouts; the tickler devcontainer example includes its database opt-in.
+Patient cleanup regression coverage includes both demographic extension tables.
+
+Stored-PDF fixtures allocate above existing document references and routing locks,
+then lock and check the new routing scope while seeding. Cleanup accepts only the
+captured provider/forwarding recipients, locks and rechecks routing before deletion,
+and removes the owned DOC routes and their locks before the document. Unexpected
+providers, non-DOC routes and unproven locks retain all fixtures. The standalone
+`scripts/stored-pdf-routing-integration-check.js` uses the actual baseline schema
+and routing-lock migration in an isolated MariaDB database; it covers expected
+forwarding, stale locks, foreign/NULL/HL7 routes, a reference inserted after
+preflight, and complete owned cleanup.
+
+The image-upload collision comment identifies a remaining **product limitation**:
+`ImageUpload2Action` opens destinations with replacement semantics. The harness's
+random run marker and preflight existence check do not provide atomic no-replace
+semantics against a concurrent writer. Reserving a normal file would still allow
+that endpoint to truncate it and can cause the native image-manager workflow to
+skip uploading entirely. Endpoint no-replace behavior therefore remains deferred
+from this harness-only PR. Run these uploads only in an exclusively controlled
+disposable image store; preflight collision refusal and byte-checked teardown do
+not certify concurrent-upload safety. No application change or race-proof result
+is claimed here.

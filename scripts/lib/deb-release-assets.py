@@ -13,8 +13,9 @@ import urllib.request
 def select_packages(release, tag):
     if release.get("tag_name") != tag or release.get("draft"):
         raise ValueError("release identity does not match the requested published tag")
-    if re.fullmatch(r"2026\.08\.0-alpha1[4-7]", tag):
-        raise ValueError("transitional renderer releases need a different predecessor package set and are unsupported")
+    alpha = re.fullmatch(r"2026\.08\.0-alpha([0-9]+)", tag)
+    if alpha and int(alpha[1]) <= 17:
+        raise ValueError("alpha1 through alpha17 use legacy or transitional renderer package sets and are unsupported")
     result = []
     for pattern in (r"carlos-emr_[A-Za-z0-9.+~_-]+_amd64\.deb", r"carlos-emr-drugref_[A-Za-z0-9.+~_-]+_all\.deb", r"carlos-ctl_[A-Za-z0-9.+~_-]+_all\.deb"):
         candidates = [a for a in release["assets"] if re.fullmatch(pattern, a["name"])]

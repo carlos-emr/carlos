@@ -272,11 +272,13 @@ async function run(env = process.env,{cancellation}={}) {
       h.assert(begin.status === 200 && begin.body?.ok === true && begin.body.upload?.state === 'OPEN','Large upload reservation failed');
       const upload = begin.body.upload;const ownership={uploadId:upload.id,phase:'RESERVED',framing:chunked?'chunked':'content-length'};
       report.ownedUploads.push(ownership);save();
+      cancellation?.throwIfCancelled();
       h.assert(Number.isSafeInteger(upload.chunkBytes) && upload.chunkBytes >= 65536 && upload.chunkBytes <= 16 * MiB,'Unsafe server chunk bound');
       const fd = fs.openSync(source,'r'); const digest = createHash('sha256'); let offset = 0; let index = 0;
       try {
         const buffer = Buffer.alloc(upload.chunkBytes);
         while (offset < report.source.bytes) {
+          cancellation?.throwIfCancelled();
           const expected = Math.min(buffer.length, report.source.bytes-offset);
           const count = fs.readSync(fd,buffer,0,expected,offset); h.assert(count === expected,'Synthetic source shortened');
           const body = buffer.subarray(0,count); const sha256 = createHash('sha256').update(body).digest('hex');
@@ -284,17 +286,21 @@ async function run(env = process.env,{cancellation}={}) {
           if(!chunked && index===0) {
             ownership.phase='INTERRUPTION_STARTED';save();
             report.interruption={uploadId:upload.id,...await interruptPost(endpoint,headers,body.subarray(0,65536),count)};save();
+            cancellation?.throwIfCancelled();
             const current=await importApi(page,'cdsImportStatus',{section:'upload',uploadId:upload.id});
+            cancellation?.throwIfCancelled();
             h.assert(current.body?.upload?.receivedBytes===0 && current.body?.upload?.committedChunks===0
               && current.body?.upload?.runId===null,'An incomplete transport body advanced its durable checkpoint');
             ownership.phase='RESUMING_SAME_UUID';save();
           }
           let response;
           for(let attempt=0;attempt<10;attempt++) {
-            response=await rawPost(endpoint,headers,body,{chunked});
+            try {response=await rawPost(endpoint,headers,body,{chunked});}
+            finally {cancellation?.throwIfCancelled();}
             assertMetadataVersion(response);
             if(response.status!==409 || response.json?.code!=='UPLOAD_BUSY')break;
             await new Promise(resolve=>setTimeout(resolve,100));
+            cancellation?.throwIfCancelled();
           }
           h.assert(response.status === 200 && response.json?.ok === true && response.json.upload?.receivedBytes === offset+count,
             'Actual framed request did not commit its exact bounded receipt');

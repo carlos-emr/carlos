@@ -6,8 +6,8 @@
  * verifies it in the DataTables-backed list, edits it through the edit UI,
  * completes it, deletes it, and cleans up rows it created.
  *
- * Defaults are for the local devcontainer:
- *   npm run test:tickler-crud-playwright
+ * In the local devcontainer, explicitly opt in to its separate disposable DB service:
+ *   MYSQL_HOST=db ALLOW_NON_LOCAL_MYSQL_HOST=true npm run test:tickler-crud-playwright
  *
  * Optional environment:
  *   BASE_URL=http://127.0.0.1:8080/carlos
@@ -15,13 +15,14 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
+ *   MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
+ *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-loopback database
  *   TICKLER_DEMOGRAPHIC_NO=1
  *   TICKLER_PROVIDER_NO=999998
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
-const { validateBaseUrl } = require('./lib/playwright-harness');
+const { validateCredentialBaseUrl: validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { cleanupTicklerFixture, readNoteLinkFloor } = require('./lib/tickler-fixture-cleanup');
 const { selectTicklerAssignee } = require('./lib/tickler-clinic');

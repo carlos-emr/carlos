@@ -14,6 +14,7 @@ function validateDatabaseEnvironment(env) {
   assert(start >= 0 && end > start && end < source.indexOf('(async () =>'));
   return vm.runInNewContext(source.slice(start, end), {
     process: { env }, assert: (condition, message) => assert.ok(condition, message),
+    require: name => require(name),
   });
 }
 
@@ -102,7 +103,10 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
             return { locator() { return { first() { return { async click() {} }; } }; } };
           },
         };
-        if (name === './lib/playwright-harness') return { shouldIgnoreHttpsErrors: () => true };
+        if (name === './lib/playwright-harness') return {
+          shouldIgnoreHttpsErrors: () => true,
+          validateMysqlHost: require('./lib/playwright-harness').validateMysqlHost,
+        };
         throw new Error(`Unexpected dependency: ${name}`);
       },
     });

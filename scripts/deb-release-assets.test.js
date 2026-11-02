@@ -9,6 +9,11 @@ tag='2026.08.0-beta2'
 names=['carlos-emr_2026.08.0.beta2_amd64.deb','carlos-emr-drugref_2026.08.0.beta2_all.deb','carlos-ctl_1.2.1_all.deb']
 release={'tag_name':tag,'draft':False,'assets':[{'name':name,'browser_download_url':f'https://github.com/carlos-emr/carlos/releases/download/{tag}/{name}','digest':'sha256:'+'a'*64} for name in names]}
 assert len(module.select_packages(release,tag))==3
+for number in range(1,18):
+    old_tag=f'2026.08.0-alpha{number}'
+    try:module.select_packages({'tag_name':old_tag,'draft':False,'assets':[]},old_tag)
+    except ValueError as error:assert 'unsupported' in str(error)
+    else:raise AssertionError('legacy package set was accepted')
 for mutation in ['tag','draft','duplicate','missing','url','digest','traversal']:
     changed=copy.deepcopy(release)
     if mutation=='tag':changed['tag_name']='2026.08.0-beta3'

@@ -437,33 +437,36 @@ async function run(sql,cancellation) {
     launchOptions.executablePath = config.chromiumPath;
   }
 
-  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
-  // ignoreHTTPSErrors: the packaged deployment serves a self-signed certificate
-  // by default, so a real install is reached over HTTPS with an untrusted CA.
-  const context = await browser.newContext({ viewport: { width: 1400, height: 1000 }, ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
-  context.setDefaultTimeout(config.timeout);
-
-  context.on('page', page => {
-    page.on('console', msg => {
-      const text = msg.text();
-      if (msg.type() === 'error' || /\b404\b|DataTable is not a function|redeclaration|Cannot read|Cannot set/i.test(text)) {
-        findings.push({ label: 'browser console', detail: `${msg.type()}: ${text}` });
-      }
-    });
-    page.on('pageerror', error => {
-      findings.push({ label: 'browser pageerror', detail: error.message });
-    });
-    page.on('response', response => {
-      const status = response.status();
-      if (status >= 500) {
-        findings.push({ label: 'HTTP 5xx', detail: `${status} ${response.url()}` });
-      }
-    });
-  });
-
-  const page = await context.newPage();
+  let browser;
   let demographicNo = null;
   try {
+    browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
+    // ignoreHTTPSErrors: the packaged deployment serves a self-signed certificate
+    // by default, so a real install is reached over HTTPS with an untrusted CA.
+    const context = await browser.newContext({ viewport: { width: 1400, height: 1000 }, ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+    context.setDefaultTimeout(config.timeout);
+
+    context.on('page', page => {
+      page.on('console', msg => {
+        const text = msg.text();
+        if (msg.type() === 'error' || /\b404\b|DataTable is not a function|redeclaration|Cannot read|Cannot set/i.test(text)) {
+          findings.push({ label: 'browser console', detail: `${msg.type()}: ${text}` });
+        }
+      });
+      page.on('pageerror', error => {
+        findings.push({ label: 'browser pageerror', detail: error.message });
+      });
+      page.on('response', response => {
+        const status = response.status();
+        if (status >= 500) {
+          findings.push({ label: 'HTTP 5xx', detail: `${status} ${response.url()}` });
+        }
+      });
+    });
+
+    const page = await context.newPage();
+    cancellation?.throwIfCancelled();
     await login(page);
     cancellation?.throwIfCancelled();
     const searchPage = await openSearchPopup(context, page);
@@ -486,13 +489,13 @@ async function run(sql,cancellation) {
     }
   } finally {
     console.log(JSON.stringify({ stamp, patient, demographicNo, results, findings }, null, 2));
-    if (config.keepOpen) {
+    if (config.keepOpen && browser) {
       console.log('KEEP_OPEN=true, leaving browser open.');
       if (cancellation) await cancellation.waitForCancellation();
       else await new Promise(() => {});
     }
     try {
-      await browser.close();
+      if (browser) await browser.close();
     } finally {
       // A failed browser shutdown must not skip the patient rows this run owns.
       try {

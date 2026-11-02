@@ -69,8 +69,10 @@ PYIDENTITY
   ) || { echo 'ERROR: target package build identity is incomplete or duplicated.' >&2; exit 2; }
 fi
 if [ -z "${EXPECT_FLYWAY:-}" ] || [ -z "${EXPECT_NEW+x}" ]; then
+  migration_province=$(g "$PRE" cfg.province)
+  [ "${migration_province,,}" != other ] || migration_province=on
   derived=$(python3 "$HERE/lib/deb-upgrade-expectations.py" "$PRE" \
-    "${TARGET_MIGRATION_DIR:-$CARLOS_SHARE_DIR/schema/migration}" "$(g "$PRE" cfg.province)") || exit 2
+    "${TARGET_MIGRATION_DIR:-$CARLOS_SHARE_DIR/schema/migration}" "$migration_province") || exit 2
   EXPECT_FLYWAY="${EXPECT_FLYWAY:-${derived%%$'\n'*}}"
   derived_new=${derived#*$'\nversions='}
   EXPECT_NEW="${EXPECT_NEW-$derived_new}"

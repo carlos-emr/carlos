@@ -60,3 +60,20 @@ for (const cleanupFails of [false, true]) {
     if (cleanupFails) assert.equal(vm.runInContext('findings.at(-1).detail', context), 'patient cleanup failed');
   });
 }
+
+for(const failure of ['launch','newContext','newPage']) {
+  test(`demographic setup failure at ${failure} closes acquired resources`,async()=>{
+    const events=[],setupError=new Error(`injected ${failure}`);
+    const browser={async newContext(){if(failure==='newContext')throw setupError;
+      return {setDefaultTimeout(){},on(){},async newPage(){throw setupError;}};},async close(){events.push('closed');}};
+    const sql={rows:()=>[],value:()=> '0',dispose(){events.push('disposed');}};
+    const context=vm.createContext({URL,process:{env:{}},console:{log(){}},require(name){
+      if(name==='playwright')return {chromium:{async launch(){if(failure==='launch')throw setupError;return browser;}}};
+      if(name==='./lib/playwright-harness')return {...h,readConfig:()=>({mysql:{}}),createSqlRunner:()=>sql};
+      return require(name);
+    }});
+    vm.runInContext(definitions,context);
+    await assert.rejects(context.main(),error=>error===setupError);
+    assert.deepEqual(events,failure==='launch'?['disposed']:['closed','disposed']);
+  });
+}

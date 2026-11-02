@@ -132,7 +132,7 @@ function createOwnedAnnotationFixture(config) {
           }
         }
         for(const item of files)h.assert(fs.lstatSync(item.file).isFile()&&pdf.sha(item.file)===item.sha,'Annotation file changed before cleanup');
-        if(ids.length)pdf.removeOwnedPdfDocuments({sql,marker,patient,docs:[...records.values()],files:[]});
+        if(ids.length)pdf.removeOwnedPdfDocuments({sql,marker,patient,docs:[...records.values()],files:[],routingProof:source});
         for(const item of files)retireOwnedFile(item.file,bytes=>hash(bytes)===item.sha);
         h.assert(sql.value(`SELECT COUNT(*) FROM ctl_document WHERE module='demographic' AND module_id=${patient}`)==='0','Annotation links remain');
         sql.execute(`DELETE FROM demographic WHERE demographic_no=${patient} AND last_name=${h.sqlString(marker)}`);

@@ -150,6 +150,20 @@ test('automatic upgrade expectations refuse missing target locations and unpinne
   assert.equal(result.status,2);assert.match(result.stderr,/EXPECT_TAG/);
 });
 
+test('automatic upgrade expectations map the supported other province to Ontario migrations', t=>{
+  const fixture=setup(t);
+  fs.writeFileSync(path.join(fixture.env.CARLOS_ETC_DIR,'carlos-emr.env'),
+    'CARLOS_PROVINCE="other"\nCARLOS_TZ="UTC"\nCARLOS_DB_NAME="renamed_fixture"\n');
+  fixture.baseline();
+  const migration=path.join(fixture.env.CARLOS_SHARE_DIR,'schema','migration');
+  for(const location of ['common','on'])fs.mkdirSync(path.join(migration,location),{recursive:true});
+  fs.writeFileSync(path.join(migration,'on','V1.0.40__ontario.sql'),'SELECT 1;');
+  const result=fixture.run('deb-upgrade-verify.sh',{EXPECT_FLYWAY:undefined,EXPECT_NEW:undefined,
+    FLYWAY_VERSIONS:'1.0.39\n1.0.40',FLYWAY_COUNT:'2'});
+  assert.equal(result.status,0,result.stdout+result.stderr);
+  assert.match(result.stdout,/expected new migrations applied: 1.0.40/);
+});
+
 test('upgrade verifier accepts the one-time OSCAR feature-defaults migration', t => {
   const fixture = setup(t);
   const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');

@@ -15,6 +15,23 @@ function collectScripts(directory, prefix = '') {
 }
 const scripts = collectScripts(__dirname);
 
+for (const name of ['edoc-schedule-navigation-playwright-checks.js', 'tickler-crud-playwright-checks.js']) {
+  test(`${name} refuses remote HTTP credentials before starting a browser or creating fixtures`, () => {
+    const source = fs.readFileSync(path.join(__dirname, name), 'utf8');
+    const env = { BASE_URL: 'http://review.example.invalid/carlos', ALLOW_NON_LOCAL_BASE_URL: 'true' };
+    assert.throws(() => vm.runInNewContext(source, {
+      URL, process: { env }, require(module) {
+        if (module === './lib/playwright-harness') {
+          const h = require(module);
+          return { validateCredentialBaseUrl: raw => h.validateCredentialBaseUrl(raw, env) };
+        }
+        // Reach the top-level URL validation without running any side effects.
+        return {};
+      },
+    }), /Non-loopback BASE_URL targets must use https/);
+  });
+}
+
 function scheduleUrlContext() {
   const source = fs.readFileSync(path.join(__dirname, 'schedule-links-playwright-checks.js'), 'utf8');
   const context = vm.createContext({ URL, process: { env: {} },

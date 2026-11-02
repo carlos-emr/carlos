@@ -179,6 +179,7 @@ h.runCheck({name:'eform-page-exclusion',async run({cancellation}) {
 
     cancellation.throwIfCancelled();
     await browser.close();
+    cancellation.throwIfCancelled();
 
     if (failures.length > 0) {
         console.error(`\n${failures.length} check(s) failed:`);

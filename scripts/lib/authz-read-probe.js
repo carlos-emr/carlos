@@ -116,7 +116,7 @@ async function signIn(session, login,{allowForbiddenSchedule=false}={}) {
   context.setDefaultTimeout(20000);
   const {failureMark,consumeExpectedFailure}=require('./concurrency-support'),mark=failureMark(session.recorder);
   const page = await h.login(context, { ...session.config, testUser: login.username }, session.recorder);
-  if(allowForbiddenSchedule&&session.recorder.badResponses.length>mark.responses) {
+  if(allowForbiddenSchedule) {
     const url=new URL(page.url());
     h.assert(url.origin===session.config.baseUrl.origin&&url.pathname===new URL(h.appUrl(session.config.baseUrl,'/provider/providercontrol')).pathname,'Restricted login failed outside the schedule landing');
     const proof=await authenticatedProbe({...session,context},url.href);
