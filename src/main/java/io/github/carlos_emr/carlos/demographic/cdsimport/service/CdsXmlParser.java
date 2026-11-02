@@ -59,10 +59,6 @@ import java.util.function.Consumer;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.SAXParserFactory;
 import javax.xml.validation.ValidatorHandler;
-import org.apache.xerces.jaxp.SAXParserFactoryImpl;
-import org.apache.xerces.xs.XSConstants;
-import org.apache.xerces.xs.XSSimpleTypeDefinition;
-import org.w3c.dom.TypeInfo;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.Locator;
@@ -87,6 +83,11 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class CdsXmlParser {
+    private static final String NUMERIC_LEXICAL_INVALID = "CDS_XML_NUMERIC_LEXICAL_INVALID";
+    private static final String POSITIVE_INTEGER = "positiveInteger";
+    private static final String NAME_SEPARATOR = "\u0000";
+    /** Ordinary (non-xmlns) attributes admitted on one element by CDS parsing and snapshot discovery. */
+    static final int MAX_ELEMENT_ATTRIBUTES = 128;
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final Set<String> SECTIONS = Set.of("Demographics", "PersonalHistory", "FamilyHistory",
             "PastHealth", "ProblemList", "RiskFactors", "AllergiesAndAdverseReactions",
@@ -154,7 +155,7 @@ public class CdsXmlParser {
                     Reader text = CdsXmlText.reader(hashed, limits.maxBoundedScalarCharacters())) {
                 XMLReader reader;
                 try {
-                    reader=xmlReader();
+                    reader=xmlReader(limits);
                     reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
                     reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
                     reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
@@ -181,11 +182,10 @@ public class CdsXmlParser {
         }
     }
 
-    static XMLReader xmlReader() throws javax.xml.parsers.ParserConfigurationException, SAXException {
-        // Pinned Xerces uses the PSVI-free handler and same-grammar type cursor below.
-        // Its JAXP DTD-access property is unavailable.
+    static XMLReader xmlReader(CdsInputLimitsDto limits) throws javax.xml.parsers.ParserConfigurationException, SAXException {
+        // Use the maintained JDK implementation with explicit external-resource controls.
         // Audit: throw-only resolver returns no InputSource and performs no I/O; DTD/entity controls remain fail-closed.
-        SAXParserFactory factory = new SAXParserFactoryImpl();
+        SAXParserFactory factory = SAXParserFactory.newDefaultInstance();
         factory.setNamespaceAware(true);
         factory.setXIncludeAware(false);
         factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
@@ -194,6 +194,23 @@ public class CdsXmlParser {
         factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
         factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         XMLReader reader = factory.newSAXParser().getXMLReader();
+        // Let CDS classify the first policy violation before the JDK's finite backstop.
+        reader.setProperty("jdk.xml.maxXMLNameLimit", String.valueOf(Math.min(Integer.MAX_VALUE,
+                1L + Math.max(limits.maxXmlNameCharacters(), limits.maxNamespaceUriCharacters()))));
+        reader.setProperty("jdk.xml.maxElementDepth", String.valueOf(Math.min(Integer.MAX_VALUE, 1L + limits.maxXmlDepth())));
+        // The JDK counts xmlns declarations as attributes (default ceiling 200); CDS
+        // separately bounds ordinary attributes and document-wide namespace aliases.
+        reader.setProperty("jdk.xml.elementAttributeLimit", String.valueOf(Math.min(Integer.MAX_VALUE,
+                1L + MAX_ELEMENT_ATTRIBUTES + limits.maxNamespaceAliases())));
+        // The JDK also counts every predefined reference (&amp;, &lt;, ...) in the document
+        // entity against these entity-size ceilings (default 100,000), so ordinary escaped
+        // clinical text would be refused part way through a large source. DOCTYPE is refused
+        // above, leaving only the five one-character predefined entities: no expansion is
+        // possible and maxSourceBytes already bounds the count. No finite int ceiling fits
+        // every permitted source size, so 0 (no limit) is the only lossless setting here.
+        reader.setProperty("jdk.xml.maxGeneralEntitySizeLimit", "0");
+        reader.setProperty("jdk.xml.totalEntitySizeLimit", "0");
+        reader.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
         reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
         reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
@@ -278,7 +295,7 @@ public class CdsXmlParser {
                         throw new SAXException(CdsPaths.failure("CDS_CORRECTION_TARGET_NOT_SCALAR"));
                     }
                     for (int i = 0; i < attrs.getLength(); i++) {
-                        frame.attributeTypes.put(attrs.getURI(i) + "\u0000" + attrs.getLocalName(i),
+                        frame.attributeTypes.put(attrs.getURI(i) + NAME_SEPARATOR + attrs.getLocalName(i),
                                 types.attributeType(attrs.getURI(i), attrs.getLocalName(i)));
                     }
                 }
@@ -324,7 +341,7 @@ public class CdsXmlParser {
                 check();
                 valueWriter.flush();
                 name(qualified);
-                if (attrs.getLength() > 128) fail("CDS_XML_ATTRIBUTE_RESOURCE_LIMIT");
+                if (attrs.getLength() > MAX_ELEMENT_ATTRIBUTES) fail("CDS_XML_ATTRIBUTE_RESOURCE_LIMIT");
                 for (int i = 0; i < attrs.getLength(); i++) name(attrs.getQName(i));
                 if (stack.size() >= limits.maxXmlDepth()) fail("CDS_XML_DEPTH_LIMIT");
                 if (!rootSeen) {
@@ -339,7 +356,7 @@ public class CdsXmlParser {
                 if (!stack.isEmpty()) {
                     Frame parent = stack.peek();
                     parent.child = true;
-                    String key = uri + "\u0000" + local;
+                    String key = uri + NAME_SEPARATOR + local;
                     if (!parent.children.containsKey(key) && parent.children.size() >= 128) fail("CDS_XML_CHILD_NAME_LIMIT");
                     ordinal = parent.children.merge(key, 1L, Math::addExact);
                     relative = parent.relative.isEmpty() ? local + "[" + ordinal + "]" : parent.relative + "/" + local + "[" + ordinal + "]";
@@ -367,7 +384,7 @@ public class CdsXmlParser {
                 }
                 types.start(uri, local, validatedAttrs);
                 for (int i = 0; i < validatedAttrs.getLength(); i++) {
-                    TypeInfo attributeType = types.attributeType(validatedAttrs.getURI(i), validatedAttrs.getLocalName(i));
+                    CdsSchemaModel.Type attributeType = types.attributeType(validatedAttrs.getURI(i), validatedAttrs.getLocalName(i));
                     if (CdsSchemaTypeCursor.identity(attributeType)) {
                         Frame identityAttribute = new Frame("", "", "");
                         identityAttribute.identity = true;
@@ -383,7 +400,7 @@ public class CdsXmlParser {
                         valueWriter.write(value); valueWriter.flush();
                         String path = relative + (relative.isEmpty() ? "" : "/") + "@" + attrs.getLocalName(i);
                         writeField(frame, path, attrs.getURI(i), "ATTRIBUTE",
-                                frame.attributeTypes.get(attrs.getURI(i) + "\u0000" + attrs.getLocalName(i)));
+                                frame.attributeTypes.get(attrs.getURI(i) + NAME_SEPARATOR + attrs.getLocalName(i)));
                     }
                     frame.beginValue(valueOutput);
                 }
@@ -456,7 +473,7 @@ public class CdsXmlParser {
             } catch (IOException failed) { throw protectedFailure(failed); }
         }
 
-        private void writeField(Frame frame, String path, String namespace, String kind, TypeInfo type)
+        private void writeField(Frame frame, String path, String namespace, String kind, CdsSchemaModel.Type type)
                 throws IOException {
             CdsFieldDto field=descriptor(frame, path, namespace, kind, type);
             JsonNode change=reviewed.get(sourcePath(path));
@@ -472,7 +489,7 @@ public class CdsXmlParser {
             valueOutput.fieldDigest = CdsPaths.sha256();
         }
 
-        private CdsFieldDto descriptor(Frame frame, String path, String namespace, String kind, TypeInfo type) {
+        private CdsFieldDto descriptor(Frame frame, String path, String namespace, String kind, CdsSchemaModel.Type type) {
             String schemaType = type == null ? "" : "{" + type.getTypeNamespace() + "}" + type.getTypeName();
             return new CdsFieldDto(path, namespace, kind, frame.valueStart,
                     valueOutput.count - frame.valueStart, frame.completedDigest==null ? CdsPaths.hex(valueOutput.fieldDigest.digest()) : frame.completedDigest,
@@ -500,7 +517,7 @@ public class CdsXmlParser {
                     .put("column", failure.getColumnNumber()).put("protectedDetailPreview", detail)
                     .put("detailPreviewLimited", failure.getMessage() != null && failure.getMessage().length() > 4096);
             try { diagnosticOutput.write(JSON.writeValueAsBytes(row)); diagnosticOutput.write('\n'); }
-            catch (IOException unwritable) { throw new SAXException(CdsPaths.failure("CDS_DIAGNOSTIC_WRITE_FAILED")); }
+            catch (IOException _) { throw new SAXException(CdsPaths.failure("CDS_DIAGNOSTIC_WRITE_FAILED")); }
         }
 
         private void identity(Frame frame, char[] chars, int offset, int length) throws IOException {
@@ -594,11 +611,11 @@ public class CdsXmlParser {
         private final String local;
         private final String relative;
         private final Map<String, Long> children = new HashMap<>();
-        private final Map<String, TypeInfo> attributeTypes = new HashMap<>();
+        private final Map<String, CdsSchemaModel.Type> attributeTypes = new HashMap<>();
         private boolean child;
         private boolean identity;
         private boolean identityToken;
-        private TypeInfo type;
+        private CdsSchemaModel.Type type;
         private JsonNode correction;
         private String completedDigest;
         private final StringBuilder schemaDefault=new StringBuilder(4);
@@ -623,48 +640,29 @@ public class CdsXmlParser {
 
         Frame(String namespace, String local, String relative) { this.namespace = namespace; this.local = local; this.relative = relative; }
 
-        void configure(TypeInfo info) {
+        void configure(CdsSchemaModel.Type info) {
             type = info; whitespace = whitespace(info);
             identity = CdsSchemaTypeCursor.identity(info);
-            if (!(info instanceof XSSimpleTypeDefinition simple)) { mode = Mode.COMPLEX; return; }
+            if (info == null || !info.simple()) { mode = Mode.COMPLEX; return; }
             mode = Mode.BOUNDED;
-            short relevant = (short) (simple.getDefinedFacets() & ~XSSimpleTypeDefinition.FACET_WHITESPACE);
-            if (simple.getVariety() == XSSimpleTypeDefinition.VARIETY_ATOMIC
-                    && simple.getPrimitiveType() != null && relevant == 0) {
-                if (plainString(simple)) mode = Mode.TEXT;
-                if (simple.getBuiltInKind() == XSConstants.BASE64BINARY_DT) { mode = Mode.BINARY; binaryBuffer = new byte[8192]; }
-                if (simple.getBuiltInKind() == XSConstants.DECIMAL_DT) mode = Mode.DECIMAL;
+            if (info.atomic() && !info.lengthFacet() && !info.otherFacet()) {
+                if (info.plainString()) mode = Mode.TEXT;
+                if (info.builtIn().equals("base64Binary")) { mode = Mode.BINARY; binaryBuffer = new byte[8192]; }
+                if (info.builtIn().equals("decimal")) mode = Mode.DECIMAL;
             }
-            short lengthFacets = XSSimpleTypeDefinition.FACET_LENGTH | XSSimpleTypeDefinition.FACET_MINLENGTH
-                    | XSSimpleTypeDefinition.FACET_MAXLENGTH;
-            if (simple.getVariety() == XSSimpleTypeDefinition.VARIETY_ATOMIC
-                    && simple.getPrimitiveType() != null
-                    && plainString(simple)
-                    && relevant != 0 && (relevant & ~lengthFacets) == 0) {
-                // Xerces2.12 counts UTF16 units for string-length facets. XML Schema counts
-                // Unicode characters. Only pure length/whitespace restrictions can use this
-                // equivalent BMP witness; patterns/enumerations must see their actual value.
+            if (info.atomic() && info.plainString() && info.lengthFacet() && !info.otherFacet()) {
+                // Feed a BMP witness of the exact normalized Unicode-character length.
+                // Pattern/enumeration restrictions always receive their actual bounded value.
                 mode = Mode.LENGTH_TEXT;
             }
-            if (XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(simple.getNamespace())
-                    && Set.of("integer", "nonNegativeInteger", "positiveInteger").contains(simple.getName())) {
+            if (XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(info.getTypeNamespace())
+                    && Set.of("integer", "nonNegativeInteger", POSITIVE_INTEGER).contains(info.getTypeName())) {
                 mode = Mode.INTEGER;
             }
         }
 
-        private static boolean plainString(XSSimpleTypeDefinition type) {
-            // NCName/ID/IDREF and other intrinsic string-derived types still
-            // require their real lexical values and document identity checks.
-            short kind = type.getBuiltInKind();
-            return kind == XSConstants.STRING_DT || kind == XSConstants.NORMALIZEDSTRING_DT || kind == XSConstants.TOKEN_DT;
-        }
-
-        static String whitespace(TypeInfo info) {
-            if (info instanceof XSSimpleTypeDefinition simple) {
-                String value = simple.getLexicalFacetValue(XSSimpleTypeDefinition.FACET_WHITESPACE);
-                if (value != null && Set.of("preserve", "replace", "collapse").contains(value)) return value;
-            }
-            return "preserve";
+        static String whitespace(CdsSchemaModel.Type info) {
+            return info == null || !info.simple() ? "preserve" : info.whitespace();
         }
 
         void beginValue(ValueOutput output) { valueStart = output.count; output.fieldDigest = CdsPaths.sha256(); }
@@ -695,13 +693,13 @@ public class CdsXmlParser {
 
         void number(char c) throws IOException {
             if (xmlSpace(c)) { if (numberDigits || numberSign || numberDot) numberTrailingWhitespace = true; return; }
-            if (numberTrailingWhitespace) throw CdsPaths.failure("CDS_XML_NUMERIC_LEXICAL_INVALID");
+            if (numberTrailingWhitespace) throw CdsPaths.failure(NUMERIC_LEXICAL_INVALID);
             if ((c == '+' || c == '-') && !numberSign && !numberDigits && !numberDot) {
                 numberSign = true; numberNegative = c == '-'; return;
             }
             if (c >= '0' && c <= '9') { numberDigits = true; numberNonzero |= c != '0'; return; }
             if (mode == Mode.DECIMAL && c == '.' && !numberDot) { numberDot = true; return; }
-            throw CdsPaths.failure("CDS_XML_NUMERIC_LEXICAL_INVALID");
+            throw CdsPaths.failure(NUMERIC_LEXICAL_INVALID);
         }
 
         void base64(char[] chars, int offset, int length, OutputStream target, long maximum) throws IOException {
@@ -748,16 +746,16 @@ public class CdsXmlParser {
                 if (lengthWitness.length > 0) validator.characters(lengthWitness, 0, lengthWitness.length);
             }
             if (mode == Mode.INTEGER || mode == Mode.DECIMAL) {
-                if (!numberDigits) throw CdsPaths.failure("CDS_XML_NUMERIC_LEXICAL_INVALID");
+                if (!numberDigits) throw CdsPaths.failure(NUMERIC_LEXICAL_INVALID);
                 if (mode == Mode.INTEGER && type != null) {
-                    if (type.getTypeName().equals("positiveInteger") && (numberNegative || !numberNonzero)) {
+                    if (type.getTypeName().equals(POSITIVE_INTEGER) && (numberNegative || !numberNonzero)) {
                         throw CdsPaths.failure("CDS_XML_NUMERIC_RANGE_INVALID");
                     }
                     if (type.getTypeName().equals("nonNegativeInteger") && numberNegative && numberNonzero) {
                         throw CdsPaths.failure("CDS_XML_NUMERIC_RANGE_INVALID");
                     }
                 }
-                char[] value = (mode == Mode.INTEGER && type.getTypeName().equals("positiveInteger") ? "1" : "0").toCharArray();
+                char[] value = (mode == Mode.INTEGER && type.getTypeName().equals(POSITIVE_INTEGER) ? "1" : "0").toCharArray();
                 validator.characters(value, 0, value.length);
             }
         }
