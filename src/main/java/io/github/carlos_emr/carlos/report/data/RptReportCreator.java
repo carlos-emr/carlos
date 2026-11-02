@@ -33,7 +33,10 @@
  */
 package io.github.carlos_emr.carlos.report.data;
 
-import java.sql.ResultSet;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+import io.github.carlos_emr.carlos.commn.dao.ReportConfigDao;
+
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -45,67 +48,39 @@ import java.util.Vector;
 import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.login.DBHelp;
 import io.github.carlos_emr.carlos.util.SqlIdentifierValidator;
 
 /**
  * @author yilee18
  */
 public final class RptReportCreator {
-    DBHelp dbObj = new DBHelp();
+    private ReportConfigDao configurationDao() {
+        return SpringUtils.getBean(ReportConfigDao.class);
+    }
 
     // select formBCAR.pg1_ethOrig as Ethnic Origin, ...
     public String getSelectField(String recordId) throws SQLException {
         StringBuilder ret = new StringBuilder();
-        String sql = "select * from reportConfig where report_id = ? order by order_no";
-        ResultSet rs = DBHelp.searchDBRecord(sql, recordId);
-        if (rs == null) {
-            return ret.toString();
+        for (var r : configurationDao().findByReportId(RptReportConfigData.parseReportId(recordId))) {
+            String caption = RptReportConfigData.text(r.getCaption());
+            ret.append(ret.length() == 0 ? " " : ", ");
+            ret.append(requireValidReportIdentifier(RptReportConfigData.text(r.getTableName()))).append(".")
+                    .append(requireValidReportColumnIdentifier(RptReportConfigData.text(r.getName())));
+            if (!caption.isEmpty()) ret.append(" as ").append(quoteSqlStringLiteral(caption));
         }
-        while (rs.next()) {
-            String caption = DBHelp.getString(rs, "caption");
-            ret.append((ret.length() < 8 ? " " : ", ") + requireValidReportIdentifier(DBHelp.getString(rs, "table_name"))
-                    + "." + requireValidReportColumnIdentifier(DBHelp.getString(rs, "name")));
-            if (caption != null && caption.length() > 0) {
-                ret.append(" as " + quoteSqlStringLiteral(caption));
-            }
-        }
-        rs.close();
         return ret.toString();
     }
 
     // from formBCAR
     public String getFromTableFirst(String recordId) throws SQLException {
-        String ret = "  ";
-        String sql = "select distinct table_name from reportConfig where report_id = ? order by table_name desc";
-        ResultSet rs = DBHelp.searchDBRecord(sql, recordId);
-        if (rs == null) {
-            return ret;
-        }
-        if (rs.next()) {
-            ret = DBHelp.getString(rs, "table_name");
-        }
-        rs.close();
-        return ret;
+        List<String> tables = configurationDao().findTableNames(RptReportConfigData.parseReportId(recordId));
+        return tables.isEmpty() ? "  " : RptReportConfigData.text(tables.get(0));
     }
 
     // from formBCAR, demographic
     public String getFromTable(String recordId) throws SQLException {
-        String ret = "  ";
-        Vector vec = new Vector();
-        String sql = "select distinct table_name from reportConfig where report_id = ? order by table_name desc";
-        ResultSet rs = DBHelp.searchDBRecord(sql, recordId);
-        if (rs == null) {
-            return ret;
-        }
-        while (rs.next()) {
-            vec.add(DBHelp.getString(rs, "table_name"));
-        }
-        rs.close();
-        for (int i = 0; i < vec.size(); i++) {
-            ret += (i == 0 ? "" : ",") + vec.get(i);
-        }
-        return ret;
+        List<String> tables = configurationDao().findTableNames(RptReportConfigData.parseReportId(recordId));
+        return "  " + String.join(",", tables.stream().map(RptReportConfigData::text).toList());
     }
 
     // tableName: formBCAR,formBCNewBorn... how to handle??
@@ -411,52 +386,22 @@ public final class RptReportCreator {
      * Executes a sub-query and returns a comma-separated list of integer IDs.
      */
     public String getRltSubQuery(String sql, Object... params) throws SQLException {
-        String ret = "0";
-
-        ResultSet rs = DBHelp.searchDBRecord(sql, params); // nosemgrep: formatted-sql-string -- admin report template SQL; table names validated by RptFormQuery.validateTableName; user values bound via params
-        MiscUtils.getLogger().debug(" tempVal: " + sql);
-        if (rs == null) {
-            MiscUtils.getLogger().error("Database query failed for sub-query");
-            return ret;
-        }
-        while (rs.next()) {
-            if ("0".equals(ret)) {
-                ret = "";
-            }
-            ret += ("".equals(ret) ? "" : ",") + rs.getInt(1);
-
-        }
-        rs.close();
-        return ret;
+        List<String> ids = new ArrayList<>();
+        for (var row : ConfiguredReportQuery.read(sql, params).rows()) ids.add(String.valueOf(row.firstInteger()));
+        return ids.isEmpty() ? "0" : String.join(",", ids);
     }
 
-    /**
-     * Executes a report query and returns properties for each row.
-     */
+    /** Executes configured SQL with detached rows; legacy JSPs retain their Properties contract. */
     public Vector query(String sql, Vector vecFieldName, Object... params) throws SQLException {
         Vector ret = new Vector();
-        Properties prop = null;
-
-        ResultSet rs = DBHelp.searchDBRecord(sql, params); // nosemgrep: formatted-sql-string -- admin report template SQL; table names validated by RptFormQuery.validateTableName; user values bound via params
-        if (rs == null) {
-            MiscUtils.getLogger().error("Database query failed for report query");
-            return ret;
-        }
-        while (rs.next()) {
-            prop = new Properties();
-            for (int i = 0; i < vecFieldName.size(); i++) {
-                try {
-                    prop.setProperty((String) vecFieldName.get(i),
-                            DBHelp.getString(rs, (String) vecFieldName.get(i)) == null ? "" : rs
-                                    .getString((String) vecFieldName.get(i)));
-                } catch (SQLException e) {
-                    prop.setProperty((String) vecFieldName.get(i), "" + rs.getInt((String) vecFieldName.get(i)));
-                }
+        for (var row : ConfiguredReportQuery.read(sql, params).rows()) {
+            Properties prop = new Properties();
+            for (Object field : vecFieldName) {
+                String value = row.value((String) field);
+                prop.setProperty((String) field, value == null ? "" : value);
             }
             ret.add(prop);
         }
-        rs.close();
         return ret;
     }
-
 }

@@ -172,6 +172,35 @@ public final class LegacyJdbcQuery {
         return getPreparedResultSetValidated(sql, updatable, params);
     }
 
+    /**
+     * Bounded compatibility path for server-configured reports that still depend on JDBC metadata.
+     * Callers must close the result, detect the extra sentinel row, and enforce their output budget.
+     * This retains the managed legacy datasource; Query by Example uses its separate reporting account.
+     */
+    public static ResultSet getBoundedReportResultSet(TrustedSql sql, int maximumRows, int timeoutSeconds,
+            Object... params) throws SQLException {
+        if (maximumRows < 1 || maximumRows == Integer.MAX_VALUE || timeoutSeconds < 1) {
+            throw new IllegalArgumentException("Invalid report query budget");
+        }
+        DataSource dataSource = dataSource();
+        Connection connection = getRequiredConnection(dataSource);
+        PreparedStatement ps = null;
+        try {
+            // codeql[java/sql-injection] -- TrustedSql is constructed only after SELECT validation.
+            ps = connection.prepareStatement(sql.sql, ResultSet.TYPE_SCROLL_INSENSITIVE,
+                    ResultSet.CONCUR_READ_ONLY); // nosemgrep: formatted-sql-string -- validated server-configured SELECT; all values bound below
+            ps.setMaxRows(maximumRows + 1);
+            ps.setQueryTimeout(timeoutSeconds);
+            bindParams(ps, params);
+            ResultSet rs = ps.executeQuery();
+            return registerThreadResource(StatementClosingResultSet.wrap(rs, ps, connection, dataSource));
+        } catch (SQLException | RuntimeException e) {
+            closeStatement(ps);
+            DataSourceUtils.releaseConnection(connection, dataSource);
+            throw e;
+        }
+    }
+
     private static ResultSet getPreparedResultSetValidated(TrustedSql sql, boolean updatable, Object... params) throws SQLException {
         DataSource dataSource = dataSource();
         Connection connection = getRequiredConnection(dataSource);

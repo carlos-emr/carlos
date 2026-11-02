@@ -57,7 +57,7 @@ class SQLReporterCsvUnitTest extends CarlosUnitTestBase {
              MockedConstruction<ReportManager> managers = mockConstruction(ReportManager.class,
                      (manager, context) -> when(manager.getReportTemplateNoParam("1")).thenReturn(report));
              MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
-            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(ParameterizedSql.class))).thenReturn(rows);
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), org.mockito.ArgumentMatchers.eq(10_000), org.mockito.ArgumentMatchers.eq(30), org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn(rows);
 
             assertThat(new SQLReporter().generateReport(request)).isTrue();
             String csv = (String) request.getAttribute(sequenced ? "csv-0" : "csv");

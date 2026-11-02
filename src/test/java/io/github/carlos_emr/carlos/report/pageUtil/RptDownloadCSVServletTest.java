@@ -13,13 +13,10 @@
 package io.github.carlos_emr.carlos.report.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.when;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -36,7 +33,7 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 
-import io.github.carlos_emr.carlos.login.DBHelp;
+import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
 
 /**
  * Regression tests for {@link RptDownloadCSVServlet#demoReport(jakarta.servlet.http.HttpServletRequest)}.
@@ -44,7 +41,7 @@ import io.github.carlos_emr.carlos.login.DBHelp;
  * <p>These tests target the empty-demographic-filter combinations fixed in PR #1639 and
  * verify the generated SQL shape and bind-parameter ordering without requiring a database.
  * They invoke the private servlet method via reflection and capture
- * {@link DBHelp#searchDBRecord(String, Object...)} calls with a static mock.</p>
+ * {@link ConfiguredReportQuery#read(String, Object...)} calls with a static mock.</p>
  *
  * @since 2026-04-20
  */
@@ -57,9 +54,8 @@ class RptDownloadCSVServletTest {
 
     private static Method demoReportMethod;
 
-    private final ResultSet emptyResultSet = mock(ResultSet.class);
 
-    private MockedStatic<DBHelp> dbHelpMock;
+    private MockedStatic<ConfiguredReportQuery> dbHelpMock;
 
     @BeforeAll
     static void setUpReflection() throws NoSuchMethodException {
@@ -69,8 +65,7 @@ class RptDownloadCSVServletTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        when(emptyResultSet.next()).thenReturn(false);
-        dbHelpMock = mockStatic(DBHelp.class);
+        dbHelpMock = mockStatic(ConfiguredReportQuery.class);
     }
 
     @AfterEach
@@ -196,7 +191,7 @@ class RptDownloadCSVServletTest {
 
     private List<SqlCall> invokeDemoReport(MockHttpServletRequest request) throws Exception {
         List<SqlCall> sqlCalls = new ArrayList<>();
-        dbHelpMock.when(() -> DBHelp.searchDBRecord(
+        dbHelpMock.when(() -> ConfiguredReportQuery.read(
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.any(Object[].class)))
                 .thenAnswer(invocation -> captureDbHelpCall(sqlCalls, invocation));
@@ -213,11 +208,11 @@ class RptDownloadCSVServletTest {
         return sqlCalls;
     }
 
-    private ResultSet captureDbHelpCall(List<SqlCall> sqlCalls, InvocationOnMock invocation) {
+    private ConfiguredReportQuery.Result captureDbHelpCall(List<SqlCall> sqlCalls, InvocationOnMock invocation) {
         sqlCalls.add(new SqlCall(
                 invocation.getArgument(0),
                 extractBindParameters(invocation.getArguments())));
-        return emptyResultSet;
+        return new ConfiguredReportQuery.Result(List.of(), List.of());
     }
 
     private List<Object> extractBindParameters(Object[] invocationArgs) {

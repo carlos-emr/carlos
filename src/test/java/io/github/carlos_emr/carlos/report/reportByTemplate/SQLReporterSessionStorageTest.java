@@ -83,13 +83,14 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
 
         ResultSet resultSet = mock(ResultSet.class);
         when(resultSet.isBeforeFirst()).thenReturn(false);
+        when(resultSet.getMetaData()).thenReturn(mock(ResultSetMetaData.class));
 
         try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class,
                 (mock, context) -> {
                     when(mock.getReportTemplateNoParam("1")).thenReturn(report);
                 });
              MockedStatic<LegacyJdbcQuery> legacyJdbcQuery = mockStatic(LegacyJdbcQuery.class)) {
-            legacyJdbcQuery.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(ParameterizedSql.class))).thenReturn(resultSet);
+            legacyJdbcQuery.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), org.mockito.ArgumentMatchers.eq(10_000), org.mockito.ArgumentMatchers.eq(30), org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn(resultSet);
 
             boolean generated = new SQLReporter().generateReport(request);
 
@@ -136,7 +137,7 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
                 });
              MockedStatic<LegacyJdbcQuery> legacyJdbcQuery = mockStatic(LegacyJdbcQuery.class);
              MockedStatic<RptResultStruct> resultStruct = mockStatic(RptResultStruct.class)) {
-            legacyJdbcQuery.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(ParameterizedSql.class))).thenReturn(resultSet);
+            legacyJdbcQuery.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), org.mockito.ArgumentMatchers.eq(10_000), org.mockito.ArgumentMatchers.eq(30), org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn(resultSet);
             resultStruct.when(() -> RptResultStruct.getStructure2(resultSet)).thenReturn("<table></table>");
 
             boolean generated = new SQLReporter().generateReport(request);

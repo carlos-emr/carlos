@@ -33,7 +33,6 @@
  */
 package io.github.carlos_emr.carlos.report.data;
 
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Properties;
 import java.util.Vector;
@@ -42,7 +41,6 @@ import io.github.carlos_emr.carlos.commn.dao.ReportItemDao;
 import io.github.carlos_emr.carlos.commn.model.ReportItem;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.login.DBHelp;
 
 /**
  * @author yilee18
@@ -50,7 +48,6 @@ import io.github.carlos_emr.carlos.login.DBHelp;
 public class RptReportItem {
     String report_name;
     int status = 1;
-    DBHelp dbObj = new DBHelp();
     private ReportItemDao dao = SpringUtils.getBean(ReportItemDao.class);
 
 
@@ -82,35 +79,19 @@ public class RptReportItem {
 
     // id
     public String getReportName(String recordId) throws SQLException {
-        String ret = null;
-        String sql = "select report_name from reportItem where id = ?";
-        int parsedRecordId;
-        try {
-            parsedRecordId = Integer.parseInt(recordId);
-        } catch (NumberFormatException e) {
-            throw new SQLException("Invalid recordId: " + recordId, e);
-        }
-        ResultSet rs = DBHelp.searchDBRecord(sql, parsedRecordId);
-        while (rs.next()) {
-            ret = DBHelp.getString(rs, "report_name");
-        }
-        rs.close();
-        return ret;
+        ReportItem r = dao.find(RptReportConfigData.parseReportId(recordId));
+        return r == null ? null : RptReportConfigData.text(r.getReportName());
     }
 
     // 1 - name list, 0 - deleted name list
     public Vector getNameList(int n) throws SQLException {
         Vector ret = new Vector();
-        Properties prop = null;
-        String sql = "select * from reportItem where status = ? order by id";
-        ResultSet rs = DBHelp.searchDBRecord(sql, n);
-        while (rs.next()) {
-            prop = new Properties();
-            prop.setProperty("id", "" + rs.getInt("id"));
-            prop.setProperty("" + rs.getInt("id"), DBHelp.getString(rs, "report_name"));
+        for (ReportItem r : dao.findByStatus(n)) {
+            Properties prop = new Properties();
+            prop.setProperty("id", String.valueOf(r.getId()));
+            prop.setProperty(String.valueOf(r.getId()), RptReportConfigData.text(r.getReportName()));
             ret.add(prop);
         }
-        rs.close();
         return ret;
     }
 

@@ -33,7 +33,6 @@
  */
 package io.github.carlos_emr.carlos.report.data;
 
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Vector;
 
@@ -41,7 +40,6 @@ import io.github.carlos_emr.carlos.commn.dao.ReportFilterDao;
 import io.github.carlos_emr.carlos.commn.model.ReportFilter;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.login.DBHelp;
 
 /**
  * @author yilee18
@@ -58,7 +56,6 @@ public class RptReportFilter {
     int order_no = 1;
     String javascript;
     String date_format;
-    DBHelp dbObj = new DBHelp();
 
     public boolean insertRecord() {
         ReportFilter r = new ReportFilter();
@@ -93,50 +90,22 @@ public class RptReportFilter {
         return true;
     }
 
-    // 1 - name list, 0 - deleted name list, 0-`description` 1-value 2-javascript 3-dateformat
+    // Legacy JSP adapters retain their six-column array contract; persistence returns typed entities.
     public Vector getNameList(int n) throws SQLException {
-        Vector ret = new Vector();
-        String[] str = null;
-        String sql = "select * from reportFilter where status = ? order by order_no";
-        ResultSet rs = DBHelp.searchDBRecord(sql, n);
-        while (rs.next()) {
-            str = new String[6];
-            str[0] = DBHelp.getString(rs, "description");
-            str[1] = DBHelp.getString(rs, "value");
-            str[2] = DBHelp.getString(rs, "position");
-            str[3] = "" + rs.getInt("order_no");
-            str[4] = DBHelp.getString(rs, "javascript");
-            str[5] = DBHelp.getString(rs, "date_format");
-            ret.add(str);
-        }
-        rs.close();
-        return ret;
+        return rows(dao.findByReportIdAndStatus(null, n));
     }
 
     public Vector getNameList(String recordId, int n) throws SQLException {
-        Vector ret = new Vector();
-        String[] str = null;
-        String sql = "select * from reportFilter where report_id=? and status = ?"
-                + " order by order_no";
-        int parsedRecordId;
-        try {
-            parsedRecordId = Integer.parseInt(recordId);
-        } catch (NumberFormatException e) {
-            throw new SQLException("Invalid recordId: " + recordId, e);
-        }
-        ResultSet rs = DBHelp.searchDBRecord(sql, parsedRecordId, n);
-        while (rs.next()) {
-            str = new String[6];
-            str[0] = DBHelp.getString(rs, "description");
-            str[1] = DBHelp.getString(rs, "value");
-            str[2] = DBHelp.getString(rs, "position");
-            str[3] = "" + rs.getInt("order_no");
-            str[4] = DBHelp.getString(rs, "javascript");
-            str[5] = DBHelp.getString(rs, "date_format");
-            ret.add(str);
-        }
-        rs.close();
-        return ret;
+        return rows(dao.findByReportIdAndStatus(RptReportConfigData.parseReportId(recordId), n));
     }
 
+    private Vector rows(java.util.List<ReportFilter> filters) {
+        Vector ret = new Vector();
+        for (ReportFilter r : filters) {
+            ret.add(new String[]{RptReportConfigData.text(r.getDescription()), RptReportConfigData.text(r.getValue()),
+                    RptReportConfigData.text(r.getPosition()), String.valueOf(r.getOrderNo()),
+                    RptReportConfigData.text(r.getJavascript()), RptReportConfigData.text(r.getDateFormat())});
+        }
+        return ret;
+    }
 }

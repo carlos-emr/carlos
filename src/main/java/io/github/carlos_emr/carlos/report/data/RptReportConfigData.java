@@ -33,7 +33,8 @@
  */
 package io.github.carlos_emr.carlos.report.data;
 
-import java.sql.ResultSet;
+import io.github.carlos_emr.carlos.commn.service.ReportConfigurationService;
+
 import java.sql.SQLException;
 import java.util.Properties;
 import java.util.Vector;
@@ -42,14 +43,15 @@ import io.github.carlos_emr.carlos.commn.dao.ReportConfigDao;
 import io.github.carlos_emr.carlos.commn.model.ReportConfig;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.login.DBHelp;
 
 /**
  * @author yilee18
  */
 public class RptReportConfigData {
 
-    private static ReportConfigDao dao = SpringUtils.getBean(ReportConfigDao.class);
+    private ReportConfigDao dao = SpringUtils.getBean(ReportConfigDao.class);
+
+    private ReportConfigurationService service = SpringUtils.getBean(ReportConfigurationService.class);
 
     int report_id;
     String name;
@@ -57,20 +59,20 @@ public class RptReportConfigData {
     int order;
     String table_name;
     String save;
-    DBHelp dbObj = new DBHelp();
 
     public boolean insertRecordWithOrder() throws SQLException {
-        boolean ret = false;
-        String sql = "select max(order_no) from reportConfig where report_id=?";
-        ResultSet rs = DBHelp.searchDBRecord(sql, report_id);
-        while (rs.next()) {
-            order = rs.getInt(1) + 1;
-        }
-        insertRecord();
-        return ret;
+        ReportConfig r = configuration();
+        service.insertWithOrder(r);
+        order = r.getOrderNo();
+        return false; // Preserve the legacy return contract (callers ignore it).
     }
 
     public boolean insertRecord() {
+        dao.persist(configuration());
+        return true;
+    }
+
+    private ReportConfig configuration() {
         ReportConfig r = new ReportConfig();
         r.setReportId(report_id);
         r.setName(name);
@@ -78,26 +80,16 @@ public class RptReportConfigData {
         r.setOrderNo(order);
         r.setTableName(table_name);
         r.setSave(save);
-        dao.persist(r);
-
-        return true;
+        return r;
     }
 
     public boolean deleteRecord() {
-
-        for (ReportConfig r : dao.findByReportIdAndNameAndCaptionAndTableNameAndSave(report_id, name, caption, table_name, save)) {
-            dao.remove(r.getId());
-        }
+        service.deleteMatching(report_id, name, caption, table_name, save);
         return true;
     }
 
     public boolean updateRecordOrder(String saveAs, String reportId, String id, String newPos) {
-        for (ReportConfig r : dao.findByReportIdAndSaveAndGtOrderNo(Integer.parseInt(reportId), saveAs, Integer.parseInt(newPos))) {
-            r.setOrderNo(r.getOrderNo() + 1);
-            dao.merge(r);
-            dao.remove(Integer.parseInt(id));
-        }
-
+        service.shiftAndRemove(Integer.parseInt(reportId), saveAs, Integer.parseInt(id), Integer.parseInt(newPos));
         return true;
     }
 
@@ -106,101 +98,56 @@ public class RptReportConfigData {
         return true;
     }
 
+    static int parseReportId(String reportId) throws SQLException {
+        try {
+            return Integer.parseInt(reportId);
+        } catch (NumberFormatException e) {
+            throw new SQLException("Invalid report identifier", e);
+        }
+    }
+
+    static String text(String value) {
+        return value == null ? "" : value.trim();
+    }
+
     // 0 - name; 1 - caption
     public Vector[] getConfigFieldName(String saveAs, String reportId) throws SQLException {
-        Vector[] ret = new Vector[2];
-        ret[0] = new Vector();
-        ret[1] = new Vector();
-        String sql = "select * from reportConfig where report_id=? and save = ?"
-                + " order by order_no, id";
-        int parsedReportId;
-        try {
-            parsedReportId = Integer.parseInt(reportId);
-        } catch (NumberFormatException e) {
-            throw new SQLException("Invalid reportId: " + reportId, e);
+        Vector[] ret = {new Vector(), new Vector()};
+        for (ReportConfig r : dao.findByReportIdAndSave(parseReportId(reportId), saveAs)) {
+            String field = text(r.getName());
+            if (field.matches(RptTableShadowFieldConst.fieldName)) continue;
+            ret[0].add(text(r.getTableName()) + "." + field);
+            ret[1].add(text(r.getCaption()).isEmpty() ? field : text(r.getCaption()));
         }
-        ResultSet rs = DBHelp.searchDBRecord(sql, parsedReportId, saveAs);
-        while (rs.next()) {
-
-            if (DBHelp.getString(rs, "name").matches(RptTableShadowFieldConst.fieldName)) {
-
-                continue;
-            }
-            ret[0].add(DBHelp.getString(rs, "table_name") + "." + DBHelp.getString(rs, "name"));
-            if ("".equals(DBHelp.getString(rs, "caption"))) {
-                ret[1].add(DBHelp.getString(rs, "name"));
-            } else {
-                ret[1].add(DBHelp.getString(rs, "caption"));
-            }
-        }
-        rs.close();
         return ret;
     }
 
     public Vector getConfigNameList(String saveAs, String reportId) throws SQLException {
         Vector ret = new Vector();
-        String sql = "select * from reportConfig where report_id=? and save = ?"
-                + " order by order_no, id";
-        int parsedReportId;
-        try {
-            parsedReportId = Integer.parseInt(reportId);
-        } catch (NumberFormatException e) {
-            throw new SQLException("Invalid reportId: " + reportId, e);
-        }
-        ResultSet rs = DBHelp.searchDBRecord(sql, parsedReportId, saveAs);
-        while (rs.next()) {
-
-            if (DBHelp.getString(rs, "name").matches(RptTableShadowFieldConst.fieldName)) {
-
-                continue;
+        for (ReportConfig r : dao.findByReportIdAndSave(parseReportId(reportId), saveAs)) {
+            if (!text(r.getName()).matches(RptTableShadowFieldConst.fieldName)) {
+                ret.add(text(r.getCaption()) + " |" + text(r.getName()));
             }
-            ret.add(DBHelp.getString(rs, "caption") + " |" + DBHelp.getString(rs, "name"));
         }
-        rs.close();
         return ret;
     }
 
     public Vector getConfigObj(String saveAs, String reportId) throws SQLException {
         Vector ret = new Vector();
-        Properties prop = null;
-        String sql = "select * from reportConfig where report_id=? and save = ?"
-                + " order by order_no, id";
-        int parsedReportId2;
-        try {
-            parsedReportId2 = Integer.parseInt(reportId);
-        } catch (NumberFormatException e) {
-            throw new SQLException("Invalid reportId: " + reportId, e);
-        }
-        ResultSet rs = DBHelp.searchDBRecord(sql, parsedReportId2, saveAs);
-        while (rs.next()) {
-            prop = new Properties();
-            prop.setProperty("name", DBHelp.getString(rs, "name"));
-            prop.setProperty("caption", DBHelp.getString(rs, "caption"));
-            prop.setProperty("id", "" + rs.getInt("id"));
-            prop.setProperty("order_no", "" + rs.getInt("order_no"));
+        for (ReportConfig r : dao.findByReportIdAndSave(parseReportId(reportId), saveAs)) {
+            Properties prop = new Properties();
+            prop.setProperty("name", text(r.getName()));
+            prop.setProperty("caption", text(r.getCaption()));
+            prop.setProperty("id", String.valueOf(r.getId()));
+            prop.setProperty("order_no", String.valueOf(r.getOrderNo()));
             ret.add(prop);
         }
-        rs.close();
         return ret;
     }
 
     // get form..., demographic;
     public Vector getReportTableNameList(String reportId) throws SQLException {
-        Vector ret = new Vector();
-        String sql = "select distinct(table_name) from reportConfig where report_id=?"
-                + " and table_name like 'form%'" + " order by table_name";
-        int parsedReportId3;
-        try {
-            parsedReportId3 = Integer.parseInt(reportId);
-        } catch (NumberFormatException e) {
-            throw new SQLException("Invalid reportId: " + reportId, e);
-        }
-        ResultSet rs = DBHelp.searchDBRecord(sql, parsedReportId3);
-        while (rs.next()) {
-            ret.add(DBHelp.getString(rs, "table_name"));
-        }
-        rs.close();
-        return ret;
+        return new Vector(dao.findFormTableNames(parseReportId(reportId)));
     }
 
     // 0 - name; 1 - caption

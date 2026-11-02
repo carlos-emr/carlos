@@ -45,6 +45,7 @@ import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
+import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
 import io.github.carlos_emr.carlos.report.data.RptResultStruct;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -195,7 +196,10 @@ public class SQLReporter implements Reporter {
         String rsHtml = "An SQL query error has occured ";
         String csv = "";
         try (StringWriter swr = new StringWriter();
-             ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(query)) {
+             ResultSet rs = LegacyJdbcQuery.getBoundedReportResultSet(
+                     LegacyJdbcQuery.trustedReportSelectSql(query.getSql()), ConfiguredReportQuery.MAX_ROWS,
+                     ConfiguredReportQuery.TIMEOUT_SECONDS, query.getParamsArray())) {
+            verifyResultBudget(rs);
             if (!rs.isBeforeFirst()) {
                 rsHtml = showSqlOnEmpty
                         ? (Encode.forHtml(query.getSql()) + "<br/>The query returned no results.")
@@ -223,6 +227,7 @@ public class SQLReporter implements Reporter {
                 }
             }
         } catch (SQLException sqe) {
+            csv = null;
             String detail = sqe.getCause() != null ? sqe.getCause().toString() : sqe.getMessage();
             rsHtml += Encode.forHtml(detail);
             MiscUtils.getLogger().error("Error", sqe);
@@ -232,6 +237,21 @@ public class SQLReporter implements Reporter {
             MiscUtils.getLogger().error("Error", e);
         }
         return new String[]{rsHtml, csv};
+    }
+
+    private void verifyResultBudget(ResultSet rs) throws SQLException {
+        int rowCount = 0;
+        long characters = 0;
+        int columns = rs.getMetaData().getColumnCount();
+        while (rs.next()) {
+            if (++rowCount > ConfiguredReportQuery.MAX_ROWS) throw new SQLException("Report row budget exceeded");
+            for (int i = 1; i <= columns; i++) {
+                String value = rs.getString(i);
+                characters += value == null ? 0 : value.length();
+                if (characters > ConfiguredReportQuery.MAX_OUTPUT_CHARACTERS) throw new SQLException("Report output budget exceeded");
+            }
+        }
+        rs.beforeFirst();
     }
 
     private String enforceCsvExportLimit(HttpServletRequest request, String operation, String templateId, String csv) {
