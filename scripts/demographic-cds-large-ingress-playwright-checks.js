@@ -175,7 +175,7 @@ function serverSample(pid, expectedBase, priorIdentity) {
   return {identity,rssBytes:value(/^VmRSS:\s+(\d+) kB$/m),highWaterBytes:value(/^VmHWM:\s+(\d+) kB$/m)};
 }
 
-async function run(env = process.env) {
+async function run(env = process.env,{cancellation}={}) {
   h.assert(env.CDS_LARGE_INGRESS_DISPOSABLE === 'true', 'Explicit disposable large-ingress authorization is required');
   const evidence = env.CDS_LARGE_INGRESS_EVIDENCE;
   h.assert(evidence && path.isAbsolute(evidence) && !fs.existsSync(evidence), 'Evidence directory must be absent and absolute');
@@ -203,6 +203,7 @@ async function run(env = process.env) {
   const save = () => fs.writeFileSync(path.join(evidence,'proof.json'), JSON.stringify(report, null, 2), {mode:0o600});
   metricTimer.unref();save(); let browser; let sql;
   try {
+   try {
     const config = h.readConfig();
     h.assert(env.CDS_LARGE_INGRESS_BASE_URL && /^[0-9a-f]{32}$/.test(env.CDS_LARGE_INGRESS_PROXY_TOKEN || ''),
       'An explicit owned real reverse-proxy URL and independently recorded route nonce are required');
@@ -266,16 +267,19 @@ async function run(env = process.env) {
     {stdio:[original,'ignore','pipe'],timeout:120000,maxBuffer:65536}); }
     finally { fs.closeSync(original); }
     for (const chunked of [false,true]) {
+      cancellation?.throwIfCancelled();
       const start = performance.now();
       const begin = await importApi(page,'cdsUpload',{operation:'begin',fileName:'synthetic-large.xml',expectedBytes:report.source.bytes},'POST');
       h.assert(begin.status === 200 && begin.body?.ok === true && begin.body.upload?.state === 'OPEN','Large upload reservation failed');
       const upload = begin.body.upload;const ownership={uploadId:upload.id,phase:'RESERVED',framing:chunked?'chunked':'content-length'};
       report.ownedUploads.push(ownership);save();
+      cancellation?.throwIfCancelled();
       h.assert(Number.isSafeInteger(upload.chunkBytes) && upload.chunkBytes >= 65536 && upload.chunkBytes <= 16 * MiB,'Unsafe server chunk bound');
       const fd = fs.openSync(source,'r'); const digest = createHash('sha256'); let offset = 0; let index = 0;
       try {
         const buffer = Buffer.alloc(upload.chunkBytes);
         while (offset < report.source.bytes) {
+          cancellation?.throwIfCancelled();
           const expected = Math.min(buffer.length, report.source.bytes-offset);
           const count = fs.readSync(fd,buffer,0,expected,offset); h.assert(count === expected,'Synthetic source shortened');
           const body = buffer.subarray(0,count); const sha256 = createHash('sha256').update(body).digest('hex');
@@ -283,17 +287,21 @@ async function run(env = process.env) {
           if(!chunked && index===0) {
             ownership.phase='INTERRUPTION_STARTED';save();
             report.interruption={uploadId:upload.id,...await interruptPost(endpoint,headers,body.subarray(0,65536),count)};save();
+            cancellation?.throwIfCancelled();
             const current=await importApi(page,'cdsImportStatus',{section:'upload',uploadId:upload.id});
+            cancellation?.throwIfCancelled();
             h.assert(current.body?.upload?.receivedBytes===0 && current.body?.upload?.committedChunks===0
               && current.body?.upload?.runId===null,'An incomplete transport body advanced its durable checkpoint');
             ownership.phase='RESUMING_SAME_UUID';save();
           }
           let response;
           for(let attempt=0;attempt<10;attempt++) {
-            response=await rawPost(endpoint,headers,body,{chunked});
+            try {response=await rawPost(endpoint,headers,body,{chunked});}
+            finally {cancellation?.throwIfCancelled();}
             assertMetadataVersion(response);
             if(response.status!==409 || response.json?.code!=='UPLOAD_BUSY')break;
             await new Promise(resolve=>setTimeout(resolve,100));
+            cancellation?.throwIfCancelled();
           }
           h.assert(response.status === 200 && response.json?.ok === true && response.json.upload?.receivedBytes === offset+count,
             'Actual framed request did not commit its exact bounded receipt');
@@ -315,6 +323,7 @@ async function run(env = process.env) {
       h.assert(abandon.status === 200 && abandon.body?.upload?.state === 'ABANDONED','Supported unaccepted transfer retirement failed');
       ownership.phase='ABANDONED';save();
     }
+    cancellation?.throwIfCancelled();
     const begin = await importApi(page,'cdsUpload',{operation:'begin',fileName:'synthetic-limit.xml',expectedBytes:8*MiB},'POST');
     h.assert(begin.status === 200 && begin.body?.upload?.id,'Oversize probe reservation failed');
     const probe = begin.body.upload;const probeOwnership={uploadId:probe.id,phase:'RESERVED',purpose:'OVERSIZE_REFUSAL'};
@@ -322,6 +331,7 @@ async function run(env = process.env) {
     h.assert(Number.isSafeInteger(probe.chunkBytes) && probe.chunkBytes>=65536 && probe.chunkBytes<=16*MiB,
       'Oversize probe has an unsafe advertised chunk bound');
     for (const chunked of [false,true]) {
+      cancellation?.throwIfCancelled();
       const body = Buffer.alloc(probe.chunkBytes+1,65); const endpoint = new URL(url);
       for (const [key,value] of Object.entries({apiVersion:2,operation:'chunk',uploadId:probe.id,offset:0,bytes:probe.chunkBytes,
         sha256:createHash('sha256').update(body.subarray(0,probe.chunkBytes)).digest('hex')})) endpoint.searchParams.set(key,String(value));
@@ -337,10 +347,16 @@ async function run(env = process.env) {
     probeOwnership.phase='ABANDONED';save();
     report.after = clinicalCounts(); h.assert(report.after === before,'Ingress gate changed clinical jobs, checkpoints, native rows or holds');
     sample(); h.assert(!metricsFailure && report.memory.samples >= 2,'Required stable-process resident-memory measurements failed');
-    await qualify(); report.status='PASSED'; save();
+    await qualify(); cancellation?.throwIfCancelled();
+   } finally {
+    clearInterval(metricTimer);
+    try {if (browser) await browser.close();}
+    finally {if (sql) sql.dispose();}
+   }
+    cancellation?.throwIfCancelled();
+    report.status='PASSED'; save();
     console.log('PASS large ingress: two actual64MiB transfers, exact framed chunk receipts, oversize refusals, zero clinical acceptance');
-  } catch (_) { report.status='FAILED'; save(); throw new Error('Large-ingress gate failed; inspect protected evidence and retained upload IDs'); }
-  finally { clearInterval(metricTimer); if (browser) await browser.close(); if (sql) sql.dispose(); }
+  } catch (error) { if(cancellation?.isCancellation(error)){report.status='INTERRUPTED';save();throw error;}report.status='FAILED'; save(); throw new Error('Large-ingress gate failed; inspect protected evidence and retained upload IDs'); }
 }
-if (require.main === module) run().catch(error => { console.error(error.message); process.exitCode=1; });
+if (require.main === module) require('./lib/legacy-check').runLegacyCheck('demographic-cds-large-ingress',context=>run(process.env,context)).catch(error => { console.error(error.message); process.exitCode=1; });
 module.exports = {writeFixture,journalRow,rawPost,interruptPost,assertMetadataVersion,serverSample,verifyUploadedBody,run};

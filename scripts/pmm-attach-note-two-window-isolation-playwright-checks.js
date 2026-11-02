@@ -31,6 +31,7 @@
  * for the run and restored to its value. Cleanup removes every owned row by key and asserts it
  * gone.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
@@ -335,7 +336,7 @@ async function workflow(s) {
     // The attach used to be a link: a GET (which CSRFGuard does not check) copied the note.
     const copies = () => sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${C}`);
     const before = copies();
-    const response = await context.request.get(h.appUrl(config.baseUrl, `/encounter/IncomingEncounter?selectId=${C}`
+    const response = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, `/encounter/IncomingEncounter?selectId=${C}`
       + `&demographicNo=${C}&PEAttach=yes&appointmentNo=0&noteId=${notes.A}`), { maxRedirects: 0, failOnStatusCode: false });
     try {
       h.assert(response.status() === 405, `A GET attach answered HTTP ${response.status()}, not 405`);

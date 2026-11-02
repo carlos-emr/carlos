@@ -22,7 +22,7 @@
 'use strict';
 const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');const vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'first-nations-encoding-playwright-checks.js'),'utf8');
-const start=source.indexOf('function reportFirstNationsCoverage('),end=source.indexOf('\n(async () => {',start);
+const start=source.indexOf('function reportFirstNationsCoverage('),end=source.indexOf("\nlegacyHarness.runLegacyCheck('first-nations-encoding'",start);
 function report(master,community){const lines=[],process={};const c={console:{log:s=>lines.push(s)},process,EXIT_SKIP:2};vm.runInNewContext(source.slice(start,end)+'\nthis.report=reportFirstNationsCoverage;',c);return{full:c.report(master,community),lines,exitCode:process.exitCode};}
 test('complete gate/master/community rendering permits full success',()=>{const r=report(true,true);assert.equal(r.full,true);assert.deepEqual(r.lines,[]);assert.equal(r.exitCode,undefined);});
 test('disabled master-record branch explicitly reports incomplete SKIP instead of full PASS',()=>{const r=report(false,true);assert.equal(r.full,false);assert.equal(r.exitCode,2);assert.match(r.lines[0],/^SKIP .*patient master record.*FIRST_NATIONS_MODULE=true/);assert.ok(r.lines.every(s=>!/^PASS /.test(s)));});

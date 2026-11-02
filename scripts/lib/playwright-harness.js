@@ -111,6 +111,17 @@ function validateBaseUrl(rawBaseUrl, env = process.env) {
   return parsed;
 }
 
+/** Credential-bearing configuration requires TLS beyond loopback. */
+function validateCredentialBaseUrl(rawBaseUrl, env = process.env) {
+  const parsed = validateBaseUrl(rawBaseUrl, env);
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1'].includes(host)
+      && parsed.protocol !== 'https:') {
+    throw new Error('Non-loopback BASE_URL targets must use https');
+  }
+  return parsed;
+}
+
 /*
  * The fixture-writing checks seed and delete rows through the mysql client. A
  * mistyped MYSQL_HOST must not point that at a shared or production database,
@@ -121,6 +132,7 @@ function validateMysqlHost(rawHost, env = process.env) {
   const host = String(rawHost || '').trim().toLowerCase();
   const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
   const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+  if (!normalizedHost) throw new Error('non-loopback MYSQL_HOST: value must not be empty');
   if (!loopbackHosts.has(normalizedHost) && env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
     throw new Error(`Refusing to seed fixtures into non-loopback MYSQL_HOST ${host}; set ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable test database`);
   }
@@ -234,7 +246,7 @@ function appUrl(baseUrl, appPath) {
  */
 function readConfig(options = {}) {
   const env = options.env || process.env;
-  const baseUrl = validateBaseUrl(options.baseUrl || env.BASE_URL || 'http://127.0.0.1:8080/carlos', env);
+  const baseUrl = validateCredentialBaseUrl(options.baseUrl || env.BASE_URL || 'http://127.0.0.1:8080/carlos', env);
   const config = {
     baseUrl,
     chromePath: env.CHROME_PATH || env.CHROMIUM_PATH || '',
@@ -705,6 +717,10 @@ function wireStrictPage(page, label, recorder, options = {}) {
     }
     const failure = request.failure();
     const url = request.url();
+    // Chromium's built-in PDF renderer abandons its internal extension document
+    // while attaching the real PDF. This is not an application request failure.
+    if(request.resourceType()==='other'&&failure?.errorText==='net::ERR_ABORTED'
+      &&/^chrome-extension:\/\/mhjfbmdgcfjbbpaeojofohoefgiehjai\/[0-9a-f-]{36}$/i.test(url))return;
     if (isExpectedMissingAsset(404, url)) {
       return;
     }
@@ -843,11 +859,7 @@ function getLatestRequest(recorder, predicate) {
  */
 function withoutQueryStrings(text) {
   return String(text == null ? '' : text)
-    .split(/(\s+)/)
-    .map((token) => (/^https?:\/\//i.test(token) || token.startsWith('/')
-      ? token.split(/[?#]/)[0]
-      : token))
-    .join('');
+    .replace(/((?:https?:\/\/|\/)[^\s"'<>?#\\]+)[?#][^\s"'<>\\]*/gi, '$1');
 }
 
 function pathOnly(rawUrl) {
@@ -935,7 +947,7 @@ function getLaunchOptions(chromePath) {
   if (process.env.EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX !== 'true') {
     args.unshift('--no-sandbox');
   }
-  const launchOptions = { headless: true, args };
+  const launchOptions = { ...NO_PLAYWRIGHT_SIGNAL_HANDLING, headless: true, args };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
   }
@@ -1124,7 +1136,7 @@ function logoutOnClose(browser, config, { log = console, logout = logoutContext 
 async function launchBrowser(config, { logoutOnClose: logout = true } = {}) {
   // Deliberately not a top-level require: see the module header.
   const { chromium } = require('playwright');
-  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), headless: config.headless !== false });
+  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING, headless: config.headless !== false });
   recordBrowserVersion(browser);
   return logout && config.baseUrl ? logoutOnClose(browser, config) : browser;
 }
@@ -1202,7 +1214,9 @@ async function login(context, config, recorder, options = {}) {
     // loop below recognises the challenge by its code field.
     page.waitForURL(url => /providercontrol|appointment|forcepasswordreset|loginMfa|select_facility/i.test(String(url))
       || /\/login$/.test(new URL(String(url)).pathname), { timeout: 30000 }),
-    page.locator('input[type="submit"], button[type="submit"]').first().click(),
+    // Match the existing navigation budget even when the workflow's default
+    // locator timeout is shorter (first CAISI schedule compilation is cold).
+    page.locator('input[type="submit"], button[type="submit"]').first().click({timeout:30000}),
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
@@ -1570,7 +1584,8 @@ async function runCheck(options) {
   const out = options.stdout || console;
   const processRef = options.processRef || process;
   const createCancellation = options.createCancellation || createGracefulSignalCancellation;
-  const cancellation = createCancellation({ signalProcess: processRef });
+  if(options.cancellationGraceMs!==undefined)assert(Number.isInteger(options.cancellationGraceMs)&&options.cancellationGraceMs>0&&options.cancellationGraceMs<=2147483647,'Invalid cancellation grace budget');
+  const cancellation = createCancellation({ signalProcess: processRef,...(options.cancellationGraceMs===undefined?{}:{graceMs:options.cancellationGraceMs}) });
   const started = options.now ? options.now() : Date.now();
   let outcome = 'PASS';
   let detail = '';
@@ -1683,6 +1698,7 @@ module.exports = {
   unescapeMysqlBatchValue,
   validateBaseUrl,
   relabelStrictPage,
+  validateCredentialBaseUrl,
   validateMysqlHost,
   withExpectedDialogs,
   wirePage,

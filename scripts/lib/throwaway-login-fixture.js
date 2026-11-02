@@ -58,7 +58,7 @@ function bundleMessage(key, fallback) {
  * @param provider provider_no of the shared test login (lastUpdateUser, role source)
  * @param testUser user_name of the shared test login whose security row is copied
  */
-function throwawayLoginFixture({ sql, marker, provider, testUser }) {
+function throwawayLoginFixture({ sql, marker, provider, testUser, reserveSchedule=false }) {
   const hex = marker.replace(/^FAKE-PW/, '');
   assert(/^[0-9a-f]{16}$/.test(hex), 'The run marker is not in the FAKE-PW<hex> form this fixture relies on');
   const username = `FAKEPW${hex}`;
@@ -97,6 +97,7 @@ function throwawayLoginFixture({ sql, marker, provider, testUser }) {
           `(SELECT COUNT(*) FROM log WHERE provider_no=${c})`,
           `(SELECT COUNT(*) FROM SecurityArchive WHERE provider_no=${c})`,
           ...PROVIDER_LINKED_TABLES.map(table => `(SELECT COUNT(*) FROM ${table} WHERE provider_no=${c})`),
+          ...(reserveSchedule?['rschedule','scheduledate'].map(table=>`(SELECT COUNT(*) FROM ${table} WHERE provider_no=${c})`):[]),
           ...[...PROVIDER_PREFERENCE_TABLES, ...PAGE_LOCK_TABLES].map(table => `(SELECT COUNT(*) FROM ${table} WHERE providerNo=${c})`),
         ].join('+')}`);
         if (taken === '0') state.providerNo = candidate;

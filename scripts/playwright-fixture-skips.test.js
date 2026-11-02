@@ -95,7 +95,7 @@ test('the RTL print check defaults to a template every install is seeded with', 
   assert.notEqual(seeded[1], 'blank.rtl', 'blank.rtl was never sandboxed, so it cannot catch the regression');
   assert.ok(fs.existsSync(path.join(ROOT, 'src/main/webapp/WEB-INF/eform-assets', seeded[1])));
   // An operator-named template that is absent ends the check as SKIP, not as a timeout.
-  assert.match(script, /process\.exit\(2\)/);
+  assert.match(script, /process\.exitCode\s*=\s*2/);
   assert.match(script, /templateIsFixture: Boolean\(process\.env\.RTL_TEMPLATE_NAME\)/);
 });
 

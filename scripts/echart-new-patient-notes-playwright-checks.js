@@ -82,7 +82,7 @@ const config = {
   testPin: process.env.TEST_PIN || '2026',
   screenshotDir: process.env.ECHART_NEW_PATIENT_SCREENSHOT_DIR || '/tmp',
 };
-const mysqlHost = process.env.MYSQL_HOST || '127.0.0.1';
+const mysqlHost = require('./lib/playwright-harness').validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';

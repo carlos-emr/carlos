@@ -242,8 +242,14 @@ async function checkCompactSaveAndIssueHistory(s, { fixture }) {
   const cross = seedNote('readable-cross-program', patients[0], 1, true, rolePair[0]);
   const hidden = seedNote('hidden-history', patients[0], 1);
   const counter = seedNote('record-positive', patients[1], 0);
-  const catalogs = sql.rows(`SELECT issue_id,COALESCE(NULLIF(role,''),'system') FROM issue WHERE code IN ('401','250') ORDER BY issue_id`);
-  h.assert(catalogs.length >= 2 && catalogs.slice(0, 2).every(row => positive(row[0])), 'Issue history needs existing non-CPP diagnoses');
+  // Fresh packages seed user-defined clinical issues but do not prepopulate ICD
+  // diagnoses in the issue table. History is keyed by issue ID; preserve the
+  // same non-CPP controls using two real catalog entries of either kind.
+  const catalogs = sql.rows(`SELECT issue_id,COALESCE(NULLIF(role,''),'system') FROM issue
+    WHERE type IN ('icd9','icd10','userDefined') AND code<>''
+      AND code NOT IN ('SocHistory','MedHistory','Concerns','Reminders','FamHistory','OMeds')
+    ORDER BY CASE WHEN code IN ('401','250') THEN 0 ELSE 1 END,issue_id LIMIT 2`);
+  h.assert(catalogs.length === 2 && catalogs.every(row => positive(row[0])), 'Issue history needs two existing non-CPP clinical issues');
   const issue = (patient, catalog, selected) => {
     const owned = { patient, catalog: catalog[0], id: null }; issues.push(owned);
     owned.id = h.insertId(sql, `INSERT INTO casemgmt_issue(demographic_no,issue_id,acute,certain,major,resolved,program_id,type,update_date)

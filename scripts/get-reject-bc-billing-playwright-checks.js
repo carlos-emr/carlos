@@ -27,6 +27,7 @@
  * codes and an association, all marker-described) and a throwaway login (lib/throwaway-login-fixture.js); cleanup
  * removes each and asserts it is gone. BC installs only.
  */
+const {authenticatedProbe} = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { createLedger } = require('./lib/get-reject-probe');
@@ -50,7 +51,7 @@ async function workflow(s) {
     context.setDefaultTimeout(20000);
     s.cleanup(() => context.close().catch(() => {}));
     await h.login(context, { ...config, testUser: fixture.username }, h.createRecorder());
-    const view = await context.request.get(new URL(`billing/CA/BC/billingView?billing_no=${targets.bill.billingNo}&receipt=no`,
+    const view = await authenticatedProbe({context, config}, new URL(`billing/CA/BC/billingView?billing_no=${targets.bill.billingNo}&receipt=no`,
       `${config.baseUrl.href.replace(/\/$/, '')}/`).toString(), { maxRedirects: 0, failOnStatusCode: false });
     h.assert(view.status() === 200 && (await view.text()).includes(marker),
       `The throwaway login could not open the owned bill (HTTP ${view.status()}), so it is not a clinician with billing rights`);

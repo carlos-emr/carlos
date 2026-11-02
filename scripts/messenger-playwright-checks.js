@@ -47,6 +47,8 @@
  *   logged-in provider, which is also the recipient so the inbox can be read).
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
@@ -247,43 +249,50 @@ function runCleanup() {
 }
 // Node does not run finally blocks on SIGINT/SIGTERM (the suite loop's `timeout`
 // sends TERM), so restore the fixtures here too before exiting.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`${signal} received; restoring fixtures before exiting.`);
-    runCleanup();
-    cleanupMysqlDefaults();
-    process.exit(130);
-  });
-}
+// Signals unwind through the shared entry point and the existing finally below.
 
-(async () => {
+legacyHarness.runLegacyCheck('messenger',async({cancellation})=>{
   const recorder = createRecorder();
   initMysqlDefaults();
   // Staging and the browser launch sit inside the protected scope so a failure in
   // either still reaches the fixture cleanup below.
   try {
     cleanupRows();
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    cancellation?.throwIfCancelled();
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     const expectedPatientName = patientName();
     assert(expectedPatientName, `demographic ${demographicNo} not found`);
 
     // 1. Contact enrolment through the admin page.
     await ensureMessengerContact(context, recorder);
+    cancellation?.throwIfCancelled();
 
     // 2. Messenger -> Compose Message.
     const inbox = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(inbox, 'messenger-inbox', recorder);
     await gotoApp(inbox, config.baseUrl, '/messenger/DisplayMessages');
+    cancellation?.throwIfCancelled();
     await inbox.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(inbox, 'messenger inbox');
+    cancellation?.throwIfCancelled();
     await inbox.locator('a[href$="/messenger/ViewCreateMessage"]').first().click();
+    cancellation?.throwIfCancelled();
     await inbox.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(inbox, 'compose message');
+    cancellation?.throwIfCancelled();
     assert((await inbox.locator('input[name="demographic_no"]').inputValue()) === '', 'plain compose form unexpectedly carried a patient');
+    cancellation?.throwIfCancelled();
     await pickRecipient(inbox);
+    cancellation?.throwIfCancelled();
     const plainRows = await sendMessage(inbox, plainSubject);
+    cancellation?.throwIfCancelled();
     assert(plainRows.length === 1, `expected one delivery row for the messenger-sent message, found ${plainRows.length}: ${JSON.stringify(plainRows)}`);
     assert(plainRows[0].recipient === providerNo && plainRows[0].status === 'new', `messenger-sent message delivery row was ${JSON.stringify(plainRows[0])}`);
     assert(plainRows[0].sentByNo === providerNo, `messenger-sent message sentbyNo ${plainRows[0].sentByNo}, expected ${providerNo}`);
@@ -293,44 +302,70 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 
     // 3. Patient chart -> Messenger "+".
     const chart = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(chart, 'echart', recorder);
     await gotoApp(chart, config.baseUrl, `/encounter/IncomingEncounter?demographicNo=${encodeURIComponent(demographicNo)}&providerNo=${encodeURIComponent(providerNo)}&curProviderNo=${encodeURIComponent(providerNo)}`);
+    cancellation?.throwIfCancelled();
     await chart.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(chart, 'eChart');
+    cancellation?.throwIfCancelled();
     const composePopupPromise = context.waitForEvent('page', { timeout: 30000 });
     await chart.locator('a[onclick*="/messenger/SendDemoMessage?demographic_no="]').first().click();
+    cancellation?.throwIfCancelled();
     const compose = await composePopupPromise;
+    cancellation?.throwIfCancelled();
     wirePage(compose, 'chart-compose', recorder);
     await compose.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await compose.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(compose, 'chart compose');
+    cancellation?.throwIfCancelled();
     assert((await compose.locator('input[name="demographic_no"]').inputValue()) === demographicNo, 'chart compose did not pre-attach the patient');
+    cancellation?.throwIfCancelled();
     assert((await compose.locator('input[name="selectedDemo"]').inputValue()).trim() === expectedPatientName,
       `chart compose showed selected patient "${await compose.locator('input[name="selectedDemo"]').inputValue()}", expected "${expectedPatientName}"`);
+    cancellation?.throwIfCancelled();
     await pickRecipient(compose);
+    cancellation?.throwIfCancelled();
     const chartRows = await sendMessage(compose, chartSubject);
+    cancellation?.throwIfCancelled();
     await compose.close().catch(() => {});
+    cancellation?.throwIfCancelled();
     assert(chartRows.length === 1, `expected one delivery row for the chart-sent message, found ${chartRows.length}`);
     assert(chartRows[0].linkedDemo === demographicNo, `chart-sent message linked demographic was "${chartRows[0].linkedDemo}", expected ${demographicNo}`);
     assert(chartRows[0].recipient === providerNo && chartRows[0].status === 'new', `chart-sent message delivery row was ${JSON.stringify(chartRows[0])}`);
 
     // 4. Inbox shows the link and the message view resolves it.
     await gotoApp(inbox, config.baseUrl, '/messenger/DisplayMessages');
+    cancellation?.throwIfCancelled();
     await inbox.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     const chartRowLink = inbox.locator(`a[href*="/messenger/ViewMessage?messageID=${chartRows[0].messageId}&"]`).first();
     assert(await chartRowLink.count(), 'inbox did not list the chart-sent message');
+    cancellation?.throwIfCancelled();
     const inboxRowText = await chartRowLink.locator('xpath=ancestor::tr[1]').innerText();
+    cancellation?.throwIfCancelled();
     assert(inboxRowText.includes(expectedPatientName), `inbox row for the chart-sent message did not show the patient (${inboxRowText.replace(/\s+/g, ' ').trim()})`);
     await chartRowLink.click();
+    cancellation?.throwIfCancelled();
     await inbox.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(inbox, 'message view');
+    cancellation?.throwIfCancelled();
     await inbox.locator('#viewer .toastui-editor-contents').waitFor({ state: 'visible' });
+    cancellation?.throwIfCancelled();
     assert((await inbox.locator('#viewer').innerText()).includes(bodyText),
       'message viewer did not render the stored markdown without escaped underscores');
+    cancellation?.throwIfCancelled();
     const linkedInput = inbox.locator(`input[title="${demographicNo}"]`).first();
     assert(await linkedInput.count(), 'message view did not render the linked patient');
+    cancellation?.throwIfCancelled();
     assert((await linkedInput.inputValue()).trim() === expectedPatientName, 'message view linked patient name did not match');
+    cancellation?.throwIfCancelled();
     const bodyHtml = await inbox.locator('body').innerHTML();
+    cancellation?.throwIfCancelled();
     assert(bodyHtml.includes(`DemographicEdit?demographic_no=${demographicNo}`), 'message view M shortcut did not carry the demographic');
     assert(bodyHtml.includes(`IncomingEncounter?demographicNo=${demographicNo}`), 'message view E shortcut did not carry the demographic');
     assert(bodyHtml.includes(`demographicNo=${demographicNo}`) && /choosePatient\?providerNo=/.test(bodyHtml), 'message view Rx shortcut did not carry the demographic');
@@ -352,4 +387,4 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
       try { runCleanup(); } finally { cleanupMysqlDefaults(); }
     }
   }
-})();
+});

@@ -42,6 +42,8 @@
  * a unique PW_APPT_<millis> stamp, and removed in finally with its archive rows.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
@@ -273,7 +275,7 @@ async function waitForFrameUrl(frameElement, routePath) {
   throw new Error(`the administration panel frame never loaded ${routePath}`);
 }
 
-async function main() {
+async function main({cancellation}={}) {
   fixture.initMysqlDefaults();
   let browser = null;
   try {
@@ -281,18 +283,26 @@ async function main() {
     const statuses = activeStatuses();
     assert(statuses.length > 1, `appointment_status has ${statuses.length} active rows; the pull-down needs a list`);
 
-    browser = await chromium.launch(getLaunchOptions(fixture.config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(fixture.config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(fixture.config.baseUrl) });
+    cancellation?.throwIfCancelled();
     // appointmentaddarecord.jsp self-closes on success; keep the page inspectable.
     await context.addInitScript(() => {
       window.close = () => { window.__carlosSelfCloseRequested = true; };
     });
+    cancellation?.throwIfCancelled();
     const daySheet = await login(context, fixture.config, fixture.recorder);
+    cancellation?.throwIfCancelled();
 
     await checkAdminLinks(context, daySheet, statuses);
+    cancellation?.throwIfCancelled();
     await checkAddPopup(context, daySheet, statuses);
+    cancellation?.throwIfCancelled();
     await fixture.openDaySheet(daySheet);
+    cancellation?.throwIfCancelled();
     const booked = await fixture.bookFromSlot(context, daySheet);
+    cancellation?.throwIfCancelled();
     if (expectEnabled) {
       // The pull-down's first entry; a default "t" booking is what the tester saw
       // when the pull-down was missing, so the row must match what was selected.
@@ -300,6 +310,7 @@ async function main() {
         `booked appointment has status ${booked.status}, the pull-down's default is ${statuses[0]}`);
     }
     await checkEditPopup(context, daySheet, booked, statuses);
+    cancellation?.throwIfCancelled();
 
     assertNoPageErrors(fixture.recorder);
     assert(fixture.recorder.badResponses.length === 0,
@@ -321,8 +332,10 @@ async function main() {
   }
 }
 
-if (require.main === module) main().catch((error) => {
+if (require.main === module) legacyHarness.runLegacyCheck('appointment-status-editing',async context=>{
+  await (main)(context).catch((error) => {
   console.error(error.stack || error.message);
   process.exitCode = 1;
+});
 });
 module.exports = { main };

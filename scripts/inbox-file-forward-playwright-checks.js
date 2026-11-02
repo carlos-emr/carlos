@@ -64,6 +64,7 @@
  * for each document's number, the throwaway login and its audit rows, and asserts them gone. The test login's own favourites are snapshotted and asserted unchanged.
  * The lab-upload archive is retained (and the run says so) when LAB_UPLOAD_DOCUMENT_STORE is unset.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -199,7 +200,7 @@ async function assertReplayRefused(s, label, sent, overrides, target) {
   for (const method of ['GET', 'HEAD']) {
     const before = s.sql.value(`SELECT COUNT(*) FROM ${target.table} WHERE ${target.where}`);
     h.assert(before === String(target.expected), `${label}: the rows the ${method} replay is aimed at were not in the expected state (${before})`);
-    const response = await s.context.request.fetch(url, { method, maxRedirects: 0, failOnStatusCode: false });
+    const response = await authenticatedProbe(s, url, { method, maxRedirects: 0, failOnStatusCode: false });
     const verdict = await h.assertRefused(s, { response, table: target.table, where: target.where, before, label: `${label} as ${method}` });
     console.log(`  probe ${NAME}: ${label} as ${method} -> ${verdict.evidence}; ${target.table} rows unchanged (${verdict.rows})`);
   }

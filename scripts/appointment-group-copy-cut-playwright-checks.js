@@ -20,6 +20,7 @@
  * a second marker provider, a marker group holding both and the throwaway's ProviderPreference
  * pointing at it. Cleanup deletes only rows of the two owned providers and asserts they are gone.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const {randomInt} = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
@@ -327,10 +328,9 @@ async function workflow(s) {
   });
 
   await s.step('GET cannot cut an appointment or post a group booking', async () => {
-    const cut = await context.request.get(h.appUrl(config.baseUrl, `/appointment/CutRecord?appointment_no=${source.id}`), {maxRedirects: 0});
+    const cut = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, `/appointment/CutRecord?appointment_no=${source.id}`), {maxRedirects: 0});
     h.assert(cut.status() === 405, `GET CutRecord answered HTTP ${cut.status()}`);
-    const group = await context.request.get(h.appUrl(config.baseUrl, `/appointment/appointmentgrouprecords?groupappt=Group+Delete&appointment_no=${source.id}`),
-      {maxRedirects: 0});
+    const group = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, `/appointment/appointmentgrouprecords?groupappt=Group+Delete&appointment_no=${source.id}`), {maxRedirects: 0});
     h.assert(group.status() === 405, `GET appointmentgrouprecords answered HTTP ${group.status()}`);
     h.assert(ownedRows(`appointment_no=${source.id}`).length === 1, 'A GET probe removed the appointment');
   });

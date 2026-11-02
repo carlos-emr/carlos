@@ -4,6 +4,7 @@
  * Owns two synthetic patients and their relationships. Run exclusively.
  * Uses the common BASE_URL, TEST_*, CHROME_PATH and MYSQL_* harness contract.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -59,7 +60,7 @@ async function workflow(s) {
   await s.step('GET and HEAD with save parameters return 405 without writing', async () => {
     const query = new URLSearchParams({ origDemo: s.patient, linkingDemo: contact, relation: 'Partner' });
     for (const method of ['GET', 'HEAD']) {
-      const response = await s.context.request.fetch(`${s.config.baseUrl}/demographic/AddRelation?${query}`, { method });
+      const response = await authenticatedProbe(s, `${s.config.baseUrl}/demographic/AddRelation?${query}`, { method });
       h.assert(response.status() === 405 && response.headers().allow === 'POST', `${method} save did not return 405 with Allow: POST`);
     }
     h.assert(count() === before, 'A non-POST save changed relationships');

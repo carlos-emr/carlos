@@ -22,6 +22,8 @@
 // Never run in CI. Prereqs: fixtures.sql loaded (provides the patient), the
 // carlos-emr-drugref package installed and its dataset loaded.
 'use strict';
+const legacyHarness=require('../../lib/legacy-check');
+
 const { execFileSync } = require('child_process');
 const { launch, login, cfg } = require('./lib');
 const { shouldIgnoreHttpsErrors } = require('../../lib/playwright-harness');
@@ -56,7 +58,7 @@ const failed = /unavailable|error contacting|could not|exception|service is unav
   }, term);
 }
 
-async function main() {
+async function main({cancellation}={}) {
   const c = cfg({ srfax: false });
   const demo = sql(`SELECT demographic_no FROM demographic WHERE last_name='Loopback' AND first_name='Faxtest' ORDER BY demographic_no LIMIT 1`);
   must(demo, 'fixture demographic Loopback/Faxtest not found — load fixtures.sql first');
@@ -65,24 +67,30 @@ async function main() {
   const ctx = await b.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
   try {
     const p = await login(ctx, c);
+    cancellation?.throwIfCancelled();
     // Open the patient's Rx session so drug search has a demographic context.
     // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- validated base + constant path
     await p.goto(c.base + '/rx/choosePatient?demographicNo=' + demo, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await p.waitForTimeout(400);
+    cancellation?.throwIfCancelled();
 
     // 1. positive lookup
     const pos = await searchDrug(p, c.base, demo, 'amoxicillin');
+    cancellation?.throwIfCancelled();
     must(pos.count > 0 && !pos.failed, `DrugRef returned no results for "amoxicillin" (count=${pos.count}) — is carlos-emr-drugref up?`);
     console.log(`STEP 1 drugref-positive: PASS (amoxicillin -> ${pos.count} row(s), e.g. ${JSON.stringify(pos.sample[0] || '')})`);
 
     // 2. negative lookup
     const neg = await searchDrug(p, c.base, demo, 'zzzznotarealdrugxyz');
+    cancellation?.throwIfCancelled();
     must(!neg.failed, 'the negative DrugRef lookup hit a service failure, not a valid empty result');
     must(neg.count === 0, `DrugRef returned ${neg.count} result(s) for a nonsense term — lookup is not a real query`);
     console.log('STEP 2 drugref-negative: PASS (nonsense term -> lookup completed, no results)');
 
     // 3. second positive, to guard against a single fluke/cached hit
     const pos2 = await searchDrug(p, c.base, demo, 'metformin');
+    cancellation?.throwIfCancelled();
     must(pos2.count > 0 && !pos2.failed, `DrugRef returned no results for "metformin" (count=${pos2.count})`);
     console.log(`STEP 3 drugref-second-drug: PASS (metformin -> ${pos2.count} row(s))`);
 
@@ -92,4 +100,6 @@ async function main() {
   }
 }
 
-main().catch((e) => { console.error('PRESCRIPTION DRUGREF: FAIL —', e.message); process.exit(1); });
+legacyHarness.runLegacyCheck('fax-prescription-drugref',async context=>{
+  await (main)(context).catch((e) => { console.error('PRESCRIPTION DRUGREF: FAIL —', e.message); {process.exitCode=1;return;} });
+});

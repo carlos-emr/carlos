@@ -41,6 +41,8 @@
  * and their values by the patient's key and the template by its unique name, and the patient, and asserts each gone.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -841,7 +843,7 @@ async function cleanupUploadedImage(context, imageName) {
   }
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-test-pattern',async({cancellation})=>{
   const recorder = createRecorder();
   const timestamp = Date.now();
   const runId = `${timestamp}_${process.pid}`;
@@ -884,52 +886,75 @@ async function cleanupUploadedImage(context, imageName) {
     config.demographicNo = ownedPatient;
     runtimeFixture = createRuntimeFixture(bgImageName);
     config.fixtureHtmlPath = runtimeFixture.htmlPath;
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     context = await browser.newContext({
       acceptDownloads: true,
       ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl),
       viewport: { width: 1280, height: 1600 },
     });
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     await ensureImageUploaded(context, recorder, runtimeFixture.imagePath, bgImageName);
+    cancellation?.throwIfCancelled();
     const uploadResult = await uploadEform(context, recorder, formName, formSubject);
+    cancellation?.throwIfCancelled();
     managerPage = uploadResult.page;
     importedFid = uploadResult.fid;
     expected.fid = importedFid;
 
     const managerPreview = await openManagerPreview(context, recorder, uploadResult.row);
+    cancellation?.throwIfCancelled();
     await assertRuntimeSurface(managerPreview, importedFid);
+    cancellation?.throwIfCancelled();
     artifactPaths.add(await screenshot(managerPreview, config.screenshotDir, 'eform-test-pattern-manager-preview'));
+    cancellation?.throwIfCancelled();
     await managerPreview.close();
+    cancellation?.throwIfCancelled();
 
     const addPage = await openAddEform(context, recorder, importedFid);
+    cancellation?.throwIfCancelled();
     await assertRuntimeSurface(addPage, importedFid, { expectedSource: sourceMarkerValue });
+    cancellation?.throwIfCancelled();
     let fdid = await savePattern(addPage, expected);
+    cancellation?.throwIfCancelled();
     if (fdid) {
       savedFdidsToCleanup.add(fdid);
     }
     artifactPaths.add(await screenshot(addPage, config.screenshotDir, 'eform-test-pattern-after-save'));
+    cancellation?.throwIfCancelled();
     if (!fdid) {
       fdid = await resolveSavedFdidFromPatientList(context, recorder, expected.subject);
+    cancellation?.throwIfCancelled();
       savedFdidsToCleanup.add(fdid);
     }
     await addPage.close();
+    cancellation?.throwIfCancelled();
 
     const directPage = await openSavedEformDirect(context, recorder, fdid);
+    cancellation?.throwIfCancelled();
     artifactPaths.add(await assertSavedPattern(directPage, expected, fdid, 'eform-test-pattern-direct-reopen'));
+    cancellation?.throwIfCancelled();
     const pdfResult = await downloadPdf(directPage, `eform-test-pattern-${runId}`);
+    cancellation?.throwIfCancelled();
     artifactPaths.add(pdfResult.path);
     for (const currentFdid of await listSavedFdidsFromPatientList(context, recorder, expected.subject)) {
       savedFdidsToCleanup.add(currentFdid);
     }
     await directPage.close();
+    cancellation?.throwIfCancelled();
 
     const patientListPopup = await openSavedEformFromPatientList(context, recorder, fdid);
+    cancellation?.throwIfCancelled();
     assert(patientListPopup.url().includes(`fdid=${fdid}`), `Patient list popup did not open fdid ${fdid}: ${patientListPopup.url()}`);
     artifactPaths.add(await assertSavedPattern(patientListPopup, expected, fdid, 'eform-test-pattern-patient-list-reopen'));
+    cancellation?.throwIfCancelled();
     await patientListPopup.close();
+    cancellation?.throwIfCancelled();
 
     assertDisplayImageFetched(recorder);
     assert(recorder.badResponses.length === 0, `Unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
@@ -1010,4 +1035,4 @@ async function cleanupUploadedImage(context, imageName) {
       process.exitCode = 1;
     }
   }
-})();
+});

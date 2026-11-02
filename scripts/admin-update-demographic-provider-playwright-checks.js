@@ -12,6 +12,7 @@
  * Fixtures: two throwaway providers (last name = run marker) and three FAKE- patients whose MRP and
  * resident are the FROM provider; cleanup deletes only those rows and asserts they are gone.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
 const { signIn } = require('./lib/authz-read-probe');
@@ -172,7 +173,7 @@ async function workflow(s) {
     h.assert(others() === othersBefore, 'A demographic or demographicExt row this run does not own changed');
   });
   await s.step('a GET carrying the MRP update parameters is refused without reassigning anyone', async () => {
-    const response = await context.request.get(h.appUrl(config.baseUrl, '/admin/UpdateDemographicProvider'), {
+    const response = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, '/admin/UpdateDemographicProvider'), {
       params: { update: 'UpdateMrp', oldcust5: from, newcust5: to, last_name_from: 'F', last_name_to: 'F' }, maxRedirects: 0 });
     const reassigned = mrp().filter(no => no === to).length;
     h.assert(response.status() === 405 && reassigned === 0,
@@ -181,7 +182,7 @@ async function workflow(s) {
   await s.step('HEAD mutations and tokenless POSTs are refused before reassignment', async () => {
     const endpoint = h.appUrl(config.baseUrl, '/admin/UpdateDemographicProvider');
     const form = { update: 'UpdateMrp', oldcust5: from, newcust5: to, last_name_from: 'F', last_name_to: 'F' };
-    const head = await context.request.head(endpoint, { params: form, maxRedirects: 0 });
+    const head = await authenticatedProbe({context, config}, endpoint, {...({ params: form, maxRedirects: 0 }), method: 'HEAD'});
     h.assert(head.status() === 405, `HEAD reassignment answered HTTP ${head.status()}`);
     const post = await context.request.post(endpoint, { form, maxRedirects: 0 });
     h.assert(post.status() === 403 && Object.hasOwn(post.headers(), 'x-permitted-cross-domain-policies'),

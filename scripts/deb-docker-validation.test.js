@@ -53,12 +53,23 @@ test('should pass bash syntax checking', () => {
 
 test('should refuse every container command without CARLOS_DISPOSABLE_HOST=true and never call docker', (t) => {
   const box = sandbox(t);
-  for (const command of ['up', 'suite', 'audit', 'down']) {
+  for (const command of ['up', 'suite', 'audit', 'down', 'upgrade']) {
     const r = run([command], { ...box.env, CARLOS_DISPOSABLE_HOST: '' });
     assert.equal(r.status, 1, `${command}: ${r.stdout}${r.stderr}`);
     assert.match(r.stderr, /refusing to run: set CARLOS_DISPOSABLE_HOST=true/);
   }
   assert.equal(fs.existsSync(box.calls), false, 'docker was called before the guard refused');
+});
+
+test('upgrade rejects missing, ambiguous or malformed release versions before Docker or downloads', t => {
+  const box=sandbox(t),env={...box.env,CARLOS_DISPOSABLE_HOST:'true'};
+  for(const args of [[],[''],['../2026.08.0-beta2'],['2026.08.0-beta2','extra'],['2026.09.0-beta1']]) {
+    const result=run(['upgrade',...args],env);
+    assert.equal(result.status,2);assert.match(result.stderr,/exactly one from-version release tag/);
+  }
+  const result=run(['upgrade','2026.08.0-beta2'],{...env,DEBS_DIR:''});
+  assert.equal(result.status,1);assert.match(result.stderr,/DEBS_DIR/);
+  assert.equal(fs.existsSync(box.calls),false,'Invalid upgrade input reached Docker');
 });
 
 test('should preseed the runbook answers for the selected province', (t) => {
@@ -295,4 +306,55 @@ test('should refuse a suite run that does not match the profile the install is i
   assert.equal(r.status, 1);
   assert.match(r.stderr, /the install is in profile 'legacy-teleplan' but the run asks for 'default'/);
   assert.equal(fs.existsSync(box.calls), false, 'the suite ran although the install is in another profile');
+});
+
+test('unsupported container networks are refused before Docker',t=>{
+  const box=sandbox(t),result=run(['up'],{...box.env,CARLOS_DISPOSABLE_HOST:'true',CONTAINER_NETWORK:'public-network'});
+  assert.equal(result.status,1);assert.match(result.stderr,/CONTAINER_NETWORK must be host or bridge/);assert.equal(fs.existsSync(box.calls),false);
+});
+
+test('bridge setup refuses bare, ported and slash-terminated loopback proxies before Docker',t=>{
+  const box=sandbox(t);
+  for(const proxy of ['http://localhost','https://LOCALHOST','http://127.0.0.1','http://127.1',
+    'http://localhost:8080','http://127.0.0.1/']) {
+    const result=run(['up'],{...box.env,CARLOS_DISPOSABLE_HOST:'true',CONTAINER_NETWORK:'bridge',BUILD_PROXY:proxy});
+    assert.equal(result.status,1);assert.match(result.stderr,/Bridge containers need a BUILD_PROXY address reachable/);
+  }
+  assert(!fs.existsSync(box.calls));
+  const remote=run(['print-preseed'],{...box.env,CONTAINER_NETWORK:'bridge',BUILD_PROXY:'http://localhost.example.invalid'});
+  assert.equal(remote.status,0,remote.stderr);
+});
+
+test('relative CA bundles with spaces reach docker run as absolute bind sources',t=>{
+  const box=sandbox(t),debs=path.join(box.dir,'debs'),cgroups=path.join(box.dir,'cgroups');
+  fs.mkdirSync(debs);fs.mkdirSync(cgroups);fs.writeFileSync(path.join(cgroups,'cgroup.controllers'),'cpu memory');
+  for(const name of ['carlos-emr_1_amd64.deb','carlos-emr-drugref_1_all.deb','carlos-ctl_1_all.deb'])fs.writeFileSync(path.join(debs,name),'');
+  const relative='trust files/proxy bundle.pem';fs.mkdirSync(path.join(box.dir,'trust files'));
+  fs.writeFileSync(path.join(box.dir,relative),'synthetic trust bundle');
+  fs.writeFileSync(path.join(box.dir,'bin','docker'),`#!${process.execPath}\nconst fs=require('node:fs');const args=process.argv.slice(2);
+if(args[0]==='inspect')process.exit(1);if(args[0]==='build')process.exit(0);
+if(args[0]==='run'){fs.writeFileSync(${JSON.stringify(box.calls)},JSON.stringify(args));process.exit(7);}process.exit(9);\n`,{mode:0o755});
+  const result=spawnSync('bash',[SCRIPT,'up'],{cwd:box.dir,encoding:'utf8',env:{...box.env,CARLOS_DISPOSABLE_HOST:'true',
+    DEBS_DIR:debs,CGROUP_ROOT:cgroups,CONTAINER_NETWORK:'bridge',BUILD_PROXY:'http://proxy:8080',BUILD_CA_BUNDLE:relative}});
+  assert.equal(result.status,7,result.stdout+result.stderr);
+  const args=JSON.parse(fs.readFileSync(box.calls,'utf8'));
+  assert(args.includes(`${fs.realpathSync(path.join(box.dir,relative))}:/run/carlos-validation-ca.pem:ro`));
+});
+test('upgrade refreshes only build identity and preserves provisioned credentials and fixtures',t=>{
+  const box=sandbox(t),environment=path.join(box.dir,'suite-env.sh'),properties=path.join(box.dir,'build.properties');
+  const original="export TEST_PASSWORD='owned-password'\nexport CONSULT_DEMO_NO=42\nexport DOCUMENT_DIR='/owned/store'\nexport RX_EXPECTED_BUILD_TAG='beta2 (old 1)' EXPECTED_BUILD_VERSION='beta2'\n";
+  fs.writeFileSync(environment,original,{mode:0o600});
+  fs.writeFileSync(properties,"build.version=beta3\nbuild.job=review's job\nbuild.number=42\n");
+  const source=fs.readFileSync(SCRIPT,'utf8');
+  let helper=source.slice(source.indexOf('\nrefresh_suite_build_identity() {'),source.indexOf('\ncmd_upgrade() {'));
+  helper=helper.replaceAll('/root/suite-env.sh',environment).replaceAll('/usr/share/carlos-emr/webapp/carlos/WEB-INF/classes/carlos-build.properties',properties);
+  const result=spawnSync('bash',['-ec',`in_container() { bash -ec "$1"; }\n${helper}\nrefresh_suite_build_identity\nrefresh_suite_build_identity\n. "$1"\nprintf '%s\\n' "$RX_EXPECTED_BUILD_TAG" "$EXPECTED_BUILD_VERSION" "$TEST_PASSWORD" "$CONSULT_DEMO_NO" "$DOCUMENT_DIR"`,'refresh',environment],{encoding:'utf8',env:box.env});
+  assert.equal(result.status,0,result.stderr);
+  assert.equal(result.stdout,"beta3 (review's job 42)\nbeta3\nowned-password\n42\n/owned/store\n");
+  const after=fs.readFileSync(environment,'utf8');assert(after.startsWith(original.split('export RX_EXPECTED')[0]));
+  assert.equal((after.match(/^export RX_EXPECTED_BUILD_TAG=/gm)||[]).length,1);
+  assert.equal(fs.statSync(environment).mode&0o777,0o600);
+  const upgrade=source.slice(source.indexOf('\ncmd_upgrade() {'),source.indexOf('\ncmd_audit() {'));
+  assert(upgrade.indexOf('refresh_suite_build_identity')>upgrade.indexOf('upgrade-canaries.js'));
+  assert(upgrade.indexOf('refresh_suite_build_identity')<upgrade.indexOf('cmd_suite --tier smoke'));
 });

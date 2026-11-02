@@ -29,6 +29,7 @@
  * preferences, entry mode included, go with it). Every entry carries the run marker. Cleanup deletes
  * the entries, throwaway login and owned role/grants, and asserts they are gone.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
@@ -326,7 +327,7 @@ async function workflow(s) {
       AND doctype=${q(type)} AND descriptionShortcut=${q(kept.shortcut)}`;
     const token = await own.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     h.assert(token, 'The personal-template page has no CSRF token');
-    const pageResponse = await context.request.get(h.appUrl(config.baseUrl, `${PAGE}?setDefault=true`));
+    const pageResponse = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, `${PAGE}?setDefault=true`));
     try {
       await h.assertRefused(s, { response: pageResponse, table: 'documentDescriptionTemplate', where, before: '1',
         label: 'opening the clinic-wide editor without administration grants' });

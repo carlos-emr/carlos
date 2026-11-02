@@ -21,6 +21,8 @@
  * on demo patient 1 per run. MYSQL_* reaches the database.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { createSqlRunner, readConfig, sqlString, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
@@ -54,7 +56,7 @@ const config = {
   formName: process.env.RTL_FORM_NAME || 'Rich Text Letter',
 };
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-rtl-attachment-routes',async({cancellation})=>{
   const recorder = createRecorder();
   const sql = createSqlRunner(readConfig().mysql);
   const ownedMarker = newOwnedMarker();
@@ -70,28 +72,42 @@ const config = {
     assert(provider, 'The configured test login has no provider');
     ownedPatient = createOwnedPatient(sql, { marker: ownedMarker, provider });
     config.demographicNo = ownedPatient;
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     const managerPage = await openManager(context, config, recorder, 'rtl-manager');
+    cancellation?.throwIfCancelled();
     const { fid } = await findLibraryEform(managerPage, config.formName);
+    cancellation?.throwIfCancelled();
     await managerPage.close();
+    cancellation?.throwIfCancelled();
 
     const addPage = await openAddEform(context, config, recorder, fid, config.demographicNo, 'rtl-add');
+    cancellation?.throwIfCancelled();
     const fdid = await saveCurrentEform(addPage, `RTL routes ${Date.now()}`);
+    cancellation?.throwIfCancelled();
     assert(/^\d+$/.test(fdid), `Expected numeric fdid for saved RTL instance, got ${fdid}`);
 
     const popup = await openAttachPopup(addPage, context);
+    cancellation?.throwIfCancelled();
     await waitForPopupReady(popup, recorder, 'rtl-attach-popup');
+    cancellation?.throwIfCancelled();
     const popupUrl = new URL(popup.url());
     assert(popupUrl.pathname.endsWith('/eform/attachEform'), `Attach popup used unexpected route: ${popup.url()}`);
     assert(!popupUrl.pathname.endsWith('.jsp'), `Attach popup fell back to a legacy JSP route: ${popup.url()}`);
     await screenshot(popup, config.screenshotDir, 'rtl-attachment-routes-popup');
+    cancellation?.throwIfCancelled();
     await popup.close();
+    cancellation?.throwIfCancelled();
 
     const fetchResult = await invokeFetchAttached(addPage);
+    cancellation?.throwIfCancelled();
     assert(fetchResult.hasFunction, 'Rich Text Letter page did not expose fetchAttached()');
     assert(!fetchResult.error, `fetchAttached() threw on the Rich Text Letter page: ${fetchResult.error}`);
     const sidebarRequest = getLatestRequest(recorder, (entry) => entry.url.includes('/eform/displayAttachedFiles'));
@@ -101,8 +117,11 @@ const config = {
     assert(!sidebarUrl.pathname.endsWith('.jsp'), `Attachment sidebar fell back to a legacy JSP route: ${sidebarRequest.url}`);
     assert(!/Error loading attachments|HTTP Status 404|HTTP Status 500/i.test(fetchResult.text), `Attachment sidebar rendered an error state: ${fetchResult.text}`);
     await screenshot(addPage, config.screenshotDir, 'rtl-attachment-routes-main');
+    cancellation?.throwIfCancelled();
     await addPage.close();
+    cancellation?.throwIfCancelled();
     await context.close();
+    cancellation?.throwIfCancelled();
 
     console.log(`PASS rtl attachment routes use gated endpoints and save a real fdid (${fdid})`);
   } catch (error) {
@@ -122,4 +141,4 @@ const config = {
       sql.dispose();
     }
   }
-})();
+});

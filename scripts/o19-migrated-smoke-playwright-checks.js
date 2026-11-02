@@ -64,6 +64,8 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { readNativeClinicianCredentials, validateNativeImportedCredentials, proveNativeClinicianLogin, redactNativeAuthError } = require('./lib/o19-native-auth');
 const { submitLoginDocument, waitForProviderSchedule, isProviderScheduleUrl } = require('./lib/deb-login-navigation');
@@ -81,6 +83,7 @@ const credentialsPath = process.env.O19_ADMIN_CREDENTIALS || path.join(stateDir,
 const screenshotDir = process.env.O19_SMOKE_SCREENSHOT_DIR || '';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 const mysqlUser = process.env.MYSQL_USER || 'root';
+// Intentional exception: this check has a stricter loopback-only/import preflight below.
 const mysqlHost = process.env.MYSQL_HOST || '';
 const mysqlSocket = process.env.MYSQL_SOCKET || '';
 const mysqlPassword = process.env.MYSQL_PASSWORD || '';
@@ -150,35 +153,8 @@ function skip(name, reason) {
 }
 
 function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  // Playwright sends a URL's userinfo as Basic Auth and repeats the whole
-  // URL in navigation diagnostics, so a credential embedded here would be
-  // both transmitted and logged.
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not contain embedded credentials');
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const octets = host.split('.');
-  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
-  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
-    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
-    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
-  if (!isLoopbackHost(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  // Cleartext only to loopback. This script types the MIGRATED passwords
-  // of a real clinic's administrator and clinician into a login form; on
-  // anything but the local host that is a credential on the wire, and
-  // opting into a non-local target is not opting into that.
-  if (parsed.protocol === 'http:' && !isLoopbackHost(host)) {
-    throw new Error(`BASE_URL ${host} is not loopback, so it must use https: this smoke sends migrated account passwords`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  // Delegate host/protocol/credential rules; this legacy caller retains its return shape.
+  const parsed = require('./lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl);
   return parsed;
 }
 
@@ -703,7 +679,8 @@ async function loginThroughForcedReset(context, user, password, pin, label,
 
 // --- checks ----------------------------------------------------------------
 
-(async () => {
+legacyHarness.runLegacyCheck('o19-migrated-smoke',async context=>{
+  await (async({cancellation})=>{
   // No break-glass credentials file means this deployment never ran
   // `carlos-ctl import-o19`: a fresh package install or the devcontainer.
   // There is nothing migrated to smoke, so report SKIP (exit 2, #3313) and
@@ -758,7 +735,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
   if (chromePath) {
     launchOptions.executablePath = chromePath;
   }
-  const browser = await chromium.launch(launchOptions);
+  const browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   let adminPage = null;
 
   try {
@@ -771,6 +748,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
         `the forced reset did not clear forcePasswordReset for ${credentials.user}`);
       await screenshot(adminPage, 'o19-smoke-admin-schedule');
     });
+    cancellation?.throwIfCancelled();
 
     if (!fixtures.clinician) {
       skip('a migrated clinician can log in through the forced password reset',
@@ -830,6 +808,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
         await screenshot(page, 'o19-smoke-clinician-schedule');
         await context.close();
       });
+    cancellation?.throwIfCancelled();
     }
 
     await record('patient search finds the migrated patient by surname', async () => {
@@ -856,6 +835,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
       await screenshot(page, 'o19-smoke-search');
       await page.close();
     });
+    cancellation?.throwIfCancelled();
 
     await record('the e-chart renders the newest migrated note and its signing provider', async () => {
       assert(adminPage, 'the administrator session was not established');
@@ -892,6 +872,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
       }
       await page.close();
     });
+    cancellation?.throwIfCancelled();
 
     if (!fixtures.appointment) {
       skip('the migrated appointment appears in the patient\'s appointment history',
@@ -924,6 +905,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
         await screenshot(page, 'o19-smoke-appointment-history');
         await page.close();
       });
+    cancellation?.throwIfCancelled();
 
       if (fixtures.appointment.programId !== '0') {
         skip('the migrated appointment appears on its provider\'s day schedule',
@@ -946,6 +928,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
           await screenshot(page, 'o19-smoke-schedule-day');
           await page.close();
         });
+    cancellation?.throwIfCancelled();
       }
     }
 
@@ -970,6 +953,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
         await screenshot(page, 'o19-smoke-rx');
         await page.close();
       });
+    cancellation?.throwIfCancelled();
     }
 
     if (!fixtures.lab) {
@@ -996,6 +980,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
         await screenshot(page, 'o19-smoke-labs');
         await page.close();
       });
+    cancellation?.throwIfCancelled();
     }
 
     await record('preserved vendor-fork data is still there, and its table still renders', async () => {
@@ -1050,6 +1035,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
       console.log(`  reconciled ${fixtures.unknownShadows.length} vendor-fork shadow(s) against `
         + `${fixtures.preservedColumns.size} live table(s) carrying preserved columns`);
     });
+    cancellation?.throwIfCancelled();
 
     await record('no visited page returned an error status or rendered a stack trace', async () => {
       assert(pageErrors.length === 0, `Native migration pages raised ${pageErrors.length} uncaught browser error(s)`);
@@ -1058,6 +1044,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
       assert(badResponses.length === 0,
         `requests failed: ${JSON.stringify(badResponses.slice(0, 10))}`);
     });
+    cancellation?.throwIfCancelled();
   } finally {
     await browser.close().catch(() => {});
     try {
@@ -1076,7 +1063,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
       process.exitCode = 1;
     }
   }
-})().catch((error) => {
+})(context).catch((error) => {
   console.error(reportError(error, true));
   try {
     restoreSecurityRows();
@@ -1085,5 +1072,6 @@ async function loginThroughForcedReset(context, user, password, pin, label,
   } finally {
     cleanupMysqlDefaultsFile();
   }
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

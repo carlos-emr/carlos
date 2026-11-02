@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 // Disposable VM only: preserves and restores the test provider's affected settings.
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const {assert, sqlString} = require('./lib/playwright-harness');
 const {clickAndAwaitReload} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
@@ -79,7 +80,7 @@ async function workflow(s) {
     editor = await openPreference('a[href$="/provider/ViewEditSignature"]', 'text-signature-reopen');
     assert(await editor.locator('#signature').inputValue() === marker, 'Opening the signature editor cleared the saved value');
     const action = await editor.locator('form').evaluate(form => form.action);
-    const rejected = await s.context.request.get(action);
+    const rejected = await authenticatedProbe(s, action);
     assert(rejected.status() === 405, 'GET on signature save was not rejected');
     assert(sql.value(`SELECT signature FROM providerExt WHERE provider_no=${sqlString(provider)}`) === marker, 'Rejected GET changed the signature');
     await editor.close();

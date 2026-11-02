@@ -680,11 +680,11 @@ function assertHealthy(result, options = {}) {
  * Browser + logged-in context with the probes installed before the first page exists.
  * The caller closes it (always, in a finally).
  */
-async function startSession(config) {
+async function startSession(config, contextOptions = {}) {
   const recorder = h.createRecorder();
   const browser = await h.launchBrowser(config);
   try {
-    const context = await h.newContext(browser, config);
+    const context = await h.newContext(browser, config, contextOptions);
     context.setDefaultTimeout(20000);
     const probe = await installProbes(context, config);
     context.on('page', page => h.wireStrictPage(page, 'page-health', recorder));

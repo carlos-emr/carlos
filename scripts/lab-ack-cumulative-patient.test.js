@@ -26,7 +26,7 @@ const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, 'lab-acknowledge-playwright-checks.js'), 'utf8');
-const functionSource = source.slice(source.indexOf('async function checkCumulativeValues(context) {'), source.indexOf('\n(async () => {'));
+const functionSource = source.slice(source.indexOf('async function checkCumulativeValues(context) {'), source.indexOf("\nrequire('./lib/legacy-check').runLegacyCheck("));
 const jsp = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/lab/CumulativeLabValues.jsp'), 'utf8');
 const jspParameter = jsp.match(/String demographic_no = request\.getParameter\("([^"]+)"\)/)[1];
 

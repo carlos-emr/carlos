@@ -52,6 +52,8 @@
  * CHROME_PATH (optional).
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const fs = require('fs');
 const { chromium } = require('playwright');
 const { createSqlRunner, readConfig, sqlString, shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
@@ -214,12 +216,12 @@ async function savedFdid(page) {
   return fdid;
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-rtl-print-pdf',async({cancellation})=>{
   const recorder = createRecorder();
   const results = [];
   let missingTemplate = '';
   const step = (name, ok, detail) => { results.push({ name, ok }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ' — ' + detail : ''}`); };
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   const printLog = [];
   const sql = createSqlRunner(readConfig().mysql);
   const ownedMarker = newOwnedMarker();
@@ -235,28 +237,40 @@ async function savedFdid(page) {
     // a remote HTTPS target must present a certificate the test user actually trusts.
     const loopbackTarget = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d+)?(\/|$)/i.test(config.baseUrl);
     const context = await browser.newContext({ acceptDownloads: true, ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    cancellation?.throwIfCancelled();
     // Record window.print() from EVERY frame on the Node side (the pages navigate right after printing),
     // and neutralize window.close() so the post-save auto-close does not tear the page down under us.
     await context.exposeBinding('__carlosRecordPrint', (source, info) => { printLog.push(info); });
+    cancellation?.throwIfCancelled();
     await context.addInitScript(() => {
       window.print = function () {
         window.__carlosRecordPrint({ href: location.href, isTop: window === window.top, body: (document.body || {}).innerText || '' });
       };
       window.close = () => { window.__playwrightCloseIntercepted = true; };
     });
+    cancellation?.throwIfCancelled();
 
     const landing = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landing.close();
+    cancellation?.throwIfCancelled();
     const manager = await openManager(context, config, recorder, 'rtl-manager');
+    cancellation?.throwIfCancelled();
     const { fid } = await findLibraryEform(manager, config.formName);
+    cancellation?.throwIfCancelled();
     await manager.close();
+    cancellation?.throwIfCancelled();
 
     // ---------- 1. New letter: Preventions button (eform/rtlPreventions.do alias) ----------
     let page = await openNewLetter(context, recorder, fid, 'rtl-preventions');
+    cancellation?.throwIfCancelled();
     const preventionsResponse = page.waitForResponse((r) => /\/eform\/rtlPreventions/.test(r.url()), { timeout: 30000 });
     await page.locator('input[name="Preventions"]').click();
+    cancellation?.throwIfCancelled();
     const pr = await preventionsResponse;
+    cancellation?.throwIfCancelled();
     const preventionsBody = await editorFrame(page).evaluate(() => document.body.innerText);
+    cancellation?.throwIfCancelled();
     step('Preventions button loads through the rtlPreventions route with HTTP 200', pr.status() === 200, `${pr.status()} ${pr.url()}`);
     // Detail carries shape only, never the editor text: on a real patient that is clinical data,
     // and this log ends up in consoles and CI output.
@@ -264,43 +278,64 @@ async function savedFdid(page) {
       /No preventions on file|Prevention|Date/i.test(preventionsBody) && !/Error loading preventions/i.test(preventionsBody),
       `${preventionsBody.length} chars, ${/No preventions on file/i.test(preventionsBody) ? 'empty-list message' : 'prevention rows'}`);
     await page.close();
+    cancellation?.throwIfCancelled();
 
     // ---------- 2. New letter: typing marks it dirty; toolbar Download yields a real PDF ----------
     page = await openNewLetter(context, recorder, fid, 'rtl-download');
+    cancellation?.throwIfCancelled();
     step('new letter opens clean (needToConfirm=false)', (await page.evaluate(() => window.needToConfirm)) === false, '');
+    cancellation?.throwIfCancelled();
     const typed = await typeLetter(page);
+    cancellation?.throwIfCancelled();
     step('typing sets the dirty flag (needToConfirm=true)', (await page.evaluate(() => window.needToConfirm)) === true, '');
+    cancellation?.throwIfCancelled();
     await page.locator('#remote_eform_subject').fill(`RTL print/pdf check ${Date.now()}`);
+    cancellation?.throwIfCancelled();
     const dl1 = await clickAndDownloadPdf(page, page.locator('#remoteDownloadButton'), 'toolbar-download');
+    cancellation?.throwIfCancelled();
     const fdidAfterDownload = await savedFdid(page);
+    cancellation?.throwIfCancelled();
     step('toolbar Download saves the letter and downloads a real PDF', dl1.bytes.length > 1024, `${dl1.name}, ${dl1.bytes.length} bytes, fdid ${fdidAfterDownload}`);
     await screenshot(page, config.screenshotDir, 'rtl-print-pdf-after-download');
+    cancellation?.throwIfCancelled();
 
     // ---------- 3. Saved letter page: Save PDF Only in the toolbar menu ----------
     const storedLetter = await page.locator('#Letter').inputValue();
+    cancellation?.throwIfCancelled();
     step('saved letter stores the typed text with saveRTL() escaping', storedLetter === escapeLikeSaveRTL(typed) || storedLetter.includes(escapeLikeSaveRTL('"chest pain" & <cough>')), storedLetter.slice(0, 120));
     const reopened = await editorFrame(page).evaluate(() => document.body.innerHTML);
+    cancellation?.throwIfCancelled();
     step('saved letter reopens in the editor as markup', reopened.includes('Playwright RTL check') && reopened.includes('&amp; &lt;cough&gt;'), reopened.slice(0, 120));
     await page.locator("#remotePrintOptions summary").click();
+    cancellation?.throwIfCancelled();
     const dl2 = await clickAndDownloadPdf(page, page.locator("#remoteSavePdfButton"), "toolbar-save-pdf");
+    cancellation?.throwIfCancelled();
     const fdidAfterPdfButton = await savedFdid(page);
+    cancellation?.throwIfCancelled();
     step('Save PDF Only downloads a real PDF', dl2.bytes.length > 1024, `${dl2.name}, ${dl2.bytes.length} bytes, fdid ${fdidAfterPdfButton}`);
     // "PDF" is a preview: the saved alert (5 s countdown) never shows and the window stays open.
     // Wait past that countdown before asserting, or the check would pass vacuously.
     await page.waitForTimeout(6500);
+    cancellation?.throwIfCancelled();
     step('Save PDF Only leaves the window open (no auto-close)', !(await page.evaluate(() => window.__playwrightCloseIntercepted === true)), '');
+    cancellation?.throwIfCancelled();
 
     // ---------- 3a. Saved letter page: the form's own "PDF" button (printControl.js, print=true) ----------
     const dlLegacyPdf = await clickAndDownloadPdf(page, page.locator('input[name="pdfButton"]'), 'form-pdf-button', dispatchClick);
+    cancellation?.throwIfCancelled();
     const fdidAfterLegacyPdf = await savedFdid(page);
+    cancellation?.throwIfCancelled();
     step('form "PDF" button downloads a real PDF', dlLegacyPdf.bytes.length > 1024, `${dlLegacyPdf.name}, ${dlLegacyPdf.bytes.length} bytes, fdid ${fdidAfterLegacyPdf}`);
     // "PDF" is a preview: the saved alert (5 s countdown) never shows and the window stays open.
     await page.waitForTimeout(6500);
+    cancellation?.throwIfCancelled();
     step('form "PDF" button leaves the window open (no auto-close)', !(await page.evaluate(() => window.__playwrightCloseIntercepted === true)), '');
+    cancellation?.throwIfCancelled();
 
     // ---------- 3b. Print Only uses current unsaved editor content without a chart save ----------
     const currentLetter = 'Current unsaved print-only letter';
     await typeLetter(page, currentLetter);
+    cancellation?.throwIfCancelled();
     printLog.length = 0;
     const printOnlySaves = [];
     const recordSave = request => {
@@ -309,59 +344,84 @@ async function savedFdid(page) {
     page.on('request', recordSave);
     const beforePrintOnlyUrl = page.url();
     await page.locator('#remotePrintOptions summary').click();
+    cancellation?.throwIfCancelled();
     await page.locator('#remotePrintPdfButton').click();
+    cancellation?.throwIfCancelled();
     // Observe the print itself rather than guessing how long it takes, then keep sampling well past
     // the legacy string-timer submit shim (1 s, see "Submit & Print" below): a regression that
     // saved on a timer after printing would otherwise escape a short window.
     await waitForPrints(printLog, 1);
+    cancellation?.throwIfCancelled();
     await page.waitForTimeout(2500);
+    cancellation?.throwIfCancelled();
     page.off('request', recordSave);
     step('Print Only PDF prints current unsaved editor text', printLog.length === 1 && !printLog[0].isTop && printLog[0].body.includes(currentLetter), '');
     step('Print Only PDF never saves or navigates', printOnlySaves.length === 0 && page.url() === beforePrintOnlyUrl && (await savedFdid(page)) === fdidAfterLegacyPdf, '');
+    cancellation?.throwIfCancelled();
     step('Print Only PDF preserves the dirty flag and editable letter', (await page.evaluate(() => window.needToConfirm)) === true
       && await page.locator('#remotePrintButton').isVisible()
       && await editorFrame(page).evaluate((text) => document.body.innerText.includes(text), currentLetter), '');
+    cancellation?.throwIfCancelled();
 
     // ---------- 3c. Saved letter page: the form's own "Submit & PDF" downloads, then auto-closes ----------
     const dl3 = await clickAndDownloadPdf(page, page.locator('input[name="pdfSaveButton"]'), 'form-submit-pdf-button', dispatchClick);
+    cancellation?.throwIfCancelled();
     const fdidAfterSubmitPdf = await savedFdid(page);
+    cancellation?.throwIfCancelled();
     step('form "Submit & PDF" button downloads a real PDF', dl3.bytes.length > 1024, `${dl3.name}, ${dl3.bytes.length} bytes, fdid ${fdidAfterSubmitPdf}`);
     // A submission: the result page sets isSuccess_Autoclose, so the toolbar closes the window
     // once the saved alert's countdown ends (window.close is intercepted by the init script above).
     const autoClosed = await page.waitForFunction(() => window.__playwrightCloseIntercepted === true, null, { timeout: 15000 }).then(() => true).catch(() => false);
+    cancellation?.throwIfCancelled();
     step('form "Submit & PDF" then auto-closes the window after the download', autoClosed, '');
     await page.close();
+    cancellation?.throwIfCancelled();
 
     // ---------- 4. New letter: toolbar Print prints the iframe, then saves ----------
     printLog.length = 0;
     page = await openNewLetter(context, recorder, fid, 'rtl-toolbar-print');
+    cancellation?.throwIfCancelled();
     await typeLetter(page);
+    cancellation?.throwIfCancelled();
     await page.locator('#remote_eform_subject').fill(`RTL toolbar print ${Date.now()}`);
+    cancellation?.throwIfCancelled();
     await clickAndAwaitSave(page, page.locator('#remotePrintButton'));
+    cancellation?.throwIfCancelled();
     step('toolbar Print invokes print() exactly once, on the EDITOR IFRAME', printLog.length === 1 && !printLog[0].isTop, JSON.stringify(printLog.map((c) => ({ href: c.href, isTop: c.isTop }))));
     step('toolbar Print printed document contains the typed letter', printLog.length === 1 && printLog[0].body.includes('Playwright RTL check'), '');
     await assertNotErrorPage(page, 'rtl-toolbar-print');
+    cancellation?.throwIfCancelled();
     const fdidAfterPrint = await savedFdid(page);
+    cancellation?.throwIfCancelled();
     step('toolbar Print then saves the letter (new fdid on the result page)', /^\d+$/.test(fdidAfterPrint) && fdidAfterPrint !== fdidAfterSubmitPdf, `fdid ${fdidAfterPrint}`);
     await page.close();
+    cancellation?.throwIfCancelled();
 
     // ---------- 5. New letter: the form's own "Submit & Print" ----------
     printLog.length = 0;
     page = await openNewLetter(context, recorder, fid, 'rtl-form-print');
+    cancellation?.throwIfCancelled();
     await typeLetter(page);
+    cancellation?.throwIfCancelled();
     await page.locator('#remote_eform_subject').fill(`RTL submit and print ${Date.now()}`);
+    cancellation?.throwIfCancelled();
     const printSave = page.locator('input[name="PrintSaveButton"]');
     // The form's own button submits through a 1s string timer (the CSP shim), so wait for the save
     // itself rather than for whatever load state the still-current page happens to report.
     await clickAndAwaitSave(page, printSave, dispatchClick);
+    cancellation?.throwIfCancelled();
     step('"Submit & Print" prints the editor iframe', printLog.length === 1 && !printLog[0].isTop, '');
     await assertNotErrorPage(page, 'rtl-form-print');
+    cancellation?.throwIfCancelled();
     const fdidAfterFormPrint = await savedFdid(page);
+    cancellation?.throwIfCancelled();
     step('"Submit & Print" submits through the string-timer shim and saves', /^\d+$/.test(fdidAfterFormPrint) && fdidAfterFormPrint !== fdidAfterPrint, `fdid ${fdidAfterFormPrint}`);
     await page.close();
+    cancellation?.throwIfCancelled();
 
     // ---------- 6. A clinic .rtl template loads unsandboxed and stays editable ----------
     page = await openNewLetter(context, recorder, fid, 'rtl-template');
+    cancellation?.throwIfCancelled();
     let templateName = config.templateName;
     if (config.templateIsFixture && (await page.locator(`#template option[value="${templateName}"]`).count()) !== 1) {
       // The operator named a template this install does not have: a missing fixture, not a defect.
@@ -374,25 +434,31 @@ async function savedFdid(page) {
         + `Testing the seeded ${SEEDED_TEMPLATE_NAME} instead.`);
     }
     const offered = (await page.locator(`#template option[value="${templateName}"]`).count()) === 1;
+    cancellation?.throwIfCancelled();
     // The seeded template missing is a defect: EFormAssetDeployer did not run, or the
     // template catalog (efmformrtl_templates) stopped listing the directory.
     step(`template dropdown offers ${templateName}`, offered, templateName === SEEDED_TEMPLATE_NAME ? 'seeded by EFormAssetDeployer on every install' : '');
     if (offered) {
       const templateResponse = page.waitForResponse((r) => r.url().includes(`imagefile=${encodeURIComponent(templateName)}`) || r.url().includes(`imagefile=${templateName}`), { timeout: 30000 });
       await page.locator('#template').selectOption(templateName);
+    cancellation?.throwIfCancelled();
       const tr = await templateResponse;
+    cancellation?.throwIfCancelled();
       const csp = tr.headers()['content-security-policy'] || '';
       step('clinic template is served without the sandbox CSP', tr.status() === 200 && !/sandbox/.test(csp), `${tr.status()} csp="${csp}"`);
       await page.waitForTimeout(1500);
+    cancellation?.throwIfCancelled();
       const editable = await page.evaluate(() => {
         try {
           const d = document.getElementById('edit').contentWindow.document;
           return { ok: true, designMode: d.designMode, length: d.body.innerHTML.length };
         } catch (e) { return { ok: false, error: String(e) }; }
       });
+    cancellation?.throwIfCancelled();
       step('editor can read the clinic template frame (same-origin) with designMode on', editable.ok && editable.designMode === 'on' && editable.length > 0, JSON.stringify(editable));
     }
     await page.close();
+    cancellation?.throwIfCancelled();
 
     // ---------- 7. No JS failures anywhere ----------
     assertNoPageErrors(recorder);
@@ -421,7 +487,7 @@ async function savedFdid(page) {
     // operator asked for had no fixture to run against, so this is not a clean PASS either.
     console.log(`SKIP eform-rtl-print-pdf -- RTL_TEMPLATE_NAME=${missingTemplate} is not installed `
       + `(deb-install-validation.md fixture c); every other step passed, the template step against ${SEEDED_TEMPLATE_NAME}`);
-    process.exit(2);
+    {process.exitCode=2;return;}
   }
-  process.exit(failed.length ? 1 : 0);
-})();
+  {process.exitCode=failed.length ? 1 : 0;return;}
+});

@@ -14,7 +14,8 @@ const {test} = require('node:test');
 const h = {assert(ok, message) { if (!ok) throw Error(message); }, sqlString: value => `'${String(value).replaceAll("'", "''")}'`};
 const helperFile = path.join(__dirname, 'lib/billing-report-context.js');
 const helperModule = {exports: {}};
-vm.runInNewContext(fs.readFileSync(helperFile, 'utf8'), {module: helperModule, require: name => {assert.equal(name, './playwright-harness'); return h;}}, {filename: helperFile});
+vm.runInNewContext(fs.readFileSync(helperFile, 'utf8'), {module: helperModule, require: name => {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');assert.equal(name, './playwright-harness'); return h;}}, {filename: helperFile});
 const {selectBillingReportContext} = helperModule.exports;
 const owned = {multisites: true, clinic: 'FAKE Owned Clinic', providerNo: '972775', ohipNo: '123456'};
 function nativeReport({context = owned, sites = ['none', owned.clinic], physicians = ['none', owned.providerNo], sticky = true, clearable = true, siteCount} = {}) {
@@ -79,6 +80,7 @@ test('actual correction caller submits the complete owned report context and pre
   let dependentSession;
   const lifecycle = {created: 0, clinics: 0, contexts: 0, claimCleanups: 0};
   const requireStub = name => {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
     if (name === './lib/playwright-harness') return h;
     if (name === './lib/playwright-ui') return {clickOpensPopupOrNavigates: async () => ({page: admin})};
     if (name === './lib/playwright-link-audit') return {revealAuditLink: async () => {}};

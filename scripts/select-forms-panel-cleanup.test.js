@@ -31,11 +31,14 @@ for (const failure of ['snapshot', 'launch', 'context', 'page', 'cleanup']) {
       },
       async close() { events.push('browser closed'); },
     };
+    const processRef={env:{},exit(code){events.push(`exit ${code}`);}};
     await vm.runInNewContext(source, {
       URL,
-      process: { env: {}, exit(code) { events.push(`exit ${code}`); } },
+      process: processRef,
       console: { log() {}, error(message) { errors.push(message); } },
       require(name) {
+        if(name==='./lib/legacy-check')return {...require('./lib/legacy-check'),runLegacyCheck:(_name,operation)=>operation({})};
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
         if (name === 'playwright') return { chromium: { async launch() {
           assert.ok(fs.existsSync(optionFile), 'startup has already created the SQL credential file');
           if (failure === 'launch') throw new Error('launch failed');
@@ -63,7 +66,8 @@ for (const failure of ['snapshot', 'launch', 'context', 'page', 'cleanup']) {
 
     assert.equal(fs.existsSync(optionFile), false, 'the SQL password file must be removed before exit');
     assert.equal(events.filter(event => event === 'SQL disposed').length, 1);
-    assert.deepEqual(events.slice(-2), ['SQL disposed', 'exit 1']);
+    assert.equal(events.at(-1),'SQL disposed');
+    assert.equal(processRef.exitCode,1);
     assert.equal(events.includes('browser closed'), ['context', 'page', 'cleanup'].includes(failure));
     assert.equal(events.includes('context closed'), ['page', 'cleanup'].includes(failure));
     assert.match(errors.at(-1), /FAIL Select Forms panel checks:/);

@@ -244,7 +244,7 @@ async function runActualAcceptanceSegment({ waf = true, refusal = false } = {}) 
   const pages = [0, 1].map(index => ({ locator: () => ({ inputValue: async () => 'owned literal ${medicalHistory}' }),
     close: async () => { events.push(`close${index}`); } }));
   let opened = 0;
-  const bindings = { context: {}, importedFid: scope.fid, demographicNo: scope.patient, provider: scope.provider,
+  const bindings = { cancellation:undefined, context: {}, importedFid: scope.fid, demographicNo: scope.patient, provider: scope.provider,
     ownedMarker: marker, medicalHistory: 'owned literal ${medicalHistory}', baseUrl: new URL(scope.baseUrl), sql: {},
     wafAuditLog: waf ? '/audit' : undefined, wafErrorLog: waf ? '/error' : undefined, expectedState: {},
     assert: (condition, message) => assert(condition, message), console: { log: text => events.push(text) },

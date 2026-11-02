@@ -425,6 +425,7 @@ function loadEntry(name, doubles) {
   const code=fs.readFileSync(filename,'utf8');
   const module={exports:{}};
   const req=id=>{
+    if(id==='./lib/authenticated-probe')return require('./lib/authenticated-probe');
     if(Object.hasOwn(doubles,id))return doubles[id];
     if(id==='./lib/playwright-harness')return {assert:(ok,message)=>assert(ok,message),sqlString:value=>"'"+String(value).replaceAll("'","''")+"'"};
     if(id==='./lib/workflow-session')return {};

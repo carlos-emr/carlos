@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
@@ -128,7 +129,7 @@ async function workflow(s) {
     form.fields.pdfPageNumber = '1';
     form.fields.pdfExtractPageNumber = '2';
     for (const action of ['Rotate90', 'Rotate180', 'RotateM90', 'RotateAll90', 'RotateAll180', 'RotateAllM90', 'DeletePage', 'DeletePDF', 'ExtractPagePDF']) {
-      const response = await s.context.request.get(form.action, { params: { ...form.fields, pdfAction: action } });
+      const response = await authenticatedProbe(s, form.action, { params: { ...form.fields, pdfAction: action } });
       h.assert(response.status() === 405, `GET ${action} returned ${response.status()} instead of 405`);
       h.assert(response.headers().allow === 'POST', 'Method rejection omitted the allowed method');
       h.assert(fs.readFileSync(source).equals(original), 'A rejected GET changed the synthetic PDF');

@@ -22,6 +22,7 @@
  * token-less navigator.sendBeacon() that CSRFGuard refused with 403; it must arrive as a CSRF-tokened
  * POST answered 200.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
@@ -111,7 +112,7 @@ async function workflow(s) {
   });
 
   await s.step('a GET of the error-report address is refused and leaves the clean template stable', async () => {
-    const response = await s.context.request.get(`${String(config.baseUrl).replace(/\/$/, '')}/eform/logEformError?formId=${ids.clean}&error=probe`);
+    const response = await authenticatedProbe(s, `${String(config.baseUrl).replace(/\/$/, '')}/eform/logEformError?formId=${ids.clean}&error=probe`);
     const status = response.status();
     await response.dispose();
     h.assert(stable('clean') === '1', 'A GET of eform/logEformError flagged the clean eForm unstable');

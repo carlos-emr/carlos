@@ -49,6 +49,11 @@
  * unique name, and each is asserted gone.
  */
 
+
+// EFORM_IMAGE_DIR identifies the disposable server's mounted eForm image store for owned asset verification/cleanup.
+const legacyHarness=require('./lib/legacy-check');
+const { authenticatedProbe } = require('./lib/authenticated-probe');
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -57,6 +62,7 @@ const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
 const h = require('./lib/playwright-harness');
 const { createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
+const {ownedUploadedImage}=require('./lib/owned-uploaded-image');
 const { checkPreviewCapacity } = require('./eform-preview-capacity-playwright');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -68,7 +74,8 @@ const testPin = process.env.TEST_PIN || '2026';
 let demographicNo = null;
 const screenshotDir = process.env.SAVED_RENDER_SCREENSHOT_DIR || '/tmp';
 
-const bgImageName = 'playwright_saved_render_bg.png';
+const ownedMarker = newOwnedMarker();
+const bgImageName = ownedMarker+'-saved-render-bg.png';
 const transparentPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl5n2QAAAAASUVORK5CYII=';
 
 const badResponses = [];
@@ -79,25 +86,6 @@ function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
-}
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const allowNonLocal = process.env.ALLOW_NON_LOCAL_BASE_URL === 'true';
-  if (!localHosts.has(host) && !allowNonLocal) {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
 }
 
 function appUrl(appPath) {
@@ -417,7 +405,7 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     await gotoApp(page, `/eform/efmshowform_data?fdid=${encodeURIComponent(fdid)}&parentAjaxId=eforms`);
     csrfToken = await readCsrfToken(page);
     for (const method of ['GET', 'HEAD']) {
-      const rejected = await context.request.fetch(`${endpoint}?${parameters}`, { method });
+      const rejected = await authenticatedProbe({context, config: {baseUrl}}, `${endpoint}?${parameters}`, { method });
       assert(rejected.status() === 405 && rejected.headers().allow === 'POST',
         'fax preparation must reject GET/HEAD before staging');
       await rejected.dispose();
@@ -457,7 +445,7 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     assert(faxFilePath.length > 0, 'preview must contain its server-issued path');
     csrfToken = await readCsrfToken(page);
     const preview = async () => {
-      const response = await context.request.get(endpoint, { params: { method: 'getPreview', faxFilePath } });
+      const response = await authenticatedProbe({context, config: {baseUrl}}, endpoint, { params: { method: 'getPreview', faxFilePath } });
       assert(response.status() === 200, 'owned preview must remain available');
       assert((await response.body()).subarray(0, 5).toString() === '%PDF-', 'owned preview must remain a PDF');
       await response.dispose();
@@ -478,11 +466,11 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     assert(otherSession.status() === 403, 'a second authenticated session must not cancel another session preview');
     await otherSession.dispose();
     for (const method of ['getPreview', 'getPageCount']) {
-      const deniedRead = await otherContext.request.get(endpoint, { params: { method, faxFilePath } });
+      const deniedRead = await authenticatedProbe({context: otherContext, config: {baseUrl}}, endpoint, { params: { method, faxFilePath } });
       assert(deniedRead.status() === 403, 'another session must not read a claimed PDF or its page count');
       await deniedRead.dispose();
     }
-    const ownedCount = await context.request.get(endpoint, { params: { method: 'getPageCount', faxFilePath } });
+    const ownedCount = await authenticatedProbe({context, config: {baseUrl}}, endpoint, { params: { method: 'getPageCount', faxFilePath } });
     assert(ownedCount.status() === 200 && (await ownedCount.json()).pageCount > 0,
       'the owning session must be able to read its page count without consuming the claim');
     await ownedCount.dispose();
@@ -496,7 +484,7 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     const replay = await context.request.post(endpoint, { form: form({}), maxRedirects: 0 });
     assert(replay.status() === 403, 'successful cancellation must consume the owned claim');
     await replay.dispose();
-    const cancelledRead = await context.request.get(endpoint, { params: { method: 'getPreview', faxFilePath } });
+    const cancelledRead = await authenticatedProbe({context, config: {baseUrl}}, endpoint, { params: { method: 'getPreview', faxFilePath } });
     assert(cancelledRead.status() === 403, 'a cancelled claim must not authorize a preview read');
     await cancelledRead.dispose();
     assert(pageErrors.length === 0, 'fax preview cancellation must not produce browser script errors');
@@ -517,16 +505,17 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
   }
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-saved-render',async context=>{
+  await (async({cancellation})=>{
   const fixture = createFixtureFiles();
   const timestamp = Date.now();
-  const formName = `Playwright Saved Render ${timestamp}`;
+  const formName = `${ownedMarker} Saved Render ${timestamp}`;
   const formSubject = `Saved Render ${timestamp}`;
   const savedValue = `Playwright Saved ${timestamp}`;
   let importedFid = null;
   let managerPage = null;
   const sql = h.createSqlRunner(h.readConfig().mysql);
-  const ownedMarker = newOwnedMarker();
+  let uploadedImage=null;
   // Taken before anything is saved, so only the run's own attachment rows are ever deleted.
   const ownedRows = eformRows(sql);
 
@@ -540,37 +529,58 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
 
   let browser = null;
   try {
+    h.assert(process.env.EFORM_IMAGE_DIR&&path.isAbsolute(process.env.EFORM_IMAGE_DIR),'EFORM_IMAGE_DIR must identify the disposable image store');
+    uploadedImage=ownedUploadedImage(process.env.EFORM_IMAGE_DIR,bgImageName,fs.readFileSync(fixture.imagePath));
     const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
     assert(provider, 'The configured test login has no provider');
     demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
-    browser = await chromium.launch(launchOptions);
+    browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1280, height: 1400 } });
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     await ensureImageUploaded(context, fixture.imagePath, bgImageName);
+    uploadedImage.verify();
+    cancellation?.throwIfCancelled();
     const uploadResult = await uploadEform(context, formName, formSubject, fixture.htmlPath);
+    cancellation?.throwIfCancelled();
     managerPage = uploadResult.page;
     importedFid = uploadResult.fid;
 
     const addPage = await openAddEform(context, importedFid);
+    cancellation?.throwIfCancelled();
     const fdid = await saveEformAndCaptureFdid(addPage, savedValue);
+    cancellation?.throwIfCancelled();
     await screenshot(addPage, 'saved-render-after-save');
+    cancellation?.throwIfCancelled();
     await addPage.close();
+    cancellation?.throwIfCancelled();
 
     const directPage = await openSavedEformDirect(context, fdid);
+    cancellation?.throwIfCancelled();
     await assertSavedFormState(directPage, savedValue, fdid, 'saved-render-direct-route');
+    cancellation?.throwIfCancelled();
     await directPage.close();
+    cancellation?.throwIfCancelled();
 
     await checkPreviewCapacity(context, { appUrl, fdid, demographicNo });
+    cancellation?.throwIfCancelled();
 
     const patientListPopup = await openSavedEformFromPatientList(context, formName);
+    cancellation?.throwIfCancelled();
     assert(patientListPopup.url().includes(`fdid=${fdid}`), `Patient list popup did not open the expected saved-form route: ${patientListPopup.url()}`);
     await assertSavedFormState(patientListPopup, savedValue, fdid, 'saved-render-patient-list');
+    cancellation?.throwIfCancelled();
     await patientListPopup.close();
+    cancellation?.throwIfCancelled();
 
     if (process.env.EFORM_FAX_PREVIEW_CHECK === 'true') {
       await checkOwnedFaxPreview(browser, context, fdid);
+    cancellation?.throwIfCancelled();
     } else {
       console.log('SKIP owned fax preview cancellation (set EFORM_FAX_PREVIEW_CHECK=true with an active fax account)');
     }
@@ -594,13 +604,15 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
     }
     // Every step runs whatever the one before it did, and a failure is reported, not thrown: a throw out of this
     // `finally` would replace the failure of the check itself.
-    const cleanupErrors = [];
+    const cleanupErrors = [];let browserClosed=!browser;
     try {
-      if (browser) await browser.close();
+      if (browser) await browser.close();browserClosed=true;
     } catch (error) {
       cleanupErrors.push(error);
     }
     try {
+      assert(browserClosed,'Browser shutdown is unconfirmed; retain saved-render fixtures');
+      if(uploadedImage)uploadedImage.cleanup({browserClosed});
       // The imported template by its unique name, then the instance, its values and the patient by the patient's key.
       try {
         sql.execute(`DELETE FROM eform WHERE form_name=${h.sqlString(formName)}`);
@@ -616,6 +628,7 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
         cleanupErrors.push(error);
       }
     } finally {
+      fs.rmSync(fixture.tempDir,{recursive:true,force:true});
       sql.dispose();
     }
     if (cleanupErrors.length) {
@@ -623,7 +636,7 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
       process.exitCode = 1;
     }
   }
-})().catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL saved eForm render Playwright check');
   console.error(error.stack || error.message);
   if (badResponses.length) {
@@ -635,5 +648,6 @@ async function checkOwnedFaxPreview(browser, context, fdid) {
   if (displayImageResponses.length) {
     console.error(`displayImage responses: ${JSON.stringify(displayImageResponses, null, 2)}`);
   }
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

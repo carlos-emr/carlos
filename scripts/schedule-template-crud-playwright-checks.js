@@ -40,6 +40,8 @@
  *   scheduletemplatecode).
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
@@ -167,16 +169,9 @@ function runCleanup() {
 }
 // Node does not run finally blocks on SIGINT/SIGTERM (the suite loop's `timeout`
 // sends TERM), so restore the fixtures here too before exiting.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`${signal} received; restoring fixtures before exiting.`);
-    runCleanup();
-    cleanupMysqlDefaults();
-    process.exit(130);
-  });
-}
+// Signals unwind through the shared entry point and the existing finally below.
 
-(async () => {
+legacyHarness.runLegacyCheck('schedule-template-crud',async({cancellation})=>{
   const recorder = createRecorder();
   initMysqlDefaults();
   // Staging and the browser launch sit inside the protected scope so a failure in
@@ -185,64 +180,94 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     cleanupRows();
     assert(sql(`SELECT COUNT(*) FROM scheduletemplatecode WHERE code='${escapeSql(templateCode)}'`) === '1',
       `template code ${templateCode} is not defined in scheduletemplatecode`);
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    cancellation?.throwIfCancelled();
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
 
     // 1. Schedule Setting page -> Template Setting popup for the provider.
     const settingPage = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(settingPage, 'schedule-setting', recorder);
     await gotoApp(settingPage, config.baseUrl, '/schedule/TemplateSetting');
+    cancellation?.throwIfCancelled();
     await settingPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(settingPage, 'schedule setting');
+    cancellation?.throwIfCancelled();
     await settingPage.locator('select[name="providerid"]').selectOption(providerNo);
+    cancellation?.throwIfCancelled();
     const popupPromise = context.waitForEvent('page', { timeout: 30000 });
     await settingPage.locator('a[onclick*="go()"]').first().click();
+    cancellation?.throwIfCancelled();
     const editor = await popupPromise;
+    cancellation?.throwIfCancelled();
     wirePage(editor, 'template-editor', recorder);
     await editor.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(editor, 'template editor');
+    cancellation?.throwIfCancelled();
     assert(/\/schedule\/EditTemplate/.test(editor.url()), `Template Setting link opened ${editor.url()}`);
     assert((await editor.locator('form[name="addtemplatecode"] input[name="providerid"]').inputValue()) === providerNo,
       'template editor did not open for the selected provider');
+    cancellation?.throwIfCancelled();
     await waitForTemplateForm(editor);
+    cancellation?.throwIfCancelled();
 
     // 2. Create.
     const form = editor.locator('form[name="addtemplatecode"]');
     await form.locator('input[name="name"]').fill(templateName);
+    cancellation?.throwIfCancelled();
     await form.locator('input[name="summary"]').fill(summaryCreated);
+    cancellation?.throwIfCancelled();
     for (const index of paintedOnCreate) {
       await form.locator(`input[name="timecode${index}"]`).fill(templateCode);
+    cancellation?.throwIfCancelled();
     }
     await saveTemplate(editor);
+    cancellation?.throwIfCancelled();
     let row = templateRow();
     assert(row, 'template row was not created');
     assert(row.summary === summaryCreated, `created summary was "${row.summary}"`);
     assert(row.timecode === expectedTimecode(paintedOnCreate), `created timecode was ${row.timecode}`);
     assert((await editor.locator('select[name="name"] option').evaluateAll((options, name) => options.some((option) => option.value === name), templateName)),
       'saved template did not appear in the template picker');
+    cancellation?.throwIfCancelled();
 
     // 3. Edit through the picker.
     await editor.locator('select[name="name"]').selectOption(templateName);
+    cancellation?.throwIfCancelled();
     await Promise.all([
       editor.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname.endsWith('/schedule/EditTemplate'), { timeout: 30000 }),
       editor.locator('input[value="Edit"]').first().click(),
     ]);
+    cancellation?.throwIfCancelled();
     await editor.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await waitForTemplateForm(editor);
+    cancellation?.throwIfCancelled();
     assert((await form.locator('input[name="name"]').inputValue()) === templateName, 'Edit did not load the template name');
+    cancellation?.throwIfCancelled();
     assert((await form.locator('input[name="summary"]').inputValue()) === summaryCreated, 'Edit did not load the summary');
+    cancellation?.throwIfCancelled();
     for (const index of paintedOnCreate) {
       assert((await form.locator(`input[name="timecode${index}"]`).inputValue()) === templateCode, `Edit did not repaint cell ${index}`);
+    cancellation?.throwIfCancelled();
     }
     // Unpainted cells are stored as '_' and come back as '_' (or blank).
     assert(/^_?$/.test((await form.locator('input[name="timecode0"]').inputValue()).trim()), 'Edit painted a cell that was left blank');
+    cancellation?.throwIfCancelled();
     await form.locator('input[name="summary"]').fill(summaryEdited);
+    cancellation?.throwIfCancelled();
     for (const index of paintedOnEdit) {
       await form.locator(`input[name="timecode${index}"]`).fill(templateCode);
+    cancellation?.throwIfCancelled();
     }
     await saveTemplate(editor);
+    cancellation?.throwIfCancelled();
     row = templateRow();
     assert(row, 'template row disappeared after edit');
     assert(row.summary === summaryEdited, `edited summary was "${row.summary}"`);
@@ -252,23 +277,31 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 
     // 4. Delete.
     await editor.locator('select[name="name"]').selectOption(templateName);
+    cancellation?.throwIfCancelled();
     await Promise.all([
       editor.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname.endsWith('/schedule/EditTemplate'), { timeout: 30000 }),
       editor.locator('input[value="Edit"]').first().click(),
     ]);
+    cancellation?.throwIfCancelled();
     await editor.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await waitForTemplateForm(editor);
+    cancellation?.throwIfCancelled();
     await Promise.all([
       editor.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname.endsWith('/schedule/EditTemplate'), { timeout: 30000 }),
       form.locator('input[value="Delete"]').click(),
     ]);
+    cancellation?.throwIfCancelled();
     await editor.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(editor, 'template editor after delete');
+    cancellation?.throwIfCancelled();
     assert(templateRow() === null, 'Delete did not remove the template row');
     assert(!(await editor.locator('select[name="name"] option').evaluateAll((options, name) => options.some((option) => option.value === name), templateName)),
       'deleted template still appears in the template picker');
+    cancellation?.throwIfCancelled();
 
     assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
@@ -285,4 +318,4 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     runCleanup();
     cleanupMysqlDefaults();
   }
-})();
+});

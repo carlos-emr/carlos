@@ -55,6 +55,7 @@ const cfg = ({ srfax = true } = {}) => ({
 
 async function launch() {
   return chromium.launch({
+    ...require('../../lib/playwright-harness').NO_PLAYWRIGHT_SIGNAL_HANDLING,
     headless: true,
     executablePath: process.env.CHROME_PATH,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],

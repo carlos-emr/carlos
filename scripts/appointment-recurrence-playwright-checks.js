@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 // Uses the existing UI booking fixture. All rows are run-owned and removed in finally.
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
@@ -9,16 +11,22 @@ const {
 const { pickDate } = require('./lib/playwright-ui');
 const fixture = require('./appointment-lifecycle-playwright-checks');
 
-async function main() {
+async function main({cancellation}={}) {
   let browser;
   fixture.initMysqlDefaults();
   try {
-    browser = await chromium.launch(getLaunchOptions(fixture.config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(fixture.config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(fixture.config.baseUrl) });
+    cancellation?.throwIfCancelled();
     await context.addInitScript(() => { window.close = () => { window.__carlosSelfCloseRequested = true; }; });
+    cancellation?.throwIfCancelled();
     const daySheet = await login(context, fixture.config, fixture.recorder);
+    cancellation?.throwIfCancelled();
     await fixture.openDaySheet(daySheet);
+    cancellation?.throwIfCancelled();
     const booked = await fixture.bookFromSlot(context, daySheet);
+    cancellation?.throwIfCancelled();
     // The edit UI has no style/billing controls. Seed only our owned row to
     // prove opening R neither blocks creation nor erases legacy metadata.
     fixture.sql(`UPDATE appointment SET style='legacy',billing='BILL' WHERE appointment_no=${booked.id}`);
@@ -62,12 +70,17 @@ async function main() {
     }
 
     let page = await recurrence(dateAfter(-1));
+    cancellation?.throwIfCancelled();
     await submit(page, 'Create repeats', /end date on or after/i);
+    cancellation?.throwIfCancelled();
     assert(fixture.stampedAppointments().length === 1, 'invalid end date wrote appointments');
     // Retry the same form, checking that repeated hidden inputs cannot retain the rejected date.
     await pickDate(page, page.locator('#endDate'), dateAfter(14));
+    cancellation?.throwIfCancelled();
     await submit(page, 'Create repeats', /^2 appointment\(s\) created\.$/);
+    cancellation?.throwIfCancelled();
     await page.close();
+    cancellation?.throwIfCancelled();
     const expectedDates = [dateAfter(0), dateAfter(7), dateAfter(14)];
     let rows = fixture.stampedAppointments();
     assert(JSON.stringify(rows.map((r) => r.date).sort()) === JSON.stringify(expectedDates), 'weekly repeats have wrong dates/count');
@@ -77,53 +90,80 @@ async function main() {
 
     assertMetadata();
     page = await recurrence(dateAfter(14));
+    cancellation?.throwIfCancelled();
     await submit(page, 'Create repeats', /^No appointments created: repeats already exist/);
+    cancellation?.throwIfCancelled();
     assert(fixture.stampedAppointments().length === 3, 'repeated creation duplicated appointments');
     await page.close();
+    cancellation?.throwIfCancelled();
 
     const reason = `${fixture.stamp}_recurrence_updated`;
     page = await recurrence(dateAfter(14), reason);
+    cancellation?.throwIfCancelled();
     await submit(page, 'Recurring Update', /^3 appointment\(s\) updated\.$/);
+    cancellation?.throwIfCancelled();
     assert(fixture.stampedAppointments().every((r) => r.reason === reason), 'update missed a recurrence');
     assertMetadata();
     await page.close();
+    cancellation?.throwIfCancelled();
 
     page = await recurrence(dateAfter(14));
+    cancellation?.throwIfCancelled();
     await submit(page, 'Recurring Cancel', /^3 appointment\(s\) cancelled\.$/);
+    cancellation?.throwIfCancelled();
     assert(fixture.stampedAppointments().every((r) => r.status === 'C'), 'cancel missed a recurrence');
     await page.close();
+    cancellation?.throwIfCancelled();
 
     page = await recurrence(dateAfter(14));
+    cancellation?.throwIfCancelled();
     const ids = fixture.stampedAppointments().map((r) => r.id);
     await submit(page, 'Recurring Delete', /^3 appointment\(s\) deleted\.$/);
+    cancellation?.throwIfCancelled();
     assert(fixture.stampedAppointments().length === 0, 'delete left an occurrence');
     const archives = fixture.stampedArchiveRows();
     assert(ids.every((id) => archives.filter((row) => row.id === id).length >= 3), 'an occurrence was updated/cancelled/deleted without an archive');
     await page.close();
+    cancellation?.throwIfCancelled();
     // The new-booking R route shares the same validation and transaction. A
     // blocked-time booking deliberately has no selected demographic.
     await fixture.openDaySheet(daySheet);
+    cancellation?.throwIfCancelled();
     const pending = context.waitForEvent('page', { timeout: 45000 });
     await daySheet.locator(`a.adhour[onclick*="provider_no=${booked.provider}&"]`).first().click();
+    cancellation?.throwIfCancelled();
     const block = await pending;
+    cancellation?.throwIfCancelled();
     wirePage(block, 'recurring-block', fixture.recorder);
     await block.waitForURL(url => String(url) !== 'about:blank', {
       timeout: 45000, waitUntil: 'domcontentloaded',
     });
+    cancellation?.throwIfCancelled();
     await block.waitForLoadState('domcontentloaded');
+    cancellation?.throwIfCancelled();
     await block.locator('#keyword').fill(`${fixture.stamp}_blocked_time`);
+    cancellation?.throwIfCancelled();
     await block.locator('#reason').fill(`${fixture.stamp}_blocked_reason`);
+    cancellation?.throwIfCancelled();
     await block.locator('textarea[name="notes"]').fill(`${fixture.stamp}_blocked_notes`);
+    cancellation?.throwIfCancelled();
     await Promise.all([block.waitForEvent('domcontentloaded'), block.locator('#apptRepeatButton').click()]);
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(block, 'new-booking recurrence form');
+    cancellation?.throwIfCancelled();
     await block.locator('#endDate').waitFor({ state: 'visible', timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await pickDate(block, block.locator('#endDate'), dateAfter(14));
+    cancellation?.throwIfCancelled();
     await block.locator('#dateUnitWeek').check();
+    cancellation?.throwIfCancelled();
     await submit(block, 'Create repeats', /^3 appointment\(s\) created\.$/);
+    cancellation?.throwIfCancelled();
     const blocks = fixture.stampedAppointments();
     assert(blocks.length === 3 && blocks.every((r) => r.demographic === '0'), 'non-patient repeats lost blocked-time semantics');
     assert(JSON.stringify(blocks.map((r) => r.date).sort()) === JSON.stringify(expectedDates), 'new-booking repeats have wrong dates');
     await block.close();
+    cancellation?.throwIfCancelled();
     assertNoPageErrors(fixture.recorder);
     assert(fixture.recorder.badResponses.length === 0, 'recurrence workflow had HTTP failures');
     assert(fixture.recorder.consoleIssues.length === 0, 'recurrence workflow had console failures');
@@ -136,8 +176,10 @@ async function main() {
     }
   }
 }
-if (require.main === module) main().catch((error) => {
+if (require.main === module) legacyHarness.runLegacyCheck('appointment-recurrence',async context=>{
+  await (main)(context).catch((error) => {
   console.error(`FAIL appointment recurrence: ${error.stack || error.message}`);
   process.exitCode = 1;
+});
 });
 module.exports = { main };

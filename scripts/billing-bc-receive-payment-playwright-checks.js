@@ -21,6 +21,7 @@
  * stamped with the run marker; cleanup deletes exactly those rows and the history the payments
  * wrote, and asserts they are gone. BC installs only (billregion=BC).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -128,7 +129,7 @@ async function workflow(s) {
   });
 
   await s.step('a GET to the save route is refused and records nothing', async () => {
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl,
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl,
       `/billing/CA/BC/receivePaymentAction?billingmasterNo=${billingmasterNo}&billNo=${billingNo}&amountReceived=5&paymentMethod=1`),
     { maxRedirects: 0 });
     h.assert(response.status() === 405, `A GET payment answered ${response.status()}, not 405`);

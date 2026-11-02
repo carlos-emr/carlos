@@ -22,6 +22,7 @@
  * Implements coverage-plan §2.7 billing-on-gst-css-benefit.
  */
 
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const { randomInt } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
@@ -156,7 +157,7 @@ async function workflow(s) {
       'The preview row does not show the new code, no current price, the new price and the effective date');
     h.assert(sql.value(`SELECT COUNT(*) FROM billingservice WHERE service_code=${h.sqlString(serviceCode)}`) === '0',
       'The preview wrote the code before it was applied');
-    const refused = await s.context.request.get(h.appUrl(s.config.baseUrl, '/billing/CA/ON/benefitScheduleChange'), {
+    const refused = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/billing/CA/ON/benefitScheduleChange'), {
       params: { change: await changes.getAttribute('value') }, maxRedirects: 0,
     });
     h.assert(refused.status() === 405, 'benefitScheduleChange must reject GET');

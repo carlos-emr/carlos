@@ -6,8 +6,8 @@
  * verifies it in the DataTables-backed list, edits it through the edit UI,
  * completes it, deletes it, and cleans up rows it created.
  *
- * Defaults are for the local devcontainer:
- *   npm run test:tickler-crud-playwright
+ * In the local devcontainer, explicitly opt in to its separate disposable DB service:
+ *   MYSQL_HOST=db ALLOW_NON_LOCAL_MYSQL_HOST=true npm run test:tickler-crud-playwright
  *
  * Optional environment:
  *   BASE_URL=http://127.0.0.1:8080/carlos
@@ -15,12 +15,14 @@
  *   TEST_USER=carlosdoc
  *   TEST_PASSWORD=carlos2026
  *   TEST_PIN=2026
- *   MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
+ *   MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos
+ *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-loopback database
  *   TICKLER_DEMOGRAPHIC_NO=1
  *   TICKLER_PROVIDER_NO=999998
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+const { validateCredentialBaseUrl: validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { cleanupTicklerFixture, readNoteLinkFloor } = require('./lib/tickler-fixture-cleanup');
 const { selectTicklerAssignee } = require('./lib/tickler-clinic');
@@ -36,7 +38,7 @@ const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
-const mysqlHost = process.env.MYSQL_HOST || 'db';
+const mysqlHost = require('./lib/playwright-harness').validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';
 const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
@@ -59,29 +61,6 @@ const strictRecorder = createRecorder();
 // Set before the tickler is created; until then the run owns no rows to clean. Note
 // links at or below it predate the run and are never deleted (#4409).
 let linkIdFloor = null;
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const octets = host.split('.');
-  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
-  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
-    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
-    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
 
 function appUrl(appPath, query = null) {
   if (!appPath.startsWith('/') || appPath.startsWith('//')) {

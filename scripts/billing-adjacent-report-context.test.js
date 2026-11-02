@@ -14,11 +14,13 @@ const {test} = require('node:test');
 const h = {assert(ok, message) { if (!ok) throw Error(message); }, sqlString: value => `'${String(value).replaceAll("'", "''")}'`};
 const helperFile = path.join(__dirname, 'lib/billing-report-context.js');
 const helperModule = {exports: {}};
-vm.runInNewContext(fs.readFileSync(helperFile, 'utf8'), {module: helperModule, require: name => {assert.equal(name, './playwright-harness'); return h;}}, {filename: helperFile});
+vm.runInNewContext(fs.readFileSync(helperFile, 'utf8'), {module: helperModule, require: name => {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');assert.equal(name, './playwright-harness'); return h;}}, {filename: helperFile});
 const scheduleHelperFile = path.join(__dirname, 'lib/native-schedule-context.js');
 const scheduleHelperModule = {exports: {}};
 vm.runInNewContext(fs.readFileSync(scheduleHelperFile, 'utf8'), {module: scheduleHelperModule, URL,
-  require: name => {assert.equal(name, './playwright-harness'); return h;}}, {filename: scheduleHelperFile});
+  require: name => {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');assert.equal(name, './playwright-harness'); return h;}}, {filename: scheduleHelperFile});
 const owned = {multisites: true, clinic: 'FAKE Owned Clinic', providerNo: '972775', ohipNo: '123456'};
 function nativeReport({context = owned, sites = ['none', owned.clinic], physicians = ['none', owned.providerNo], sticky = true, clearable = true, siteCount} = {}) {
   const state = {site: 'none', provider: '', options: context.multisites ? [] : physicians, start: '2026-04-23', end: '2026-10-20', patient: '', status: 'O', changed: [], autoSubmits: 0, reports: []};

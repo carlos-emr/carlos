@@ -30,6 +30,7 @@
  * Optional OHIP_DISK_DIR: the local HOME_DIR (default: the packaged install's).
  */
 
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const path = require('node:path');
 const { randomInt } = require('node:crypto');
@@ -352,7 +353,7 @@ async function workflow(s) {
   let frame;
   await s.step('GET against the OHIP generator is refused with 405 and bills nothing', async () => {
     frame = await openAdminFrame(admin, '/billing/CA/ON/ViewBillingOHIPreport', 'form[name="form1"]');
-    const probe = await s.context.request.get(h.appUrl(s.config.baseUrl, '/billing/CA/ON/ViewOngenreport'), {
+    const probe = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/billing/CA/ON/ViewOngenreport'), {
       params: { providers: owned.providerNo, xml_vdate: WINDOW.start, xml_appointment_date: WINDOW.end, Submit: 'Create Report' },
       maxRedirects: 0,
     });

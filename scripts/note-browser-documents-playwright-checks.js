@@ -20,6 +20,7 @@
  * (note-browser-documents). Env: DOCUMENT_DIR (or RX_FAX_DOCUMENT_DIR), INCOMINGDOCUMENT_DIR,
  * plus the harness contract; needs pdftotext.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -81,7 +82,7 @@ async function workflow(s) {
   // errors stop: a GET must not delete a seeded, published document.
   await s.step('NoteBrowserDocumentDelete refuses GET and changes nothing', async () => {
     const query = new URLSearchParams({ delDocumentNo: docB.id, demographicNo: patient }).toString();
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/casemgmt/NoteBrowserDocumentDelete?${query}`), { maxRedirects: 0, failOnStatusCode: false });
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, `/casemgmt/NoteBrowserDocumentDelete?${query}`), { maxRedirects: 0, failOnStatusCode: false });
     const code = response.status();
     await response.dispose();
     h.assert(code === 405, `GET NoteBrowserDocumentDelete answered HTTP ${code}, expected 405`);
@@ -164,6 +165,26 @@ async function workflow(s) {
     await Promise.all([browser.waitForEvent('load'), browser.locator('#selviewstatus').selectOption(view)]);
     await browser.locator('#doclist').waitFor({ state: 'attached' });
   }
+
+  if(process.env.DIALOG_CONFIRMATION_TARGET==='document') await s.step('dismissing document Delete confirms once and leaves both document rows unchanged',async()=>{
+    await browser.locator('#doclist').selectOption(`${docA.id}-application/pdf`);
+    const responses=[];
+    const listener=response=>{if(new URL(response.url()).pathname.endsWith('/casemgmt/NoteBrowserDocumentDelete'))responses.push(response);};
+    browser.on('response',listener);
+    try {
+      const dialogs=await h.withExpectedDialogs(browser,()=>browser.locator('#docbuttons input[type="button"][value="Delete"]').click(),{accept:false});
+      if(!dialogs.length) {
+        // A missing prompt may already have accepted a native write; drain it
+        // before asserting the unchanged contract and tearing down fixtures.
+        await browser.waitForLoadState('networkidle',{timeout:30000}).catch(error=>{
+          if(error.name!=='TimeoutError')throw error;
+          console.error('Document Delete did not offer cancellable confirmation; background traffic did not settle before teardown');
+        });
+        for(const response of responses)await response.finished();
+      }
+      h.assert(dialogs.length===1&&dialogs[0].type==='confirm'&&status(docA)==='A'&&status(docB)==='A','Document Delete did not offer cancellable confirmation or changed a row after dismissal');
+    } finally {browser.off('response',listener);}
+  });
 
   await s.step('Delete marks the selected document D and drops it from the published list', async () => {
     await browser.locator('#doclist').selectOption(`${docA.id}-application/pdf`);

@@ -28,6 +28,7 @@
  * asserts they are gone. Implements coverage-plan §2.7 billing-on-invoice-third-party.
  */
 
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
@@ -397,7 +398,7 @@ async function workflow(s) {
 
   await s.step('GET against the payment save is refused and writes nothing', async () => {
     const before = sql.value(`SELECT COUNT(*) FROM billing_on_payment WHERE billing_no=${headerId}`);
-    const probe = await context.request.get(h.appUrl(s.config.baseUrl, PAYMENTS), {
+    const probe = await authenticatedProbe({context, config: s.config}, h.appUrl(s.config.baseUrl, PAYMENTS), {
       params: { method: 'savePayment', billingNo: headerId, size: '1', itemId0: itemId, sel0: 'payment',
         payment0: '1.00', discount0: '0.00', paymentType: '1', paymentDate: date },
       maxRedirects: 0,

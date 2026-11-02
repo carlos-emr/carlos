@@ -45,6 +45,8 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const {
   assert,
   buildFailureDetails,
@@ -60,7 +62,7 @@ const {
 const config = readConfig();
 const demographicNo = process.env.TICKLER_DEMOGRAPHIC_NO || '1';
 
-(async () => {
+legacyHarness.runLegacyCheck('tickler-demo-main',async({cancellation})=>{
   const recorder = createRecorder();
   const browser = await launchBrowser(config);
   try {
@@ -69,10 +71,14 @@ const demographicNo = process.env.TICKLER_DEMOGRAPHIC_NO || '1';
     // TEST_PASSWORD to a remote host with an invalid certificate under
     // ALLOW_NON_LOCAL_BASE_URL=true (issue #3598).
     const context = await newContext(browser, config);
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     const page = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(page, 'tickler-demo-main', recorder);
 
     // Direct navigation: this tab has no opener, which is the #3731 case.
@@ -80,11 +86,13 @@ const demographicNo = process.env.TICKLER_DEMOGRAPHIC_NO || '1';
     const response = await gotoApp(
       page, config.baseUrl, `/tickler/ViewTicklerDemoMain?${query.toString()}`, 'networkidle',
     );
+    cancellation?.throwIfCancelled();
     assert(response && response.status() === 200,
       `Tickler page returned ${response ? response.status() : 'no response'}`);
 
     assert(await page.evaluate(() => window.opener === null),
       'Expected an opener-less tab; the check would not exercise #3731');
+    cancellation?.throwIfCancelled();
 
     // setup() must run to completion, not throw partway through it.
     const setupError = await page.evaluate(() => {
@@ -98,6 +106,7 @@ const demographicNo = process.env.TICKLER_DEMOGRAPHIC_NO || '1';
         return error.message;
       }
     });
+    cancellation?.throwIfCancelled();
     assert(!setupError, `setup() threw when called without an opener: ${setupError}`);
 
     const pageErrors = recorder.pageErrors.filter((entry) => entry.label === 'tickler-demo-main');
@@ -105,7 +114,9 @@ const demographicNo = process.env.TICKLER_DEMOGRAPHIC_NO || '1';
       `Tickler page reported uncaught errors: ${JSON.stringify(pageErrors)}`);
 
     await page.close();
+    cancellation?.throwIfCancelled();
     await context.close();
+    cancellation?.throwIfCancelled();
 
     console.log('PASS tickler demo main loads without an opener and setup() completes');
   } catch (error) {
@@ -116,4 +127,4 @@ const demographicNo = process.env.TICKLER_DEMOGRAPHIC_NO || '1';
   } finally {
     await browser.close();
   }
-})();
+});

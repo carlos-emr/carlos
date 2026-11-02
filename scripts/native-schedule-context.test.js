@@ -24,6 +24,7 @@ const h = {assert: (ok, message) => assert(ok, message), sqlString: q,
 function load(file, imports = {}, env = {}, expose = '') {
   const m = {exports: {}};
   const request = name => {
+    if(name==='./uncertain-server-writes')return require('./lib/uncertain-server-writes');
     if (Object.hasOwn(imports, name)) return imports[name];
     if (name === './lib/playwright-harness' || name === './playwright-harness') return h;
     if (name.startsWith('node:')) return require(name);

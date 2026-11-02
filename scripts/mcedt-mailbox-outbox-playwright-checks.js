@@ -220,6 +220,7 @@ async function workflow(s) {
   const visibleState = () => JSON.stringify([ledger.visible(), parentNames()]);
   const mailbox = () => admin.frameLocator('#myFrame');
   const frameUrl = () => { const frame = admin.frame({ name: 'myFrame' }); return frame ? frame.url() : ''; };
+  const atMailboxPath=path=>{const current=new URL(frameUrl()||'about:blank');return current.origin===origin&&current.pathname===new URL(url(path)).pathname;};
   // The names the Upload tab lists. #formUpload is in the document that carries the list, so waiting for it keeps a
   // read from landing in the gap while the frame swaps documents (an empty list there is not "the file is gone").
   const listed = async () => {
@@ -236,16 +237,19 @@ async function workflow(s) {
     const link = admin.locator('a.xlink[rel$="/mcedt/kaimcedt"]').first();
     await link.waitFor({ state: 'attached', timeout: 20000 });
     await revealAuditLink(admin, link, 20000);
-    await link.click();
-    await until(() => /\/mcedt\/kaimcedt$/.test(frameUrl()), 'MCEDT Mailbox did not load in the Administration frame');
+    await Promise.all([admin.waitForEvent('framenavigated',{predicate:frame=>frame.name()==='myFrame'&&new URL(frame.url()).pathname===new URL(url('/mcedt/kaimcedt')).pathname,timeout:20000}),link.click()]);
+    await until(() => atMailboxPath('/mcedt/kaimcedt'), 'MCEDT Mailbox did not load in the Administration frame');
+    await admin.frame({name:'myFrame'}).waitForLoadState('networkidle');
     await mailbox().locator('ul.tabNavigation').waitFor({ state: 'visible', timeout: 20000 });
   }
 
   async function openUploadTab() {
     await mailbox().locator('ul.tabNavigation a', { hasText: 'Upload' }).click();
-    await until(() => /\/mcedt\/upload$/.test(frameUrl()), 'The Upload tab did not open /mcedt/upload');
+    await until(() => atMailboxPath('/mcedt/upload'), `The Upload tab did not open /mcedt/upload (current path: ${new URL(frameUrl()||'about:blank').pathname})`);
     await mailbox().locator('#formUpload').waitFor({ state: 'attached', timeout: 20000 });
     await mailbox().locator('#upload').waitFor({ state: 'visible', timeout: 20000 });
+    // Checkbox handlers bind on window.load, after the table becomes visible.
+    await admin.frame({name:'myFrame'}).waitForLoadState('networkidle');
   }
 
   async function post(ctx, route, { form, multipart, token = null, referer }) {
@@ -413,7 +417,7 @@ async function workflow(s) {
     await openUploadTab();
     h.assert(!(await listed()).includes(names.add), 'The Add fixture name is already listed');
     await mailbox().locator('#upload').getByRole('button', { name: 'Add', exact: true }).click();
-    await until(() => /\/mcedt\/openAddUploadMailbox$/.test(frameUrl()), 'Add did not open the Add Upload page');
+    await until(() => atMailboxPath('/mcedt/openAddUploadMailbox'), 'Add did not open the Add Upload page');
     const file = mailbox().locator('#addUploadFile');
     await file.waitFor({ state: 'visible', timeout: 20000 });
     await file.setInputFiles({ name: names.add, mimeType: 'application/octet-stream', buffer: bytes });
@@ -532,7 +536,7 @@ async function workflow(s) {
       await openMailboxFromAdministration();
       for (const [round, value] of [[1, passwords.first], [2, passwords.second]]) {
         await mailbox().getByRole('button', { name: 'Change Password' }).click();
-        await until(() => /\/mcedt\/kaichpass$/.test(frameUrl()), 'Change Password did not open /mcedt/kaichpass');
+        await until(() => atMailboxPath('/mcedt/kaichpass'), 'Change Password did not open /mcedt/kaichpass');
         await mailbox().locator('#password').waitFor({ state: 'visible', timeout: 20000 });
         h.assert(await mailbox().getByRole('heading', { name: 'Update MCEDT Password' }).isVisible(), 'The Change Password page has no heading');
         h.assert(await mailbox().locator('#password').inputValue() === '', 'The new-password field arrives pre-filled');

@@ -51,7 +51,8 @@ const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow } = require('./lib/workflow-session');
 const { acquireMysqlWorkflowLock } = require('./lib/mysql-workflow-lock');
 
-const TIMEOUT = 20000;
+// A fresh package compiles the report JSP on first navigation.
+const TIMEOUT = 60000;
 const FACE_TO_FACE = 'face to face encounter with client';
 const MIS_ROWS = { faceToFace: '4502440', phone: '4512440', individualsServed: '4552440' };
 const MIS_LINK = 'a[href$="/oscarReport/ViewMisReportForm"]';

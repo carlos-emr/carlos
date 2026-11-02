@@ -46,6 +46,8 @@
  * Optional: MACRO_PROVIDER_NO (999998, the logged-in provider), MACRO_LAB_NO.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
@@ -184,16 +186,9 @@ function runCleanup() {
 }
 // Node does not run finally blocks on SIGINT/SIGTERM (the suite loop's `timeout`
 // sends TERM), so restore the fixtures here too before exiting.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`${signal} received; restoring fixtures before exiting.`);
-    runCleanup();
-    cleanupMysqlDefaults();
-    process.exit(130);
-  });
-}
+// Signals unwind through the shared entry point and the existing finally below.
 
-(async () => {
+legacyHarness.runLegacyCheck('lab-macro-tickler',async({cancellation})=>{
   const recorder = createRecorder();
   initMysqlDefaults();
   // Staging and the browser launch sit inside the protected scope so a failure in
@@ -201,28 +196,43 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
   try {
     fixture.macroPropertyBefore = macroProperty();
     stageLabRouting();
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1400, height: 1100 } });
+    cancellation?.throwIfCancelled();
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
 
     // 1. Define the macro in preferences.
     const prefs = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(prefs, 'macro-prefs', recorder);
     await gotoApp(prefs, config.baseUrl, '/setProviderStaleDate?method=viewLabMacroPrefs');
+    cancellation?.throwIfCancelled();
     await prefs.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(prefs, 'lab macro preferences');
+    cancellation?.throwIfCancelled();
     await prefs.locator('#name_new').fill(macroName);
+    cancellation?.throwIfCancelled();
     await prefs.locator('#comment_new').fill(ackComment);
+    cancellation?.throwIfCancelled();
     await prefs.locator('#message_new').fill(ticklerMessage);
+    cancellation?.throwIfCancelled();
     await prefs.locator('#ticklerTo_new').selectOption(providerNo);
+    cancellation?.throwIfCancelled();
     await prefs.locator('#quantity_new').fill('2');
+    cancellation?.throwIfCancelled();
     await prefs.locator('#timeUnits_new').selectOption('7');
+    cancellation?.throwIfCancelled();
     const [prefsSave] = await Promise.all([
       prefs.waitForResponse((response) => response.request().method() === 'POST' && /\/setProviderStaleDate/.test(response.url()), { timeout: 30000 }),
       prefs.locator('form[name="labMacroPrefsForm"] input[type="submit"][value="Save"]').first().click(),
     ]);
+    cancellation?.throwIfCancelled();
     assert(prefsSave.status() < 400, `macro preferences save returned HTTP ${prefsSave.status()}`);
     await prefs.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     const stored = macroProperty();
     assert(stored && stored.includes(macroName), `labMacroJSON property did not store the macro: ${stored}`);
     const macros = JSON.parse(stored);
@@ -231,16 +241,23 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
       && String(macro.tickler.quantity) === '2' && String(macro.tickler.timeUnits) === '7' && macro.acknowledge && macro.acknowledge.comment === ackComment,
     `stored macro definition was ${JSON.stringify(macro)}`);
     await prefs.close();
+    cancellation?.throwIfCancelled();
 
     // 2. Run it from the lab result.
     const lab = await context.newPage();
+    cancellation?.throwIfCancelled();
     await lab.addInitScript(() => { window.close = () => { window.__closed = true; }; });
+    cancellation?.throwIfCancelled();
     wirePage(lab, 'lab-display', recorder);
     await gotoApp(lab, config.baseUrl, `/lab/CA/ALL/ViewLabDisplay?segmentID=${encodeURIComponent(fixture.labNo)}&providerNo=${encodeURIComponent(providerNo)}&searchProviderNo=${encodeURIComponent(providerNo)}&status=N`);
+    cancellation?.throwIfCancelled();
     await lab.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(lab, 'lab display');
+    cancellation?.throwIfCancelled();
     const macroMenu = lab.locator('.macro-dropdown');
     assert(await macroMenu.count(), 'lab display did not render the Macros dropdown for an unacknowledged lab with macros defined');
+    cancellation?.throwIfCancelled();
 
     // 2a. A crafted run naming another patient must be refused as a whole: the attachment is
     // validated before the acknowledgement, so the lab stays unacknowledged and no tickler
@@ -258,6 +275,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
         });
         return { status: response.status, text: await response.text() };
       }, { ctx: config.baseUrl.pathname, name: macroName, demographicNo: foreignDemographicNo, labNo: fixture.labNo });
+    cancellation?.throwIfCancelled();
       const refusedJson = (() => { try { return JSON.parse(refused.text); } catch (e) { return null; } })();
       assert(refusedJson && refusedJson.success === false && refusedJson.acknowledged !== true,
         `macro run for another patient was not refused: HTTP ${refused.status} ${refused.text.slice(0, 200)}`);
@@ -269,17 +287,22 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
       console.log('SKIP crafted foreign-patient macro: only one patient in this database');
     }
     await macroMenu.locator('button.dropdown-toggle').click();
+    cancellation?.throwIfCancelled();
     const entry = macroMenu.locator('a.dropdown-item', { hasText: macroName }).first();
     await entry.waitFor({ state: 'visible', timeout: 15000 });
+    cancellation?.throwIfCancelled();
     const [runResponse] = await Promise.all([
       lab.waitForResponse((response) => response.request().method() === 'POST' && /\/oscarMDS\/RunMacro\?/.test(response.url()), { timeout: 30000 }),
       entry.click(),
     ]);
+    cancellation?.throwIfCancelled();
     assert(runResponse.status() === 200, `RunMacro returned HTTP ${runResponse.status()}`);
     const runJson = await runResponse.json().catch(() => null);
+    cancellation?.throwIfCancelled();
     assert(runJson && runJson.success === true, `RunMacro reply was ${JSON.stringify(runJson)}`);
     assert(new URL(runResponse.url()).searchParams.get('demographicNo') === fixture.demographicNo, 'RunMacro was not sent with the lab\'s patient');
     await lab.waitForFunction(() => window.__closed === true, null, { timeout: 15000 });
+    cancellation?.throwIfCancelled();
     assert(recorder.dialogs.length === 0, `running the macro raised a dialog: ${JSON.stringify(recorder.dialogs)}`);
 
     // 3. Tickler + lab acknowledgement.
@@ -299,13 +322,18 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 
     // 4. In the patient's tickler list.
     const list = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(list, 'tickler-list', recorder);
     await gotoApp(list, config.baseUrl, `/tickler/ViewTicklerMain?ticklerview=A&demoview=${encodeURIComponent(fixture.demographicNo)}`);
+    cancellation?.throwIfCancelled();
     await list.waitForFunction((needle) => document.body.innerText.includes(needle), ticklerMessage, { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     const listRow = list.locator('#ticklerResults tbody tr', { hasText: ticklerMessage }).first();
     assert((await listRow.innerText()).includes(sql(`SELECT CONCAT(last_name, ', ', first_name) FROM demographic WHERE demographic_no=${Number(fixture.demographicNo)}`).split(',')[0]),
       'tickler list row did not show the lab\'s patient');
+    cancellation?.throwIfCancelled();
     await list.close();
+    cancellation?.throwIfCancelled();
 
     assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
@@ -322,4 +350,4 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     runCleanup();
     cleanupMysqlDefaults();
   }
-})();
+});

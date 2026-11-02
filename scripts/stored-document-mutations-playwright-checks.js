@@ -6,6 +6,7 @@
 // workflow database/browser configuration. Never edits provider preferences/roles.
 // STORED_DOCUMENT_EXPECT_CONTENT_UPDATES=false (default): assigned-document denial.
 // Explicit true requires a separately controlled enabled-policy mutation phase.
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const {execFileSync} = require('node:child_process');
 const {createHash} = require('node:crypto');
@@ -192,7 +193,7 @@ async function workflow(s) {
         'Assigned document controls disagree with the explicitly expected content-update policy');
     }
     await s.step('owned document rejects GET, missing CSRF and an unauthenticated writer without changes', async () => {
-      const readOnly = await context.request.get(endpoint, {params: {method: 'rotate90', document: id}, maxRedirects: 0});
+      const readOnly = await authenticatedProbe({context, config: s.config}, endpoint, {params: {method: 'rotate90', document: id}, maxRedirects: 0});
       h.assert(readOnly.status() === 405, 'Stored mutation GET was not refused');
       const noToken = await context.request.post(endpoint, {form: {method: 'rotate90', document: id}, maxRedirects: 0});
       h.assert(noToken.status() === 403, 'Stored mutation without CSRF was not refused');

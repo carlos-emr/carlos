@@ -29,6 +29,8 @@
  * Optional: CHROME_PATH, EFORM_SCREENSHOT_DIR (default /tmp).
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const {
   assert,
@@ -61,23 +63,30 @@ const config = {
 const UNUSED_FID = '999999999';
 const MALFORMED_FIDS = ['abc', '4x', '0', '-5', '1.5', '99999999999999', '%20'];
 
-(async () => {
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+legacyHarness.runLegacyCheck('eform-restore-fid-validation',async({cancellation})=>{
+  const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   const recorder = createRecorder();
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: config.ignoreHTTPSErrors, viewport: { width: 1400, height: 900 } });
+    cancellation?.throwIfCancelled();
     const loginPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await loginPage.close();
+    cancellation?.throwIfCancelled();
 
     const page = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(page, 'eform-restore-fid', recorder);
     await gotoApp(page, config.baseUrl, '/eform/efmformmanagerdeleted');
+    cancellation?.throwIfCancelled();
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
 
     const token = await page.evaluate(() => {
       const input = document.querySelector('input[name="CSRF-TOKEN"]');
       return input && input.value ? input.value : null;
     });
+    cancellation?.throwIfCancelled();
     assert(token, 'The deleted-eForms page exposed no CSRF token, so the POST probes cannot be authenticated.');
 
     // page.request shares the session cookies. The CSRF token travels in the form body, which
@@ -93,6 +102,7 @@ const MALFORMED_FIDS = ['abc', '4x', '0', '-5', '1.5', '99999999999999', '%20'];
 
     for (const bad of [...MALFORMED_FIDS.map((f) => decodeURIComponent(f)), null]) {
       const status = await restoreStatus(bad);
+    cancellation?.throwIfCancelled();
       assert(
         status === 400,
         `POST /eform/restoreEForm fid=${JSON.stringify(bad)} returned HTTP ${status}, expected 400. `
@@ -101,6 +111,7 @@ const MALFORMED_FIDS = ['abc', '4x', '0', '-5', '1.5', '99999999999999', '%20'];
     }
 
     const wellFormed = await restoreStatus(UNUSED_FID);
+    cancellation?.throwIfCancelled();
     assert(
       wellFormed >= 200 && wellFormed < 400,
       `POST /eform/restoreEForm fid=${UNUSED_FID} (well-formed, nonexistent) returned HTTP ${wellFormed}; `
@@ -108,9 +119,12 @@ const MALFORMED_FIDS = ['abc', '4x', '0', '-5', '1.5', '99999999999999', '%20'];
     );
 
     await screenshot(page, config.screenshotDir, 'eform-restore-fid-validation');
+    cancellation?.throwIfCancelled();
     await page.close();
+    cancellation?.throwIfCancelled();
     assertNoPageErrors(recorder);
     await context.close();
+    cancellation?.throwIfCancelled();
 
     console.log(
       'PASS eForm restore fid validation: malformed, zero, negative, overflowing and missing fid are '
@@ -124,4 +138,4 @@ const MALFORMED_FIDS = ['abc', '4x', '0', '-5', '1.5', '99999999999999', '%20'];
   } finally {
     await browser.close();
   }
-})();
+});

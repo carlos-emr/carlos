@@ -15,10 +15,29 @@ function collectScripts(directory, prefix = '') {
 }
 const scripts = collectScripts(__dirname);
 
+for (const name of ['edoc-schedule-navigation-playwright-checks.js', 'tickler-crud-playwright-checks.js']) {
+  test(`${name} refuses remote HTTP credentials before starting a browser or creating fixtures`, () => {
+    const source = fs.readFileSync(path.join(__dirname, name), 'utf8');
+    const env = { BASE_URL: 'http://review.example.invalid/carlos', ALLOW_NON_LOCAL_BASE_URL: 'true' };
+    assert.throws(() => vm.runInNewContext(source, {
+      URL, process: { env }, require(module) {
+        if (module === './lib/playwright-harness') {
+          const h = require(module);
+          return { validateCredentialBaseUrl: raw => h.validateCredentialBaseUrl(raw, env) };
+        }
+        // Reach the top-level URL validation without running any side effects.
+        return {};
+      },
+    }), /Non-loopback BASE_URL targets must use https/);
+  });
+}
+
 function scheduleUrlContext() {
   const source = fs.readFileSync(path.join(__dirname, 'schedule-links-playwright-checks.js'), 'utf8');
-  const context = vm.createContext({ URL, process: { env: {} } });
-  for (const name of ['validateBaseUrl', 'appUrl', 'safeGoto', 'clickScheduleLink']) {
+  const context = vm.createContext({ URL, process: { env: {} },
+    validateBaseUrl: raw => require('./lib/playwright-harness').validateBaseUrl(raw, {}),
+  });
+  for (const name of ['appUrl', 'safeGoto', 'clickScheduleLink']) {
     const start = source.indexOf(`function ${name}(`);
     assert.ok(start >= 0, `Schedule URL helper ${name} is missing`);
     const declaration = source.slice(start - 6, start) === 'async ' ? start - 6 : start;
@@ -70,7 +89,9 @@ for (const name of scripts) {
   if (start < 0) continue;
   const end = source.indexOf('\n}', start) + 2;
   test(`${name}: URL credentials are rejected even with remote-target opt-in`, () => {
-    const context = vm.createContext({ URL, process: { env: { ALLOW_NON_LOCAL_BASE_URL: 'true' } } });
+    const context = vm.createContext({ URL, process: { env: { ALLOW_NON_LOCAL_BASE_URL: 'true' } },
+      require: () => ({validateCredentialBaseUrl: raw => require('./lib/playwright-harness').validateCredentialBaseUrl(raw, {ALLOW_NON_LOCAL_BASE_URL: 'true'})}),
+    });
     vm.runInContext(source.slice(start, end), context);
     for (const credentials of ['user:secret', 'user', ':secret', 'user:%73ecret']) {
       for (const host of ['127.0.0.1:8080', 'example.invalid']) {
@@ -127,3 +148,20 @@ for (const name of scripts) {
     assert.throws(() => optedIn.validateBaseUrl('https://user:secret@review.example.invalid/carlos'), /BASE_URL must not/);
   });
 }
+
+test('legacy Rx fax string adapter keeps root-context navigation on the application origin',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'rx-fax-reprint-represcribe-playwright-checks.js'),'utf8');
+  const start=source.indexOf('function validateBaseUrl('),body=source.slice(start,source.indexOf('\n}',start)+2);
+  const context=vm.createContext({URL,require:()=>require('./lib/playwright-harness')});vm.runInContext(body,context);
+  for(const [raw,expected] of [['http://127.0.0.1:8080/','http://127.0.0.1:8080'],['https://127.0.0.1/carlos/','https://127.0.0.1/carlos']]){
+    const validated=context.validateBaseUrl(raw);assert.equal(validated,expected);
+    assert.equal(new URL(validated+'/provider/providercontrol').pathname,new URL(expected+'/provider/providercontrol').pathname);
+  }
+});
+
+test('application-health refuses cleartext remote credentials before reading login secrets',()=>{
+ const {spawnSync}=require('node:child_process');
+ const result=spawnSync(process.execPath,[path.join(__dirname,'application-health-playwright-checks.js')],{env:{PATH:process.env.PATH,BASE_URL:'http://example.invalid/carlos',ALLOW_NON_LOCAL_BASE_URL:'true'},encoding:'utf8',timeout:10000});
+ assert.equal(result.status,1);assert.match(result.stderr,/Non-loopback BASE_URL targets must use https/);
+ assert.doesNotMatch(result.stderr,/TEST_USER must be set/);
+});

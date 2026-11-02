@@ -15,6 +15,7 @@
  * (rma_enabled=false) have no menu entry on the Ontario install, so they get no step here.
  * Implements coverage plan §3.7 admin-misc (Help Link Setting) and the billing Settings page.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
@@ -156,10 +157,9 @@ async function workflow(s) {
 
   await s.step('GET with a save flag is refused and stores nothing', async () => {
     const before = JSON.stringify([helpRows('resource_baseurl'), helpRows('resource_helpHtml'), storedBcValues()]);
-    const website = await context.request.get(h.appUrl(s.config.baseUrl, `/admin/ResourceBaseUrl?websiteSave=Save&resource_baseurl=${encodeURIComponent(helpUrl + 'get')}`),
-      {maxRedirects: 0});
+    const website = await authenticatedProbe({context, config: s.config}, h.appUrl(s.config.baseUrl, `/admin/ResourceBaseUrl?websiteSave=Save&resource_baseurl=${encodeURIComponent(helpUrl + 'get')}`), {maxRedirects: 0});
     h.assert(website.status() === 405, `GET websiteSave answered HTTP ${website.status()}, expected 405`);
-    const billing = await context.request.get(h.appUrl(s.config.baseUrl, '/admin/BillingSettings?dboperation=Save'), {maxRedirects: 0});
+    const billing = await authenticatedProbe({context, config: s.config}, h.appUrl(s.config.baseUrl, '/admin/BillingSettings?dboperation=Save'), {maxRedirects: 0});
     h.assert(billing.status() === 200, `GET BillingSettings answered HTTP ${billing.status()}`);
     h.assert(JSON.stringify([helpRows('resource_baseurl'), helpRows('resource_helpHtml'), storedBcValues()]) === before,
       'A GET with a save flag changed the stored settings');

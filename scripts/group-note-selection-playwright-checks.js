@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 'use strict';
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const { randomUUID, createHash } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -318,7 +319,7 @@ async function workflow(s) {
     patient.id = h.insertId(sql, `INSERT INTO demographic(last_name,first_name,year_of_birth,month_of_birth,date_of_birth,
       sex,patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate) VALUES (${q(patient.name)},${q(patient.first)},
       '1980','01','02','F','AC',${q(provider)},'ON','ON','NR',NOW())`, 'group selection patient');
-    const initialized = await s.context.request.get(h.appUrl(config.baseUrl, `/demographic/DemographicEdit?demographic_no=${patient.id}`));
+    const initialized = await authenticatedProbe(s, h.appUrl(config.baseUrl, `/demographic/DemographicEdit?demographic_no=${patient.id}`));
     try { h.assert(initialized.status() === 200 && Object.hasOwn(initialized.headers(), h.APPLICATION_HEADER), 'Group patient initialization failed'); }
     finally { await initialized.dispose(); }
   }

@@ -63,6 +63,8 @@
  *   RESET_PASSWORD (forced-reset completion; see the runbook).
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
@@ -266,9 +268,9 @@ async function openPreviousInstructions(page, randomId) {
   return postResponse;
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('rx-med-history',async({cancellation})=>{
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   try {
     if (config.baseUrl.protocol !== 'https:') {
       console.log(
@@ -278,19 +280,28 @@ async function openPreviousInstructions(page, randomId) {
     }
 
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
+    cancellation?.throwIfCancelled();
     const landing = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landing.close();
+    cancellation?.throwIfCancelled();
 
     const rxPage = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(rxPage, 'rx-med-history', recorder);
     await gotoApp(rxPage, config.baseUrl, `/rx/choosePatient?demographicNo=${demographicNo}`);
+    cancellation?.throwIfCancelled();
     await rxPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(rxPage, 'rx module');
+    cancellation?.throwIfCancelled();
 
     const randomId = await stageExistingPrescription(rxPage);
+    cancellation?.throwIfCancelled();
 
     // --- 1. the real lookup -------------------------------------------------
     const postResponse = await openPreviousInstructions(rxPage, randomId);
+    cancellation?.throwIfCancelled();
     const postStatus = postResponse.status();
     assert(
       postStatus < 400,
@@ -301,12 +312,16 @@ async function openPreviousInstructions(page, randomId) {
 
     const iframe = rxPage.locator('#xmaskframe');
     await iframe.waitFor({ state: 'visible', timeout: 20000 });
+    cancellation?.throwIfCancelled();
     await modalFrame(rxPage).locator('body').waitFor({ state: 'attached', timeout: 20000 });
+    cancellation?.throwIfCancelled();
     await waitForModalDocument(rxPage, randomId);
+    cancellation?.throwIfCancelled();
 
     // The whole defect is "the window is empty", so measure the rendered text,
     // not the presence of the frame.
     const modalText = await modalVisibleText(rxPage, randomId);
+    cancellation?.throwIfCancelled();
     assert(
       modalText.length > 0,
       'The previous-instructions modal opened with a completely empty body. displayMedHistory.jsp '
@@ -325,6 +340,7 @@ async function openPreviousInstructions(page, randomId) {
     // whole point of the control is to offer instructions to click.
     const instructionRows = modalFrame(rxPage).locator("a[id^='mhInst_'], a[id^='mhSpecInst_']");
     const rowCount = await instructionRows.count();
+    cancellation?.throwIfCancelled();
     assert(
       rowCount > 0,
       'The modal rendered its header but listed no previous instruction to choose. The staged drug '
@@ -335,6 +351,7 @@ async function openPreviousInstructions(page, randomId) {
     );
 
     await screenshot(rxPage, config.screenshotDir, 'rx-med-history-modal');
+    cancellation?.throwIfCancelled();
 
     // Choosing an entry must write it back into the prescription, which is the
     // only reason the window exists.
@@ -360,13 +377,16 @@ async function openPreviousInstructions(page, randomId) {
     const plainRows = modalFrame(rxPage).locator("a[id^='mhInst_']");
     const specialRows = modalFrame(rxPage).locator("a[id^='mhSpecInst_']");
     const usePlainRow = (await plainRows.count()) > 0;
+    cancellation?.throwIfCancelled();
     const chosenRow = usePlainRow ? plainRows.first() : specialRows.first();
     const targetSelector = usePlainRow ? `#instructions_${randomId}` : `#siInput_${randomId}`;
     const targetField = usePlainRow ? 'Instructions' : 'Special Instructions';
 
     const chosen = (await chosenRow.innerText()).trim();
+    cancellation?.throwIfCancelled();
     const appliedInput = rxPage.locator(targetSelector);
     await appliedInput.waitFor({ state: 'attached', timeout: 10000 });
+    cancellation?.throwIfCancelled();
 
     // Cleared through the DOM rather than with fill(): on the special-instruction
     // branch the field lives inside #siAutoComplete_<id>, which prescribe.jsp renders
@@ -382,13 +402,16 @@ async function openPreviousInstructions(page, randomId) {
       },
       targetSelector,
     );
+    cancellation?.throwIfCancelled();
     assert(
       (await appliedInput.inputValue()).trim() === '',
       `Could not clear the ${targetField} field before testing the modal's handoff, so the `
         + 'assertion that follows would not measure the click.',
     );
+    cancellation?.throwIfCancelled();
 
     await chosenRow.click();
+    cancellation?.throwIfCancelled();
     await rxPage.waitForFunction(
       // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the selector is passed as an argument, never interpolated into the page script
       (selector) => {
@@ -398,7 +421,9 @@ async function openPreviousInstructions(page, randomId) {
       targetSelector,
       { timeout: 10000 },
     ).catch(() => {});
+    cancellation?.throwIfCancelled();
     const applied = (await appliedInput.inputValue()).trim();
+    cancellation?.throwIfCancelled();
     assert(
       applied.length > 0,
       `Clicking "${chosen}" in the modal left the ${targetField} field empty (it was cleared `
@@ -410,6 +435,7 @@ async function openPreviousInstructions(page, randomId) {
     // or the prescriber is left with a value they cannot see or correct.
     if (!usePlainRow) {
       await assertSpecialInstructionsRevealed(rxPage, randomId);
+    cancellation?.throwIfCancelled();
     }
 
     // --- 2. a prescription with no history ---------------------------------
@@ -419,15 +445,20 @@ async function openPreviousInstructions(page, randomId) {
     // same "nothing happened" as a blank window.
     const customDrugName = `ZZ Check Drug ${Date.now()}`;
     const customRandomId = await stageUnprescribedCustomDrug(rxPage, recorder, customDrugName);
+    cancellation?.throwIfCancelled();
     const customResponse = await openPreviousInstructions(rxPage, customRandomId);
+    cancellation?.throwIfCancelled();
     assert(
       customResponse.status() < 400,
       `The previous-instructions POST for a history-less drug returned HTTP ${customResponse.status()}.`,
     );
 
     await modalFrame(rxPage).locator('body').waitFor({ state: 'attached', timeout: 20000 });
+    cancellation?.throwIfCancelled();
     await waitForModalDocument(rxPage, customRandomId);
+    cancellation?.throwIfCancelled();
     const customText = await modalVisibleText(rxPage, customRandomId);
+    cancellation?.throwIfCancelled();
     assert(
       /Rx\s*Examples/i.test(customText),
       `A history-less drug rendered "${customText.slice(0, 200)}" instead of its Rx Examples table. `
@@ -444,8 +475,10 @@ async function openPreviousInstructions(page, randomId) {
       'A drug with no prescribing history offered instructions to click; the empty-state row is '
         + 'being rendered alongside real content, which means the row counter is wrong.',
     );
+    cancellation?.throwIfCancelled();
 
     await screenshot(rxPage, config.screenshotDir, 'rx-med-history-no-history');
+    cancellation?.throwIfCancelled();
 
     // --- 3. the hardened unresolvable path ---------------------------------
     // A randomId the session stash does not know (a stale modal, a second tab
@@ -461,6 +494,7 @@ async function openPreviousInstructions(page, randomId) {
       // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- the id is passed as an argument, never interpolated into the page script, and is derived from a numeric id this script generated
       rxPage.evaluate((id) => window.displayMedHistory(id), strayId),
     ]);
+    cancellation?.throwIfCancelled();
     const strayStatus = strayResponse.status();
     assert(
       strayStatus < 400,
@@ -470,8 +504,11 @@ async function openPreviousInstructions(page, randomId) {
     );
 
     await modalFrame(rxPage).locator('body').waitFor({ state: 'attached', timeout: 20000 });
+    cancellation?.throwIfCancelled();
     await waitForModalDocument(rxPage, strayId);
+    cancellation?.throwIfCancelled();
     const strayText = await modalVisibleText(rxPage, strayId);
+    cancellation?.throwIfCancelled();
     assert(
       /Medication history is unavailable/i.test(strayText),
       `An unresolvable randomId rendered "${strayText.slice(0, 200)}" instead of the explicit `
@@ -480,10 +517,13 @@ async function openPreviousInstructions(page, randomId) {
     );
 
     await screenshot(rxPage, config.screenshotDir, 'rx-med-history-unavailable');
+    cancellation?.throwIfCancelled();
     await rxPage.close();
+    cancellation?.throwIfCancelled();
 
     assertNoPageErrors(recorder);
     await context.close();
+    cancellation?.throwIfCancelled();
 
     console.log(
       `PASS rx med history: staged prescription ${randomId} for demographic ${demographicNo}, `
@@ -499,4 +539,4 @@ async function openPreviousInstructions(page, randomId) {
   } finally {
     await browser.close();
   }
-})();
+});

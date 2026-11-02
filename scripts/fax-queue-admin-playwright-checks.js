@@ -19,6 +19,7 @@
  * fax_config row; cleanup removes them and any FaxClientLog rows and asserts they are gone.
  * Implements docs/ui-tests/playwright-coverage-plan-2026.08.md §2.6 fax-queue-admin.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates, typeAutocomplete} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
@@ -204,7 +205,7 @@ async function workflow(s) {
   // Read-only: is the outbound scheduler running at all? Only then can a cycle touch an
   // owned WAITING row while the account is active. Reported, never asserted.
   let schedulerRunning = null;
-  const probe = await context.request.get(h.appUrl(config.baseUrl, '/admin/ManageFax'), {params: {method: 'getFaxSchedularStatus'}, maxRedirects: 0});
+  const probe = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, '/admin/ManageFax'), {params: {method: 'getFaxSchedularStatus'}, maxRedirects: 0});
   try {
     if (probe.status() === 200) {
       const json = await probe.json().catch(() => null);
@@ -306,8 +307,7 @@ async function workflow(s) {
     const complete = byKey('complete');
     const before = [stored(sent.id), stored(complete.id)].join(';');
     for (const [method, jobId] of [['CancelFax', sent.id], ['ResendFax', complete.id], ['SetCompleted', sent.id]]) {
-      const response = await context.request.get(h.appUrl(config.baseUrl, '/admin/ManageFaxes'),
-        {params: {method, jobId, faxNumber: DESTINATION}, maxRedirects: 0});
+      const response = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, '/admin/ManageFaxes'), {params: {method, jobId, faxNumber: DESTINATION}, maxRedirects: 0});
       h.assert(response.status() === 405 && response.headers().allow === 'POST', `GET ${method} was not rejected with Allow: POST`);
     }
     // SetCompleted resolves any row unconditionally (no account or status gate), so only the

@@ -43,7 +43,7 @@ const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
 const { submitLoginForm } = require('./lib/throwaway-login-fixture');
-const { probe } = require('./lib/authz-read-probe');
+const { probeAuthenticationState: probe } = require('./lib/authz-read-probe');
 const { settleOperations } = require('./graceful-signal-cancellation');
 
 /** The step the manifest pins to finding 265; one place, so the script and the manifest agree. */

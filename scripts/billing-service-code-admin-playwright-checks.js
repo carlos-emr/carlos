@@ -33,6 +33,8 @@
  * Optional: BILLING_CODE_EXISTING (A007A), BILLING_CODE_NEW (X987Z).
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
@@ -181,16 +183,9 @@ function runCleanup() {
 }
 // Node does not run finally blocks on SIGINT/SIGTERM (the suite loop's `timeout`
 // sends TERM), so restore the fixtures here too before exiting.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`${signal} received; restoring fixtures before exiting.`);
-    runCleanup();
-    cleanupMysqlDefaults();
-    process.exit(130);
-  });
-}
+// Signals unwind through the shared entry point and the existing finally below.
 
-(async () => {
+legacyHarness.runLegacyCheck('billing-service-code-admin',async({cancellation})=>{
   const recorder = createRecorder();
   initMysqlDefaults();
   // Staging and the browser launch sit inside the protected scope so a failure in
@@ -199,26 +194,37 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     cleanupRows();
     original = latestRow(existingCode);
     assert(original, `service code ${existingCode} is not in billingservice`);
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    cancellation?.throwIfCancelled();
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     const page = await openAdminPage(context, recorder);
+    cancellation?.throwIfCancelled();
 
     // 1. Search an existing code.
     let banner = await search(page, existingCode);
+    cancellation?.throwIfCancelled();
     assert(/edit the service code by clicking 'Save'/i.test(banner), `search ${existingCode} banner was "${banner}"`);
     assert((await page.locator('textarea[name="description"]').inputValue()).trim() === original.description.trim(),
       `search did not load the description of ${existingCode}`);
+    cancellation?.throwIfCancelled();
     assert(Number(await page.locator('input[name="value"]').inputValue()) === Number(original.value),
       `search did not load the fee of ${existingCode}`);
+    cancellation?.throwIfCancelled();
     assert((await page.locator('input[name="submitFrm"][value="Save"]').count()) === 1, 'search result did not offer Save');
+    cancellation?.throwIfCancelled();
 
     // 2. Update fee + description, then restore.
     const newFee = (Number(original.value) + 0.05).toFixed(2);
     const newDescription = `${original.description.trim()} ${stamp}`;
     await page.locator('input[name="value"]').fill(newFee);
+    cancellation?.throwIfCancelled();
     await page.locator('textarea[name="description"]').fill(newDescription);
+    cancellation?.throwIfCancelled();
     banner = await save(page);
+    cancellation?.throwIfCancelled();
     assert(banner.includes(`${existingCode} is updated`), `save banner was "${banner}"`);
     let row = latestRow(existingCode);
     assert(row.id === original.id, 'save created a new row instead of updating the searched entry');
@@ -226,13 +232,19 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     assert(row.description.trim() === newDescription, `description after save was "${row.description}"`);
     assert(recorder.dialogs.length === 0, `save raised an unexpected dialog: ${JSON.stringify(recorder.dialogs)}`);
     const lastConfirm = await page.evaluate(() => { try { return sessionStorage.getItem('pwLastConfirm') || ''; } catch (ignored) { return ''; } });
+    cancellation?.throwIfCancelled();
     assert(/sure you want to save/i.test(lastConfirm), `save did not ask for confirmation (last prompt: "${lastConfirm}")`);
 
     banner = await search(page, existingCode);
+    cancellation?.throwIfCancelled();
     assert(Number(await page.locator('input[name="value"]').inputValue()) === Number(newFee), 'reload did not show the updated fee');
+    cancellation?.throwIfCancelled();
     await page.locator('input[name="value"]').fill(Number(original.value).toFixed(2));
+    cancellation?.throwIfCancelled();
     await page.locator('textarea[name="description"]').fill(original.description.trim());
+    cancellation?.throwIfCancelled();
     banner = await save(page);
+    cancellation?.throwIfCancelled();
     assert(banner.includes(`${existingCode} is updated`), `restore banner was "${banner}"`);
     row = latestRow(existingCode);
     assert(Number(row.value) === Number(original.value) && row.description.trim() === original.description.trim(),
@@ -240,22 +252,31 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 
     // 3. Add a brand-new code.
     banner = await search(page, newCode);
+    cancellation?.throwIfCancelled();
     assert(/NEW service code/i.test(banner), `search ${newCode} banner was "${banner}"`);
     await page.locator('textarea[name="description"]').fill(`${stamp} new code`);
+    cancellation?.throwIfCancelled();
     await page.locator('input[name="value"]').fill('12.34');
+    cancellation?.throwIfCancelled();
     await page.locator('#billingservice_date').fill('2026-01-01');
+    cancellation?.throwIfCancelled();
     // The issued-date field is a flatpickr input; close its calendar overlay so
     // it cannot sit over the Save button.
     await page.keyboard.press('Escape');
+    cancellation?.throwIfCancelled();
     await page.locator('textarea[name="description"]').click();
+    cancellation?.throwIfCancelled();
     assert((await page.locator('#billingservice_date').inputValue()) === '2026-01-01', 'issued date did not keep the typed value');
+    cancellation?.throwIfCancelled();
     banner = await save(page);
+    cancellation?.throwIfCancelled();
     assert(banner.includes(`${newCode} is added`), `add banner was "${banner}"`);
     row = latestRow(newCode);
     assert(row, `${newCode} row was not added`);
     assert(Number(row.value) === 12.34 && row.description.trim() === `${stamp} new code`, `added row was ${JSON.stringify(row)}`);
     assert(row.issued === '2026-01-01', `added row issued date was ${row.issued}`);
     banner = await search(page, newCode);
+    cancellation?.throwIfCancelled();
     assert(/edit the service code by clicking 'Save'/i.test(banner), `the added code was not found on re-search: "${banner}"`);
 
     assertNoPageErrors(recorder);
@@ -273,4 +294,4 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     runCleanup();
     cleanupMysqlDefaults();
   }
-})();
+});

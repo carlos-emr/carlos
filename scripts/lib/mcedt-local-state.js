@@ -24,24 +24,23 @@
  *      only while it still holds the bytes the run knows it wrote, so a real claim file that took a
  *      name the run once used is never deleted.
  *
- * THE TWO TIMESTAMP FILES. ActionUtils.getOutboxTimestamp() reads `<outbox>/.timestamp` while
- * setOutboxTimestamp() writes `<parent>/<outbox name>.timestamp` (validateGeneratedSiblingPath appends
- * the suffix to the directory's NAME); app-findings-log.md finding 216. Until that is fixed an open
- * leaves an empty file at the first path and a "dd-MM-yyyy HH:mm" file at the second, so both are
- * snapshotted: a run that found neither removes both, and one that found either puts its bytes back.
+ * TIMESTAMP FILES. Current ActionUtils records an ISO instant in <outbox>/.timestamp.
+ * Older builds used an empty file there and a dd-MM-yyyy HH:mm sibling file. Snapshot both
+ * paths so the same check can validate upgrades without losing either original record.
  */
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { assert } = require('./playwright-harness');
+const {readRegular,retireOwnedFile}=require('./owned-file-retirement');
 
 /** The property row Change Password writes (UserProperty.MCEDT_ACCOUNT_PASSWORD). */
 const PASSWORD_PROPERTY = 'mcedt_account_password';
 
 const PROPERTY_NAME = /^[A-Za-z0-9_.-]{1,100}$/;
 const RUN_MARKER = /^FAKE-PW[0-9a-f]{16}$/;
-/** What the application writes into the sibling timestamp file: new SimpleDateFormat("dd-MM-yyyy HH:mm"). */
-const TIMESTAMP_TEXT = /^\d{2}-\d{2}-\d{4} \d{2}:\d{2}$/;
+/** Native timestamp formats: legacy minute precision and the current Instant.toString(). */
+const TIMESTAMP_TEXT = /^(?:\d{2}-\d{2}-\d{4} \d{2}:\d{2}|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z)$/;
 
 function quoted(name) {
   assert(PROPERTY_NAME.test(name), 'not a plain property name');
@@ -137,7 +136,7 @@ function listDirectory(dir, { hidden = true } = {}) {
     .map((entry) => {
       const full = path.join(dir, entry.name);
       if (!entry.isFile()) return { name: entry.name, kind: entry.isDirectory() ? 'dir' : 'other' };
-      const bytes = fs.readFileSync(full);
+      const bytes = readRegular(full).bytes;
       return { name: entry.name, kind: 'file', size: bytes.length, sha256: crypto.createHash('sha256').update(bytes).digest('hex') };
     })
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
@@ -172,23 +171,16 @@ function createOutboxLedger({ outbox }) {
   const beside = path.join(parent, `${path.basename(dir)}.timestamp`);
   const timestampPaths = [inside, beside];
 
-  const readOptional = (file) => (fs.existsSync(file) ? fs.readFileSync(file) : null);
+  const readTimestampRecord=file=>{try{return readRegular(file);}catch{throw new Error('MCEDT timestamp must be a regular owned-store file, not a symlink or directory');}};
+  const readOptional=file=>readTimestampRecord(file)?.bytes??null;
+  const timestampRecords=new Map(timestampPaths.map(file=>[file,readTimestampRecord(file)]));
   const found = {
     listing: listDirectory(dir),
     parent: fs.readdirSync(parent, { withFileTypes: true }).map((entry) => `${entry.name}:${entry.isDirectory() ? 'dir' : 'file'}`).sort(),
-    timestamps: new Map(timestampPaths.map((file) => [file, readOptional(file)])),
+    timestamps: new Map(timestampPaths.map(file=>[file,timestampRecords.get(file)?.bytes??null])),
   };
   // Files the run may have caused under a known name, each with the bytes the run knows it wrote.
   const copies = [];
-
-  function ownLike(file, reference) {
-    const stat = fs.statSync(reference);
-    try {
-      fs.chownSync(file, stat.uid, stat.gid);
-    } catch (error) {
-      if (typeof process.getuid === 'function' && process.getuid() === 0) throw error;
-    }
-  }
 
   const ledger = {
     dir,
@@ -227,10 +219,10 @@ function createOutboxLedger({ outbox }) {
       for (const { file, bytes } of copies.slice().reverse()) {
         if (!fs.existsSync(file)) continue;
         try {
-          if (!fs.lstatSync(file).isFile() || !fs.readFileSync(file).equals(bytes)) {
+          if (!readRegular(file)?.bytes.equals(bytes)) {
             problems.push(`${path.basename(file)} now holds other bytes and was left in place`);
           } else {
-            fs.unlinkSync(file);
+            retireOwnedFile(file,current=>current.equals(bytes));
           }
         } catch (error) {
           problems.push(`${path.basename(file)} could not be removed (${error.code || 'error'})`);
@@ -242,11 +234,24 @@ function createOutboxLedger({ outbox }) {
           const now = readOptional(file);
           if (was === null) {
             if (now === null) continue;
-            if (now.length === 0 || TIMESTAMP_TEXT.test(now.toString('latin1'))) fs.unlinkSync(file);
+            if (now.length === 0 || TIMESTAMP_TEXT.test(now.toString('latin1'))) retireOwnedFile(file,current=>current.length===0||TIMESTAMP_TEXT.test(current.toString('latin1')));
             else problems.push(`${path.basename(file)} holds text the application does not write and was left in place`);
           } else if (now === null || !now.equals(was)) {
-            fs.writeFileSync(file, was, { mode: 0o640 });
-            ownLike(file, path.dirname(file));
+            if(now!==null&&now.length!==0&&!TIMESTAMP_TEXT.test(now.toString('latin1'))) {
+              problems.push(`${path.basename(file)} changed to bytes the application does not write and was left in place`);
+              continue;
+            }
+            let fd;
+            try {
+              fd=fs.openSync(file,fs.constants.O_RDWR|fs.constants.O_NOFOLLOW|fs.constants.O_NONBLOCK|(now===null?fs.constants.O_CREAT|fs.constants.O_EXCL:0),0o640);
+              const stat=fs.fstatSync(fd),original=timestampRecords.get(file).stat;
+              assert(stat.isFile(),'Timestamp replacement is not a regular file');
+              if(now!==null)assert(stat.uid===original.uid&&stat.gid===original.gid&&(stat.mode&0o7777)===(original.mode&0o7777),'Timestamp ownership or mode changed; retain it');
+              const current=fs.readFileSync(fd);
+              assert(current.equals(was)||current.length===0||TIMESTAMP_TEXT.test(current.toString('latin1')),'Timestamp changed during restoration');
+              fs.writeSync(fd,was,0,was.length,0);fs.ftruncateSync(fd,was.length);
+              if(now===null){fs.fchmodSync(fd,original.mode&0o7777);fs.fchownSync(fd,original.uid,original.gid);}
+            } finally {if(fd!==undefined)fs.closeSync(fd);}
           }
         } catch (error) {
           problems.push(`${path.basename(file)} could not be restored (${error.code || 'error'})`);

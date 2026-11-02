@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
@@ -38,7 +39,7 @@ async function workflow(s) {
     const before = count();
     const action = await page.getByRole('button', { name, exact: true }).locator('xpath=..').getAttribute('action');
     const url = new URL(action, page.url()).href;
-    const get = await s.context.request.get(url, { params: { selectedFacilityId: id }, maxRedirects: 0 });
+    const get = await authenticatedProbe(s, url, { params: { selectedFacilityId: id }, maxRedirects: 0 });
     h.assert(get.status() === 405 && get.headers().allow === 'POST', 'GET facility mutation was not refused');
     const post = await s.context.request.post(url, { form: { selectedFacilityId: id }, maxRedirects: 0 });
     h.assert(post.status() === 403, 'Facility selection without CSRF was not refused');

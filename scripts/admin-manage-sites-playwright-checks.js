@@ -21,6 +21,7 @@
  * Fixtures: one owned site named with the run marker, removed in cleanup (with any providersite
  * link to it) and verified gone. No other site is read or changed.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
@@ -102,7 +103,7 @@ async function workflow(s) {
   });
 
   await step('GET with a save flag is refused and stores nothing', async () => {
-    const response = await context.request.get(h.appUrl(s.config.baseUrl, SECTION), {
+    const response = await authenticatedProbe({context, config: s.config}, h.appUrl(s.config.baseUrl, SECTION), {
       params: {method: 'save', 'site.name': marker, 'site.shortName': shortName, 'site.bgColor': '#C0FFEE'}, maxRedirects: 0,
     });
     await h.assertRefused(s, {label: 'GET admin/ManageSites method=save', table: 'site', where: owned, before: '0', response});

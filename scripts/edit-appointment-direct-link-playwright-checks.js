@@ -35,6 +35,8 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
@@ -92,19 +94,24 @@ async function fetchEdit(page, query, label, expectedStatus) {
   return status === 200 ? readFormState(page) : '';
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('edit-appointment-direct-link',async({cancellation})=>{
   const recorder = createRecorder();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
+  const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   try {
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     const page = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(page, 'edit-appointment', recorder);
 
     // The #3729 case: only appointment_no, as a bookmark or receipt-window link carries it.
     const bare = await fetchEdit(page, { appointment_no: appointmentNo }, 'bare appointment_no link', 200);
+    cancellation?.throwIfCancelled();
 
     // The day sheet's own link to the same appointment.
     const daySheet = await fetchEdit(page, {
@@ -112,6 +119,7 @@ async function fetchEdit(page, query, label, expectedStatus) {
       demographic_no: demographicNo,
       dboperation: 'search',
     }, 'day-sheet link', 200);
+    cancellation?.throwIfCancelled();
 
     if (bare && daySheet && bare !== daySheet) {
       failures.push('bare appointment_no link rendered a different form than the day-sheet link for the same appointment');
@@ -122,12 +130,18 @@ async function fetchEdit(page, query, label, expectedStatus) {
 
     // A malformed or stale link is a client error, not a server fault.
     await fetchEdit(page, { dboperation: 'search' }, 'no appointment_no', 400);
+    cancellation?.throwIfCancelled();
     await fetchEdit(page, { appointment_no: 'abc' }, 'non-numeric appointment_no', 400);
+    cancellation?.throwIfCancelled();
     await fetchEdit(page, { appointment_no: ` ${appointmentNo} ` }, 'whitespace-padded appointment_no', 400);
+    cancellation?.throwIfCancelled();
     await fetchEdit(page, { appointment_no: '999999999' }, 'unknown appointment_no', 404);
+    cancellation?.throwIfCancelled();
 
     await page.close();
+    cancellation?.throwIfCancelled();
     await context.close();
+    cancellation?.throwIfCancelled();
 
     assert(failures.length === 0, `edit appointment link checks failed:\n  - ${failures.join('\n  - ')}`);
     console.log(`PASS appointment ${appointmentNo} opens from a bare link identically to the day-sheet link, and malformed links are 400/404`);
@@ -139,4 +153,4 @@ async function fetchEdit(page, query, label, expectedStatus) {
   } finally {
     await browser.close();
   }
-})();
+});

@@ -33,6 +33,7 @@
  * Optional RA_DOCUMENT_DIR / RA_EDT_INBOX: the install's DOCUMENT_DIR and ONEDT_INBOX.
  */
 
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
@@ -245,7 +246,7 @@ async function workflow(s) {
   });
 
   await s.step('GET against the settle mutator is refused and settles nothing', async () => {
-    const probe = await s.context.request.get(h.appUrl(s.config.baseUrl, '/billing/CA/ON/ViewOnGenRAsettle'),
+    const probe = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/billing/CA/ON/ViewOnGenRAsettle'),
       { params: { rano: String(raNo) }, maxRedirects: 0 });
     h.assert(probe.status() === 405, 'ViewOnGenRAsettle must reject GET with 405');
     h.assert(statuses() === 'B|B' && sql.value(`SELECT status FROM raheader WHERE raheader_no=${raNo}`) === 'N',

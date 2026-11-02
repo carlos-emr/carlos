@@ -24,6 +24,19 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
 const q = h.sqlString;
 
+function validApprovalAction(raw,current,base,{fid,patient,csrfToken}) {
+  try {
+    const url=new URL(raw,current),app=new URL(base);
+    return url.origin===app.origin&&!url.username&&!url.password&&!url.hash
+      &&url.pathname===app.pathname.replace(/\/$/,'')+'/eform/saveEFormAsEDoc'
+      &&url.searchParams.getAll('efmfid').length===1&&url.searchParams.get('efmfid')===String(fid)
+      &&url.searchParams.getAll('efmdemographic_no').length===1&&url.searchParams.get('efmdemographic_no')===String(patient)
+      &&[...url.searchParams.keys()].every(key=>['efmfid','efmdemographic_no','CSRF-TOKEN'].includes(key))
+      &&url.searchParams.getAll('CSRF-TOKEN').length<=1
+      &&(!url.searchParams.has('CSRF-TOKEN')||url.searchParams.get('CSRF-TOKEN')===csrfToken);
+  } catch {return false;}
+}
+
 async function workflow(s) {
   const { sql, marker, patient, provider, config } = s;
   const store = process.env.DOCUMENT_DIR;
@@ -74,6 +87,7 @@ async function workflow(s) {
   let form;
   let fdid;
   let approvalToken;
+  let approvalAction;
   let csrfToken;
 
   await s.step('Add to Documents on an eForm whose script throws saves it but files nothing and shows the missing-content page', async () => {
@@ -99,8 +113,14 @@ async function workflow(s) {
     // POST reaches the action instead of being turned away by the CSRF filter.
     csrfToken = await form.locator('form:has(input[name="renderApproval"]) input[name="CSRF-TOKEN"]').first().inputValue();
     h.assert(csrfToken.length > 8, 'The approval form carries no CSRF token for the replay probe');
-    h.assert(/eform\/saveEFormAsEDoc$/.test(await form.locator('form:has(input[name="renderApproval"])').getAttribute('action')),
-      'The approval form does not post to the save-as-eDocument route');
+    const approvalForm=form.locator('form:has(input[name="renderApproval"])');
+    approvalAction=await approvalForm.getAttribute('action');
+    h.assert(validApprovalAction(approvalAction,form.url(),config.baseUrl,{fid,patient,csrfToken}),
+      'The approval form changed its application route, template or patient query');
+    approvalAction=new URL(approvalAction,form.url()).href;
+    h.assert((await approvalForm.getAttribute('method')).toLowerCase()==='post'
+      &&await approvalForm.locator('input[name="demographicNo"]').inputValue()===patient,
+      'Approval is not a patient-bound POST');
     const text = (await form.locator('body').innerText()).replace(/\s+/g, ' ');
     h.assert(/Page script errors:\s*[1-9]/.test(text), 'The approval page does not report the page script error');
     consumeScriptErrors();
@@ -113,6 +133,7 @@ async function workflow(s) {
     await form.locator('form:has(input[name="renderApproval"]) button[type="submit"]').click();
     const response = await approved;
     h.assert(response.status() < 400, `Approving answered HTTP ${response.status()}`);
+    h.assert(validApprovalAction(response.url(),form.url(),config.baseUrl,{fid,patient,csrfToken}),'Approval response lost its template/patient query');
     await expectValue(sql, `SELECT COUNT(*) FROM document d JOIN ctl_document c ON c.document_no=d.document_no
       WHERE c.module='demographic' AND c.module_id=${patient} AND d.docdesc=${q(subject)} AND d.status='A'`, '1',
       'Approving did not file exactly one active document for the patient');
@@ -131,7 +152,7 @@ async function workflow(s) {
     const before = documents().length;
     // Negative probe after the real path: the same one-time token, posted again with the session's valid CSRF
     // token, so the rejection under test is the action's own and not the CSRF filter's.
-    const response = await s.context.request.post(`${String(config.baseUrl).replace(/\/$/, '')}/eform/saveEFormAsEDoc`,
+    const response = await s.context.request.post(approvalAction,
       { form: { fdid, demographicNo: patient, parentAjaxId: 'eforms', renderApproval: approvalToken, 'CSRF-TOKEN': csrfToken }, headers: { 'CSRF-TOKEN': csrfToken } });
     const status = response.status();
     const body = await response.text();
@@ -145,4 +166,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('gap-encounter-eform-edoc-approval', workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, validApprovalAction };

@@ -140,27 +140,8 @@ const { PROSE_CORPUS } = require('./lib/clinical-prose-corpus');
  * the fixture-teardown guards in edoc-schedule-navigation and assign-role.
  */
 function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  // Credentials in the URL would travel into Playwright navigations and can
-  // surface in request or failure logging, so reject them outright.
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not contain embedded credentials');
-  }
-
-  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
-  if (!isLoopback(host) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}: this check overwrites clinical free text and files `
-      + 'consultation requests. Set ALLOW_NON_LOCAL_BASE_URL=true only for a disposable test install');
-  }
-  // The login sends TEST_USER and TEST_PASSWORD. Off this machine that has to be
-  // over TLS; the opt-in above covers the target, not a cleartext hop to it.
-  if (!isLoopback(host) && parsed.protocol !== 'https:') {
-    throw new Error(`Refusing plain-http BASE_URL to non-loopback host ${host}: the login would send credentials in cleartext`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  // Delegate host/protocol/credential rules; this legacy caller retains its return shape.
+  const parsed = require('./lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl);
   return parsed;
 }
 
@@ -443,7 +424,7 @@ function appUrlForPage(appPath) {
   return appUrl(appPath);
 }
 
-async function runWorkflow(context, workflow) {
+async function runWorkflow(context, workflow, cancellation) {
   const page = await context.newPage();
   wirePage(page, workflow.name);
   // Opens the workflow's page and waits until its form is there with its CSRF token populated.
@@ -474,6 +455,7 @@ async function runWorkflow(context, workflow) {
       // unchanged, and the page re-opened, so the body the replays carry holds the ids of rows that exist and they UPDATE.
       const primed = await captureForm(page, workflow.formName);
       assert(primed && primed.length, `${workflow.name}: form ${workflow.formName} was not on the page, so it could not be primed`);
+      cancellation?.throwIfCancelled();
       const status = await replay(page, workflow, primed, null);
       assert(status === 200 || status === 'redirect',
         `${workflow.name}: the priming save of the unchanged form answered ${status}, so the replays would measure a broken save`);
@@ -513,6 +495,7 @@ async function runWorkflow(context, workflow) {
     let restoreFailure = null;
     try {
       for (const phrase of PROSE_CORPUS) {
+        cancellation?.throwIfCancelled();
         replayStarted = true;
         const status = await replay(page, workflow, entries, phrase, chosen);
         saveResults.push({
@@ -555,8 +538,8 @@ function removeFixturePatient(sql, patient, marker) {
 }
 
 /** Both workflows and the assertions on their results, on the owned patient main() created. */
-async function runFreeTextChecks() {
-  browser = await chromium.launch(chromePath ? { executablePath: chromePath } : {});
+async function runFreeTextChecks(cancellation) {
+  browser = await chromium.launch({...h.NO_PLAYWRIGHT_SIGNAL_HANDLING,...(chromePath ? { executablePath: chromePath } : {})});
   // Certificate verification is only relaxed for loopback, where the packaged
   // install serves its own self-signed cert. A target opted in with
   // ALLOW_NON_LOCAL_BASE_URL must still prove its certificate, because this
@@ -571,10 +554,12 @@ async function runFreeTextChecks() {
   try {
     await login(context);
     // Before the first write: refuse a patient that does not look like test data.
+    cancellation?.throwIfCancelled();
     await verifySyntheticPatient(context);
 
     for (const workflow of WORKFLOWS) {
-      await runWorkflow(context, workflow);
+      cancellation?.throwIfCancelled();
+      await runWorkflow(context, workflow, cancellation);
     }
 
     const blocked = saveResults.filter((result) => result.status === 403);
@@ -597,9 +582,9 @@ async function runFreeTextChecks() {
 
     const wafBlocked = badResponses.filter((entry) => entry.status === 403);
     assert(wafBlocked.length === 0,
-      `a request carrying clinical free text was rejected with HTTP 403: ${JSON.stringify(wafBlocked, null, 2)}`);
+      `a request carrying clinical free text was rejected with HTTP 403: ${h.withoutQueryStrings(JSON.stringify(wafBlocked, null, 2))}`);
 
-    assert(badResponses.length === 0, `unexpected HTTP errors or dialogs: ${JSON.stringify(badResponses, null, 2)}`);
+    assert(badResponses.length === 0, `unexpected HTTP errors or dialogs: ${h.withoutQueryStrings(JSON.stringify(badResponses, null, 2))}`);
 
     if (expectFrontDoor && !frontDoorObserved) {
       throw new Error('EXPECT_FRONT_DOOR is set but no response carried an nginx Server header; the run did not go through the packaged front door');
@@ -619,7 +604,8 @@ async function runFreeTextChecks() {
   }
 }
 
-(async () => {
+require('./lib/legacy-check').runLegacyCheck('clinical-freetext',async({cancellation})=>{
+  try {
   // The owned patient both workflows run on, created before anything else is written (never a demo patient).
   const sql = h.createSqlRunner(h.readConfig().mysql);
   const ownedMarker = newOwnedMarker();
@@ -627,24 +613,25 @@ async function runFreeTextChecks() {
     const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
     assert(provider, 'The configured test login has no provider');
     demographicNo = createOwnedPatient(sql, { marker: ownedMarker, provider });
-    await runFreeTextChecks();
+    await runFreeTextChecks(cancellation);
   } finally {
     try {
-      // A browser that will not close must not skip the patient's removal below.
-      if (browser) await browser.close().catch(() => {});
+      // Remove owned rows only after the browser confirms shutdown.
+      if (browser) await browser.close();
       if (demographicNo !== null) removeFixturePatient(sql, demographicNo, ownedMarker);
     } finally {
       sql.dispose();
     }
   }
-})().catch((error) => {
+  }catch(error){
   console.error('FAIL clinical free-text Playwright check');
-  console.error(error.stack || error.message);
+  console.error(h.withoutQueryStrings(error.stack || error.message));
   if (saveResults.length) {
-    console.error(`Save results: ${JSON.stringify(saveResults, null, 2)}`);
+    console.error(`Save results: ${h.withoutQueryStrings(JSON.stringify(saveResults, null, 2))}`);
   }
   if (badResponses.length) {
-    console.error(`HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
+    console.error(`HTTP errors: ${h.withoutQueryStrings(JSON.stringify(badResponses, null, 2))}`);
   }
-  process.exit(1);
+  throw require('./lib/legacy-check').sanitizedError(error,cancellation.isCancellation);
+  }
 });

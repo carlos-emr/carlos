@@ -28,6 +28,7 @@
  * BC billing row of the two patients and their admissions, then the second patient, the code and the
  * physician, and asserts each is gone. BC installs only (billregion=BC).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const bc = require('./lib/bc-billing-fixture');
@@ -235,7 +236,7 @@ async function workflow(s) {
     const data = JSON.stringify({ provider: physician.providerNo, visitLocation: LOCATION, visitDate: '', ptName: '',
       ptNumber: String(patient), billingCode: code, halfBilling: '1.0', dxCode1: DX });
     for (const query of [`data=${encodeURIComponent(data)}`, 'remove=0']) {
-      const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `${ROUTE}?${query}`), { maxRedirects: 0 });
+      const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, `${ROUTE}?${query}`), { maxRedirects: 0 });
       h.assert(response.status() === 405, `A GET ${query.split('=')[0]} answered ${response.status()}, not 405`);
     }
     h.assert(bills() === '0', 'A refused GET wrote bills');
@@ -297,7 +298,7 @@ async function workflow(s) {
     await frame.locator('#ptName').waitFor({ state: 'visible', timeout: TIMEOUT });
     await add('Workflow', 'The add before the GET');
     h.assert(await lines().count() === 1, `The new batch lists ${await lines().count()} lines, not 1`);
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl, SAVE_ROUTE), { maxRedirects: 0 });
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, SAVE_ROUTE), { maxRedirects: 0 });
     h.assert(response.status() === 405, `A GET Save answered ${response.status()}, not 405`);
     h.assert(bills() === '4', `A refused GET Save left ${bills()} bill rows, not 4`);
   });

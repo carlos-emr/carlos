@@ -19,6 +19,7 @@
  * untouched) and one owned FAKE- patient. Cleanup deletes the owned appointments and archive rows,
  * then the throwaway, and asserts they are gone.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -157,7 +158,7 @@ async function workflow(s) {
     const params = new URLSearchParams({ groupappt: 'Add Group Appointment', provider_no: fixture.providerNo, appointment_date: todayIso,
       start_time: '12:00', end_time: '12:14', demographic_no: patient, keyword: marker, reason: `${marker} get`, everyNum: '1', everyUnit: 'day',
       endDate: ddmmyyyy(isoDate(today, 2)) });
-    const response = await context.request.get(`${config.baseUrl}/appointment/appointmentrepeatbooking?${params}`);
+    const response = await authenticatedProbe({context, config}, `${config.baseUrl}/appointment/appointmentrepeatbooking?${params}`);
     h.assert(response.status() === 405, `GET answered HTTP ${response.status()}, not 405`);
     h.assert(sql.value(`SELECT COUNT(*) FROM appointment WHERE provider_no=${owner}`) === before, 'A GET created appointments');
   });

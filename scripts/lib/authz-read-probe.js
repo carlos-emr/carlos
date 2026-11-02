@@ -21,13 +21,15 @@
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 const h = require('./playwright-harness');
+const {authenticatedProbe,authenticationStateProbe}=require('./authenticated-probe');
 
 const APPLICATION_HEADER = 'x-permitted-cross-domain-policies';
 
 /** One request through a login's browser context; never follows redirects. */
-async function probe(context, url, { method = 'GET', needles = [] } = {}) {
+async function probeWithTransport(context, url, { method = 'GET', needles = [], baseUrl = h.validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos') } = {}, transport) {
   try {
-    const response = await context.request.fetch(url, { method, maxRedirects: 0, timeout: 40000, failOnStatusCode: false });
+    const response = await transport({context,config:{baseUrl}},url,
+      {method,timeout:40000,allowSecurityErrorRedirect:true});
     const body = method === 'HEAD' ? Buffer.alloc(0) : await response.body();
     const headers = response.headers();
     const type = (headers['content-type'] || '').split(';')[0];
@@ -56,6 +58,10 @@ async function probe(context, url, { method = 'GET', needles = [] } = {}) {
     return { status: 0, error: String(error.message).slice(0, 80), found: [], lead: '' };
   }
 }
+
+function probe(context,url,options){return probeWithTransport(context,url,options,authenticatedProbe);}
+// Only login/facility/logout protocol checks use this deliberately unauthenticated read.
+function probeAuthenticationState(context,url,options){return probeWithTransport(context,url,options,authenticationStateProbe);}
 
 /** 'refused' | 'error' | 'served' | 'empty' (a 2xx with no body, e.g. a HEAD or an unconfigured fragment). */
 function classify(result) {
@@ -105,10 +111,19 @@ function urlFor(config, route) {
  * its context. Pages of this context are not wired to the workflow recorder: the restricted
  * logins deliberately land on pages their role cannot fully load.
  */
-async function signIn(session, login) {
+async function signIn(session, login,{allowForbiddenSchedule=false}={}) {
   const context = await h.newContext(session.context.browser(), session.config);
   context.setDefaultTimeout(20000);
-  const page = await h.login(context, { ...session.config, testUser: login.username }, h.createRecorder());
+  const {failureMark,consumeExpectedFailure}=require('./concurrency-support'),mark=failureMark(session.recorder);
+  const page = await h.login(context, { ...session.config, testUser: login.username }, session.recorder);
+  if(allowForbiddenSchedule) {
+    const url=new URL(page.url());
+    h.assert(url.origin===session.config.baseUrl.origin&&url.pathname===new URL(h.appUrl(session.config.baseUrl,'/provider/providercontrol')).pathname,'Restricted login failed outside the schedule landing');
+    const proof=await authenticatedProbe({...session,context},url.href);
+    try {h.assert(proof.status()===403&&Object.hasOwn(proof.headers(),h.APPLICATION_HEADER)&&!h.isWafPage(proof.status(),await proof.text()),'Restricted schedule landing is not an authenticated application refusal');}
+    finally {await proof.dispose();}
+    consumeExpectedFailure(session.recorder,mark,{status:403,method:'GET',path:/\/provider\/providercontrol$/});
+  }
   return { context, page, login };
 }
 
@@ -125,4 +140,4 @@ function ledger() {
   };
 }
 
-module.exports = { probe, classify, forbiddenByApp, refusedByApp, refusedHead, urlFor, signIn, ledger };
+module.exports = { probe, probeAuthenticationState, classify, forbiddenByApp, refusedByApp, refusedHead, urlFor, signIn, ledger };

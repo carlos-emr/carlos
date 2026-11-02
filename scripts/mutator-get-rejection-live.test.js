@@ -119,7 +119,7 @@ test('the probes carry no parameters, so a hole is found without being fed', () 
   // If the contract does NOT hold for some route, the request reaches the action
   // body. Sending no demographic_no, appointment_no or form data means it finds
   // nothing to act on.
-  assert.match(SOURCE, /context\.request\.fetch\(url, \{ method, timeout, maxRedirects: 0 \}\)/);
+  assert.match(SOURCE, /authenticatedProbe\(\{context, config\}, url, \{ method, timeout, maxRedirects: 0 \}\)/);
   assert.ok(!/demographic_no=|appointment_no=|params:/.test(SOURCE),
     'the check must not supply the data a real mutation would need');
 });

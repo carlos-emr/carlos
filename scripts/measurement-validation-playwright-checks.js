@@ -51,6 +51,8 @@
  * did get through) does not leave that value in the chart.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
@@ -252,7 +254,7 @@ async function submitInvalid(page, field) {
   return { posted: true, reportedErrors: json ? json.errors || null : null, json };
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('measurement-validation',async({cancellation})=>{
   initMysqlDefaults();
   let browser = null;
   let context = null;
@@ -263,15 +265,20 @@ async function submitInvalid(page, field) {
     const description = assertTypeIsNumeric();
     highWaterId = sql(`SELECT COALESCE(MAX(id), 0) FROM measurements`);
 
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+    cancellation?.throwIfCancelled();
 
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
 
     const { page, field } = await openMeasurementPopup(context);
+    cancellation?.throwIfCancelled();
     pass(`the measurement popup renders the ${measurementType} (${description}) row of the ${groupName} group`);
 
     const outcome = await submitInvalid(page, field);
+    cancellation?.throwIfCancelled();
 
     // The chart is the assertion. Whether the refusal happened in the browser or on
     // the server, no observation may exist afterwards.
@@ -289,6 +296,7 @@ async function submitInvalid(page, field) {
     }
 
     const selfClosed = await page.evaluate(() => window.__closed === true);
+    cancellation?.throwIfCancelled();
     assert(!selfClosed,
       'the measurement popup closed itself after a REJECTED save, which tells the operator it was accepted');
     pass('the popup stays open on a rejected save instead of signalling success');
@@ -296,15 +304,20 @@ async function submitInvalid(page, field) {
     // A valid value through the same form proves the refusal above was the
     // validation rule and not a save that is broken for every input.
     await field.fill('');
+    cancellation?.throwIfCancelled();
     await field.fill(validValue);
+    cancellation?.throwIfCancelled();
     await field.dispatchEvent('blur');
+    cancellation?.throwIfCancelled();
     const [goodResponse] = await Promise.all([
       page.waitForResponse((r) => r.request().method() === 'POST'
         && /\/encounter\/Measurements\?ajax=true/.test(r.url()), { timeout: 30000 }),
       page.locator('input[name="Button"][value="Submit"]').click(),
     ]);
+    cancellation?.throwIfCancelled();
     assert(goodResponse.status() < 400, `the measurement save returned HTTP ${goodResponse.status()}`);
     const goodJson = await goodResponse.json().catch(() => null);
+    cancellation?.throwIfCancelled();
     assert(goodJson && !(goodJson.errors && goodJson.errors.length),
       `a valid ${measurementType} value was rejected too, so the refusal above proves nothing:`
       + ` ${JSON.stringify(goodJson)}`);
@@ -332,4 +345,4 @@ async function submitInvalid(page, field) {
       cleanupMysqlDefaults();
     }
   }
-})();
+});
