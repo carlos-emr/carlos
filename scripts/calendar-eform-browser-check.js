@@ -81,6 +81,8 @@ const server = http.createServer(async (req, res) => {
     // The old *_cal CSS rule hid configured controls even after the shim made
     // them keyboard-usable (#5058/#5258). Exercise the shipped CSS as well as JS.
     const controls = await browser.newPage();
+    const controlErrors = [];
+    controls.on('pageerror', error => controlErrors.push(error.message));
     await controls.setContent('<form>'
       + '<input id="native" value="2026-09-30"><button id="native_cal" type="button" aria-label="Choose date">Calendar</button>'
       + '<input id="image" value="2026-09-30"><img id="image_cal" alt="Calendar">'
@@ -118,6 +120,7 @@ const server = http.createServer(async (req, res) => {
     assert.equal(await controls.locator('#optout_cal').isVisible(), false);
     assert.equal(await controls.locator('#unused_cal').isVisible(), false);
     assert.equal(await controls.evaluate(() => window.submissions), 0);
+    assert.deepEqual(controlErrors, []);
 
     // Rourke reserves its read-only field for a double-click shortcut; the separate icon
     // must still open the picker, and the shortcut must keep the picker's state in sync.
