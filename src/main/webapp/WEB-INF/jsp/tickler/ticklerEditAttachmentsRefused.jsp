@@ -38,12 +38,15 @@
     @since 2026-11-02
 --%>
 <%@ page contentType="text/html; charset=UTF-8" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<% pageContext.setAttribute("refusalLocale", LocaleUtils.resolveBundleLocale(request)); %>
+<fmt:setLocale value="${refusalLocale}"/>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="tickler.ticklerEdit.attachments.error" var="attachmentError"/>
 <!DOCTYPE html>
-<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.toLanguageTag())}">
+<html lang="${carlos:forHtmlAttribute(refusalLocale.toLanguageTag())}">
 <head><title></title></head>
 <body>
 <p id="tickler-edit-attachments-refused"><carlos:encode value="${attachmentError}"/></p>

@@ -189,10 +189,10 @@ async function openEdit(context, recorder, ticklerNo, label) {
   return page;
 }
 
-async function postEditForm(page, fields) {
+async function postEditForm(page, fields, acceptLanguage) {
   // A classic form POST through the browser session, with the CSRF token CSRFGuard injected
   // into the page's real form, so what is exercised is the action's own gate, not CSRF.
-  return page.evaluate(async ({ ctx, fields }) => {
+  return page.evaluate(async ({ ctx, fields, acceptLanguage }) => {
     const token = document.querySelector('input[name="CSRF-TOKEN"]');
     const body = new URLSearchParams(fields);
     if (token && token.value) {
@@ -202,10 +202,13 @@ async function postEditForm(page, fields) {
       method: 'POST',
       body,
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        ...(acceptLanguage ? { 'Accept-Language': acceptLanguage } : {}),
+      },
     });
     return { status: response.status, text: await response.text() };
-  }, { ctx: config.baseUrl.pathname, fields });
+  }, { ctx: config.baseUrl.pathname, fields, acceptLanguage });
 }
 
 legacyHarness.runLegacyCheck('tickler-attachments',async({cancellation})=>{
@@ -578,6 +581,19 @@ legacyHarness.runLegacyCheck('tickler-attachments',async({cancellation})=>{
     assert(docSourceRefused.status === 400, `malformed lab refusal returned HTTP ${docSourceRefused.status}, expected 400`);
     assert(!liveRows(ticklerNo).some((row) => row.doctype === 'L' && row.labType === 'DOC'),
       `a DOC-sourced lab row was stored: ${JSON.stringify(attachmentRows(ticklerNo))}`);
+
+    for (const [language, expectedLang, expectedText] of [
+      ['de-DE', 'en', 'One or more items were refused'],
+      ['de-DE,fr-CA;q=0.9', 'fr-CA', 'Un ou plusieurs'],
+    ]) {
+      const localizedRefusal = await postEditForm(guardPage, {
+        method: 'editTickler', ticklerNo, status: 'A', priority: 'High', assignedToProviders: providerNo,
+        xml_appointment_date: serviceDate, attachmentsSubmitted: '1', labNo: `DOC:${storedDocument.documentNo}`,
+      }, language);
+      assert(localizedRefusal.status === 400, `localized refusal returned HTTP ${localizedRefusal.status}`);
+      assert(localizedRefusal.text.includes(`<html lang="${expectedLang}">`), 'refusal language tag did not follow bundle fallback');
+      assert(localizedRefusal.text.includes(expectedText), 'refusal message did not match its declared language');
+    }
 
     // Submit the real edit form into its hidden iframe. A refusal must keep every typed
     // value and the selection available for correction, then allow a successful retry.
