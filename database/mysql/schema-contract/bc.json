@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "abbd43c03a142c19f3439ed6ed24da13613620569ea02807d1662404bab5875e",
+ "migration_sha256": "2e16618f8b95b2529bfa12e45c89c97a6243c8dfdfe3a90f8609de840d773e82",
  "province": "bc",
  "schema": {
   "checks": [
@@ -17047,7 +17047,7 @@
    [
     "consultationRequestExtArchive",
     "value",
-    "text",
+    "mediumtext",
     "NO",
     null,
     "",
@@ -17431,7 +17431,7 @@
    [
     "consultationRequestsArchive",
     "allergies",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17479,7 +17479,7 @@
    [
     "consultationRequestsArchive",
     "clinicalInfo",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17491,7 +17491,7 @@
    [
     "consultationRequestsArchive",
     "concurrentProblems",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17503,7 +17503,7 @@
    [
     "consultationRequestsArchive",
     "currentMeds",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17563,7 +17563,7 @@
    [
     "consultationRequestsArchive",
     "letterheadAddress",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17635,7 +17635,7 @@
    [
     "consultationRequestsArchive",
     "reason",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -17755,7 +17755,7 @@
    [
     "consultationRequestsArchive",
     "statusText",
-    "text",
+    "mediumtext",
     "YES",
     "NULL",
     "",
@@ -20455,7 +20455,7 @@
    [
     "demographicArchive",
     "date_of_birth",
-    "char(2)",
+    "varchar(2)",
     "YES",
     "NULL",
     "",
@@ -20611,7 +20611,7 @@
    [
     "demographicArchive",
     "lastUpdateDate",
-    "date",
+    "datetime",
     "YES",
     "NULL",
     "",
@@ -20659,7 +20659,7 @@
    [
     "demographicArchive",
     "month_of_birth",
-    "char(2)",
+    "varchar(2)",
     "YES",
     "NULL",
     "",
@@ -170971,7 +170971,7 @@
    [
     "providerArchive",
     "lastUpdateDate",
-    "date",
+    "datetime",
     "YES",
     "NULL",
     "",

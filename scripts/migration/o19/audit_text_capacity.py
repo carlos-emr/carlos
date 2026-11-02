@@ -75,8 +75,18 @@ class SourceCapacitySchema(BASE_SCHEMA):
     def apply_alter(self, name, clauses):
         """Record each intermediate ALTER so a later narrowing cannot hide it."""
         for clause in g._split_top_level(clauses):
+            renamed = re.match(r"\s*change\s+(?:column\s+)?`?(\w+)`?\s+`?(\w+)`?\s+", clause, re.I)
+            prior = self.largest.get(name.lower(), {}).get(renamed.group(1).lower()) if renamed else None
             super().apply_alter(name, clause)
             self.remember(name)
+            if prior:
+                self.remember(name, {renamed.group(2): prior})
+
+    def apply(self, statement):
+        """Carry historical maxima to a renamed table as well as its current schema."""
+        super().apply(statement)
+        if statement.kind == "rename":
+            self.remember(statement.new_name, self.largest.get(statement.table.lower(), {}))
 
 
 def audit(oscar_src, carlos_baseline, manifest):

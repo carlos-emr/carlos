@@ -502,10 +502,11 @@ class Schema:
             part = part.strip()
             if not part:
                 continue
-            m = re.match(r"(?:`([^`]+)`|(\w+))\s*(.*)", part, re.S)
+            m = re.match(r"(?:`((?:[^`]|``)+)`|(\w+))\s*(.*)", part, re.S)
             if not m:
                 continue
-            quoted, first = m.group(1) is not None, m.group(1) or m.group(2)
+            quoted = m.group(1) is not None
+            first = m.group(1).replace("``", "`") if quoted else m.group(2)
             # A BACKTICKED first token is a column name, never a
             # constraint keyword -- MySQL requires the quoting precisely
             # so a column may be called `key`, `index` or `check`. Without

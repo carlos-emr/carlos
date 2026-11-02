@@ -54,6 +54,17 @@ local data rather than allowing DDL truncation. Existing data-dependent ETL
 capacity and exact-content verification remain in place. No additional
 preflight source-value measurements are introduced.
 
+Common V1.0.59.32 also widens the seven matching consultation archive fields
+and consultationRequestExtArchive.value. Consultation edits copy these values
+verbatim, so their history must accommodate the enlarged live columns. A
+physical-contract regression checks named archive/deleted/history counterparts
+for all shared text/binary fields, not only the widened fields. The same migration
+preserves time-of-day in demographicArchive.lastUpdateDate and
+providerArchive.lastUpdateDate by upgrading DATE to DATETIME. Existing dates
+retain their midnight value; previously discarded times cannot be recovered.
+The demographic archive also uses VARCHAR(2) for day/month components, matching
+the live fields and retaining their exact text rather than CHAR padding rules.
+
 Legacy sourceOfIncome text is visible, HTML encoded, in demographic details.
 This includes guardian contact details and template-only lines. Its existing
 255-character model field remains the destination. Brand and property model

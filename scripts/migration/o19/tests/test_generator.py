@@ -42,6 +42,13 @@ class TestExplicitSourceCommit(unittest.TestCase):
         self.assertEqual(schema.tables["sample"],
                          {"Fee Item": "VARCHAR(255)", "Fee Item Description": "TEXT"})
 
+    def test_quoted_column_names_unescape_doubled_backticks(self):
+        """A quoted name containing a backtick must not consume its declaration."""
+        schema = load_generator().Schema()
+        schema.apply_create("sample", "`legacy``name` VARCHAR(255), ordinary INT")
+        self.assertEqual(schema.tables["sample"],
+                         {"legacy`name": "VARCHAR(255)", "ordinary": "INT"})
+
     def test_block_comment_apostrophes_do_not_hide_or_invent_ddl(self):
         """Comments cannot change quote state or create executable declarations."""
         generator = load_generator()
