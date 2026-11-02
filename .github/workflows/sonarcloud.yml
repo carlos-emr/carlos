@@ -31,9 +31,11 @@ jobs:
               # The redirected download receives no GitHub authorization header.
               response = urllib.request.urlopen(location, timeout=60)
           text = response.read().decode('utf-8-sig', errors='replace')
-          lines = [line for line in text.splitlines() if re.search(r'\[ERROR\]|QUALITY GATE|BUILD FAILURE|EXECUTION FAILURE', line)]
-          for line in lines[-50:]:
-              print(line[:2000])
+          lines = text.splitlines()
+          for index, line in enumerate(lines):
+              if 'Error during SonarScanner Engine execution' in line:
+                  for context in lines[max(0,index-8):index+24]:
+                      print(context[:2000])
           PYLOG
       - name: Read quality gate, new-code findings and target analysis
         env:
