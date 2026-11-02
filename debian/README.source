@@ -36,6 +36,24 @@ Check any two candidate versions before publishing:
 Other conventions
 -----------------
 
+  * Source-built WARs must pass dependency hash verification. CARLOS uses
+    dependencies-lock.json through its normal Maven validate phase. DrugRef
+    has no upstream lock plugin, so debian/rules explicitly checks its
+    dependencies against debian/drugref-dependencies-lock.json before
+    compiling. No dependencies are exempt from either check.
+    When updating debian/drugref.pin, check out that exact revision and
+    regenerate the packaging lock from the CARLOS repository root:
+
+      lock="$(realpath --relative-to="$DRUGREF_SRC" debian/drugref-dependencies-lock.json)"
+      mvn -f "$DRUGREF_SRC/pom.xml" -DdependencyLock.filename="$lock" \
+        se.vandmo:dependency-lock-maven-plugin:1.1.1:lock
+
+    Review the changed coordinates and hashes with the pin update. The
+    CARLOS_WAR and DRUGREF_WAR inputs accept prebuilt artifacts and bypass
+    source-build checks; their producer must verify dependencies. The
+    release workflow verifies the downloaded CARLOS WAR's checksum and
+    build-provenance attestation, and its producer checks the CARLOS lock.
+
   * Source format is `3.0 (native)`: this repository packages itself; there
     is no upstream tarball.
   * debhelper compat is pinned at 13 on purpose — at 14, dh_installtmpfiles
