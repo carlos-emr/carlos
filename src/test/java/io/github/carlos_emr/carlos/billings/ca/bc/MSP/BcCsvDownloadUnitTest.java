@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -31,10 +32,17 @@ class BcCsvDownloadUnitTest extends CarlosWebTestBase {
             }
         };
         action.setDocFormat("csv"); action.setRepType("REP_WO");
-        assertThat(executeAction(action)).isEqualTo("none");
-        assertThat(getMockResponse().getStatus()).isEqualTo(500);
-        assertThat(getMockResponse().getContentAsByteArray()).isEmpty();
-        assertThat(getMockResponse().getHeader("Content-Disposition")).isNull();
+        try (LogCapture logs = LogCapture.forLogger(CreateBillingReport2Action.class)) {
+            assertThat(executeAction(action)).isEqualTo("none");
+            assertThat(getMockResponse().getStatus()).isEqualTo(500);
+            assertThat(getMockResponse().getContentAsByteArray()).isEmpty();
+            assertThat(getMockResponse().getHeader("Content-Disposition")).isNull();
+            assertThat(logs.events()).isNotEmpty()
+                    .allSatisfy(event -> assertThat(event.getThrown()).isNull());
+            assertThat(logs.messages())
+                    .allSatisfy(message -> assertThat(message).doesNotContain("synthetic sensitive error"))
+                    .anySatisfy(message -> assertThat(message).contains(java.io.IOException.class.getName()));
+        }
     }
 
     @Test
