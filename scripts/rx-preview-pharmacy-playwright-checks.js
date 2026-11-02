@@ -26,7 +26,7 @@
  * state itself (unlinking the patient's pharmacies and restoring them in a
  * finally), walks the real reprint journey — the Reprint panel embeds
  * viewScript as an iframe, whose own #preview iframe is the Preview2 render —
- * and then re-renders the preview with pharmacyId=null literal. Both must
+ * and then opens viewScript and Preview2 directly with pharmacyId=null literal. All must
  * render and the whole flow must stay free of 5xx responses.
  *
  * Requires the deb-install env contract (docs/ui-tests/deb-install-validation.md §6):
@@ -76,7 +76,8 @@ const config = {
   screenshotDir: process.env.RX_PREVIEW_SCREENSHOT_DIR || '/tmp',
 };
 let requestedScriptId = String(process.env.PRESCRIPTION_SCRIPT_ID || '').trim();
-const demographicNo = process.env.PRESCRIPTION_DEMOGRAPHIC_NO || '1';
+// Match the server's patient identity and the audit restore helper's positive-ID contract.
+const demographicNo = (process.env.PRESCRIPTION_DEMOGRAPHIC_NO || '1').replace(/^0+(?=\d)/, '');
 if (requestedScriptId) {
   assert(/^[0-9]{1,10}$/.test(requestedScriptId) && Number(requestedScriptId) > 0,
     'PRESCRIPTION_SCRIPT_ID must be a positive integer prescription identifier');
@@ -85,7 +86,8 @@ if (requestedScriptId) {
   requestedScriptId = String(Number(requestedScriptId));
 }
 let scriptId = requestedScriptId || null;
-assert(/^\d+$/.test(demographicNo), `PRESCRIPTION_DEMOGRAPHIC_NO must be numeric, got ${demographicNo}`);
+assert(/^[1-9]\d*$/.test(demographicNo) && Number(demographicNo) <= 2147483647,
+  'PRESCRIPTION_DEMOGRAPHIC_NO must be a positive 32-bit patient identifier');
 
 const mysqlHost = h.validateMysqlHost(process.env.MYSQL_HOST || '127.0.0.1');
 const mysqlUser = process.env.MYSQL_USER || 'root';
@@ -377,15 +379,36 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRun);
       `Preview2 unexpectedly received a pharmacy (pharmacyId=${JSON.stringify(emptyParam)} at ${emptyFrameUrl})`);
     await screenshot(rxPage, config.screenshotDir, 'rx-preview-pharmacy-empty');
 
-    // Branch 2: the literal string "null" clients can echo back, rendered as
-    // a top-level viewScript page like the prescription-signature check does.
+    // Branch 2: the literal string "null" clients can echo back. Name the
+    // patient just as the Reprint UI does; viewScript refuses patient-less
+    // requests rather than adopting another window's active patient (#5450).
     const nullPage = await context.newPage();
     wirePage(nullPage, 'rx-null-literal', recorder);
-    await gotoApp(nullPage, config.baseUrl, `/rx/viewScript?scriptId=${scriptId}&pharmacyId=null`);
+    const nullResponse = await gotoApp(nullPage, config.baseUrl,
+      `/rx/viewScript?demographicNo=${demographicNo}&scriptId=${scriptId}&pharmacyId=null`);
+    assert(nullResponse && nullResponse.status() === 200,
+      `reprint view (pharmacyId=null literal) expected HTTP 200, got ${nullResponse ? nullResponse.status() : 'no response'}`);
     await nullPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(nullPage, 'reprint view (pharmacyId=null literal)');
-    await assertPreviewRenders(nullPage.mainFrame(), 'reprint preview (pharmacyId=null literal)');
+    const nullPreviewUrl = await assertPreviewRenders(nullPage.mainFrame(), 'reprint preview (pharmacyId=null literal)');
+    const nullPreviewParams = new URL(nullPreviewUrl).searchParams;
+    // ViewScript2.jsp's noNull scrubber normalizes the literal "null" to empty.
+    assert(nullPreviewParams.get('pharmacyId') === '',
+      'viewScript did not normalize literal pharmacyId=null to an empty preview pharmacy');
+    assert(nullPreviewParams.get('demographicNo') === String(Number(demographicNo)) && nullPreviewParams.get('scriptId') === scriptId,
+      'literal pharmacyId=null preview did not retain the requested patient and prescription');
     await screenshot(nullPage, config.screenshotDir, 'rx-preview-pharmacy-null-literal');
+
+    // Bypass viewScript's scrubber to exercise Preview2.jsp's literal-null guard too.
+    const directNullPage = await context.newPage();
+    wirePage(directNullPage, 'rx-preview-null-literal', recorder);
+    const directNullResponse = await gotoApp(directNullPage, config.baseUrl,
+      `/rx/ViewPreview2?demographicNo=${demographicNo}&scriptId=${scriptId}&pharmacyId=null`);
+    assert(directNullResponse && directNullResponse.status() === 200,
+      `direct preview (pharmacyId=null literal) expected HTTP 200, got ${directNullResponse ? directNullResponse.status() : 'no response'}`);
+    await assertNotErrorPage(directNullPage, 'direct preview (pharmacyId=null literal)');
+    await directNullPage.locator('#signature').waitFor({ state: 'attached', timeout: 30000 });
+    await directNullPage.close();
 
     // Explicit saved-script previews must refuse invalid/foreign identities even while a
     // valid same-patient reprint is open; neither may silently render the current workspace.

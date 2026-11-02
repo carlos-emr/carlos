@@ -43,7 +43,7 @@ import java.time.ZoneId;
 
 import jakarta.persistence.Query;
 
-import org.apache.commons.codec.binary.Base64;
+import java.util.Base64;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessageInfo;
@@ -152,7 +152,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         String sql = "SELECT a.lab_no as id, m2.message, a.lab_no AS lab_no_A, b.lab_no AS lab_no_B, a.obr_date as labDate_A, b.obr_date as labDate_B FROM hl7TextInfo a, hl7TextInfo b, hl7TextMessage m2 WHERE m2.lab_id = a.lab_no AND a.accessionNum !='' AND a.accessionNum=b.accessionNum AND b.lab_no IN ( SELECT lab_id FROM hl7TextMessage WHERE message=?1 ) ORDER BY a.obr_date, a.lab_no";
         Query query = entityManager.createNativeQuery(sql, Hl7TextMessageInfo.class);
         try {
-            query.setParameter(1, (new String(Base64.encodeBase64(hl7msg.getBytes(MiscUtils.DEFAULT_UTF8_ENCODING)), MiscUtils.DEFAULT_UTF8_ENCODING)));
+            query.setParameter(1, (new String(Base64.getEncoder().encode(hl7msg.getBytes(MiscUtils.DEFAULT_UTF8_ENCODING)), MiscUtils.DEFAULT_UTF8_ENCODING)));
         } catch (UnsupportedEncodingException e) {
 
             MiscUtils.getLogger().error("Error setting query parameter hl7msg ", e);
@@ -294,7 +294,10 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         return findLabAndDocsViaMagic(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, searchProvider, patientSearch, startDate, endDate, null);
     }
 
-    @SuppressWarnings("unchecked")
+    // S3776: this query body is unchanged from release/2026.08 b4c0dfc94e6.
+    // #5483 changes only encoding elsewhere in this file; restructuring this
+    // permission-sensitive SQL builder needs its own behavior-preservation review.
+    @SuppressWarnings({"unchecked", "java:S3776"})
     @NativeSql({"hl7TextInfo", "providerLabRouting", "ctl_document", "demographic"})
     @Override
     public List<Object[]> findLabAndDocsViaMagic(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, boolean searchProvider, boolean patientSearch, Date startDate, Date endDate, Date acknowledgedSince) {

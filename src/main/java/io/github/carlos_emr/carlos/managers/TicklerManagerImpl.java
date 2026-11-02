@@ -28,6 +28,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.managers;
 
@@ -535,44 +536,7 @@ public class TicklerManagerImpl implements TicklerManager {
     @Override
     public void sendNotification(LoggedInInfo loggedInInfo, Tickler t) throws IOException {
         throw new UnsupportedOperationException("This method is no longer supported.");
-//        checkPrivilege(loggedInInfo, PRIVILEGE_READ);
 
-//        if (t == null) {
-//            throw new IllegalArgumentException("Tickler object required to send tickler email");
-//        }
-//
-//        boolean ticklerEditEnabled = Boolean
-//                .parseBoolean(CarlosProperties.getInstance().getProperty("tickler_edit_enabled"));
-//        boolean ticklerEmailEnabled = Boolean
-//                .parseBoolean(CarlosProperties.getInstance().getProperty("tickler_email_enabled"));
-//
-//        if (ticklerEditEnabled & ticklerEmailEnabled) {
-//            String emailTo = t.getDemographic().getEmail();
-//            if (EmailUtilsOld.isValidEmailAddress(emailTo)) {
-//
-//                InputStream is = TicklerManager.class.getResourceAsStream(TICKLER_EMAIL_TEMPLATE_FILE);
-//                String emailTemplate = IOUtils.toString(is);
-//                String emailSubject = CarlosProperties.getInstance().getProperty("tickler_email_subject");
-//                String emailFrom = CarlosProperties.getInstance().getProperty("tickler_email_from_address");
-//
-//                ClinicDAO clinicDao = (ClinicDAO) SpringUtils.getBean(ClinicDAO.class);
-//                Clinic c = clinicDao.getClinic();
-//
-//                VelocityContext velocityContext = VelocityUtils.createVelocityContextWithTools();
-//                velocityContext.put("tickler", t);
-//                velocityContext.put("clinic", c);
-//
-//                String mergedSubject = VelocityUtils.velocityEvaluate(velocityContext, emailSubject);
-//                String mergedBody = VelocityUtils.velocityEvaluate(velocityContext, emailTemplate);
-//
-//                EmailUtilsOld.sendEmail(emailTo, null, emailFrom, null, mergedSubject, mergedBody, null);
-//
-//                // --- log action ---
-//                LogAction.addLogSynchronous(loggedInInfo, "TicklerManager.sendNotification", "ticklerId=" + t.getId());
-//            } else {
-//                throw new EmailException("Email Address is invalid");
-//            }
-//        }
     }
 
     @Override

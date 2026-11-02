@@ -37,7 +37,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.commons.lang3.time.DateUtils;
 import io.github.carlos_emr.carlos.PMmodule.utility.DateTimeFormatUtils;
 import io.github.carlos_emr.carlos.commn.model.Mortalities;
 import io.github.carlos_emr.carlos.commn.model.ReportStatistic;
@@ -100,12 +99,12 @@ public class PopulationReport2Action extends ActionSupport {
 
         // simple caching mechanism (because this report is open to the public and we don't want the public smacking our server around)
         Figures figures = CACHED_FIGURES.get();
-        if (figures == null || System.currentTimeMillis() - figures.retrievedAt() > DateUtils.MILLIS_PER_HOUR) {
+        if (figures == null || System.currentTimeMillis() - figures.retrievedAt() > java.time.Duration.ofHours(1).toMillis()) {
             // Keep one refresh in flight. Atomic publication alone lets every concurrent cache
             // miss run all of the report's expensive queries before any result has been cached.
             synchronized (REFRESH_LOCK) {
                 figures = CACHED_FIGURES.get();
-                if (figures == null || System.currentTimeMillis() - figures.retrievedAt() > DateUtils.MILLIS_PER_HOUR) {
+                if (figures == null || System.currentTimeMillis() - figures.retrievedAt() > java.time.Duration.ofHours(1).toMillis()) {
                     // Arguments are evaluated left to right: the cache time is taken after every
                     // figure, and a failing figure leaves nothing published.
                     figures = new Figures(Calendar.getInstance().getTime(),

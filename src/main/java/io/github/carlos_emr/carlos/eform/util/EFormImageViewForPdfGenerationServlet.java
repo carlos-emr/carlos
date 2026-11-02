@@ -25,7 +25,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.eform.actions.DisplayImage2Action;
@@ -139,7 +138,7 @@ public final class EFormImageViewForPdfGenerationServlet extends HttpServlet {
             // nosemgrep: carlos.httpservlet-path-traversal
             try (InputStream stream = new FileInputStream(file)) {
                 OutputStream outputStream = response.getOutputStream();
-                IOUtils.copy(stream, outputStream);
+                stream.transferTo(outputStream);
             }
             logger.debug("Streamed eForm asset to render browser: {}", LogSafe.sanitize(fileName));
         } catch (ServletException | IOException e) {

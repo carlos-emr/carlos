@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
@@ -42,7 +43,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
 import org.apache.commons.lang3.time.DateFormatUtils;
-import org.apache.tools.ant.util.DateUtils;
+import io.github.carlos_emr.carlos.utility.IsoDates;
 import io.github.carlos_emr.carlos.PMmodule.model.Program;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager;
@@ -89,10 +90,10 @@ public class ProgramService extends AbstractServiceImpl {
         AbstractSearchResponse<AdmissionTo1> response = new AbstractSearchResponse<AdmissionTo1>();
 
         if (day == null) {
-            day = DateFormatUtils.format(Calendar.getInstance(), DateUtils.ISO8601_DATE_PATTERN);
+            day = DateFormatUtils.format(Calendar.getInstance(), IsoDates.ISO8601_DATE_PATTERN);
         }
 
-        Date d = new SimpleDateFormat(DateUtils.ISO8601_DATE_PATTERN).parse(day);
+        Date d = new SimpleDateFormat(IsoDates.ISO8601_DATE_PATTERN).parse(day);
 
         if (programNo == null) {
             //get default
