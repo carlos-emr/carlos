@@ -33,7 +33,6 @@ import java.util.Locale;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
@@ -72,7 +71,8 @@ public final class LoggedInInfo implements Serializable {
 
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return "LoggedInInfo[providerNo=" + LogSafe.sanitize(getLoggedInProviderNo())
+                + ", facilityId=" + (currentFacility == null ? null : currentFacility.getId()) + "]";
     }
 
     /**

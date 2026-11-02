@@ -52,7 +52,6 @@ import jakarta.persistence.TemporalType;
 import jakarta.persistence.Transient;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.builder.ToStringBuilder;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.prescript.util.RxUtil;
@@ -862,7 +861,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
 
     @Override
     public String toString() {
-        return ToStringBuilder.reflectionToString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 
     /**

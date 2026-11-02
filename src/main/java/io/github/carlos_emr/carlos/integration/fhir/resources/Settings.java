@@ -28,7 +28,6 @@ package io.github.carlos_emr.carlos.integration.fhir.resources;
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.FhirDestination;
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.Region;
 
@@ -71,7 +70,7 @@ public class Settings {
     }
 
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 
 }

@@ -29,7 +29,6 @@
 
 package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean;
 
-import org.apache.commons.lang3.builder.ToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
@@ -263,6 +262,6 @@ public class BpmhForm2Bean implements Serializable {
 
     @Override
     public String toString() {
-        return ToStringBuilder.reflectionToString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 }

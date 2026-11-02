@@ -47,7 +47,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.struts2.ActionContext;
 import org.apache.struts2.ServletActionContext;
 
@@ -183,7 +182,7 @@ public class FormTransportContainer {
     }
 
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 
     private static final class CapturingResponseWrapper extends HttpServletResponseWrapper {

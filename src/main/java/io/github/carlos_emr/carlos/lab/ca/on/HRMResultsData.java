@@ -17,7 +17,6 @@ package io.github.carlos_emr.carlos.lab.ca.on;
 
 import java.util.*;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMReport;
@@ -219,12 +218,7 @@ public class HRMResultsData {
 
         }
 
-        if (logger.isDebugEnabled()) {
-            for (LabResultData temp : labResults.values()) {
-                logger.debug("------------------");
-                logger.debug(ReflectionToStringBuilder.toString(temp));
-            }
-        }
+        logger.debug("HRM result count: {}", labResults.size());
 
         return labResults.values();
     }

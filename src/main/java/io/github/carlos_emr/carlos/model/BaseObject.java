@@ -29,28 +29,35 @@ package io.github.carlos_emr.carlos.model;
 
 import java.io.Serializable;
 
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
 
 
 /**
- * deprecated this super class should not be used, both the equal hash code methods here
- * are fairly inefficient and the equals method most like doesn't do what you want it to do
- * as it checks all fields, not the ID of this model object, nor pointer reference.
+ * Legacy model base. New entities should use the current model hierarchy.
+ * Equality uses an explicitly supplied persistent key, with reference identity for
+ * unsaved objects. Neither diagnostics nor equality traverses patient records or associations.
  */
 public class BaseObject implements Serializable {
+    @Override
     public String toString() {
-        return ToStringBuilder.reflectionToString(this,
-                ToStringStyle.MULTI_LINE_STYLE);
+        return getClass().getSimpleName() + "[protected]";
     }
 
+    /** Subclasses with persistent keys opt into identifier equality. */
+    protected Object equalityId() {
+        return null;
+    }
+
+    @Override
     public boolean equals(Object o) {
-        return EqualsBuilder.reflectionEquals(this, o);
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Object id = equalityId();
+        return id != null && id.equals(((BaseObject) o).equalityId());
     }
 
+    @Override
     public int hashCode() {
-        return HashCodeBuilder.reflectionHashCode(this);
+        // Stable when an unsaved entity receives its ID; never touches a lazy association.
+        return getClass().hashCode();
     }
 }

@@ -37,7 +37,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 @Entity
 public class OscarJobType extends AbstractModel<Integer> {
@@ -108,7 +107,7 @@ public class OscarJobType extends AbstractModel<Integer> {
     }
 
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 
 }

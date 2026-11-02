@@ -1,0 +1,14 @@
+# Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later.
+rules:
+  - id: carlos-no-reflective-object-methods
+    languages: [generic]
+    severity: ERROR
+    message: >-
+      Reflective object dumps and equality can expose credentials or patient data
+      and load associations. Use explicit safe diagnostics and explicit equality.
+    pattern-regex: '\b(ReflectionToStringBuilder|reflectionToString|reflectionEquals|reflectionHashCode)\b'
+    paths:
+      include: ['**/*.java', '**/*.jsp', '**/*.jspf']
+    metadata:
+      category: security
+      cwe: 'CWE-532: Insertion of Sensitive Information into Log File'

@@ -44,8 +44,6 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 
 import io.github.carlos_emr.carlos.util.UtilMisc;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -1449,8 +1447,7 @@ public class Billingmaster {
     }
 
     public String toString() {
-        return ToStringBuilder.reflectionToString(this,
-                ToStringStyle.MULTI_LINE_STYLE);
+        return getClass().getSimpleName() + "[protected]";
     }
 
     ////

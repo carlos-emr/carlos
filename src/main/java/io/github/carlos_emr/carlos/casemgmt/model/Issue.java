@@ -78,6 +78,11 @@ public class Issue extends BaseObject {
 
     @jakarta.persistence.Column(name = "issue_id")
 
+    @Override
+    protected Object equalityId() {
+        return getId();
+    }
+
     public Long getId() {
         return id;
     }

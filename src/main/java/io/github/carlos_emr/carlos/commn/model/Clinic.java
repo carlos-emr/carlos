@@ -38,7 +38,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.integration.fhir.interfaces.ContactInterface;
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.ContactRelationship;
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.ContactType;
@@ -336,6 +335,6 @@ public class Clinic extends AbstractModel<Integer> implements Serializable, Cont
     }
 
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 }

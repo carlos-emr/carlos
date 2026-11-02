@@ -627,7 +627,7 @@ public class NotesService extends AbstractServiceImpl {
         note.setUpdateDate(caseMangementNote.getUpdate_date());
         note.setObservationDate(caseMangementNote.getObservation_date());
         note.setNote(caseMangementNote.getNote());
-        logger.info("note should return like this " + note.getNote());
+        logger.debug("Note prepared");
         return note;
 		
 		
@@ -1719,12 +1719,12 @@ public class NotesService extends AbstractServiceImpl {
             throw new RuntimeException("Access Denied");
         }
 
-        logger.info("The config " + json.toString());
+        logger.debug("Note configuration received");
 
         String strNote = json.get("note") != null ? json.get("note").asText() : null;
         Integer noteId = json.get("noteId") != null ? json.get("noteId").asInt() : null;
 
-        logger.info("want to save note id " + noteId + " with value " + strNote);
+        logger.debug("Saving note");
 
         ObjectNode tickler = (ObjectNode) json.get("tickler");
         Integer ticklerId = tickler.get("id") != null ? tickler.get("id").asInt() : null;
