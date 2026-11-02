@@ -76,7 +76,15 @@ reload_nginx() {
         nginx -t || true
         return 1
     fi
-    systemctl reload nginx.service || systemctl restart nginx.service
+    # nginx's package may have failed to start on its default IPv6 listener.
+    # Reloading an inactive unit prints a failure even when the fallback
+    # succeeds. Choose start directly; keep the reload/restart recovery for
+    # an already-running front door.
+    if systemctl is-active --quiet nginx.service; then
+        systemctl reload nginx.service || systemctl restart nginx.service
+    else
+        systemctl start nginx.service
+    fi
 }
 
 # OCSP stapling is only meaningful with a publicly-issued certificate. With a
