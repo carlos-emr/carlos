@@ -16,11 +16,14 @@ const h = {assert:(ok,message)=>assert(ok,message),sqlString:value=>"'"+String(v
 function load(name, overrides={}, {entry=false, sandbox={}}={}) {
   const filename=path.join(__dirname,name), module={exports:{}};
   function req(id) {
+    if (id === './uncertain-server-writes') return require('./lib/uncertain-server-writes');
+    if (id === './lib/authenticated-probe') return require('./lib/authenticated-probe');
     if(Object.hasOwn(overrides,id))return overrides[id];
     if(id==='./lib/playwright-harness'||id==='./playwright-harness')return h;
     if(id.startsWith('node:'))return require(id);
     if(id==='./lib/workflow-session')return {runWorkflow(){}};
     if(id==='./lib/playwright-ui'||id==='./playwright-ui'||id==='./lib/playwright-link-audit')return {};
+    if(id==='./provider-navigation-fixture')return {providerNavigationFixture:()=>null};
     if(id==='../master-record-tabs-playwright-checks'||id==='../echart-navbar-modules-playwright-checks')return {};
     throw Error('Unexpected pure-control import '+id);
   }

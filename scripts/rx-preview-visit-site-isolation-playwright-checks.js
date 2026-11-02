@@ -199,7 +199,7 @@ async function workflow(s) {
     h.assert(new URL(rxA.url()).searchParams.get('demographicNo') === A, 'The day sheet\'s Rx link opened another patient than A');
     const master = await openFromDaySheet('B', masterLink('B'), '/demographic/DemographicEdit');
     await master.close();
-    const { address, shown } = await saveAndPrint(rxA, 'A', A);
+    const { print, address, shown } = await saveAndPrint(rxA, 'A', A);
     // A clinic name is text: its markup is shown, not applied.
     const labels = await address.evaluate(select => Array.from(select.options, option => option.label));
     h.assert(labels.includes(sites.SD.name), 'The print window\'s address list does not show a clinic name with markup as written');
@@ -213,6 +213,7 @@ async function workflow(s) {
       address.selectOption({ label: sites.SC.name }),
     ]);
     h.assert(remembered.ok(), `Remembering the picked address answered HTTP ${remembered.status()}`);
+    await print.frameLocator('#preview').locator('#clinicAddress').filter({hasText:'33 Charlie Road'}).waitFor({state:'visible',timeout:TIMEOUT});
     await rxA.close();
     // The page's fetch never reads the empty reply, so its body may stay open until the window
     // closes and Chromium then cancels it (net::ERR_ABORTED). Wait, briefly, for that to be

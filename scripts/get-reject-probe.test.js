@@ -18,8 +18,10 @@ function session(responses) {
   return {
     config: { baseUrl: new URL('https://localhost/carlos/') },
     context: {
+      cookies: async () => [{ name: 'JSESSIONID', value: 'synthetic', domain: 'localhost', path: '/carlos', expires: -1 }],
       request: {
-        fetch: async () => {
+        fetch: async (url) => {
+          if(new URL(url).pathname.endsWith('/status/SessionHeartbeat'))return {status:()=>200,json:async()=>({valid:true}),dispose:async()=>{}};
           const next = queue.shift();
           return { status: () => next.status, headers: () => next.headers || {}, text: async () => next.body || '' };
         },

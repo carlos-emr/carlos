@@ -46,13 +46,9 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only for an intentional non-local test target
  *   ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable non-local test database
  *
- * BASE_URL and MYSQL_HOST are both restricted to local targets by default, but
- * MYSQL_HOST is held to a stricter definition. Browsing accepts any private
- * network address; seeding does not, because a shared clinic database usually
- * lives on one. Only loopback and the devcontainer service names reach the
- * database without ALLOW_NON_LOCAL_MYSQL_HOST=true. A browse target that is not
- * plainly loopback must additionally use https, since this script logs in with
- * real credentials.
+ * Shared validation allows loopback targets by default. Compose service names
+ * and private LAN targets require the corresponding explicit non-local opt-in.
+ * Credential-bearing browser requests outside loopback require HTTPS.
  */
 
 const { execFileSync } = require('child_process');
@@ -67,95 +63,15 @@ const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING, shouldIgnor
 // host.docker.internal reaches the developer's own machine; all resolve only
 // from inside that environment. 0.0.0.0 is deliberately absent: it is a bind
 // address rather than a connect target.
-const LOCAL_HOSTS = new Set([
-  'localhost',
-  '127.0.0.1',
-  '::1',
-  'host.docker.internal',
-  'carlos',
-  'db',
-]);
-
-function isPrivateIpv4(host) {
-  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-  if (!match) {
-    return false;
-  }
-  const octets = match.slice(1).map(Number);
-  if (octets.some((octet) => octet > 255)) {
-    return false;
-  }
-  const [a, b] = octets;
-  return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
-}
-
-function normalizeHost(rawHost) {
-  return rawHost.toLowerCase().replace(/^\[|\]$/g, '');
-}
-
-function isLocalHost(rawHost) {
-  const host = normalizeHost(rawHost);
-  return LOCAL_HOSTS.has(host) || isPrivateIpv4(host);
-}
-
-/*
- * Hosts that are unambiguously this machine or its private compose network.
- *
- * Deliberately excludes the private IPv4 ranges and host.docker.internal that
- * isLocalHost accepts, since those reach the developer's host or a shared
- * network.
- *
- * Two things key off this rather than the looser check:
- *   - the database target, because seeding writes patients and OHIP claims;
- *   - whether TLS verification may be skipped, because this script logs in with
- *     real credentials and any non-loopback target must prove its certificate.
- */
-const EXACT_LOCAL_HOSTS = new Set([
-  'localhost',
-  '127.0.0.1',
-  '::1',
-  'db',
-  'carlos',
-]);
-
-function isExactLocalHost(rawHost) {
-  return EXACT_LOCAL_HOSTS.has(normalizeHost(rawHost));
-}
-
 function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-  // Credentials in the URL would travel into Playwright navigations and can
-  // surface in request or failure logging, so reject them outright.
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not contain embedded credentials');
-  }
-  if (!isLocalHost(parsed.hostname) && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${parsed.hostname}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  // This script logs in with real credentials, so anything that is not plainly
-  // loopback has to prove its certificate. Matches the same rule in
-  // scripts/patient-search-dob-playwright-checks.js.
-  if (!isExactLocalHost(parsed.hostname) && parsed.protocol !== 'https:') {
-    throw new Error(`Non-loopback BASE_URL host ${parsed.hostname} must use https`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
+  // Delegate host/protocol/credential rules; this legacy caller retains its return shape.
+  const parsed = require('./lib/playwright-harness').validateCredentialBaseUrl(rawBaseUrl);
   return parsed;
 }
 
-/*
- * This check writes synthetic patients and OHIP claims, so the database target is
- * gated harder than the browsing target — see isExactLocalHost. Without this an
- * exported MYSQL_HOST could seed fixtures straight into a shared or production
- * patient schema, which no amount of cleanup fully undoes.
- */
+// Fixture writes require loopback or the explicit disposable-database opt-in.
 function validateMysqlHost(rawHost) {
-  if (!isExactLocalHost(rawHost) && process.env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
-    throw new Error(`Refusing to seed synthetic patients into non-local MYSQL_HOST ${rawHost}; set ALLOW_NON_LOCAL_MYSQL_HOST=true for a disposable test database`);
-  }
-  return rawHost;
+  return require('./lib/playwright-harness').validateMysqlHost(rawHost);
 }
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -163,6 +79,7 @@ const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
+// The disposable devcontainer opts into its db service in docker-compose.yml.
 const mysqlHost = validateMysqlHost(process.env.MYSQL_HOST || 'db');
 const mysqlUser = process.env.MYSQL_USER || 'root';
 const mysqlPassword = process.env.MYSQL_PASSWORD || 'password';

@@ -74,6 +74,7 @@ function scenario({ hideAddress = false, initialOutcome = 'failed', releaseStatu
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, 'account-unlock-address-mode-playwright-checks.js'), 'utf8'), {
     module, process: { env: { EXCLUSIVE: exclusive } },
     require(name) {
+    if (name === './lib/authenticated-probe') return require('./lib/authenticated-probe');
       if (name.startsWith('node:')) return require(name);
       if (name === './lib/playwright-harness') return {
         ...h, assertStrictPage() {}, newContext: async () => probes,

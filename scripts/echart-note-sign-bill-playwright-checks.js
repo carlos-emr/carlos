@@ -48,6 +48,8 @@
  *   sheet shows the appointment).
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { createOwnedPatient, newOwnedMarker, removeOwnedPatient } = require('./lib/owned-patient');
@@ -253,16 +255,9 @@ function runCleanup() {
 }
 // Node does not run finally blocks on SIGINT/SIGTERM (the suite loop's `timeout`
 // sends TERM), so restore the fixtures here too before exiting.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`${signal} received; restoring fixtures before exiting.`);
-    runCleanup();
-    cleanupMysqlDefaults();
-    process.exit(130);
-  });
-}
+// Signals unwind through the shared entry point and the existing finally below.
 
-(async () => {
+legacyHarness.runLegacyCheck('echart-note-sign-bill',async({cancellation})=>{
   const recorder = createRecorder();
   initMysqlDefaults();
   // Staging and the browser launch sit inside the protected scope so a failure in
@@ -273,31 +268,44 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     assert(provider, 'the configured test login has no provider');
     demographicNo = createOwnedPatient(ownedSql, { marker: ownedMarker, provider });
     createAppointment();
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1600, height: 1100 } });
+    cancellation?.throwIfCancelled();
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     browserSessionId = (await context.cookies()).find((cookie) => cookie.name === 'JSESSIONID')?.value || null;
+    cancellation?.throwIfCancelled();
     assert(browserSessionId, 'authenticated browser session cookie is missing');
     const daySheet = await openDaySheet(context, recorder);
+    cancellation?.throwIfCancelled();
 
     // 1-3. Timer, Save, Sign & Save.
     const chart = await openChartFromAppointment(context, daySheet, recorder, 'echart-save');
+    cancellation?.throwIfCancelled();
     for (const viewport of [{width: 1366, height: 768}, {width: 1920, height: 1400}, {width: 1600, height: 1100}]) {
       await chart.setViewportSize(viewport);
+    cancellation?.throwIfCancelled();
       const saveButton = chart.locator('#saveImg').first();
       await saveButton.scrollIntoViewIfNeeded({timeout: 10000});
+    cancellation?.throwIfCancelled();
       const bounds = await saveButton.boundingBox();
+    cancellation?.throwIfCancelled();
       assert(bounds && bounds.y >= 0 && bounds.y + bounds.height <= viewport.height,
         `Save button cannot be reached at ${viewport.width}x${viewport.height}: ${JSON.stringify(bounds)}`);
     }
     await typeIntoActiveNote(chart, savedText);
+    cancellation?.throwIfCancelled();
     await pasteTimer(chart);
+    cancellation?.throwIfCancelled();
     await clickAndExpectSave(chart, '#saveImg', 'save');
+    cancellation?.throwIfCancelled();
     let saved = null;
     for (let attempt = 0; attempt < 20 && !saved; attempt += 1) {
       saved = latestNoteWith(savedText);
       if (!saved) {
         await chart.waitForTimeout(500);
+    cancellation?.throwIfCancelled();
       }
     }
     assert(saved, 'Save did not create the casemgmt_note row');
@@ -307,6 +315,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
       const field = document.querySelector('input[name="noteId"]');
       return field && field.value === noteId;
     }, saved.noteId, { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     assert(saved.signed === '0', `saved note was already signed (${saved.signed})`);
     assert(/Start Time:/.test(saved.note) && /End Time:/.test(saved.note), 'saved note did not keep the pasted timer lines');
     assert(saved.appt === appointmentNo,
@@ -314,7 +323,9 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 
     const closed = chart.waitForEvent('close', { timeout: 30000 }).then(() => true).catch(() => false);
     await clickAndExpectSave(chart, '#signSaveImg', 'saveAndExit');
+    cancellation?.throwIfCancelled();
     const didClose = await closed;
+    cancellation?.throwIfCancelled();
     assert(didClose, 'Sign & Save did not close the chart window');
     const signed = latestNoteWith(savedText);
     assert(signed && signed.signed === '1', `Sign & Save did not sign the note (signed=${signed && signed.signed})`);
@@ -323,30 +334,43 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     // 4. Sign Save & Bill on a fresh note. The closing chart reloads its
     // opener, so let that settle before reloading the day sheet ourselves.
     await daySheet.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await daySheet.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await daySheet.reload({ waitUntil: 'domcontentloaded' }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await daySheet.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     const chart2 = await openChartFromAppointment(context, daySheet, recorder, 'echart-bill');
+    cancellation?.throwIfCancelled();
     await typeIntoActiveNote(chart2, billedText);
+    cancellation?.throwIfCancelled();
     const billButton = chart2.locator('input[type="image"][title="Sign Save & Bill"]');
     assert(await billButton.count(), 'the chart did not render the Sign Save & Bill button');
+    cancellation?.throwIfCancelled();
     const [billResponse] = await Promise.all([
       chart2.waitForResponse((r) => r.request().method() === 'POST' && /\/CaseManagementEntry/.test(r.url())
         && new URLSearchParams(r.request().postData() || '').get('toBill') === 'true', { timeout: 30000 }),
       pressChartButton(chart2, billButton),
     ]);
+    cancellation?.throwIfCancelled();
     assert(billResponse.status() < 400, `bill save returned HTTP ${billResponse.status()}`);
     await chart2.waitForURL(/\/billing\?/, { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await chart2.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(chart2, 'bill form after Sign Save & Bill');
+    cancellation?.throwIfCancelled();
     const billUrl = new URL(chart2.url());
     assert(billUrl.searchParams.get('appointment_no') === appointmentNo, `bill hand-off carried appointment ${billUrl.searchParams.get('appointment_no')}`);
     assert(billUrl.searchParams.get('demographic_no') === demographicNo, 'bill hand-off did not carry the patient');
     assert(billUrl.searchParams.get('bNewForm') === '1', 'bill hand-off did not open a new bill form');
     assert(await chart2.locator('select[name="xml_billtype"]').count(), 'bill form did not render after the hand-off');
+    cancellation?.throwIfCancelled();
     const billed = latestNoteWith(billedText);
     assert(billed && billed.signed === '1' && billed.signingProviderNo === providerNo, `Sign Save & Bill did not sign the note (${JSON.stringify(billed)})`);
     await chart2.close().catch(() => {});
+    cancellation?.throwIfCancelled();
 
     assertNoPageErrors(recorder);
     assert(recorder.badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(recorder.badResponses, null, 2)}`);
@@ -363,4 +387,4 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     runCleanup();
     cleanupMysqlDefaults();
   }
-})();
+});
