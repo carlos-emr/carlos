@@ -10,6 +10,41 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Read resource prerequisites and runner memory
+        env:
+          ACTIONS_READ_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PYART'
+          import os, io, json, re, urllib.request, urllib.error, zipfile
+          print('RUNNER_MEMORY_BYTES', os.sysconf('SC_PHYS_PAGES') * os.sysconf('SC_PAGE_SIZE'))
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, request, fp, code, message, headers, newurl):
+                  return None
+          request = urllib.request.Request('https://api.github.com/repos/carlos-emr/carlos/actions/artifacts/13183214661/zip', headers={'Authorization':'Bearer ' + os.environ['ACTIONS_READ_TOKEN'], 'Accept':'application/vnd.github+json'})
+          try:
+              response = urllib.request.build_opener(NoRedirect).open(request, timeout=30)
+          except urllib.error.HTTPError as failure:
+              if failure.code != 302:
+                  raise
+              response = urllib.request.urlopen(failure.headers['Location'], timeout=60)
+          evidence = zipfile.ZipFile(io.BytesIO(response.read()))
+          print('EVIDENCE_FILES', json.dumps(evidence.namelist()))
+          def selected(value, path=''):
+              if isinstance(value, dict):
+                  for key, item in value.items():
+                      selected(item, path + '/' + key)
+              elif isinstance(value, list):
+                  for index, item in enumerate(value[:20]):
+                      selected(item, path + '/' + str(index))
+              elif re.search(r'space|avail|free|required|reserve|stage|failure|error|reason', path, re.I) and not re.search(r'token|password|authorization|credential', path, re.I):
+                  print('RESOURCE_FIELD', path, str(value)[:400])
+          for name in evidence.namelist():
+              if name.endswith('.json'):
+                  try:
+                      selected(json.load(evidence.open(name)), name)
+                  except (ValueError, UnicodeError):
+                      pass
+          PYART
       - name: Read the failed target branch analysis log
         env:
           ACTIONS_READ_TOKEN: ${{ github.token }}
