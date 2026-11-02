@@ -89,14 +89,18 @@ class BaseObjectIdentityUnitTest {
         left.setSocialHistory("FAKE-private-history");
         assertThat(left).isEqualTo(right).hasSameHashCodeAs(right);
         right.setId(11L);
-        assertThat(left).isNotEqualTo(right).isNotEqualTo(null).isNotEqualTo(new ClientImage());
+        assertThat(left).isNotEqualTo(right);
+        for (Object different : new Object[] {null, new ClientImage()}) {
+            assertThat(left.equals(different)).isFalse();
+        }
     }
 
     @Test
     void shouldRetainHashSetMembership_whenUnsavedEntityReceivesKey() {
         ClientImage image = new ClientImage();
         ClientImage other = new ClientImage();
-        assertThat(image).isEqualTo(image).isNotEqualTo(other);
+        assertThat(image.equals(image)).isTrue();
+        assertThat(image).isNotEqualTo(other);
         HashSet<ClientImage> images = new HashSet<>();
         images.add(image);
         image.setId(20L);
@@ -121,8 +125,10 @@ class BaseObjectIdentityUnitTest {
                 .hasSameHashCodeAs(new CtlDocumentPK("demographic", 1, 2))
                 .isNotEqualTo(new CtlDocumentPK("program", 1, 2))
                 .isNotEqualTo(new CtlDocumentPK("demographic", 9, 2))
-                .isNotEqualTo(new CtlDocumentPK("demographic", 1, 9))
-                .isNotEqualTo(null).isNotEqualTo("other");
+                .isNotEqualTo(new CtlDocumentPK("demographic", 1, 9));
+        for (Object different : new Object[] {null, "other"}) {
+            assertThat(key.equals(different)).isFalse();
+        }
         assertThat(new CtlDocumentPK()).isEqualTo(new CtlDocumentPK())
                 .hasSameHashCodeAs(new CtlDocumentPK());
     }

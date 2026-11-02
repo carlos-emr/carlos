@@ -98,8 +98,8 @@ class SafeDiagnosticUnitTest {
 
     @Test
     void shouldSupportBackgroundThreads_withNoLoginContext() {
-        assertThat(new LoggedInInfo().toString())
-                .isEqualTo("LoggedInInfo[providerNo=null, facilityId=null]");
+        assertThat(new LoggedInInfo())
+                .hasToString("LoggedInInfo[providerNo=null, facilityId=null]");
     }
 
     @Test
