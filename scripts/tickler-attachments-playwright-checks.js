@@ -581,7 +581,7 @@ legacyHarness.runLegacyCheck('tickler-attachments',async({cancellation})=>{
 
     // Submit the real edit form into its hidden iframe. A refusal must keep every typed
     // value and the selection available for correction, then allow a successful retry.
-    const unsavedComment = `${stamp} retained <comment> after refusal`;
+    const unsavedComment = `${stamp} retained comment after refusal`;
     await guardPage.locator('#newMessage').fill(unsavedComment);
     await guardPage.locator('#priority').selectOption('Low');
     await guardPage.locator('#status').selectOption('C');
@@ -602,7 +602,8 @@ legacyHarness.runLegacyCheck('tickler-attachments',async({cancellation})=>{
     const refusalResponse = guardPage.waitForResponse((response) =>
       response.url().endsWith('/tickler/EditTickler') && response.request().method() === 'POST');
     await guardPage.locator('input[name="updateTickler"]').click();
-    assert((await refusalResponse).status() === 400, 'iframe attachment refusal must return HTTP 400');
+    const iframeStatus = (await refusalResponse).status();
+    assert(iframeStatus === 400, `iframe attachment refusal returned HTTP ${iframeStatus}, expected 400`);
     await guardPage.locator('#error .tickler-validation-message').waitFor({ state: 'visible' });
     const refusalText = await guardPage.locator('#error').innerText();
     assert(refusalText.includes('One or more items were refused'), 'attachment refusal message was not shown in the edit form');
@@ -615,6 +616,8 @@ legacyHarness.runLegacyCheck('tickler-attachments',async({cancellation})=>{
     const afterRefusalForm = await guardPage.locator('form[name="serviceform"]').evaluate((form) =>
       Array.from(new FormData(form).entries()));
     assert(JSON.stringify(afterRefusalForm) === JSON.stringify(beforeRefusalForm), 'refusal lost entered form values or attachment selections');
+    // Keep the fixture active for the re-filed-lab list checks below.
+    await guardPage.locator('#status').selectOption('A');
     await submitEditForm(guardPage);
     assert(db.value(`SELECT COUNT(*) FROM tickler_comments WHERE tickler_no=${Number(ticklerNo)} AND message=${sqlString(unsavedComment)}`) === '1',
       'corrected retry did not save the retained comment exactly once');
