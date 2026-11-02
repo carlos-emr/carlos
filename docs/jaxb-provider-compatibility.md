@@ -45,7 +45,9 @@ and its compatibility evidence together.
 SOAP/REST transfer objects, Ontario client bindings, HRM bindings, nested annotated
 types, and the application classes in their Glassfish binding graphs. It exercises
 constructor defaults and populated bound properties, nested beans, collections,
-arrays, and dates in `America/Toronto`. Cycles stop at an already visited class and
+arrays, and dates in `America/Toronto`. Container arguments are resolved from the
+concrete field or accessor, including inherited type variables, so populated lists
+and maps contain typed values rather than silently remaining empty. Cycles stop at an already visited class and
 nesting stops after five levels; each discovered class is also exercised as a root.
 The current inventory contains 334 concrete classes. It does not instantiate SOAP
 clients, service implementations, abstract types, or non-binding implementation
@@ -89,7 +91,8 @@ under MOXy to 200 under Glassfish. Three other existing defects exposed by the
 inventory are corrected:
 
 - `ProfessionalSpecialist` attempted to pad a short address array by assigning past
-  its end. Actual array expansion now permits those XML setter paths to complete.
+  its end. Actual array expansion now permits those XML setter paths to complete
+  and retains comma separators when later city/postal/province edits rebuild it.
 - `ConsultationRequestTo1` initialized JAXB live collections with immutable empty
   lists, preventing the reader from adding attachments or extras. They now start
   as mutable empty lists.

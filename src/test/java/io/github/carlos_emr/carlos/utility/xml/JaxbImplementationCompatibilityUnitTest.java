@@ -90,6 +90,18 @@ class JaxbImplementationCompatibilityUnitTest {
         }));
     }
 
+    @org.junit.jupiter.api.Test
+    void shouldPopulateNestedContainers_withResolvedGenericTypes() throws Exception {
+        var type = io.github.carlos_emr.carlos.webserv.rest.to.model.SearchConfigTo1.class;
+        var context = (JAXBContextImpl) context("org.glassfish.jaxb.runtime.v2.ContextFactory", type);
+        var value = (io.github.carlos_emr.carlos.webserv.rest.to.model.SearchConfigTo1)
+                populated(type, new HashSet<>(), 0, context.getTypeInfoSet());
+        assertThat(value.getAppointmentCodeDurations()).containsEntry('A', 7);
+        assertThat(value.getOpenAccessList()).containsExactly('A');
+        assertThat(value.getBookingProviders()).isNotEmpty();
+        assertThat(value.getApptCodes()).isNotEmpty();
+    }
+
     private static final Map<String, Map<String, String>> BASELINE_XML = baselineXml();
 
     private static Map<String, Map<String, String>> baselineXml() {
@@ -341,7 +353,7 @@ class JaxbImplementationCompatibilityUnitTest {
                 if (type.getName().endsWith(".ProfessionalSpecialist") && Set.of(
                         "address", "address2", "city", "country", "postal", "province", "organizationName")
                         .contains(property.getName())) continue;
-                Object value = populated(property.getRawType(), branch, depth + 1, model);
+                Object value = populated(propertyType(type, property), branch, depth + 1, model);
                 if (value instanceof String && property.getName().equals("dateOfBirth")) value = "15";
                 if (value instanceof String && property.getName().equals("monthOfBirth")) value = "07";
                 if (value instanceof String && property.getName().equals("yearOfBirth")) value = "1980";
@@ -381,6 +393,41 @@ class JaxbImplementationCompatibilityUnitTest {
             }
         }
         return bean;
+    }
+
+    private record FixtureType(Class<?> raw, Type[] arguments) implements ParameterizedType {
+        @Override public Type[] getActualTypeArguments() { return arguments.clone(); }
+        @Override public Type getRawType() { return raw; }
+        @Override public Type getOwnerType() { return null; }
+    }
+
+    /** Retain collection/map arguments, including type variables resolved against a concrete response. */
+    private static Type propertyType(Class<?> owner, RuntimePropertyInfo property) throws Exception {
+        Field field = backingField(owner, property.getName());
+        org.springframework.core.ResolvableType resolved = field == null ? null
+                : org.springframework.core.ResolvableType.forField(field, owner);
+        if (resolved == null) {
+            for (var descriptor : java.beans.Introspector.getBeanInfo(owner).getPropertyDescriptors()) {
+                if (descriptor.getName().equals(property.getName()) && descriptor.getReadMethod() != null) {
+                    resolved = org.springframework.core.ResolvableType.forMethodReturnType(descriptor.getReadMethod(), owner);
+                    break;
+                }
+            }
+        }
+        // For a non-container use JAXB's property type, not a differently typed backing field
+        // (e.g. boolean properties backed by a char flag).
+        Class<?> raw = resolved == null ? null : resolved.resolve();
+        if (raw == null || !(Collection.class.isAssignableFrom(raw) || Map.class.isAssignableFrom(raw)))
+            return property.getRawType();
+        return fixtureType(resolved);
+    }
+
+    private static Type fixtureType(org.springframework.core.ResolvableType type) {
+        Class<?> raw = type.resolve(Object.class);
+        var generics = type.getGenerics();
+        if (generics.length == 0) return raw;
+        Type[] arguments = Stream.of(generics).map(JaxbImplementationCompatibilityUnitTest::fixtureType).toArray(Type[]::new);
+        return new FixtureType(raw, arguments);
     }
 
     private static Field backingField(Class<?> type, String property) {

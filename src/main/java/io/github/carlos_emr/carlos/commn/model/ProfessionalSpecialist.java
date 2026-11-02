@@ -158,6 +158,9 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
             if (this.addressArray.length < 5) {
                 int supplied = this.addressArray.length;
                 this.addressArray = java.util.Arrays.copyOf(this.addressArray, 5);
+                for (int i = 0; i < supplied; i++) {
+                    this.addressArray[i] += ",";
+                }
                 java.util.Arrays.fill(this.addressArray, supplied, 5, ",");
             }
 
