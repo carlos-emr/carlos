@@ -29,6 +29,19 @@ class SpreadsheetExportUnitTest {
     }
 
     @Test
+    void shouldRoundTripUnpairedSurrogatesWithoutCorruptingWorksheetXml() throws Exception {
+        Object[][] values = {{"before\uD800after", "before\uDC00after", "\uD800\uD800", "\uDC00\uD800", "😀\uD800😀", "_xD800_"}};
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        SpreadsheetExport.write(output, values);
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(output.toByteArray()))) {
+            var row = workbook.getSheet("OSCAR_Report").getRow(0);
+            for (int column = 0; column < values[0].length; column++) {
+                assertThat(row.getCell(column).getStringCellValue()).isEqualTo(values[0][column]);
+            }
+        }
+    }
+
+    @Test
     void shouldRejectUnsupportedCellTypes_beforeWritingTheResponse() {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> SpreadsheetExport.write(output, new Object[][]{{42}}))

@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
+const { getLaunchOptions } = require('./lib/playwright-harness');
 
 async function main() {
     const script = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/carlos-tables.js'));
@@ -12,7 +13,11 @@ async function main() {
         `<td data-sort-value="${code}" data-sort-type="text">${code}</td>` +
         `<td><input type="checkbox" name="records" value="${number}"><input type="radio" name="head" value="${number}">` +
         `<button type="button" class="edit" data-id="${number}">Edit</button></td></tr>`).join('');
-    const html = `<!doctype html><html><body><form id="fixture"><table id="codes" data-carlos-table
+    const html = `<!doctype html><html><body>
+        <table id="no-body" data-carlos-table><thead><tr><th>Header only</th></tr></thead></table>
+        <table id="no-head" data-carlos-table><tbody><tr><td>Body only</td></tr></tbody></table>
+        <table id="no-header-row" data-carlos-table><thead></thead><tbody></tbody></table>
+        <form id="fixture"><table id="codes" data-carlos-table
         data-page-size="2" data-default-sort="1" data-default-order="descending">
         <thead><tr><th><span data-table-sort>Number</span></th>
         <th><span data-table-sort>Code</span></th><th>Options</th></tr></thead>
@@ -31,13 +36,15 @@ async function main() {
         </table></body></html>`;
     let browser;
     try {
-        browser = await chromium.launch({ executablePath: process.env.CARLOS_SMOKE_CHROMIUM || '/usr/bin/chromium',
-            headless: true, args: ['--no-sandbox'] });
+        browser = await chromium.launch(getLaunchOptions(
+            process.env.CHROME_BIN || process.env.CHROME_PATH || process.env.CARLOS_SMOKE_CHROMIUM));
         const page = await browser.newPage();
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
         await page.setContent(html);
         await page.addScriptTag({content: script.toString('utf8')});
+        assert.deepEqual(await page.locator('#no-body, #no-head, #no-header-row')
+            .evaluateAll(tables => tables.map(table => table.dataset.tableReady)), [undefined, undefined, undefined]);
         await page.evaluate(() => {
             window.submits = 0;
             window.edited = null;

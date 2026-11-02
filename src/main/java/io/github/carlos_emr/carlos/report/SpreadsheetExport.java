@@ -115,12 +115,16 @@ public final class SpreadsheetExport {
     }
 
     private static String escapeExcelText(String text) {
-        // OOXML encodes XML-forbidden controls as _xHHHH_. Escape literal occurrences first.
+        // OOXML encodes XML-forbidden code units as _xHHHH_. Escape literal occurrences first.
         String literal = EXCEL_ESCAPE.matcher(text).replaceAll("_x005F_x$1_");
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < literal.length(); i++) {
             char ch = literal.charAt(i);
-            if ((ch < 0x20 && ch != '\t' && ch != '\n') || ch == 0xfffe || ch == 0xffff) {
+            if (Character.isHighSurrogate(ch) && i + 1 < literal.length()
+                    && Character.isLowSurrogate(literal.charAt(i + 1))) {
+                result.append(ch).append(literal.charAt(++i));
+            } else if (Character.isSurrogate(ch) || (ch < 0x20 && ch != '\t' && ch != '\n')
+                    || ch == 0xfffe || ch == 0xffff) {
                 result.append(String.format(java.util.Locale.ROOT, "_x%04X_", (int) ch));
             } else result.append(ch);
         }

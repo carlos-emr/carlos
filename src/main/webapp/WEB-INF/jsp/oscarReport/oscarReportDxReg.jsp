@@ -81,11 +81,8 @@
               href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.theme-1.14.2.min.css"/>
         <link rel="stylesheet" type="text/css" media="all"
               href="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui.structure-1.14.2.min.css"/>
-        <link href="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" type="text/css"/>
         <link type="text/css" media="all" href="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css"
               rel="stylesheet">
-        <link href="${pageContext.servletContext.contextPath}/library/DataTables/Responsive-2.4.1/css/responsive.dataTables.min.css"
-              rel="stylesheet" type="text/css"/>
 
         <script type="text/javascript"
                 src="${pageContext.servletContext.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
@@ -94,12 +91,6 @@
                 src="${pageContext.servletContext.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script>
         <script type="text/javascript" src="${pageContext.servletContext.contextPath}/js/dxJSONCodeSearch.js"></script>
-        <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
-        <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
-        <script type="text/javascript"
-                src="${pageContext.servletContext.contextPath}/library/DataTables/Responsive-2.4.1/js/dataTables.responsive.min.js"></script>
 
         <script type="text/javascript">
             var ctx = "${pageContext.servletContext.contextPath}";
@@ -107,12 +98,6 @@
             function setAction(target) {
                 document.forms[0].action.value = target;
             };
-
-            $(document).ready(function () {
-                $('#listview').DataTable({
-                    responsive: true
-                });
-            });
 
         </script>
         <style>
@@ -211,9 +196,9 @@
             <div class="row">
                 <table class="table table-sm table-striped" id="codeSearch" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
-                    <th scope="col">Code System</th>
-                    <th scope="col">Code</th>
-                    <th scope="col">Description</th>
+                    <th scope="col"><span data-table-sort>Code System</span></th>
+                    <th scope="col"><span data-table-sort>Code</span></th>
+                    <th scope="col"><span data-table-sort>Description</span></th>
                 </tr></thead>
 <tbody><c:forEach var="codeSearch" items="${codeSearch}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
                     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(codeSearch.type))}" data-sort-type="${carlos:tableSortType(codeSearch.type)}"><c:out value="${codeSearch.type}"/></td>
@@ -305,17 +290,17 @@
             <div class="row">
                 <table class="table table-striped table-hover table-sm" id="listview" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
-                    <th scope="col">First Name</th>
-                    <th scope="col">Last Name</th>
-                    <th scope="col">Sex</th>
-                    <th scope="col">DOB</th>
-                    <th scope="col">Phone</th>
-                    <th scope="col">HIN</th>
-                    <th scope="col">Code System</th>
-                    <th scope="col">Code</th>
-                    <th scope="col">Start Date</th>
-                    <th scope="col">Update Date</th>
-                    <th scope="col">Status</th>
+                    <th scope="col"><span data-table-sort>First Name</span></th>
+                    <th scope="col"><span data-table-sort>Last Name</span></th>
+                    <th scope="col"><span data-table-sort>Sex</span></th>
+                    <th scope="col"><span data-table-sort>DOB</span></th>
+                    <th scope="col"><span data-table-sort>Phone</span></th>
+                    <th scope="col"><span data-table-sort>HIN</span></th>
+                    <th scope="col"><span data-table-sort>Code System</span></th>
+                    <th scope="col"><span data-table-sort>Code</span></th>
+                    <th scope="col"><span data-table-sort>Start Date</span></th>
+                    <th scope="col"><span data-table-sort>Update Date</span></th>
+                    <th scope="col"><span data-table-sort>Status</span></th>
                 </tr></thead>
 <tbody><c:forEach var="listview" items="${listview}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
                     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(listview.strFirstName))}" data-sort-type="${carlos:tableSortType(listview.strFirstName)}"><c:out value="${listview.strFirstName}"/></td>

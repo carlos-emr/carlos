@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.eform.util;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementChart;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import jakarta.servlet.ServletContext;
 import java.io.IOException;
 import java.io.InputStream;
@@ -12,9 +13,11 @@ import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import org.apache.logging.log4j.Logger;
 
 /** Renders the bundled Chart.js to the existing PNG/JPEG endpoint contract, including print views. */
 public final class BrowserChartRenderer {
+    private static final Logger logger = MiscUtils.getLogger();
     private static final Semaphore SLOTS = EFormBrowserPdfService.RENDER_SLOTS;
     private static final Semaphore WAITERS = new Semaphore(4);
     private BrowserChartRenderer() { }
@@ -59,6 +62,7 @@ public final class BrowserChartRenderer {
             throw new IOException("Chart rendering interrupted");
         } catch (RuntimeException | io.github.carlos_emr.carlos.utility.PDFGenerationException failure) {
             // Browser errors can include clinical values; expose neither the reply nor its cause.
+            logger.warn("Chart rendering failed ({})", failure.getClass().getName());
             throw new IOException("Chart rendering failed");
         } finally {
             EFormBrowserPdfService.teardownQuietly(session);

@@ -5,6 +5,8 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.eform.util.BrowserChartRenderer;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +44,8 @@ class MeasurementChartSmokeIntegrationTest {
                 .withSecondAxis("C", secondaryCollection)
                 .withReferenceRanges(List.of(new MeasurementChart.ReferenceRange(new Date(1_700_000_000_000L), 55, 70)))
                 .withMedications(List.of(Map.of("name", "Synthetic medication", "start", 1_699_900_000_000L, "end", 1_700_100_000_000L)));
-        var context = new MockServletContext("src/main/webapp", new FileSystemResourceLoader());
+        Path project = projectRoot();
+        var context = new MockServletContext(project.resolve("src/main/webapp").toUri().toString(), new FileSystemResourceLoader());
         try (var settings = mockStatic(CarlosProperties.class)) {
             settings.when(CarlosProperties::getInstance).thenReturn(properties);
             for (String format : List.of("png", "jpeg")) {
@@ -63,8 +66,18 @@ class MeasurementChartSmokeIntegrationTest {
                 assertThat(seriesPixels).as("measurement series in %s", format).isGreaterThan(20);
                 assertThat(referencePixels).as("reference range in %s", format).isGreaterThan(20);
                 assertThat(medicationPixels).as("medication interval in %s", format).isGreaterThan(1000);
-                java.nio.file.Files.write(java.nio.file.Path.of("target", "measurement-chart-smoke." + format), output.toByteArray());
+                Files.write(project.resolve("target/measurement-chart-smoke." + format), output.toByteArray());
             }
         }
+    }
+
+    private static Path projectRoot() {
+        Path current = Path.of(System.getProperty("basedir", System.getProperty("user.dir"))).toAbsolutePath();
+        for (int depth = 0; current != null && depth < 8; depth++, current = current.getParent()) {
+            if (Files.isRegularFile(current.resolve("src/main/webapp/library/chartjs/chart.umd.min.js"))) {
+                return current;
+            }
+        }
+        throw new IllegalStateException("Cannot locate the project chart resources");
     }
 }

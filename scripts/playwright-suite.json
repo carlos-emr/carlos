@@ -18509,6 +18509,12 @@
     {
       "name": "dependency-tables",
       "script": "scripts/dependency-tables-playwright-checks.js",
+      "env": [
+        "CHROME_BIN",
+        "CHROME_PATH",
+        "CARLOS_SMOKE_CHROMIUM",
+        "EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX"
+      ],
       "tiers": [
         "standalone"
       ],

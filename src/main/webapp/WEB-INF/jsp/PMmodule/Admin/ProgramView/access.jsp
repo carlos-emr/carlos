@@ -32,6 +32,7 @@
 </table>
 </div>
 <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+<c:if test="${not empty accesses}">
 <table class="simple" cellspacing="2" cellpadding="3" id="access" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -56,4 +57,5 @@
     </td>
 </tr></c:forEach></tbody>
 </table>
+</c:if>
 <c:if test="${empty accesses}"><p class="table-empty">No access currently defined for this program.</p></c:if>

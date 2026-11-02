@@ -91,7 +91,6 @@
                     <th scope="col"><fmt:message key='admin.sitesAdmin.col.active'/></th>
                     <%-- A GET link, so it opens the site with the read-only method=edit (the GET guard refuses method=update). --%>
                     <th scope="col"><fmt:message key='admin.sitesAdmin.col.siteName'/></th>
-                    <%-- displaytag prints property= columns unescaped, so each value is written as encoded text. --%>
                     <th scope="col"><fmt:message key='admin.sitesAdmin.col.shortName'/></th>
                     <th scope="col"><fmt:message key='admin.sitesAdmin.col.color'/></th>
                     <th scope="col"><fmt:message key='admin.sitesAdmin.col.telephone'/></th>
@@ -112,8 +111,8 @@
                             test="${site.status==0}"><fmt:message key="admin.sitesAdmin.value.no"/></c:when><c:otherwise><fmt:message key="admin.sitesAdmin.value.yes"/></c:otherwise></c:choose></td>
                     <%-- A GET link, so it opens the site with the read-only method=edit (the GET guard refuses method=update). --%>
                     <td>
-                        <a href="<%= request.getContextPath() %>/admin/ManageSites?method=edit&siteId=${carlos:forHtmlAttribute(site.siteId)}">${carlos:forHtml(site.name)}</a></td>
-                    <%-- displaytag prints property= columns unescaped, so each value is written as encoded text. --%>
+                        <a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/admin/ManageSites?method=edit&amp;siteId=${carlos:forUriComponent(site.siteId)}">${carlos:forHtml(site.name)}</a></td>
+                    <%-- Site values are encoded as text so stored markup cannot become page content. --%>
                     <td>${carlos:forHtml(site.shortName)}</td>
                     <td style="background-color:${site.cssBgColor}">${carlos:forHtml(site.bgColor)}</td>
                     <td>${carlos:forHtml(site.phone)}</td>
@@ -128,7 +127,7 @@
                     <% } %>
                 </tr></c:forEach></tbody>
 </table>
-<c:if test="${empty sites}"><p class="table-empty">Nothing found to display.</p></c:if>
+<c:if test="${empty sites}"><p class="table-empty"><fmt:message key="admin.sitesAdmin.empty"/></p></c:if>
 
 
             </td>

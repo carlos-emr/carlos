@@ -3,8 +3,10 @@
     'use strict';
     function initialize(table) {
         if (table.dataset.tableReady) return;
-        table.dataset.tableReady = 'true';
         const body = table.tBodies[0];
+        const headerRow = table.tHead?.rows[0];
+        if (!body || !headerRow) return;
+        table.dataset.tableReady = 'true';
         const rows = Array.from(body.rows);
         const size = Number(table.dataset.pageSize) || rows.length || 1;
         let page = 0;
@@ -15,7 +17,7 @@
             first: 'First', previous: 'Previous', next: 'Next', last: 'Last',
             page: 'Page', pages: 'Table pages', of: 'of',
         };
-        const headers = Array.from(table.tHead.rows[0].cells);
+        const headers = Array.from(headerRow.cells);
         const navigation = document.createElement('nav');
         navigation.className = 'pagelinks';
         navigation.setAttribute('aria-label', labels.pages);
