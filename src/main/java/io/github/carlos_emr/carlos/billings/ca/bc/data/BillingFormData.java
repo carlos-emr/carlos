@@ -25,13 +25,14 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
-import org.apache.velocity.tools.ConversionUtils;
+import java.lang.reflect.Array;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingStatusTypesDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingStatusTypes;
@@ -45,6 +46,16 @@ import java.util.*;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class BillingFormData {
+
+    /** Velocity ConversionUtils semantics: recursively unwrap the first array element. */
+    private static String queryCellToString(Object value) {
+        if (value == null) return null;
+        if (value instanceof String string) return string;
+        if (value.getClass().isArray()) {
+            return Array.getLength(value) == 0 ? null : queryCellToString(Array.get(value, 0));
+        }
+        return String.valueOf(value);
+    }
 
     private DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
 
@@ -489,8 +500,8 @@ public class BillingFormData {
 
             for (int i = 0; i < results.size(); i++) {
 
-                one = ConversionUtils.toString((results.get(i))[0]);
-                two = ConversionUtils.toString((results.get(i))[1]);
+                one = queryCellToString((results.get(i))[0]);
+                two = queryCellToString((results.get(i))[1]);
 
                 if (one != null && !one.equals("")) {
                     recentList.add(one);

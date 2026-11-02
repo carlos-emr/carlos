@@ -28,11 +28,13 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 package io.github.carlos_emr.carlos.managers;
 
 import java.text.SimpleDateFormat;
+import io.github.carlos_emr.carlos.utility.IsoDates;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -345,8 +347,8 @@ public class ScheduleManagerImpl implements ScheduleManager {
         Date sDate = null;
         Date eDate = null;
         try {
-            sDate = org.apache.tools.ant.util.DateUtils.parseIso8601Date(sDateStr);
-            eDate = org.apache.tools.ant.util.DateUtils.parseIso8601Date(eDateStr);
+            sDate = IsoDates.parseIso8601Date(sDateStr);
+            eDate = IsoDates.parseIso8601Date(eDateStr);
         } catch (Exception e) {
             throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity("Path parameter has the wrong format").build());
         }

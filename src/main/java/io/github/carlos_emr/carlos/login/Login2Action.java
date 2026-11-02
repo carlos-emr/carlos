@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 package io.github.carlos_emr.carlos.login;
@@ -38,7 +39,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
-import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
 import org.apache.commons.codec.binary.Base32;
 import javax.crypto.spec.SecretKeySpec;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -912,7 +912,7 @@ public final class Login2Action extends ActionSupport {
      *         create a valid TOTP key
      */
     private boolean isValidTotpCode(String mfaSecret, String submittedCode) throws InvalidKeyException {
-        TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
+        TotpGenerator totpGenerator = new TotpGenerator();
         SecretKeySpec key;
         try {
             byte[] decodedKey = new Base32().decode(mfaSecret);
