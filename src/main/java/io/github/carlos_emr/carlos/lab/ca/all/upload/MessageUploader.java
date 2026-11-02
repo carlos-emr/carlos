@@ -48,7 +48,7 @@ import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.*;
-import org.apache.commons.codec.binary.Base64;
+import java.util.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -231,7 +231,7 @@ public final class MessageUploader {
         int insertID = 0;
         hl7TextMessage.setFileUploadCheckId(fileId);
         hl7TextMessage.setType(type);
-        hl7TextMessage.setBase64EncodedeMessage(new String(Base64.encodeBase64(hl7Body.getBytes(MiscUtils.DEFAULT_UTF8_ENCODING)), MiscUtils.DEFAULT_UTF8_ENCODING));
+        hl7TextMessage.setBase64EncodedeMessage(new String(Base64.getEncoder().encode(hl7Body.getBytes(MiscUtils.DEFAULT_UTF8_ENCODING)), MiscUtils.DEFAULT_UTF8_ENCODING));
         hl7TextMessage.setServiceName(serviceName);
         hl7TextMessageDao.persist(hl7TextMessage);
 

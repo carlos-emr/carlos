@@ -146,6 +146,52 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
     class GetAppointmentsForDay {
 
         @Test
+        @DisplayName("should preserve names, blank slots, missing patients and ordering with bulk names")
+        void shouldPreserveResponse_whenNamesAreBulkLoaded() {
+            var appointments = new java.util.ArrayList<io.github.carlos_emr.carlos.commn.model.Appointment>();
+            int[] patientIds = {42, 0, 99, 42};
+            for (int i = 0; i < patientIds.length; i++) {
+                var appointment = new io.github.carlos_emr.carlos.commn.model.Appointment();
+                appointment.setId(20 - i);
+                appointment.setDemographicNo(patientIds[i]);
+                appointment.setName("Reserved clinic time");
+                appointment.setAppointmentDate(java.sql.Date.valueOf("2026-10-31"));
+                appointment.setStartTime(java.sql.Time.valueOf("09:00:00"));
+                appointment.setEndTime(java.sql.Time.valueOf("09:30:00"));
+                appointment.setReason("Follow-up");
+                appointment.setStatus("t");
+                appointment.setNotes("Synthetic notes");
+                appointment.setType("Follow-up");
+                appointments.add(appointment);
+            }
+            when(mockScheduleManager.getDayAppointments(any(LoggedInInfo.class), anyString(), any(Date.class)))
+                .thenReturn(appointments);
+            when(mockDemographicManager.getDemographicFormattedNames(any(LoggedInInfo.class), any()))
+                .thenReturn(java.util.Map.of(42, "O'Neil, Zoë"));
+
+            Response response = request().path("/schedule/999001/day/2026-10-31").get();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var json = responseJson(response);
+            assertThat(json).hasSize(4);
+            assertThat(json.at("/0/name").textValue()).isEqualTo("O'Neil, Zoë");
+            assertThat(json.at("/1/name").textValue()).isEqualTo("Reserved clinic time");
+            assertThat(json.at("/2/name").isMissingNode() || json.at("/2/name").isNull()).isTrue();
+            assertThat(json.at("/3/name").textValue()).isEqualTo("O'Neil, Zoë");
+            for (int i = 0; i < patientIds.length; i++) {
+                assertThat(json.at("/" + i + "/appointmentNo").intValue()).isEqualTo(20 - i);
+                assertThat(json.at("/" + i + "/demographicNo").intValue()).isEqualTo(patientIds[i]);
+                assertThat(json.at("/" + i + "/reason").textValue()).isEqualTo("Follow-up");
+                assertThat(json.at("/" + i + "/notes").textValue()).isEqualTo("Synthetic notes");
+                assertThat(json.at("/" + i + "/duration").textValue()).isEqualTo("30m ");
+            }
+            org.mockito.Mockito.verify(mockDemographicManager)
+                .getDemographicFormattedNames(any(LoggedInInfo.class), eq(List.of(42, 99, 42)));
+            org.mockito.Mockito.verify(mockDemographicManager, org.mockito.Mockito.never())
+                .getDemographicFormattedName(any(), any());
+        }
+
+        @Test
         @DisplayName("should return 200 with appointments for today")
         void shouldReturn200WithAppointments_whenTodayRequested() {
             Provider mockProvider = new Provider();

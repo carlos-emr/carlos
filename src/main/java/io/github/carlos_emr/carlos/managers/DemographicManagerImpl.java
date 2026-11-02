@@ -41,6 +41,7 @@ import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.Demographic.PatientStatus;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DemographicExtKey;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
+import io.github.carlos_emr.carlos.commn.dao.projection.DemographicName;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.utility.DemographicContactCreator;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -188,6 +189,26 @@ public class DemographicManagerImpl implements DemographicManager {
     }
 
     @Override
+    public Map<Integer, String> getDemographicFormattedNames(LoggedInInfo loggedInInfo,
+                                                            Collection<Integer> demographicIds) {
+        Set<Integer> ids = new LinkedHashSet<>(demographicIds);
+        ids.remove(null);
+        ids.remove(0);
+        // Check every patient before reading any names. Keep the patient-specific
+        // privilege path (including directives/session effects), rather than a global check.
+        for (Integer id : ids) {
+            checkPrivilege(loggedInInfo, SecurityInfoManager.READ, id);
+        }
+        Map<Integer, String> names = new HashMap<>();
+        if (!ids.isEmpty()) {
+            for (DemographicName patient : demographicDao.getDemographicNames(ids)) {
+                names.put(patient.demographicNo(), patient.formattedName());
+            }
+        }
+        return names;
+    }
+
+    @Override
     public String getDemographicEmail(LoggedInInfo loggedInInfo, Integer demographicId) {
         Demographic result = getDemographic(loggedInInfo, demographicId);
         String email = null;
@@ -289,11 +310,11 @@ public class DemographicManagerImpl implements DemographicManager {
             // Archive previous demoCust
             DemographicCust prevCust = demographicCustDao.find(demoCust.getId());
             if (prevCust != null) {
-                if (!(StringUtils.nullSafeEquals(prevCust.getAlert(), demoCust.getAlert())
-                        && StringUtils.nullSafeEquals(prevCust.getMidwife(), demoCust.getMidwife())
-                        && StringUtils.nullSafeEquals(prevCust.getNurse(), demoCust.getNurse())
-                        && StringUtils.nullSafeEquals(prevCust.getResident(), demoCust.getResident())
-                        && StringUtils.nullSafeEquals(prevCust.getNotes(), demoCust.getNotes()))) {
+                if (!(Objects.equals(prevCust.getAlert(), demoCust.getAlert())
+                        && Objects.equals(prevCust.getMidwife(), demoCust.getMidwife())
+                        && Objects.equals(prevCust.getNurse(), demoCust.getNurse())
+                        && Objects.equals(prevCust.getResident(), demoCust.getResident())
+                        && Objects.equals(prevCust.getNotes(), demoCust.getNotes()))) {
                     demographicCustArchiveDao.archiveDemographicCust(prevCust);
                 }
             }
