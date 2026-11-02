@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import io.github.carlos_emr.carlos.commn.model.DxRegistedPTInfo;
 import io.github.carlos_emr.carlos.entities.MSPBill;
 import static org.assertj.core.api.Assertions.*;
@@ -111,7 +112,7 @@ class SpreadsheetExportsUnitTest {
     @Test
     void shouldAssignEachClaimToOneAgingColumn_atEveryAgeBoundary() throws Exception {
         var reportDate = java.time.LocalDate.of(2026, 11, 2);
-        for (var entry : java.util.Map.of(0, 7, 30, 7, 31, 6, 60, 6, 61, 5, 90, 5, 91, 4).entrySet()) {
+        for (var entry : java.util.Map.of(-1, 7, 0, 7, 30, 7, 31, 6, 60, 6, 61, 5, 90, 5, 91, 4).entrySet()) {
             MSPBill b = bill();
             b.setServiceDate(reportDate.minusDays(entry.getKey()).format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE));
             var output = new ByteArrayOutputStream();
@@ -120,6 +121,19 @@ class SpreadsheetExportsUnitTest {
             assertThat(row.get(entry.getValue())).as("age %s", entry.getKey()).isEqualTo("-1234.50");
             assertThat(row.toList().subList(4, 8)).filteredOn(v -> !v.isEmpty()).containsExactly("-1234.50");
         }
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "00000000"})
+    void shouldRejectUnknownServiceDate_whenAgingCannotBeDetermined(String serviceDate) {
+        MSPBill b = bill();
+        b.setServiceDate(serviceDate);
+        var output = new ByteArrayOutputStream();
+        assertThatThrownBy(() -> BcBillingCsv.write(output, "REP_ACCOUNT_REC", List.of(b),
+                java.time.LocalDate.of(2026, 11, 2)))
+                .isInstanceOf(java.time.DateTimeException.class)
+                .hasMessage("Service date unavailable for aging");
     }
 
     @Test

@@ -292,6 +292,13 @@ public class CreateBillingReport2Action extends ActionSupport {
         return NONE;
     }
 
+    /**
+     * Generates the selected accounting or remittance CSV without accessing response headers.
+     * Reads use strict failure propagation so the caller can discard an incomplete temporary file.
+     *
+     * @param output OutputStream receiving the CSV; closed by the selected writer
+     * @throws Exception if a database read, source value or CSV write fails
+     */
     protected void writeCsv(OutputStream output) throws Exception {
         if (MSPReconcile.REP_MSPREM.equals(getRepType()) || MSPReconcile.REP_MSPREMSUM.equals(getRepType())) {
             try (Connection connection = LegacyJdbcQuery.getConnection()) {

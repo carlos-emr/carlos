@@ -273,6 +273,14 @@ public class DxresearchReport2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /**
+     * Downloads the session's Dx Research patient list as a completed XLSX file.
+     * Invalid provider/session parameters return HTTP 400; generation failures return HTTP 500
+     * before an attachment is sent. The action's entry point retains the report privilege check.
+     *
+     * @return String {@link #NONE}, because the response is written directly or an HTTP error is sent
+     * @throws IOException if the servlet container cannot send an error response
+     */
     public String patientExcelReport() throws IOException {
         if (getValidatedProviderNo() == null) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);

@@ -53,6 +53,23 @@ class BcCsvDownloadUnitTest extends CarlosWebTestBase {
     }
 
     @Test
+    void shouldRejectUnageableClaim_withoutSendingAnAttachment() throws Exception {
+        var action = new CreateBillingReport2Action() {
+            @Override protected void writeCsv(OutputStream output) throws Exception {
+                var bill = new io.github.carlos_emr.carlos.entities.MSPBill();
+                bill.setServiceDate("00000000");
+                bill.setAmount("23.45");
+                io.github.carlos_emr.carlos.report.export.BcBillingCsv.write(output, "REP_ACCOUNT_REC", java.util.List.of(bill));
+            }
+        };
+        action.setDocFormat("csv"); action.setRepType("REP_ACCOUNT_REC");
+        assertThat(executeAction(action)).isEqualTo("none");
+        assertThat(getMockResponse().getStatus()).isEqualTo(500);
+        assertThat(getMockResponse().getContentAsByteArray()).isEmpty();
+        assertThat(getMockResponse().getHeader("Content-Disposition")).isNull();
+    }
+
+    @Test
     void shouldDenyExport_whenBillingPrivilegeIsMissing() {
         when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
         var action = new CreateBillingReport2Action();

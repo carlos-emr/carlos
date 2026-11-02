@@ -11,23 +11,47 @@ import java.util.Locale;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
 import io.github.carlos_emr.carlos.entities.MSPBill;
 
-/** Stable column contracts for the six BC accounting CSV exports. */
+/**
+ * Stable column contracts for the six BC accounting CSV exports.
+ *
+ * @since 2026-11-02
+ */
 public final class BcBillingCsv {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd-MMM-yy", Locale.CANADA);
 
     private BcBillingCsv() {
     }
 
+    /**
+     * Identifies the eight supported accounting and remittance CSV report types.
+     *
+     * @param type String report identifier; may be null
+     * @return boolean true for a supported CSV report identifier
+     */
     public static boolean supports(String type) {
         return type != null && List.of(MSPReconcile.REP_ACCOUNT_REC, MSPReconcile.REP_INVOICE, MSPReconcile.REP_REJ,
                 MSPReconcile.REP_WO, MSPReconcile.REP_PAYREF, MSPReconcile.REP_PAYREF_SUM,
                 MSPReconcile.REP_MSPREM, MSPReconcile.REP_MSPREMSUM).contains(type);
     }
 
+    /**
+     * Formats a basic ISO date with Canadian English month names.
+     *
+     * @param value String date in yyyyMMdd form; null, blank and 00000000 mean missing
+     * @return String date in dd-MMM-yy form, or an empty string for a missing date
+     * @throws java.time.DateTimeException if a nonempty date is invalid
+     */
     public static String date(String value) {
         return value == null || value.isBlank() || "00000000".equals(value) ? "" : LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE).format(DATE);
     }
 
+    /**
+     * Formats a decimal CAD amount with two places and half-up rounding.
+     *
+     * @param value String decimal amount without currency symbols or grouping; may be null or blank
+     * @return String plain decimal amount, or an empty string for a missing amount
+     * @throws NumberFormatException if a nonempty amount is not a decimal number
+     */
     public static String money(String value) {
         return value == null || value.isBlank() ? "" : new BigDecimal(value).setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
     }
@@ -44,6 +68,18 @@ public final class BcBillingCsv {
         return text(b.getBilling_no()) + "-" + text(b.getBillMasterNo());
     }
 
+    /**
+     * Writes one accounting CSV header and its data using a single server-local report date.
+     * Future service dates are current for A/R aging; unknown service dates fail A/R generation.
+     * The remittance types recognized by {@link #supports} use {@link BcRemittanceExportDao} instead.
+     *
+     * @param output OutputStream receiving UTF-8 CSV; closed when generation finishes
+     * @param type String identifier for one of the six accounting report types
+     * @param bills List of MSPBill records in the required report order
+     * @throws IOException if CSV output fails
+     * @throws IllegalArgumentException if the accounting report type or a monetary value is invalid
+     * @throws java.time.DateTimeException if a date is invalid or an A/R service date is unknown
+     */
     public static void write(OutputStream output, String type, List<MSPBill> bills) throws IOException {
         write(output, type, bills, LocalDate.now());
     }
@@ -95,11 +131,19 @@ public final class BcBillingCsv {
     }
 
     private static String ageBucket(String serviceDate, LocalDate reportDate) {
-        if (serviceDate == null || serviceDate.isBlank() || "00000000".equals(serviceDate)) return "0";
+        if (serviceDate == null || serviceDate.isBlank() || "00000000".equals(serviceDate)) {
+            throw new java.time.DateTimeException("Service date unavailable for aging");
+        }
         long days = java.time.temporal.ChronoUnit.DAYS.between(LocalDate.parse(serviceDate, DateTimeFormatter.BASIC_ISO_DATE), reportDate);
-        return days < 0 ? "0" : days <= 30 ? "1" : days <= 60 ? "2" : days <= 90 ? "3" : "4";
+        return days <= 30 ? "1" : days <= 60 ? "2" : days <= 90 ? "3" : "4";
     }
 
+    /**
+     * Extracts the first character used by the legacy provider-initial columns.
+     *
+     * @param value String provider name; may be null or empty
+     * @return String first character, or an empty string for a missing name
+     */
     public static String initial(String value) {
         return value == null || value.isEmpty() ? "" : value.substring(0, 1);
     }

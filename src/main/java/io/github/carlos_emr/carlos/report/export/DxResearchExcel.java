@@ -7,11 +7,23 @@ import java.util.List;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import io.github.carlos_emr.carlos.commn.model.DxRegistedPTInfo;
 
-/** Dx exports are data tables: every field is explicitly a string, never a formula or number. */
+/**
+ * Dx exports are data tables: every field is explicitly a string, never a formula or number.
+ *
+ * @since 2026-11-02
+ */
 public final class DxResearchExcel {
     private DxResearchExcel() {
     }
 
+    /**
+     * Writes one frozen header and one row per patient, retaining only 100 worksheet rows in memory.
+     * Null field values become empty strings; identifiers and formula-like text stay string cells.
+     *
+     * @param output OutputStream receiving the XLSX workbook; remains owned by the caller
+     * @param patients List of DxRegistedPTInfo records in the required export order
+     * @throws IOException if workbook output fails or the worksheet row limit is exceeded
+     */
     public static void write(OutputStream output, List<DxRegistedPTInfo> patients) throws IOException {
         try (SXSSFWorkbook workbook = new SXSSFWorkbook(100)) {
             workbook.setCompressTempFiles(true);

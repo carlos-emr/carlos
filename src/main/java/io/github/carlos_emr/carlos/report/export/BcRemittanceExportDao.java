@@ -7,14 +7,35 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Arrays;
 
-/** Parameterized JDBC reads for the tabular MSP exports; the caller owns the connection. */
+/**
+ * Parameterized JDBC reads for the tabular MSP exports; the caller owns the connection.
+ *
+ * @since 2026-11-02
+ */
 public final class BcRemittanceExportDao {
     private final Connection connection;
 
+    /**
+     * Uses the supplied connection without closing it after an export.
+     *
+     * @param connection Connection to the billing database, owned by the caller
+     */
     public BcRemittanceExportDao(Connection connection) {
         this.connection = connection;
     }
 
+    /**
+     * Writes billed claim rows for one exact payee and remittance, with one CSV header.
+     * No matching claims produces a header-only file.
+     *
+     * @param output OutputStream receiving UTF-8 CSV; closed when generation finishes
+     * @param payee String literal Teleplan payee identifier, matched exactly
+     * @param s21 String remittance S21 identifier, bound as a query parameter
+     * @throws SQLException if the billing query fails
+     * @throws IOException if CSV output fails
+     * @throws java.time.DateTimeException if a report date is invalid
+     * @throws NumberFormatException if a Teleplan amount is invalid
+     */
     public void writeBilled(OutputStream output, String payee, String s21) throws SQLException, IOException {
         String sql = """
                 SELECT p.first_name, p.last_name, t.t_s00type, bm.service_date, t.t_payment,
@@ -40,7 +61,17 @@ public final class BcRemittanceExportDao {
         }
     }
 
-    /** One header and a discriminated row per S21/S22/S23/S25 record, with no Jasper layout grid. */
+    /**
+     * Writes one header and discriminated S21/S22/S23/S25 rows without a Jasper layout grid.
+     * Deleted remittances and practitioner rows are excluded; orphan adjustments remain included.
+     *
+     * @param output OutputStream receiving UTF-8 CSV; closed when generation finishes
+     * @param s21 String remittance S21 identifier, bound in every query
+     * @throws SQLException if a query fails or the remittance is unavailable or deleted
+     * @throws IOException if CSV output fails
+     * @throws java.time.DateTimeException if a report date is invalid
+     * @throws NumberFormatException if a Teleplan amount is invalid
+     */
     public void writeSummary(OutputStream output, String s21) throws SQLException, IOException {
         String[] headers = {"Record Type", "Payment Date", "Payee No", "Payee Name", "Billed (CAD)", "Paid (CAD)",
                 "Cheque (CAD)", "Practitioner No", "Practitioner Name", "Adjustment Code", "Adjustment Description",
