@@ -15,10 +15,14 @@ test('pagination fault injection and save waits match real chart action URLs', (
     vm.runInContext(chartActionUrlSource(source), context);
     for (const [action, matcher] of [['CaseManagementView', NOTES_ROUTE], ['CaseManagementEntry', NOTE_SAVE_ROUTE]]) {
       const url = `https://127.0.0.1${context.chartActionUrl(`/${action}`)}`;
-      assert.ok(matcher.test(url), `${action} must match with chartContext=${chartContext}`);
-      assert.ok(matcher.test(`${url}${chartContext ? '&' : '?'}method=save`));
-      assert.ok(!matcher.test(`https://127.0.0.1/carlos/${action}Other`), 'a different action must not match');
-      assert.ok(!matcher.test(`https://127.0.0.1/carlos/${action}/other`), 'a child path must not match');
+      assert.ok(matcher(new URL(url)), `${action} must match with chartContext=${chartContext}`);
+      assert.ok(matcher(new URL(`${url}${chartContext ? '&' : '?'}method=save`)));
+      assert.ok(!matcher(new URL(`https://127.0.0.1/carlos/${action}Other`)), 'a different action must not match');
+      assert.ok(!matcher(new URL(`https://127.0.0.1/carlos/${action}/other`)), 'a child path must not match');
+      assert.ok(!matcher(new URL(`https://127.0.0.1/carlos/other?returnTo=/${action}?chartContext=one`)),
+        'an action name inside query data must not match');
+      assert.ok(!matcher(new URL(`https://127.0.0.1/carlos/other#/${action}`)),
+        'an action name inside a fragment must not match');
     }
   }
 });

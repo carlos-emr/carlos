@@ -44,8 +44,8 @@ const PAGE = 20;
 const MAX_FAILED_LOADS = 3;
 const pad = n => String(n).padStart(2, '0');
 // Chart actions carry ?chartContext=...; match the action with or without a query.
-const NOTES_ROUTE = /\/CaseManagementView(?:\?|$)/;
-const NOTE_SAVE_ROUTE = /\/CaseManagementEntry(?:\?|$)/;
+const NOTES_ROUTE = url => url.pathname.endsWith('/CaseManagementView');
+const NOTE_SAVE_ROUTE = url => url.pathname.endsWith('/CaseManagementEntry');
 
 /** The pagination POST the notes pane makes, or null for any other request to the action. */
 function paginationParams(request) {
@@ -357,7 +357,7 @@ async function workflow(s) {
     // just replaced, is never shown again.
     await chart.locator('textarea[name="caseNote_note"]').fill(`${marker} reload probe`);
     await Promise.all([
-      chart.waitForResponse(r => NOTE_SAVE_ROUTE.test(r.url()) && r.request().method() === 'POST', {timeout: 20000}),
+      chart.waitForResponse(r => NOTE_SAVE_ROUTE(new URL(r.url())) && r.request().method() === 'POST', {timeout: 20000}),
       chart.locator('#saveImg').click(),
     ]);
     await chart.waitForFunction(({m, want}) => {
