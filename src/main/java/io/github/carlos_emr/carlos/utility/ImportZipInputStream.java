@@ -47,13 +47,18 @@ public final class ImportZipInputStream extends ZipInputStream {
      * @throws IllegalArgumentException if any limit is less than one
      */
     public ImportZipInputStream(InputStream input, long maxEntryBytes, long maxTotalBytes, int maxEntries) {
-        if (maxEntryBytes < 1 || maxTotalBytes < 1 || maxEntries < 1) {
-            throw new IllegalArgumentException("ZIP import limits must be positive");
-        }
-        super(input);
+        super(validateLimits(input, maxEntryBytes, maxTotalBytes, maxEntries));
         this.maxEntryBytes = maxEntryBytes;
         this.maxTotalBytes = maxTotalBytes;
         this.maxEntries = maxEntries;
+    }
+
+    /** Validates before allocating the inflater using syntax supported by the build's parsers. */
+    private static InputStream validateLimits(InputStream input, long maxEntryBytes, long maxTotalBytes, int maxEntries) {
+        if (maxEntryBytes < 1 || maxTotalBytes < 1 || maxEntries < 1) {
+            throw new IllegalArgumentException("ZIP import limits must be positive");
+        }
+        return input;
     }
 
     /**
