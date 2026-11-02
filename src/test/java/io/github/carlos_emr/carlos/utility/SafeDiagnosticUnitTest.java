@@ -45,6 +45,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.when;
 
 /** Regression tests for credential and patient-data boundaries in diagnostic strings. */
@@ -135,6 +137,78 @@ class SafeDiagnosticUnitTest {
     static Stream<Object> patientObjects() {
         return Stream.of(new Demographic(123), new Drug(), new CaseManagementCPP(),
                 new EDoc(), new NoteTo1(), new DemographicTransfer());
+    }
+
+    @ParameterizedTest
+    @MethodSource("formerlyReflectiveTypes")
+    void shouldOmitPopulatedFields_forEveryFormerReflectiveDiagnostic(String typeName) throws Exception {
+        Object value = mock(Class.forName(typeName), CALLS_REAL_METHODS);
+        doCallRealMethod().when(value).toString();
+        fillStrings(value);
+        assertThat(value.toString()).doesNotContain(SENSITIVE, "FAKE-SENSITIVE", "forged-event");
+    }
+
+    static Stream<String> formerlyReflectiveTypes() {
+        return Stream.of(
+                "io.github.carlos_emr.carlos.billing.CA.filters.CodeFilter",
+                "io.github.carlos_emr.carlos.billings.ca.bc.Teleplan.WCBCodes",
+                "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.WCBForm",
+                "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction$IssueDisplay",
+                "io.github.carlos_emr.carlos.commn.model.AbstractModel",
+                "io.github.carlos_emr.carlos.commn.model.Clinic",
+                "io.github.carlos_emr.carlos.commn.model.CtlDocumentPK",
+                "io.github.carlos_emr.carlos.commn.model.Drug",
+                "io.github.carlos_emr.carlos.commn.model.FormBPMH",
+                "io.github.carlos_emr.carlos.commn.model.OscarJobType",
+                "io.github.carlos_emr.carlos.dashboard.display.beans.DashboardBean",
+                "io.github.carlos_emr.carlos.dashboard.display.beans.DrilldownBean",
+                "io.github.carlos_emr.carlos.dashboard.display.beans.GraphPlot",
+                "io.github.carlos_emr.carlos.dashboard.display.beans.IndicatorBean",
+                "io.github.carlos_emr.carlos.dashboard.display.beans.IndicatorPanelBean",
+                "io.github.carlos_emr.carlos.dashboard.display.beans.PanelBean",
+                "io.github.carlos_emr.carlos.dashboard.handler.IndicatorTemplateXML",
+                "io.github.carlos_emr.carlos.dashboard.query.Column",
+                "io.github.carlos_emr.carlos.dashboard.query.DrillDownAction",
+                "io.github.carlos_emr.carlos.dashboard.query.Parameter",
+                "io.github.carlos_emr.carlos.dashboard.query.RangeLowerLimit",
+                "io.github.carlos_emr.carlos.dashboard.query.RangeUpperLimit",
+                "io.github.carlos_emr.carlos.documentManager.EDoc",
+                "io.github.carlos_emr.carlos.encounter.data.EctProviderData",
+                "io.github.carlos_emr.carlos.entities.Billingmaster",
+                "io.github.carlos_emr.carlos.entities.WCB",
+                "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhDrug",
+                "io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhForm2Bean",
+                "io.github.carlos_emr.carlos.form.util.FormTransportContainer",
+                "io.github.carlos_emr.carlos.integration.fhir.builder.ReferenceKey",
+                "io.github.carlos_emr.carlos.integration.fhir.model.Destination",
+                "io.github.carlos_emr.carlos.integration.fhir.model.Sender",
+                "io.github.carlos_emr.carlos.integration.fhir.resources.Settings",
+                "io.github.carlos_emr.carlos.model.BaseObject",
+                "io.github.carlos_emr.carlos.prescript.data.RxDrugData$DrugMonograph",
+                "io.github.carlos_emr.carlos.prescript.data.RxDrugData$DrugMonograph$DrugComponent",
+                "io.github.carlos_emr.carlos.prescript.data.RxDrugData$DrugSearch",
+                "io.github.carlos_emr.carlos.prescript.data.RxDrugData$MinDrug",
+                "io.github.carlos_emr.carlos.prescript.data.RxDrugData$Tag",
+                "io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData",
+                "io.github.carlos_emr.carlos.utility.LoggedInInfo",
+                "io.github.carlos_emr.carlos.webserv.rest.to.model.NoteTo1",
+                "io.github.carlos_emr.carlos.webserv.rest.to.model.PreventionSearchTo1",
+                "io.github.carlos_emr.carlos.webserv.rest.to.model.PrintRxTo1",
+                "io.github.carlos_emr.carlos.webserv.rest.to.model.RxDsMessageTo1",
+                "io.github.carlos_emr.carlos.webserv.rest.to.model.SummaryTo1",
+                "io.github.carlos_emr.carlos.webserv.transfer_objects.AllergyTransfer",
+                "io.github.carlos_emr.carlos.webserv.transfer_objects.DemographicTransfer",
+                "io.github.carlos_emr.carlos.webserv.transfer_objects.DemographicTransfer2",
+                "io.github.carlos_emr.carlos.webserv.transfer_objects.DocumentTransfer",
+                "io.github.carlos_emr.carlos.webserv.transfer_objects.FacilityTransfer",
+                "io.github.carlos_emr.carlos.webserv.transfer_objects.MeasurementMapTransfer",
+                "io.github.carlos_emr.carlos.webserv.transfer_objects.MeasurementTransfer",
+                "io.github.carlos_emr.carlos.webserv.transfer_objects.PrescriptionTransfer",
+                "io.github.carlos_emr.carlos.webserv.transfer_objects.PreventionTransfer",
+                "io.github.carlos_emr.carlos.webserv.transfer_objects.ProgramProviderTransfer",
+                "io.github.carlos_emr.carlos.webserv.transfer_objects.ProgramTransfer",
+                "io.github.carlos_emr.carlos.webserv.transfer_objects.ProviderPropertyTransfer",
+                "io.github.carlos_emr.carlos.webserv.transfer_objects.ProviderTransfer");
     }
 
     private static void fillStrings(Object value) throws Exception {
