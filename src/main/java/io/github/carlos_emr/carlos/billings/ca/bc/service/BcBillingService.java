@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.billings.ca.bc.service;
 
 import io.github.carlos_emr.carlos.billings.MSP.ExtractBean;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
-import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,11 +34,9 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Transactional(rollbackFor = Exception.class)
 public class BcBillingService {
     private final BillingmasterDAO billingmasterDao;
-    private final BillingDao billingDao;
 
-    public BcBillingService(@Qualifier("billingmasterDAO") BillingmasterDAO billingmasterDao, BillingDao billingDao) {
+    public BcBillingService(@Qualifier("billingmasterDAO") BillingmasterDAO billingmasterDao) {
         this.billingmasterDao = billingmasterDao;
-        this.billingDao = billingDao;
     }
 
     /** Builds the output before committing; publishes the HTML file only after a successful return. */
@@ -54,11 +51,7 @@ public class BcBillingService {
     }
 
     public void markBillBilled(int id) {
-        var billing = billingDao.find(id);
-        if (billing != null) {
-            billing.setStatus("B");
-            billingDao.merge(billing);
-        }
+        billingmasterDao.markBcBillBilled(id);
     }
 
     public void markMasterBilled(int id) {

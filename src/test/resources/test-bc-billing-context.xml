@@ -5,6 +5,5 @@
     <import resource="test-context-full.xml"/>
     <bean id="bcBillingService" class="io.github.carlos_emr.carlos.billings.ca.bc.service.BcBillingService">
         <constructor-arg ref="billingmasterDAO"/>
-        <constructor-arg ref="billingDaoImpl"/>
     </bean>
 </beans>

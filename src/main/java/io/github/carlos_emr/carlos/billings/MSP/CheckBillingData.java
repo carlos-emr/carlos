@@ -34,7 +34,7 @@ package io.github.carlos_emr.carlos.billings.MSP;
 
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
-import io.github.carlos_emr.carlos.entities.Billingmaster;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.ExtractClaimRow;
 
 public class CheckBillingData {
 
@@ -287,91 +287,91 @@ public class CheckBillingData {
         return ret;
     }
 
-    public String checkC02(String billingNo, Billingmaster bm) {
-        String ret = checkLength(bm.getClaimcode(), 3,
+    public String checkC02(String billingNo, ExtractClaimRow bm) {
+        String ret = checkLength(bm.claimcode(), 3,
                 "C02:P00 Rec Code In Wrong! "); //P00
         // 3
-        ret += checkLength(bm.getDatacenter(), 5,
+        ret += checkLength(bm.datacenter(), 5,
                 "C02:P02 Data Center Number Wrong! "); //P02
         // 5
         // + forwardZero(logNo, 7) //P04 7
-        ret += checkLength(bm.getPayeeNo(), 5,
+        ret += checkLength(bm.payeeNo(), 5,
                 "C02:P06 Payee Num Wrong! "); //P06
         // 5
-        ret += checkLength(bm.getPractitionerNo(), 5,
+        ret += checkLength(bm.practitionerNo(), 5,
                 "C02:P08 Practitioner Num Wrong! "); //P08
         // 5
-        ret += checkMSPPHN(bm.getPhn(), bm.getOinInsurerCode()); //P14
+        ret += checkMSPPHN(bm.phn(), bm.oinInsurerCode()); //P14
 
         // 10
-        //* + forwardSpace(bm.getNameVerify(), 4) //P16 4 +
-        ret += checkDependentNum(bm.getDependentNum()); //P18 2 +
-        ret += checkSrvUnits(bm.getBillingUnit()); //P20 3 +
+        //* + forwardSpace(bm.nameVerify(), 4) //P16 4 +
+        ret += checkDependentNum(bm.dependentNum()); //P18 2 +
+        ret += checkSrvUnits(bm.billingUnit()); //P20 3 +
 
         /*
-         * forwardZero(bm.getClarificationCode(), 2) //P22 2 +
-         * forwardSpace(bm.getAnatomicalArea(), 2) //P23 2 +
+         * forwardZero(bm.clarificationCode(), 2) //P22 2 +
+         * forwardSpace(bm.anatomicalArea(), 2) //P23 2 +
          */
 
-        ret += checkAfterHourIndicator(bm.getAfterHour()); //P24 1 +
+        ret += checkAfterHourIndicator(bm.afterHour()); //P24 1 +
 
-        // forwardZero(bm.getNewProgram(), 2) //P25 2 +
-        ret += checkFeeCode(bm.getBillingCode()); //P26 5 +
-        ret += checkBilledAmount(bm.getBillAmount()); //P27 7 +
+        // forwardZero(bm.newProgram(), 2) //P25 2 +
+        ret += checkFeeCode(bm.billingCode()); //P26 5 +
+        ret += checkBilledAmount(bm.billAmount()); //P27 7 +
 
-        // forwardZero(bm.getPaymentMode(), 1) //P28 1 +
-        ret += checkLength(bm.getServiceDate(), 8,
+        // forwardZero(bm.paymentMode(), 1) //P28 1 +
+        ret += checkLength(bm.serviceDate(), 8,
                 "C02:P30 Service Date Wrong! "); //P30 8 +
-        // forwardZero(bm.getServiceToDay(), 2) //P32 2 +
-        ret += checkSubmissionCode(bm.getSubmissionCode()); //P34 1 +
+        // forwardZero(bm.serviceToDay(), 2) //P32 2 +
+        ret += checkSubmissionCode(bm.submissionCode()); //P34 1 +
         // space(1) //P35 1 +
-        ret += checkDxCode1(bm.getDxCode1()); //P36 5 +
+        ret += checkDxCode1(bm.dxCode1()); //P36 5 +
         /*
-         * backwardSpace(bm.getDxCode2(), 5) //P37 5 +
-         * backwardSpace(bm.getDxCode3(), 5) //P38 5 + space(15) //
+         * backwardSpace(bm.dxCode2(), 5) //P37 5 +
+         * backwardSpace(bm.dxCode3(), 5) //P38 5 + space(15) //
          * //P39 15 +
          */
 
-        ret += checkSrvLocation(bm.getServiceLocation()); //P40 1 +
-        ret += checkReferral(bm.getReferralFlag1(), bm.getReferralNo1(), "Referral 1"); //P41 1 + P42 5 +
-        ret += checkReferral(bm.getReferralFlag2(), bm.getReferralNo2(), "Referral 2"); //P44 1 + P46 5 +
+        ret += checkSrvLocation(bm.serviceLocation()); //P40 1 +
+        ret += checkReferral(bm.referralFlag1(), bm.referralNo1(), "Referral 1"); //P41 1 + P42 5 +
+        ret += checkReferral(bm.referralFlag2(), bm.referralNo2(), "Referral 2"); //P44 1 + P46 5 +
         /*
-         * forwardZero(bm.getTimeCall(), 4) //P47 4 + zero(4) //P48 4 // +
+         * forwardZero(bm.timeCall(), 4) //P47 4 + zero(4) //P48 4 // +
          * zero(4) //P50 4 +
          */
 
-        ret += checkBirthDate(bm.getBirthDate()); //P52 8 +
-        ret += checkOfficeFolioNum(String.valueOf(bm.getBillingmasterNo())); //P54 7
+        ret += checkBirthDate(bm.birthDate()); //P52 8 +
+        ret += checkOfficeFolioNum(String.valueOf(bm.billingmasterNo())); //P54 7
         // +
-        ret += checkCorrespondenceCode(bm.getCorrespondenceCode()); //P56
+        ret += checkCorrespondenceCode(bm.correspondenceCode()); //P56
         // 1 +
 
-        ret += checkMVACode(bm.getMvaClaimCode()); //P60 1
+        ret += checkMVACode(bm.mvaClaimCode()); //P60 1
         /*
-         * space(20) //P58 20 + forwardSpace(bm.getMvaClaimCode(), 1)
-         * //P60 1 + forwardZero(bm.getIcbcClaimNo(), 8) //P62 8 +
-         * forwardZero(bm.getOriginalClaim(), 20 ) //P64 20 +
-         * forwardZero(bm.getFacilityNo(), 5) //P70 5 +
-         * forwardZero(bm.getFacilitySubNo(), 5) //P72 5 + space(58)
+         * space(20) //P58 20 + forwardSpace(bm.mvaClaimCode(), 1)
+         * //P60 1 + forwardZero(bm.icbcClaimNo(), 8) //P62 8 +
+         * forwardZero(bm.originalClaim(), 20 ) //P64 20 +
+         * forwardZero(bm.facilityNo(), 5) //P70 5 +
+         * forwardZero(bm.facilitySubNo(), 5) //P72 5 + space(58)
          * //p80 58 +
          */
 
-        ret += checkOinInsCode(bm.getOinInsurerCode()); //P100 2
+        ret += checkOinInsCode(bm.oinInsurerCode()); //P100 2
 
-        // backwardSpace(bm.getOinRegistrationNo(), 12)//P102 12 // +
-        ret += checkOinBirthDate(bm.getOinBirthdate()); //P104 8 +
+        // backwardSpace(bm.oinRegistrationNo(), 12)//P102 12 // +
+        ret += checkOinBirthDate(bm.oinBirthdate()); //P104 8 +
         /*
-         * backwardSpace(bm.getOinFirstName(), 12) //P106 12 +
-         * backwardSpace(bm.getOinSecondName(), 1) //P108 1 +
-         * backwardSpace(bm.getOinSurname(), 18) //P110 18 +
+         * backwardSpace(bm.oinFirstName(), 12) //P106 12 +
+         * backwardSpace(bm.oinSecondName(), 1) //P108 1 +
+         * backwardSpace(bm.oinSurname(), 18) //P110 18 +
          */
-        ret += checkOinSexCode(bm.getOinSexCode()); //P112 1 +
+        ret += checkOinSexCode(bm.oinSexCode()); //P112 1 +
         /*
-         * backwardSpace(bm.getOinAddress(), 25) //P114 25 +
-         * backwardSpace(bm.getOinAddress2(), 25) //P116 25 +
-         * backwardSpace(bm.getOinAddress3(), 25) //P118 25 +
-         * backwardSpace(bm.getOinAddress4(), 25) //P120 25 +
-         * backwardSpace(bm.getOinPostalcode(), 6); //P122 6
+         * backwardSpace(bm.oinAddress(), 25) //P114 25 +
+         * backwardSpace(bm.oinAddress2(), 25) //P116 25 +
+         * backwardSpace(bm.oinAddress3(), 25) //P118 25 +
+         * backwardSpace(bm.oinAddress4(), 25) //P120 25 +
+         * backwardSpace(bm.oinPostalcode(), 6); //P122 6
          */
         ret = printErrorMsg(billingNo, ret);
         return ret;

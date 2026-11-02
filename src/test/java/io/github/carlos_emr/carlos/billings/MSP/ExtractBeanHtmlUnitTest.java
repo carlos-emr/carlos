@@ -27,8 +27,8 @@ import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 
-import io.github.carlos_emr.carlos.entities.Billingmaster;
-import io.github.carlos_emr.carlos.commn.model.Billing;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.ExtractClaimRow;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.ExtractBillRow;
 import io.github.carlos_emr.carlos.billings.ca.bc.service.BcBillingService;
 import java.util.List;
 
@@ -70,19 +70,17 @@ class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldEncodeRecordValues_whenBuildingDryRunReport() throws Exception {
-        Billing bill = mock(Billing.class);
-        when(bill.getId()).thenReturn(1001);
-        when(bill.getDemographicName()).thenReturn(SCRIPT_NAME);
-        Billingmaster claim = mock(Billingmaster.class, call -> {
+        ExtractBillRow bill = new ExtractBillRow(1001, SCRIPT_NAME);
+        ExtractClaimRow claim = mock(ExtractClaimRow.class, call -> {
             if (call.getMethod().getReturnType() == String.class) return "0";
             return org.mockito.Answers.RETURNS_DEFAULTS.answer(call);
         });
-        when(claim.getBillingmasterNo()).thenReturn(42);
-        when(claim.getPhn()).thenReturn("<b>98</b>");
-        when(claim.getBillingCode()).thenReturn("<u>01</u>");
-        when(claim.getBillAmount()).thenReturn("23.00");
-        when(claim.getServiceDate()).thenReturn("20260612");
-        when(claim.getDxCode1()).thenReturn("<i>");
+        when(claim.billingmasterNo()).thenReturn(42);
+        when(claim.phn()).thenReturn("<b>98</b>");
+        when(claim.billingCode()).thenReturn("<u>01</u>");
+        when(claim.billAmount()).thenReturn("23.00");
+        when(claim.serviceDate()).thenReturn("20260612");
+        when(claim.dxCode1()).thenReturn("<i>");
         when(billingmasterDao.findBcExtractBills(anyString(), anyString(), any())).thenReturn(List.of(bill));
         when(billingmasterDao.findBcExtractClaims(1001)).thenReturn(List.of(claim, claim));
             ExtractBean bean = new ExtractBean();

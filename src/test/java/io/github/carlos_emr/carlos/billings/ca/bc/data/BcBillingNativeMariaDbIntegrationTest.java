@@ -33,8 +33,10 @@ class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
     @BeforeEach
     void seedOwnedBcRows() {
         jdbc = new JdbcTemplate(dataSource);
-        jdbc.update("insert into provider (provider_no, first_name, last_name, ohip_no, billing_no, lastUpdateDate) values (?, ?, ?, ?, ?, now())",
+        jdbc.update("insert into provider (provider_no, first_name, last_name, ohip_no, billing_no, provider_type, status, lastUpdateDate) values (?, ?, ?, ?, ?, 'doctor', '1', now())",
                 "BC54", "FAKE", "Provider5546", "91234", "81234");
+        jdbc.update("insert into provider (provider_no, first_name, last_name, ohip_no, billing_no, provider_type, status, lastUpdateDate) values (?, ?, ?, ?, ?, 'doctor', '1', now())",
+                "BC55", "FAKE", "Payee5546", "81234", "81234");
         jdbc.update("insert into demographic (demographic_no, first_name, last_name) values (?, ?, ?)",
                 985546, "BC", "FAKE-5546");
         jdbc.update("insert into billing (billing_no, provider_no, apptProvider_no, provider_ohip_no, demographic_no, demographic_name, billingtype, status, billing_date, visitdate) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -134,11 +136,27 @@ class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldReadWcbFeesAndNullableFields_throughTheExistingMapping() {
+        jdbc.update("insert into wcb (billing_no, bill_amount, w_feeitem, w_icd9) values (?, ?, ?, ?)",
+                BILL, "45.67", "00100", "250");
+        assertThat(dao.findBcWcb(String.valueOf(BILL)))
+                .isEqualTo(new BcBillingRows.WcbRow("45.67", "00100", "250"));
+        assertThat(dao.findBcWcb("0")).isNull();
+    }
+
+    @Test
     void shouldRetainExtractOhipAndStatusRestriction_withBoundDates() {
         assertThat(dao.findBcExtractBills("91234", "and billing_date >= ? and visitdate <= ?",
                 new String[]{"2026-10-15", "2026-10-15"})).hasSize(1);
         assertThat(dao.findBcExtractBills("BC54", "", new String[0])).isEmpty();
-        jdbc.update("update billing set status='B' where billing_no=?", BILL);
+        jdbc.update("update billingmaster set demographic_no=NULL, appointment_no=NULL where billingmaster_no=?", MASTER);
+        assertThat(dao.findBcExtractClaims(BILL)).singleElement().satisfies(row -> {
+            assertThat(row.billingmasterNo()).isEqualTo(MASTER);
+            assertThat(row.billAmount()).isEqualTo("10.00");
+        });
+        dao.markBcMasterBilled(MASTER);
+        dao.markBcBillBilled(BILL);
+        assertThat(dao.findBcExtractClaims(BILL)).isEmpty();
         assertThat(dao.findBcExtractBills("91234", "", new String[0])).isEmpty();
         assertThatThrownBy(() -> dao.findBcExtractBills("91234", "or 1=1", new String[0]))
                 .isInstanceOf(IllegalArgumentException.class);

@@ -1553,7 +1553,7 @@ public class MSPReconcile {
                 b.provName = this.getProvider(b.apptDoctorNo, 0).getInitials();
 
                 b.amount = row.amountReceived();
-                b.paymentDate = this.fmt.format(row.creationDate());
+                b.paymentDate = this.fmt.format(java.sql.Date.valueOf(row.creationDate()));
                 b.paymentMethod = row.paymentTypeId();
                 b.setPaymentMethodName(this.getPaymentMethodDesc(b.paymentMethod));
                 if (failOnReadError) new BigDecimal(b.amount);
@@ -1611,7 +1611,7 @@ public class MSPReconcile {
 //				b.setGst(new BigDecimal(billAmount == 0 ? 0 : (amountReceived * (gst / billAmount))).setScale(2, RoundingMode.HALF_UP).toString());
 //				b.setGstNo(row.gstNo());
 
-                b.paymentDate = this.fmt.format(row.creationDate());
+                b.paymentDate = this.fmt.format(java.sql.Date.valueOf(row.creationDate()));
                 b.paymentMethod = row.paymentTypeId();
                 b.setPaymentMethodName(this.getPaymentMethodDesc(b.paymentMethod));
                 if (failOnReadError) new BigDecimal(b.amount);

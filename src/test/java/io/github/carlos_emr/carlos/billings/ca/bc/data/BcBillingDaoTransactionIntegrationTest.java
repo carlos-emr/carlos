@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -33,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class BcBillingDaoTransactionIntegrationTest extends CarlosTestBase {
     @Autowired private BcBillingService service;
+    @Autowired @Qualifier("billingmasterDAO") private BillingmasterDAO masters;
     @Autowired private LogTeleplanTxDao logDao;
     @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private DataSource dataSource;
@@ -40,6 +42,7 @@ class BcBillingDaoTransactionIntegrationTest extends CarlosTestBase {
     private int billId;
     private int masterId;
     private Integer logId;
+    private boolean published;
 
     @BeforeEach
     void persistOpenBill() {
@@ -80,10 +83,17 @@ class BcBillingDaoTransactionIntegrationTest extends CarlosTestBase {
                 assertThat(logId).isPositive();
                 service.markBillBilled(billId);
                 service.markMasterBilled(masterId);
+                assertThat(masters.findBcExtractClaims(billId)).isEmpty();
+                assertThat(published).isFalse();
                 entityManager.flush();
                 // A separate physical connection must still see the earlier committed status.
                 assertThat(committedMasterStatus()).isEqualTo("O");
                 if (fail) throw new IllegalStateException("synthetic failure after earlier writes");
+            }
+
+            @Override
+            public void publishExtract() {
+                published = true;
             }
         };
     }
@@ -92,6 +102,7 @@ class BcBillingDaoTransactionIntegrationTest extends CarlosTestBase {
     void shouldCommitGeneratedLogAndBothStatuses_whenExtractCompletes() {
         service.generateExtract(extract(false));
         assertCommittedState("B", 1);
+        assertThat(published).isTrue();
     }
 
     @Test
@@ -99,6 +110,7 @@ class BcBillingDaoTransactionIntegrationTest extends CarlosTestBase {
         assertThatThrownBy(() -> service.generateExtract(extract(true)))
                 .isInstanceOf(IllegalStateException.class).hasMessage("synthetic failure after earlier writes");
         assertCommittedState("O", 0);
+        assertThat(published).isFalse();
     }
 
     private void assertCommittedState(String expected, int logs) {

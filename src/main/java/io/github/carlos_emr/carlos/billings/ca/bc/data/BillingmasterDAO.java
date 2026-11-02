@@ -369,9 +369,44 @@ public class BillingmasterDAO {
         } else if (MSPReconcile.REP_INVOICE.equals(type)) {
             orderByClause = "order by b.provider_no, bt.sortOrder, bm.service_date, b.demographic_name";
         }
-        String p = "select provider.first_name, provider.last_name, b.billingtype, b.update_date, bm.billingmaster_no, b.billing_no, " + " b.demographic_name, b.demographic_no, bm.billing_unit, bm.billing_code, bm.bill_amount, bm.billingstatus, bm.mva_claim_code, bm.service_location," + " bm.phn, bm.service_end_time, service_start_time, bm.service_to_day, bm.service_date, bm.oin_sex_code, b.dob, dx_code1, b.provider_no, apptProvider_no, bt.sortOrder "
-                + " from demographic, provider, billing as b left join billingtypes bt on b.billingtype = bt.billingtype, billingmaster as bm left join billingstatus_types bs on bm.billingstatus = bs.billingstatus" + " where bm.billing_no=b.billing_no " + " and b.provider_no = provider.provider_no " + " and demographic.demographic_no = b.demographic_no " + criteriaQry + " " + orderByClause;
-        return readBcRows(p, criteriaParams.toArray(), rs -> new BillRow(rs.getString("b.billingtype"), rs.getString("billing_no"), rs.getString("demographic_no"), rs.getString("billing_unit"), rs.getString("demographic_name"), rs.getString("update_date"), rs.getString("billingstatus"), rs.getString("service_end_time"), rs.getString("service_start_time"), rs.getString("service_to_day"), rs.getString("billingmaster_no"), rs.getString("bill_amount"), rs.getString("billing_code"), rs.getString("dx_code1"), rs.getString("service_date"), rs.getString("mva_claim_code"), rs.getString("phn"), rs.getString("service_location"), rs.getString("dob"), rs.getString("oin_sex_code"), rs.getString("apptProvider_no"), rs.getString("b.provider_no"), rs.getString("first_name"), rs.getString("last_name")));
+        String sql = """
+                SELECT provider.first_name, provider.last_name, b.billingtype, b.update_date,
+                       bm.billingmaster_no, b.billing_no, b.demographic_name, b.demographic_no,
+                       bm.billing_unit, bm.billing_code, bm.bill_amount, bm.billingstatus,
+                       bm.mva_claim_code, bm.service_location, bm.phn, bm.service_end_time,
+                       service_start_time, bm.service_to_day, bm.service_date, bm.oin_sex_code,
+                       b.dob, dx_code1, b.provider_no, apptProvider_no, bt.sortOrder
+                FROM demographic, provider,
+                     billing AS b LEFT JOIN billingtypes bt ON b.billingtype = bt.billingtype,
+                     billingmaster AS bm LEFT JOIN billingstatus_types bs ON bm.billingstatus = bs.billingstatus
+                WHERE bm.billing_no = b.billing_no AND b.provider_no = provider.provider_no
+                  AND demographic.demographic_no = b.demographic_no
+                """ + criteriaQry + " " + orderByClause;
+        return readBcRows(sql, criteriaParams.toArray(), rs -> new BillRow(
+                rs.getString("b.billingtype"),
+                rs.getString("billing_no"),
+                rs.getString("demographic_no"),
+                rs.getString("billing_unit"),
+                rs.getString("demographic_name"),
+                rs.getString("update_date"),
+                rs.getString("billingstatus"),
+                rs.getString("service_end_time"),
+                rs.getString("service_start_time"),
+                rs.getString("service_to_day"),
+                rs.getString("billingmaster_no"),
+                rs.getString("bill_amount"),
+                rs.getString("billing_code"),
+                rs.getString("dx_code1"),
+                rs.getString("service_date"),
+                rs.getString("mva_claim_code"),
+                rs.getString("phn"),
+                rs.getString("service_location"),
+                rs.getString("dob"),
+                rs.getString("oin_sex_code"),
+                rs.getString("apptProvider_no"),
+                rs.getString("b.provider_no"),
+                rs.getString("first_name"),
+                rs.getString("last_name")));
     }
 
     /** Materializes the legacy BC native read on the caller transaction. */
@@ -381,9 +416,41 @@ public class BillingmasterDAO {
             boolean excludePrivate, boolean exludeICBC) {
         List<Object> criteriaParams = new ArrayList<>();
         String criteriaQry = createBcCriteriaString(account, payeeNo, providerNo, UtilMisc.replace(startDate, "-", ""), UtilMisc.replace(endDate, "-", ""), excludeWCB, excludeMSP, excludePrivate, exludeICBC, MSPReconcile.REP_PAYREF, "", criteriaParams);
-        String p = "SELECT teleplanS00.t_payment, b.billingtype, b.demographic_name, apptProvider_no, provider_no, payee_no, b.demographic_no, teleplanS00.t_paidamt, t_exp1, t_exp2, t_dataseq, bm.service_date, bm.paymentMethod, teleplanS00.t_ajc1," + " teleplanS00.t_aja1, teleplanS00.t_aja2, teleplanS00.t_aja3, teleplanS00.t_aja4, teleplanS00.t_aja5, teleplanS00.t_aja6, teleplanS00.t_aja7, bm.billingmaster_no, teleplanS00.t_practitionerno"
-                + " FROM teleplanS00 left join billingmaster as bm on teleplanS00.t_officeno = bm.billingmaster_no, billing as b" + " where b.billing_no = bm.billing_no" + criteriaQry + " and bm.billingstatus != 'D'" + " order by t_payment";
-        return readBcRows(p, criteriaParams.toArray(), rs -> new PaymentRow(rs.getString("b.billingtype"), rs.getString("t_payment"), rs.getString("paymentMethod"), rs.getString("demographic_no"), rs.getString("demographic_name"), rs.getString("t_paidamt"), rs.getString("bm.billingmaster_no"), rs.getString("service_date"), rs.getString("t_dataseq"), rs.getString("t_exp1"), rs.getString("t_exp2"), rs.getString("t_practitionerno"), rs.getString("provider_no"), rs.getString("payee_no"), rs.getString("teleplanS00.t_ajc1"), rs.getString("teleplanS00.t_aja1"), rs.getString("teleplanS00.t_aja2"), rs.getString("teleplanS00.t_aja3"), rs.getString("teleplanS00.t_aja4"), rs.getString("teleplanS00.t_aja5"), rs.getString("teleplanS00.t_aja6"), rs.getString("teleplanS00.t_aja7")));
+        String sql = """
+                SELECT teleplanS00.t_payment, b.billingtype, b.demographic_name, apptProvider_no,
+                       provider_no, payee_no, b.demographic_no, teleplanS00.t_paidamt,
+                       t_exp1, t_exp2, t_dataseq, bm.service_date, bm.paymentMethod,
+                       teleplanS00.t_ajc1, teleplanS00.t_aja1, teleplanS00.t_aja2,
+                       teleplanS00.t_aja3, teleplanS00.t_aja4, teleplanS00.t_aja5,
+                       teleplanS00.t_aja6, teleplanS00.t_aja7, bm.billingmaster_no,
+                       teleplanS00.t_practitionerno
+                FROM teleplanS00 LEFT JOIN billingmaster AS bm ON teleplanS00.t_officeno = bm.billingmaster_no,
+                     billing AS b
+                WHERE b.billing_no = bm.billing_no
+                """ + criteriaQry + " and bm.billingstatus != 'D' order by t_payment";
+        return readBcRows(sql, criteriaParams.toArray(), rs -> new PaymentRow(
+                rs.getString("b.billingtype"),
+                rs.getString("t_payment"),
+                rs.getString("paymentMethod"),
+                rs.getString("demographic_no"),
+                rs.getString("demographic_name"),
+                rs.getString("t_paidamt"),
+                rs.getString("bm.billingmaster_no"),
+                rs.getString("service_date"),
+                rs.getString("t_dataseq"),
+                rs.getString("t_exp1"),
+                rs.getString("t_exp2"),
+                rs.getString("t_practitionerno"),
+                rs.getString("provider_no"),
+                rs.getString("payee_no"),
+                rs.getString("teleplanS00.t_ajc1"),
+                rs.getString("teleplanS00.t_aja1"),
+                rs.getString("teleplanS00.t_aja2"),
+                rs.getString("teleplanS00.t_aja3"),
+                rs.getString("teleplanS00.t_aja4"),
+                rs.getString("teleplanS00.t_aja5"),
+                rs.getString("teleplanS00.t_aja6"),
+                rs.getString("teleplanS00.t_aja7")));
     }
 
     /** Materializes the legacy BC native read on the caller transaction. */
@@ -392,8 +459,26 @@ public class BillingmasterDAO {
             String startDate, String endDate) {
         List<Object> criteriaParams = new ArrayList<>();
         String criteriaQry = createBcCriteriaString(account, payeeNo, providerNo, startDate, endDate, true, true, false, true, "", "creation_date", criteriaParams);
-        String p = "SELECT b.billingtype, bm.billingmaster_no, b.demographic_no, b.demographic_name, bm.service_date, b.apptProvider_no, b.provider_no, bm.payee_no," + " bh.creation_date, bh.amount_received, payment_type_id" + " FROM billing_history bh left join billingmaster bm on bh.billingmaster_no = bm.billingmaster_no, billing b" + " where bm.billing_no = b.billing_no " + " and bh.payment_type_id != " + MSPReconcile.PAYTYPE_IA + " " + criteriaQry + " and bm.billingstatus != '" + MSPReconcile.DELETED + "'";
-        return readBcRows(p, criteriaParams.toArray(), rs -> new PrivatePaymentRow(rs.getString("bm.billingmaster_no"), rs.getString("b.billingtype"), rs.getString("demographic_no"), rs.getString("demographic_name"), rs.getString("service_date"), rs.getString("apptProvider_no"), rs.getString("provider_no"), rs.getString("payee_no"), rs.getString("amount_received"), rs.getDate("creation_date"), rs.getString("payment_type_id")));
+        String sql = """
+                SELECT b.billingtype, bm.billingmaster_no, b.demographic_no, b.demographic_name,
+                       bm.service_date, b.apptProvider_no, b.provider_no, bm.payee_no,
+                       bh.creation_date, bh.amount_received, payment_type_id
+                FROM billing_history bh LEFT JOIN billingmaster bm ON bh.billingmaster_no = bm.billingmaster_no,
+                     billing b
+                WHERE bm.billing_no = b.billing_no AND bh.payment_type_id != 10
+                """ + criteriaQry + " and bm.billingstatus != 'D'";
+        return readBcRows(sql, criteriaParams.toArray(), rs -> new PrivatePaymentRow(
+                rs.getString("bm.billingmaster_no"),
+                rs.getString("b.billingtype"),
+                rs.getString("demographic_no"),
+                rs.getString("demographic_name"),
+                rs.getString("service_date"),
+                rs.getString("apptProvider_no"),
+                rs.getString("provider_no"),
+                rs.getString("payee_no"),
+                rs.getString("amount_received"),
+                rs.getObject("creation_date", java.time.LocalDate.class),
+                rs.getString("payment_type_id")));
     }
 
     // FindSecBugs IMPROPER_UNICODE: the legacy ALL report sentinel is case-insensitive, not an authorization decision.
@@ -516,41 +601,91 @@ public class BillingmasterDAO {
     }
 
 
-    /** Legacy extract restriction uses provider_ohip_no, not the account's provider_no. */
+    /**
+     * Restricts the legacy extract by provider_ohip_no. Project only the required columns:
+     * optional legacy billing fields may be NULL despite primitive fields in the entity mapping.
+     */
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-    public List<Billing> findBcExtractBills(String providerOhipNo, String dateRange, String[] dates) {
+    public List<ExtractBillRow> findBcExtractBills(String providerOhipNo, String dateRange, String[] dates) {
         if (!dateRange.isEmpty() && !dateRange.matches("(?i)^\\s*(?:and\\s+(?:billing_date|visitdate)\\s*(?:=|>=|<=|>|<)\\s*\\?\\s*)+$")) {
             throw new IllegalArgumentException("Unsupported billing date range filter");
         }
-        Query query = entityManager.createNativeQuery("select * from billing where provider_ohip_no=?1 and (status='O' or status='W') "
-                + numberBcDateParameters(dateRange), Billing.class);
-        query.setParameter(1, providerOhipNo);
-        for (int i = 0; i < dates.length; i++) query.setParameter(i + 2, dates[i]);
-        return query.getResultList();
+        Object[] params = new Object[dates.length + 1];
+        params[0] = providerOhipNo;
+        System.arraycopy(dates, 0, params, 1, dates.length);
+        // Only allowlisted syntax enters the query; provider/date values are JDBC parameters.
+        String sql = "select billing_no, demographic_name from billing where provider_ohip_no=? and (status='O' or status='W') " + dateRange;
+        return readBcRows(sql, params, rs -> new ExtractBillRow(rs.getObject("billing_no", Integer.class), rs.getString("demographic_name")));
     }
 
-    private String numberBcDateParameters(String filter) {
-        StringBuilder result = new StringBuilder();
-        int parameter = 2;
-        for (char ch : filter.toCharArray()) {
-            if (ch == '?') result.append('?').append(parameter++);
-            else result.append(ch);
-        }
-        return result.toString();
-    }
-
-    /** Selects open claim entities without suspending the extract's transaction. */
+    /** Projects open claims without hydrating unrelated nullable legacy entity fields. */
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-    public List<Billingmaster> findBcExtractClaims(int billingNo) {
-        return entityManager.createQuery("from Billingmaster b where b.billingNo = :billingNo and b.billingstatus = 'O'", Billingmaster.class)
-                .setParameter("billingNo", billingNo).getResultList();
+    public List<ExtractClaimRow> findBcExtractClaims(int billingNo) {
+        String sql = "select bill_amount, billingmaster_no, phn, service_date, billing_code, dx_code1, dx_code2, dx_code3, claimcode, datacenter, payee_no, practitioner_no, name_verify, dependent_num, billing_unit, clarification_code, anatomical_area, after_hour, new_program, payment_mode, service_to_day, submission_code, service_location, referral_flag1, referral_no1, referral_flag2, referral_no2, time_call, service_start_time, service_end_time, birth_date, correspondence_code, mva_claim_code, icbc_claim_no, original_claim, facility_no, facility_sub_no, oin_insurer_code, oin_registration_no, oin_birthdate, oin_first_name, oin_second_name, oin_surname, oin_sex_code, oin_address, oin_address2, oin_address3, oin_address4, oin_postalcode from billingmaster where billing_no=? and billingstatus='O'";
+        return readBcRows(sql, new Object[]{billingNo}, rs -> new ExtractClaimRow(
+                rs.getString("bill_amount"),
+                rs.getObject("billingmaster_no", Integer.class),
+                rs.getString("phn"),
+                rs.getString("service_date"),
+                rs.getString("billing_code"),
+                rs.getString("dx_code1"),
+                rs.getString("dx_code2"),
+                rs.getString("dx_code3"),
+                rs.getString("claimcode"),
+                rs.getString("datacenter"),
+                rs.getString("payee_no"),
+                rs.getString("practitioner_no"),
+                rs.getString("name_verify"),
+                rs.getString("dependent_num"),
+                rs.getString("billing_unit"),
+                rs.getString("clarification_code"),
+                rs.getString("anatomical_area"),
+                rs.getString("after_hour"),
+                rs.getString("new_program"),
+                rs.getString("payment_mode"),
+                rs.getString("service_to_day"),
+                rs.getString("submission_code"),
+                rs.getString("service_location"),
+                rs.getString("referral_flag1"),
+                rs.getString("referral_no1"),
+                rs.getString("referral_flag2"),
+                rs.getString("referral_no2"),
+                rs.getString("time_call"),
+                rs.getString("service_start_time"),
+                rs.getString("service_end_time"),
+                rs.getString("birth_date"),
+                rs.getString("correspondence_code"),
+                rs.getString("mva_claim_code"),
+                rs.getString("icbc_claim_no"),
+                rs.getString("original_claim"),
+                rs.getString("facility_no"),
+                rs.getString("facility_sub_no"),
+                rs.getString("oin_insurer_code"),
+                rs.getString("oin_registration_no"),
+                rs.getString("oin_birthdate"),
+                rs.getString("oin_first_name"),
+                rs.getString("oin_second_name"),
+                rs.getString("oin_surname"),
+                rs.getString("oin_sex_code"),
+                rs.getString("oin_address"),
+                rs.getString("oin_address2"),
+                rs.getString("oin_address3"),
+                rs.getString("oin_address4"),
+                rs.getString("oin_postalcode")));
     }
 
-    /** Participates in the service boundary; existing REQUIRES_NEW write callers retain their policy. */
+    /** Participates in the service boundary; existing REQUIRES_NEW callers retain their policy. */
     @Transactional(propagation = Propagation.MANDATORY)
     public void markBcMasterBilled(int id) {
-        Billingmaster claim = entityManager.find(Billingmaster.class, id);
-        if (claim != null) claim.setBillingstatus("B");
+        entityManager.createQuery("update Billingmaster b set b.billingstatus = 'B' where b.billingmasterNo = :id")
+                .setParameter("id", id).executeUpdate();
+    }
+
+    /** Updates only the billing status without hydrating nullable legacy primitive columns. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void markBcBillBilled(int id) {
+        entityManager.createQuery("update Billing b set b.status = 'B' where b.id = :id")
+                .setParameter("id", id).executeUpdate();
     }
 
     /** Detached remittance fields; Jasper field names and native ordering are preserved. */
@@ -558,7 +693,25 @@ public class BillingmasterDAO {
     public List<RemittanceRow> findBcRemittance(String payeeNo, String s21Id) {
         String qry = "SELECT billing_code, provider.first_name, provider.last_name, t_practitionerno, t_s00type, billingmaster.service_date as 't_servicedate', t_payment," + "t_datacenter, billing.demographic_name, billing.demographic_no, teleplanS00.t_paidamt, t_exp1, t_exp2, t_exp3, t_exp4, t_exp5, t_exp6, t_dataseq " + " from teleplanS00, billing, billingmaster, provider " + " where teleplanS00.t_officeno = billingmaster.billingmaster_no " + " and teleplanS00.s21_id = ?"
                 + " and billingmaster.billing_no = billing.billing_no " + " and provider.ohip_no= teleplanS00.t_practitionerno " + " and teleplanS00.t_practitionerno NOT LIKE '' and teleplanS00.t_payeeno LIKE ? order by provider.first_name, t_servicedate, billing.demographic_name";
-        return readBcRows(qry, new Object[]{s21Id, payeeNo}, rs -> new RemittanceRow(rs.getString("billing_code"), rs.getString("first_name"), rs.getString("last_name"), rs.getString("t_practitionerno"), rs.getString("t_s00type"), rs.getString("t_servicedate"), rs.getString("t_payment"), rs.getString("t_datacenter"), rs.getString("demographic_name"), rs.getObject("demographic_no", Integer.class), rs.getString("t_paidamt"), rs.getString("t_exp1"), rs.getString("t_exp2"), rs.getString("t_exp3"), rs.getString("t_exp4"), rs.getString("t_exp5"), rs.getString("t_exp6"), rs.getString("t_dataseq")));
+        return readBcRows(qry, new Object[]{s21Id, payeeNo}, rs -> new RemittanceRow(
+                rs.getString("billing_code"),
+                rs.getString("first_name"),
+                rs.getString("last_name"),
+                rs.getString("t_practitionerno"),
+                rs.getString("t_s00type"),
+                rs.getString("t_servicedate"),
+                rs.getString("t_payment"),
+                rs.getString("t_datacenter"),
+                rs.getString("demographic_name"),
+                rs.getObject("demographic_no", Integer.class),
+                rs.getString("t_paidamt"),
+                rs.getString("t_exp1"),
+                rs.getString("t_exp2"),
+                rs.getString("t_exp3"),
+                rs.getString("t_exp4"),
+                rs.getString("t_exp5"),
+                rs.getString("t_exp6"),
+                rs.getString("t_dataseq")));
     }
 
     /** Detached remittance fields; Jasper field names and native ordering are preserved. */
@@ -577,6 +730,43 @@ public class BillingmasterDAO {
                 "and ts00.t_practitionerno != '' \n" +
                 "and ts00.t_payeeno = ?\n" +
                 "order by p.first_name, bm.service_date, b.demographic_name;";
-        return readBcRows(qry, new Object[]{s21Id, payeeNo}, rs -> new AdjustmentRemittanceRow(rs.getObject("billing_no", Integer.class), rs.getObject("billingmaster_no", Integer.class), rs.getString("billing_code"), rs.getString("first_name"), rs.getString("last_name"), rs.getString("t_practitionerno"), rs.getString("t_s00type"), rs.getString("t_msprcddate"), rs.getString("service_date"), rs.getString("t_payment"), rs.getString("t_datacenter"), rs.getString("demographic_name"), rs.getObject("demographic_no", Integer.class), rs.getString("differential"), rs.getString("t_paidamt"), rs.getString("bill_amount"), rs.getString("t_exp1"), rs.getString("t_exp2"), rs.getString("t_exp3"), rs.getString("t_exp4"), rs.getString("t_exp5"), rs.getString("t_exp6"), rs.getString("t_dataseq"), rs.getString("t_ajc1"), rs.getString("t_aja1"), rs.getString("t_ajc2"), rs.getString("t_aja2"), rs.getString("t_ajc3"), rs.getString("t_aja3"), rs.getString("t_ajc4"), rs.getString("t_aja4"), rs.getString("t_ajc5"), rs.getString("t_aja5"), rs.getString("t_ajc6"), rs.getString("t_aja6"), rs.getString("t_ajc7"), rs.getString("t_aja7")));
+        return readBcRows(qry, new Object[]{s21Id, payeeNo}, rs -> new AdjustmentRemittanceRow(
+                rs.getObject("billing_no", Integer.class),
+                rs.getObject("billingmaster_no", Integer.class),
+                rs.getString("billing_code"),
+                rs.getString("first_name"),
+                rs.getString("last_name"),
+                rs.getString("t_practitionerno"),
+                rs.getString("t_s00type"),
+                rs.getString("t_msprcddate"),
+                rs.getString("service_date"),
+                rs.getString("t_payment"),
+                rs.getString("t_datacenter"),
+                rs.getString("demographic_name"),
+                rs.getObject("demographic_no", Integer.class),
+                rs.getString("differential"),
+                rs.getString("t_paidamt"),
+                rs.getString("bill_amount"),
+                rs.getString("t_exp1"),
+                rs.getString("t_exp2"),
+                rs.getString("t_exp3"),
+                rs.getString("t_exp4"),
+                rs.getString("t_exp5"),
+                rs.getString("t_exp6"),
+                rs.getString("t_dataseq"),
+                rs.getString("t_ajc1"),
+                rs.getString("t_aja1"),
+                rs.getString("t_ajc2"),
+                rs.getString("t_aja2"),
+                rs.getString("t_ajc3"),
+                rs.getString("t_aja3"),
+                rs.getString("t_ajc4"),
+                rs.getString("t_aja4"),
+                rs.getString("t_ajc5"),
+                rs.getString("t_aja5"),
+                rs.getString("t_ajc6"),
+                rs.getString("t_aja6"),
+                rs.getString("t_ajc7"),
+                rs.getString("t_aja7")));
     }
 }

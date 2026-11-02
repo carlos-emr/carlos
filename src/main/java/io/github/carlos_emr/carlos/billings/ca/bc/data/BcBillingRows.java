@@ -48,7 +48,12 @@ public final class BcBillingRows {
             String apptProviderNo,
             String providerNo,
             String firstName,
-            String lastName) {}
+            String lastName) {
+        @Override
+        public String toString() {
+            return "BillRow[redacted]";
+        }
+    }
 
     public record PaymentRow(
             String billingtype,
@@ -72,7 +77,12 @@ public final class BcBillingRows {
             String tAja4,
             String tAja5,
             String tAja6,
-            String tAja7) {}
+            String tAja7) {
+        @Override
+        public String toString() {
+            return "PaymentRow[redacted]";
+        }
+    }
 
     public record PrivatePaymentRow(
             String billingmasterNo,
@@ -84,13 +94,23 @@ public final class BcBillingRows {
             String providerNo,
             String payeeNo,
             String amountReceived,
-            java.sql.Date creationDate,
-            String paymentTypeId) {}
+            java.time.LocalDate creationDate,
+            String paymentTypeId) {
+        @Override
+        public String toString() {
+            return "PrivatePaymentRow[redacted]";
+        }
+    }
 
     public record WcbRow(
             String amount,
             String feeItem,
-            String diagnosis) {}
+            String diagnosis) {
+        @Override
+        public String toString() {
+            return "WcbRow[redacted]";
+        }
+    }
 
     public record RemittanceRow(
             String billing_code,
@@ -110,7 +130,12 @@ public final class BcBillingRows {
             String t_exp4,
             String t_exp5,
             String t_exp6,
-            String t_dataseq) {}
+            String t_dataseq) {
+        @Override
+        public String toString() {
+            return "RemittanceRow[redacted]";
+        }
+    }
 
     public record AdjustmentRemittanceRow(
             Integer billing_no,
@@ -149,5 +174,68 @@ public final class BcBillingRows {
             String t_ajc6,
             String t_aja6,
             String t_ajc7,
-            String t_aja7) {}
+            String t_aja7) {
+        @Override
+        public String toString() {
+            return "AdjustmentRemittanceRow[redacted]";
+        }
+    }
+    public record ExtractBillRow(Integer billingNo, String demographicName) {
+        @Override
+        public String toString() { return "ExtractBillRow[redacted]"; }
+    }
+
+    public record ExtractClaimRow(
+            String billAmount,
+            Integer billingmasterNo,
+            String phn,
+            String serviceDate,
+            String billingCode,
+            String dxCode1,
+            String dxCode2,
+            String dxCode3,
+            String claimcode,
+            String datacenter,
+            String payeeNo,
+            String practitionerNo,
+            String nameVerify,
+            String dependentNum,
+            String billingUnit,
+            String clarificationCode,
+            String anatomicalArea,
+            String afterHour,
+            String newProgram,
+            String paymentMode,
+            String serviceToDay,
+            String submissionCode,
+            String serviceLocation,
+            String referralFlag1,
+            String referralNo1,
+            String referralFlag2,
+            String referralNo2,
+            String timeCall,
+            String serviceStartTime,
+            String serviceEndTime,
+            String birthDate,
+            String correspondenceCode,
+            String mvaClaimCode,
+            String icbcClaimNo,
+            String originalClaim,
+            String facilityNo,
+            String facilitySubNo,
+            String oinInsurerCode,
+            String oinRegistrationNo,
+            String oinBirthdate,
+            String oinFirstName,
+            String oinSecondName,
+            String oinSurname,
+            String oinSexCode,
+            String oinAddress,
+            String oinAddress2,
+            String oinAddress3,
+            String oinAddress4,
+            String oinPostalcode) {
+        @Override
+        public String toString() { return "ExtractClaimRow[redacted]"; }
+    }
 }

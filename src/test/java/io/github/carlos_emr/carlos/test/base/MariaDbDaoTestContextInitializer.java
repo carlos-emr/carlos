@@ -67,7 +67,10 @@ public class MariaDbDaoTestContextInitializer
             beans.registerDisposableBean("mariaDbDaoTestDatabase", cleanup);
             if (migrated) Flyway.configure().dataSource(jdbcUrl, credentials.getProperty("user"),
                             credentials.getProperty("password"))
-                    .initSql("SET SESSION sql_mode='', collation_connection='utf8mb4_general_ci'")
+                    // BC's published wide legacy form tables require the packaged server's
+                    // innodb_strict_mode=0 during bootstrap (60-carlos-emr.cnf).
+                    .initSql("SET SESSION sql_mode='', collation_connection='utf8mb4_general_ci'"
+                            + ("bc".equals(province) ? ", innodb_strict_mode=0" : ""))
                     .locations("classpath:db/migration/common", "classpath:db/migration/" + province)
                     .failOnMissingLocations(true).ignoreMigrationPatterns(new String[0]).load().migrate();
         } catch (Exception failure) {

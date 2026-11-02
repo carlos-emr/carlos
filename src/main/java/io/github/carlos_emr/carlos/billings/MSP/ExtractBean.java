@@ -34,12 +34,12 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.LogTeleplanTxDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
-import io.github.carlos_emr.carlos.commn.model.Billing;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.ExtractBillRow;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
-import io.github.carlos_emr.carlos.entities.Billingmaster;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.ExtractClaimRow;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.HtmlTeleplanHelper;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.service.BcBillingService;
@@ -141,17 +141,17 @@ public class ExtractBean extends Object implements Serializable {
         errorMsg = "";
 
         value = batchHeader;
-        for (Billing bill : billingmasterDao.findBcExtractBills(providerNo, dateRange, dateRangeParams)) {
+        for (ExtractBillRow bill : billingmasterDao.findBcExtractBills(providerNo, dateRange, dateRangeParams)) {
             patientCount = patientCount + 1;
-            invNo = bill.getId().toString();
-            demoName = bill.getDemographicName();
+            invNo = bill.billingNo().toString();
+            demoName = bill.demographicName();
 
             invCount = 0;
             if (invNo == null || !invNo.matches("^[0-9]+$")) {
                 logger.warn("Skipping billing record due to invalid invoice number: {}", invNo);
                 continue;
             }
-            for (Billingmaster bm : billingmasterDao.findBcExtractClaims(Integer.parseInt(invNo))) {
+            for (ExtractClaimRow bm : billingmasterDao.findBcExtractClaims(Integer.parseInt(invNo))) {
                 recordCount = recordCount + 1;
 
                 logNo = eFlag.equals("1") ? getSequence() : "1";
@@ -163,27 +163,27 @@ public class ExtractBean extends Object implements Serializable {
                 value = value + "\n" + dataLine + "\r";
                 logValue = dataLine;
                 if (eFlag.equals("1")) setLog(logNo, logValue);
-                dFee = Double.parseDouble(bm.getBillAmount());
+                dFee = Double.parseDouble(bm.billAmount());
                 bdFee = new BigDecimal(dFee).setScale(2, BigDecimal.ROUND_HALF_UP);
                 BigTotal = BigTotal.add(bdFee);
 
                 if (invCount == 0) {
-                    htmlContent = htmlContent + HtmlTeleplanHelper.htmlLine(String.valueOf(bm.getBillingmasterNo()), invNo, demoName,
-                            bm.getPhn(), bm.getServiceDate(), bm.getBillingCode(),
-                            bm.getBillAmount(), bm.getDxCode1(), bm.getDxCode2(),
-                            bm.getDxCode3());
+                    htmlContent = htmlContent + HtmlTeleplanHelper.htmlLine(String.valueOf(bm.billingmasterNo()), invNo, demoName,
+                            bm.phn(), bm.serviceDate(), bm.billingCode(),
+                            bm.billAmount(), bm.dxCode1(), bm.dxCode2(),
+                            bm.dxCode3());
                 } else {
-                    htmlContent = htmlContent + HtmlTeleplanHelper.continuationLine(String.valueOf(bm.getBillingmasterNo()),
-                            bm.getBillingCode(), bm.getBillAmount(), bm.getDxCode1(),
-                    bm.getDxCode2(), bm.getDxCode3());
+                    htmlContent = htmlContent + HtmlTeleplanHelper.continuationLine(String.valueOf(bm.billingmasterNo()),
+                            bm.billingCode(), bm.billAmount(), bm.dxCode1(),
+                    bm.dxCode2(), bm.dxCode3());
                 }
 
-                errorMsg = checkData.checkC02(String.valueOf(bm.getBillingmasterNo()), bm);
+                errorMsg = checkData.checkC02(String.valueOf(bm.billingmasterNo()), bm);
                 htmlContent += errorMsg;
 
                 invCount = invCount + 1;
                 if (eFlag.compareTo("1") == 0) {
-                    setAsBilledMaster(String.valueOf(bm.getBillingmasterNo()));
+                    setAsBilledMaster(String.valueOf(bm.billingmasterNo()));
                 }
             }
             if (eFlag.compareTo("1") == 0) {
@@ -454,61 +454,61 @@ public class ExtractBean extends Object implements Serializable {
         return retval;
     }
 
-    public String getClaimDetailRecord(Billingmaster bm, String LogNo) {
-        String dataLine = forwardSpace(bm.getClaimcode(), 3)            //p00   3
-                + forwardSpace(bm.getDatacenter(), 5)           //p02   5
+    public String getClaimDetailRecord(ExtractClaimRow bm, String LogNo) {
+        String dataLine = forwardSpace(bm.claimcode(), 3)            //p00   3
+                + forwardSpace(bm.datacenter(), 5)           //p02   5
                 + forwardZero(LogNo, 7)                                  //p04   7
-                + forwardSpace(bm.getPayeeNo(), 5)             //p06   5
-                + forwardSpace(bm.getPractitionerNo(), 5)      //p08   5
-                + forwardZero(bm.getPhn(), 10)                  //p14  10
-                + forwardSpace(bm.getNameVerify(), 4)          //p16   4
-                + forwardSpace(bm.getDependentNum(), 2)        //p18   2
-                + forwardZero(roundUp(bm.getBillingUnit()), 3)          //p20   3
-                + forwardZero(bm.getClarificationCode(), 2)    //p22   2
-                + forwardSpace(bm.getAnatomicalArea(), 2)     //p23   2
-                + forwardSpace(bm.getAfterHour(), 1)           //p24   1
-                + forwardZero(bm.getNewProgram(), 2)           //p25   2
-                + forwardZero(bm.getBillingCode(), 5)          //p26   5
-                + moneyFormat(bm.getBillAmount(), 7)           //p27   7
-                + forwardZero(bm.getPaymentMode(), 1)         //p28   1
-                + forwardSpace(bm.getServiceDate(), 8)        //p30   8
-                + forwardZero(bm.getServiceToDay(), 2)        //p32   2
-                + forwardSpace(bm.getSubmissionCode(), 1)     //p34   1
+                + forwardSpace(bm.payeeNo(), 5)             //p06   5
+                + forwardSpace(bm.practitionerNo(), 5)      //p08   5
+                + forwardZero(bm.phn(), 10)                  //p14  10
+                + forwardSpace(bm.nameVerify(), 4)          //p16   4
+                + forwardSpace(bm.dependentNum(), 2)        //p18   2
+                + forwardZero(roundUp(bm.billingUnit()), 3)          //p20   3
+                + forwardZero(bm.clarificationCode(), 2)    //p22   2
+                + forwardSpace(bm.anatomicalArea(), 2)     //p23   2
+                + forwardSpace(bm.afterHour(), 1)           //p24   1
+                + forwardZero(bm.newProgram(), 2)           //p25   2
+                + forwardZero(bm.billingCode(), 5)          //p26   5
+                + moneyFormat(bm.billAmount(), 7)           //p27   7
+                + forwardZero(bm.paymentMode(), 1)         //p28   1
+                + forwardSpace(bm.serviceDate(), 8)        //p30   8
+                + forwardZero(bm.serviceToDay(), 2)        //p32   2
+                + forwardSpace(bm.submissionCode(), 1)     //p34   1
                 + space(1)                                              //p35   1
-                + backwardSpace(bm.getDxCode1(), 5)           //p36   5
-                + backwardSpace(bm.getDxCode2(), 5)           //p37   5
-                + backwardSpace(bm.getDxCode3(), 5)           //p38   5
+                + backwardSpace(bm.dxCode1(), 5)           //p36   5
+                + backwardSpace(bm.dxCode2(), 5)           //p37   5
+                + backwardSpace(bm.dxCode3(), 5)           //p38   5
                 + space(15)                                             //p39  15
-                + forwardSpace(bm.getServiceLocation(), 1)    //p40   1
-                + forwardZero(bm.getReferralFlag1(), 1)       //p41   1
-                + forwardZero(bm.getReferralNo1(), 5)          //p42   5
-                + forwardZero(bm.getReferralFlag2(), 1)        //p44   1
-                + forwardZero(bm.getReferralNo2(), 5)          //p46   5
-                + forwardZero(bm.getTimeCall(), 4)             //p47   4
-                + forwardZero(bm.getServiceStartTime(), 4)    //p48   4
-                + forwardZero(bm.getServiceEndTime(), 4)      //p50   4
-                + forwardZero(bm.getBirthDate(), 8)            //p52   8
-                + forwardZero(String.valueOf(bm.getBillingmasterNo()), 7)     //p54   7
-                + forwardSpace(bm.getCorrespondenceCode(), 1) //p56   1
+                + forwardSpace(bm.serviceLocation(), 1)    //p40   1
+                + forwardZero(bm.referralFlag1(), 1)       //p41   1
+                + forwardZero(bm.referralNo1(), 5)          //p42   5
+                + forwardZero(bm.referralFlag2(), 1)        //p44   1
+                + forwardZero(bm.referralNo2(), 5)          //p46   5
+                + forwardZero(bm.timeCall(), 4)             //p47   4
+                + forwardZero(bm.serviceStartTime(), 4)    //p48   4
+                + forwardZero(bm.serviceEndTime(), 4)      //p50   4
+                + forwardZero(bm.birthDate(), 8)            //p52   8
+                + forwardZero(String.valueOf(bm.billingmasterNo()), 7)     //p54   7
+                + forwardSpace(bm.correspondenceCode(), 1) //p56   1
                 + space(20)                                             //p58  20
-                + forwardSpace(bm.getMvaClaimCode(), 1)       //p60   1
-                + forwardZero(bm.getIcbcClaimNo(), 8)        //p62   8
-                + forwardZero(bm.getOriginalClaim(), 20)     //p64  20
-                + forwardZero(bm.getFacilityNo(), 5)          //p70   5
-                + forwardZero(bm.getFacilitySubNo(), 5)      //p72   5
+                + forwardSpace(bm.mvaClaimCode(), 1)       //p60   1
+                + forwardZero(bm.icbcClaimNo(), 8)        //p62   8
+                + forwardZero(bm.originalClaim(), 20)     //p64  20
+                + forwardZero(bm.facilityNo(), 5)          //p70   5
+                + forwardZero(bm.facilitySubNo(), 5)      //p72   5
                 + space(58)                                             //p80  58
-                + backwardSpace(bm.getOinInsurerCode(), 2)    //p100  2
-                + backwardSpace(bm.getOinRegistrationNo(), 12)//p102 12
-                + backwardSpace(bm.getOinBirthdate(), 8)       //p104  8
-                + backwardSpace(bm.getOinFirstName(), 12)     //p106 12
-                + backwardSpace(bm.getOinSecondName(), 1)     //p108  1
-                + backwardSpace(bm.getOinSurname(), 18)        //p110 18
-                + backwardSpace(bm.getOinSexCode(), 1)        //p112  1
-                + backwardSpace(bm.getOinAddress(), 25)        //p114 25
-                + backwardSpace(bm.getOinAddress2(), 25)       //p116 25
-                + backwardSpace(bm.getOinAddress3(), 25)       //p118 25
-                + backwardSpace(bm.getOinAddress4(), 25)       //p120 25
-                + backwardSpace(bm.getOinPostalcode(), 6);     //p122  6
+                + backwardSpace(bm.oinInsurerCode(), 2)    //p100  2
+                + backwardSpace(bm.oinRegistrationNo(), 12)//p102 12
+                + backwardSpace(bm.oinBirthdate(), 8)       //p104  8
+                + backwardSpace(bm.oinFirstName(), 12)     //p106 12
+                + backwardSpace(bm.oinSecondName(), 1)     //p108  1
+                + backwardSpace(bm.oinSurname(), 18)        //p110 18
+                + backwardSpace(bm.oinSexCode(), 1)        //p112  1
+                + backwardSpace(bm.oinAddress(), 25)        //p114 25
+                + backwardSpace(bm.oinAddress2(), 25)       //p116 25
+                + backwardSpace(bm.oinAddress3(), 25)       //p118 25
+                + backwardSpace(bm.oinAddress4(), 25)       //p120 25
+                + backwardSpace(bm.oinPostalcode(), 6);     //p122  6
         return dataLine;
     }
 }
