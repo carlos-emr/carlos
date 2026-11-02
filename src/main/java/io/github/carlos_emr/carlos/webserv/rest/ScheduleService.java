@@ -25,6 +25,7 @@
  *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
@@ -49,7 +50,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 
 import org.apache.logging.log4j.Logger;
-import org.apache.tools.ant.util.DateUtils;
+import io.github.carlos_emr.carlos.utility.IsoDates;
 import io.github.carlos_emr.carlos.appointment.search.FilterDefinition;
 import io.github.carlos_emr.carlos.appointment.search.FilterRegistry;
 import io.github.carlos_emr.carlos.appointment.search.Provider;
@@ -152,7 +153,7 @@ public class ScheduleService extends AbstractServiceImpl {
             if ("today".equals(date)) {
                 dateObj = new Date();
             } else {
-                dateObj = DateUtils.parseIso8601Date(date);
+                dateObj = IsoDates.parseIso8601Date(date);
             }
 
             if ("".equals(providerNo)) {
@@ -160,13 +161,20 @@ public class ScheduleService extends AbstractServiceImpl {
             }
 
             List<Appointment> appts = scheduleManager.getDayAppointments(loggedInInfo, providerNo, dateObj);
+            List<Integer> demographicIds = new ArrayList<>();
+            for (Appointment appt : appts) {
+                if (appt.getDemographicNo() != 0) {
+                    demographicIds.add(appt.getDemographicNo());
+                }
+            }
+            Map<Integer, String> patientNames = demographicManager.getDemographicFormattedNames(loggedInInfo, demographicIds);
             for (Appointment appt : appts) {
                 PatientListApptItemBean item = new PatientListApptItemBean();
                 item.setDemographicNo(appt.getDemographicNo());
                 if (appt.getDemographicNo() == 0) {
                     item.setName(appt.getName());
                 } else {
-                    item.setName(demographicManager.getDemographicFormattedName(loggedInInfo, appt.getDemographicNo()));
+                    item.setName(patientNames.get(appt.getDemographicNo()));
                 }
                 item.setStartTime(timeFormatter.format(appt.getStartTime()));
                 item.setReason(appt.getReason());
@@ -516,8 +524,8 @@ public class ScheduleService extends AbstractServiceImpl {
             Date sDate = null;
             Date eDate = null;
             try {
-                sDate = org.apache.tools.ant.util.DateUtils.parseIso8601Date(sDateStr);
-                eDate = org.apache.tools.ant.util.DateUtils.parseIso8601Date(eDateStr);
+                sDate = IsoDates.parseIso8601Date(sDateStr);
+                eDate = IsoDates.parseIso8601Date(eDateStr);
             } catch (Exception e) {
                 throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity("Path parameter has the wrong format").build());
             }
@@ -676,8 +684,8 @@ public class ScheduleService extends AbstractServiceImpl {
             Date sDate = null;
             Date eDate = null;
             try {
-                sDate = org.apache.tools.ant.util.DateUtils.parseIso8601Date(sDateStr);
-                eDate = org.apache.tools.ant.util.DateUtils.parseIso8601Date(eDateStr);
+                sDate = IsoDates.parseIso8601Date(sDateStr);
+                eDate = IsoDates.parseIso8601Date(eDateStr);
             } catch (Exception e) {
                 throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity("Path parameter has the wrong format").build());
             }

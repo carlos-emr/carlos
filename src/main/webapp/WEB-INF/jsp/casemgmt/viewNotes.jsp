@@ -230,7 +230,8 @@
 		if (key.contains(" Date")) {
 		    val = readPartialDate(cme);
 		} else {
-		    val = SafeEncode.forJavaScript(cme.getValue());
+		    // Protect the semicolon-delimited transport; the outer tag encodes the onclick context.
+		    val = SafeEncode.forUriComponent(cme.getValue());
 		}
 		if (strcme.length()>0) strcme.append(";");
 		strcme.append(key + ";" + val);

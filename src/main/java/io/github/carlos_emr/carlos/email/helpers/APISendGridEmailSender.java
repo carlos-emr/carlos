@@ -12,7 +12,7 @@ import java.util.Objects;
 
 import javax.net.ssl.SSLContext;
 
-import org.apache.commons.codec.binary.Base64;
+import java.util.Base64;
 import org.apache.hc.client5.http.config.ConnectionConfig;
 import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
@@ -270,7 +270,7 @@ public class APISendGridEmailSender {
             try {
                 ObjectNode jsonAttachment = objectMapper.createObjectNode();
                 Path path = PathValidationUtils.resolveTrustedPath(new File(emailAttachment.getFilePath())).toPath();
-                jsonAttachment.put("content", Base64.encodeBase64String(Files.readAllBytes(path)));
+                jsonAttachment.put("content", Base64.getEncoder().encodeToString(Files.readAllBytes(path)));
                 jsonAttachment.put("filename", emailAttachment.getFileName());
                 jsonAttachment.put("type", "application/pdf");
                 jsonAttachment.put("disposition", "attachment");
