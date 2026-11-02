@@ -71,6 +71,38 @@ class CdsSchemaTypeCursorUnitTest {
     }
 
     @Test
+    void shouldAdmitPolicyAllowedAttributesAndEscapes_beyondJdkDefaultCeilings() throws Exception {
+        var limits = CdsInputLimitsDto.defaults();
+        StringBuilder attributes = new StringBuilder();
+        for (int i = 0; i < CdsXmlParser.MAX_ELEMENT_ATTRIBUTES; i++) attributes.append(" a").append(i).append("='v'");
+        for (int i = 1; i < limits.maxNamespaceAliases(); i++) attributes.append(" xmlns:p").append(i).append("='urn:p").append(i).append("'");
+        // JDK 25 defaults: 200 attributes (xmlns included) and 100,000 predefined references per document.
+        String[] documents = {"<e" + attributes + "/>", "<e>" + "&amp;&lt;".repeat(150_000) + "</e>"};
+        for (String xml : documents) {
+            var reader = CdsXmlParser.xmlReader(limits);
+            AtomicInteger characters = new AtomicInteger();
+            reader.setContentHandler(new DefaultHandler() {
+                @Override public void characters(char[] text, int offset, int length) { characters.addAndGet(length); }
+            });
+            reader.parse(new InputSource(new StringReader(xml)));
+            if (xml.startsWith("<e>")) assertEquals(300_000, characters.get());
+        }
+    }
+
+    @Test
+    void shouldSealValidSource_whenEscapedClinicalTextExceedsJdkEntityDefaults() throws Exception {
+        String fixture = resource("/demographic/cds-import-summary.xml");
+        String note = "<MyClinicalNotesContent>";
+        assertTrue(fixture.contains(note));
+        String xml = fixture.replace(note, note + "a &amp; b &lt; c &gt; d &quot;e&apos; ".repeat(40_000));
+        Path run = Files.createTempDirectory(temp, "escaped-");
+        Path source = run.resolve("source.xml");
+        Files.writeString(source, xml);
+        new CdsXmlParser().parse(source, run.resolve("spool"), CdsInputLimitsDto.defaults(), () -> false, record -> {});
+        assertTrue(Files.exists(run.resolve("spool/parse.seal")));
+    }
+
+    @Test
     void shouldReportCdsResourceCodes_whenFirstXmlBoundaryIsExceeded() throws Exception {
         var limits = CdsInputLimitsDto.defaults();
         String fixture = resource("/demographic/cds-import-summary.xml");

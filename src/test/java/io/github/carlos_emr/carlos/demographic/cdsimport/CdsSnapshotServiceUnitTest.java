@@ -269,6 +269,19 @@ class CdsSnapshotServiceUnitTest {
         assertTrue(rows.stream().allMatch(row->row.path().getFileName().toString().matches("[0-9]{12}\\.bin")));
     }
 
+    @Test void shouldCaptureReferencedAttachment_whenEarlierTextHasMoreEscapesThanJdkEntityDefaults() throws Exception {
+        Path source=Files.createDirectory(temp.resolve("source"));
+        Files.writeString(source.resolve("late.pdf"),"protected attachment");
+        Path xml=source.resolve("patient.xml");
+        // JDK 25 refuses more than 100,000 predefined references per document by default.
+        Files.writeString(xml,"<OmdCds xmlns='cds'><PatientRecord><Notes>"+"&amp;&lt;".repeat(150_000)
+                +"</Notes><Reports><FilePath>late.pdf</FilePath></Reports></PatientRecord></OmdCds>");
+        Path durable=Files.createDirectory(temp.resolve("durable"));
+        var snapshot=service.snapshot(xml,source,durable,"escaped",LIMITS,()->false);
+        assertEquals(2,snapshot.files());
+        assertEquals("protected attachment",Files.readString(service.resolveReference(snapshot,"patient.xml","late.pdf").path()));
+    }
+
     @Test void shouldPreserveExternalResourcePayloads_withoutFetchingThemDuringSnapshotDiscovery() throws Exception {
         var requests = new java.util.concurrent.atomic.AtomicInteger();
         var observer = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);

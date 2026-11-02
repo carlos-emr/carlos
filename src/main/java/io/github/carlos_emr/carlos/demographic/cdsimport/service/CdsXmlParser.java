@@ -86,6 +86,8 @@ public class CdsXmlParser {
     private static final String NUMERIC_LEXICAL_INVALID = "CDS_XML_NUMERIC_LEXICAL_INVALID";
     private static final String POSITIVE_INTEGER = "positiveInteger";
     private static final String NAME_SEPARATOR = "\u0000";
+    /** Ordinary (non-xmlns) attributes admitted on one element by CDS parsing and snapshot discovery. */
+    static final int MAX_ELEMENT_ATTRIBUTES = 128;
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final Set<String> SECTIONS = Set.of("Demographics", "PersonalHistory", "FamilyHistory",
             "PastHealth", "ProblemList", "RiskFactors", "AllergiesAndAdverseReactions",
@@ -196,6 +198,18 @@ public class CdsXmlParser {
         reader.setProperty("jdk.xml.maxXMLNameLimit", String.valueOf(Math.min(Integer.MAX_VALUE,
                 1L + Math.max(limits.maxXmlNameCharacters(), limits.maxNamespaceUriCharacters()))));
         reader.setProperty("jdk.xml.maxElementDepth", String.valueOf(Math.min(Integer.MAX_VALUE, 1L + limits.maxXmlDepth())));
+        // The JDK counts xmlns declarations as attributes (default ceiling 200); CDS
+        // separately bounds ordinary attributes and document-wide namespace aliases.
+        reader.setProperty("jdk.xml.elementAttributeLimit", String.valueOf(Math.min(Integer.MAX_VALUE,
+                1L + MAX_ELEMENT_ATTRIBUTES + limits.maxNamespaceAliases())));
+        // The JDK also counts every predefined reference (&amp;, &lt;, ...) in the document
+        // entity against these entity-size ceilings (default 100,000), so ordinary escaped
+        // clinical text would be refused part way through a large source. DOCTYPE is refused
+        // above, leaving only the five one-character predefined entities: no expansion is
+        // possible and maxSourceBytes already bounds the count. No finite int ceiling fits
+        // every permitted source size, so 0 (no limit) is the only lossless setting here.
+        reader.setProperty("jdk.xml.maxGeneralEntitySizeLimit", "0");
+        reader.setProperty("jdk.xml.totalEntitySizeLimit", "0");
         reader.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
         reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
@@ -327,7 +341,7 @@ public class CdsXmlParser {
                 check();
                 valueWriter.flush();
                 name(qualified);
-                if (attrs.getLength() > 128) fail("CDS_XML_ATTRIBUTE_RESOURCE_LIMIT");
+                if (attrs.getLength() > MAX_ELEMENT_ATTRIBUTES) fail("CDS_XML_ATTRIBUTE_RESOURCE_LIMIT");
                 for (int i = 0; i < attrs.getLength(); i++) name(attrs.getQName(i));
                 if (stack.size() >= limits.maxXmlDepth()) fail("CDS_XML_DEPTH_LIMIT");
                 if (!rootSeen) {

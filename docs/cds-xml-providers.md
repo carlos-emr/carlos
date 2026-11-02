@@ -41,8 +41,20 @@ CDS explicitly selects `SAXParserFactory.newDefaultInstance()` and
 `SchemaFactory.newDefaultInstance()`. DTDs and external entities are disabled;
 external DTD/schema access is denied. The schema resolver accepts only the expected
 local, hash-verified datatype schema. Metadata DOM construction also rejects DTDs
-and external resources. Each reader sets finite JDK name/depth ceilings just above
-its configured CDS limits so CDS can classify the first boundary violation.
+and external resources. Each reader sets finite JDK name, depth and per-element
+attribute ceilings just above its configured CDS limits so CDS can classify the first
+boundary violation. The attribute ceiling covers CDS's 128 ordinary attributes plus
+the configured namespace aliases, because the JDK also counts `xmlns` declarations.
+
+The JDK also counts every predefined reference (`&amp;`, `&lt;`, `&gt;`, `&quot;`,
+`&apos;`) in the document against `jdk.xml.maxGeneralEntitySizeLimit` and
+`jdk.xml.totalEntitySizeLimit`. JDK 25 sets both to 100,000 by default
+(`$JAVA_HOME/conf/jaxp.properties`). Ordinary escaped clinical text crosses that
+threshold in large exports, and the parser would refuse the file part way through.
+CDS readers therefore set both counters to `0` (no limit). This is safe only because
+the same readers refuse any DOCTYPE: without a DTD the only entities are those five
+one-character references, which cannot expand, and `maxSourceBytes` already bounds
+how many a source can hold. No finite `int` ceiling fits every permitted source size.
 Runtime identity already hashes the JDK module image,
 covering the XML implementation along with the existing runtime compatibility
 checks for prepared imports.
@@ -54,6 +66,15 @@ DOM/SAX/schema/datatype/DOM Load-Save discovery uses JDK implementations. Other
 intentional XML providers, including Woodstox StAX and Saxon XSLT, retain their own
 roles. Keep the supported JDK patched; default provider selection alone does not
 secure arbitrary parser configurations.
+
+Outside CDS, the shared `XmlUtils` DOM/SAX/schema factories already selected the JDK
+implementation explicitly. Code that still uses default discovery (for example JDOM's
+default `SAXBuilder` reader or a library calling `DocumentBuilderFactory.newInstance()`)
+previously reached Xerces and now reaches the JDK, so it also inherits the JDK's
+`jaxp.properties` limits: 100,000 predefined references per document, 200 attributes
+per element and element depth 100. The bundled data files read this way (for example
+the ODB formulary extract) are far below those limits. A caller that must accept larger
+untrusted input should set its own limits beside the parse, as the CDS readers do.
 
 ## Verification
 

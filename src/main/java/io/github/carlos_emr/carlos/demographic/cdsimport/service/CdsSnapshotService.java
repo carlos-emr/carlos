@@ -615,7 +615,7 @@ public class CdsSnapshotService {
         }
         @Override public void startElement(String uri, String local, String qualified, Attributes attrs) throws SAXException {
             name(qualified);
-            if (attrs.getLength()>128) throw new SAXException(CdsPaths.failure("CDS_XML_ATTRIBUTE_RESOURCE_LIMIT"));
+            if (attrs.getLength()>CdsXmlParser.MAX_ELEMENT_ATTRIBUTES) throw new SAXException(CdsPaths.failure("CDS_XML_ATTRIBUTE_RESOURCE_LIMIT"));
             for (int i=0; i<attrs.getLength(); i++) name(attrs.getQName(i));
             depth++;
             if (depth > inventory.limits.maxXmlDepth()) throw new SAXException(CdsPaths.failure("CDS_XML_DEPTH_LIMIT"));
