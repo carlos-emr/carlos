@@ -59,3 +59,71 @@ jobs:
                           annotate(' | '.join(details))
           annotate('Failing cases in preserved report: ' + str(failures))
           PY
+
+  reproduce:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout diagnostic source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Start the normal CI runtime
+        uses: ./.github/actions/dev-container
+        with:
+          token: ${{ github.token }}
+          maven-cache: restore
+      - name: Expose peer exceptions in the disposable checkout
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilderTransportUnitTest.java')
+          old = '        if (peer != null) peer.close();'
+          text = p.read_text()
+          if text.count(old) != 1:
+              raise SystemExit('Expected teardown diagnostic insertion point changed')
+          text = text.replace(old, '        if (peer != null) {\n            peer.close();\n            peer.assertHealthy();\n        }')
+          p.write_text(text)
+          PY
+      - name: Normal build then focused EBS transport cases
+        run: |
+          docker exec carlos-tomcat-dev bash -c 'make install && mvn --batch-mode --no-transfer-progress -Dtest=EdtClientBuilderTransportUnitTest test'
+      - name: Complete suite in the same CI runtime
+        run: docker exec carlos-tomcat-dev mvn --batch-mode --no-transfer-progress test
+      - name: Publish sanitized peer failure classification
+        if: always()
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+          import xml.etree.ElementTree as ET
+          def annotate(text):
+              safe = text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::notice title=CI peer diagnostic::' + safe)
+          runtime = subprocess.run(['docker', 'exec', 'carlos-tomcat-dev', 'java', '-version'],
+                                   capture_output=True, text=True)
+          annotate('Runtime: ' + (runtime.stderr or runtime.stdout).splitlines()[0])
+          for p in Path('target/surefire-reports').glob('TEST-*EdtClientBuilderTransportUnitTest*.xml'):
+              root = ET.parse(p).getroot()
+              annotate('EBS report: ' + ' '.join(k + '=' + root.get(k, '?') for k in ('tests', 'failures', 'errors', 'skipped')))
+              for case in root.iter('testcase'):
+                  for problem in case:
+                      if problem.tag not in {'error', 'failure'}:
+                          continue
+                      trace = problem.text or ''
+                      parts = [case.get('classname', '') + '.' + case.get('name', ''), problem.tag,
+                               problem.get('type', ''), 'elapsed=' + case.get('time', '')]
+                      for condition in ['Unexpected end of file', 'Connection reset', 'Broken pipe', 'Read timed out', 'Connection refused', 'NoSuchAlgorithm', 'InvalidKey', 'BadPadding', 'replay', 'expired', 'signature', 'decrypt', 'attachment', 'digest', 'keystore', 'certificate', 'nonce']:
+                          if condition.lower() in trace.lower():
+                              parts.append('condition: ' + condition)
+                      for cause in re.findall(r'(?:Caused by|Suppressed): ([\w.$]+)', trace)[:16]:
+                          parts.append('cause class: ' + cause)
+                      frames = re.findall(r'at ([\w.$]+)\(([^)]*\.java:\d+)\)', trace)
+                      local = [(m, l) for m, l in frames if 'EbsHttpsTestFixture' in m or 'EdtClientBuilderTransportUnitTest' in m]
+                      for method, location in local[:16]:
+                          parts.append('source: ' + method + ' (' + location + ')')
+                      annotate(' | '.join(parts))
+          PY
