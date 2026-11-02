@@ -1,7 +1,7 @@
 # Dependency replacements for #5472
 
 The WAR no longer carries POI, JFreeChart, Selenium or displaytag. The dependency lock
-contains 279 compile/runtime dependencies, down from 303. POI is a test-only independent
+contains 283 compile/runtime dependencies, down from 307 on the current release branch. POI is a test-only independent
 reader for the spreadsheet round trips. The JSTL API is declared directly, because Tomcat
 does not supply it; the existing WAR packaging check also requires the API and implementation.
 
