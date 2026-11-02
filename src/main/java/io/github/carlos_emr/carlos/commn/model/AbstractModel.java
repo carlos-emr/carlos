@@ -37,6 +37,7 @@ public abstract class AbstractModel<T> implements java.io.Serializable {
 
     public abstract T getId();
 
+    /** Reports only the type and an Integer/Long ID; arbitrary keys and entity fields stay protected. */
     @Override
     public String toString() {
         // String and composite keys may themselves contain credentials or patient data.

@@ -178,6 +178,7 @@ public class CodeFilter {
     boolean procedure;
 
 
+    /** Returns only the type marker; filter criteria are excluded from diagnostics. */
     @Override
     public String toString() {
         return getClass().getSimpleName() + "[protected]";

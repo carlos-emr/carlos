@@ -584,6 +584,7 @@ public final class DemographicTransfer {
         return (results.toArray(new DemographicTransfer[0]));
     }
 
+    /** Returns only the type marker, without patient fields or nested records. */
     @Override
     public String toString() {
         return getClass().getSimpleName() + "[protected]";

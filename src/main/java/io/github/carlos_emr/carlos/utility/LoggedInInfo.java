@@ -69,6 +69,7 @@ public final class LoggedInInfo implements Serializable {
         this.locale = locale;
     }
 
+    /** Reports a sanitized provider number and numeric facility ID, never session or security state. */
     @Override
     public String toString() {
         return "LoggedInInfo[providerNo=" + LogSafe.sanitize(getLoggedInProviderNo())

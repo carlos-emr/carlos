@@ -859,6 +859,7 @@ public class Drug extends AbstractModel<Integer> implements Serializable {
         return (id != null ? id.hashCode() : 0);
     }
 
+    /** Uses the base model diagnostic without formatting medication data. */
     @Override
     public String toString() {
         return super.toString();

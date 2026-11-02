@@ -35,6 +35,16 @@ class DiagnosticExamples {
         return ReflectionDiffBuilder.builder().setLeft(left).setRight(right).build();
     }
 
+    String unsafeRecursive(Object value) {
+        // ruleid: carlos-no-reflective-object-methods
+        return new ToStringBuilder(value, new RecursiveToStringStyle()).append("value", value).toString();
+    }
+
+    String unsafeRecursiveMultiline(Object value) {
+        // ruleid: carlos-no-reflective-object-methods
+        return new ToStringBuilder(value, new MultilineRecursiveToStringStyle()).append("value", value).toString();
+    }
+
     String safe(Integer id) {
         // ok: carlos-no-reflective-object-methods
         return "Security[id=" + id + "]";

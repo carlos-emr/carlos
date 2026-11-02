@@ -39,6 +39,7 @@ import org.hibernate.proxy.LazyInitializer;
  * unsaved objects. Neither diagnostics nor equality traverses patient records or associations.
  */
 public class BaseObject implements Serializable {
+    /** Returns a type-only diagnostic without reading fields or associations. */
     @Override
     public String toString() {
         return getClass().getSimpleName() + "[protected]";
@@ -49,6 +50,7 @@ public class BaseObject implements Serializable {
         return null;
     }
 
+    /** Compares persistent types and non-null keys; unsaved instances use reference identity. */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -57,6 +59,7 @@ public class BaseObject implements Serializable {
         return id != null && id.equals(persistentId(other));
     }
 
+    /** Uses the persistent type so assigning an ID does not change collection membership. */
     @Override
     public int hashCode() {
         // Stable when an unsaved entity receives its ID; never touches a lazy association.

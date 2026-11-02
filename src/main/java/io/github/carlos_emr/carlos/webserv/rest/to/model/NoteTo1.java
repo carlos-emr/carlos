@@ -377,6 +377,7 @@ public class NoteTo1 implements Serializable {
         this.appointmentNo = appointmentNo;
     }
 
+    /** Returns only the type marker, without clinical text or nested records. */
     @Override
     public String toString() {
         return getClass().getSimpleName() + "[protected]";

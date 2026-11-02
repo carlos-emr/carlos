@@ -3861,7 +3861,7 @@
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Contact.java": "d99fcad3390fc32ccc49a5bd6b834ef68ab22ee87c2b2dc665fc340aa18cc1ad",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Demographic.java": "d22ac0d5663ae5cffeaf9f0425125f4505230866806e103a6c78773d71d17950",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Document.java": "9489fc748126cbdb32dd339287ebb5762b8a47f9baa8ba17b152d138ff408a23",
-    "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": "e4255d02010ffab25d36bad2c76457f3d866cfd407bc3783b53bb11cfcdc154a",
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": "5d2431333a980240d3b5f9b8ebb8a1747f7c0dff674b22f9355cabb1a78c2d32",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/PharmacyInfo.java": "de6f091818d30531a93ec6d08e97c84dab5860619c45c10d6986db9440f16bc5",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/ProfessionalContact.java": "f20b8173073ba12f3da1b9dc2bc63708d5a2a9c2d45adf71c04396b85de8c5f1",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsDemographicNativeDto.java": "3f903623636da5d822c5d539167f4efbb10220f0c8ef69727e698460c3e5e911",
