@@ -177,6 +177,10 @@ public final class LegacyJdbcQuery {
      * Callers must close the result, detect the extra sentinel row, and enforce their output budget.
      * This retains the managed legacy datasource; Query by Example uses its separate reporting account.
      */
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+            value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
+            justification = "TrustedSql has a private constructor reached only after SELECT validation; values are JDBC-bound")
+    // TrustedSql has a private constructor reached only after SELECT validation; values are JDBC-bound.
     public static ResultSet getBoundedReportResultSet(TrustedSql sql, int maximumRows, int timeoutSeconds,
             Object... params) throws SQLException {
         if (maximumRows < 1 || maximumRows == Integer.MAX_VALUE || timeoutSeconds < 1) {
