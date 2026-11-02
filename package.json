@@ -422,6 +422,7 @@
     "test:flowsheet-customized-rules-playwright": "node scripts/flowsheet-customized-rules-playwright-checks.js",
     "test:immunization-schedule-config-playwright": "node scripts/immunization-schedule-config-playwright-checks.js",
     "test:report-by-template-playwright": "node scripts/report-by-template-playwright-checks.js",
+    "test:report-typed-queries-playwright": "node scripts/report-typed-queries-playwright-checks.js",
     "test:appointment-group-copy-cut-playwright": "node scripts/appointment-group-copy-cut-playwright-checks.js",
     "test:consultation-services-admin-playwright": "node scripts/consultation-services-admin-playwright-checks.js",
     "test:decision-support-guidelines-playwright": "node scripts/decision-support-guidelines-playwright-checks.js",

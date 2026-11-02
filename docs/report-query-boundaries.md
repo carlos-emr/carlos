@@ -6,6 +6,8 @@ Report configuration and fixed business reads belong to typed DAOs. The legacy
 by existing JSPs; their persistence reads return entities or typed projections,
 never open JDBC resources. Configuration ordering includes the identifier as a
 stable tie breaker. SQL NULL strings keep the legacy trimmed empty-string behavior.
+CSV export dispatches to the registered servlet by name, preserving the existing
+report permission gate after the result JSP's relocation below `WEB-INF`.
 
 `ReportConfigurationService` owns append/order allocation, duplicate deletion,
 reordering/removal, and caption updates. Its transaction is REQUIRED; the report
@@ -65,3 +67,8 @@ native age/date, distinct-count, provider, and deleted-status behavior on MariaD
 Configured query unit tests verify null/label handling, immutable detached output,
 budget rejection, and result cleanup. Existing CSV and report-template tests
 continue to cover parameter ordering and spreadsheet formula protection.
+`npm run test:report-typed-queries-playwright` qualifies generated report IDs,
+configuration add/delete commits, empty-table field metadata, provider roles,
+native billed counts, and the gated CSV download on an Ontario demo install.
+The existing Report by Template and Query by Example least-privilege browser
+checks qualify the metadata export and restricted-account compatibility paths.
