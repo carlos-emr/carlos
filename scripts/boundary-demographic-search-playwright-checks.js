@@ -9,7 +9,8 @@
  * apostrophe (O'Brien), a first name with an accent (René), a first name in CJK and an address with an
  * apostrophe, and the same address typed through to its ampersand, are each found by the text a user would type. The patients are stored
  * correctly (checked byte for byte first) so a miss is the search, not the data. Sort postbacks must retain the keyword.
- * SQL-shaped input must not widen results, and markup-shaped keywords must remain literal text in the rendered page.
+ * Deliberate SQL/XSS probes may be refused by the packaged WAF. If they reach CARLOS,
+ * SQL-shaped input must not widen results and markup-shaped keywords must remain literal text.
  * Fixtures: two synthetic patients inserted by SQL whose surname starts with the run tag; cleanup removes
  * their rows and asserts none remain.
  * Implements the wave-6 "boundary values" pattern (special characters round trip: "search finds it").
@@ -22,6 +23,22 @@ const { runWorkflow } = require('./lib/workflow-session');
 const { removeMarkedPatients } = require('./lib/gap-records-fixtures');
 
 const TIMEOUT = 30000;
+
+/** Probe attacks without replacing the results page with nginx's block page (#5244). */
+async function probeAttackKeyword(context, baseUrl, fields, keyword) {
+  h.assert(fields['CSRF-TOKEN'], 'The attack probe needs the search form\'s CSRF token');
+  const response = await context.request.post(h.appUrl(baseUrl, '/demographic/DemographicSearch'), {
+    form: { ...fields, search_mode: 'search_address', keyword },
+    maxRedirects: 0,
+  });
+  const status = response.status();
+  const body = await response.text();
+  const fromApplication = Object.hasOwn(response.headers(), h.APPLICATION_HEADER);
+  if (!fromApplication && h.isWafPage(status, body)) return true;
+  h.assert(status === 200 && fromApplication,
+    `The attack probe did not reach the search results or a verified WAF refusal (HTTP ${status})`);
+  return false;
+}
 
 async function workflow(s) {
   const { sql, marker } = s;
@@ -54,6 +71,14 @@ async function workflow(s) {
     h.assert(await search.locator('#search-sort input[name="keyword"]').inputValue() === submitted,
       'The search keyword changed while being rendered into the sort form');
     return await search.locator(`a[title="Master Demographic File"][onclick*="demographic_no=${id}"]`).count() > 0;
+  }
+  async function wafRefusesAttack(term) {
+    // Use the real form and its session token. API requests leave the UI and its strict
+    // recorder intact; no browser error, unrelated 403, or CSRF refusal is suppressed.
+    const fields = await search.locator('#search-sort').evaluate(form => Object.fromEntries(new FormData(form)));
+    if (!await probeAttackKeyword(s.context, s.config.baseUrl, fields, term)) return false;
+    console.log('    Attack keyword refused by the WAF front door; CARLOS was not reached');
+    return true;
   }
 
   await s.step('a control search by the plain run tag finds both patients', async () => {
@@ -88,12 +113,15 @@ async function workflow(s) {
   });
 
   await s.step('SQL-shaped keywords do not return unrelated patients', async () => {
-    await find('search_address', "' OR 1=1 --", apostropheId);
+    const term = "' OR 1=1 --";
+    if (await wafRefusesAttack(term)) return;
+    await find('search_address', term, apostropheId);
     h.assert((await k.readResultRows(search)).length === 0, 'SQL-shaped input widened the patient search');
   });
 
   await s.step('markup-shaped keywords remain literal text and cannot create executable elements', async () => {
     const term = '<img src="x" onerror="window.__searchKeywordXss=1">';
+    if (await wafRefusesAttack(term)) return;
     await find('search_address', term, apostropheId);
     h.assert((await k.readResultRows(search)).length === 0, 'Markup-shaped input returned unrelated patients');
     h.assert((await search.locator('#searchResults').innerText()).includes(term),
@@ -107,4 +135,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('boundary-demographic-search', workflow, { openPatient: false });
-module.exports = { workflow };
+module.exports = { workflow, probeAttackKeyword };
