@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMFixMissingReportHelper;
 import jakarta.servlet.ServletContextEvent;
 import java.util.List;
+import org.apache.xml.security.utils.resolver.ResourceResolver;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockServletContext;
@@ -97,7 +98,9 @@ class ContextStartupListenerUnitTest {
         when(maintenance.isClinicalAccessBlocked()).thenReturn(true);
         var context = new MockServletContext();
         var listener = new ContextStartupListener();
-        try (var spring = mockStatic(SpringUtils.class)) {
+        // Santuario's JVM-wide resolver registry would otherwise leak into later SOAP tests.
+        try (var spring = mockStatic(SpringUtils.class);
+                var resolvers = mockStatic(ResourceResolver.class)) {
             spring.when(() -> SpringUtils.getBean(CdsImportMaintenanceService.class)).thenReturn(maintenance);
             spring.when(() -> SpringUtils.getBean(CdsImportService.class)).thenReturn(imports);
             listener.contextInitialized(new ServletContextEvent(context));
@@ -119,7 +122,9 @@ class ContextStartupListenerUnitTest {
         var listener=spy(new ContextStartupListener());
         doThrow(new IllegalStateException("synthetic startup failure")).when(listener).initializeDefaultData(transactions);
         var context=new MockServletContext();
-        try(var spring=mockStatic(SpringUtils.class)) {
+        // Keep the startup side effect scoped here even when clinical initialization fails.
+        try(var spring=mockStatic(SpringUtils.class);
+                var resolvers=mockStatic(ResourceResolver.class)) {
             spring.when(()->SpringUtils.getBean(CdsImportMaintenanceService.class)).thenReturn(maintenance);
             spring.when(()->SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactions);
             assertThatThrownBy(()->listener.contextInitialized(new ServletContextEvent(context)))
