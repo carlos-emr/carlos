@@ -392,6 +392,9 @@ Calendar._makeKeyboardTrigger = function (el) {
     var formField = tag === "SELECT" || tag === "TEXTAREA"
         || (tag === "INPUT" && !/^(button|submit|reset|image)$/.test(type));
     if (formField) return false;
+    // The compatibility stylesheet hides unused legacy *_cal icons. A configured,
+    // keyboard-reachable control must stay visible, including native buttons/links.
+    if (el.getAttribute("tabindex") !== "-1") el.setAttribute("data-calendar-trigger", "true");
     var native = tag === "BUTTON" || tag === "INPUT" || (tag === "A" && el.hasAttribute("href"));
     if (!native && el.getAttribute("tabindex") === "-1") return false;
     // A link around an <img alt="..."> is named by the image (the prevention report's calendar).

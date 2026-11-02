@@ -11,12 +11,10 @@
 @import url("../../library/flatpickr/flatpickr.min.css");
 
 /*
- * Hide the old jscalendar trigger icons. Legacy trigger elements use IDs
- * ending with "_cal" and may be <img>, <span>, or <button> elements.
- * Flatpickr opens on input click/focus, making the separate trigger icons
- * unnecessary. Pages that still need an explicit open button can override
- * this rule.
+ * Keep unused legacy icons hidden. Calendar.setup marks configured keyboard
+ * controls so their *_cal IDs do not hide them from Tab or the accessibility
+ * tree. Explicit page-level visibility and tabindex="-1" opt-outs still apply.
  */
-[id$="_cal"] {
+[id$="_cal"]:not([data-calendar-trigger="true"]) {
     display: none;
 }

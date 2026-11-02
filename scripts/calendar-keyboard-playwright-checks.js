@@ -11,10 +11,11 @@
  *   - Schedule ▸ an empty slot ▸ Add Appointment ▸ Repeat ▸ End date (appointment/appointmenteditrepeatbooking.jsp, an
  *     icon-only <button>), as a throwaway login on its own day sheet, as gap-provider-appointment-repeat-booking does;
  *   - Master Record ▸ Create Invoice ▸ Service Date: on a BC install billing/CA/BC/billingBC.jsp (an <a href> link before
- *     the box), elsewhere billing/CA/ON/billingON.jsp (a <span> around a named image, after the box).
+ *     the box), elsewhere billing/CA/ON/billingON.jsp (a named <button> after the box).
  * Asserted on each: the calendar button is a named button or link that Tab reaches; Enter opens the calendar with
  * focus on a day; ArrowRight moves to the next day and Enter picks it into the box, closes the calendar and returns
- * focus to the button; Enter again and Escape close it without a change, focus back on the button. On the allergy
+ * focus to the button; Space (Enter for a native link) reopens it and Escape closes it without a change, focus back
+ * on the button. On the allergy
  * Start Date also: Tab from the box reaches the button; ArrowDown in the empty box moves into the open calendar and
  * Escape returns to the box; and a mouse click on the button and a day still fills the box, with no focus moved into
  * the calendar.
@@ -90,9 +91,12 @@ async function keyboardPick(page, { label, box, button, format, tabFromBox }) {
   const value = await box.inputValue();
   h.assert(value === FORMATS[format](expected), `${label}: Enter on ${next.day} filled the box with "${value}"`);
   h.assert(await isFocused(button), `${label}: after a day was picked focus is on ${JSON.stringify(await focused(page))}, not the button`);
-  await page.keyboard.press('Enter');
+  // Buttons activate with Space as well as Enter. Native links retain their own Enter activation.
+  const reopenKey = await button.evaluate(el => el.tagName === 'A' && el.hasAttribute('href')
+    && el.getAttribute('role') !== 'button') ? 'Enter' : 'Space';
+  await page.keyboard.press(reopenKey);
   await page.locator('.flatpickr-calendar.open').waitFor({ state: 'visible', timeout: TIMEOUT });
-  h.assert((await focused(page)).day, `${label}: Enter did not open the calendar on a day a second time`);
+  h.assert((await focused(page)).day, `${label}: ${reopenKey} did not reopen the calendar on a day`);
   await page.keyboard.press('Escape');
   h.assert(await openCalendars(page) === 0, `${label}: Escape did not close the calendar`);
   h.assert(await box.inputValue() === value, `${label}: Escape changed the box to "${await box.inputValue()}"`);
@@ -211,6 +215,8 @@ async function workflow(s) {
       await keyboardPick(form, { label: 'BC bill form Service Date', box: form.locator('#xml_appointment_date'),
         button: form.locator('#hlSDate'), format: 'Y-m-d', tabFromBox: false });
     } else {
+      h.assert(await form.locator('button#service_date_cal[type="button"][aria-label]').count() === 1,
+        'Ontario bill form Service Date: the calendar trigger must be a named native button that cannot submit the bill');
       await keyboardPick(form, { label: 'Ontario bill form Service Date', box: form.locator('#service_date:visible'),
         button: form.locator('#service_date_cal'), format: 'Y-m-d', tabFromBox: true });
     }
