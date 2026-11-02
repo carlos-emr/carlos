@@ -1,11 +1,56 @@
 # Harness coverage — PR #5456
 
-Target: `release/2026.08`; refreshed base `8def72af8ede728c4f0a3fca9f6066737a625420`.
+Target: `release/2026.08`; refreshed base `2dd9fcbbfbcbba10f05ed8075cbb15b8438c39a9`.
 The initial tests-only baseline was `b4c0dfc94e677514e6f64dd271358f0295270739`; its runtime evidence is identified separately below.
 The checks below use owned synthetic data. A registered check, an expected product
 failure, and a passing live workflow are different results.
 
-## Build and execution
+## Review refresh — 2026-11-01 (America/Toronto)
+
+Merge `690e2cb7925` incorporates the current release base. The tickler conflict
+retains the release's shared search-draw and edit-refresh helpers, including
+completed-response and HTTP-success checks, alongside this PR's diagnostics and
+cancellation handling. There are still no net application changes under `src/`.
+
+`11db11b51cc` fixes annotation-fixture retirement: a document routed to another
+patient is retained with its PDF and recovery receipt, using the shared
+transactional reference guard. File retirement uses the shared private quarantine
+and identity check so a replacement cannot be unlinked. The refusal regression
+fails against the preceding implementation. `7af7c699280` addresses both subsequent
+Cubic comments: receipt removal is registered immediately at directory creation,
+and the SQL mock tracks patient links independently, with a surviving-link
+negative control.
+
+At `7af7c699280`, GitHub's Node suite passes 6,913 tests, with zero failures or
+skips and one existing TODO. The focused annotation, file-retirement, stored-PDF,
+tickler and appointment-JSP batch passes 36/36. The installed-schema MariaDB
+negative control also passes: an owned cross-patient DOC route blocks deletion,
+the document/link/PDF/receipt remain, and exact recovery restores the SQL counts
+and document-store byte/metadata baseline.
+
+The EMR and pinned DrugRef source compile successfully in an Ubuntu 26.04
+container with JDK 25. Full Debian packages include the checksum-verified pinned
+Chromium renderer. The application build is from `11db11b51cc`; the subsequent
+test changes do not alter its application source. A separate Ubuntu 26.04 systemd
+container installs all three packages with demo data, passes `carlos-ctl check`,
+completes the mandatory first-login reset, and initializes the native vascular
+dictionary. These are local packages, not published releases.
+
+| Package | SHA-256 |
+|---|---|
+| EMR `2026.09.0~snapshot27` | `57ad0e1d85aa06adfba6aa84320e2327c4de3d1b817db5d774486541b9b64c5c` |
+| DrugRef `2026.09.0~snapshot27` | `006036b8c5c3ca54ed6d337fb0e466bffb10cf49e800811a14a44b9ca69c332b` |
+| CLI `1.3.0` | `e1238a34e7fc39ffa184c488a727abec889add1ffd656eb39505c5d01e5b7d2b` |
+
+Fresh full and incremental CodeRabbit reviews were requested. The full request
+was declined because the PR exceeds 300 files and the included review allowance
+was exhausted; the incremental command was also declined. The historical
+CodeRabbit reviews below are not a new review of this refresh. Both new Cubic
+threads were fixed and resolved. Final CI and additional browser-run results are
+reported separately in the PR conversation; the earlier broad runtime inventory
+below remains historical evidence.
+
+## Earlier build and execution evidence
 
 The local EMR WAR is `2026.08.0-beta3-SNAPSHOT`, packaged by the release packaging
 rules as `carlos-emr_2026.09.0~snapshot27_amd64.deb`. This is a local build, not a
@@ -36,7 +81,7 @@ quoted diagnostic redaction, editor completion and real
 child-process interruption. Registration
 alone does not certify a live workflow.
 
-## Runtime run identities
+## Earlier runtime run identities
 
 The latest reviewed upgrade retake completed on 2026-11-01, using the refreshed
 package above and harness source at `797ce6782038`: published beta2 → local beta3,
