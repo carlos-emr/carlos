@@ -201,7 +201,7 @@ public class RequestBoundaryFilterOrderIntegrationTest {
 
             assertThat(response.statusCode()).isEqualTo(200);
             assertThat(response.body()).contains("rendered");
-            assertReleasedOnceAtOuterBoundary("/boundary/forwardToJsp", 4);
+            assertReleasedOnceAtOuterBoundary("/boundary/forwardToJsp", 3);
             assertThat(Probe.exitsFor("FORWARD")).as("the JSP forward runs inside the boundary").isNotEmpty()
                     .allSatisfy(exit -> assertThat(exit.released()).isFalse());
         }
@@ -212,7 +212,7 @@ public class RequestBoundaryFilterOrderIntegrationTest {
             HttpResponse<String> response = get(newClient(), PRODUCTION + "/boundary/actionFails");
 
             assertThat(response.statusCode()).isEqualTo(500);
-            assertReleasedOnceAtOuterBoundary("/boundary/actionFails", 3);
+            assertReleasedOnceAtOuterBoundary("/boundary/actionFails", 2);
         }
 
         @Test
@@ -221,7 +221,7 @@ public class RequestBoundaryFilterOrderIntegrationTest {
             HttpResponse<String> response = get(newClient(), PRODUCTION + "/boundary/jspFails");
 
             assertThat(response.statusCode()).isEqualTo(500);
-            assertReleasedOnceAtOuterBoundary("/boundary/jspFails", 4);
+            assertReleasedOnceAtOuterBoundary("/boundary/jspFails", 3);
         }
 
         @Test
@@ -230,7 +230,7 @@ public class RequestBoundaryFilterOrderIntegrationTest {
             HttpResponse<String> response = get(newClient(), PRODUCTION + "/servlet/boundary-leak");
 
             assertThat(response.statusCode()).isEqualTo(200);
-            assertReleasedOnceAtOuterBoundary("/servlet/boundary-leak", 3);
+            assertReleasedOnceAtOuterBoundary("/servlet/boundary-leak", 2);
             assertThat(Probe.exitsFor("REQUEST")).as("servlet requests pass through Struts to the later filters")
                     .anyMatch(exit -> indexOf(exit.filterName()) > indexOf("struts2-execute"));
         }
@@ -241,7 +241,7 @@ public class RequestBoundaryFilterOrderIntegrationTest {
             HttpResponse<String> response = get(newClient(), PRODUCTION + "/servlet/boundary-fail");
 
             assertThat(response.statusCode()).isEqualTo(500);
-            assertReleasedOnceAtOuterBoundary("/servlet/boundary-fail", 3);
+            assertReleasedOnceAtOuterBoundary("/servlet/boundary-fail", 2);
         }
 
         @Test
@@ -251,7 +251,7 @@ public class RequestBoundaryFilterOrderIntegrationTest {
 
             assertThat(response.statusCode()).isEqualTo(200);
             assertThat(response.body()).contains("rendered");
-            assertReleasedOnceAtOuterBoundary("/servlet/boundary-forward", 4);
+            assertReleasedOnceAtOuterBoundary("/servlet/boundary-forward", 3);
         }
 
         @Test
@@ -265,7 +265,7 @@ public class RequestBoundaryFilterOrderIntegrationTest {
                 assertThat(response.body()).isEqualTo("committed");
                 assertThat(Probe.transactionConnectionOpenAfterInnerRelease.get())
                         .as("an inner legacy release must not close the transaction's connection").isEqualTo(1);
-                assertReleasedOnceAtOuterBoundary("/boundary/transaction", 5);
+                assertReleasedOnceAtOuterBoundary("/boundary/transaction", 4);
                 assertThat(committedNotes()).containsExactly("before-inner-release", "after-inner-release");
                 assertThat(legacyLog.events()).noneMatch(e -> e.getLevel().isMoreSpecificThan(Level.ERROR));
                 assertThat(trackingLog.events()).noneMatch(e -> e.getLevel().isMoreSpecificThan(Level.ERROR));
@@ -519,12 +519,10 @@ public class RequestBoundaryFilterOrderIntegrationTest {
         }
 
         /** Leaks one connection of each legacy kind the request-end cleanup must release. */
-        @SuppressWarnings("removal")
         static void leakAll() {
             try {
                 leaked.add(dataSource.getConnection());
                 leaked.add(LegacyJdbcQuery.getConnection());
-                leaked.add(DbConnectionFilter.getThreadLocalDbConnection());
             } catch (SQLException e) {
                 throw new IllegalStateException(e);
             }

@@ -364,7 +364,7 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
             // mention removed APIs should be updated to LegacyJdbcQuery terminology.
             return content.contains("DBHandler.GetPreSQL")
                     || content.contains("new DBPreparedHandler(")
-                    || content.contains("DbConnectionFilter.getThreadLocalDbConnection()");
+                    || content.contains("getThreadLocalDbConnection");
         } catch (Exception e) {
             throw new IllegalStateException("Unable to inspect " + path, e);
         }
