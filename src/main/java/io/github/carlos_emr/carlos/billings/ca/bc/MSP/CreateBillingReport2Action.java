@@ -24,6 +24,7 @@ import io.github.carlos_emr.carlos.entities.S21;
 import org.apache.commons.io.IOUtils;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
 import io.github.carlos_emr.OscarDocumentCreator;
 import io.github.carlos_emr.carlos.entities.MSPBill;
@@ -264,7 +265,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         }
         Path file = null;
         try {
-            file = Files.createTempFile("carlos-bc-export-", ".csv");
+            file = PathValidationUtils.createSecureTempFile("carlos-bc-export-", ".csv").toPath();
             try (OutputStream output = Files.newOutputStream(file)) {
                 writeCsv(output);
             }

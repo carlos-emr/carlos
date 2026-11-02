@@ -291,7 +291,8 @@ public class DxresearchReport2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
             }
-            file = Files.createTempFile("carlos-dx-export-", ".xlsx");
+            file = io.github.carlos_emr.carlos.utility.PathValidationUtils
+                    .createSecureTempFile("carlos-dx-export-", ".xlsx").toPath();
             try (OutputStream output = Files.newOutputStream(file)) {
                 DxResearchExcel.write(output, patients);
             }
