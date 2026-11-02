@@ -23,7 +23,7 @@ jobs:
                   return json.load(response)
           project = 'carlos-emr_carlos'
           print('QUALITY', json.dumps(get('qualitygates/project_status', projectKey=project, pullRequest=5543)))
-          print('MEASURES', json.dumps(get('measures/component', component=project, pullRequest=5543, metricKeys='new_code_smells,new_technical_debt,new_development_cost,new_sqale_debt_ratio,new_maintainability_rating,new_lines'))))
+          print('MEASURES', json.dumps(get('measures/component', component=project, pullRequest=5543, metricKeys='new_code_smells,new_technical_debt,new_development_cost,new_sqale_debt_ratio,new_maintainability_rating,new_lines')))
           print('TARGET_ANALYSES', json.dumps(get('project_analyses/search', project=project, branch='release/2026.08', ps=3)))
           print('BRANCHES', json.dumps(get('project_branches/list', project=project)))
           for extra in [{}, {'sinceLeakPeriod': 'true'}, {'inNewCodePeriod': 'true'}]:
