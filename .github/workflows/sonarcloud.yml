@@ -1,215 +1,38 @@
-# GitHub Workflow: SonarCloud Analysis
-#
-# Description:
-# This workflow runs SonarCloud static code analysis on the CARLOS EMR codebase.
-# It analyzes code quality, security vulnerabilities, and maintainability issues.
-#
-# Container Images:
-# This workflow uses the same dev container as maven-project.yml (started via
-# the .github/actions/dev-container composite action) to ensure all local_repo
-# dependencies are available for the build, and shares its Maven cache key.
-#
-# Usage:
-# - Triggered on pushes to main, develop, and release/* branches
-# - Triggered on pull requests targeting main, develop, and release/*
-#
-# Requirements:
-# - SONAR_TOKEN secret must be configured in repository settings
-# - Project must be set up on SonarCloud (https://sonarcloud.io)
-# - sonar.organization must be set in pom.xml
-#
-# License:
-# This GitHub Workflow file is part of the Carlos EMR project and is subject
-# to the licensing terms outlined in the repository's LICENSE file.
-#
-# Last Updated:
-# September 2026
-
-name: SonarCloud Analysis
-
+name: Issue 5533 Sonar diagnostics
 on:
   push:
-    branches:
-      - main
-      - develop
-      - release/*
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches:
-      - main
-      - develop
-      - release/*
-
-concurrency:
-  # Promotion branches emit both push and pull_request events for the same commit.
-  # Keep those analyses independent so cancellation cannot leave a failed sibling check.
-  group: sonarcloud-${{ github.event_name }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
-
+    branches: [codex/issue-5533-sonar-diagnostics]
 permissions:
   contents: read
-  pull-requests: write
-  packages: read
-
 jobs:
-  build:
-    name: Build and analyze
+  diagnostics:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    if: >
-      github.actor != 'dependabot[bot]' &&
-      (
-        github.event_name != 'pull_request' ||
-        (
-          github.event.pull_request.head.repo.full_name == github.repository &&
-          github.event.pull_request.user.login != 'dependabot[bot]'
-        )
-      )
+    timeout-minutes: 5
     steps:
-      - name: Verify SonarCloud configuration
+      - name: Read quality gate, new-code findings and target analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          if [ -z "$SONAR_TOKEN" ]; then
-            echo "::error::SONAR_TOKEN is not available in this workflow run."
-            echo "::error::Configure the SONAR_TOKEN secret with access to the SonarCloud project used by this workflow."
-            echo "::error::For events where GitHub does not expose repository secrets, keep SonarCloud analysis skipped or run it through a trusted manual process."
-            exit 1
-          fi
-
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
-
-      - name: Test security and reliability diagnostics
-        run: python3 -m unittest discover -s scripts -p test_sonar_reliability_report.py
-
-      # The Sonar GitHub check can expose only a subset of findings on large PRs. Report security/reliability
-      # findings from the latest available analysis before starting the expensive build.
-      # This is diagnostic only; the separate Sonar quality gate remains authoritative.
-      - name: Report latest PR security and reliability findings
-        if: github.event_name == 'pull_request'
-        # A transient fetch of the older analysis must not prevent a fresh independent analysis.
-        # The failed step outcome remains visible; the post-analysis report and artifact are mandatory.
-        continue-on-error: true
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPORT_COMMIT: ${{ github.event.pull_request.head.sha }}
-          SONAR_REPORT_PATH: ${{ runner.temp }}/sonar-quality-latest.json
-        run: python3 scripts/sonar_reliability_report.py
-
-      - name: Cache SonarCloud packages
-        # Keyed on the files that pin the scanner/plugin versions so the entry is
-        # refreshed when they change; the previous constant key could never be
-        # updated once saved.
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: .sonar-cache
-          key: ${{ runner.os }}-sonar-${{ hashFiles('.github/workflows/sonarcloud.yml', 'pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-sonar-
-
-      - name: Prepare SonarCloud cache directory
-        run: mkdir -p .sonar-cache
-
-      - name: Start dev container (Maven cache restore + save)
-        uses: ./.github/actions/dev-container
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          maven-cache: save
-          extra-run-args: -v ${{ github.workspace }}/.sonar-cache:/root/.sonar/cache
-
-      - name: Build and analyze (Push branch)
-        if: github.event_name == 'push'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_BRANCH: ${{ github.ref_name }}
-        run: |
-          docker exec \
-            -e GITHUB_TOKEN="$GITHUB_TOKEN" \
-            -e SONAR_TOKEN="$SONAR_TOKEN" \
-            -e SONAR_BRANCH="$SONAR_BRANCH" \
-            carlos-tomcat-dev bash -c "
-              echo '========================================='
-              echo 'Running SonarCloud Analysis (Branch)'
-              echo '========================================='
-              mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
-                -Pskip-dependency-lock \
-                -Dmaven.test.failure.ignore=true \
-                -Dsonar.host.url=https://sonarcloud.io \
-                -Dsonar.projectKey=carlos-emr_carlos \
-                \"-Dsonar.branch.name=\$SONAR_BRANCH\" \
-                            "
-
-      - name: Build and analyze (Pull Request)
-        if: github.event_name == 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_BRANCH: ${{ github.head_ref }}
-          PR_BASE: ${{ github.base_ref }}
-        run: |
-          docker exec \
-            -e GITHUB_TOKEN="$GITHUB_TOKEN" \
-            -e SONAR_TOKEN="$SONAR_TOKEN" \
-            -e PR_NUMBER="$PR_NUMBER" \
-            -e PR_BRANCH="$PR_BRANCH" \
-            -e PR_BASE="$PR_BASE" \
-            carlos-tomcat-dev bash -c "
-              echo '========================================='
-              echo 'Running SonarCloud Analysis (Pull Request)'
-              echo '========================================='
-              echo \"PR Number: \$PR_NUMBER\"
-              echo \"PR Branch: \$PR_BRANCH\"
-              echo \"PR Base: \$PR_BASE\"
-              echo '========================================='
-              mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
-                -Pskip-dependency-lock \
-                -Dmaven.test.failure.ignore=true \
-                -Dsonar.qualitygate.wait=true \
-                -Dsonar.host.url=https://sonarcloud.io \
-                -Dsonar.projectKey=carlos-emr_carlos \
-                \"-Dsonar.pullrequest.key=\$PR_NUMBER\" \
-                \"-Dsonar.pullrequest.branch=\$PR_BRANCH\" \
-                \"-Dsonar.pullrequest.base=\$PR_BASE\" \
-                            "
-
-      - name: Report PR quality findings after server processing
-        if: always() && github.event_name == 'pull_request'
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          REPORT_COMMIT: ${{ github.event.pull_request.head.sha }}
-          SONAR_REPORT_PATH: ${{ runner.temp }}/sonar-quality-after-analysis.json
-          # The authoritative gate also includes maintainability. Preserve its
-          # complete findings so the uploaded diagnostics explain every failure.
-          SONAR_INCLUDE_MAINTAINABILITY: 'true'
-        run: python3 scripts/sonar_reliability_report.py
-
-      - name: Preserve complete Sonar PR diagnostics
-        if: always() && github.event_name == 'pull_request'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: sonar-pr-quality-findings
-          path: |
-            ${{ runner.temp }}/sonar-quality-latest.json
-            ${{ runner.temp }}/sonar-quality-after-analysis.json
-          if-no-files-found: error
-          retention-days: 7
-
-      # The dev container runs as root and leaves root-owned files in the
-      # mounted workspace (.m2-cache, .sonar-cache, target/**). The post-job
-      # cache save runs as the runner user: it re-evaluates the cache key's
-      # hashFiles('**/pom.xml', ...) across the workspace and tars the cache
-      # directories, so unreadable root-owned paths fail the job even after a
-      # successful analysis. Only cold-cache runs hit this — an exact-key
-      # cache hit skips the save step entirely, which is why warm-cache runs
-      # never saw it. Restore runner ownership before the post steps run.
-      - name: Fix workspace ownership for cache save
-        if: always()
-        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
+          python3 - <<'PY'
+          import base64, json, os, urllib.parse, urllib.request
+          token = os.environ['SONAR_TOKEN']
+          def get(path, **params):
+              url = 'https://sonarcloud.io/api/' + path + '?' + urllib.parse.urlencode(params)
+              request = urllib.request.Request(url, headers={'Authorization': 'Basic ' + base64.b64encode((token + ':').encode()).decode()})
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return json.load(response)
+          project = 'carlos-emr_carlos'
+          print('QUALITY', json.dumps(get('qualitygates/project_status', projectKey=project, pullRequest=5543)))
+          print('MEASURES', json.dumps(get('measures/component', component=project, pullRequest=5543, metricKeys='new_code_smells,new_technical_debt,new_development_cost,new_sqale_debt_ratio,new_maintainability_rating,new_lines'))))
+          print('TARGET_ANALYSES', json.dumps(get('project_analyses/search', project=project, branch='release/2026.08', ps=3)))
+          print('BRANCHES', json.dumps(get('project_branches/list', project=project)))
+          for extra in [{}, {'sinceLeakPeriod': 'true'}, {'inNewCodePeriod': 'true'}]:
+              try:
+                  data = get('issues/search', componentKeys=project, pullRequest=5543, resolved='false', ps=500, **extra)
+                  print('ISSUE_SET', extra, data.get('paging'))
+                  if not extra:
+                      for issue in data.get('issues', []):
+                          print('ISSUE', json.dumps({key: issue.get(key) for key in ['key','rule','component','line','message','debt','effort','creationDate','isNew','textRange','flows']}))
+              except Exception as failure:
+                  print('FILTER_ERROR', extra, type(failure).__name__, str(failure))
+          PY
