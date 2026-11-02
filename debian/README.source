@@ -44,6 +44,7 @@ Other conventions
     When updating debian/drugref.pin, check out that exact revision and
     regenerate the packaging lock from the CARLOS repository root:
 
+      DRUGREF_SRC=/path/to/exact/drugref-checkout
       lock="$(realpath --relative-to="$DRUGREF_SRC" debian/drugref-dependencies-lock.json)"
       mvn -f "$DRUGREF_SRC/pom.xml" -DdependencyLock.filename="$lock" \
         se.vandmo:dependency-lock-maven-plugin:1.1.1:lock
