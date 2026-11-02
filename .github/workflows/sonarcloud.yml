@@ -4,11 +4,37 @@ on:
     branches: [codex/issue-5533-sonar-diagnostics]
 permissions:
   contents: read
+  actions: read
 jobs:
   diagnostics:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Read the failed target branch analysis log
+        env:
+          ACTIONS_READ_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PYLOG'
+          import os, urllib.request, urllib.error, urllib.parse, re
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, request, fp, code, message, headers, newurl):
+                  return None
+          request = urllib.request.Request('https://api.github.com/repos/carlos-emr/carlos/actions/jobs/125573078288/logs', headers={'Authorization':'Bearer ' + os.environ['ACTIONS_READ_TOKEN'], 'Accept':'application/vnd.github+json'})
+          try:
+              response = urllib.request.build_opener(NoRedirect).open(request, timeout=30)
+          except urllib.error.HTTPError as failure:
+              if failure.code != 302:
+                  raise
+              location = failure.headers['Location']
+              if urllib.parse.urlsplit(location).scheme != 'https':
+                  raise RuntimeError('Expected HTTPS log download')
+              # The redirected download receives no GitHub authorization header.
+              response = urllib.request.urlopen(location, timeout=60)
+          text = response.read().decode('utf-8-sig', errors='replace')
+          lines = [line for line in text.splitlines() if re.search(r'\[ERROR\]|QUALITY GATE|BUILD FAILURE|EXECUTION FAILURE', line)]
+          for line in lines[-50:]:
+              print(line[:2000])
+          PYLOG
       - name: Read quality gate, new-code findings and target analysis
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
