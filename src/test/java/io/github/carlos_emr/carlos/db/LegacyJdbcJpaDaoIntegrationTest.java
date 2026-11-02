@@ -24,7 +24,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * The retained compatibility boundary must share the JPA transaction, including when its
  * connection wrapper closes. Runs on H2 by default and physical MariaDB with
- * CARLOS_TEST_MARIADB_DAO=true. Suspending the test transaction makes commits and rollbacks real.
+ * CARLOS_TEST_MARIADB_DAO=true. The inherited test transaction is disabled so the explicit
+ * TransactionTemplate commits and rollbacks are real.
  */
 @Tag("integration")
 @Tag("dao")

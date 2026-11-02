@@ -54,9 +54,10 @@ snapshot, not executable source or the current caller inventory.
 
 `LegacyJdbcJpaDaoIntegrationTest` exercises the retained compatibility
 boundary with the real `PropertyDao`, JPA transaction manager and datasource.
-The test suspends the enclosing test transaction, performs JPA and bound JDBC
-writes, closes the JDBC wrapper before another DAO operation, and verifies the
-commit through an independent connection. A second case observes that neither
+The test disables the inherited test transaction and uses explicit
+`TransactionTemplate` transactions for its JPA and bound JDBC writes. It closes
+the JDBC wrapper before another DAO operation and verifies the commit through an
+independent connection. A second case observes that neither
 write is visible before commit, injects failure after both writes and checks
 that neither survives rollback. Fixtures use unique synthetic property keys and
 are removed in committed cleanup transactions.
