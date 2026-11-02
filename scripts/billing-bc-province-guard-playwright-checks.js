@@ -17,6 +17,14 @@ const ROUTES = [
   '/billing/CA/BC/privateBilling/ViewStatement',
 ];
 
+/** Require CARLOS's response marker even for HEAD, where no error-page body is available. */
+function assertApplicationNotFound(response, method, route) {
+  const status = response.status();
+  h.assert(status === 404, `${method} ${route} must return 404, got ${status}`);
+  h.assert(response.headers()[h.APPLICATION_HEADER] === 'none',
+    `${method} ${route} must carry the CARLOS response header ${h.APPLICATION_HEADER}`);
+}
+
 async function main() {
   const propertiesFile = process.env.CARLOS_PROPERTIES_FILE || '/etc/carlos-emr/carlos.properties';
   const region = propertyValue(fs.readFileSync(propertiesFile, 'utf8'), 'billregion');
@@ -37,9 +45,8 @@ async function main() {
           + '?demographic_no=3459&demographicNo=3459&demoNo=3459&billRegion=BC&billregion=BC';
         const response = await authenticatedProbe({ config, context }, target, { method });
         try {
+          assertApplicationNotFound(response, method, route);
           const status = response.status();
-          h.assert(status === 404, `${method} ${route} must return 404, got ${status}`);
-          h.assert(!h.isWafPage(status, await response.text()), 'The application refusal must reach CARLOS');
           statuses.push({ route, method, status });
           console.log(`  ${method} ${route}: ${status}`);
         } finally {
@@ -55,4 +62,4 @@ async function main() {
 }
 
 if (require.main === module) h.runCheck({ name: 'billing-bc-province-guard', run: main });
-module.exports = { main };
+module.exports = { main, assertApplicationNotFound };
