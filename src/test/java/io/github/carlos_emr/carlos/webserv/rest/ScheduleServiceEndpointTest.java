@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +41,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.dao.AppointmentSearchDao;
@@ -97,6 +100,57 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
     void setUpSecurityDefaults() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any()))
             .thenReturn(true);
+    }
+
+    /** Tests the appointment-count endpoint's HTTP success and error responses. */
+    @Nested
+    @DisplayName("GET /schedule/fetchProvidersApptsCount/{sDate}/{eDate}")
+    class GetProviderAppointmentCounts {
+
+        @ParameterizedTest
+        @CsvSource({
+            "not-a-date, 2026-11-30",
+            "2026-11-01, not-a-date",
+            "not-a-date, not-a-date"
+        })
+        @DisplayName("should return the manager's 400 and message when either date is malformed")
+        void shouldReturnBadRequest_whenEitherDateIsMalformed(String startDate, String endDate) {
+            when(mockScheduleManager.listProviderAppointmentCounts(any(LoggedInInfo.class), eq(startDate), eq(endDate)))
+                    .thenThrow(new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
+                            .entity("Path parameter has the wrong format").build()));
+
+            try (Response response = request().path("/schedule/fetchProvidersApptsCount/" + startDate + "/" + endDate).get()) {
+                assertThat(response.getStatus()).isEqualTo(400);
+                assertThat(response.readEntity(String.class)).isEqualTo("Path parameter has the wrong format");
+            }
+        }
+
+        @Test
+        @DisplayName("should keep unexpected failures as a generic 500")
+        void shouldReturnInternalServerError_whenManagerFailsUnexpectedly() {
+            when(mockScheduleManager.listProviderAppointmentCounts(any(LoggedInInfo.class), eq("2026-11-01"), eq("2026-11-30")))
+                    .thenThrow(new IllegalStateException("Internal database details"));
+
+            try (Response response = request().path("/schedule/fetchProvidersApptsCount/2026-11-01/2026-11-30").get()) {
+                assertThat(response.getStatus()).isEqualTo(500);
+                assertThat(response.readEntity(String.class)).isEqualTo("Internal server error");
+            }
+        }
+
+        @Test
+        @DisplayName("should return appointment counts when the date range is valid")
+        void shouldReturnAppointmentCounts_withValidDates() {
+            when(mockScheduleManager.listProviderAppointmentCounts(any(LoggedInInfo.class), eq("2026-11-01"), eq("2026-11-30")))
+                    .thenReturn(Collections.singletonList(new Object[]{"999001", "Test", "Provider", 3L}));
+
+            try (Response response = request().path("/schedule/fetchProvidersApptsCount/2026-11-01/2026-11-30").get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                var json = responseJson(response);
+                assertThat(json.at("/ProviderApptsCount")).hasSize(1);
+                assertThat(json.at("/ProviderApptsCount/0/providerNo").textValue()).isEqualTo("999001");
+                assertThat(json.at("/ProviderApptsCount/0/appointmentCount").longValue()).isEqualTo(3L);
+            }
+        }
     }
 
     /** Tests for GET /schedule/statuses endpoint. */

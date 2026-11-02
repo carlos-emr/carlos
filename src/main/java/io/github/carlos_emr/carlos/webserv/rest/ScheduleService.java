@@ -661,6 +661,8 @@ public class ScheduleService extends AbstractServiceImpl {
             }
 
             return response;
+        } catch (WebApplicationException e) {
+            throw e;
         } catch (Exception e) {
             logger.error("ScheduleService.listProviderAppointmentCounts error", e);
             throw new WebApplicationException(Response.status(Status.INTERNAL_SERVER_ERROR).entity("Internal server error").build());
