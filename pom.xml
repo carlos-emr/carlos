@@ -1681,6 +1681,8 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
+            <!-- Recheck this pin when jackson.version changes. Preserve the resolved
+                 annotation version unless the Jackson upgrade requires a newer API. -->
             <version>2.22</version>
         </dependency>
         <dependency>
