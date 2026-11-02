@@ -79,7 +79,9 @@ class EdtClientBuilderTransportUnitTest {
     @TempDir static Path keyDirectory;
     @TempDir Path temporaryDirectory;
     private static EbsHttpsTestFixture.Keys keys;
-    private final List<Client> clients = new ArrayList<>();
+    // CXF finalizes ClientProxy by closing its client. Retain the handlers until explicit
+    // close so GC cannot race ClientImpl.destroy (which is not safe to invoke twice).
+    private final List<ClientProxy> clientProxies = new ArrayList<>();
     private final ConcurrentLinkedQueue<InputStream> replays = new ConcurrentLinkedQueue<>();
     private final AtomicInteger faultChains = new AtomicInteger();
     private Bus previousBus;
@@ -100,11 +102,17 @@ class EdtClientBuilderTransportUnitTest {
     }
 
     @AfterEach
-    void tearDown() {
-        clients.forEach(Client::destroy);
-        BusFactory.setThreadDefaultBus(previousBus);
-        if (bus != null) bus.shutdown(true);
-        if (peer != null) peer.close();
+    void tearDown() throws IOException {
+        try {
+            for (ClientProxy proxy : clientProxies) proxy.close();
+        } finally {
+            try {
+                BusFactory.setThreadDefaultBus(previousBus);
+                if (bus != null) bus.shutdown(true);
+            } finally {
+                if (peer != null) peer.close();
+            }
+        }
     }
 
     @Test
@@ -387,7 +395,7 @@ class EdtClientBuilderTransportUnitTest {
         builder.setClientKeystoreFilename(keys.clientProperties().toUri().toString());
         T port = builder.build(contract);
         Client cxf = ClientProxy.getClient(port);
-        clients.add(cxf);
+        clientProxies.add((ClientProxy) java.lang.reflect.Proxy.getInvocationHandler(port));
         cxf.getInFaultInterceptors().add(new AbstractPhaseInterceptor<Message>(Phase.RECEIVE) {
             @Override public void handleMessage(Message message) { faultChains.incrementAndGet(); }
         });
