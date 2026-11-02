@@ -296,6 +296,55 @@ class CdsSnapshotServiceUnitTest {
         assertTrue(rows.stream().allMatch(row->row.path().getFileName().toString().matches("[0-9]{12}\\.bin")));
     }
 
+    @Test void shouldCaptureReferencedAttachment_whenEarlierTextHasMoreEscapesThanJdkEntityDefaults() throws Exception {
+        Path source=Files.createDirectory(temp.resolve("source"));
+        Files.writeString(source.resolve("late.pdf"),"protected attachment");
+        Path xml=source.resolve("patient.xml");
+        // JDK 25 refuses more than 100,000 predefined references per document by default.
+        Files.writeString(xml,"<OmdCds xmlns='cds'><PatientRecord><Notes>"+"&amp;&lt;".repeat(150_000)
+                +"</Notes><Reports><FilePath>late.pdf</FilePath></Reports></PatientRecord></OmdCds>");
+        Path durable=Files.createDirectory(temp.resolve("durable"));
+        var snapshot=service.snapshot(xml,source,durable,"escaped",LIMITS,()->false);
+        assertEquals(2,snapshot.files());
+        assertEquals("protected attachment",Files.readString(service.resolveReference(snapshot,"patient.xml","late.pdf").path()));
+    }
+
+    @Test void shouldPreserveExternalResourcePayloads_withoutFetchingThemDuringSnapshotDiscovery() throws Exception {
+        var requests = new java.util.concurrent.atomic.AtomicInteger();
+        var observer = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        observer.createContext("/", exchange -> {
+            requests.incrementAndGet();
+            byte[] body = "<!ELEMENT OmdCds ANY>".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            try (var output = exchange.getResponseBody()) { output.write(body); }
+            exchange.close();
+        });
+        observer.start();
+        try {
+            String uri = "http://127.0.0.1:" + observer.getAddress().getPort() + "/external";
+            String[] declarations = {"<!DOCTYPE OmdCds SYSTEM '" + uri + "'>",
+                    "<!DOCTYPE OmdCds [<!ENTITY external SYSTEM '" + uri + "'>]>",
+                    "<!DOCTYPE OmdCds [<!ENTITY % external SYSTEM '" + uri + "'>%external;]>"};
+            for (int i = 0; i < declarations.length; i++) {
+                Path source = Files.createDirectory(temp.resolve("external-source-" + i));
+                Path durable = Files.createDirectory(temp.resolve("external-durable-" + i));
+                String original = declarations[i] + "<OmdCds xmlns='cds'><PatientRecord>"
+                        + (i == 1 ? "&external;" : "") + "</PatientRecord></OmdCds>";
+                Path xml = Files.writeString(source.resolve("patient.xml"), original);
+                var snapshot = service.snapshot(xml, source, durable, "accepted", LIMITS, () -> false);
+                assertEquals(1, snapshot.patientXmlFiles());
+                assertEquals(0, requests.get());
+                assertEquals(original, Files.readString(xml));
+                List<CdsSnapshotFileDto> rows = new ArrayList<>();
+                service.forEachFile(snapshot, rows::add);
+                assertEquals(1, rows.size());
+                assertEquals(original, Files.readString(rows.getFirst().path()));
+            }
+        } finally {
+            observer.stop(0);
+        }
+    }
+
     @Test void shouldPreserveAncillaryXmlAndRawArchive_whenZipContainsClinicalAttachments() throws Exception {
         Path source=Files.createDirectory(temp.resolve("source")); Path zip=source.resolve("patients.zip");
         zip(zip,new String[]{"patients/one.xml","patients/reports/cda.xml","audit.xml"},

@@ -36,4 +36,15 @@ class ExportQueryHandlerUnitTest {
         }
     }
 
+    @Test
+    void shouldUseSharedPolicy_whenCellsContainHiddenFormulasOrScientificAmounts() throws Exception {
+        String formula = "\uFEFF =HYPERLINK(\"synthetic\",\"quoted,\r\nvalue\")";
+        String csv = ExportQueryHandler.writeLine(new Object[]{formula, "\u00A0@SUM(A1)", "-1.2E-7", "-.5"});
+        assertThat(csv).startsWith("\"\t");
+        try (CSVParser parser = CSVParser.parse(csv, CSVFormat.DEFAULT)) {
+            assertThat(parser.getRecords().getFirst().toList())
+                    .containsExactly("\t" + formula, "\t\u00A0@SUM(A1)", "-1.2E-7", "-.5");
+        }
+    }
+
 }

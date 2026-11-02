@@ -82,15 +82,24 @@ public class EFormExportZip {
         if (name == null || name.trim().isEmpty()) {
             return PathValidationUtils.validatePathComponent(name, "eform export name");
         }
-        String safeName = name.replaceAll("[/\\\\:\\p{Cc}]", "_").replaceAll("^[ .~]+", "_")
-                .replaceAll("[ .]+$", "_");
+        String safeName = normalizeTrailingSpacesAndDots(
+                name.replaceAll("[/\\\\:\\p{Cc}]", "_").replaceAll("^[ .~]+", "_"));
         // Windows device basenames are reserved even with an extension (including COM¹/LPT¹).
         // https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file
         if (safeName.matches("(?i)(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])(?:\\..*)?")) {
             safeName = "_" + safeName;
         }
-        return PathValidationUtils.validatePathComponent(boundedComponent(safeName, "", 251)
-                .replaceAll("[ .]+$", "_"), "eform export name");
+        return PathValidationUtils.validatePathComponent(
+                normalizeTrailingSpacesAndDots(boundedComponent(safeName, "", 251)), "eform export name");
+    }
+
+    /** Replaces a trailing run with one underscore without regex suffix backtracking. */
+    private static String normalizeTrailingSpacesAndDots(String name) {
+        int end = name.length();
+        while (end > 0 && (name.charAt(end - 1) == ' ' || name.charAt(end - 1) == '.')) {
+            end--;
+        }
+        return end == name.length() ? name : name.substring(0, end) + "_";
     }
 
     /** Bounds UTF-8 bytes without splitting a code point, retaining space for a required suffix. */
@@ -236,7 +245,13 @@ public class EFormExportZip {
     }
 
     private void inputToOutput(InputStream inputStream, OutputStream outputStream) throws IOException {
-        inputStream.transferTo(outputStream);
+        // Keep working memory fixed even for large ZIP entries. The caller owns
+        // both streams; in particular, do not close the shared ZipInputStream.
+        byte[] buffer = new byte[8192];
+        int length;
+        while ((length = inputStream.read(buffer)) != -1) {
+            outputStream.write(buffer, 0, length);
+        }
     }
 
     /**
@@ -291,7 +306,9 @@ public class EFormExportZip {
                         // file and published into the shared eForm image directory under the folder's
                         // name, and Finder's __MACOSX/._<name> AppleDouble entries failed the hidden-
                         // component check below, refusing the whole package with a 403.
-                        _log.debug("Skipping non-content eForm import zip entry: {}", LogSafe.sanitize(ze.getName()));
+                        if (_log.isDebugEnabled()) {
+                            _log.debug("Skipping non-content eForm import zip entry: {}", LogSafe.sanitize(ze.getName()));
+                        }
                         continue;
                     }
                     String zipEntryFileName = PathValidationUtils.validatePathComponent(zipEntryFile.getName(), "eform import zip entry");

@@ -38,7 +38,6 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
@@ -61,7 +60,7 @@ import io.github.carlos_emr.carlos.prevention.PreventionData;
 // @Component - Removed to avoid Spring bean conflict with io.github.carlos_emr.carlos.managers.PreventionManager
 public class PreventionManager {
     private static Logger logger = MiscUtils.getLogger();
-    private static final QueueCache<String, String> dataCache = new QueueCache<String, String>(4, 500, DateUtils.MILLIS_PER_HOUR, null);
+    private static final QueueCache<String, String> dataCache = new QueueCache<String, String>(4, 500, java.time.Duration.ofHours(1).toMillis(), null);
 
     @Autowired
     private PreventionDS pf = null;
