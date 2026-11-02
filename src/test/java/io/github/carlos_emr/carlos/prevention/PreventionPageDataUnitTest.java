@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.assertj.core.api.SoftAssertions;
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -62,6 +63,7 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -254,6 +256,58 @@ class PreventionPageDataUnitTest extends CarlosUnitTestBase {
         assertThat(config.display(user, adults, PATIENT, 0)).isTrue();
         assertThat(config.display(user, children, PATIENT, 0)).isFalse();
         verify(demographicManager, times(2)).getDemographic(eq(user), eq(PATIENT));
+    }
+
+    @Test
+    @DisplayName("should hide every prevention type without log noise when the patient is missing")
+    void shouldHideTypesWithoutLogging_whenPatientIsMissing() throws Exception {
+        PreventionDisplayConfig config = newDisplayConfig();
+        try (LogCapture logs = LogCapture.forLogger(PreventionDisplayConfig.class)) {
+            for (String type : List.of("Flu", "PAP", "MMR")) {
+                assertThat(config.display(Map.of("name", type, "minAge", "18"), null, 0)).isFalse();
+            }
+            assertThat(logs.events()).isEmpty();
+        }
+        verifyNoInteractions(preventionManager);
+    }
+
+    @Test
+    @DisplayName("should hide configuration sets without log noise when the patient is missing")
+    void shouldHideSetsWithoutLogging_whenPatientIsMissing() throws Exception {
+        PreventionDisplayConfig config = newDisplayConfig();
+        try (LogCapture logs = LogCapture.forLogger(PreventionDisplayConfig.class)) {
+            for (Map<String, Object> set : List.<Map<String, Object>>of(
+                    Map.of("minAge", "18"), Map.of("maxAge", "17"), Map.of("sex", "F"))) {
+                assertThat(config.getDisplay(set, null)).isEqualTo(HIDDEN);
+            }
+            assertThat(logs.events()).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("should hide the type without log noise when the patient lookup returns nothing")
+    void shouldHideTypeWithoutLogging_whenPatientLookupReturnsNothing() throws Exception {
+        PreventionDisplayConfig config = newDisplayConfig();
+        when(demographicManager.getDemographic(user, PATIENT)).thenReturn(null);
+        try (LogCapture logs = LogCapture.forLogger(PreventionDisplayConfig.class)) {
+            assertThat(config.display(user, Map.of("name", "Flu", "minAge", "18"), PATIENT, 0)).isFalse();
+            assertThat(logs.events()).noneMatch(event -> event.getLevel().isMoreSpecificThan(Level.WARN));
+        }
+        verify(demographicManager).getDemographic(user, PATIENT);
+        verifyNoInteractions(preventionManager);
+    }
+
+    @Test
+    @DisplayName("should still log unexpected configuration failures as errors")
+    void shouldLogUnexpectedFailure_whenAgeConfigurationIsInvalid() throws Exception {
+        PreventionDisplayConfig config = newDisplayConfig();
+        try (LogCapture logs = LogCapture.forLogger(PreventionDisplayConfig.class)) {
+            assertThat(config.display(Map.of("name", "Flu", "minAge", "invalid"), patient, 0)).isFalse();
+            assertThat(logs.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(event.getThrown()).isInstanceOf(NumberFormatException.class);
+            });
+        }
     }
 
     @Test

@@ -267,6 +267,9 @@ public class PreventionDisplayConfig {
      */
     public String getDisplay(Map<String, Object> setHash, Demographic demograph) {
         String display = "style=\"display:none;\"";
+        if (demograph == null) {
+            return display;
+        }
         try {
             String minAgeStr = (String) setHash.get("minAge");
             String maxAgeStr = (String) setHash.get("maxAge");
@@ -338,6 +341,11 @@ public class PreventionDisplayConfig {
      * @return whether the type shows; {@code false} also on an error such as a missing patient
      */
     public boolean display(Map<String, String> setHash, Demographic demograph, int numberOfPrevs) {
+        // A patient can disappear while an asynchronous prevention request is still running.
+        // This is an expected absence, not a configuration error to log once per type.
+        if (demograph == null) {
+            return false;
+        }
         boolean display = false;
         PreventionManager preventionManager = SpringUtils.getBean(PreventionManager.class);
         try {
