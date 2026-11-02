@@ -2159,6 +2159,26 @@
                             </rules>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>ban-legacy-apache-httpcomponents</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>org.apache.cxf:cxf-rt-transports-http-hc</exclude>
+                                        <!-- HTTP Components 5 uses the separate
+                                             org.apache.httpcomponents.client5/core5 groups. -->
+                                        <exclude>org.apache.httpcomponents:*</exclude>
+                                    </excludes>
+                                    <searchTransitive>true</searchTransitive>
+                                    <message>HttpAsyncClient 4 is end-of-life. Use CXF's standard JDK HTTP transport or Apache HttpComponents 5; exclude the legacy transport and libraries from the dependency that brings them in.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
 
