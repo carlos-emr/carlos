@@ -71,11 +71,6 @@ public class ClientImage extends BaseObject {
 
     @jakarta.persistence.Column(name = "image_id")
 
-    @Override
-    protected Object equalityId() {
-        return getId();
-    }
-
     public Long getId() {
         return id;
     }
@@ -190,4 +185,8 @@ public class ClientImage extends BaseObject {
         return baos.toByteArray();
     }
 
+    @Override
+    protected Object equalityId() {
+        return getId();
+    }
 }
