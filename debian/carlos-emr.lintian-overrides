@@ -34,7 +34,11 @@ national-encoding
 # application unit's package-driven restart counter. It does not start, stop,
 # enable or disable a service; those lifecycle operations use
 # deb-systemd-invoke so policy-rc.d remains authoritative.
-maintainer-script-calls-systemctl [postinst:221]
+maintainer-script-calls-systemctl [postinst:*]
+
+# Embedded Python passed to python3 -c, not a shell function declaration.
+# Keep the expression specific while allowing unrelated script edits to move it.
+possible-bashism-in-maintainer-script 'sys.stdin.read().strip()' [postinst:*]
 
 # The eForm renderer (folded in from the former carlos-emr-eform-renderer
 # package): an upstream Chromium build, unpacked under

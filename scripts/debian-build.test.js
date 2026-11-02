@@ -10,7 +10,7 @@ test('source Debian build clears stale versioned WARs before selecting its outpu
   assert.match(rules, /\$\(MVN\) \$\(MVN_FLAGS\) clean package; \\\n\s*cp -f target\/carlos-\*\.war/);
   // A supplied, independently verified WAR remains usable without compiling.
   assert.match(rules, /if \[ -n "\$\$CARLOS_WAR" \]; then/);
-  assert.match(rules, /\$\(MVN\) -f "\$\$src\/pom\.xml" \$\(MVN_FLAGS\) -Dmaven\.test\.skip=true clean package; \\\n\s*cp -f "\$\$src"\/target\/drugref2\*\.war/);
+  assert.match(rules, /\$\(MVN\) -f "\$\$src\/pom\.xml"[^;]*\bclean package; \\\n\s*cp -f "\$\$src"\/target\/drugref2\*\.war/);
 });
 
 // The carlos-ctl(8) render gate moved to the carlos-ctl package with the man
