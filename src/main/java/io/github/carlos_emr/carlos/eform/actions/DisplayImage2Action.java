@@ -46,7 +46,6 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.io.IOUtils;
 import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -225,7 +224,7 @@ public class DisplayImage2Action extends ActionSupport {
             }
             response.setContentType(contentType);
             OutputStream outputStream = response.getOutputStream();
-            IOUtils.copy(stream, outputStream);
+            stream.transferTo(outputStream);
             return NONE;
         } catch (IOException | IllegalStateException e) {
             logger.error("Error streaming eform image to response", e);
@@ -251,7 +250,7 @@ public class DisplayImage2Action extends ActionSupport {
             }
             response.setHeader("X-Content-Type-Options", "nosniff");
             response.setContentType("application/json");
-            IOUtils.copy(stream, response.getOutputStream());
+            stream.transferTo(response.getOutputStream());
         }
         return NONE;
     }
@@ -277,7 +276,7 @@ public class DisplayImage2Action extends ActionSupport {
                 HtmlResponse.writeStoredHtml(response, contentType, stream);
             } else {
                 response.setContentType(contentType);
-                IOUtils.copy(stream, response.getOutputStream());
+                stream.transferTo(response.getOutputStream());
             }
         }
         return NONE;
@@ -304,7 +303,7 @@ public class DisplayImage2Action extends ActionSupport {
                 HtmlResponse.writeStoredHtml(response, contentType, stream);
             } else {
                 response.setContentType(contentType);
-                IOUtils.copy(stream, response.getOutputStream());
+                stream.transferTo(response.getOutputStream());
             }
         }
         return NONE;

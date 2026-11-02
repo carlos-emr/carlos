@@ -637,7 +637,7 @@ public class SearchConfig {
         byte[] ciphertext = cipher.doFinal(toEncrypt.getBytes(StandardCharsets.UTF_8));
 
         ByteBuffer out = ByteBuffer.allocate(iv.length + ciphertext.length).put(iv).put(ciphertext);
-        return new String(Base64.encodeBase64(out.array()), StandardCharsets.UTF_8);
+        return new String(java.util.Base64.getEncoder().encode(out.array()), StandardCharsets.UTF_8);
     }
 
     public String decrypt(String toDecrypt) throws Exception {

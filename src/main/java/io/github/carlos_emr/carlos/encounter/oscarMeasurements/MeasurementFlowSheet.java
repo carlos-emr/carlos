@@ -43,13 +43,13 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.collections4.OrderedMapIterator;
 import org.apache.commons.collections4.map.ListOrderedMap;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import org.kie.api.KieBase;
 import org.kie.api.runtime.KieSession;
+import io.github.carlos_emr.carlos.utility.ContentDigests;
 import io.github.carlos_emr.carlos.drools.DroolsCompilationException;
 import io.github.carlos_emr.carlos.drools.DroolsHelper;
 import io.github.carlos_emr.carlos.drools.RuleBaseFactory;
@@ -872,7 +872,7 @@ public class MeasurementFlowSheet {
      * @throws DroolsCompilationException if the DRL does not compile
      */
     private static KieBase compileFlowsheetRules(String drl) throws DroolsCompilationException {
-        String cacheKey = "MeasurementFlowSheet:" + DigestUtils.sha256Hex(drl);
+        String cacheKey = "MeasurementFlowSheet:" + ContentDigests.sha256Hex(drl);
         KieBase cached = RuleBaseFactory.getRuleBase(cacheKey);
         if (cached != null) {
             return cached;

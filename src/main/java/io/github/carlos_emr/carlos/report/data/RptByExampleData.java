@@ -37,9 +37,9 @@ import java.sql.SQLException;
 import java.sql.SQLTimeoutException;
 import java.util.Properties;
 
-import org.apache.commons.codec.digest.DigestUtils;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.utility.ContentDigests;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -277,6 +277,6 @@ public class RptByExampleData {
     }
 
     private static String queryHash(String sql) {
-        return DigestUtils.sha256Hex(sql == null ? "" : sql);
+        return ContentDigests.sha256Hex(sql == null ? "" : sql);
     }
 }

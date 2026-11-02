@@ -133,7 +133,7 @@ public class IHAPOIHandler implements MessageHandler {
 
         ByteArrayInputStream bais = null;
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        org.apache.commons.io.IOUtils.copy(is, baos);
+        is.transferTo(baos);
         byte[] bytes = baos.toByteArray();
         String hl7Body = new String(bytes, StandardCharsets.UTF_8).trim();
         Map<String, String> hl7BodyMap = null;

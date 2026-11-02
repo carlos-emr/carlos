@@ -35,7 +35,6 @@ import java.util.List;
 
 import jakarta.persistence.TypedQuery;
 
-import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.AccessType;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramAccess;
@@ -53,7 +52,7 @@ public class ProgramAccessDAOImpl extends AbstractDaoImpl<ProgramAccess> impleme
     private static Logger log = MiscUtils.getLogger();
 
     private static QueueCache<Long, List<ProgramAccess>> programAccessListByProgramIdCache = new QueueCache<Long, List<ProgramAccess>>(
-            4, 100, DateUtils.MILLIS_PER_HOUR, null);
+            4, 100, java.time.Duration.ofHours(1).toMillis(), null);
 
     /**
      * Default constructor.

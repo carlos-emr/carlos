@@ -36,7 +36,7 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 
-import org.apache.commons.codec.binary.Base64;
+import java.util.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.Gender;
@@ -294,7 +294,7 @@ public final class OmpO09Builder {
         nte.getCommentType().getText().setValue(subject);
         if (fileName != null) nte.getCommentType().getNameOfCodingSystem().setValue(fileName);
 
-        String stringData = new String(Base64.encodeBase64(data), MiscUtils.DEFAULT_UTF8_ENCODING);
+        String stringData = new String(Base64.getEncoder().encode(data), MiscUtils.DEFAULT_UTF8_ENCODING);
         int dataLength = stringData.length();
         int chunks = dataLength / NTE_COMMENT_MAX_SIZE;
         if (dataLength % NTE_COMMENT_MAX_SIZE != 0) chunks++;

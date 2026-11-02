@@ -566,7 +566,7 @@ public class Doc2PDF {
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             renderWithFlyingSaucer(docText, baos, baseUrl);
-            return (new String(Base64.encodeBase64(baos.toByteArray())));
+            return (new String(java.util.Base64.getEncoder().encode(baos.toByteArray())));
         } catch (Exception e) {
             logger.error("Failed to render HTML to Base64 PDF binary", e);
         }

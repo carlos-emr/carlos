@@ -52,7 +52,6 @@ import java.util.ResourceBundle;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import org.owasp.encoder.Encode;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.pdfbox.Loader;
@@ -1303,7 +1302,7 @@ public final class EDocUtil {
         InputStream is = null;
         try {
             is = new BufferedInputStream(new FileInputStream(validateResolvedDocumentOrTempFile(fileName)));
-            return IOUtils.toByteArray(is);
+            return is.readAllBytes();
         } catch (SecurityException e) {
             // Honour the declared throws IOException: a rejected document path surfaces as a checked
             // IOException rather than an unchecked SecurityException callers are not expecting. Throwing

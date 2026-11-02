@@ -41,9 +41,9 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.apache.commons.codec.digest.DigestUtils;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.carlos_emr.carlos.utility.ContentDigests;
 import io.github.carlos_emr.carlos.commn.dao.FileUploadCheckDao;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -361,7 +361,7 @@ public final class FileUploadCheck {
             justification = "MD5 is the stored duplicate-detection key written by recordFile, not a security control")
     @SuppressWarnings("java:S4790") // Sonar: same MD5 duplicate-detection key as recordFile, not a security control.
     private static String contentKey(InputStream is) throws IOException {
-        return DigestUtils.md5Hex(is);
+        return ContentDigests.md5Hex(is);
     }
 
     public static Map<String, String> getFileInfo(Integer id) {

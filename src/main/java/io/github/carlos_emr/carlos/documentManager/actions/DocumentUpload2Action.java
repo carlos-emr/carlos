@@ -36,7 +36,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao;
@@ -395,7 +394,7 @@ public class DocumentUpload2Action extends ActionSupport implements UploadedFile
             File validatedDocFile = PathValidationUtils.validateUpload(docFile);
             try (InputStream fis = Files.newInputStream(validatedDocFile.toPath());
                     OutputStream fos = Files.newOutputStream(destinationFile.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-                IOUtils.copy(fis, fos);
+                fis.transferTo(fos);
             }
         } catch (FileAlreadyExistsException e) {
             return WriteToIncomingDocsResult.ALREADY_EXISTS;

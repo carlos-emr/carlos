@@ -34,8 +34,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Hashtable;
 import java.util.List;
-
-import org.apache.commons.collections4.KeyValue;
+import java.util.Map;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -72,11 +71,24 @@ public class ReportEvaluator {
         evaluate(loggedInInfo, deno, numer, numer2, null, true);
     }
 
-    public void evaluate(LoggedInInfo loggedInInfo, Denominator deno, Numerator numer, List<KeyValue> additionalFields) {
+    public void evaluate(LoggedInInfo loggedInInfo, Denominator deno, Numerator numer, List<Map.Entry<String, String>> additionalFields) {
         evaluate(loggedInInfo, deno, numer, null, additionalFields, true);
     }
 
-    public void evaluate(LoggedInInfo loggedInInfo, Denominator deno, Numerator numer, Numerator[] numers, List<KeyValue> additionalFields, boolean includeFalseResults) {
+    /**
+     * Evaluates denominator entries against the primary and additional numerators
+     * and adds the resulting report rows.
+     *
+     * @param loggedInInfo LoggedInInfo the current login context
+     * @param deno Denominator the denominator whose entries are evaluated
+     * @param numer Numerator the primary numerator
+     * @param numers Numerator[] at least eleven additional numerator slots,
+     *               checked at indices 0 through 10; individual slots may be null
+     * @param additionalFields List&lt;Map.Entry&lt;String, String&gt;&gt; measurement fields
+     *                         to add; may be null
+     * @param includeFalseResults boolean whether to include rows with false results
+     */
+    public void evaluate(LoggedInInfo loggedInInfo, Denominator deno, Numerator numer, Numerator[] numers, List<Map.Entry<String, String>> additionalFields, boolean includeFalseResults) {
         denominator = deno;
         numerator = numer;
         this.numerators = numers;
@@ -103,9 +115,9 @@ public class ReportEvaluator {
             h.put("_report_result", Boolean.valueOf(bool && bool2));
 
             if (additionalFields != null) {
-                for (KeyValue field : additionalFields) {
-                    String key = (String) field.getKey();
-                    String val = (String) field.getValue();
+                for (Map.Entry<String, String> field : additionalFields) {
+                    String key = field.getKey();
+                    String val = field.getValue();
 
                     EctMeasurementsDataBeanHandler ect = new EctMeasurementsDataBeanHandler(Integer.valueOf(demo), val);
                     Collection<EctMeasurementsDataBean> v = ect.getMeasurementsDataVector();

@@ -40,7 +40,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.commons.collections4.KeyValue;
+import java.util.Map;
+import java.util.AbstractMap;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -179,14 +180,14 @@ public class RunClinicalReport2Action extends ActionSupport {
         }
 
 
-        List<KeyValue> extraVal = null;
+        List<Map.Entry<String, String>> extraVal = null;
         for (Object params : request.getParameterMap().keySet()) {
             String requestParam = (String) params;
             if (requestParam.startsWith("report_measurement") && !request.getParameter(requestParam).equals("-1")) {
                 if (extraVal == null) {
                     extraVal = new LinkedList();
                 }
-                KeyValue kv = new org.apache.commons.collections4.keyvalue.DefaultKeyValue(requestParam, request.getParameter(requestParam));
+                Map.Entry<String, String> kv = new AbstractMap.SimpleEntry<>(requestParam, request.getParameter(requestParam));
                 extraVal.add(kv);
                 request.setAttribute(requestParam, request.getParameter(requestParam));
             }

@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.documentManager.annotation;
 
+import io.github.carlos_emr.carlos.utility.ContentDigests;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
@@ -180,7 +181,7 @@ public class AnnotatedDocumentService {
                 // The digest is what authorizes this save against the bytes the provider
                 // actually reviewed, so it is compared in constant time rather than with
                 // String.equals, whose early exit leaks how much of a guess matched.
-                String actualDigest = org.apache.commons.codec.digest.DigestUtils.sha256Hex(input);
+                String actualDigest = ContentDigests.sha256Hex(input);
                 if (expectedDigest == null || !MessageDigest.isEqual(
                         actualDigest.getBytes(StandardCharsets.UTF_8),
                         expectedDigest.getBytes(StandardCharsets.UTF_8))) {
@@ -313,7 +314,7 @@ public class AnnotatedDocumentService {
             throw new IllegalArgumentException("This document is too large to annotate.");
         }
         try (var input = Files.newInputStream(file.toPath())) {
-            return org.apache.commons.codec.digest.DigestUtils.sha256Hex(input);
+            return ContentDigests.sha256Hex(input);
         }
     }
 

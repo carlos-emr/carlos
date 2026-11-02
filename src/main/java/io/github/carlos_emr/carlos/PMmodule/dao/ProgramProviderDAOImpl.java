@@ -31,7 +31,6 @@
 
 package io.github.carlos_emr.carlos.PMmodule.dao;
 
-import org.apache.commons.lang3.time.DateUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.commn.model.Facility;
@@ -52,7 +51,7 @@ public class ProgramProviderDAOImpl extends AbstractJpaDao implements ProgramPro
     private Logger log = MiscUtils.getLogger();
 
     private static QueueCache<String, List<ProgramProvider>> programProviderByProviderProgramIdCache = new QueueCache<String, List<ProgramProvider>>(
-            4, 100, DateUtils.MILLIS_PER_HOUR, null);
+            4, 100, java.time.Duration.ofHours(1).toMillis(), null);
 
     private static String makeCacheKey(String providerNo, Long programId) {
         return (providerNo + ':' + programId);
