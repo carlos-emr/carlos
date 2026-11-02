@@ -138,7 +138,8 @@ public final class ProviderPreferencesUIBean {
                 MiscUtils.getLogger().error("Error", e);
             }
         } else {
-            temp = StringUtils.trimToNull(String.valueOf(session.getAttribute("caisiBillingPreferenceNotDelete")));
+            Object billingPreference = session.getAttribute("caisiBillingPreferenceNotDelete");
+            temp = billingPreference == null ? null : StringUtils.trimToNull(String.valueOf(billingPreference));
             if (temp == null)
                 providerPreference.setDefaultDoNotDeleteBilling(0);
             else {
