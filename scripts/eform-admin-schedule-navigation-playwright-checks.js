@@ -19,6 +19,11 @@
  * deletes one uniquely named temporary eForm.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
+const h=require('./lib/playwright-harness');
+const {settleOperations}=require('./graceful-signal-cancellation');
+const {randomBytes}=require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -38,7 +43,7 @@ const {
   validateBaseUrl,
   wirePage,
 } = require('./eform-local-playwright-utils');
-const { shouldVerifyDeletedEformRow } = require('./eform-admin-schedule-navigation-cleanup');
+const { removeOwnedForms } = require('./eform-admin-schedule-navigation-cleanup');
 
 const config = {
   baseUrl: validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos'),
@@ -125,7 +130,12 @@ async function uploadHtml(page, htmlPath, formName, formSubject) {
   await frame.locator('input[name="formName"]').fill(formName);
   await frame.locator('input[name="formSubject"]').fill(formSubject);
   await frame.locator('#formHtml').setInputFiles(htmlPath);
-  await Promise.all([
+  const action=await frame.locator('form').first().getAttribute('action');
+  const destination=new URL(action,config.baseUrl);assert(destination.origin===config.baseUrl.origin,'Transfer action left the application origin');
+  const accepted=page.waitForResponse(response=>response.request().method()==='POST'&&new URL(response.url()).pathname===destination.pathname,{timeout:120000})
+    .then(async response=>{const error=await response.finished();assert(!error,'Transfer response did not finish');assert(response.status()<400,'Transfer was refused');});
+  await settleOperations([
+    accepted,
     page.waitForURL((url) => (
       url.pathname.endsWith('/administration')
       && url.searchParams.get('show') === 'Forms'
@@ -146,100 +156,17 @@ async function exportEform(page, row, tempDir) {
   return zipPath;
 }
 
-async function readCsrfToken(page) {
-  let token = await page.locator('input[name="CSRF-TOKEN"]').first()
-    .inputValue({ timeout: 5000 })
-    .catch(() => '');
-  if (!token) {
-    const configuredContextPath = config.baseUrl.pathname === '/'
-      ? ''
-      : config.baseUrl.pathname.replace(/\/$/, '');
-    token = await page.evaluate(async (contextPath) => {
-      const response = await fetch(`${contextPath}/csrfguard`, { credentials: 'same-origin' });
-      if (!response.ok) {
-        return '';
-      }
-      const source = await response.text();
-      const match = source.match(/masterTokenValue\s*=\s*["']([^"']+)["']/);
-      return match ? match[1] : '';
-    }, configuredContextPath).catch(() => '');
-  }
-  assert(token, 'Could not obtain a CSRF token for temporary eForm cleanup');
-  return token;
-}
-
-async function deleteEform(page, fid, formName) {
-  assert(/^\d+$/.test(String(fid)), `Refusing to delete invalid eForm fid ${fid}`);
-  const token = await readCsrfToken(page);
-  const action = appUrl(config.baseUrl, '/eform/delEForm');
-  const formId = `schedule_navigation_delete_${fid}`;
-  await page.evaluate(({ deleteAction, submittedFid, csrfToken, deleteFormId }) => { // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- all four values are passed as Playwright arguments, not interpolated into code; deleteAction is loopback-restricted by validateBaseUrl, submittedFid is regex-validated as digits-only above, and csrfToken/deleteFormId are derived from the app's own trusted session
-    const form = document.createElement('form');
-    form.id = deleteFormId;
-    form.method = 'post';
-    form.action = deleteAction;
-    for (const [name, value] of Object.entries({
-      'CSRF-TOKEN': csrfToken,
-      fid: submittedFid,
-    })) {
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = name;
-      input.value = value;
-      form.appendChild(input);
-    }
-    document.body.appendChild(form);
-  }, {
-    deleteAction: action,
-    submittedFid: String(fid),
-    csrfToken: token,
-    deleteFormId: formId,
-  });
-
-  const responsePromise = page.waitForResponse(
-    (response) => response.request().method() === 'POST'
-      && response.url().includes('/eform/delEForm'),
-    { timeout: 15000 },
-  );
-  const navigationPromise = page.waitForNavigation({
-    waitUntil: 'domcontentloaded',
-    timeout: 15000,
-  }).catch(() => null);
-  const [response] = await Promise.all([
-    responsePromise,
-    navigationPromise,
-    page.locator(`#${formId}`).evaluate((form) => form.submit()),
-  ]);
-  // DelEForm2Action enforces CARLOS's POST-only mutator contract (see CLAUDE.md's
-  // "GET/HEAD Rejection Contract") and answers a rejected request with 405 rather than
-  // failing the delete. This script exists to verify schedule-navigation preservation
-  // through Upload/Import, not eform deletion, so a rejected cleanup request is
-  // tolerated here (and in the badResponses/consoleIssues filters below) instead of
-  // failing the whole check. A delete that is rejected simply leaves the temporary
-  // eForm behind; the next run's Date.now()-suffixed fixture name will not collide.
-  assert(
-    response.status() < 400 || response.status() === 405,
-    `Temporary eForm delete failed with HTTP ${response.status()}`,
-  );
-
-  if (!shouldVerifyDeletedEformRow(response.status())) {
-    return;
-  }
-
-  await gotoApp(page, config.baseUrl, '/eform/efmformmanager');
-  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  assert(
-    await page.locator('#eformTbl tbody tr', { hasText: formName }).count() === 0,
-    `Temporary eForm ${formName} still appears after cleanup`,
-  );
-}
-
 async function importZip(page, zipPath) {
   await page.locator('#eformOptions a[href="#import"]').click();
   await page.locator('#import').waitFor({ state: 'visible', timeout: 15000 });
   const frame = page.frameLocator('#importFrame');
   await frame.locator('#zippedForm').setInputFiles(zipPath);
-  await Promise.all([
+  const action=await frame.locator('form').first().getAttribute('action');
+  const destination=new URL(action,config.baseUrl);assert(destination.origin===config.baseUrl.origin,'Transfer action left the application origin');
+  const accepted=page.waitForResponse(response=>response.request().method()==='POST'&&new URL(response.url()).pathname===destination.pathname,{timeout:120000})
+    .then(async response=>{const error=await response.finished();assert(!error,'Transfer response did not finish');assert(response.status()<400,'Transfer was refused');});
+  await settleOperations([
+    accepted,
     page.waitForURL((url) => (
       url.pathname.endsWith('/administration')
       && url.searchParams.get('show') === 'Forms'
@@ -248,79 +175,83 @@ async function importZip(page, zipPath) {
   ]);
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('eform-admin-schedule-navigation',async({cancellation})=>{
+  if(!process.env.MYSQL_PASSWORD)throw new h.SkipCheck('eForm Upload/Import cleanup requires configured MYSQL_PASSWORD');
   const recorder = createRecorder();
-  const runId = `${Date.now()}_${process.pid}`;
-  const formName = `Playwright Admin Nav ${runId}`;
-  const formSubject = `Schedule navigation ${runId}`;
-  const fixture = createHtmlFixture(formName);
+  const marker='FAKE-PW'+randomBytes(8).toString('hex');
+  const formName=marker+' Admin Nav',formSubject=marker+' Schedule navigation';
+  const sql=h.createSqlRunner(h.readConfig().mysql),identity={marker,name:formName,subject:formSubject};
+  let fixture;
   let browser = null;
   let context = null;
   let page = null;
-  let importedFid = '';
-  let importedExists = false;
   const screenshots = [];
 
   try {
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    assert(sql.value(`SELECT COUNT(*) FROM eform WHERE form_name=${h.sqlString(formName)}`)==='0','Owned form name already exists');
+    fixture=createHtmlFixture(formName);
+    console.log('Owned eForm fixture: '+formName);
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     context = await browser.newContext({
       acceptDownloads: true,
       // The packaged deployment serves a self-signed certificate by default.
       ignoreHTTPSErrors: shouldIgnoreHttpsErrors(),
       viewport: { width: 1440, height: 1400 },
     });
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
 
     page = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(page, 'eform-admin-schedule-navigation', recorder);
     await openFocusedManager(page);
+    cancellation?.throwIfCancelled();
     screenshots.push(await screenshot(
       page,
       config.screenshotDir,
       'eform-admin-nav-before-upload',
     ));
+    cancellation?.throwIfCancelled();
 
     await uploadHtml(page, fixture.htmlPath, formName, formSubject);
+    cancellation?.throwIfCancelled();
     await assertFocusedAdministration(page, 'HTML Upload redirect');
+    cancellation?.throwIfCancelled();
     screenshots.push(await screenshot(
       page,
       config.screenshotDir,
       'eform-admin-nav-after-upload',
     ));
+    cancellation?.throwIfCancelled();
     const uploaded = await findLibraryEform(page, formName);
+    cancellation?.throwIfCancelled();
     const zipPath = await exportEform(page, uploaded.row, fixture.tempDir);
-    await deleteEform(page, uploaded.fid, formName);
+    cancellation?.throwIfCancelled();
+    removeOwnedForms(sql,identity);
+    cancellation?.throwIfCancelled();
 
     await openFocusedManager(page);
+    cancellation?.throwIfCancelled();
     await importZip(page, zipPath);
+    cancellation?.throwIfCancelled();
     await assertFocusedAdministration(page, 'ZIP Import redirect');
+    cancellation?.throwIfCancelled();
     screenshots.push(await screenshot(
       page,
       config.screenshotDir,
       'eform-admin-nav-after-import',
     ));
+    cancellation?.throwIfCancelled();
     const imported = await findLibraryEform(page, formName);
-    importedFid = imported.fid;
-    importedExists = true;
+    cancellation?.throwIfCancelled();
+    assert(imported.fid,'ZIP import produced no native library row');
 
-    // Same rationale as the deleteEform() tolerance above: a rejected best-effort
-    // cleanup delete is not a navigation-preservation regression.
-    const unexpectedBadResponses = recorder.badResponses.filter((issue) => !(
-      issue.status === 405 && issue.url.includes('/eform/delEForm')
-    ));
-    const unexpectedConsoleIssues = recorder.consoleIssues.filter((issue) => !(
-      issue.location?.url?.includes('/eform/delEForm')
-      && /status of 405/.test(issue.text)
-    ));
-    assert(
-      unexpectedBadResponses.length === 0,
-      `Unexpected HTTP errors: ${JSON.stringify(unexpectedBadResponses, null, 2)}`,
-    );
-    assert(
-      unexpectedConsoleIssues.length === 0,
-      `Unexpected browser console failures: ${JSON.stringify(unexpectedConsoleIssues, null, 2)}`,
-    );
+    assert(recorder.badResponses.length===0,'Unexpected HTTP response failure during Upload/Import');
+    assert(recorder.consoleIssues.length===0,'Unexpected console failure during Upload/Import');
     assert(
       recorder.pageErrors.length === 0,
       `Unexpected page errors: ${JSON.stringify(recorder.pageErrors, null, 2)}`,
@@ -339,28 +270,11 @@ async function importZip(page, zipPath) {
     console.error(JSON.stringify(buildFailureDetails(recorder), null, 2));
     process.exitCode = 1;
   } finally {
-    if (page && !page.isClosed() && !importedFid) {
-      await gotoApp(page, config.baseUrl, '/eform/efmformmanager')
-        .then(() => page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {}))
-        .then(async () => {
-          const row = page.locator('#eformTbl tbody tr', { hasText: formName }).first();
-          if (await row.count()) {
-            const imported = await findLibraryEform(page, formName);
-            importedFid = imported.fid;
-            importedExists = true;
-          }
-        })
-        .catch(() => {});
+    let closed=!browser;
+    try {if(browser)await browser.close();closed=true;}
+    finally {
+      try {assert(closed,'Browser shutdown is unconfirmed; retaining owned eForm');removeOwnedForms(sql,identity);}
+      finally {sql.dispose();if(fixture)fs.rmSync(fixture.tempDir,{recursive:true,force:true});}
     }
-    if (page && !page.isClosed() && importedExists && importedFid) {
-      await deleteEform(page, importedFid, formName).catch((error) => {
-        console.error(`Cleanup failed: ${error.stack || error.message}`);
-        process.exitCode = 1;
-      });
-    }
-    if (browser) {
-      await browser.close();
-    }
-    fs.rmSync(fixture.tempDir, { recursive: true, force: true });
   }
-})();
+});

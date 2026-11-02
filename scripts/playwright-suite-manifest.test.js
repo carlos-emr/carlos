@@ -12,6 +12,12 @@ const { NAVIGATION, REQUIRED_SECTIONS } = require('./lib/playwright-ui');
 const VALID_TIERS = new Set(['smoke', 'core', 'extended', 'front-door', 'standalone', 'live-external']);
 const checks = loadManifest();
 
+test('every database check reaches a shared signal-aware entry point',()=>{
+  const {hasSignalEntryPoint}=require('./lib/script-signal-safety');
+  const missing=checks.filter(check=>check.assertsDatabase&&!hasSignalEntryPoint(path.resolve(__dirname,'..',check.script))).map(check=>check.name);
+  assert.deepEqual(missing,[],'Database checks must settle writes and clean owned fixtures after interruption');
+});
+
 function suiteScripts(directory = __dirname, prefix = 'scripts') {
   const found = [];
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -105,14 +111,14 @@ test('standalone checks never require a database', () => {
 });
 
 test('the smoke tier stays small enough to gate a pull request', () => {
-  const smoke = checks.filter((check) => check.tiers.includes('smoke'));
+  const smoke = selectChecks(checks, parseArguments(['--tier','smoke']));
   assert.ok(smoke.length > 0, 'there must be a smoke tier for CI to run');
   const budgetSeconds = smoke.reduce((total, check) => total + check.timeoutSec, 0);
   assert.ok(budgetSeconds <= 3600, `the smoke tier's worst case is ${budgetSeconds}s; it is meant to gate a PR`);
 });
 
 test('exactly one check runs last, and it is the one with the destructive probes', () => {
-  const last = checks.filter((check) => check.runLast);
+  const last = checks.filter((check) => !check.profile && check.runLast);
   assert.equal(last.length, 1, 'more than one runLast check means their order is undefined');
   assert.equal(last[0].name, 'login', 'login submits deliberate bad passwords and can lock the shared test account');
 });
@@ -211,7 +217,7 @@ test('a check is spawned by absolute path, so the runner works from any director
 // independent test additions fail only after merging, despite retaining every
 // manifest entry. Completeness and script/alias parity are checked above.
 test('the smoke tier stays within its configured timeout budget', () => {
-  const smoke = checks.filter((check) => check.tiers.includes('smoke'));
+  const smoke = selectChecks(checks, parseArguments(['--tier','smoke']));
   const budgetSeconds = smoke.reduce((total, check) => total + check.timeoutSec, 0);
   assert.ok(budgetSeconds <= 3600,
     `smoke timeout budget ${budgetSeconds}s exceeds the 3600s ceiling`);

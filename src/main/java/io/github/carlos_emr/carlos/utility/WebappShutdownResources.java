@@ -67,7 +67,7 @@ public final class WebappShutdownResources {
             return 0;
         });
         runStep(results, ShutdownStep.DB_THREAD_RESOURCES, () -> {
-            DbConnectionFilter.releaseAllKnownDbResources();
+            DbConnectionFilter.releaseAllThreadDbResources();
             return 0;
         });
         runStep(results, ShutdownStep.TRACKING_DATA_SOURCE, () -> {

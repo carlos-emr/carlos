@@ -24,6 +24,7 @@
  * Fixtures: the throwaway login, one owned FAKE- patient and one appointment for the throwaway today.
  * Cleanup removes the appointment, the throwaway's property/ProviderPreference rows, then the throwaway.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
@@ -203,7 +204,7 @@ async function workflow(s) {
 
   await s.step('GET against the save route is refused and writes nothing', async () => {
     const before = JSON.stringify([prefRow(), property('rxCity'), property('patient_name_length')]);
-    const response = await context.request.get(`${config.baseUrl}/provider/ViewProviderUpdatePreference?start_hour=5&end_hour=6&every_min=5&rxCity=GetWrote&patient_name_length=3`);
+    const response = await authenticatedProbe({context, config}, `${config.baseUrl}/provider/ViewProviderUpdatePreference?start_hour=5&end_hour=6&every_min=5&rxCity=GetWrote&patient_name_length=3`);
     h.assert(response.status() === 405, `GET answered HTTP ${response.status()}, not 405`);
     h.assert(JSON.stringify([prefRow(), property('rxCity'), property('patient_name_length')]) === before, 'A GET changed the preferences');
   });

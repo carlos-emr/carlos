@@ -46,6 +46,8 @@
  *   install, so the check always picks the form the way an operator does.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { cleanupAppointmentArchives } = require('./lib/billing-on-submit-cleanup');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
@@ -438,38 +440,38 @@ function runCleanup() {
 }
 // Node does not run finally blocks on SIGINT/SIGTERM (the suite loop's `timeout`
 // sends TERM), so restore the fixtures here too before exiting.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`${signal} received; restoring fixtures before exiting.`);
-    runCleanup();
-    cleanupMysqlDefaults();
-    process.exit(130);
-  });
-}
+// Signals unwind through the shared entry point and the existing finally below.
 
-(async () => {
+legacyHarness.runLegacyCheck('billing-on-submit',async({cancellation})=>{
   const recorder = createRecorder();
   initMysqlDefaults();
   // Staging and the browser launch sit inside the protected scope so a failure in
   // either still reaches the fixture cleanup below.
   try {
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    cancellation?.throwIfCancelled();
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
 
     if (ohipCode.startsWith('_')) {
       const privateHeader = await billOhipOrWsib(context, recorder, {
         label: 'private', billType: 'PAT', expectPayProgram: 'PAT', expectStatus: 'P', startTime: '09:00:00',
       });
+    cancellation?.throwIfCancelled();
       console.log(`PASS private bill ${privateHeader}: final-save guards and valid save`);
     } else {
       const ohipHeader = await billOhipOrWsib(context, recorder, {
         label: 'ohip', billType: 'ODP', expectPayProgram: 'HCP', expectStatus: 'O', startTime: '09:00:00',
       });
+    cancellation?.throwIfCancelled();
       const wsibHeader = await billOhipOrWsib(context, recorder, {
         label: 'wsib', billType: 'WCB', expectPayProgram: 'WCB', expectStatus: 'W', startTime: '09:15:00',
       });
+    cancellation?.throwIfCancelled();
       const bonusHeader = await billBonus(context, recorder, { label: 'bonus', startTime: '09:30:00' });
+    cancellation?.throwIfCancelled();
       console.log(`PASS Ontario bills saved through the UI: OHIP header ${ohipHeader}, WSIB header ${wsibHeader}, bonus header ${bonusHeader}`);
     }
 
@@ -488,4 +490,4 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     runCleanup();
     cleanupMysqlDefaults();
   }
-})();
+});

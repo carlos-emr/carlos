@@ -37,6 +37,8 @@
  * brand/generic/lot suggestions and saves a vaccine with an undated lot).
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
@@ -145,39 +147,41 @@ function runCleanup() {
 }
 // Node does not run finally blocks on SIGINT/SIGTERM (the suite loop's `timeout`
 // sends TERM), so restore the fixtures here too before exiting.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`${signal} received; restoring fixtures before exiting.`);
-    runCleanup();
-    cleanupMysqlDefaults();
-    process.exit(130);
-  });
-}
+// Signals unwind through the shared entry point and the existing finally below.
 
-(async () => {
+legacyHarness.runLegacyCheck('prevention-brand-picker',async({cancellation})=>{
   const recorder = createRecorder();
   initMysqlDefaults();
   // Staging and the browser launch sit inside the protected scope so a failure in
   // either still reaches the fixture cleanup below.
   try {
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1400, height: 1100 } });
+    cancellation?.throwIfCancelled();
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
 
     // The picker's data source, fetched the way the page fetches it.
     const brandsResponse = await context.request.get(`${config.baseUrl.href}/prevention/vaccine-brands.json`);
+    cancellation?.throwIfCancelled();
     assert(brandsResponse.ok(), `vaccine-brands.json returned HTTP ${brandsResponse.status()}`);
     const brands = await brandsResponse.json();
+    cancellation?.throwIfCancelled();
     const expected = brands.find((entry) => (entry.value || '').toLowerCase().includes(brandQuery.toLowerCase())
       || (entry.name || '').toLowerCase().includes(brandQuery.toLowerCase()));
     assert(expected, `no vaccine brand matches "${brandQuery}"`);
 
     // 1-2. Preventions page -> brand picker -> Add Prevention popup.
     const index = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(index, 'preventions', recorder);
     await gotoApp(index, config.baseUrl, `/prevention/ViewPreventionIndex?demographic_no=${encodeURIComponent(demographicNo)}`);
+    cancellation?.throwIfCancelled();
     await index.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(index, 'preventions page');
+    cancellation?.throwIfCancelled();
     // Exercise the local catalogue route with a synthetic lot, including a
     // missing expiry date. Never depend on an external catalogue service.
     sql(`INSERT INTO CVCImmunization (versionId,snomedConceptId,displayName,picklistName,generic,parentConceptId,ispa) VALUES (0,'${genericConcept}','${catalogueName} generic','${catalogueName} generic',1,NULL,0),(0,'${catalogueConcept}','${catalogueName} brand','${catalogueName} brand',0,'${genericConcept}',0)`);
@@ -185,68 +189,103 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     sql(`INSERT INTO CVCMedication (versionId,snomedCode,snomedDisplay,status,isBrand) VALUES (0,'${catalogueConcept}','Synthetic Playwright vaccine','active',1)`);
     sql(`INSERT INTO CVCMedicationLotNumber (cvcMedicationId,lotNumber,expiryDate) SELECT id,'${catalogueLot}',NULL FROM CVCMedication WHERE snomedCode='${catalogueConcept}'`);
     const csrfToken = await index.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    cancellation?.throwIfCancelled();
     const cvcQuery = await context.request.post(`${config.baseUrl.href}/cvc?method=query`, {
       headers: {'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'}, form: {query: catalogueLot}
     });
+    cancellation?.throwIfCancelled();
     assert(cvcQuery.status() === 200, `CVC query returned HTTP ${cvcQuery.status()}`);
     const cvcResults = (await cvcQuery.json()).results;
+    cancellation?.throwIfCancelled();
     assert(cvcResults.length === 1 && cvcResults[0].lotNumber === catalogueLot
       && cvcResults[0].snomedId === catalogueConcept, 'CVC query lost the selected lot or vaccine');
     const cvcLots = await context.request.post(`${config.baseUrl.href}/cvc`, {
       headers: {'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'}, form: {method: 'getLotNumberAndExpiryDates', snomedConceptId: catalogueConcept}
     });
+    cancellation?.throwIfCancelled();
     assert(cvcLots.status() === 200, `CVC lot lookup returned HTTP ${cvcLots.status()}`);
     const lots = await cvcLots.json();
+    cancellation?.throwIfCancelled();
     assert(lots.length === 1 && lots[0].lotNumber === catalogueLot && lots[0].expiryDate === null,
       'CVC lot lookup invented an expiry date or dropped the lot');
     const namesResponse = await context.request.post(`${config.baseUrl.href}/cvc?method=query`, {
       headers: {'CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest'}, form: {query: catalogueName}
     });
+    cancellation?.throwIfCancelled();
     assert(namesResponse.status() === 200, `CVC name query returned HTTP ${namesResponse.status()}`);
     const names = (await namesResponse.json()).results;
+    cancellation?.throwIfCancelled();
     assert(names.length === 2 && names.some((item) => item.generic && item.snomedId === genericConcept)
       && names.some((item) => !item.generic && item.snomedId === catalogueConcept)
       && names.every((item) => item.lotNumber === ''), 'CVC name query did not preserve brand/generic choices without inventing a lot');
     if (cvcUi) {
       const input = index.locator('#lotNumberToAdd2');
       await input.waitFor({state: 'visible', timeout: 10000});
+    cancellation?.throwIfCancelled();
       await input.fill(catalogueName);
+    cancellation?.throwIfCancelled();
       await index.locator('#lotNumberToAdd2_choices .ac-item', {hasText: `${catalogueName} generic`}).waitFor({state: 'visible'});
+    cancellation?.throwIfCancelled();
       await index.locator('#lotNumberToAdd2_choices .ac-item', {hasText: `${catalogueName} brand`}).waitFor({state: 'visible'});
+    cancellation?.throwIfCancelled();
       const genericPopupPromise = context.waitForEvent('page');
       await index.locator('#lotNumberToAdd2_choices .ac-item', {hasText: `${catalogueName} generic`}).click();
+    cancellation?.throwIfCancelled();
       const genericPopup = await genericPopupPromise;
+    cancellation?.throwIfCancelled();
       wirePage(genericPopup, 'cvc-generic', recorder);
       await genericPopup.waitForURL(/\/prevention\/ViewAddPreventionData\?/, {waitUntil:'domcontentloaded'});
+    cancellation?.throwIfCancelled();
       await assertNotErrorPage(genericPopup, 'CVC generic popup');
+    cancellation?.throwIfCancelled();
       assert(await genericPopup.locator('input[name="prevention"]').inputValue() === 'Tdap', 'generic lookup lost the mapped prevention type');
+    cancellation?.throwIfCancelled();
       assert(await genericPopup.locator('#cvcName').inputValue() === '-1', 'generic lookup silently chose a brand');
+    cancellation?.throwIfCancelled();
       const genericLots = genericPopup.waitForResponse((response) => response.url().endsWith('/cvc') && response.request().method() === 'POST');
       await genericPopup.locator('#cvcName').selectOption(catalogueConcept);
+    cancellation?.throwIfCancelled();
       assert((await genericLots).ok(), 'selecting a brand after generic lookup failed');
+    cancellation?.throwIfCancelled();
       await genericPopup.waitForFunction(() => document.getElementById('cvcLot')?.options.length === 2);
+    cancellation?.throwIfCancelled();
       await genericPopup.close();
+    cancellation?.throwIfCancelled();
       const lotQuery = index.waitForResponse((response) => response.url().includes('/cvc?method=query')
         && new URLSearchParams(response.request().postData() || '').get('query') === catalogueLot);
       await input.fill(catalogueLot);
+    cancellation?.throwIfCancelled();
       assert((await lotQuery).ok(), 'CVC lot autocomplete request failed');
+    cancellation?.throwIfCancelled();
       await index.waitForFunction(() => document.querySelectorAll('#lotNumberToAdd2_choices .ac-item').length === 1);
+    cancellation?.throwIfCancelled();
       const lotChoice = index.locator('#lotNumberToAdd2_choices .ac-item', {hasText: `${catalogueName} brand`});
       const popupPromise = context.waitForEvent('page');
       await lotChoice.click();
+    cancellation?.throwIfCancelled();
       const popup = await popupPromise;
+    cancellation?.throwIfCancelled();
       wirePage(popup, 'cvc-prevention', recorder);
       await popup.waitForURL(/\/prevention\/ViewAddPreventionData\?/, {waitUntil: 'domcontentloaded'});
+    cancellation?.throwIfCancelled();
       await assertNotErrorPage(popup, 'CVC add-prevention popup');
+    cancellation?.throwIfCancelled();
       await popup.waitForFunction((lot) => document.getElementById('cvcLot')?.value === lot, catalogueLot);
+    cancellation?.throwIfCancelled();
       assert(await popup.locator('#cvcName').inputValue() === catalogueConcept, 'CVC popup selected another vaccine');
+    cancellation?.throwIfCancelled();
       assert(await popup.locator('#expiryDate').inputValue() === '', 'undated CVC lot acquired an invented expiry date');
+    cancellation?.throwIfCancelled();
       assert(await popup.locator('input[name="prevention"]').inputValue() === 'Tdap', 'CVC mapping did not select Tdap');
+    cancellation?.throwIfCancelled();
       await popup.locator('input[name="given"][value="given"]').check();
+    cancellation?.throwIfCancelled();
       const saved = popup.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname.endsWith('/prevention/AddPrevention'));
       await popup.locator('form[action$="/prevention/AddPrevention"] input[type="submit"], form[action$="/prevention/AddPrevention"] button[type="submit"]').first().click();
+    cancellation?.throwIfCancelled();
       assert((await saved).ok(), 'CVC prevention save failed');
+    cancellation?.throwIfCancelled();
       const ids = preventionIds();
       ownedPreventionIds.push(...ids);
       assert(ids.length === 1, 'CVC prevention was not saved exactly once');
@@ -254,29 +293,43 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
       assert(ext.lot === catalogueLot && ext.brandSnomedId === catalogueConcept
         && !ext.expiryDate, 'CVC save lost the selected vaccine/lot or invented an expiry date');
       await popup.waitForEvent('close', {timeout:30000}).catch(() => {});
+    cancellation?.throwIfCancelled();
       const edit = await context.newPage();
+    cancellation?.throwIfCancelled();
       wirePage(edit, 'cvc-prevention-edit', recorder);
       await gotoApp(edit, config.baseUrl, `/prevention/ViewAddPreventionData?demographic_no=${demographicNo}&id=${ids[0]}`);
+    cancellation?.throwIfCancelled();
       await edit.waitForFunction((lot) => document.getElementById('cvcLot')?.value === lot, catalogueLot);
+    cancellation?.throwIfCancelled();
       assert(await edit.locator('#expiryDate').inputValue() === '', 'editing an undated lot invented an expiry date');
+    cancellation?.throwIfCancelled();
       await edit.close();
+    cancellation?.throwIfCancelled();
       // Simulate a catalogue refresh which removes the historical lot but leaves
       // other lots for this vaccine. Editing must retain the recorded lot.
       sql(`UPDATE CVCMedicationLotNumber l JOIN CVCMedication m ON m.id=l.cvcMedicationId SET l.lotNumber='${catalogueLot}OTHER' WHERE m.snomedCode='${catalogueConcept}'`);
       const historical = await context.newPage();
+    cancellation?.throwIfCancelled();
       wirePage(historical, 'cvc-historical-lot', recorder);
       const historicalLookup = historical.waitForResponse((response) => response.url().endsWith('/cvc') && response.request().method() === 'POST');
       await gotoApp(historical, config.baseUrl, `/prevention/ViewAddPreventionData?demographic_no=${demographicNo}&id=${ids[0]}`);
+    cancellation?.throwIfCancelled();
       assert((await historicalLookup).ok(), 'historical lot lookup failed');
+    cancellation?.throwIfCancelled();
       await historical.waitForFunction((lot) => document.getElementById('cvcLot')?.options.length === 2
         && document.getElementById('lot')?.value === lot && document.getElementById('cvcLot').style.display === 'none', catalogueLot);
+    cancellation?.throwIfCancelled();
       assert(await historical.locator('#expiryDate').inputValue() === '', 'historical lot acquired an expiry date');
+    cancellation?.throwIfCancelled();
       assert((await historical.locator('#summary').inputValue()).includes(catalogueLot),
         'the existing prevention summary is no longer visible');
+    cancellation?.throwIfCancelled();
       const historicalSave = historical.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname.endsWith('/prevention/AddPrevention'));
       await historical.locator('form[action$="/prevention/AddPrevention"] input[type="submit"], form[action$="/prevention/AddPrevention"] button[type="submit"]').first().click();
+    cancellation?.throwIfCancelled();
       const historicalResponse = await historicalSave;
+    cancellation?.throwIfCancelled();
       assert(!new URLSearchParams(historicalResponse.request().postData()).has('summary'),
         'the derived read-only summary was resubmitted');
       assert(historicalResponse.ok(), 'historical prevention update failed');
@@ -291,6 +344,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
         && sql(`SELECT deleted FROM preventions WHERE id=${Number(updatedIds[0])}`) === '0',
         'the update did not archive the original and retain the replacement');
       await historical.waitForEvent('close', {timeout:30000}).catch(() => {});
+    cancellation?.throwIfCancelled();
       assertNoPageErrors(recorder);
       const unexpected = recorder.badResponses.filter((entry) => !(entry.status === 404 && /displayImage\?imagefile=vaccine-brands\.json/.test(entry.url)));
       assert(unexpected.length === 0, JSON.stringify(unexpected));
@@ -301,40 +355,61 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     }
 
     await index.locator('#immunization').click();
+    cancellation?.throwIfCancelled();
     await index.keyboard.type(brandQuery, { delay: 30 });
+    cancellation?.throwIfCancelled();
     const choice = index.locator('#immunization_choices [class*="item"], #immunization_choices div, #immunization_choices li').first();
     await choice.waitFor({ state: 'visible', timeout: 15000 });
+    cancellation?.throwIfCancelled();
     const choiceText = (await choice.innerText()).trim();
+    cancellation?.throwIfCancelled();
     assert(choiceText.includes(expected.name) && choiceText.includes(expected.value.slice(0, 20)),
       `first picker entry "${choiceText}" did not match the expected brand ${expected.name} / ${expected.value}`);
     const popupPromise = context.waitForEvent('page', { timeout: 30000 });
     await choice.click();
+    cancellation?.throwIfCancelled();
     const popup = await popupPromise;
+    cancellation?.throwIfCancelled();
     wirePage(popup, 'add-prevention', recorder);
     await popup.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await popup.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(popup, 'add prevention popup');
+    cancellation?.throwIfCancelled();
     const popupUrl = new URL(popup.url());
     assert(popupUrl.searchParams.get('prevention') === expected.name, `popup opened for prevention ${popupUrl.searchParams.get('prevention')}, expected ${expected.name}`);
     assert((await popup.locator('input[name="prevention"]').inputValue()) === expected.name, 'popup form is not for the picked prevention type');
+    cancellation?.throwIfCancelled();
     assert((await popup.locator('#name').inputValue()) === expected.value, 'brand name was not pre-filled');
+    cancellation?.throwIfCancelled();
     assert((await popup.locator('#din').inputValue()) === (expected.din || ''), 'DIN was not pre-filled');
+    cancellation?.throwIfCancelled();
     assert((await popup.locator('#dose').inputValue()) === (expected.dose || ''), 'dose was not pre-filled');
+    cancellation?.throwIfCancelled();
     assert((await popup.locator('select[name="doseUnit"]').inputValue()) === (expected.units || ''), 'dose unit was not pre-filled');
+    cancellation?.throwIfCancelled();
     assert((await popup.locator('#route').inputValue()) === (expected.route || ''), 'route was not pre-filled');
+    cancellation?.throwIfCancelled();
     assert((await popup.locator('#manufacture').inputValue()) === (expected.manufacture || ''), 'manufacturer was not pre-filled');
+    cancellation?.throwIfCancelled();
 
     // 3. Lot + submit.
     await popup.locator('input[name="given"][value="given"]').check();
+    cancellation?.throwIfCancelled();
     await popup.locator('#lot').fill(lotNumber);
+    cancellation?.throwIfCancelled();
     const prevDate = await popup.locator('#prevDate').inputValue();
+    cancellation?.throwIfCancelled();
     assert(/^\d{4}-\d{2}-\d{2}$/.test(prevDate), `prevention date defaulted to "${prevDate}"`);
     const [saveResponse] = await Promise.all([
       popup.waitForResponse((response) => response.request().method() === 'POST' && new URL(response.url()).pathname.endsWith('/prevention/AddPrevention'), { timeout: 30000 }),
       popup.locator('form[action$="/prevention/AddPrevention"] input[type="submit"], form[action$="/prevention/AddPrevention"] button[type="submit"]').first().click(),
     ]);
+    cancellation?.throwIfCancelled();
     assert(saveResponse.status() < 400, `prevention save returned HTTP ${saveResponse.status()}`);
     await popup.waitForEvent('close', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
 
     const ids = preventionIds();
     assert(ids.length === 1, `expected one prevention row with lot ${lotNumber}, found ${ids.length}`);
@@ -354,10 +429,15 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     // 4. Listed on the Preventions page. The popup reloads its opener on the
     // way out, so let that settle and then navigate the page fresh.
     await index.waitForLoadState('domcontentloaded', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await index.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await gotoApp(index, config.baseUrl, `/prevention/ViewPreventionIndex?demographic_no=${encodeURIComponent(demographicNo)}`);
+    cancellation?.throwIfCancelled();
     await index.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     const indexText = await index.locator('body').innerText();
+    cancellation?.throwIfCancelled();
     assert(indexText.includes(prevDate), 'Preventions page did not list the new prevention date');
 
     // The page first tries an admin override of the brand list through
@@ -381,4 +461,4 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     runCleanup();
     cleanupMysqlDefaults();
   }
-})();
+});
