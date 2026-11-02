@@ -62,7 +62,7 @@ class ImportZipInputStreamUnitTest {
     @Test
     void shouldRejectExpandedBytes_whenDescriptorSizeIsUnknown() throws Exception {
         byte[] compressed = archive(1 << 20);
-        assertThat(compressed.length).isLessThan(2048);
+        assertThat(compressed).hasSizeLessThan(2048);
         try (var zip = new ImportZipInputStream(new ByteArrayInputStream(compressed), 32, 64, 2)) {
             assertThat(zip.getNextEntry().getSize()).isEqualTo(-1);
             ByteArrayOutputStream written = new ByteArrayOutputStream();

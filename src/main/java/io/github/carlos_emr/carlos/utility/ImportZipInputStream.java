@@ -40,22 +40,28 @@ public final class ImportZipInputStream extends ZipInputStream {
      * Creates an owning stream with positive per-entry, aggregate byte and entry-count limits.
      * Directory and skipped entries consume the same budgets as content entries.
      *
-     * @param input compressed ZIP input, closed with this stream
-     * @param maxEntryBytes maximum expanded bytes in one entry
-     * @param maxTotalBytes maximum expanded bytes across the archive
-     * @param maxEntries maximum entries, including empty entries
+     * @param input InputStream containing the compressed ZIP, closed with this stream
+     * @param maxEntryBytes long maximum expanded bytes in one entry
+     * @param maxTotalBytes long maximum expanded bytes across the archive
+     * @param maxEntries int maximum entries, including empty entries
+     * @throws IllegalArgumentException if any limit is less than one
      */
     public ImportZipInputStream(InputStream input, long maxEntryBytes, long maxTotalBytes, int maxEntries) {
-        super(input);
         if (maxEntryBytes < 1 || maxTotalBytes < 1 || maxEntries < 1) {
             throw new IllegalArgumentException("ZIP import limits must be positive");
         }
+        super(input);
         this.maxEntryBytes = maxEntryBytes;
         this.maxTotalBytes = maxTotalBytes;
         this.maxEntries = maxEntries;
     }
 
-    /** Drains any previous entry through the byte limits before opening the next entry. */
+    /**
+     * Drains any previous entry through the byte limits before opening the next entry.
+     *
+     * @return ZipEntry for the next member, or null when no entries remain
+     * @throws IOException if reading fails or a byte or entry-count limit is exceeded
+     */
     @Override
     public ZipEntry getNextEntry() throws IOException {
         ZipEntry entry = super.getNextEntry();
@@ -67,7 +73,18 @@ public final class ImportZipInputStream extends ZipInputStream {
         return entry;
     }
 
-    /** Checks actual expanded bytes before returning them to a parser or a file writer. */
+    /**
+     * Checks actual expanded bytes before returning them to a parser or a file writer.
+     * Exact byte limits are accepted; reading one more expanded byte throws an exception.
+     *
+     * @param buffer byte[] receiving the expanded entry bytes
+     * @param offset int index of the first destination byte
+     * @param length int maximum number of bytes requested
+     * @return int bytes read, zero for a zero-length request, or -1 at the entry's end
+     * @throws IOException if reading fails or a per-entry or aggregate byte limit is exceeded
+     * @throws IndexOutOfBoundsException if the destination range is invalid
+     * @throws NullPointerException if buffer is null
+     */
     @Override
     public int read(byte[] buffer, int offset, int length) throws IOException {
         Objects.checkFromIndexSize(offset, length, buffer.length);

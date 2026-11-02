@@ -72,7 +72,7 @@ class EFormExportZipLimitsUnitTest {
     }
 
     private void rejected(byte[] archive, String message) throws Exception {
-        assertThat(archive.length).isLessThan(160_000);
+        assertThat(archive).hasSizeLessThan(160_000);
         try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
             folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
             // Scale down only rejection fixtures; acceptance tests exercise the public defaults.
