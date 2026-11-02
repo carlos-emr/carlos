@@ -86,7 +86,7 @@ class TestMariaDBInitialization(unittest.TestCase):
         self.assertIn("--skip-test-db", args)
         self.assertIn("--disable-log-bin", args)
         # A repeated configure must keep the initialized privilege tables.
-        self.assertEqual(init.main(), 0)
+        self.assertEqual(init.main(), 2)
         self.assertEqual(len(self.initialized()), 1)
 
     def test_failed_first_start_artifacts_are_kept_byte_for_byte(self):
@@ -144,7 +144,7 @@ class TestMariaDBInitialization(unittest.TestCase):
             with self.subTest(state=state):
                 self.calls.clear()
                 self.service = state
-                self.assertEqual(init.main(), 0)
+                self.assertEqual(init.main(), 2)
                 self.assertEqual(self.calls, [["systemctl", "is-active", "mariadb.service"]])
 
     def test_running_manual_server_or_failed_process_check_refuses(self):
@@ -204,7 +204,8 @@ class TestMariaDBInitialization(unittest.TestCase):
         block = block.replace('/usr/lib/carlos-emr/carlos-emr-mariadb-init', shlex.quote(str(helper)))
         for state, rc, expected in (
             ("failed", 0, ["initialize", "reset-failed mariadb.service", "start mariadb.service"]),
-            ("failed", 1, ["initialize"]), ("active", 0, []), ("inactive", 0, []),
+            ("failed", 1, ["initialize"]), ("failed", 2, ["initialize"]),
+            ("active", 0, []), ("inactive", 0, []),
         ):
             with self.subTest(state=state, helper_rc=rc):
                 log.write_text("")

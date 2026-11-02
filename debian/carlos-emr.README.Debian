@@ -497,7 +497,7 @@ a populated database to make the startup error disappear: CARLOS and DrugRef
 may still hold data even though MariaDB cannot open its privilege tables.
 To see which directory the server actually uses (do not assume a path):
 
-    sudo mariadbd --verbose --help 2>/dev/null | awk '$1 == "datadir" {print $2}'
+    sudo mariadbd --verbose --help 2>/dev/null | awk '$1 == "datadir" {sub(/^datadir[ \t]+/, ""); print}'
 
 MariaDB runs on this host, listening on loopback only, with four
 least-privilege accounts and no application ever connecting as root:

@@ -7,6 +7,8 @@ The distribution's postinst deliberately ignores mariadb-install-db failures.
 A later service start can then leave only engine/log files in the datadir and
 abort because mysql.db is absent. Retry initialization only in that narrow case.
 Never remove files, initialize a populated/damaged database, or stop a server.
+Exit 0 only after initialization, 2 when no initialization was needed, and 1
+when initialization was refused or failed. Only 0 permits a service restart.
 """
 
 import fcntl
@@ -63,7 +65,7 @@ def initialize():
 
         service = run(["systemctl", "is-active", "mariadb.service"])
         if service.stdout.strip() not in ("failed", "inactive"):
-            return 0
+            return 2
         # is-active cannot see a mariadbd started by hand. Refuse that too,
         # even when systemd considers its own service stopped.
         for name in ("mariadbd", "mysqld"):
@@ -95,7 +97,7 @@ def initialize():
                 say("MariaDB's existing mysql system schema is incomplete; refusing to reinitialize it. "
                     "See 'Missing MariaDB system tables' in README.Debian.")
                 return 1
-            return 0
+            return 2
         for entry in datadir.iterdir():
             if (entry.name in ("lost+found", "#binlog_cache_files") and not entry.is_symlink()
                     and entry.is_dir() and not any(entry.iterdir())):
