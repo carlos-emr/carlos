@@ -68,6 +68,7 @@ public class EditTickler2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String CLOSE_RESULT = "close";
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
@@ -109,7 +110,7 @@ public class EditTickler2Action extends ActionSupport {
                     SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class))
                     .execute(transaction -> {
                         String result = editTicklerInTransaction(loggedInInfo);
-                        if (!"close".equals(result)) transaction.setRollbackOnly();
+                        if (!CLOSE_RESULT.equals(result)) transaction.setRollbackOnly();
                         return result;
                     });
         } catch (RuntimeException e) {
@@ -296,7 +297,7 @@ public class EditTickler2Action extends ActionSupport {
             request.setAttribute("parentAjaxId", parentAjaxId);
         }
 
-        return "close";
+        return CLOSE_RESULT;
 
     }
 
@@ -399,7 +400,7 @@ public class EditTickler2Action extends ActionSupport {
 
         }
 
-        return "close";
+        return CLOSE_RESULT;
     }
 
     /** Reject safe-method requests before changing ticklers or suggested text. */

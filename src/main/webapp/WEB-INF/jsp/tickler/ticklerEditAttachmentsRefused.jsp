@@ -43,7 +43,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="tickler.ticklerEdit.attachments.error" var="attachmentError"/>
 <!DOCTYPE html>
-<html>
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.toLanguageTag())}">
 <head><title></title></head>
 <body>
 <p id="tickler-edit-attachments-refused"><carlos:encode value="${attachmentError}"/></p>
