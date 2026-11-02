@@ -737,6 +737,8 @@ public class LogoutBroadcastFilter implements Filter {
      */
     private static class DelegatingServletResponse extends HttpServletResponseWrapper {
 
+        private static final String CONTENT_LENGTH = "Content-Length";
+
         private boolean responseWriterObtained;
         private boolean responseOutputStreamObtained;
         private boolean contentLengthDeferred;
@@ -831,7 +833,7 @@ public class LogoutBroadcastFilter implements Filter {
                         deferredContentLengthLong = publishedContentLength;
                         deferredContentLengthIsLong = true;
                     }
-                    super.setHeader("Content-Length", null);
+                    super.setHeader(CONTENT_LENGTH, null);
                     publishedContentLength = null;
                 }
                 configureWriterInjectionBufferIfNeeded();
@@ -911,19 +913,27 @@ public class LogoutBroadcastFilter implements Filter {
         }
 
         /**
-         * Resets only the body buffer and clears deferred Content-Length state.
+         * Resets only the body buffer and clears the Content-Length state this wrapper owns.
          *
          * <p>The servlet response keeps its headers across {@code resetBuffer()}, but the body length
          * no longer matches any prior downstream Content-Length. Clearing the deferred value avoids
-         * replaying an obsolete length after an error path swaps the response body. The HTML buffer
-         * configured flag is intentionally left intact because servlet containers keep the buffer
-         * size across {@code resetBuffer()} just as they keep headers.</p>
+         * replaying an obsolete length after an error path swaps the response body. A length this
+         * wrapper already published for a non-HTML channel described the discarded bytes too, so it
+         * is removed from the response; otherwise the replacement body would be framed (and
+         * truncated) by it. The HTML buffer configured flag is intentionally left intact because
+         * servlet containers keep the buffer size across {@code resetBuffer()} just as they keep
+         * headers. A rejected reset (the response is already committed) leaves all of this state
+         * as it was.</p>
          */
         @Override
         public void resetBuffer() {
-            clearDeferredContentLength();
-            htmlInjectionBufferUnavailable = false;
             super.resetBuffer();
+            clearDeferredContentLength();
+            if (publishedContentLength != null) {
+                super.setHeader(CONTENT_LENGTH, null);
+                publishedContentLength = null;
+            }
+            htmlInjectionBufferUnavailable = false;
         }
 
         @Override
@@ -1076,7 +1086,7 @@ public class LogoutBroadcastFilter implements Filter {
             if (value == null) {
                 clearDeferredContentLength();
                 publishedContentLength = null;
-                super.setHeader("Content-Length", null);
+                super.setHeader(CONTENT_LENGTH, null);
                 return;
             }
             try {
@@ -1100,7 +1110,7 @@ public class LogoutBroadcastFilter implements Filter {
         // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
         @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         private boolean isContentLengthHeader(String name) {
-            return "Content-Length".equalsIgnoreCase(name);
+            return CONTENT_LENGTH.equalsIgnoreCase(name);
         }
 
         // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

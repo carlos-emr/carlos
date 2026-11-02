@@ -82,11 +82,15 @@ Content-Type header setters also publish known non-HTML lengths. If the type
 changes to HTML before commitment, the decorators remove their published lengths
 through every outer wrapper and defer them again until the append decision.
 Decorated HTML omits the obsolete length so the outer sanitizer or container can
-frame the completed response. A writer initially captured before its Content-Type
+frame the completed response. A `resetBuffer()` keeps a length that is still
+pending, but the decorators remove one they already published: it described the
+discarded bytes and would otherwise truncate a longer replacement. A writer
+initially captured before its Content-Type
 was known still uses the existing CSRF writer replay contract: the container may
 choose chunked framing instead of a supplied length. Exact byte integrity remains
-required. Stream notices use the response charset. This adds header coordination,
-not another body buffer.
+required. Stream notices use the response charset, or UTF-8 when the declared name
+is one the JRE cannot use (Tomcat 11 keeps a rejected name visible through
+`getCharacterEncoding()`). This adds header coordination, not another body buffer.
 
 ## Why retain the setting
 

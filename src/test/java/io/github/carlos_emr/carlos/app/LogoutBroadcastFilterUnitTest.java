@@ -145,6 +145,46 @@ class LogoutBroadcastFilterUnitTest {
         verify(response).setHeader("Content-Length", null);
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRetractPublishedLength_whenBufferResetDiscardsTheBody(boolean stream) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.getSession(true).setAttribute("user", "123");
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("application/json;charset=UTF-8");
+            res.setContentLength(4);
+            if (stream) {
+                res.getOutputStream().write("{\"a\"".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            } else {
+                res.getWriter().write("{\"a\"");
+            }
+            assertThat(response.getContentLength()).as("non-HTML length published before the body").isEqualTo(4);
+            res.resetBuffer();
+            // The published length described the discarded body. Spring's mock ignores null
+            // values; the real-Tomcat lifecycle test verifies the replacement's framing.
+            verify(response).setHeader("Content-Length", null);
+        });
+        assertThat(response.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    void shouldKeepPublishedLength_whenBufferResetIsRejected() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.getSession(true).setAttribute("user", "123");
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("application/json;charset=UTF-8");
+            res.setContentLength(4);
+            res.getWriter().write("{\"a\"");
+            response.setCommitted(true);
+            org.assertj.core.api.Assertions.assertThatThrownBy(res::resetBuffer)
+                    .isInstanceOf(IllegalStateException.class);
+        });
+        verify(response, org.mockito.Mockito.never()).setHeader("Content-Length", null);
+        assertThat(response.getContentLength()).isEqualTo(4);
+    }
+
     @Test
     @DisplayName("should skip injection when renderer servlet marks the request during the chain")
     void shouldSkipInjection_whenRendererServletMarksRequestDuringChain() throws Exception {

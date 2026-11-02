@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.commn.printing;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.Charset;
+import java.nio.charset.IllegalCharsetNameException;
+import java.nio.charset.StandardCharsets;
 import java.io.Writer;
 import java.util.Collections;
 import java.util.HashSet;
@@ -252,12 +254,30 @@ public class PrivacyStatementAppendingFilter implements Filter {
     private void printConfidentialityStatement(ServletResponse response, DelegatingServletResponse delegatingServletResponse,
                                                String statement) throws IOException {
         if (delegatingServletResponse.isResponseOutputStreamObtained()) {
-            response.getOutputStream().write(statement.getBytes(Charset.forName(response.getCharacterEncoding())));
+            response.getOutputStream().write(statement.getBytes(noticeCharset(response)));
         } else if (delegatingServletResponse.isResponseWriterObtained()) {
             response.getWriter().print(statement);
         }
 
         response.flushBuffer();
+    }
+
+    /**
+     * Charset for a notice appended to a byte stream: the response's declared charset when the JRE
+     * supports it, otherwise UTF-8 (what this filter wrote before it honoured the declared charset).
+     * Tomcat 11 keeps a rejected charset name visible through {@code getCharacterEncoding()}, so an
+     * unusable name must not turn the appended notice into the failure of an already-written page.
+     */
+    private static Charset noticeCharset(ServletResponse response) {
+        String name = response.getCharacterEncoding();
+        try {
+            if (name != null && Charset.isSupported(name)) {
+                return Charset.forName(name);
+            }
+        } catch (IllegalCharsetNameException _) {
+            // Fall through: an illegal name is as unusable as an unsupported one.
+        }
+        return StandardCharsets.UTF_8;
     }
 
     private void resetConfidentialityNote(HttpServletRequest request) {
@@ -321,6 +341,8 @@ public class PrivacyStatementAppendingFilter implements Filter {
      * as it may cause memory problems.
      */
     private static class DelegatingServletResponse extends HttpServletResponseWrapper {
+
+        private static final String CONTENT_LENGTH = "Content-Length";
 
         private boolean responseWriterObtained;
         private boolean responseOutputStreamObtained;
@@ -414,7 +436,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 try {
                     setContentLengthLong(Long.parseLong(value));
                     return;
-                } catch (NumberFormatException ignored) {
+                } catch (NumberFormatException _) {
                     // Preserve the container's handling of malformed header values.
                 }
             }
@@ -453,7 +475,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 if (deferredContentLength == null) {
                     deferredContentLength = publishedContentLength;
                 }
-                super.setHeader("Content-Length", null);
+                super.setHeader(CONTENT_LENGTH, null);
                 publishedContentLength = null;
             }
             // Content-Type can arrive through any header API after channel selection.
@@ -465,7 +487,13 @@ public class PrivacyStatementAppendingFilter implements Filter {
         @Override
         public void resetBuffer() {
             super.resetBuffer();
-            // Buffer-only reset preserves headers, including the pending entity length.
+            // Buffer-only reset preserves headers, including a pending entity length. A length
+            // already published for a non-HTML channel described the discarded bytes, so remove
+            // it rather than let it frame (and truncate) the replacement body.
+            if (publishedContentLength != null) {
+                super.setHeader(CONTENT_LENGTH, null);
+                publishedContentLength = null;
+            }
         }
 
         @Override
@@ -482,7 +510,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
         @SuppressFBWarnings(value = "IMPROPER_UNICODE",
                 justification = "HTTP header names require case-insensitive comparison; no authentication or authorization decision")
         private static boolean isContentLengthHeader(String name) {
-            return "Content-Length".equalsIgnoreCase(name);
+            return CONTENT_LENGTH.equalsIgnoreCase(name);
         }
 
         private boolean isKnownNonHtml() {

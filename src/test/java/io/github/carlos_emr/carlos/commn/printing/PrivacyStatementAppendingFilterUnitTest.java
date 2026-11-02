@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -105,6 +106,54 @@ class PrivacyStatementAppendingFilterUnitTest {
                 res.getOutputStream().write("body".getBytes(StandardCharsets.ISO_8859_1));
             });
             assertThat(new String(response.getContentAsByteArray(), StandardCharsets.ISO_8859_1))
+                    .startsWith("body").contains("Synthetic café notice.");
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.put("confidentiality_statement.v1", original);
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRetractPublishedLength_whenBufferResetDiscardsTheBody(boolean stream) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType(stream ? "application/octet-stream" : "text/plain;charset=UTF-8");
+            res.setContentLength(4);
+            if (stream) {
+                res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+            } else {
+                res.getWriter().write("abcd");
+            }
+            assertThat(response.getContentLength()).as("non-HTML length published before the body").isEqualTo(4);
+            res.resetBuffer();
+            // The published length described the discarded body; a pending one would be kept.
+            // Spring's mock ignores null values, so the removal call itself is asserted here.
+            verify(response).setHeader("Content-Length", null);
+        });
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"x-carlos-unsupported-5495", "not a charset"})
+    void shouldEncodeStreamNoticeAsUtf8_whenDeclaredCharsetIsUnusable(String charset) throws Exception {
+        // Tomcat 11 keeps an unsupported charset name visible through getCharacterEncoding()
+        // after rejecting it, so the notice must not be the thing that fails the response.
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic café notice.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentType("text/html");
+                res.setCharacterEncoding(charset);
+                res.getOutputStream().write("body".getBytes(StandardCharsets.US_ASCII));
+            });
+            assertThat(new String(response.getContentAsByteArray(), StandardCharsets.UTF_8))
                     .startsWith("body").contains("Synthetic café notice.");
         } finally {
             if (original == null) {

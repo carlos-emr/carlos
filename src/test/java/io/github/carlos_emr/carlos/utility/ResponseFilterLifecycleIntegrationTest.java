@@ -70,6 +70,7 @@ class ResponseFilterLifecycleIntegrationTest {
     private static final String TAIL = "<p id=\"tail\">COMPLETE é 漢 🙂</p></body></html>";
     private static final String NOTICE = "SYNTHETIC PRINT NOTICE é 漢 🙂";
     private static final String PRIVATE_DIAGNOSTIC = "java.lang.IllegalStateException: synthetic-private-diagnostic";
+    private static final String REPLACEMENT_TAIL = "|REPLACEMENT AFTER BUFFER RESET é 🙂";
     private static final int[] SIZES = {8191, 8192, 8193, 55_324,
             ResponseSanitizationFilter.MAX_CAPTURE_CHARS - 1,
             ResponseSanitizationFilter.MAX_CAPTURE_CHARS,
@@ -299,6 +300,24 @@ class ResponseFilterLifecycleIntegrationTest {
         assertLength(response);
     }
 
+    static Stream<Arguments> bufferResetReplacementCases() {
+        return Stream.of("/development", "/packaged").flatMap(context ->
+                Stream.of("direct", "forward", "nested").flatMap(dispatch ->
+                        Stream.of("plain", "binary").map(output -> Arguments.of(context, dispatch, output))));
+    }
+
+    @ParameterizedTest(name = "resetBuffer {0} {1} {2}")
+    @MethodSource("bufferResetReplacementCases")
+    void shouldNotFrameReplacementWithDiscardedLength_afterBufferReset(
+            String context, String dispatch, String output) throws Exception {
+        HttpResponse<byte[]> response = get(context + "/" + dispatch
+                + "?output=" + output + "&replaceAfterResetBuffer=true");
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).as("complete replacement after resetBuffer for %s %s at %s",
+                dispatch, output, context).isEqualTo(replacementAfterBufferReset(output));
+        assertLength(response);
+    }
+
     @ParameterizedTest(name = "reset {0} {1} {2} -> {3}")
     @MethodSource("fullResetCases")
     void shouldCoordinateFullResetAcrossEveryWrapper_andAllowChannelReselection(
@@ -380,6 +399,15 @@ class ResponseFilterLifecycleIntegrationTest {
     private static String html(int bytes) {
         int fixedBytes = (HEAD + TAIL).getBytes(StandardCharsets.UTF_8).length;
         return HEAD + "x".repeat(bytes - fixedBytes) + TAIL;
+    }
+
+    /** The body written after resetBuffer(): longer than the length declared for the discarded one. */
+    private static byte[] replacementAfterBufferReset(String output) {
+        byte[] body = "binary".equals(output) ? BINARY : html(8193).getBytes(StandardCharsets.UTF_8);
+        byte[] tail = REPLACEMENT_TAIL.getBytes(StandardCharsets.UTF_8);
+        byte[] replacement = java.util.Arrays.copyOf(body, body.length + tail.length);
+        System.arraycopy(tail, 0, replacement, body.length, tail.length);
+        return replacement;
     }
 
     private static HttpResponse<byte[]> get(String path) throws Exception {
@@ -500,6 +528,28 @@ class ResponseFilterLifecycleIntegrationTest {
                     raw = wrapper.getResponse();
                 }
                 FINISHED_AFTER_FORWARD.put(request.getContextPath(), ((ResponseFacade) raw).isFinished());
+                return;
+            }
+            if ("true".equals(request.getParameter("replaceAfterResetBuffer"))) {
+                // The declared length describes the body discarded by resetBuffer(), not the
+                // longer replacement written afterwards on the same channel.
+                byte[] replacement = replacementAfterBufferReset(output);
+                byte[] prefix = "DISCARDED BUFFER RESET PREFIX".getBytes(StandardCharsets.UTF_8);
+                if ("binary".equals(output)) {
+                    response.setContentType("application/octet-stream");
+                    response.setContentLength(BINARY.length);
+                    jakarta.servlet.ServletOutputStream stream = response.getOutputStream();
+                    stream.write(prefix);
+                    response.resetBuffer();
+                    stream.write(replacement);
+                } else {
+                    response.setContentType("text/plain;charset=UTF-8");
+                    response.setContentLength(html(8193).getBytes(StandardCharsets.UTF_8).length);
+                    var writer = response.getWriter();
+                    writer.write(new String(prefix, StandardCharsets.UTF_8));
+                    response.resetBuffer();
+                    writer.write(new String(replacement, StandardCharsets.UTF_8));
+                }
                 return;
             }
             if ("binary".equals(output)) {
