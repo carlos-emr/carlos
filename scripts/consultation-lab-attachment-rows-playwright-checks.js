@@ -50,6 +50,8 @@
  *   ALLOW_NON_LOCAL_BASE_URL=true only when intentionally targeting a non-local test app
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const {
   EXIT_SKIP,
   SkipCheck,
@@ -101,12 +103,13 @@ async function saveAndClosePicker(page) {
   await page.locator('#attachDocumentsForm').waitFor({ state: 'hidden', timeout: 30000 });
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('consultation-lab-attachment-rows',async({cancellation})=>{
   const recorder = createRecorder();
   const originalRequestId = findRequestId();
   let requestId = null;
   const labNo = findHl7LabNo();
   const browser = await launchBrowser(config);
+    
   try {
     if (!originalRequestId || !labNo) {
       throw new SkipCheck(`demographic ${demographicNo} has no consultation request or no HL7 lab to seed; load the demo dataset`);
@@ -127,35 +130,53 @@ async function saveAndClosePicker(page) {
     }
 
     const context = await newContext(browser, config);
+    cancellation?.throwIfCancelled();
     const landingPage = await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     await landingPage.close();
+    cancellation?.throwIfCancelled();
     const page = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(page, 'consult-lab-rows', recorder);
     await gotoApp(page, config.baseUrl, `/encounter/ViewRequest?requestId=${encodeURIComponent(requestId)}`, 'load');
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(page, 'consultation request');
+    cancellation?.throwIfCancelled();
     await page.locator('#EctConsultationFormRequest2Form').waitFor({ state: 'attached', timeout: 30000 });
+    cancellation?.throwIfCancelled();
 
     // 2. Stored row identity follows the picker checkbox id.
     assert(await page.locator(rowId).count() === 1, `stored lab row ${rowId} was not rendered`);
+    cancellation?.throwIfCancelled();
     assert(await page.locator(delegateId).count() === 1, `stored lab delegate ${delegateId} was not rendered`);
+    cancellation?.throwIfCancelled();
     assert(await page.locator(`#entry_labNo${labNo}`).count() === 0,
       `stored lab row still uses the unqualified id entry_labNo${labNo}`);
+    cancellation?.throwIfCancelled();
 
     // Colliding and unresolved stored IDs must stay separate and visibly removable.
     for (const source of ['MDS', 'UNRESOLVED']) {
       const missing = page.locator(`#entry_labNo${source}${labNo}`);
       assert(await missing.count() === 1, `${source} attachment was lost or replaced by HL7`);
+    cancellation?.throwIfCancelled();
       assert(await missing.locator('input').inputValue() === `${source}:${labNo}`, 'stored source changed');
+    cancellation?.throwIfCancelled();
       await missing.locator('.removeUnavailableLab').click();
+    cancellation?.throwIfCancelled();
       assert(await page.locator(rowId).count() === 1, 'removing another source removed HL7');
+    cancellation?.throwIfCancelled();
     }
 
     // 3. Unchecking the stored lab removes its row.
     await openPicker(page);
+    cancellation?.throwIfCancelled();
     const checkbox = page.locator(`#attachDocumentsForm #${checkboxId}`);
     await checkbox.waitFor({ state: 'visible', timeout: 30000 });
+    cancellation?.throwIfCancelled();
     assert(await checkbox.isChecked(), 'picker did not pre-check the stored lab');
+    cancellation?.throwIfCancelled();
     const preview = await checkbox.locator('..').locator('.preview-button').first().getAttribute('onclick');
+    cancellation?.throwIfCancelled();
     assert(preview.includes(`HL7:${labNo}`) && preview.includes('labType=HL7'), 'preview lost source identity');
     const cacheIsolated = await page.evaluate(id => {
       addPdfAttachment('LAB', `HL7:${id}`, 'hl7-test', []);
@@ -165,6 +186,7 @@ async function saveAndClosePicker(page) {
       pdfCache = pdfCache.filter(item => item.base64Data !== 'hl7-test' && item.base64Data !== 'mds-test');
       return isolated;
     }, labNo);
+    cancellation?.throwIfCancelled();
     assert(cacheIsolated, 'PDF cache confused lab sources');
     const rejectedPreview = await page.evaluate(async ({id, patient}) => {
       const token = document.querySelector('input[name="CSRF-TOKEN"]');
@@ -173,32 +195,50 @@ async function saveAndClosePicker(page) {
       const response = await fetch(`${window.location.pathname.substring(0, window.location.pathname.indexOf('/encounter/'))}/previewDocs?${params}`, {credentials:'same-origin'});
       return {status:response.status, text:await response.text()};
     }, {id:labNo, patient:demographicNo});
+    cancellation?.throwIfCancelled();
     assert(rejectedPreview.status === 400 && rejectedPreview.text.includes('lab_source_unsupported'), 'MDS preview reached the HL7 renderer');
     assert((await checkbox.getAttribute('class')) === 'lab_pre_check', 'stored lab was not marked as pre-checked');
+    cancellation?.throwIfCancelled();
     await checkbox.uncheck();
+    cancellation?.throwIfCancelled();
     await saveAndClosePicker(page);
+    cancellation?.throwIfCancelled();
     assert(await page.locator(rowId).count() === 0, 'unchecking the stored lab did not remove its row');
+    cancellation?.throwIfCancelled();
 
     // 4. Re-checking adds one row back under the same id.
     await openPicker(page);
+    cancellation?.throwIfCancelled();
     const again = page.locator(`#attachDocumentsForm #${checkboxId}`);
     await again.waitFor({ state: 'visible', timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await again.check();
+    cancellation?.throwIfCancelled();
     await saveAndClosePicker(page);
+    cancellation?.throwIfCancelled();
     assert(await page.locator(rowId).count() === 1, `re-checking the lab did not add ${rowId} back`);
+    cancellation?.throwIfCancelled();
     assert(await page.locator(delegateId).count() === 1, `re-added row has no ${delegateId} input`);
+    cancellation?.throwIfCancelled();
     assert((await page.locator(delegateId).getAttribute('name')) === 'labNo', 're-added delegate is not named labNo');
+    cancellation?.throwIfCancelled();
     assert((await page.locator(delegateId).getAttribute('value')) === `HL7:${labNo}`,
       're-added delegate value lost its source');
+    cancellation?.throwIfCancelled();
 
     // 5. Another open/close does not duplicate the row.
     await openPicker(page);
+    cancellation?.throwIfCancelled();
     await page.locator(`#attachDocumentsForm #${checkboxId}`).waitFor({ state: 'visible', timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await saveAndClosePicker(page);
+    cancellation?.throwIfCancelled();
     assert(await page.locator(rowId).count() === 1, 'reopening the picker duplicated the lab row');
+    cancellation?.throwIfCancelled();
 
     assertNoPageErrors(recorder);
     await context.close();
+    cancellation?.throwIfCancelled();
     console.log(`PASS consultation lab attachment rows keyed by source (request ${requestId}, lab HL7 ${labNo}: remove, re-add, no duplicate)`);
   } catch (error) {
     if (error instanceof SkipCheck) {
@@ -225,4 +265,4 @@ async function saveAndClosePicker(page) {
       await browser.close();
     }
   }
-})();
+});

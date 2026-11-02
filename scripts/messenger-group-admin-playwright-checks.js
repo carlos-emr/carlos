@@ -132,6 +132,15 @@ function cleanup() {
         sql.execute(`DELETE FROM provider WHERE provider_no=${sqlString(providerNo)}`);
       }
     }
+    if(state.latchBefore) {
+      const after=sql.rows('SELECT id,lastUpdateUser,lastUpdateDate FROM messengerMembershipLock ORDER BY id');
+      if(state.latchBefore.length)assert(JSON.stringify(after)===JSON.stringify(state.latchBefore),'Preexisting membership coordinator changed; retain it');
+      else if(state.latchMarker&&after.length) {
+        assert(after.length===1&&after[0][0]==='1'&&after[0][1]===state.latchMarker&&(!state.latchOwned||JSON.stringify(after[0])===JSON.stringify(state.latchOwned)),'Owned membership coordinator changed; retain it');
+        sql.execute(`DELETE FROM messengerMembershipLock WHERE id=1 AND lastUpdateUser=${sqlString(state.latchMarker)} AND lastUpdateDate=${sqlString(after[0][2])}`);
+        assert(sql.value('SELECT COUNT(*) FROM messengerMembershipLock')==='0','Membership coordinator baseline did not restore');
+      }
+    }
   } finally {
     sql.dispose();
     state.sql = null;
@@ -211,9 +220,17 @@ function assertExpectedProbeResponses(recorder, expectedResponses) {
 }
 
 async function main() {
+  assert(process.env.EXCLUSIVE==='1'&&process.env.CARLOS_DISPOSABLE_HOST==='true','Membership fixture requires an exclusive disposable install');
   const config = readConfig();
   state.sql = createSqlRunner(config.mysql);
   const { sql } = state;
+  state.latchBefore=sql.rows('SELECT id,lastUpdateUser,lastUpdateDate FROM messengerMembershipLock ORDER BY id');
+  if(!state.latchBefore.length) {
+    state.latchMarker='FAKE-PW'+require('node:crypto').randomBytes(8).toString('hex');
+    sql.execute(`INSERT INTO messengerMembershipLock(id,lastUpdateUser) VALUES(1,${sqlString(state.latchMarker)})`);
+    state.latchOwned=sql.rows('SELECT id,lastUpdateUser,lastUpdateDate FROM messengerMembershipLock WHERE id=1')[0];
+    assert(state.latchOwned[1]===state.latchMarker,'Membership coordinator ownership was not established');
+  }
 
   state.activeProviderNo = pickUnusedProviderNo(sql, '9');
   state.deactivatedProviderNo = pickUnusedProviderNo(sql, '-9');
@@ -426,7 +443,7 @@ async function main() {
     expectFailure(`method=remove&group=${state.groupId}`, 503);
     const removeUrl = /\/messenger\?method=remove&/;
     await probe.route(removeUrl, route => route.fulfill({ status: 503, body: 'Unavailable' }));
-    await fixtureBox.uncheck();
+    await fixtureBox.click();
     await probe.locator('#membership-error').waitFor({ state: 'visible', timeout: TIMEOUT });
     assert(await fixtureBox.isChecked(), 'failed removal left the registry checkbox unchecked');
     assert(await fixtureBox.isEnabled(), 'failed removal left the checkbox disabled');

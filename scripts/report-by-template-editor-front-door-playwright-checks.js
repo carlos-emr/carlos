@@ -27,6 +27,7 @@
  * Fixtures: none beyond the login; cleanup removes every reportTemplates row whose title
  * carries the run marker.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { csrfToken, watchFrontDoor } = require('./lib/front-door-checks');
@@ -147,7 +148,7 @@ async function workflow(s) {
     const url = h.appUrl(s.config.baseUrl, '/oscarReport/reportByTemplate/addEditTemplatesAction');
     for (const params of [{ action: 'delete', templateid: templateId }, { action: 'edit', templateid: templateId, xmltext: 'x' },
       { action: 'add', xmltext: 'x' }]) {
-      const response = await s.context.request.get(url, { params, maxRedirects: 0 });
+      const response = await authenticatedProbe(s, url, { params, maxRedirects: 0 });
       h.assert(response.status() === 405, `GET action=${params.action} answered HTTP ${response.status()}, not 405`);
     }
     h.assert(stored().length === 1, 'A GET removed or duplicated the template');

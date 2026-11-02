@@ -48,6 +48,7 @@
  * immunization schedules are in the snapshot and the cleanup, as are the owned template and one
  * message linked to each patient; the provider's encounterWindow row is restored.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
@@ -1230,8 +1231,7 @@ async function run(s) {
         } finally { await response.dispose(); }
       }
       const query = new URLSearchParams(legacyForm(d, text, [['eChartId', legacy[d.label].revision]]));
-      const get = await context.request.get(h.appUrl(s.config.baseUrl, `/encounter/SaveEncounter2?${query}`),
-        {maxRedirects: 0, failOnStatusCode: false});
+      const get = await authenticatedProbe({context, config: s.config}, h.appUrl(s.config.baseUrl, `/encounter/SaveEncounter2?${query}`), {maxRedirects: 0, failOnStatusCode: false});
       try {
         h.assert(get.status() === 405, `A legacy save by GET answered HTTP ${get.status()}`);
       } finally { await get.dispose(); }

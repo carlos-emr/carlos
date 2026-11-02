@@ -3,6 +3,7 @@
 // Drive the real Administration > Customize Measurements > View All Style Sheet form.
 // A competing removal of an owned CSS location leaves the already-open form holding
 // a valid mapping selection. Deleting that orphan must not remove a detached entity.
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
@@ -89,7 +90,7 @@ async function workflow(s) {
     sql.execute(`INSERT INTO measurementGroupStyle(groupName,cssID) VALUES (${q(group)},${css})`);
     const before = JSON.stringify(snapshot());
     for (const method of ['GET', 'HEAD']) {
-      const response = await s.context.request.fetch(postedUrl, {method, params: {deleteCheckbox: css}, maxRedirects: 0});
+      const response = await authenticatedProbe(s, postedUrl, {method, params: {deleteCheckbox: css}, maxRedirects: 0});
       h.assert(response.status() === 405 && response.headers().allow === 'POST', `${method} must return 405 with Allow: POST`);
       h.assert(JSON.stringify(snapshot()) === before, `${method} changed stylesheet mappings`);
     }
