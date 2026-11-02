@@ -37,9 +37,10 @@ entity/DAO work tracked under [#2249](https://github.com/carlos-emr/carlos/issue
 
 | Area | Current path and behavior | Follow-up / reason retained |
 | --- | --- | --- |
-| `DBHandler`, `DBPreparedHandler`, `DBPreparedHandlerParam` | Compatibility types; production-source guard forbids old handler call sites | #5508; no path to the removed accessor |
+| `DBHandler`, `DBPreparedHandler` | Removed after the #5508 inventory confirmed zero production consumers; source guard forbids their return | See the [current helper migration inventory](legacy-query-helper-migration.md) |
+| `DBPreparedHandlerParam` | Still used by `LegacyJdbcQuery`, scheduling, lookup procedures and report JSPs | #5547 / #5549; retain until these callers migrate |
 | `DBHelp`, `dbExtract`, `JDBCUtil`, `FrmRecordHelp` | Delegate acquisition/query execution to `LegacyJdbcQuery`; some still expose JDBC cursors or connections and perform writes | #5508 / #2249; preserve existing transaction participation while migrating module by module |
-| Billing, labels, lab uploads, measurement graphs, curated reports and admin role repair | Remaining connection-passing callers use `LegacyJdbcQuery.getConnection()`; Jasper/report renderers need a connection, while other callers retain legacy query ownership | #5508; no raw-accessor callers remain; Spring synchronization does not itself create a service transaction |
+| Billing, labels, lab uploads, curated reports and admin role repair | Remaining connection-passing callers use `LegacyJdbcQuery.getConnection()`; Jasper/report renderers need a connection, while other callers retain legacy query ownership. The recent-diagnosis picker and measurement graph connection were migrated in #5508 | #5546–#5549; no raw-accessor callers remain; Spring synchronization does not itself create a service transaction |
 | Request filter and background worker finalizers | `releaseAllThreadDbResources()` releases `LegacyJdbcQuery` resources and tracked datasource connections after transactions finish | Required while legacy callers remain; filter ordering and worker finalizers are preserved |
 | Web application shutdown | Releases current-thread legacy resources, then `OscarTrackingBasicDataSource.clearTrackingState()` and driver/executor resources | Required infrastructure lifecycle, preserved independently of the removed raw-holder registry |
 | Flyway, datasource policy, CDS maintenance connections | Dedicated infrastructure/maintenance connection ownership | Outside #5507; not moved onto clinical JPA |

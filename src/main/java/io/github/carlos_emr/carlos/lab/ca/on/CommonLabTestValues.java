@@ -30,7 +30,6 @@
 package io.github.carlos_emr.carlos.lab.ca.on;
 
 import java.io.Serializable;
-import java.sql.Connection;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -244,7 +243,7 @@ public class CommonLabTestValues {
     }
 
     //WITH MORE DATA MERGE WITH 1 AFTER April 09
-    public static ArrayList<Map<String, Serializable>> findValuesByLoinc2(String demographicNo, String loincCode, Connection conn) {
+    public static ArrayList<Map<String, Serializable>> findValuesByLoinc2(String demographicNo, String loincCode) {
         ArrayList<Map<String, Serializable>> labList = new ArrayList<Map<String, Serializable>>();
 
         MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);

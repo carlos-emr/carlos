@@ -37,7 +37,6 @@ import java.awt.Paint;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Serializable;
-import java.sql.Connection;
 import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -84,7 +83,6 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -697,15 +695,12 @@ public class MeasurementGraphAction22Action extends ActionSupport {
                 LogSafe.sanitize(labType), loincLab, LogSafe.sanitize(testName), LogSafe.sanitize(identifier));
         if (loincLab) {
             try {
-
-                try (Connection conn = LegacyJdbcQuery.getConnection()) {
-                    ArrayList<Map<String, Serializable>> loincValues =
-                            CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier, conn);
-                    if (loincValues != null) {
-                        list = loincValues;
-                    }
-                    MiscUtils.getLogger().debug("List ->{}", list.size());
+                ArrayList<Map<String, Serializable>> loincValues =
+                        CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier);
+                if (loincValues != null) {
+                    list = loincValues;
                 }
+                MiscUtils.getLogger().debug("List ->{}", list.size());
             } catch (Exception ed) {
                 MiscUtils.getLogger().error("Error", ed);
             }

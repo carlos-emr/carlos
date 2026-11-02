@@ -68,6 +68,26 @@ public class BillingmasterDAO {
     public BillingmasterDAO() {
     }
 
+    /** Values used by the diagnosis picker, preserving nullable legacy columns. */
+    public record DiagnosisRow(String firstCode, String secondCode, String thirdCode, String serviceDate) { }
+
+    /**
+     * The limit applies to bills before their diagnosis codes are expanded or deduplicated.
+     * Keep the native comparison and string binding used by the legacy query, including
+     * MariaDB's handling of demographic numbers. The service owns the transaction;
+     * inheriting this DAO's REQUIRES_NEW would hide the caller's uncommitted bills.
+     */
+    @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
+    public List<DiagnosisRow> findRecentDiagnosisRows(String demographicNo) {
+        List<Object[]> rows = entityManager.createNativeQuery(
+                "SELECT dx_code1, dx_code2, dx_code3, service_date FROM billingmaster "
+                        + "WHERE demographic_no = :demographicNo AND billingstatus != 'D' "
+                        + "ORDER BY service_date DESC LIMIT 10", Object[].class)
+                .setParameter("demographicNo", demographicNo).getResultList();
+        return rows.stream().map(row -> new DiagnosisRow((String) row[0], (String) row[1],
+                (String) row[2], (String) row[3])).toList();
+    }
+
     public List<Billingmaster> getBillingMasterWithStatus(String billingmasterNo, String status) {
         log.debug("WHAT IS NULL ? " + billingmasterNo + "  status " + status + "   " + entityManager);
         Query query = entityManager.createQuery("select b from Billingmaster b where b.billingNo = (:billingNo) and b.billingstatus = (:status)");
