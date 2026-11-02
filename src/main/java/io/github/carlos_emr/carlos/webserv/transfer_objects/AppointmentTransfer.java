@@ -89,6 +89,7 @@ public final class AppointmentTransfer {
         this.providerNo = providerNo;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Calendar getAppointmentStartDateTime() {
         return (appointmentStartDateTime);
     }
@@ -97,6 +98,7 @@ public final class AppointmentTransfer {
         this.appointmentStartDateTime = appointmentStartDateTime;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Calendar getAppointmentEndDateTime() {
         return (appointmentEndDateTime);
     }
@@ -193,6 +195,7 @@ public final class AppointmentTransfer {
         this.status = status;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Calendar getCreateDateTime() {
         return (createDateTime);
     }
@@ -201,6 +204,7 @@ public final class AppointmentTransfer {
         this.createDateTime = createDateTime;
     }
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Calendar getUpdateDateTime() {
         return (updateDateTime);
     }

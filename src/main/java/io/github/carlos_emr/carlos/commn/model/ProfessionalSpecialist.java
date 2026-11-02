@@ -155,8 +155,10 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
         if (this.streetAddress != null && this.streetAddress.contains(",")) {
             this.addressArray = this.streetAddress.split(",");
 
-            while (this.addressArray.length < 5) {
-                this.addressArray[this.addressArray.length + 1] = ",";
+            if (this.addressArray.length < 5) {
+                int supplied = this.addressArray.length;
+                this.addressArray = java.util.Arrays.copyOf(this.addressArray, 5);
+                java.util.Arrays.fill(this.addressArray, supplied, 5, ",");
             }
 
         } else if (this.streetAddress == null) {

@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+@jakarta.xml.bind.annotation.XmlAccessorOrder(jakarta.xml.bind.annotation.XmlAccessOrder.ALPHABETICAL)
 public class AppointmentExtTo {
     private Integer appointmentNo;
     private String providerNo;
