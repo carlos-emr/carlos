@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.report.reportByTemplate;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Map;
 
@@ -46,10 +47,10 @@ import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.report.data.RptResultStruct;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import io.github.carlos_emr.carlos.util.UtilMisc;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.SpreadsheetCsv;
 
 /**
  * @author rjonasz
@@ -201,13 +202,25 @@ public class SQLReporter implements Reporter {
                         : "The query returned no results.";
             } else {
                 rsHtml = RptResultStruct.getStructure2(rs);
-                CSVPrinter csvp = new CSVPrinter(swr, CSVFormat.DEFAULT);
-                String[][] data = UtilMisc.getArrayFromResultSet(rs);
-                for (String[] row : data) {
-                    csvp.printRecord((Object[]) row);
+                try (CSVPrinter csvp = new CSVPrinter(swr, CSVFormat.DEFAULT)) {
+                    ResultSetMetaData metadata = rs.getMetaData();
+                    int columns = metadata.getColumnCount();
+                    for (int column = 1; column <= columns; column++) {
+                        csvp.print(SpreadsheetCsv.sanitizeCell(metadata.getColumnLabel(column)));
+                    }
+                    csvp.println();
+                    // HTML rendering consumed the scrollable result set. Read raw strings:
+                    // the legacy array helper trims controls/whitespace before the guard.
+                    rs.beforeFirst();
+                    while (rs.next()) {
+                        for (int column = 1; column <= columns; column++) {
+                            csvp.print(SpreadsheetCsv.sanitizeCell(rs.getString(column)));
+                        }
+                        csvp.println();
+                    }
+                    csvp.flush();
+                    csv = swr.toString();
                 }
-                csvp.flush();
-                csv = swr.toString();
             }
         } catch (SQLException sqe) {
             String detail = sqe.getCause() != null ? sqe.getCause().toString() : sqe.getMessage();

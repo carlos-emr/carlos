@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.report.reportByTemplate;
 
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.util.List;
 import java.util.Map;
 
@@ -31,7 +32,6 @@ import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.report.data.RptResultStruct;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-import io.github.carlos_emr.carlos.util.UtilMisc;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -124,16 +124,20 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
 
         // Exercise the configured production cap so the regression test detects drift.
         String oversizedCell = "a".repeat(SQLReporter.MAX_CSV_EXPORT_LENGTH + 1);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(resultSet.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnCount()).thenReturn(1);
+        when(metadata.getColumnLabel(1)).thenReturn("synthetic");
+        when(resultSet.next()).thenReturn(true, false);
+        when(resultSet.getString(1)).thenReturn(oversizedCell);
         try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class,
                 (mock, context) -> {
                     when(mock.getReportTemplateNoParam("1")).thenReturn(report);
                 });
              MockedStatic<LegacyJdbcQuery> legacyJdbcQuery = mockStatic(LegacyJdbcQuery.class);
-             MockedStatic<RptResultStruct> resultStruct = mockStatic(RptResultStruct.class);
-             MockedStatic<UtilMisc> utilMisc = mockStatic(UtilMisc.class)) {
+             MockedStatic<RptResultStruct> resultStruct = mockStatic(RptResultStruct.class)) {
             legacyJdbcQuery.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(ParameterizedSql.class))).thenReturn(resultSet);
             resultStruct.when(() -> RptResultStruct.getStructure2(resultSet)).thenReturn("<table></table>");
-            utilMisc.when(() -> UtilMisc.getArrayFromResultSet(resultSet)).thenReturn(new String[][]{{oversizedCell}});
 
             boolean generated = new SQLReporter().generateReport(request);
 
