@@ -1,104 +1,63 @@
-name: Issue 5533 Sonar diagnostics
+name: Issue 5533 baseline and capacity diagnostics
 on:
   push:
     branches: [codex/issue-5533-sonar-diagnostics]
 permissions:
   contents: read
-  actions: read
+  packages: read
 jobs:
-  diagnostics:
+  capacity:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
-      - name: Read resource prerequisites and runner memory
-        env:
-          ACTIONS_READ_TOKEN: ${{ github.token }}
+      - name: Measure remaining hosted image storage after existing cleanup
         run: |
-          python3 - <<'PYART'
-          import os, io, json, re, urllib.request, urllib.error, zipfile
-          print('RUNNER_MEMORY_BYTES', os.sysconf('SC_PHYS_PAGES') * os.sysconf('SC_PAGE_SIZE'))
-          class NoRedirect(urllib.request.HTTPRedirectHandler):
-              def redirect_request(self, request, fp, code, message, headers, newurl):
-                  return None
-          request = urllib.request.Request('https://api.github.com/repos/carlos-emr/carlos/actions/artifacts/13183214661/zip', headers={'Authorization':'Bearer ' + os.environ['ACTIONS_READ_TOKEN'], 'Accept':'application/vnd.github+json'})
-          try:
-              response = urllib.request.build_opener(NoRedirect).open(request, timeout=30)
-          except urllib.error.HTTPError as failure:
-              if failure.code != 302:
-                  raise
-              response = urllib.request.urlopen(failure.headers['Location'], timeout=60)
-          evidence = zipfile.ZipFile(io.BytesIO(response.read()))
-          print('EVIDENCE_FILES', json.dumps(evidence.namelist()))
-          def selected(value, path=''):
-              if isinstance(value, dict):
-                  for key, item in value.items():
-                      selected(item, path + '/' + key)
-              elif isinstance(value, list):
-                  for index, item in enumerate(value[:20]):
-                      selected(item, path + '/' + str(index))
-              elif re.search(r'space|avail|free|required|reserve|stage|failure|error|reason', path, re.I) and not re.search(r'token|password|authorization|credential', path, re.I):
-                  print('RESOURCE_FIELD', path, str(value)[:400])
-          for name in evidence.namelist():
-              if name.endswith('.json'):
-                  try:
-                      selected(json.load(evidence.open(name)), name)
-                  except (ValueError, UnicodeError):
-                      pass
-          PYART
-      - name: Read the failed target branch analysis log
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$RUNNER_OS" = Linux
+          sudo rm -rf -- /usr/local/lib/android /opt/ghc /usr/share/dotnet \
+            /opt/hostedtoolcache /usr/local/.ghcup /usr/local/share/boost \
+            /usr/local/share/powershell /usr/local/share/chromium \
+            /usr/share/swift /usr/share/miniconda /usr/lib/jvm
+          docker image prune --all --force
+          df -h /
+          sudo du -xhd1 /opt /usr/local /usr/local/share /usr/share /usr/lib /var/lib /mnt | sort -h
+  baseline:
+    name: Refresh actual release analysis with bounded scanner heap
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SONAR_SCANNER_JAVA_OPTS: -Xmx4g
+    steps:
+      - name: Checkout exact release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 4ef47a2654f8a56b1f5dc23fceb8a8cdcefe87b4
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Prepare SonarCloud cache
+        run: mkdir -p .sonar-cache
+      - name: Start normal dev container
+        uses: ./.github/actions/dev-container
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          maven-cache: restore
+          extra-run-args: -v ${{ github.workspace }}/.sonar-cache:/root/.sonar/cache
+      - name: Build and analyze exact release source
         env:
-          ACTIONS_READ_TOKEN: ${{ github.token }}
-        run: |
-          python3 - <<'PYLOG'
-          import os, urllib.request, urllib.error, urllib.parse, re
-          class NoRedirect(urllib.request.HTTPRedirectHandler):
-              def redirect_request(self, request, fp, code, message, headers, newurl):
-                  return None
-          request = urllib.request.Request('https://api.github.com/repos/carlos-emr/carlos/actions/jobs/125573078288/logs', headers={'Authorization':'Bearer ' + os.environ['ACTIONS_READ_TOKEN'], 'Accept':'application/vnd.github+json'})
-          try:
-              response = urllib.request.build_opener(NoRedirect).open(request, timeout=30)
-          except urllib.error.HTTPError as failure:
-              if failure.code != 302:
-                  raise
-              location = failure.headers['Location']
-              if urllib.parse.urlsplit(location).scheme != 'https':
-                  raise RuntimeError('Expected HTTPS log download')
-              # The redirected download receives no GitHub authorization header.
-              response = urllib.request.urlopen(location, timeout=60)
-          text = response.read().decode('utf-8-sig', errors='replace')
-          lines = text.splitlines()
-          for index, line in enumerate(lines):
-              if 'Error during SonarScanner Engine execution' in line:
-                  for context in lines[max(0,index-8):index+24]:
-                      print(context[:2000])
-          PYLOG
-      - name: Read quality gate, new-code findings and target analysis
-        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          python3 - <<'PY'
-          import base64, json, os, urllib.parse, urllib.request
-          token = os.environ['SONAR_TOKEN']
-          def get(path, **params):
-              url = 'https://sonarcloud.io/api/' + path + '?' + urllib.parse.urlencode(params)
-              request = urllib.request.Request(url, headers={'Authorization': 'Basic ' + base64.b64encode((token + ':').encode()).decode()})
-              with urllib.request.urlopen(request, timeout=30) as response:
-                  return json.load(response)
-          project = 'carlos-emr_carlos'
-          print('QUALITY', json.dumps(get('qualitygates/project_status', projectKey=project, pullRequest=5543)))
-          print('MEASURES', json.dumps(get('measures/component', component=project, pullRequest=5543, metricKeys='new_code_smells,new_technical_debt,new_development_cost,new_sqale_debt_ratio,new_maintainability_rating,new_lines')))
-          for label, path, params in [('TARGET_ANALYSES','project_analyses/search',{'project':project,'branch':'release/2026.08','ps':3}),('BRANCHES','project_branches/list',{'project':project})]:
-              try:
-                  print(label, json.dumps(get(path, **params)))
-              except urllib.error.HTTPError as failure:
-                  print(label, 'ERROR', failure.code, failure.read().decode())
-          for extra in [{}, {'sinceLeakPeriod': 'true'}, {'inNewCodePeriod': 'true'}]:
-              try:
-                  data = get('issues/search', componentKeys=project, pullRequest=5543, resolved='false', ps=500, **extra)
-                  print('ISSUE_SET', extra, data.get('paging'))
-                  if not extra:
-                      for issue in data.get('issues', []):
-                          print('ISSUE', json.dumps({key: issue.get(key) for key in ['key','rule','component','line','message','debt','effort','creationDate','isNew','textRange','flows']}))
-              except Exception as failure:
-                  print('FILTER_ERROR', extra, type(failure).__name__, str(failure), failure.read().decode() if isinstance(failure, urllib.error.HTTPError) else '')
-          PY
+          test "$(git rev-parse HEAD)" = 4ef47a2654f8a56b1f5dc23fceb8a8cdcefe87b4
+          docker exec \
+            -e GITHUB_TOKEN \
+            -e SONAR_TOKEN \
+            -e SONAR_SCANNER_JAVA_OPTS \
+            carlos-tomcat-dev bash -c '
+              mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
+                -Pskip-dependency-lock \
+                -Dmaven.test.failure.ignore=true \
+                -Dsonar.host.url=https://sonarcloud.io \
+                -Dsonar.projectKey=carlos-emr_carlos \
+                -Dsonar.branch.name=release/2026.08 \
+                -Dsonar.scm.revision=4ef47a2654f8a56b1f5dc23fceb8a8cdcefe87b4
+            '
