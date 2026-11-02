@@ -9,7 +9,7 @@ const h = require('./lib/playwright-harness');
 const pdf = require('./lib/stored-pdf-documents');
 const {createOwnedAnnotationFixture} = require('./lib/owned-annotation-fixture');
 
-function fixture(t, foreignRoute, ignoreLinkDelete = false) {
+function fixture(t, foreignRoute, failLinkDelete = false) {
   const store = fs.mkdtempSync(path.join(os.tmpdir(), 'annotation-cleanup-test-'));
   t.after(() => fs.rmSync(store, {recursive: true, force: true}));
   const state = {document: true, link: true, patient: true, disposed: false};
@@ -40,7 +40,8 @@ function fixture(t, foreignRoute, ignoreLinkDelete = false) {
       assert.fail('Unexpected SQL rows: ' + query);
     },
     execute(query) {
-      if (query.includes('DELETE FROM ctl_document') && !ignoreLinkDelete) state.link = false;
+      if (query.includes('DELETE FROM ctl_document') && failLinkDelete) throw new Error('injected link deletion failure');
+      if (query.includes('DELETE FROM ctl_document')) state.link = false;
       if (query.includes('DELETE FROM document')) state.document = false;
       else if (query.startsWith('DELETE FROM demographic')) state.patient = false;
       else assert.fail('Unexpected SQL write: ' + query);
@@ -88,9 +89,12 @@ test('annotation cleanup still removes its exact unreferenced fixture and receip
   assert.equal(state.disposed, true);
 });
 
-test('annotation cleanup cannot report success when its patient link survives deletion', t => {
-  const {owned, state, receipt} = fixture(t, false, true);
-  assert.throws(() => owned.cleanup(), /links remain/);
+test('annotation cleanup retains its document and PDF when the link deletion transaction fails', t => {
+  const {owned, state, doc, receipt} = fixture(t, false, true);
+  const before = fs.readFileSync(doc.file);
+  assert.throws(() => owned.cleanup(), /injected link deletion failure/);
+  assert.equal(state.document, true);
+  assert.deepEqual(fs.readFileSync(doc.file), before);
   assert.equal(state.link, true);
   assert.equal(state.patient, true);
   assert.equal(fs.existsSync(receipt), true);

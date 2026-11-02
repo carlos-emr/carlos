@@ -18,8 +18,9 @@ transactional reference guard. File retirement uses the shared private quarantin
 and identity check so a replacement cannot be unlinked. The refusal regression
 fails against the preceding implementation. `7af7c699280` addresses both subsequent
 Cubic comments: receipt removal is registered immediately at directory creation,
-and the SQL mock tracks patient links independently, with a surviving-link
-negative control.
+and the SQL mock tracks patient links independently. A subsequent transaction
+failure control verifies document/PDF/link/parent/receipt retention without
+pretending a successful InnoDB transaction partially ignored a DELETE.
 
 At `7af7c699280`, GitHub's Node suite passes 6,913 tests, with zero failures or
 skips and one existing TODO. The focused annotation, file-retirement, stored-PDF,
