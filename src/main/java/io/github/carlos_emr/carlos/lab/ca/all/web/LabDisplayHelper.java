@@ -114,7 +114,7 @@ public class LabDisplayHelper {
                 }
             }
             byte[] serialisedTestValues = MiscUtils.serialize(mapOfTestValues);
-            XmlUtils.appendChildToRoot(doc, "mapOfTestValues", new String(Base64.encodeBase64(serialisedTestValues), MiscUtils.DEFAULT_UTF8_ENCODING));
+            XmlUtils.appendChildToRoot(doc, "mapOfTestValues", new String(java.util.Base64.getEncoder().encode(serialisedTestValues), MiscUtils.DEFAULT_UTF8_ENCODING));
         } catch (IOException e) {
             logger.error("Serious hack code has failed miserably.", e);
         }

@@ -50,7 +50,7 @@ import javax.xml.parsers.SAXParserFactory;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.sax.SAXSource;
 
-import org.apache.commons.codec.binary.Base64;
+import java.util.Base64;
 import org.apache.logging.log4j.Logger;
 import org.jdom2.input.SAXBuilder;
 import org.w3c.dom.Document;
@@ -583,7 +583,7 @@ public final class XmlUtils {
     }
 
     public static void appendChildToRoot(Document doc, String childName, byte[] childContents) {
-        appendChild(doc, doc.getFirstChild(), childName, new String(Base64.encodeBase64(childContents)));
+        appendChild(doc, doc.getFirstChild(), childName, new String(Base64.getEncoder().encode(childContents)));
     }
 
     public static void appendChildToRoot(Document doc, String childName, String childContents) {
