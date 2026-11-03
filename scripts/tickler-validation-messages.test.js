@@ -85,7 +85,7 @@ test('all validation messages are encoded bundle strings and browser selectors m
     const calls = [...page.source.matchAll(/CarlosTicklerValidation\.show\(([^\n]*)\);/g)];
     assert.ok(calls.length >= 1);
     for (const [, argument] of calls) {
-      const match = argument.match(/^'<carlos:encode value='<%= oscarBundle\.getString\("(tickler\.ticklerAdd\.[A-Za-z]+)"\) %>' context="javaScriptBlock"\/>'$/);
+      const match = argument.match(/^'<carlos:encode value='<%= oscarBundle\.getString\("(tickler\.tickler(?:Add\.[A-Za-z]+|Edit\.attachments\.error))"\) %>' context="javaScriptBlock"\/>'$/);
       assert.ok(match, 'Validation text must pass through the CARLOS JavaScript encoder');
       assert.ok(bundle.includes(match[1] + '='));
     }

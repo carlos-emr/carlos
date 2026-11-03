@@ -189,10 +189,10 @@ async function openEdit(context, recorder, ticklerNo, label) {
   return page;
 }
 
-async function postEditForm(page, fields) {
+async function postEditForm(page, fields, acceptLanguage) {
   // A classic form POST through the browser session, with the CSRF token CSRFGuard injected
   // into the page's real form, so what is exercised is the action's own gate, not CSRF.
-  return page.evaluate(async ({ ctx, fields }) => {
+  return page.evaluate(async ({ ctx, fields, acceptLanguage }) => {
     const token = document.querySelector('input[name="CSRF-TOKEN"]');
     const body = new URLSearchParams(fields);
     if (token && token.value) {
@@ -202,10 +202,13 @@ async function postEditForm(page, fields) {
       method: 'POST',
       body,
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        ...(acceptLanguage ? { 'Accept-Language': acceptLanguage } : {}),
+      },
     });
     return { status: response.status, text: await response.text() };
-  }, { ctx: config.baseUrl.pathname, fields });
+  }, { ctx: config.baseUrl.pathname, fields, acceptLanguage });
 }
 
 legacyHarness.runLegacyCheck('tickler-attachments',async({cancellation})=>{
@@ -539,6 +542,8 @@ legacyHarness.runLegacyCheck('tickler-attachments',async({cancellation})=>{
       });
     cancellation?.throwIfCancelled();
       assert(!/tickler-edit-ok/.test(refused.text), 'edit action accepted another patient\'s document');
+      assert(refused.status === 400, `foreign document refusal returned HTTP ${refused.status}, expected 400`);
+      assert(/id="tickler-edit-attachments-refused"/.test(refused.text), 'foreign document refusal omitted the user-facing message');
       assert(!liveRows(ticklerNo).some((row) => row.doctype === 'D'), 'another patient\'s document was attached');
     } else {
       console.log('SKIP crafted foreign-document POST: no other patient document in this database');
@@ -559,6 +564,7 @@ legacyHarness.runLegacyCheck('tickler-attachments',async({cancellation})=>{
     });
     cancellation?.throwIfCancelled();
     assert(!/tickler-edit-ok/.test(wrongSourceRefused.text), 'edit action accepted a lab id under the wrong source');
+    assert(wrongSourceRefused.status === 400, `wrong-source lab refusal returned HTTP ${wrongSourceRefused.status}, expected 400`);
     assert(editState() === beforeRejectedEdit, 'rejected attachment edit saved fields, history or comment');
     assert(liveRows(ticklerNo).some((row) => row.doctype === 'L' && row.labType === storedLab.labType && row.documentNo === storedLab.documentNo),
       `stored lab was disturbed by the refused wrong-source POST: ${JSON.stringify(attachmentRows(ticklerNo))}`);
@@ -572,22 +578,90 @@ legacyHarness.runLegacyCheck('tickler-attachments',async({cancellation})=>{
     });
     cancellation?.throwIfCancelled();
     assert(!/tickler-edit-ok/.test(docSourceRefused.text), 'edit action accepted a document id submitted as a DOC lab');
+    assert(docSourceRefused.status === 400, `malformed lab refusal returned HTTP ${docSourceRefused.status}, expected 400`);
     assert(!liveRows(ticklerNo).some((row) => row.doctype === 'L' && row.labType === 'DOC'),
       `a DOC-sourced lab row was stored: ${JSON.stringify(attachmentRows(ticklerNo))}`);
-    const getStatus = await guardPage.evaluate(async (ctx) => {
+
+    for (const [language, expectedLang, expectedText] of [
+      ['de-DE', 'en', 'One or more items were refused'],
+      ['de-DE,fr-CA;q=0.9', 'fr-CA', 'Un ou plusieurs'],
+    ]) {
+      const localizedRefusal = await postEditForm(guardPage, {
+        method: 'editTickler', ticklerNo, status: 'A', priority: 'High', assignedToProviders: providerNo,
+        xml_appointment_date: serviceDate, attachmentsSubmitted: '1', labNo: `DOC:${storedDocument.documentNo}`,
+      }, language);
+      assert(localizedRefusal.status === 400, `localized refusal returned HTTP ${localizedRefusal.status}`);
+      assert(localizedRefusal.text.includes(`<html lang="${expectedLang}">`), 'refusal language tag did not follow bundle fallback');
+      assert(localizedRefusal.text.includes(expectedText), 'refusal message did not match its declared language');
+    }
+
+    // Submit the real edit form into its hidden iframe. A refusal must keep every typed
+    // value and the selection available for correction, then allow a successful retry.
+    const unsavedComment = `${stamp} retained comment after refusal`;
+    await guardPage.locator('#newMessage').fill(unsavedComment);
+    await guardPage.locator('#priority').selectOption('Low');
+    await guardPage.locator('#status').selectOption('C');
+    await openPicker(guardPage);
+    await guardPage.locator(`#attachDocumentsForm #docNo${storedDocument.documentNo}`).check();
+    await saveAndClosePicker(guardPage);
+    const beforeRefusalForm = await guardPage.locator('form[name="serviceform"]').evaluate((form) =>
+      Array.from(new FormData(form).entries()));
+    await guardPage.evaluate((labNo) => {
+      const form = document.forms.serviceform;
+      form.elements.attachmentsSubmitted.value = '1';
+      const forged = document.createElement('input');
+      forged.type = 'hidden';
+      forged.name = 'labNo';
+      forged.value = labNo;
+      forged.id = 'forged-lab-probe';
+      form.appendChild(forged);
+    }, `DOC:${storedDocument.documentNo}`);
+    const beforeUiRefusal = editState();
+    const beforeUiAttachments = JSON.stringify(attachmentRows(ticklerNo));
+    const refusalResponse = guardPage.waitForResponse((response) =>
+      response.url().endsWith('/tickler/EditTickler') && response.request().method() === 'POST');
+    await guardPage.locator('input[name="updateTickler"]').click();
+    const iframeStatus = (await refusalResponse).status();
+    assert(iframeStatus === 400, `iframe attachment refusal returned HTTP ${iframeStatus}, expected 400`);
+    await guardPage.locator('#error .tickler-validation-message').waitFor({ state: 'visible' });
+    const refusalText = await guardPage.locator('#error').innerText();
+    assert(refusalText.includes('One or more items were refused'), 'attachment refusal message was not shown in the edit form');
+    assert(await guardPage.locator('input[name="updateTickler"]').isEnabled(), 'refusal left the save button disabled');
+    assert(editState() === beforeUiRefusal, 'iframe refusal saved tickler fields, history or comment');
+    assert(JSON.stringify(attachmentRows(ticklerNo)) === beforeUiAttachments, 'iframe refusal changed stored attachments');
+    await guardPage.locator('#forged-lab-probe').evaluate((input) => input.remove());
+    await guardPage.locator('#attachmentsSubmitted').evaluate((input, value) => { input.value = value; },
+      beforeRefusalForm.find(([name]) => name === 'attachmentsSubmitted')[1]);
+    const afterRefusalForm = await guardPage.locator('form[name="serviceform"]').evaluate((form) =>
+      Array.from(new FormData(form).entries()));
+    assert(JSON.stringify(afterRefusalForm) === JSON.stringify(beforeRefusalForm), 'refusal lost entered form values or attachment selections');
+    // Revalidate the corrected attachment selection while saving the retained values.
+    await guardPage.locator('#attachmentsSubmitted').evaluate((input) => { input.value = '1'; });
+    await submitEditForm(guardPage);
+    assert(db.value(`SELECT CONCAT(status, '|', priority) FROM tickler WHERE tickler_no=${Number(ticklerNo)}`) === 'C|Low',
+      'corrected retry did not save the retained status and priority');
+    const expectedAfterRetry = JSON.parse(beforeUiAttachments).map((row) =>
+      row.doctype === 'D' && row.documentNo === storedDocument.documentNo ? { ...row, deleted: '' } : row);
+    assert(JSON.stringify(attachmentRows(ticklerNo)) === JSON.stringify(expectedAfterRetry),
+      'corrected retry did not add the newly selected document while preserving the other attachments');
+    assert(db.value(`SELECT COUNT(*) FROM tickler_comments WHERE tickler_no=${Number(ticklerNo)} AND message=${sqlString(unsavedComment)}`) === '1',
+      'corrected retry did not save the retained comment exactly once');
+    await guardPage.close();
+    const verbPage = await openEdit(context, recorder, ticklerNo, 'tickler-verb-guard');
+    const getStatus = await verbPage.evaluate(async (ctx) => {
       const response = await fetch(`${ctx}/tickler/EditTickler?method=editTickler&ticklerNo=1`, { credentials: 'same-origin' });
       return response.status;
     }, config.baseUrl.pathname);
     cancellation?.throwIfCancelled();
     assert(getStatus === 405, `GET to the edit action returned ${getStatus}, expected 405`);
-    const badPicker = await guardPage.request.get(`${config.baseUrl.href}/previewDocs?method=fetchTicklerDocuments&demographicNo=abc`);
+    const badPicker = await verbPage.request.get(`${config.baseUrl.href}/previewDocs?method=fetchTicklerDocuments&demographicNo=abc`);
     cancellation?.throwIfCancelled();
     assert(badPicker.status() === 400, `picker endpoint returned ${badPicker.status()} for a non-numeric demographic, expected 400`);
-    const picker = await guardPage.request.get(`${config.baseUrl.href}/previewDocs?method=fetchTicklerDocuments&demographicNo=${encodeURIComponent(demographicNo)}`);
+    const picker = await verbPage.request.get(`${config.baseUrl.href}/previewDocs?method=fetchTicklerDocuments&demographicNo=${encodeURIComponent(demographicNo)}`);
     cancellation?.throwIfCancelled();
     assert(picker.status() === 200 && /attachDocumentsForm/.test(await picker.text()), 'picker endpoint did not render the picker for the patient');
     cancellation?.throwIfCancelled();
-    await guardPage.close();
+    await verbPage.close();
     cancellation?.throwIfCancelled();
 
     // 6. An item re-filed to another patient since it was attached -----------------------
@@ -607,7 +681,7 @@ legacyHarness.runLegacyCheck('tickler-attachments',async({cancellation})=>{
         'edit form still lists a lab re-filed to another patient');
     cancellation?.throwIfCancelled();
       const movedJson = await movedPage.request.get(
-        `${config.baseUrl.href}/tickler/ListTicklers?demographicNo=${encodeURIComponent(demographicNo)}&status=A&start=0&length=500`,
+        `${config.baseUrl.href}/tickler/ListTicklers?demographicNo=${encodeURIComponent(demographicNo)}&status=C&start=0&length=500`,
       );
     cancellation?.throwIfCancelled();
       const movedRow = (await movedJson.json()).data.find((row) => row.id === Number(ticklerNo));
