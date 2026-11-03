@@ -47,6 +47,9 @@
             old records still open, so each version repeats the previous one by design. Encoding their saved
             values (#5090) marked thousands of those lines as new code. Only duplication detection skips them;
             BC-AR 2020 (formBCAR2020*) is not covered.
+            Scope, passing analysis and retained-exclusion disposition: issue #5174 and
+            docs/static-analysis-workflows.md (Legacy BC form exclusions).
+            scripts/legacy-bc-sonar-policy.test.js guards the matched page inventory and rules.
         -->
         <sonar.cpd.exclusions>
             src/main/resources/db/reporting/**,
