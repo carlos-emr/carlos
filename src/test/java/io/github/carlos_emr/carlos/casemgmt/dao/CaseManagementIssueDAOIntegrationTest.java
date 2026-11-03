@@ -31,6 +31,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
@@ -99,6 +100,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
 
     private CaseManagementIssue createCaseManagementIssue(String demographicNo, Issue issue) {
         CaseManagementIssue cmi = new CaseManagementIssue();
+        cmi.setType("");
         cmi.setDemographic_no(Integer.valueOf(demographicNo));
         cmi.setIssue_id(issue.getId());
         cmi.setAcute(false);
@@ -118,6 +120,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
      */
     private CaseManagementIssue createCaseManagementIssue(String demographicNo, Issue issue, Date updateDate) {
         CaseManagementIssue cmi = new CaseManagementIssue();
+        cmi.setType("");
         cmi.setDemographic_no(Integer.valueOf(demographicNo));
         cmi.setIssue_id(issue.getId());
         cmi.setAcute(false);
@@ -132,6 +135,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
 
     private CaseManagementIssue createResolvedIssue(String demographicNo, Issue issue) {
         CaseManagementIssue cmi = new CaseManagementIssue();
+        cmi.setType("");
         cmi.setDemographic_no(Integer.valueOf(demographicNo));
         cmi.setIssue_id(issue.getId());
         cmi.setAcute(false);
@@ -161,6 +165,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
         void shouldPersistIssue_whenValidDataProvided() {
             // Given
             CaseManagementIssue cmi = new CaseManagementIssue();
+            cmi.setType("");
             cmi.setDemographic_no(600);
             cmi.setIssue_id(testIssue1.getId());
             cmi.setAcute(true);
@@ -209,6 +214,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             List<CaseManagementIssue> issues = new ArrayList<>();
             for (int i = 0; i < 3; i++) {
                 CaseManagementIssue cmi = new CaseManagementIssue();
+                cmi.setType("");
                 cmi.setDemographic_no(700 + i);
                 cmi.setIssue_id(testIssue1.getId());
                 cmi.setAcute(false);
@@ -496,6 +502,11 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             note.setDemographic_no(demoNo);
             note.setNote("Test note for issue link");
             note.setProviderNo("999998");
+            note.setSigning_provider_no("");
+            note.setProgram_no("");
+            note.setReporter_caisi_role("");
+            note.setReporter_program_team("");
+            note.setHistory("");
             note.setUuid(UUID.randomUUID().toString());
             note.setUpdate_date(new Date());
             note.setObservation_date(new Date());
@@ -559,6 +570,31 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
                 assertThat(caseManagementIssueDAO.getIssuesByNote(emptyNote.getId().intValue(), resolved)).isEmpty();
                 assertThat(caseManagementIssueDAO.getIssuesByNote(Integer.MAX_VALUE, resolved)).isEmpty();
             }
+        }
+
+        @Test
+        @EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_SCHEMA", matches = "flyway")
+        @DisplayName("should deduplicate legacy join rows on the migrated production schema")
+        void shouldReturnEachIssueOnce_whenLinkRowsAreDuplicated() {
+            // Hibernate's generated schema adds a composite primary key here;
+            // the production Flyway baseline permits duplicate link rows.
+            CaseManagementIssue unresolved = createCaseManagementIssue("20500", testIssue1);
+            CaseManagementIssue resolved = createResolvedIssue("20500", testIssue2);
+            CaseManagementNote note = createAndLinkNote("20500", unresolved, resolved);
+            entityManager.createNativeQuery("insert into casemgmt_issue_notes (id, note_id) "
+                            + "select id, note_id from casemgmt_issue_notes where note_id = :noteId")
+                    .setParameter("noteId", note.getId()).executeUpdate();
+            assertThat(((Number) entityManager.createNativeQuery(
+                            "select count(*) from casemgmt_issue_notes where note_id = :noteId")
+                    .setParameter("noteId", note.getId()).getSingleResult()).intValue()).isEqualTo(4);
+            entityManager.clear();
+
+            assertThat(caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), null))
+                    .extracting(CaseManagementIssue::getId).containsExactly(unresolved.getId(), resolved.getId());
+            assertThat(caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), false))
+                    .extracting(CaseManagementIssue::getId).containsExactly(unresolved.getId());
+            assertThat(caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), true))
+                    .extracting(CaseManagementIssue::getId).containsExactly(resolved.getId());
         }
     }
 
