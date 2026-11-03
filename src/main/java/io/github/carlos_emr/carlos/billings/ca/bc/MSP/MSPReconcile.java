@@ -1852,6 +1852,8 @@ public class MSPReconcile {
         if (value == null || value.equals("")) {
             return "0.0";
         }
+        // Teleplan pads unpaid amounts with spaces; preserve the legacy zero fallback without an error.
+        if (value.isBlank()) return "0";
         try {
             boolean isNeg = false;
             String ret = value;

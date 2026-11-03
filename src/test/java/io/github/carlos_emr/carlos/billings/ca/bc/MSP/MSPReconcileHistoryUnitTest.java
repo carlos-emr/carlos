@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.BillRow;
 import io.github.carlos_emr.carlos.entities.MSPBill;
 import io.github.carlos_emr.carlos.entities.Provider;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -73,6 +74,17 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         provider.setFirstName("Test");
         provider.setLastName("Provider");
         doReturn(provider).when(reconcile).getProvider(anyString(), anyInt());
+    }
+
+    @Test
+    void shouldPreserveZeroOutputWithoutLoggingErrors_forSpacePaddedUnpaidAmounts() {
+        try (LogCapture logs = LogCapture.forLogger(MSPReconcile.class)) {
+            assertThat(MSPReconcile.convCurValue("       ")).isEqualTo("0");
+            assertThat(MSPReconcile.convCurValue("")).isEqualTo("0.0");
+            assertThat(MSPReconcile.convCurValue(null)).isEqualTo("0.0");
+            assertThat(MSPReconcile.convCurValue("000123M")).isEqualTo("-12.34");
+            assertThat(logs.events()).isEmpty();
+        }
     }
 
     @Test
