@@ -146,14 +146,23 @@ async function workflow(s) {
     const box = editor.locator('#prevDate');
     // A native date input cannot retain an impossible calendar day. Probe the
     // server with the real form/token so calendar validation is tested too.
-    const status = await editor.evaluate(async () => {
-      const form = document.getElementById('prevDate').form;
-      const data = new URLSearchParams(new FormData(form));
-      data.set('prevDate', '2019-02-31');
-      const response = await fetch(form.action, { method: 'POST', credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: data.toString() });
-      return response.status;
-    });
+    const request = await box.evaluate(input => ({
+      action: new URL(input.form.getAttribute('action'), document.baseURI).href,
+      entries: Array.from(new FormData(input.form).entries()),
+    }));
+    const actionUrl = new URL(request.action);
+    assert(actionUrl.origin === s.config.baseUrl.origin, 'Invalid-date probe must stay on the test application');
+    const data = new URLSearchParams(request.entries);
+    data.set('prevDate', '2019-02-31');
+    // The browser sends Secure session cookies on loopback HTTP, whereas the API
+    // client does not. Carry only this application's session into the probe.
+    const cookie = (await s.context.cookies()).filter(value => value.name === 'JSESSIONID'
+      && value.domain.replace(/^\./, '') === actionUrl.hostname && actionUrl.pathname.startsWith(value.path))
+      .map(value => `${value.name}=${value.value}`).join('; ');
+    const response = await s.context.request.post(request.action, { data: data.toString(), maxRedirects: 0,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookie } });
+    const status = response.status();
+    await response.dispose();
     assert(status === 400 && activeCount() === before
       && sql.value(`SELECT deleted FROM preventions WHERE id=${yearOnlyNow}`) === '0',
       `2019-02-31 returned HTTP ${status}, and the active count went from ${before} to ${activeCount()}`);

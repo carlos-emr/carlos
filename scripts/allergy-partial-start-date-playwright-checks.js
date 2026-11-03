@@ -7,7 +7,7 @@
 // User path: E-Chart ▸ Allergies (rx/showAllergy) ▸
 //   1. allergies already stored with a year-only and a year-and-month start (as an import or an older
 //      save stores them) are listed as 2019 and 2019-05, not as the first day of the period;
-//   2. Modify on the year-only allergy offers 2019 in Start Date;
+//   2. Modify offers the normal picker's 2019-01-01 placeholder with an explicit year-only note;
 //   3. that amendment, changing only the reaction, keeps the start date year-only;
 //   4. a new Custom Allergy typed with the full date 2019-05-14 is saved as that day;
 //   5. a new Custom Allergy whose Start Date is typed, left, then cleared is saved with no start date;
@@ -15,7 +15,7 @@
 //      the calendar button, with the calendar left open after the box lost focus, and with a click alone);
 //   7. a year or a year and month keeps its precision: new allergies typed 2019 and 2019-05 are saved
 //      year-only and year-and-month and listed as typed, and Modify on the stored 2019-05 allergy, after
-//      clicking into Start Date and out again, still posts 2019-05 and saves it year-and-month.
+//      clicking into Start Date and out again, posts its full placeholder and retains year-and-month metadata.
 // Step 7 fails on develop: the Start Date box is a flatpickr field (share/calendar/calendar-setup.js,
 // since #1406) that parses what is in it as a full date when the box loses focus, so the dialogue
 // posts 2019-01-01 and 2019-05-01 and the precision is lost (finding 300). Step 3 passes because the

@@ -67,7 +67,7 @@ async function workflow(s) {
       assert(await dateBox.getAttribute('type') === 'date' && await dateBox.inputValue() === date, 'Native picker lost its placeholder');
       if (explanation) assert((await editor.locator('#prevDateExplanation').innerText()).includes(explanation), 'Prevention edit explanation missing');
       await editor.locator('[name="comments"]').fill('FAKE original comment, amended');
-      await Promise.all([editor.waitForEvent('close'), editor.locator('input[type="submit"][name="action"]').first().click()]);
+      await Promise.all([editor.waitForEvent('close'), index.waitForEvent('load'), editor.locator('input[type="submit"][name="action"]').first().click()]);
       await expectValue(sql, `SELECT deleted FROM preventions WHERE id=${preventions[i]}`, '1', 'Original prevention was not replaced');
       const replacement = sql.value(`SELECT p.id FROM preventions p JOIN preventionsExt x ON x.prevention_id=p.id AND x.keyval='previousId' AND x.val=${sqlString(preventions[i])} WHERE p.demographic_no=${patient} AND p.deleted=0`);
       assert(sql.value(`SELECT IFNULL(MAX(format),'full') FROM partial_date WHERE table_name=4 AND field_name=7 AND table_id=${replacement}`) === (format || 'full'), 'Comment amendment changed prevention precision');
@@ -79,17 +79,15 @@ async function workflow(s) {
         assert(sql.value(`SELECT val FROM preventionsExt WHERE prevention_id=${id} AND keyval='cdsDatePrecision'`) === expectedPrecision, 'Source precision value changed');
       };
       checkProvenance(replacement);
-      await index.reload({ waitUntil: 'load' });
       if (format) {
         const current = index.locator(`[onclick*="ViewAddPreventionData"][onclick*="id=${replacement}"]`).first();
         const exactEditor = await s.popup(index, current, 'exact-prevention-editor');
         await exactEditor.locator('[name="prevDateConfirmedExact"]').check();
-        await Promise.all([exactEditor.waitForEvent('close'), exactEditor.locator('input[type="submit"][name="action"]').first().click()]);
+        await Promise.all([exactEditor.waitForEvent('close'), index.waitForEvent('load'), exactEditor.locator('input[type="submit"][name="action"]').first().click()]);
         const exact = sql.value(`SELECT p.id FROM preventions p JOIN preventionsExt x ON x.prevention_id=p.id AND x.keyval='previousId' AND x.val=${sqlString(replacement)} WHERE p.demographic_no=${patient} AND p.deleted=0`);
         assert(sql.value(`SELECT COUNT(*) FROM partial_date WHERE table_name=4 AND field_name=7 AND table_id=${exact}`) === '0', 'Exact-date confirmation retained partial precision');
         checkProvenance(exact);
-        await index.reload({ waitUntil: 'load' });
-      }
+        }
     });
   }
 }
