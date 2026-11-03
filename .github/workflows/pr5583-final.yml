@@ -1,0 +1,156 @@
+# Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+# 
+# This software is published under the GPL GNU General Public License.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# 
+# CARLOS EMR Project
+# https://github.com/carlos-emr/carlos
+# Disposable investigation only; this workflow is not part of PR #5583.
+name: PR 5583 Packaged eChart Retest
+on:
+  push:
+    branches: [validation/pr-5583-runtime]
+    paths: [.github/workflows/pr5583-final.yml]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: pr-5583-final-echart
+  cancel-in-progress: true
+env:
+  SOURCE_SHA: 9d1834711db9c6889e3a1cdf772eed12ffdbe567
+  BASE_IMAGE: mirror.gcr.io/library/ubuntu:26.04@sha256:2260313b31c8c011cd2eebe728008efac1b3982be73eb71348ea2648d2c0e09b
+  CARLOS_DISPOSABLE_HOST: 'true'
+  CONTAINER: carlos-pr5583-packaged
+  IMAGE: carlos-pr5583-packaged:26.04
+jobs:
+  packaged-probes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - name: Check out the exact PR source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+      - name: Retrieve previously built Ubuntu packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/pr5583-packages" "$RUNNER_TEMP/pr5583-install-logs"
+          echo "DEBS_DIR=$RUNNER_TEMP/pr5583-packages" >> "$GITHUB_ENV"
+          echo "LOG_DIR=$RUNNER_TEMP/pr5583-install-logs" >> "$GITHUB_ENV"
+          gh run download 41705736671 --repo carlos-emr/carlos --name pr5583-ubuntu26-packages --dir "$RUNNER_TEMP/pr5583-packages"
+      - name: Assemble the changed web asset into the cached package
+        run: |
+          set -euo pipefail
+          package="$(rg --files "$DEBS_DIR" -g 'carlos-emr_*_amd64.deb')"
+          test -f "$package"
+          root="$RUNNER_TEMP/pr5583-package-root"
+          dpkg-deb -R "$package" "$root"
+          target="$root/usr/share/carlos-emr/webapp/carlos/share/javascript/select.js"
+          test -f "$target"
+          curl -fsSL https://raw.githubusercontent.com/carlos-emr/carlos/ca0758757817854ecb03d7380336fa78502f4658/src/main/webapp/share/javascript/select.js > "$RUNNER_TEMP/baseline-select.js"
+          cmp "$target" "$RUNNER_TEMP/baseline-select.js"
+          install -m 0644 src/main/webapp/share/javascript/select.js "$target"
+          PACKAGE_ROOT="$root" python3 - <<'PY'
+          import hashlib, os
+          from pathlib import Path
+          root = Path(os.environ['PACKAGE_ROOT'])
+          relative = 'usr/share/carlos-emr/webapp/carlos/share/javascript/select.js'
+          checksum = hashlib.md5((root / relative).read_bytes()).hexdigest()
+          md5sums = root / 'DEBIAN/md5sums'
+          lines = md5sums.read_text().splitlines()
+          found = [i for i, line in enumerate(lines) if line.split(maxsplit=1)[1] == relative]
+          assert len(found) == 1
+          lines[found[0]] = checksum + '  ' + relative
+          md5sums.write_text('\n'.join(lines) + '\n')
+          PY
+          dpkg-deb --root-owner-group -Zzstd -z3 --build "$root" "$package"
+      - name: Make host AppArmor policy available in the disposable container
+        run: |
+          set -euo pipefail
+          if ! mountpoint -q /sys/kernel/security; then
+            sudo mount -t securityfs securityfs /sys/kernel/security
+          fi
+          test -e /sys/kernel/security/apparmor/features
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/deb-docker-validation.sh')
+          source = path.read_text()
+          old = '--tmpfs /run --tmpfs /run/lock \\'
+          new = '--tmpfs /run --tmpfs /run/lock -v /sys/kernel/security:/sys/kernel/security:rw \\'
+          assert source.count(old) == 1
+          path.write_text(source.replace(old, new))
+          PY
+      - name: Install the packages in a fresh Ubuntu 26.04 systemd container
+        run: |
+          set -euo pipefail
+          sudo systemctl stop mysql.service mariadb.service apache2.service nginx.service 2>/dev/null || true
+          if ! bash scripts/deb-docker-validation.sh up; then
+            cat "$LOG_DIR/carlos-ctl-check.log" 2>/dev/null || true
+            tail -n 150 "$LOG_DIR/install.log" 2>/dev/null || true
+            exit 1
+          fi
+          cat "$LOG_DIR/carlos-ctl-check.log"
+          docker exec "$CONTAINER" test ! -e /var/lib/carlos-emr/.install-incomplete
+          if grep -Fq 'is installed but is NOT ready to use' "$LOG_DIR/install.log"; then
+            echo "::error::Fresh install emitted the transient NOT-ready notice"
+            exit 1
+          fi
+      - name: Run the reported workflows individually and repeat tickler
+        run: |
+          set -euo pipefail
+          docker exec "$CONTAINER" bash -c '
+            set -uo pipefail
+            . /root/suite-env.sh
+            export EXCLUSIVE=1
+            mkdir -p /tmp/pr5583-runtime
+            status=0
+            round=0
+            for name in echart-note-verify-appointment-status echart-two-patient-isolation; do
+              round=$((round + 1))
+              log="/tmp/pr5583-runtime/$round-$name.log"
+              timeout --signal=TERM --kill-after=30s 1000s node "scripts/$name-playwright-checks.js" >"$log" 2>&1
+              rc=$?
+              printf "%s %s exit=%s\n" "$round" "$name" "$rc" | tee -a /tmp/pr5583-runtime/results.txt
+              cat "$log"
+              [ "$rc" = 0 ] || status=1
+            done
+            exit "$status"
+          '
+      - name: Preserve installation and probe output
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/pr5583-evidence/probes"
+          docker exec "$CONTAINER" journalctl -u carlos-emr.service -u carlos-emr-drugref.service --no-pager -n 350 >"$RUNNER_TEMP/pr5583-evidence/service-journal.log" 2>&1 || true
+          docker exec "$CONTAINER" tar -C /tmp/pr5583-runtime -cf - . | tar -C "$RUNNER_TEMP/pr5583-evidence/probes" -xf - || true
+          cp -a "$RUNNER_TEMP/pr5583-install-logs" "$RUNNER_TEMP/pr5583-evidence/" 2>/dev/null || true
+          cp "$RUNNER_TEMP/pr5583-package-build.log" "$RUNNER_TEMP/pr5583-evidence/" 2>/dev/null || true
+          printf '%s\n' "$SOURCE_SHA" > "$RUNNER_TEMP/pr5583-evidence/source-sha.txt"
+          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" "$RUNNER_TEMP/pr5583-evidence"
+      - name: Upload synthetic validation evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pr5583-echart-retest-evidence
+          path: ${{ runner.temp }}/pr5583-evidence/
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Remove disposable containers
+        if: always()
+        run: |
+          docker rm -f "$CONTAINER" pr5583-builder 2>/dev/null || true
