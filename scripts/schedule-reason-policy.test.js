@@ -6,7 +6,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const test = require('node:test');
 
-function run({reasonInTooltip = true, notesInTooltip = true, exposedInGrid = false} = {}) {
+function run({reasonInTooltip = true, notesInTooltip = true, exposedInGrid = ''} = {}) {
   const marker = 'FAKE-PW0123456789abcdef';
   const reason = `${marker} SECRETREASON`, notes = `${marker} SECRETNOTES`;
   const steps = [];
@@ -14,14 +14,21 @@ function run({reasonInTooltip = true, notesInTooltip = true, exposedInGrid = fal
   const link = {first() {return this;}, waitFor: async () => {}};
   const schedule = {locator(selector) {
     if (selector === 'a.apptLink') return link;
-    if (selector.startsWith('a.expand-reason-btn')) return {count: async () => 1, click: async () => {shown = !shown;}};
-    if (selector.startsWith('.reason_')) return {filter() {return this;}, first() {return this;}, isVisible: async () => shown};
+    if (selector === 'a.expand-reason-btn[data-provider="999998"]') return {count: async () => 1, click: async () => {shown = !shown;}};
+    if (selector === '.reason_999998') return {filter({hasText}) {
+      assert.equal(hasText, reason, 'The toggle must target the owned appointment reason'); return this;
+    }, first() {return this;}, isVisible: async () => shown};
     throw new Error(`Unexpected schedule locator ${selector}`);
   }, evaluate: async (fn, input) => fn(input)};
   const popup = {waitForLoadState: async () => {}, close: async () => {popupClosed = true;},
-    locator: selector => ({inputValue: async () => selector === '#reason' ? reason : notes})};
+    locator(selector) {
+      const fields = {'#reason': reason, 'textarea[name="notes"]': notes};
+      assert(Object.hasOwn(fields, selector), `Unexpected edit-popup locator ${selector}`);
+      return {inputValue: async () => fields[selector]};
+    }};
   const document = {querySelectorAll(selector) {
-    if (selector === 'body *') return [{children: [], getClientRects: () => [1], textContent: exposedInGrid ? reason : 'Owned appointment'}];
+    if (selector === 'body *') return [{children: [], getClientRects: () => [1],
+      textContent: ({reason, notes})[exposedInGrid] || 'Owned appointment'}];
     assert(selector.includes('[data-bs-original-title]'));
     return [{getAttribute: name => name === 'data-bs-original-title'
       ? [reasonInTooltip && reason, notesInTooltip && notes].filter(Boolean).join(' ') : null,
@@ -53,6 +60,8 @@ test('removing either reason or notes from the tooltip fails the owner-approved 
   await assert.rejects(run({reasonInTooltip: false}).result, /tooltip lost.*free-text reason/);
   await assert.rejects(run({notesInTooltip: false}).result, /tooltip lost.*notes/);
 });
-test('showing the reason in the default grid still fails', async () => {
-  await assert.rejects(run({exposedInGrid: true}).result, /day sheet shows.*grid/);
-});
+for (const field of ['reason', 'notes']) {
+  test(`showing only the ${field} in the default grid still fails`, async () => {
+    await assert.rejects(run({exposedInGrid: field}).result, /day sheet shows.*grid/);
+  });
+}

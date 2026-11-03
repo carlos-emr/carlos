@@ -9,7 +9,7 @@
  * stay out of the grid, but the appointment's hover tooltip and edit popup show both. The tooltip
  * behavior is intentional: the owner confirmed it in #5214 (closed not_planned), so #5576 retires the
  * former disclosure assertion. The column-header reason toggle must still reveal and hide the
- * reason without changing the tooltip or the stored appointment details.
+ * reason.
  * Fixtures: the throwaway login (lib/gap-provider-fixture.js, a number owning no appointment rows), one owned FAKE- patient and one
  * appointment on the throwaway's own schedule today. Cleanup removes the appointment, then the
  * throwaway, and asserts they are gone.

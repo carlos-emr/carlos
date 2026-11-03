@@ -12,12 +12,17 @@ function fixture() {
   const recorder = createRecorder();
   const request = (errorText = 'net::ERR_ABORTED', origin = frame, resourceType = 'xhr') => ({
     frame: () => origin, failure: () => ({ errorText }), resourceType: () => resourceType,
+    method: () => 'GET',
     url: () => 'https://host/carlos/poll?demographic_no=123', isNavigationRequest: () => false,
   });
   const start = (load = request()) => { page.emit('request', load); return load; };
   const fail = load => page.emit('requestfailed', load);
-  const navigate = () => {
-    page.emit('request', { ...request('net::ERR_ABORTED', frame, 'document'), isNavigationRequest: () => true });
+  const navigate = (beforeCommit = () => {}) => {
+    const navigation = { ...request('net::ERR_ABORTED', frame, 'document'), isNavigationRequest: () => true };
+    page.emit('request', navigation);
+    page.emit('response', { url: () => navigation.url(), status: () => 200,
+      request: () => navigation, headers: () => ({}) });
+    beforeCommit();
     page.emit('framenavigated', frame);
   };
   const wire = () => wireStrictPage(page, 'chart', recorder, { baseline: [] });
@@ -29,10 +34,9 @@ for (const method of ['goto', 'reload', 'goBack', 'goForward', 'close']) {
     const f = fixture();
     let load;
     f.page[method] = async () => {
-      f.fail(load);
       // The URL need not change: a reload abandons the previous document too.
-      if (method === 'close') f.page.emit('close');
-      else f.navigate();
+      if (method === 'close') { f.fail(load); f.page.emit('close'); }
+      else f.navigate(() => f.fail(load));
     };
     f.wire();
     load = f.start();
@@ -55,7 +59,10 @@ test('a committed document navigation qualifies only requests already pending in
   const mainLoad = f.start();
   const childLoad = f.start(f.request('net::ERR_ABORTED', child));
   const otherLoad = f.start(f.request('net::ERR_ABORTED', unrelated));
-  f.page.emit('request', { ...f.request('net::ERR_ABORTED', f.frame, 'document'), isNavigationRequest: () => true });
+  const navigation = { ...f.request('net::ERR_ABORTED', f.frame, 'document'), isNavigationRequest: () => true };
+  f.page.emit('request', navigation);
+  f.page.emit('response', { url: () => navigation.url(), status: () => 200,
+    request: () => navigation, headers: () => ({}) });
   f.fail(mainLoad);
   f.fail(childLoad);
   f.fail(otherLoad);
@@ -132,5 +139,61 @@ test('a same-document hash navigation cannot excuse an unrelated abort', async (
   f.wire();
   load = f.start();
   await f.page.goto('https://host/carlos/chart#tab');
+  assert.throws(() => assertStrictPage(f.recorder), /xhr request failed/);
+});
+
+test('an application abort while the replacement response is pending stays fatal after commit', async () => {
+  const f = fixture();
+  let load;
+  f.page.goto = async () => {
+    const navigation = { ...f.request('net::ERR_ABORTED', f.frame, 'document'), isNavigationRequest: () => true };
+    f.page.emit('request', navigation);
+    f.fail(load); // The old document's AbortController can run while the server is still thinking.
+    f.page.emit('response', { url: () => navigation.url(), status: () => 200,
+      request: () => navigation, headers: () => ({}) });
+    f.page.emit('framenavigated', f.frame);
+  };
+  f.wire();
+  load = f.start();
+  await f.page.goto('https://host/carlos/slow-navigation');
+  assert.throws(() => assertStrictPage(f.recorder), /xhr request failed/);
+  assert.equal(buildFailureDetails(f.recorder).requestFailures[0].navigationCancellation, undefined);
+});
+
+test('history-state navigation while awaiting a replacement response cannot qualify an application abort', async () => {
+  const f = fixture();
+  let load;
+  f.page.goto = async () => {
+    const navigation = { ...f.request('net::ERR_ABORTED', f.frame, 'document'), isNavigationRequest: () => true };
+    f.page.emit('request', navigation);
+    // The old document can change its history state while /b is pending. This
+    // event must not turn the unfinished replacement into a committed one.
+    f.page.emit('framenavigated', f.frame);
+    f.fail(load);
+    f.page.emit('response', { url: () => navigation.url(), status: () => 200,
+      request: () => navigation, headers: () => ({}) });
+    f.page.emit('framenavigated', f.frame);
+  };
+  f.wire();
+  load = f.start();
+  await f.page.goto('https://host/carlos/slow-navigation');
+  assert.throws(() => assertStrictPage(f.recorder), /xhr request failed/);
+  assert.equal(buildFailureDetails(f.recorder).requestFailures[0].navigationCancellation, undefined);
+});
+
+test('a redirect response cannot excuse an application abort before the final document arrives', async () => {
+  const f = fixture();
+  let load;
+  f.page.goto = async () => {
+    const navigation = { ...f.request('net::ERR_ABORTED', f.frame, 'document'), isNavigationRequest: () => true };
+    f.page.emit('request', navigation);
+    f.page.emit('response', { url: () => navigation.url(), status: () => 302,
+      request: () => navigation, headers: () => ({}) });
+    f.fail(load);
+    f.navigate();
+  };
+  f.wire();
+  load = f.start();
+  await f.page.goto('https://host/carlos/redirect');
   assert.throws(() => assertStrictPage(f.recorder), /xhr request failed/);
 });

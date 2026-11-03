@@ -620,20 +620,35 @@ function trackPendingNavigationRequests(page) {
     try { frame = request.frame(); } catch { /* Service-worker loads have no document to abandon. */ }
     if (frame && typeof request.isNavigationRequest === 'function' && request.isNavigationRequest()) {
       for (const operation of navigations) {
-        if (operation.frame === frame) operation.replacingDocument = true;
+        if (operation.frame === frame) {
+          operation.replacingDocument = true;
+          operation.documentRequest = request;
+          operation.responseReady = false;
+        }
       }
       const operation = snapshot(frame, 'document-navigation');
       operation.replacingDocument = true;
+      operation.documentRequest = request;
       navigations.add(operation);
       documentNavigations.set(request, operation);
     }
     pending.set(request, frame);
   });
+  page.on('response', response => {
+    // While a navigation waits on the server the old document is still alive:
+    // its own AbortController/XHR cancellations must remain failures. Chromium
+    // abandons old-document loads once the replacement response can commit.
+    // Redirect responses cannot replace the document themselves.
+    if (response.status() >= 300 && response.status() < 400) return;
+    for (const operation of navigations) {
+      if (operation.documentRequest === response.request()) operation.responseReady = true;
+    }
+  });
   page.on('framenavigated', frame => {
     for (const operation of navigations) {
       // Hash/history-state navigation leaves the original document's requests
       // alive. Only a replacement document can account for their cancellation.
-      if (operation.frame === frame && operation.replacingDocument) {
+      if (operation.frame === frame && operation.replacingDocument && operation.responseReady) {
         operation.confirmed = true;
         navigations.delete(operation);
       }
@@ -646,8 +661,8 @@ function trackPendingNavigationRequests(page) {
   };
   page.on('requestfinished', finished);
   page.on('requestfailed', finished);
-  // Explicit calls begin before Chromium reports the replacement document's
-  // request; cancellation events can arrive in that interval.
+  // Retain the initiating test operation in the evidence. The document request,
+  // response and commit observers must still confirm an actual replacement.
   for (const method of ['goto', 'reload', 'goBack', 'goForward']) {
     if (typeof page[method] !== 'function' || typeof page.mainFrame !== 'function') continue;
     const original = page[method].bind(page);
@@ -668,7 +683,13 @@ function trackPendingNavigationRequests(page) {
       }
     };
   }
-  return request => candidates.get(request);
+  return request => {
+    const operations = candidates.get(request);
+    // Freeze eligibility at the failure event: a later navigation response or
+    // commit cannot retroactively excuse an application-aborted request.
+    return operations && new Set([...operations].filter(operation => operation.kind === 'close'
+      || operation.responseReady));
+  };
 }
 
 /**

@@ -1,12 +1,46 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 'use strict';
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const ENCRYPTED_BODY_NOTICE_KEY = 'email.compose.msg.encryptedBodyNotice';
+
+/** Recipient-facing notice values from the checked-out application's locale bundles. */
+function encryptedBodyNotices(resourceDirectory = path.join(__dirname, '../../src/main/resources')) {
+  let bundles;
+  try {
+    bundles = fs.readdirSync(resourceDirectory).filter(name => /^oscarResources(?:_[A-Za-z_]+)?\.properties$/.test(name))
+      .map(name => path.join(resourceDirectory, name));
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    bundles = [];
+  }
+  function readNotice(file) {
+    const prefix = `${ENCRYPTED_BODY_NOTICE_KEY}=`;
+    // Resource bundles are ASCII/Java-properties escaped. This key occupies one
+    // line; the final definition wins, matching Properties.load.
+    const line = fs.readFileSync(file, 'latin1').split(/\r?\n/).filter(value => value.startsWith(prefix)).at(-1);
+    return line?.slice(prefix.length).trim().replace(/\\u([\da-fA-F]{4})|\\(.)/g,
+      (_, unicode, escaped) => unicode ? String.fromCharCode(parseInt(unicode, 16))
+        : ({n: '\n', r: '\r', t: '\t', f: '\f'}[escaped] ?? escaped));
+  }
+  const notices = bundles.map(readNotice).filter(Boolean);
+  // release/2026.08 still has the two-field composer and no such key. Keep a
+  // source-attributed copy for the forward-merge contract and source-less runs.
+  if (!notices.length) notices.push(readNotice(path.join(__dirname, '../fixtures/email/encrypted-body-notice.properties')));
+  assert(notices.every(value => typeof value === 'string' && value.trim()), 'The encrypted-body notice resource is unavailable');
+  return [...new Set(notices)];
+}
 
 /** Use the page's actual compose contract across the release/develop forward merge. */
 async function fillComposeMessage(page, message) {
   const field = page.locator('#message, #bodyEmail');
-  await field.waitFor({state: 'visible'});
+  // Wait for initial rendering without asking a strict locator to resolve an
+  // ambiguous old/new contract before we can report the useful diagnostic.
+  await field.first().waitFor({state: 'attached'});
   assert.equal(await field.count(), 1, 'The composer must offer exactly one message contract');
+  await field.waitFor({state: 'visible'});
   const unifiedMessage = await field.getAttribute('id') === 'message';
   await field.fill(message);
   return {unifiedMessage};
@@ -48,11 +82,11 @@ function visibleMimeText(raw) {
 }
 
 /** Preserve the release cleartext contract and the unified composer's encrypted-message boundary. */
-function assertDeliveredComposeBody(raw, {message, clue, unifiedMessage}) {
+function assertDeliveredComposeBody(raw, {message, clue, unifiedMessage}, {resourceDirectory} = {}) {
   const visible = visibleMimeText(raw);
   assert(visible.includes(clue), 'The delivered body lacks the password delivery clue');
   if (unifiedMessage) {
-    assert(/secure message from your clinic/i.test(visible) && /password-protected PDF/i.test(visible),
+    assert(encryptedBodyNotices(resourceDirectory).some(notice => visible.includes(notice)),
       'The encrypted unified-message body lacks its secure-message notice');
     assert(!visible.includes(message), 'The encrypted composed message leaked into cleartext MIME');
   } else {
@@ -60,4 +94,4 @@ function assertDeliveredComposeBody(raw, {message, clue, unifiedMessage}) {
   }
 }
 
-module.exports = {fillComposeMessage, prepareComposePassword, visibleMimeText, assertDeliveredComposeBody};
+module.exports = {ENCRYPTED_BODY_NOTICE_KEY, encryptedBodyNotices, fillComposeMessage, prepareComposePassword, visibleMimeText, assertDeliveredComposeBody};

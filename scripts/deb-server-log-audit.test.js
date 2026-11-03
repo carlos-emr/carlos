@@ -171,10 +171,11 @@ test('fixed schedule validation errors are no longer allowlisted as deliberate s
     '2026-11-03 04:40:11,913 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:393) - Sanitizing output-stream error response body [status=500 uri=/carlos/ws/rs/schedule/fetchProvidersApptsCount/not-a-date/not-a-date]',
     '2026-11-03 04:40:11,881 ERROR rest.ScheduleService (ScheduleService.java:657) - ScheduleService.listProviderAppointmentCounts error',
     'jakarta.ws.rs.WebApplicationException: HTTP 400 Bad Request',
-    '\\tat io.github.carlos_emr.carlos.managers.ScheduleManagerImpl.listProviderAppointmentCounts(ScheduleManagerImpl.java:351)',
+    '\tat io.github.carlos_emr.carlos.managers.ScheduleManagerImpl.listProviderAppointmentCounts(ScheduleManagerImpl.java:351)',
   ],{baseline:fs.readFileSync(BASELINE,'utf8')});
   assert.equal(result.status,1,result.out);
   assert.equal((result.out.match(/^UNKNOWN /gm)||[]).length,2);
+  assert.match(result.out, /@ScheduleManagerImpl\.listProviderAppointmentCounts/);
   assert.doesNotMatch(result.out,/^KNOWN /m);
 });
 

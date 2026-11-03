@@ -9,14 +9,14 @@ const h=require('./lib/playwright-harness');
 const accessibility=require('./accessibility-smoke-playwright-checks');
 const heartbeat=require('./session-heartbeat-timeout-playwright-checks');
 
-test('missing axe dependency skips before database/browser setup, while unexpected resolution errors fail',()=>{
+test('axe resolution classifies a missing dependency as SKIP and unexpected errors as failures',()=>{
   assert.throws(()=>accessibility.preflightConfig({resolve(){throw Object.assign(new Error('missing'),{code:'MODULE_NOT_FOUND'});}}),
     error=>error.name==='SkipCheck'&&/axe-core/.test(error.message));
   assert.doesNotThrow(()=>accessibility.preflightConfig({resolve(){return '/installed/axe.min.js';}}));
   assert.throws(()=>accessibility.preflightConfig({resolve(){throw new Error('corrupt dependency');}}),/corrupt dependency/);
 });
 
-test('clinic-wide heartbeat prerequisites skip before SQL or login unless both gates are set',()=>{
+test('clinic-wide heartbeat prerequisite classification requires both disposable and exclusive gates',()=>{
   for(const env of [{},{CARLOS_DISPOSABLE_VM:'true'},{EXCLUSIVE:'1'}]) {
     assert.throws(()=>heartbeat.preflightConfig({env}),error=>error.name==='SkipCheck'&&/requires/.test(error.message));
   }
@@ -40,7 +40,7 @@ test('CDS import missing source or disabled feature skips before upload; transpo
   const start=source.indexOf('async function openImportFrame(');
   const helper=source.slice(start,source.indexOf('\n}',start)+2);
   for(const state of [{disabled:true},{source:null},{error:true},{source:'approved-source'},
-    {disabled:true,diagnostic:true},{source:null,diagnostic:true}]) {
+    {disabled:true,diagnostic:true},{source:null,diagnostic:true},{source:'approved-source',responseError:true}]) {
     let selected=false;
     const frame={locator(selector){return {
       waitFor:async()=>{},isDisabled:async()=>Boolean(state.disabled),
@@ -49,7 +49,8 @@ test('CDS import missing source or disabled feature skips before upload; transpo
     };},waitForFunction:async()=>{}};
     const admin={locator(selector){return {first(){return this;},click:async()=>{},waitFor:async()=>{},
       elementHandle:async()=>({contentFrame:async()=>frame})};},
-    waitForResponse:async()=>({status:()=>200}),waitForLoadState:async()=>{}};
+    waitForResponse:async()=>{if(state.responseError)throw new Error('response transport failed');return {status:()=>200};},
+    waitForLoadState:async()=>{}};
     const context={h,clickOpensPopupOrNavigates:async()=>({page:admin}),
       observeCdsMetadata:async()=>({transport:{qualifyResponse:async()=>({qualified:false})}}),
       revealAuditLink:async()=>{},createCdsMetadataProver:()=>({}),importApi(){},qualifyCdsMetadata:async()=>{}};
@@ -58,6 +59,7 @@ test('CDS import missing source or disabled feature skips before upload; transpo
     if(state.diagnostic)recorder.pageErrors.push({label:'import',text:'synthetic uncaught error'});
     const operation=context.openImportFrame({recorder,schedule:{locator(){return {first(){return this;}};}}});
     if(state.error)await assert.rejects(operation,/source transport failed/);
+    else if(state.responseError)await assert.rejects(operation,/response transport failed/);
     else if(state.diagnostic)await assert.rejects(operation,error=>error.name!=='SkipCheck'&&/JavaScript-layer/.test(error.message));
     else if(state.disabled||!state.source)await assert.rejects(operation,error=>error.name==='SkipCheck'&&/Required/.test(error.message));
     else await assert.doesNotReject(operation);

@@ -72,7 +72,11 @@ function assertControlledRefusal(label, status, body, headers, forbiddenInput) {
   assert(status === 400, `${label}: expected HTTP 400, got ${status}`);
   assert(!headers['content-disposition'], `${label}: invalid input started a download`);
   assert(!REFERENCE_ID_PATTERN.test(body), `${label}: a controlled 400 reached the server-error sanitizer`);
-  assert(!body.includes(forbiddenInput), `${label}: the refusal reflected invalid input`);
+  if (typeof forbiddenInput === 'string' && forbiddenInput.length) {
+    const encoded = forbiddenInput.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    assert(!body.includes(forbiddenInput) && !body.includes(encoded), `${label}: the refusal reflected invalid input`);
+  }
   for (const marker of STACK_TRACE_MARKERS) {
     assert(!body.includes(marker), `${label}: the refusal leaked a stack-trace marker`);
   }
@@ -115,7 +119,7 @@ if (require.main === module) legacyHarness.runLegacyCheck('error-sanitization',a
       const body = await response.text();
       cancellation?.throwIfCancelled();
       assertControlledRefusal('Invalid satellite clinic address', response.status(), body,
-        response.headers(), 'PRIVATE_INVALID_SATELLITE_ADDRESS');
+        response.headers(), parameters.scAddress);
       await response.dispose();
     }
 

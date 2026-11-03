@@ -34,7 +34,7 @@ test('rejects missing session, foreign origins and unsupported methods before se
   const { session, calls } = fixture([]);
   await assert.rejects(authenticatedProbe(session, '/carlos/save'), /session cookie/);
   await assert.rejects(authenticatedProbe(session, 'https://other.invalid/carlos/save'), /origin/);
-  await assert.rejects(authenticatedProbe(session, '/carlos/save', { method: 'PUT' }), /GET, HEAD and POST/);
+  await assert.rejects(authenticatedProbe(session, '/carlos/save', { method: 'PUT', allowPost: true }), /GET, HEAD and POST/);
   assert.equal(calls.length, 0);
 });
 test('rejects login redirects even for callers checking only unchanged rows', async () => {
@@ -137,7 +137,26 @@ test('authentication-state transport remains origin-bound and read-only without 
   const response=await authenticationStateProbe(session,'/carlos/login');assert.equal(response.status(),302);assert.equal(calls.length,1);assert.equal(calls[0][1].maxRedirects,0);
   await assert.rejects(authenticationStateProbe(session,'https://other.invalid/carlos/login'),/origin/);
   await assert.rejects(authenticationStateProbe(session,'/carlos/login',{method:'POST'}),/GET and HEAD/);
+  await assert.rejects(authenticationStateProbe(session,'/carlos/login',{method:'POST',allowPost:true}),/GET and HEAD/);
   assert.equal(calls.length,1);
+  await authenticationStateProbe(session,'/carlos/login',{allowPost:true});
+  assert.equal(Object.hasOwn(calls.at(-1)[1],'allowPost'),false);
+});
+
+test('shared authenticated read probes reject POST before network activity unless explicitly opted in', async () => {
+  const { probe } = require('./lib/authz-read-probe');
+  for (const allowPost of [undefined, false, 'true', 1]) {
+    const { session } = fixture();
+    let requests = 0;
+    session.context.request.fetch = async () => { requests++; throw new Error('No request should be sent'); };
+    await assert.rejects(authenticatedProbe(session, '/carlos/save', { method: 'POST', allowPost }), /GET and HEAD.*allowPost: true/);
+    const answer = await probe(session.context, 'http://127.0.0.1/carlos/save', {
+      method: 'POST', allowPost, baseUrl: session.config.baseUrl,
+    });
+    assert.equal(answer.status, 0);
+    assert.match(answer.error, /GET and HEAD/);
+    assert.equal(requests, 0, 'An unapproved POST must not even fetch heartbeat or token prerequisites');
+  }
 });
 
 test('POST carries the live session and its CSRF token without trusting caller headers', async () => {
@@ -149,12 +168,13 @@ test('POST carries the live session and its CSRF token without trusting caller h
       text: async () => 'var masterTokenValue = "synthetic-token";', dispose: async () => { disposed = true; } };
     return { status: () => 403 };
   });
-  await authenticatedProbe(session, '/carlos/print', { method: 'POST', headers: {
+  await authenticatedProbe(session, '/carlos/print', { method: 'POST', allowPost: true, headers: {
     'csrf-token': 'stale-token', 'x-requested-with': 'wrong', Cookie: 'unrelated',
   } });
   assert.equal(calls.length, 2);
   assert.equal(calls[0][1].headers.Cookie, 'JSESSIONID=synthetic');
   assert.equal(calls[0][1].maxRedirects, 0);
+  assert(calls.every(([, options]) => !Object.hasOwn(options, 'allowPost')), 'The probe capability flag must never reach fetch');
   assert.deepEqual(calls[1][1].headers, {
     Cookie: 'JSESSIONID=synthetic', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': 'synthetic-token',
   });
@@ -170,7 +190,7 @@ for (const [status, body] of [[302, 'var masterTokenValue="irrelevant";'], [403,
       assert.equal(new URL(url).pathname, '/carlos/csrfguard');
       return { status: () => status, text: async () => body, dispose: async () => { disposed = true; } };
     });
-    await assert.rejects(authenticatedProbe(session, '/carlos/print', { method: 'POST' }), /CSRF/);
+    await assert.rejects(authenticatedProbe(session, '/carlos/print', { method: 'POST', allowPost: true }), /CSRF/);
     assert.equal(count, 1);
     assert(disposed);
   });
@@ -202,7 +222,7 @@ test('real Playwright POST reaches patient authorization with the session and CS
   t.after(() => api.dispose());
   const context = { cookies: async () => (await api.storageState()).cookies, request: api };
   const { probe, forbiddenByApp } = require('./lib/authz-read-probe');
-  const result = await probe(context, new URL('/carlos/print', baseUrl).href, { method: 'POST', baseUrl });
+  const result = await probe(context, new URL('/carlos/print', baseUrl).href, { method: 'POST', allowPost: true, baseUrl });
   assert.equal(forbiddenByApp(result), true);
   assert.deepEqual(seen.map(row => row.url), ['/carlos/status/SessionHeartbeat', '/carlos/csrfguard', '/carlos/print']);
   assert(seen.every(row => row.cookie === 'JSESSIONID=synthetic'));
@@ -212,7 +232,29 @@ test('real Playwright POST reaches patient authorization with the session and CS
 test('probe failures preserve their transport diagnostic instead of implying a server HTTP status', async () => {
   const { probe } = require('./lib/authz-read-probe');
   const { session } = fixture([]);
-  const answer = await probe(session.context, 'http://127.0.0.1/carlos/print', { method: 'POST', baseUrl: session.config.baseUrl });
+  const answer = await probe(session.context, 'http://127.0.0.1/carlos/print', { method: 'POST', allowPost: true, baseUrl: session.config.baseUrl });
   assert.equal(answer.status, 0);
   assert.match(answer.error, /requires an application session cookie/);
+});
+
+test('probe transport diagnostics redact every URL query in multiline Playwright call logs before printing', async () => {
+  const h = require('./lib/playwright-harness');
+  const { probe } = require('./lib/authz-read-probe');
+  const { session } = fixture();
+  const message = 'net::ERR_FAILED /carlos/print?demographic_no=PRIVATE123&name=PRIVATE-NAME\n'
+    + 'Call log:\n  - GET http://127.0.0.1/carlos/second?secret=PRIVATE456#PRIVATE-FRAGMENT\n'
+    + '  - referer: "https://127.0.0.1/carlos/third?patient=PRIVATE789"';
+  const sanitized = h.withoutQueryStrings(message);
+  assert.match(sanitized, /\/carlos\/print\n/);
+  assert.match(sanitized, /http:\/\/127\.0\.0\.1\/carlos\/second\n/);
+  assert.match(sanitized, /"https:\/\/127\.0\.0\.1\/carlos\/third"/);
+  assert.doesNotMatch(sanitized, /PRIVATE|demographic_no|patient=|secret=|name=|[?#]/);
+  session.context.request.fetch = withHeartbeat(async () => { throw new Error(message); });
+  const answer = await probe(session.context, 'http://127.0.0.1/carlos/print?demographic_no=PRIVATE123', {
+    baseUrl: session.config.baseUrl,
+  });
+  assert.equal(answer.status, 0);
+  assert.match(answer.error, /net::ERR_FAILED \/carlos\/print/);
+  assert.doesNotMatch(answer.error, /PRIVATE|demographic_no|patient=|secret=|name=|[?#]/);
+  assert(answer.error.length <= 80);
 });

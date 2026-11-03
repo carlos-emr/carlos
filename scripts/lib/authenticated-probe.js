@@ -6,8 +6,8 @@
  * Chromium sends them. Replay only this application's cookies explicitly, with
  * redirects disabled so a refusal probe cannot leak them to another origin.
  */
-async function prepareRead(session, target, options, requireSessionCookie, allowPost = false) {
-  const {allowSecurityErrorRedirect = false, ...requestOptions} = options;
+async function prepareRead(session, target, options, requireSessionCookie) {
+  const {allowSecurityErrorRedirect = false, allowPost = false, ...requestOptions} = options;
   const base = session.config.baseUrl;
   const url = new URL(target, base);
   if (url.origin !== base.origin || url.username || url.password) {
@@ -18,9 +18,14 @@ async function prepareRead(session, target, options, requireSessionCookie, allow
   if (!['http:', 'https:'].includes(url.protocol) || (url.protocol === 'http:' && !loopback)) {
     throw new Error('Authenticated probes require HTTPS outside loopback');
   }
-  if (!(allowPost ? ['GET', 'HEAD', 'POST'] : ['GET', 'HEAD']).includes(options.method || 'GET')) {
-    throw new Error(allowPost ? 'Authenticated refusal probes support only GET, HEAD and POST'
-      : 'Authentication-state probes support only GET and HEAD');
+  // Shared read probes remain read-only unless a caller explicitly opts into
+  // a known read-only POST (the print preview). Authentication-state probes
+  // never have that capability, even if a caller supplies the flag.
+  const postEnabled = requireSessionCookie && allowPost === true;
+  if (!(postEnabled ? ['GET', 'HEAD', 'POST'] : ['GET', 'HEAD']).includes(options.method || 'GET')) {
+    throw new Error(!requireSessionCookie ? 'Authentication-state probes support only GET and HEAD'
+      : postEnabled ? 'Authenticated refusal probes support only GET, HEAD and POST'
+        : 'Authenticated refusal probes support only GET and HEAD; POST requires explicit allowPost: true');
   }
   const now = Date.now() / 1000;
   const browserCookies=await session.context.cookies();
@@ -52,7 +57,7 @@ async function authenticationStateProbe(session,target,options={}) {
 }
 
 async function authenticatedProbe(session,target,options={}) {
-  const {base,url,cookieHeader,allowSecurityErrorRedirect,requestOptions,headers}=await prepareRead(session,target,options,true,true);
+  const {base,url,cookieHeader,allowSecurityErrorRedirect,requestOptions,headers}=await prepareRead(session,target,options,true);
   // A retained cookie is not proof of a live server-side session. The method
   // guard can answer 405 even after logout or a service restart. Verify the
   // actual session immediately before EACH probe using this same transport.
