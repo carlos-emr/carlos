@@ -1709,7 +1709,7 @@ public class MSPReconcile {
     }
 
     /**
-     * Returns a String value representing an SQL query used in the rertrieval of MSP remittance data.
+     * Returns detached MSP remittance rows for the specified payee and S21 remittance.
      *
      * @param payeeNo String
      * @return detached remittance rows

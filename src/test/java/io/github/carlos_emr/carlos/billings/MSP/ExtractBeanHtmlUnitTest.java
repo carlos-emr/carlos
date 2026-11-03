@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -71,14 +72,9 @@ class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldEncodeRecordValues_whenBuildingDryRunReport() throws Exception {
         ExtractBillRow bill = new ExtractBillRow(1001, SCRIPT_NAME);
-        ExtractClaimRow claim = mock(ExtractClaimRow.class, call -> {
-            if (call.getMethod().getReturnType() == String.class) return "0";
-            return org.mockito.Answers.RETURNS_DEFAULTS.answer(call);
-        });
-        when(claim.billingmasterNo()).thenReturn(42);
+        ExtractClaimRow claim = claimWithAmount("23.00");
         when(claim.phn()).thenReturn("<b>98</b>");
         when(claim.billingCode()).thenReturn("<u>01</u>");
-        when(claim.billAmount()).thenReturn("23.00");
         when(claim.serviceDate()).thenReturn("20260612");
         when(claim.dxCode1()).thenReturn("<i>");
         when(billingmasterDao.findBcExtractBills(anyString(), anyString(), any())).thenReturn(List.of(bill));
@@ -104,4 +100,27 @@ class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
             assertThat(html).contains("<tr><td class='bodytext'></td><td class='bodytext'></td>");
             assertThat(html).endsWith("</table></body></html>");
     }
+
+    private ExtractClaimRow claimWithAmount(String amount) {
+        ExtractClaimRow claim = mock(ExtractClaimRow.class, call -> {
+            if (call.getMethod().getReturnType() == String.class) return "0";
+            return org.mockito.Answers.RETURNS_DEFAULTS.answer(call);
+        });
+        when(claim.billingmasterNo()).thenReturn(42);
+        when(claim.billAmount()).thenReturn(amount);
+        return claim;
+    }
+
+    @Test
+    void shouldRejectBlankClaimFees_insteadOfSendingZeroValueClaims() {
+        when(billingmasterDao.findBcExtractBills(anyString(), anyString(), any()))
+                .thenReturn(List.of(new ExtractBillRow(1001, "FAKE")));
+        ExtractClaimRow claim = claimWithAmount("       ");
+        when(billingmasterDao.findBcExtractClaims(1001)).thenReturn(List.of(claim));
+        ExtractBean bean = new ExtractBean();
+        bean.seteFlag("0");
+        bean.setProviderNo("91234");
+        assertThatThrownBy(bean::dbQuery).isInstanceOf(NumberFormatException.class);
+    }
+
 }

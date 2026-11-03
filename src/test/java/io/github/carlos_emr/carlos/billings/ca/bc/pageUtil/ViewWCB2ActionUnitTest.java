@@ -39,6 +39,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.dao.DataAccessResourceFailureException;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
 
@@ -73,6 +75,7 @@ class ViewWCB2ActionUnitTest extends CarlosUnitTestBase {
     private MockedStatic<ServletActionContext> servlet;
     private DemographicManager demographics;
     private BillingmasterDAO billingmasterDao;
+    private ProviderDao providerDao;
 
     @BeforeEach
     void wire() throws Exception {
@@ -96,7 +99,8 @@ class ViewWCB2ActionUnitTest extends CarlosUnitTestBase {
         Provider provider = new Provider();
         provider.setOhipNo("91234");
         provider.setBillingNo("81234");
-        when(createAndRegisterMock(ProviderDao.class).getProvider(PROVIDER)).thenReturn(provider);
+        providerDao = createAndRegisterMock(ProviderDao.class);
+        when(providerDao.getProvider(PROVIDER)).thenReturn(provider);
     }
 
     @AfterEach
@@ -163,6 +167,22 @@ class ViewWCB2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(form.getW_postal()).isEmpty();
         assertThat(form.getW_lname()).isEqualTo("FAKE-PW-test");
+    }
+
+    @Test
+    void shouldStillRenderPatientDetails_whenProviderLookupFails() {
+        patient("V6B 1A1");
+        when(providerDao.getProvider(PROVIDER)).thenThrow(
+                new DataAccessResourceFailureException("synthetic sensitive query detail"));
+        try (LogCapture logs = LogCapture.forLogger(ViewWCB2Action.class)) {
+            WCBForm form = open("0");
+            assertThat(form.getW_lname()).isEqualTo("FAKE-PW-test");
+            assertThat(form.getProviderNo()).isEqualTo(PROVIDER);
+            assertThat(form.getW_pracno()).isNullOrEmpty();
+            assertThat(form.getW_payeeno()).isNullOrEmpty();
+            assertThat(logs.messages()).containsExactly("Unable to retrieve WCB provider billing details");
+            assertThat(logs.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
+        }
     }
 
     @Test

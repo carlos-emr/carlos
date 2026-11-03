@@ -57,6 +57,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
  * @version 1.0
  */
 import org.apache.struts2.ActionSupport;
+import org.springframework.dao.DataAccessException;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -114,10 +115,16 @@ public class ViewWCB2Action extends ActionSupport {
                 form.setInjuryLocations(data.getInjuryLocationList());
 
                 //Retrieve provider ohip number and payee number
-                var provider = SpringUtils.getBean(ProviderDao.class).getProvider(providerNo);
-                if (provider != null) {
-                    form.setW_pracno(provider.getOhipNo());
-                    form.setW_payeeno(provider.getBillingNo());
+                try {
+                    var provider = SpringUtils.getBean(ProviderDao.class).getProvider(providerNo);
+                    if (provider != null) {
+                        form.setW_pracno(provider.getOhipNo());
+                        form.setW_payeeno(provider.getBillingNo());
+                    }
+                } catch (DataAccessException failure) {
+                    // Preserve the form fallback without logging query parameters or patient details.
+                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger()
+                            .error("Unable to retrieve WCB provider billing details");
                 }
 
                 form.setProviderNo(providerNo);

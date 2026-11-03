@@ -205,14 +205,13 @@ public class BillingmasterDAO {
 
 
     public WCB getWcbByBillingNo(Integer billing_no) {
-        Query query = entityManager.createQuery("FROM WCB w WHERE w.billing_no = :billingNo");
-        query.setParameter("billingNo", billing_no);
-        query.setMaxResults(1);
+        return loadWcbByBillingNo(billing_no);
+    }
 
-        List<WCB> ws = query.getResultList();
-        if (ws.isEmpty())
-            return null;
-        return ws.get(0);
+    private WCB loadWcbByBillingNo(Integer billingNo) {
+        List<WCB> forms = entityManager.createQuery("FROM WCB w WHERE w.billing_no = :billingNo", WCB.class)
+                .setParameter("billingNo", billingNo).setMaxResults(1).getResultList();
+        return forms.isEmpty() ? null : forms.getFirst();
     }
 
 
@@ -586,10 +585,8 @@ public class BillingmasterDAO {
     /** Reads only the report fields from the existing WCB mapping. */
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public WcbRow findBcWcb(String billingNo) {
-        List<WCB> forms = entityManager.createQuery("from WCB w where w.billing_no = :billingNo", WCB.class)
-                .setParameter("billingNo", Integer.parseInt(billingNo)).setMaxResults(1).getResultList();
-        if (forms.isEmpty()) return null;
-        WCB wcb = forms.getFirst();
+        WCB wcb = loadWcbByBillingNo(Integer.parseInt(billingNo));
+        if (wcb == null) return null;
         return new WcbRow(wcb.getBill_amount(), wcb.getW_feeitem(), wcb.getW_icd9());
     }
 

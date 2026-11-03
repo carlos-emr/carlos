@@ -45,6 +45,9 @@ public class MariaDbDaoTestContextInitializer
         if (!List.of("on", "bc").contains(province)) {
             throw new IllegalArgumentException("MariaDB test province must be on or bc");
         }
+        if (!migrated && "bc".equals(province)) {
+            throw new IllegalArgumentException("MariaDB test province bc requires CARLOS_TEST_MARIADB_SCHEMA=flyway");
+        }
         String database = "carlos_test_5399_dao_" + UUID.randomUUID().toString().replace("-", "");
         String jdbcUrl = server + database + "?connectionCollation=utf8mb4_general_ci"
                 + "&zeroDateTimeBehavior=CONVERT_TO_NULL&jdbcCompliantTruncation=false&useInformationSchema=false";

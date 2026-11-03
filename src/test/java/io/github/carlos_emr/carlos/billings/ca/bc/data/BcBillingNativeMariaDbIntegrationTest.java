@@ -106,7 +106,7 @@ class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
             assertThat(bill.seqNum).isEqualTo("0000042");
         });
         assertThatThrownBy(() -> dao.findBcPayments("BC54", "81234", "missing", "", "", false, false, true, false))
-                .isInstanceOf(RuntimeException.class);
+                .isInstanceOf(RuntimeException.class).hasMessage("Provider must have ohip no!");
         assertThat(dao.findBcPayments("other", "81234", "BC54", "", "", false, false, true, false)).isEmpty();
     }
 
