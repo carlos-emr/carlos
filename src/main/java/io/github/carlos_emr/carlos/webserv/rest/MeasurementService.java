@@ -64,10 +64,15 @@ import java.util.List;
  * <ul>
  *   <li>All endpoints require an authenticated UI session or OAuth 1.0a authentication</li>
  *   <li>Users must have "_measurement" read privileges</li>
- *   <li>Patient demographic access is validated per request</li>
- *   <li>Audit logging tracks all API access</li>
+ *   <li>Patient-scoped endpoints validate patient demographic access per request</li>
+ *   <li>Patient-scoped endpoints audit their access; {@code GET /measurements/types} does not,
+ *       because it returns configuration, not patient data</li>
  * </ul>
- * 
+ *
+ * <p>{@code GET /measurements/types} is not patient-scoped: it lists the configured measurement
+ * types and needs only "_measurement" read with no patient. It is served on both surfaces, the
+ * OAuth one ({@code /ws/services}) and the session one ({@code /ws/rs}).</p>
+ *
  * <p>Data formats:</p>
  * <ul>
  *   <li>Input: JSON with measurement type arrays</li>
@@ -84,7 +89,11 @@ import java.util.List;
  *   "types": ["BP", "WT", "HT"]
  * }
  * }</pre>
- * 
+ *
+ * <pre>{@code
+ * GET /ws/rs/measurements/types
+ * }</pre>
+ *
  * @since 2006
  * @see Measurement
  * @see MeasurementResponse

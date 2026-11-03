@@ -155,7 +155,10 @@ public interface MeasurementManager {
      * {@code MeasurementTypeDao.findAllOrderByName()} produced it, so it is unmodifiable and holds
      * detached copies; callers cannot alter the shared cache through it.</p>
      *
-     * @param loggedInInfo LoggedInInfo the caller's session context
+     * <p>The read is not audited: the data is configuration, not PHI.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the caller's session context; kept for consistency with the
+     *                     neighbouring methods
      * @return List&lt;MeasurementType&gt; all measurement types, unmodifiable
      */
     public List<MeasurementType> getMeasurementTypes(LoggedInInfo loggedInInfo);
