@@ -937,6 +937,9 @@ The wrapper already exports `EXCLUSIVE=1` and `CARLOS_DISPOSABLE_VM=true` for it
 single-session disposable install. Outside the wrapper, `session-heartbeat-timeout`
 reports SKIP unless both are set. Schedule Setting owns and removes a throwaway
 provider and its schedule rows; leave `TEST_SCHEDULE_PROVIDER` unset.
+Its picker can wait up to five and a half minutes for the active-provider cache
+to expire after SQL creates the fixture. It fails if the owned provider never
+appears, and never falls back to editing a shared provider's schedule.
 
 ```bash
 lxc exec carlos-test -- bash -c '

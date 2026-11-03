@@ -40,7 +40,7 @@
 
 const legacyHarness=require('./lib/legacy-check');
 const h=require('./lib/playwright-harness');
-const {ownedScheduleProvider}=require('./lib/owned-schedule-provider');
+const {ownedScheduleProvider,waitForScheduleProvider}=require('./lib/owned-schedule-provider');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
@@ -390,7 +390,7 @@ async function pickProvider(frame) {
       findings.push({
         label: 'schedule-setting',
         type: 'requested-provider-missing',
-        detail: 'TEST_SCHEDULE_PROVIDER names a provider the Schedule Setting dropdown does not offer',
+        detail: 'The Schedule Setting dropdown does not offer the owned fixture provider',
         selectableProviders: selectable.length,
       });
       return null;
@@ -418,7 +418,9 @@ async function fillWeekSchedule(frame, templateName) {
 }
 
 async function runWizard(context, page, cancellation) {
-  const settingFrame = await openAdminSection(page, '/schedule/TemplateSetting', /\/schedule\/TemplateSetting/, 'schedule-setting');
+  const settingFrame = await waitForScheduleProvider(
+    () => openAdminSection(page, '/schedule/TemplateSetting', /\/schedule\/TemplateSetting/, 'schedule-setting'),
+    requestedProvider, {checkpoint:()=>cancellation?.throwIfCancelled()});
   if (!settingFrame) {
     return;
   }
@@ -439,7 +441,7 @@ async function runWizard(context, page, cancellation) {
   visited.push({
     label: 'schedule-week-setting',
     url: recordableUrl(weekFrame.url()),
-    providerSource: requestedProvider ? 'TEST_SCHEDULE_PROVIDER' : 'auto-selected',
+    providerSource: 'owned fixture',
   });
   cancellation?.throwIfCancelled();
   await assertNoErrorPage(weekFrame, 'schedule-week-setting');
