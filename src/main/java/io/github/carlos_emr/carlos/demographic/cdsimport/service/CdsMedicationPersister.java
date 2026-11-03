@@ -98,8 +98,8 @@ public class CdsMedicationPersister {
         drug.setRxDate(source.start().dateStorageAnchor());
         drug.setStartDateUnknown(!source.start().exactCalendarDate());
         drug.setEndDate(null); // Dispense duration is not treatment-plan discontinuation evidence.
-        drug.setDuration(source.durationDays());
-        drug.setDurUnit(source.durationDays() == null ? null : "D");
+        drug.setDuration(source.duration());
+        drug.setDurUnit(source.durationUnit());
         drug.setQuantity(source.quantity());
         drug.setRepeat(source.repeats());
         if (source.refillDurationDays() != null) drug.setRefillDuration(source.refillDurationDays());
@@ -143,7 +143,10 @@ public class CdsMedicationPersister {
         drug.setCustomNote(false);
         drug.setScriptNo(null); // A source prescription identifier is not a local executable script.
         drug.setPosition(0);
-        drug.setCreateDate(new Date());
+        // Use the same precision-marked calendar anchor as the source clinical dates.
+        // Only an occurrence with neither date needs a technical import-time fallback.
+        drug.setCreateDate(drug.getWrittenDate() != null ? drug.getWrittenDate()
+                : drug.getRxDate() != null ? drug.getRxDate() : new Date());
         return drug;
     }
 

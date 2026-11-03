@@ -95,14 +95,15 @@ class CdsClinicalNormalizationServiceUnitTest {
         assertThat(value.dose()).isEqualTo("1/2–1");
         assertThat(value.strengthAmount()).isEqualTo("10/5");
         assertThat(value.quantity()).isEqualTo("12.5");
-        assertThat(value.durationDays()).isEqualTo("30");
+        assertThat(value.duration()).isEqualTo("30");
+        assertThat(value.durationUnit()).isEqualTo("D");
         assertThat(value.refillDurationDays()).isEqualTo(15);
         assertThat(value.refillQuantity()).isEqualTo(12);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"2 weeks", "10mg", "1-2", "-1"})
-    void shouldRefuseNoncoreDuration_whenNoVendorAdapterWasSelected(String duration) throws Exception {
+    @ValueSource(strings = {"10mg", "1-2", "-1", "1.5 weeks", "2 weeks extra", "weeks"})
+    void shouldRefuseAmbiguousDuration_withoutTruncatingItsMeaning(String duration) throws Exception {
         assertThatThrownBy(() -> service.medication(medication(Map.of("Duration", duration))))
                 .isInstanceOf(CdsClinicalException.class).hasMessageContaining("CDS_NUMERIC_VALUE_REQUIRES_REVIEW");
     }

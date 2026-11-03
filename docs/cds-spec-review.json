@@ -3067,7 +3067,7 @@
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java"
       ],
-      "normalization": "Numeric day/integer boundaries checked; no treatment end date inferred from dispense duration; int overflow requires review.",
+      "normalization": "Initial duration accepts a whole number with optional D/W/M/Y or singular/plural day/week/month/year, case insensitive; a bare number means days. Preserve amount/unit without approximating months/years. Refill duration remains independent numeric days. No treatment end date inferred from dispense duration; int overflow requires review.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 10 (MedicationsAndTreatments)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -3872,7 +3872,7 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCareImportService.java": "09d47cf13789e22f07577d6962e41f69e79afbb2e7f5bd447dd7c016b07a6254",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCareNormalizationService.java": "c0ad80856b6d24adce5b78afce865a1f9a25dac2a988d7fcc50c38f5c55caf79",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCarePersister.java": "0b4fd1a8adcf31ae42a171a73bebc56d21fc4c41757405d302e4768c57b444ea",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java": "b4206410317acc3e832f6e27651f6de9c50ef7081e542c96da44fadc6a27cffd",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java": "07fa3d8d3d52d3092ff7ab72b1fe5b13681a6ba558147f7f6751411d9cd5d705",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java": "5c68c610cc6a27cd29136a61d2e6e538acac7a7274390b2b4cd6c42eeacf477c",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactImportService.java": "27b0917f13de06c698c6c2d2ff1cb9ad3fe8f7709411761a534e6dbc66d3b1e8",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactNormalizationService.java": "c30c671f2d392be76e5cdac7fef6b98471fa02f6fbc8f1972f9347482d4e98c4",
@@ -3887,7 +3887,7 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java": "a1a29b03f54fe18de5ac2408fc598d2f75d2aa649e990d4cdf12c80d16455be2",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportService.java": "e262df27b5fe64e8d99508b5de1f008404131c7ced1d31d1db4e865d6b5022b9",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryReadService.java": "992153749d3774b403618b01493768d0e1b3dd8aa4daa432d67fc9b06a9aea35",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java": "6e6ccac1b52f180df5af0a07bd8a572767f7f6531db579f99f9801d3f442e4f9",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java": "dda650eef873528677be2003265d09be54264656feaffbc1be19961ea7800986",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPatientIdentityResolver.java": "13b889bb6d5293efa2828c6f604a489f116a812b2858ca9c0ee8bfd5f5349b72",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPreflightIdentityService.java": "72205632d9f483a539763f77e6cfeb85f16a8b17c64da143cb436a9f215c2b3a",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsProviderResolver.java": "ae26b6565baa3455e3006fa5a45824f68cb03c4f4a7ff6a0f77854f1ed8f882e",

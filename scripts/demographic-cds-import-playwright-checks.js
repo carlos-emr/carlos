@@ -76,7 +76,7 @@ function buildCdsXml(v, provider) {
 <RecordedDate><cdsd:FullDate>2020-05-07</cdsd:FullDate></RecordedDate>
 </AllergiesAndAdverseReactions>
 <MedicationsAndTreatments>
-<PrescriptionWrittenDate><cdsd:FullDate>2026-01-15</cdsd:FullDate></PrescriptionWrittenDate>
+<PrescriptionWrittenDate><cdsd:FullDate>2010-03-04</cdsd:FullDate></PrescriptionWrittenDate>
 <StartDate><cdsd:FullDate>2026-01-15</cdsd:FullDate></StartDate>
 <DrugName>${xmlText(v.drug)}</DrugName>
 <NumberOfRefills>2</NumberOfRefills>
@@ -84,11 +84,23 @@ function buildCdsXml(v, provider) {
 <DosageUnitOfMeasure>tab</DosageUnitOfMeasure>
 <Route>PO</Route>
 <Frequency>BID</Frequency>
-<Duration>30</Duration>
+<Duration>2 weeks</Duration>
 <Quantity>60</Quantity>
 <PastMedications><cdsd:ynIndicatorsimple>N</cdsd:ynIndicatorsimple></PastMedications>
 <PrescriptionStatus>Active</PrescriptionStatus>
 <NonAuthoritativeIndicator>N</NonAuthoritativeIndicator>
+</MedicationsAndTreatments>
+<MedicationsAndTreatments>
+<PrescriptionWrittenDate><cdsd:FullDate>2011-05-06</cdsd:FullDate></PrescriptionWrittenDate>
+<DrugName>${xmlText(v.drug)} monthly</DrugName>
+<Duration>3 M</Duration>
+<PrescriptionStatus>Completed</PrescriptionStatus>
+</MedicationsAndTreatments>
+<MedicationsAndTreatments>
+<StartDate><cdsd:FullDate>2012-07-08</cdsd:FullDate></StartDate>
+<DrugName>${xmlText(v.drug)} yearly</DrugName>
+<Duration>1 year</Duration>
+<PrescriptionStatus>Active</PrescriptionStatus>
 </MedicationsAndTreatments>
 <ClinicalNotes>
 <NoteType>Clinical</NoteType>
@@ -413,16 +425,26 @@ async function workflow(s) {
     h.assert(s.sql.value(`SELECT CONCAT_WS('|',year_of_birth,month_of_birth,date_of_birth,sex,patient_status,address,city,province,postal,phone)
       FROM demographic WHERE demographic_no=${id}`) === ['1971','03','04','F','AC',v.address,v.city,'ON',v.postal,v.phone].join('|'),
     'Native demographic values differ from the source');
-    h.assert(s.sql.value(`SELECT CONCAT_WS('|',customName,rx_date,duration,quantity,\`repeat\`,route,freqcode,archived,cds_currentness)
-      FROM drugs WHERE demographic_no=${id}`) === [v.drug,'2026-01-15','30','60','2','PO','BID','0','CURRENT'].join('|'),
+    h.assert(s.sql.value(`SELECT CONCAT_WS('|',customName,rx_date,duration,durunit,quantity,\`repeat\`,route,freqcode,archived,cds_currentness,DATE(create_date))
+      FROM drugs WHERE demographic_no=${id} AND customName=${h.sqlString(v.drug)}`)
+      === [v.drug,'2026-01-15','2','W','60','2','PO','BID','0','CURRENT','2010-03-04'].join('|'),
     'Native medication values/currentness differ from explicit source evidence');
+    for (const [suffix,amount,unit,archived,currentness,created,reason] of [
+      ['monthly','3','M','1','HISTORICAL','2011-05-06','cds:Completed'],
+      ['yearly','1','Y','0','CURRENT','2012-07-08',''],
+    ]) {
+      h.assert(s.sql.value(`SELECT CONCAT_WS('|',duration,durunit,archived,cds_currentness,DATE(create_date),COALESCE(archived_reason,''))
+        FROM drugs WHERE demographic_no=${id} AND customName=${h.sqlString(`${v.drug} ${suffix}`)}`)
+        === [amount,unit,archived,currentness,created,reason].join('|'),
+      `${suffix} medication lost its duration unit, historical status or source creation date`);
+    }
     h.assert(s.sql.value(`SELECT CONCAT_WS('|',DESCRIPTION,TYPECODE,reaction,severity_of_reaction,start_date,archived)
       FROM allergies WHERE demographic_no=${id}`) === [v.allergen,'0','Rash','2','2020-05-06','0'].join('|'),
     'Allergy values differ or DR was falsely classified as a brand');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${id} AND note=${h.sqlString(v.note)}
       AND (signing_provider_no IS NULL OR signing_provider_no='') AND signed=0`) === '1',
     'Source encounter note was omitted, duplicated or falsely signed');
-    for (const table of ['drugs','allergies']) h.assert(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE demographic_no=${id}`) === '1', `${table} not exactly once`);
+    for (const [table,count] of [['drugs','3'],['allergies','1']]) h.assert(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE demographic_no=${id}`) === count, `${table} not exactly once`);
   });
   await s.step('An ordinary doctor cannot administer imports but retains authorized patient source-field access', async () => {
     const fixture = authzReadFixture({sql:s.sql,marker:s.marker,provider:s.provider,testUser:s.config.testUser});
@@ -468,7 +490,7 @@ async function workflow(s) {
         h.assert(rows.length === 1 && rows[0].patientId === v.lastName.slice(-20) && rows[0].held === false
           && rows[0].inventoryComplete === true, 'Event log does not reconcile the exact source patient/copy');
         const counts=rows[0].importedOccurrences;
-        h.assert(counts.Demographics === 1 && counts.MedicationsAndTreatments === 1
+        h.assert(counts.Demographics === 1 && counts.MedicationsAndTreatments === 3
           && counts.AllergiesAndAdverseReactions === 1 && counts.ClinicalNotes === 1
           && Object.keys(counts).length === 17, 'Event log category occurrences omit, duplicate or count helper units');
         h.assert(Object.values(rows[0].notCommittedOccurrences).every(count=>count === 0), 'Successful event receipt contains uncommitted clinical occurrences');
@@ -502,7 +524,7 @@ async function workflow(s) {
     });
     const results = await Promise.all([1,2].map(() => importApi(frame, 'cdsImportSubmit', {...options, uploadId: dry.uploadId}, 'POST')));
     h.assert(results.every(result => result.status === 202 && result.body?.job?.id === actual.job.id), 'Identical acceptance retry changed run identity');
-    h.assert(importedIds().length === 1 && s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${id}`) === '1'
+    h.assert(importedIds().length === 1 && s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${id}`) === '3'
       && s.sql.value(`SELECT COUNT(*) FROM allergies WHERE demographic_no=${id}`) === '1', 'Acceptance retry duplicated clinical data');
   });
   await s.step('Exact committed chunk retry is idempotent and altered retry is refused', async () => {
