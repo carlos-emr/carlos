@@ -76,8 +76,9 @@ const FAMILIES = [
   {
     name: 'demographic',
     probes: [
-      // The label action rejects an identifier it cannot read; the HIN is the bad identifier.
-      { status: 400, path: 'demographic/printDemoLabelAction', query: { ...PATIENT, demographic_no: '{HIN}', demographicNo: '{N}' } },
+      // A 10-digit HIN can fit in a Java int and reach PDF generation. The suffix
+      // makes validation fail for every HIN while still carrying it to the error page.
+      { status: 400, path: 'demographic/printDemoLabelAction', query: { ...PATIENT, demographic_no: '{HIN}x', demographicNo: '{N}' } },
       { status: 403, as: 'locked', path: 'demographic/DemographicEdit', query: PATIENT },
       { status: 403, as: 'clerk', path: 'demographic/DemographicEdit', query: PATIENT },
       { status: 404, path: 'demographic/NoSuchDemographicAction', query: PATIENT },

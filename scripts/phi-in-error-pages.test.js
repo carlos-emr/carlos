@@ -97,6 +97,17 @@ test('shouldCarryThePatientInEveryProbe_andSendOnlyPlaceholdersNeverFixtureValue
   }
 });
 
+test('shouldRejectTheLabelProbeIdentifier_forEveryTenDigitHin', () => {
+  const probe = FAMILIES.find(family => family.name === 'demographic').probes.find(probe => probe.status === 400);
+  // Include both sides of Integer.MAX_VALUE: the original probe only failed
+  // validation when its randomly drawn HIN overflowed that boundary.
+  for (const hin of ['1000000000', '2147483647', '2147483648', '9999999999']) {
+    const identifier = probe.query.demographic_no.replace('{HIN}', hin);
+    assert.ok(identifier.includes(hin), 'the malformed identifier must still carry the HIN');
+    assert.ok(!/^[+-]?\d+$/.test(identifier), 'the probe must fail integer parsing even below Integer.MAX_VALUE');
+  }
+});
+
 test('shouldSendTheCsrfTokenOnlyWithAProbeMeantToFailBeforeItWrites', () => {
   for (const family of FAMILIES) {
     for (const probe of family.probes) {
