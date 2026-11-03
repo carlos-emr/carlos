@@ -26,7 +26,7 @@ import java.util.List;
 /** Independent prescription meanings; no catalogue lookup can replace these source values. */
 public record CdsMedicationDto(String name, String din, String description, String strengthAmount,
         String strengthUnit, String dose, String doseUnit, String form, String route,
-        String frequency, String durationDays, Integer refillDurationDays, String quantity,
+        String frequency, String duration, String durationUnit, Integer refillDurationDays, String quantity,
         Integer refillQuantity, Integer repeats, Boolean longTerm, Boolean past,
         Boolean compliance, Boolean substitutionNotAllowed, Boolean nonAuthoritative,
         String treatmentType, String prescriptionStatus, Currentness currentness,

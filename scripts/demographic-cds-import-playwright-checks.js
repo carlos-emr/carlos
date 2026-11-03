@@ -76,7 +76,7 @@ function buildCdsXml(v, provider) {
 <RecordedDate><cdsd:FullDate>2020-05-07</cdsd:FullDate></RecordedDate>
 </AllergiesAndAdverseReactions>
 <MedicationsAndTreatments>
-<PrescriptionWrittenDate><cdsd:FullDate>2026-01-15</cdsd:FullDate></PrescriptionWrittenDate>
+<PrescriptionWrittenDate><cdsd:FullDate>2010-03-04</cdsd:FullDate></PrescriptionWrittenDate>
 <StartDate><cdsd:FullDate>2026-01-15</cdsd:FullDate></StartDate>
 <DrugName>${xmlText(v.drug)}</DrugName>
 <NumberOfRefills>2</NumberOfRefills>
@@ -84,11 +84,23 @@ function buildCdsXml(v, provider) {
 <DosageUnitOfMeasure>tab</DosageUnitOfMeasure>
 <Route>PO</Route>
 <Frequency>BID</Frequency>
-<Duration>30</Duration>
+<Duration>2 weeks</Duration>
 <Quantity>60</Quantity>
 <PastMedications><cdsd:ynIndicatorsimple>N</cdsd:ynIndicatorsimple></PastMedications>
 <PrescriptionStatus>Active</PrescriptionStatus>
 <NonAuthoritativeIndicator>N</NonAuthoritativeIndicator>
+</MedicationsAndTreatments>
+<MedicationsAndTreatments>
+<PrescriptionWrittenDate><cdsd:FullDate>2011-05-06</cdsd:FullDate></PrescriptionWrittenDate>
+<DrugName>${xmlText(v.drug)} monthly</DrugName>
+<Duration>3 M</Duration>
+<PrescriptionStatus>Completed</PrescriptionStatus>
+</MedicationsAndTreatments>
+<MedicationsAndTreatments>
+<StartDate><cdsd:FullDate>2012-07-08</cdsd:FullDate></StartDate>
+<DrugName>${xmlText(v.drug)} yearly</DrugName>
+<Duration>1 year</Duration>
+<PrescriptionStatus>Active</PrescriptionStatus>
 </MedicationsAndTreatments>
 <ClinicalNotes>
 <NoteType>Clinical</NoteType>
@@ -137,6 +149,7 @@ function childCleanup(id) {
     `DELETE FROM partial_date WHERE (table_name=2 AND table_id IN (${drugs})) OR (table_name=1 AND table_id IN (${allergies}))`,
     `DELETE FROM casemgmt_note_link WHERE note_id IN (SELECT note_id FROM (${notes}) n)`,
     `DELETE FROM casemgmt_issue_notes WHERE note_id IN (SELECT note_id FROM (${notes}) n)`,
+    `DELETE FROM casemgmt_note_ext WHERE note_id IN (SELECT note_id FROM (${notes}) n)`,
     `DELETE FROM casemgmt_note WHERE demographic_no=${h.sqlString(id)}`,
     `DELETE FROM casemgmt_issue WHERE demographic_no=${h.sqlString(id)}`,
     `DELETE FROM drugReason WHERE demographicNo=${id}`,
@@ -163,6 +176,18 @@ function remainingChildren(sql, id) {
     + (SELECT COUNT(*) FROM demographicArchive WHERE demographic_no=${id})
     + (SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${id})
     + (SELECT COUNT(*) FROM demographicPharmacy WHERE demographic_no=${id})`);
+}
+
+async function assertImportAccessDenied(response, message) {
+  const headers = response.headers();
+  const json = (headers['content-type'] || '').includes('application/json');
+  const body = json ? await response.json() : await response.text();
+  // The Struts privilege interceptor can refuse before the import action emits JSON.
+  // Require the application's own header and explicit refusal page, never a WAF 403.
+  h.assert(response.status() === 403 && Object.hasOwn(headers, h.APPLICATION_HEADER)
+    && (json ? body.code === 'IMPORT_ACCESS_DENIED'
+      : h.isSecurityErrorBody(body)),
+  `${message} (HTTP ${response.status()})`);
 }
 
 const metadataObservers = new WeakMap();
@@ -249,6 +274,7 @@ async function importApi(frame, route, params = {}, method = 'GET') {
       h.assert(version === String(API_VERSION) && body.apiVersion === API_VERSION, 'Live metadata protocol requires a client refresh');
     }
     return {status: response.status(), body, apiVersion:version, type: response.headers()['content-type'],
+      fromApplication: Object.hasOwn(response.headers(), h.APPLICATION_HEADER), waf: h.isWafPage(response.status(), text),
       redirected: response.status() >= 300 && response.status() < 400};
   } finally { await response.dispose(); }
 }
@@ -413,16 +439,26 @@ async function workflow(s) {
     h.assert(s.sql.value(`SELECT CONCAT_WS('|',year_of_birth,month_of_birth,date_of_birth,sex,patient_status,address,city,province,postal,phone)
       FROM demographic WHERE demographic_no=${id}`) === ['1971','03','04','F','AC',v.address,v.city,'ON',v.postal,v.phone].join('|'),
     'Native demographic values differ from the source');
-    h.assert(s.sql.value(`SELECT CONCAT_WS('|',customName,rx_date,duration,quantity,\`repeat\`,route,freqcode,archived,cds_currentness)
-      FROM drugs WHERE demographic_no=${id}`) === [v.drug,'2026-01-15','30','60','2','PO','BID','0','CURRENT'].join('|'),
+    h.assert(s.sql.value(`SELECT CONCAT_WS('|',customName,rx_date,duration,durunit,quantity,\`repeat\`,route,freqcode,archived,cds_currentness,DATE(create_date))
+      FROM drugs WHERE demographic_no=${id} AND customName=${h.sqlString(v.drug)}`)
+      === [v.drug,'2026-01-15','2','W','60','2','PO','BID','0','CURRENT','2010-03-04'].join('|'),
     'Native medication values/currentness differ from explicit source evidence');
+    for (const [suffix,amount,unit,archived,currentness,created,reason] of [
+      ['monthly','3','M','1','HISTORICAL','2011-05-06','cds:Completed'],
+      ['yearly','1','Y','0','CURRENT','2012-07-08',''],
+    ]) {
+      h.assert(s.sql.value(`SELECT CONCAT_WS('|',duration,durunit,archived,cds_currentness,DATE(create_date),COALESCE(archived_reason,''))
+        FROM drugs WHERE demographic_no=${id} AND customName=${h.sqlString(`${v.drug} ${suffix}`)}`)
+        === [amount,unit,archived,currentness,created,reason].join('|'),
+      `${suffix} medication lost its duration unit, historical status or source creation date`);
+    }
     h.assert(s.sql.value(`SELECT CONCAT_WS('|',DESCRIPTION,TYPECODE,reaction,severity_of_reaction,start_date,archived)
       FROM allergies WHERE demographic_no=${id}`) === [v.allergen,'0','Rash','2','2020-05-06','0'].join('|'),
     'Allergy values differ or DR was falsely classified as a brand');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${id} AND note=${h.sqlString(v.note)}
       AND (signing_provider_no IS NULL OR signing_provider_no='') AND signed=0`) === '1',
     'Source encounter note was omitted, duplicated or falsely signed');
-    for (const table of ['drugs','allergies']) h.assert(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE demographic_no=${id}`) === '1', `${table} not exactly once`);
+    for (const [table,count] of [['drugs','3'],['allergies','1']]) h.assert(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE demographic_no=${id}`) === count, `${table} not exactly once`);
   });
   await s.step('An ordinary doctor cannot administer imports but retains authorized patient source-field access', async () => {
     const fixture = authzReadFixture({sql:s.sql,marker:s.marker,provider:s.provider,testUser:s.config.testUser});
@@ -437,16 +473,12 @@ async function workflow(s) {
       const headers = {'CSRF-TOKEN':token,'X-Requested-With':'XMLHttpRequest'};
       for (const route of ['/form/importUpload', `/form/cdsImportStatus?runId=${actual.job.id}&apiVersion=${API_VERSION}`]) {
         const denied = await doctor.context.request.get(h.appUrl(s.config.baseUrl,route), {maxRedirects:0,headers});
-        const json = (denied.headers()['content-type'] || '').includes('application/json');
-        h.assert(denied.status() === 403 && denied.headers()['x-permitted-cross-domain-policies'] !== undefined
-          && (json ? (await denied.json()).code === 'IMPORT_ACCESS_DENIED' : route === '/form/importUpload'),
-          'An ordinary doctor acquired import-administration or run access');
+        await assertImportAccessDenied(denied, 'An ordinary doctor acquired import-administration or run access');
       }
       const denied = await doctor.context.request.post(h.appUrl(s.config.baseUrl,'/form/cdsUpload'),
         {maxRedirects:0,headers,
           form:{operation:'begin',fileName:'denied.xml',expectedBytes:'1',apiVersion:API_VERSION}});
-      h.assert(denied.status() === 403 && (await denied.json()).code === 'IMPORT_ACCESS_DENIED',
-        'An ordinary doctor reserved upload bytes');
+      await assertImportAccessDenied(denied, 'An ordinary doctor reserved upload bytes');
       h.assert(s.sql.value('SELECT COUNT(*) FROM cds_import_upload') === count, 'Denied import administration changed durable uploads');
       const readable = await doctor.context.request.get(h.appUrl(s.config.baseUrl,
         `/demographic/cdsSourceFields?demographicNo=${id}&category=Demographics`), {maxRedirects:0,headers});
@@ -468,7 +500,7 @@ async function workflow(s) {
         h.assert(rows.length === 1 && rows[0].patientId === v.lastName.slice(-20) && rows[0].held === false
           && rows[0].inventoryComplete === true, 'Event log does not reconcile the exact source patient/copy');
         const counts=rows[0].importedOccurrences;
-        h.assert(counts.Demographics === 1 && counts.MedicationsAndTreatments === 1
+        h.assert(counts.Demographics === 1 && counts.MedicationsAndTreatments === 3
           && counts.AllergiesAndAdverseReactions === 1 && counts.ClinicalNotes === 1
           && Object.keys(counts).length === 17, 'Event log category occurrences omit, duplicate or count helper units');
         h.assert(Object.values(rows[0].notCommittedOccurrences).every(count=>count === 0), 'Successful event receipt contains uncommitted clinical occurrences');
@@ -502,7 +534,7 @@ async function workflow(s) {
     });
     const results = await Promise.all([1,2].map(() => importApi(frame, 'cdsImportSubmit', {...options, uploadId: dry.uploadId}, 'POST')));
     h.assert(results.every(result => result.status === 202 && result.body?.job?.id === actual.job.id), 'Identical acceptance retry changed run identity');
-    h.assert(importedIds().length === 1 && s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${id}`) === '1'
+    h.assert(importedIds().length === 1 && s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${id}`) === '3'
       && s.sql.value(`SELECT COUNT(*) FROM allergies WHERE demographic_no=${id}`) === '1', 'Acceptance retry duplicated clinical data');
   });
   await s.step('Exact committed chunk retry is idempotent and altered retry is refused', async () => {
@@ -544,11 +576,19 @@ async function workflow(s) {
     h.assert(await frame.locator('#patientRows tr').count() <= 50 && await frame.locator('#diagnosticRows tr').count() <= 50
       && await frame.locator('#uploadRows tr').count() <= 50, 'Operator DOM exceeded bounded page sizes');
   });
-  await s.step('Foreign run and physical report-path probes are refused without revealing paths', async () => {
+  await s.step('Foreign runs and invalid report types are refused; traversal probes identify the refusal layer', async () => {
     const foreign=await importApi(frame,'cdsImportStatus',{runId:randomUUID()});
     h.assert([403,404,409].includes(foreign.status) && foreign.body?.ok === false, 'Unknown run was exposed or treated as success');
+    const invalid=await importApi(frame,'cdsImportReport',{runId:actual.job.id,type:'invalid'});
+    h.assert(invalid.status === 400 && invalid.fromApplication && invalid.body?.code === 'IMPORT_REPORT_INVALID',
+      'The application did not refuse an unknown report type');
     const report=await importApi(frame,'cdsImportReport',{runId:actual.job.id,type:'../../etc/passwd'});
-    h.assert(report.status === 400, 'Physical report-path probe was not refused');
+    if (report.status === 403 && report.waf) {
+      console.log('NOTE traversal probe: front-door WAF refused; application not reached. Backend report allow-list verified separately.');
+    } else {
+      h.assert(report.status === 400 && report.fromApplication && report.body?.code === 'IMPORT_REPORT_INVALID',
+        'The application did not refuse a physical report path');
+    }
   });
 }
 

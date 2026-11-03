@@ -39206,7 +39206,7 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java"
         ],
-        "normalization": "Numeric day/integer boundaries checked; no treatment end date inferred from dispense duration; int overflow requires review.",
+        "normalization": "Initial duration accepts a whole number with optional D/W/M/Y or singular/plural day/week/month/year, case insensitive; a bare number means days. Preserve amount/unit without approximating months/years. Refill duration remains independent numeric days. No treatment end date inferred from dispense duration; int overflow requires review.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 10 (MedicationsAndTreatments)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -39783,7 +39783,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described.",
-    "sha256": "7bfd37a075e5a7ed99961bbe93abd591e2e1987144c1cf6701665e8a1d516604"
+    "sha256": "a09622f33d9ba22acade9956af273bc2e644b109e775153adbf6456c16021e10"
   },
   "root": "cds:OmdCds",
   "schemas": [

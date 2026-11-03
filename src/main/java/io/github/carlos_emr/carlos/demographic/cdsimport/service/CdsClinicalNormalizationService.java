@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import com.google.common.base.Ascii;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsClinicalDiagnosticDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImmunizationDto;
@@ -38,6 +39,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 
 /** Pure clinical interpretation of one bounded source occurrence; never performs a database write. */
@@ -47,6 +49,8 @@ public class CdsClinicalNormalizationService {
             "Aborted", "Completed", "Obsolete", "Nullified");
     private static final Set<String> TREATMENTS = Set.of("CHRON", "ACU", "ONET",
             "PRN Long-term", "PRN Short-term");
+    private static final Pattern MEDICATION_DURATION = Pattern.compile(
+            "([0-9]+)\\s*(D|DAYS?|W|WEEKS?|M|MONTHS?|Y|YEARS?)?", Pattern.CASE_INSENSITIVE);
     private final CdsFieldParser fields;
 
     public CdsClinicalNormalizationService(CdsFieldParser fields) { this.fields = fields; }
@@ -71,7 +75,17 @@ public class CdsClinicalNormalizationService {
         if (currentness == Currentness.UNKNOWN) {
             diagnostics.add(new CdsClinicalDiagnosticDto("CDS_RX_CURRENTNESS_UNKNOWN", "PrescriptionStatus"));
         }
-        String duration = numericText(text(record, "Duration", 1024), "Duration", true);
+        String durationText = text(record, "Duration", 1024);
+        String duration = null, durationUnit = null;
+        if (durationText != null) {
+            var match = MEDICATION_DURATION.matcher(durationText.strip());
+            if (!match.matches()) {
+                throw new CdsClinicalException("CDS_NUMERIC_VALUE_REQUIRES_REVIEW", "Duration");
+            }
+            duration = match.group(1);
+            durationUnit = match.group(2) == null ? "D"
+                    : Ascii.toUpperCase(match.group(2).substring(0, 1));
+        }
         String quantity = numericText(text(record, "Quantity", 1024), "Quantity", false);
         String dose = text(record, "Dosage", 120);
         if (dose != null && CdsMedicationDose.parse(dose).isEmpty()) {
@@ -109,7 +123,7 @@ public class CdsClinicalNormalizationService {
         if (requiresReconciliation) diagnostics.add(new CdsClinicalDiagnosticDto("CDS_RX_RECONCILIATION_REQUIRED", "MedicationsAndTreatments"));
         return new CdsMedicationDto(name, din, text(record, "DrugDescription", 2000),
                 strengthAmount, strengthUnit, dose, doseUnit, form, route, frequency,
-                duration, integer(text(record, "RefillDuration", 1024), "RefillDuration"), quantity,
+                duration, durationUnit, integer(text(record, "RefillDuration", 1024), "RefillDuration"), quantity,
                 integer(text(record, "RefillQuantity", 1024), "RefillQuantity"),
                 repeats,
                 indicator(record, "LongTermMedication", false), past,
