@@ -346,7 +346,9 @@ async function workflow(s) {
     // Rewrite only the patient field of the real Clear Photo form submission, then render
     // the server's response in that manager. This deliberately probes malformed POST input.
     const before = sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no IN (${patient},${patientB})`);
-    for (const values of [[], ['invalid'], ['0'], ['2147483648'], [patient, patientB]]) {
+    // CRS 942220 reserves 2147483648 as an attack signature; the next integer
+    // exercises Java's same overflow boundary through the installed front door.
+    for (const values of [[], ['invalid'], ['0'], ['2147483649'], [patient, patientB]]) {
       await h.gotoApp(managerB, s.config.baseUrl, `/casemgmt/ViewUploadimage?demographicNo=${patientB}`);
       const rewritePatient = async route => {
         h.assert(route.request().method() === 'POST', 'The malformed photo probe must submit the real form');
