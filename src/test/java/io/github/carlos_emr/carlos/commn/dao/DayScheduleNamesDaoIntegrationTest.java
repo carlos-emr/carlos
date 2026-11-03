@@ -1,4 +1,5 @@
 /*
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -83,6 +84,7 @@ class DayScheduleNamesDaoIntegrationTest extends CarlosTestBase {
         LoggedInInfo info = new LoggedInInfo();
         SecurityInfoManager security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(eq(info), eq("_demographic"), eq(SecurityInfoManager.READ), anyInt())).thenReturn(true);
+        when(security.hasDemographicReadPrivileges(eq(info), any())).thenReturn(true);
         ScheduleService bulk = service(manager(false, security), appointments, info);
         ScheduleService legacy = service(manager(true, security), appointments, info);
         var statistics = entityManager.getEntityManagerFactory().unwrap(SessionFactory.class).getStatistics();

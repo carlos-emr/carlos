@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -27,6 +28,10 @@
 
 package io.github.carlos_emr.carlos.util;
 
+import java.util.Collection;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.LinkedHashSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -55,6 +60,36 @@ public class OscarRoleObjectPrivilege {
      * does not imply any of r/u/w and is matched by exact equality instead.
      */
     private static final String PRIVILEGE_HIERARCHY = "ruw";
+
+    /**
+     * Reads independent security objects in bounded batches, retaining priority order per object.
+     * No result is cached: callers own this snapshot for one bulk authorization operation.
+     * @param objectNames individual object names, without comma-separated expressions
+     * @return a privilege vector for each requested object, including absent objects
+     */
+    @SuppressWarnings("unchecked")
+    public static Map<String, Vector<Object>> getPrivilegeProps(Collection<String> objectNames) {
+        List<String> names = new ArrayList<>(new LinkedHashSet<>(objectNames));
+        Map<String, Vector<Object>> results = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        for (String name : names) {
+            Vector<Object> vector = new Vector<>();
+            vector.add(new Properties());
+            vector.add(new Vector<String>());
+            vector.add(new ArrayList<String>());
+            results.put(name, vector);
+        }
+        if (names.isEmpty()) return results;
+        SecObjPrivilegeDao dao = SpringUtils.getBean(SecObjPrivilegeDao.class);
+        for (int start = 0; start < names.size(); start += 500) {
+            for (SecObjPrivilege row : dao.findByObjectNames(names.subList(start, Math.min(start + 500, names.size())))) {
+                Vector<Object> vector = results.get(row.getId().getObjectName().stripTrailing());
+                ((Properties) vector.get(0)).setProperty(row.getId().getRoleUserGroup(), row.getPrivilege());
+                ((List<String>) vector.get(1)).add(row.getId().getRoleUserGroup());
+                ((List<String>) vector.get(2)).add(String.valueOf(row.getPriority()));
+            }
+        }
+        return results;
+    }
 
     public static Vector<Object> getPrivilegeProp(String objName) {
         Properties prop = new Properties();

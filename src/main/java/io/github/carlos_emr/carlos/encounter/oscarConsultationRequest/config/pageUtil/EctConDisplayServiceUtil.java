@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -33,12 +34,13 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pa
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
+import org.apache.commons.lang3.StringUtils;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.ServiceSpecialistsDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultationServices;
-import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
+import io.github.carlos_emr.carlos.consultation.dto.SpecialistListRow;
 import io.github.carlos_emr.carlos.commn.model.ServiceSpecialists;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -90,17 +92,18 @@ public class EctConDisplayServiceUtil {
         referralNoVec = new ArrayList<String>();
 
         ProfessionalSpecialistDao dao = SpringUtils.getBean(ProfessionalSpecialistDao.class);
-        for (ProfessionalSpecialist ps : dao.findAll()) {
-            fNameVec.add(ps.getFirstName());
-            lNameVec.add(ps.getLastName());
-            proLettersVec.add(ps.getProfessionalLetters());
-            addressVec.add(ps.getStreetAddress());
-            phoneVec.add(ps.getPhoneNumber());
-            faxVec.add(ps.getFaxNumber());
-            websiteVec.add(ps.getWebSite());
-            emailVec.add(ps.getEmailAddress());
-            specTypeVec.add(ps.getSpecialtyType());
-            specIdVec.add(ps.getId().toString());
+        for (SpecialistListRow ps : dao.findListRows()) {
+            fNameVec.add(ps.firstName());
+            lNameVec.add(ps.lastName());
+            proLettersVec.add(ps.professionalLetters());
+            // Preserve ProfessionalSpecialist.getStreetAddress() for raw projected values.
+            addressVec.add(StringUtils.trimToEmpty(ps.streetAddress()));
+            phoneVec.add(ps.phoneNumber());
+            faxVec.add(ps.faxNumber());
+            websiteVec.add(ps.webSite());
+            emailVec.add(ps.emailAddress());
+            specTypeVec.add(ps.specialtyType());
+            specIdVec.add(ps.id().toString());
         }
     }
 

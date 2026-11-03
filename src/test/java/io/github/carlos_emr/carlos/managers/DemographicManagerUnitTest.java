@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2026. Magenta Health. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -113,6 +114,7 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
      */
     @BeforeEach
     void setUp() {
+        when(mockSecurityInfoManager.hasDemographicReadPrivileges(any(), anyCollection())).thenReturn(true);
         // Register mocks for SpringUtils BEFORE mocking any static classes
         // This order is critical - static initializers may call SpringUtils.getBean()
         registerMock(DemographicDao.class, mockDemographicDao);
@@ -208,9 +210,8 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
 
             assertThat(names).containsEntry(12, "O'Neil, Zoë").containsEntry(13, "null, ").doesNotContainKey(99);
             var order = inOrder(mockSecurityInfoManager, mockDemographicDao);
-            order.verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_demographic", SecurityInfoManager.READ, 12);
-            order.verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_demographic", SecurityInfoManager.READ, 13);
-            order.verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_demographic", SecurityInfoManager.READ, 99);
+            order.verify(mockSecurityInfoManager).hasDemographicReadPrivileges(mockLoggedInInfo,
+                new LinkedHashSet<>(List.of(12, 13, 99)));
             order.verify(mockDemographicDao).getDemographicNames(new LinkedHashSet<>(List.of(12, 13, 99)));
             verifyNoMoreInteractions(mockDemographicDao);
             verifyNoInteractions(mockProviderManager, mockAppointmentManager);
@@ -218,7 +219,7 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
 
         @Test
         void shouldReadNoNames_whenAnyPatientIsDenied() {
-            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_demographic", SecurityInfoManager.READ, 13))
+            when(mockSecurityInfoManager.hasDemographicReadPrivileges(mockLoggedInInfo, new LinkedHashSet<>(List.of(12, 13))))
                 .thenReturn(false);
 
             assertThatThrownBy(() -> manager.getDemographicFormattedNames(mockLoggedInInfo, List.of(12, 13)))
@@ -229,7 +230,7 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         @Test
         void shouldPreservePatientDirective_whenPrivilegeCheckThrows() {
             var directive = new io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException("restricted");
-            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_demographic", SecurityInfoManager.READ, 12))
+            when(mockSecurityInfoManager.hasDemographicReadPrivileges(mockLoggedInInfo, new LinkedHashSet<>(List.of(12))))
                 .thenThrow(directive);
 
             assertThatThrownBy(() -> manager.getDemographicFormattedNames(mockLoggedInInfo, List.of(12)))

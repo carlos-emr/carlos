@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -36,6 +37,7 @@ import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt.DemographicProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ConsultationRequestExtKey;
 import io.github.carlos_emr.carlos.fax.core.FaxRecipient;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationFaxRow;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.DemographicContactCreator;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -136,7 +138,6 @@ public class EctConsultationFormRequestUtil {
 	private final ConsultationServiceDao consultationServiceDao = (ConsultationServiceDao) SpringUtils.getBean(ConsultationServiceDao.class);
 	private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 	private final ContactDao contactDao = SpringUtils.getBean(ContactDao.class);
-	private final FaxJobDao faxJobDao = SpringUtils.getBean(FaxJobDao.class);
     private final FaxClientLogDao faxClientLogDao = SpringUtils.getBean(FaxClientLogDao.class);
 
     private final boolean bMultisites = IsPropertiesOn.isMultisitesEnable();
@@ -249,7 +250,11 @@ public class EctConsultationFormRequestUtil {
 
 		ConsultationRequest cr = consultationRequestDao.find(Integer.parseInt(id));
 		
-		if (cr != null) {
+        Map<String, String> extensions = new HashMap<>();
+        if (cr != null) {
+            for (ConsultationRequestExt ext : consultationRequestExtDao.getConsultationRequestExts(cr.getId())) {
+                if (!extensions.containsKey(ext.getKey())) extensions.put(ext.getKey(), ext.getValue());
+            }
 			fdid = cr.getFdid();
 			pwb = ConversionUtils.toBoolString(cr.isPatientWillBook());
 			urgency = cr.getUrgency();
@@ -322,7 +327,7 @@ public class EctConsultationFormRequestUtil {
 			setAppointmentInstructions( cr.getAppointmentInstructions() );
 			setAppointmentInstructionsLabel( cr.getAppointmentInstructionsLabel() );
 			letterheadName = cr.getLetterheadName();
-			letterheadTitle = consultationRequestExtDao.getConsultationRequestExtsByKey(Integer.parseInt(id), "letterheadTitle");
+			letterheadTitle = extensions.get("letterheadTitle");
 			letterheadAddress = cr.getLetterheadAddress();
 			letterheadPhone = cr.getLetterheadPhone();
 			letterheadFax = cr.getLetterheadFax();
@@ -376,7 +381,7 @@ public class EctConsultationFormRequestUtil {
                 }
             }
 
-			isEReferral = consultationRequestExtDao.getConsultationRequestExtsByKey(Integer.parseInt(id), ConsultationRequestExtKey.EREFERRAL_REF.getKey()) != null;
+			isEReferral = extensions.get(ConsultationRequestExtKey.EREFERRAL_REF.getKey()) != null;
         }
 
         getFaxLogs(id);
@@ -386,9 +391,7 @@ public class EctConsultationFormRequestUtil {
 
     private void getFaxLogs(String requestId) {
 
-        List<FaxClientLog> faxClientLogs = faxClientLogDao.findClientLogbyRequestId(Integer.parseInt(requestId));
-        for (FaxClientLog faxClientLog : faxClientLogs) {
-            FaxJob faxJob = faxJobDao.find(faxClientLog.getFaxId());
+        for (ConsultationFaxRow faxJob : faxClientLogDao.findConsultationFaxRows(Integer.parseInt(requestId))) {
             FaxRecipient faxRecipient = null;
             String specialistFax = "";
 
@@ -407,12 +410,12 @@ public class EctConsultationFormRequestUtil {
 
             if (faxJob != null) {
                 faxRecipient = new FaxRecipient();
-                faxRecipient.setFax(faxJob.getDestination());
-                faxRecipient.setName(faxJob.getRecipient());
-                faxRecipient.setStatus(faxJob.getStatus());
-                faxRecipient.setSent(faxClientLog.getStartTime());
+                faxRecipient.setFax(faxJob.destination());
+                faxRecipient.setName(faxJob.recipient());
+                faxRecipient.setStatus(faxJob.status());
+                faxRecipient.setSent(faxJob.sent());
 
-                MiscUtils.getLogger().debug("Does this fax number " + specialistFax + " equal this fax number " + faxRecipient.getFax());
+
             }
 
 

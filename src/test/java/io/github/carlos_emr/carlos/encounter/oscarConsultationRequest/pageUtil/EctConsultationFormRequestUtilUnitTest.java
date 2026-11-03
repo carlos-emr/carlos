@@ -152,4 +152,27 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
         assertThat(consultationFormRequestUtil.getServiceName("abc")).isEmpty();
         verifyNoInteractions(mockConsultationServiceDao);
     }
+
+    @Test
+    @DisplayName("should classify joined fax rows without loading jobs individually")
+    void shouldClassifyFaxHistory_fromJoinedRows() {
+        var logDao = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.FaxClientLogDao.class);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.FaxClientLogDao.class, logDao);
+        var specialist = new io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist();
+        specialist.setFaxNumber("(555) 123-4567");
+        var util = new EctConsultationFormRequestUtil();
+        org.springframework.test.util.ReflectionTestUtils.setField(util, "professionalSpecialist", specialist);
+        var main = new io.github.carlos_emr.carlos.consultation.dto.ConsultationFaxRow(
+                "5551234567", "Specialist", io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS.SENT, new java.util.Date(1000L));
+        var copy = new io.github.carlos_emr.carlos.consultation.dto.ConsultationFaxRow(
+                "5557654321", "Copy", io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS.ERROR, new java.util.Date(500L));
+        org.mockito.Mockito.when(logDao.findConsultationFaxRows(42)).thenReturn(java.util.List.of(main, copy));
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(util, "getFaxLogs", "42");
+        org.assertj.core.api.Assertions.assertThat(util.getSpecialistFaxLog().getStatus()).isEqualTo(main.status());
+        org.assertj.core.api.Assertions.assertThat(util.getSpecialistFaxLog().getSent()).isEqualTo(main.sent());
+        org.assertj.core.api.Assertions.assertThat(util.getCopyToFaxLog()).hasSize(1);
+        org.assertj.core.api.Assertions.assertThat(util.getCopyToFaxLog().iterator().next().getFax()).isEqualTo(copy.destination());
+        org.mockito.Mockito.verify(logDao).findConsultationFaxRows(42);
+        org.mockito.Mockito.verifyNoInteractions(mockFaxJobDao);
+    }
 }

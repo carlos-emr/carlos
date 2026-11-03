@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -36,10 +37,24 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.merge.MergedDemographicTemplate;
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
 import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationListRow;
 import org.springframework.stereotype.Repository;
 
 @Repository("consultationRequestDao")
 public class ConsultationRequestMergedDemographicDaoImpl extends ConsultationRequestDaoImpl implements ConsultationRequestMergedDemographicDao {
+
+    /** {@inheritDoc} */
+    @Override
+    public List<ConsultationListRow> getConsultationListRows(Integer demographicNo) {
+        List<ConsultationListRow> result = super.getConsultationListRows(demographicNo);
+        MergedDemographicTemplate<ConsultationListRow> template = new MergedDemographicTemplate<>() {
+            @Override
+            protected List<ConsultationListRow> findById(Integer mergedId) {
+                return ConsultationRequestMergedDemographicDaoImpl.super.getConsultationListRows(mergedId);
+            }
+        };
+        return template.findMerged(demographicNo, result);
+    }
 
     @Override
     public List<ConsultationRequest> getConsults(Integer demoNo) {

@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -56,6 +57,21 @@ public interface SecurityInfoManager {
     /** Evaluate the same privilege policy without changing the session's account-lock state.
      * Use for discovery that may inspect records belonging to several patients. */
     public boolean hasPrivilegeReadOnly(LoggedInInfo loggedInInfo, String objectName, String privilege, String demographicNo);
+
+    /**
+     * Checks every distinct patient's demographic read policy before a bulk read.
+     * Implementations may batch the role/privilege reads, but must retain patient overrides
+     * and account-lock effects. The snapshot must not be reused across requests.
+     * @param loggedInInfo current user and session
+     * @param demographicNos non-null patient IDs in evaluation order
+     * @return true only when every patient is readable
+     */
+    default boolean hasDemographicReadPrivileges(LoggedInInfo loggedInInfo, Collection<Integer> demographicNos) {
+        for (Integer id : new LinkedHashSet<>(demographicNos)) {
+            if (!hasPrivilege(loggedInInfo, "_demographic", READ, id)) return false;
+        }
+        return true;
+    }
 
     public boolean isAllowedAccessToPatientRecord(LoggedInInfo loggedInInfo, Integer demographicNo);
 }
