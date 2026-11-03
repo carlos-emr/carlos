@@ -57,7 +57,7 @@ class PartialDateExplanationUnitTest {
             java.util.Locale.setDefault(java.util.Locale.forLanguageTag("th-TH"));
             assertThat(PartialDateExplanation.recordedValue(original, "YYYY")).isEqualTo("2019");
             assertThat(PartialDateExplanation.forSave("2019-01-01", original, "YYYY", false)).isEqualTo("2019");
-            assertThat(PartialDateExplanation.explain("2019-05", java.util.Locale.FRENCH)).contains("mai 2019", "jour exact est inconnu");
+            assertThat(PartialDateExplanation.explain("2019-05", java.util.Locale.FRENCH)).contains("mai 2019", "exact day is unknown");
         } finally {
             java.util.Locale.setDefault(previous);
         }
