@@ -181,7 +181,10 @@ for (const phase of ['CPP POST', 'note refresh', 'Unresolved Issues', 'panel ren
     const h = harness();
     let saves = 0;
     if (phase === 'request setup') {
-      h.context.CarlosAjax.request = () => { throw new Error('request setup failed'); };
+      h.context.CarlosAjax.request = () => {
+        assert.equal(h.context.deferNoteSaveUntilIssues(() => saves++), true);
+        throw new Error('request setup failed');
+      };
     }
     h.context.updateCPPNote();
     if (phase !== 'request setup') {
