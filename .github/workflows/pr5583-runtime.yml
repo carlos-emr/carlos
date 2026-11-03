@@ -1,0 +1,144 @@
+# Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+# 
+# This software is published under the GPL GNU General Public License.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# 
+# CARLOS EMR Project
+# https://github.com/carlos-emr/carlos
+# Disposable investigation only; this workflow is not part of PR #5583.
+name: PR 5583 Runtime Investigation
+on:
+  push:
+    branches: [validation/pr-5583-runtime]
+permissions:
+  contents: read
+  packages: read
+concurrency:
+  group: pr-5583-runtime-investigation
+  cancel-in-progress: true
+env:
+  SOURCE_SHA: 36d2bfa6dc5db4710a05ecd685ad94f12de728d2
+jobs:
+  runtime-probes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out the exact PR source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+      - name: Start a synthetic database using the Google registry mirror
+        run: |
+          set -euo pipefail
+          docker network create carlos-probe-net
+          sed 's|^FROM mariadb:|FROM mirror.gcr.io/library/mariadb:|' \
+            .devcontainer/db/Dockerfile > "$RUNNER_TEMP/pr5583-db.Dockerfile"
+          docker build -f "$RUNNER_TEMP/pr5583-db.Dockerfile" -t pr5583-db .
+          docker run -d --name db --network carlos-probe-net \
+            --env-file .devcontainer/development/config/shared/local.env pr5583-db
+          ready=false
+          for attempt in $(seq 1 120); do
+            if docker exec db sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb -h 127.0.0.1 -u root carlos -Nse "SELECT COUNT(*) FROM security" >/dev/null 2>&1'; then
+              ready=true
+              break
+            fi
+            sleep 3
+          done
+          if [ "$ready" != true ]; then
+            docker logs --tail 100 db
+            exit 1
+          fi
+          # A disposable seeded account, using its documented password. These
+          # workflow probes test clinical paths rather than first-login reset.
+          docker exec -i db sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb -h 127.0.0.1 -u root carlos' <<'SQL'
+          UPDATE security SET forcePasswordReset=0 WHERE user_name='carlosdoc';
+          SQL
+      - name: Start the development application container
+        uses: ./.github/actions/dev-container
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          maven-cache: restore
+          extra-run-args: >-
+            --network carlos-probe-net
+            --env-file ${{ github.workspace }}/.devcontainer/development/config/shared/local.env
+      - name: Build, deploy, and wait for the application
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          docker exec carlos-tomcat-dev bash -c 'make install'
+          docker exec carlos-tomcat-dev bash -c '
+            set -euo pipefail
+            if ! pgrep -f "[o]rg.apache.catalina.startup.Bootstrap" >/dev/null; then
+              /usr/local/tomcat/bin/startup.sh
+            fi
+            ready=false
+            for attempt in $(seq 1 100); do
+              code="$(curl -s --max-time 5 -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/carlos/ || true)"
+              case "$code" in 200|302|303) ready=true; break ;; esac
+              sleep 3
+            done
+            if [ "$ready" != true ]; then
+              tail -n 160 /usr/local/tomcat/logs/catalina.out
+              exit 1
+            fi
+          '
+      - name: Run the reported probes individually and repeat tickler
+        run: |
+          set -euo pipefail
+          docker exec -e SOURCE_SHA="$SOURCE_SHA" carlos-tomcat-dev bash -c '
+            set -uo pipefail
+            export NODE_PATH="$(npm root -g)"
+            export BASE_URL=http://127.0.0.1:8080/carlos
+            export TEST_USER=carlosdoc TEST_PASSWORD=carlos2026 TEST_PIN=2026
+            export MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD="$MYSQL_ROOT_PASSWORD" MYSQL_DATABASE=carlos
+            export ALLOW_NON_LOCAL_MYSQL_HOST=true CARLOS_DISPOSABLE_VM=true EXCLUSIVE=1
+            export PRESCRIPTION_DEMOGRAPHIC_NO=1
+            mkdir -p /tmp/pr5583-runtime
+            printf "%s\n" "$SOURCE_SHA" > /tmp/pr5583-runtime/source-sha.txt
+            node -e "process.stdout.write(require(\"playwright\").chromium.executablePath())" > /tmp/pr5583-chrome-path
+            export CHROME_PATH="$(cat /tmp/pr5583-chrome-path)"
+            status=0
+            round=0
+            for name in rx-preview-pharmacy echart-note-verify-appointment-status echart-two-patient-isolation tickler-crud tickler-crud tickler-crud; do
+              round=$((round + 1))
+              log="/tmp/pr5583-runtime/$round-$name.log"
+              timeout --signal=TERM --kill-after=30s 1000s node "scripts/$name-playwright-checks.js" >"$log" 2>&1
+              rc=$?
+              printf "%s %s exit=%s\n" "$round" "$name" "$rc" | tee -a /tmp/pr5583-runtime/results.txt
+              tail -n 180 "$log"
+              [ "$rc" = 0 ] || status=1
+            done
+            exit "$status"
+          '
+      - name: Preserve probe output
+        if: always()
+        run: |
+          mkdir -p target/pr5583-runtime
+          docker cp carlos-tomcat-dev:/tmp/pr5583-runtime/. target/pr5583-runtime/ 2>/dev/null || true
+          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
+      - name: Upload synthetic workflow evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pr5583-runtime-evidence
+          path: target/pr5583-runtime/
+          if-no-files-found: ignore
+          retention-days: 3
+      - name: Remove disposable containers
+        if: always()
+        run: |
+          docker rm -f carlos-tomcat-dev db 2>/dev/null || true
+          docker network rm carlos-probe-net 2>/dev/null || true
