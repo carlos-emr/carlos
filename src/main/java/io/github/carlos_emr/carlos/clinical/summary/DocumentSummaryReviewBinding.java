@@ -82,6 +82,8 @@ public final class DocumentSummaryReviewBinding {
 
         public String originalSha256() { return originalSha256; }
         public String extractedTextSha256() { return extractedTextSha256; }
+        /** Text derived from the captured bytes, for an already authorized caller's generation. */
+        public ClinicalSummaryTextExtractor.Extract extraction() { return extraction; }
         @Override public String toString() { return "SummaryReviewSource[REDACTED]"; }
     }
 
@@ -187,7 +189,11 @@ public final class DocumentSummaryReviewBinding {
         public DocumentSummary summary() { return summary; }
         public boolean extractionComplete() { return source.extraction.complete(); }
         public String extractionDisclosure() { return source.extraction.reason(); }
-        public String previewNotice() { return notice("Review not confirmed"); }
+        public String previewNotice() { return unreviewedNotice(); }
+        /** Revalidation alone never records review or changes the draft. */
+        public void requireCurrent(Source currentSource) {
+            if (currentSource == null || !source.fingerprint.equals(currentSource.fingerprint)) throw changed();
+        }
         @Override public String toString() { return "DocumentSummaryDraft[REDACTED]"; }
     }
 
@@ -272,6 +278,8 @@ public final class DocumentSummaryReviewBinding {
         if (value.isBefore(Instant.EPOCH)) throw invalid();
         return value;
     }
+
+    public static String unreviewedNotice() { return notice("Review not confirmed"); }
 
     private static String notice(String reviewStatus) {
         return NOTICE_HEADING + "\nReview status: " + reviewStatus + "\n\n" + NOTICE_BODY;
