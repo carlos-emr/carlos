@@ -3,6 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const {decodeHTML} = require('entities');
 
 const ENCRYPTED_BODY_NOTICE_KEY = 'email.compose.msg.encryptedBodyNotice';
 
@@ -57,7 +58,7 @@ async function prepareComposePassword(page, password, clue) {
   return result;
 }
 
-/** Decode visible MIME text, never PDF attachments, before checking for a cleartext leak. */
+/** Decode all MIME text parts, including text attachments, before checking for a cleartext leak. */
 function visibleMimeText(raw) {
   const separator = /\r?\n\r?\n/.exec(raw);
   assert(separator, 'The SMTP capture has no MIME header/body separator');
@@ -71,14 +72,17 @@ function visibleMimeText(raw) {
       .filter(part => !part.startsWith('--'))
       .map(part => visibleMimeText(part.replace(/^\r?\n/, ''))).join('\n');
   }
-  if (!/^text\/(?:plain|html)(?:;|$)/i.test(contentType)) return '';
+  if (!/^text\//i.test(contentType)) return '';
   const encoding = /^Content-Transfer-Encoding:\s*(\S+)/im.exec(headers)?.[1].toLowerCase();
-  if (encoding === 'base64') return Buffer.from(body.replace(/\s/g, ''), 'base64').toString('utf8');
-  if (encoding === 'quoted-printable') {
-    return Buffer.from(body.replace(/=\r?\n/g, '').replace(/=([A-Fa-f0-9]{2})/g,
+  let text = body;
+  if (encoding === 'base64') text = Buffer.from(body.replace(/\s/g, ''), 'base64').toString('utf8');
+  else if (encoding === 'quoted-printable') {
+    text = Buffer.from(body.replace(/=\r?\n/g, '').replace(/=([A-Fa-f0-9]{2})/g,
       (_, hex) => String.fromCharCode(parseInt(hex, 16))), 'latin1').toString('utf8');
   }
-  return body;
+  // HTML character references remain readable clinical text after transfer
+  // decoding. Other text subtypes must retain their literal ampersands.
+  return /^text\/html(?:;|$)/i.test(contentType) ? decodeHTML(text) : text;
 }
 
 /** Preserve the release cleartext contract and the unified composer's encrypted-message boundary. */

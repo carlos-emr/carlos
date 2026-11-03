@@ -80,6 +80,15 @@ function assertControlledRefusal(label, status, body, headers, forbiddenInput) {
   for (const marker of STACK_TRACE_MARKERS) {
     assert(!body.includes(marker), `${label}: the refusal leaked a stack-trace marker`);
   }
+  assert(!/\bat\s+(?:[\w.$@-]+\/)?[\w.$]+\.[\w$<>]+\((?:[^()\r\n]*\.java:\d+|Native Method|Unknown Source)\)/.test(body)
+    && !/\b(?:java|javax|jakarta)\.[\w.$]+(?:Exception|Error)\b/.test(body),
+  `${label}: the refusal leaked Java exception or stack-frame details`);
+}
+
+function assertScheduleDateRefusal(status,body,headers) {
+  assertControlledRefusal('Invalid schedule-count dates',status,body,headers,'not-a-date');
+  assert(body.includes('Path parameter has the wrong format'),
+    'Invalid schedule-count dates: the 400 did not come from the schedule route');
 }
 
 if (require.main === module) legacyHarness.runLegacyCheck('error-sanitization',async({cancellation})=>{
@@ -132,8 +141,7 @@ if (require.main === module) legacyHarness.runLegacyCheck('error-sanitization',a
     try {
       const wsBody = await ws.text();
       cancellation?.throwIfCancelled();
-      assertControlledRefusal('Invalid schedule-count dates', ws.status(), wsBody,
-        ws.headers(), 'not-a-date');
+      assertScheduleDateRefusal(ws.status(), wsBody, ws.headers());
     } finally { await ws.dispose(); }
 
     await screenshot(page, config.screenshotDir, 'error-sanitization');
@@ -161,4 +169,4 @@ if (require.main === module) legacyHarness.runLegacyCheck('error-sanitization',a
   }
 });
 
-module.exports = { assertControlledRefusal };
+module.exports = { assertControlledRefusal, assertScheduleDateRefusal };

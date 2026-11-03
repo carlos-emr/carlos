@@ -3,8 +3,10 @@
 /*
  * Real menu/form, bounded raw-body upload, durable jobs and protected reports.
  * Required environment: disposable migrated database, enabled CDS importer,
- * approved source namespace/profile and maintenance admission. Missing feature
- * configuration fails visibly; it must never silently skip this release gate.
+ * approved source namespace/profile, xmllint and maintenance admission. Missing
+ * optional-install prerequisites report explicit SKIP/exit 2 under #5578; they
+ * are unavailable coverage, never a passing release gate. Full CDS release
+ * acceptance must provide them. Browser, transport, import and cleanup errors fail.
  * Synthetic owned clinical fixtures are removed only after their import holds
  * clear. Durable import receipts and audit evidence remain for investigation.
  */
@@ -202,6 +204,12 @@ async function openImportFrame(s, label = 'cds-import-admin') {
   h.assert(frame, 'Demographic Import frame did not load');
   observed.prover = createCdsMetadataProver({frame,config:s.config,sql:s.sql,readApi:importApi});
   await frame.locator('#cdsImportForm #importFile').waitFor();
+  // The owner-scoped uploads/status read remains available when admission is
+  // disabled (CdsUploadService.pending does not requireEnabled). Settle it
+  // before classifying a missing feature/profile, so SKIP cannot hide transport
+  // or authorization failures that occurred while opening the page.
+  const ready = await initialStatus;
+  h.assert(ready.status() === 200, 'Initial owner-scoped upload status was refused');
   if (await frame.locator('#cdsOptions').isDisabled()) {
     h.assertStrictPage(s.recorder);
     throw new h.SkipCheck('Required import feature/source registration is unavailable');
@@ -217,7 +225,6 @@ async function openImportFrame(s, label = 'cds-import-admin') {
   }
   await frame.locator('#cdsSource').selectOption(source);
   h.assert(!await frame.locator('#mergeExisting').isChecked(), 'Existing-patient merge must default off');
-  const ready = await initialStatus; h.assert(ready.status() === 200, 'Initial owner-scoped upload status was refused');
   await admin.waitForLoadState('networkidle', {timeout:10000});
   const finished = await observed.transport.qualifyResponse(ready, observed.prover);
   if (finished.qualified) console.log('CDS_METADATA_EOF_EVIDENCE', JSON.stringify({rawError:'net::ERR_ABORTED',...finished.evidence}));

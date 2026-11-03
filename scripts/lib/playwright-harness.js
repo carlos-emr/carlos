@@ -1051,8 +1051,11 @@ function buildFailureDetails(recorder) {
     requestFailures: clean(recorder.requestFailures.map(entry => {
       const evidence = cdsMetadataQualification(entry);
       const cancellation = navigationCancellation(entry);
-      if (evidence) return {...entry, cdsMetadataEofEvidence:evidence};
-      return cancellation ? {...entry, navigationCancellation: cancellation} : entry;
+      // Public fields cannot claim the trusted observer's classification in
+      // exported evidence any more than they can bypass assertStrictPage.
+      const {navigationCancellation: untrustedCancellation, ...failure} = entry;
+      if (evidence) return {...failure, cdsMetadataEofEvidence:evidence};
+      return cancellation ? {...failure, navigationCancellation: cancellation} : failure;
     })),
     dialogs: clean(recorder.dialogs),
   };

@@ -40,7 +40,9 @@ test('CDS import missing source or disabled feature skips before upload; transpo
   const start=source.indexOf('async function openImportFrame(');
   const helper=source.slice(start,source.indexOf('\n}',start)+2);
   for(const state of [{disabled:true},{source:null},{error:true},{source:'approved-source'},
-    {disabled:true,diagnostic:true},{source:null,diagnostic:true},{source:'approved-source',responseError:true}]) {
+    {disabled:true,diagnostic:true},{source:null,diagnostic:true},{source:'approved-source',responseError:true},
+    {disabled:true,responseError:true},{source:null,responseError:true},
+    {disabled:true,statusCode:503},{source:null,statusCode:403}]) {
     let selected=false;
     const frame={locator(selector){return {
       waitFor:async()=>{},isDisabled:async()=>Boolean(state.disabled),
@@ -49,7 +51,7 @@ test('CDS import missing source or disabled feature skips before upload; transpo
     };},waitForFunction:async()=>{}};
     const admin={locator(selector){return {first(){return this;},click:async()=>{},waitFor:async()=>{},
       elementHandle:async()=>({contentFrame:async()=>frame})};},
-    waitForResponse:async()=>{if(state.responseError)throw new Error('response transport failed');return {status:()=>200};},
+    waitForResponse:async()=>{if(state.responseError)throw new Error('response transport failed');return {status:()=>state.statusCode||200};},
     waitForLoadState:async()=>{}};
     const context={h,clickOpensPopupOrNavigates:async()=>({page:admin}),
       observeCdsMetadata:async()=>({transport:{qualifyResponse:async()=>({qualified:false})}}),
@@ -60,10 +62,11 @@ test('CDS import missing source or disabled feature skips before upload; transpo
     const operation=context.openImportFrame({recorder,schedule:{locator(){return {first(){return this;}};}}});
     if(state.error)await assert.rejects(operation,/source transport failed/);
     else if(state.responseError)await assert.rejects(operation,/response transport failed/);
+    else if(state.statusCode)await assert.rejects(operation,/Initial owner-scoped upload status was refused/);
     else if(state.diagnostic)await assert.rejects(operation,error=>error.name!=='SkipCheck'&&/JavaScript-layer/.test(error.message));
     else if(state.disabled||!state.source)await assert.rejects(operation,error=>error.name==='SkipCheck'&&/Required/.test(error.message));
     else await assert.doesNotReject(operation);
-    assert.equal(selected,Boolean(state.source));
+    assert.equal(selected,Boolean(state.source)&&!state.responseError&&!state.statusCode);
   }
 });
 

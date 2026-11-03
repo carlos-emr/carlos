@@ -118,6 +118,7 @@ test('loads with no issuing frame and public cancellation claims never qualify',
   f.recorder.requestFailures.push({ label: 'chart', resourceType: 'fetch', errorText: 'net::ERR_ABORTED',
     navigationCancellation: { classification: 'BROWSER_NAVIGATION_CANCELLATION', operation: 'reload' } });
   assert.throws(() => assertStrictPage(f.recorder), /2 JavaScript-layer/);
+  assert.equal(buildFailureDetails(f.recorder).requestFailures.filter(entry => entry.navigationCancellation).length, 0);
 });
 
 test('a finished navigation request cannot retroactively qualify failed loads', () => {

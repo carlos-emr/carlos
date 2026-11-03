@@ -928,7 +928,7 @@ by #4407.
 lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
   apt-get install -y nodejs npm poppler-utils fonts-liberation
-  cd /root && npm init -y && npm install --save-exact playwright@1.60.0 axe-core@4.14.0
+  cd /root && npm init -y && npm install --save-exact playwright@1.60.0 axe-core@4.14.0 entities@4.5.0
   /usr/lib/carlos-emr/chromium/chrome --version'
 ```
 

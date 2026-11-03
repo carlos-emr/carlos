@@ -63,6 +63,40 @@ test('missing server-owned encryption prerequisites fail explicitly', async () =
 const [notice] = encryptedBodyNotices();
 const contract = {message: 'Synthetic clinical text', clue: 'Fixture clue', unifiedMessage: true};
 const mimeText = (body, encoding = '7bit') => `Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: ${encoding}\r\n\r\n${body}`;
+for (const [encoding, encode] of [
+  ['7bit', text => text], ['base64', text => Buffer.from(text).toString('base64')],
+  ['quoted-printable', text => text.replaceAll('=', '=3D').replaceAll(' ', '=20')],
+]) {
+  test(`HTML character references cannot hide a ${encoding} clinical-text leak`, () => {
+    const htmlMime = html => mimeText(encode(html), encoding).replace('text/plain', 'text/html');
+    assertDeliveredComposeBody(htmlMime(`<p>${notice}</p><p>${contract.clue}</p>`), contract);
+    for (const separator of ['&#32;', '&#x20;']) {
+      const leaked = htmlMime(`<p>${notice}</p><p>${contract.clue}</p><p>Synthetic${separator}clinical text</p>`);
+      assert(visibleMimeText(leaked).includes(contract.message));
+      assert.throws(() => assertDeliveredComposeBody(leaked, contract), /leaked into cleartext MIME/);
+    }
+  });
+}
+test('HTML named references decode once while other text subtypes preserve literal references', () => {
+  assert.equal(visibleMimeText(mimeText('Synthetic &amp; clinical text').replace('text/plain', 'text/html')),
+    'Synthetic & clinical text');
+  for (const subtype of ['text/plain', 'text/calendar', 'text/json']) {
+    assert.equal(visibleMimeText(mimeText('Synthetic&#32;clinical text').replace('text/plain', subtype)),
+      'Synthetic&#32;clinical text');
+  }
+});
+test('the standalone validation runtime pins the declared HTML decoder dependency', () => {
+  const pinned = require('../package.json').devDependencies.entities;
+  const lock = require('../package-lock.json');
+  assert.equal(pinned, '4.5.0');
+  assert.equal(lock.packages[''].devDependencies.entities, pinned);
+  assert.equal(lock.packages['node_modules/entities'].version, pinned);
+  const wrapper = fs.readFileSync(path.join(__dirname, 'deb-docker-validation.sh'), 'utf8');
+  assert.equal(wrapper.match(/^ENTITIES_VERSION="([^"]+)"$/m)?.[1], pinned);
+  assert.match(wrapper, /^ARG ENTITIES_VERSION$/m);
+  assert.match(wrapper, /"entities@\$\{ENTITIES_VERSION\}"/);
+  assert.match(wrapper, /--build-arg ENTITIES_VERSION="\$ENTITIES_VERSION"/);
+});
 test('release cleartext composer retains the composed body and password clue assertion', () => {
   assertDeliveredComposeBody(mimeText(`${contract.message}\r\n${contract.clue}`), {...contract, unifiedMessage: false});
   assert.throws(() => assertDeliveredComposeBody(mimeText(contract.clue), {...contract, unifiedMessage: false}), /lost its explicit cleartext body/);
@@ -101,3 +135,21 @@ test('multipart text is decoded but PDF attachments do not count as visible mess
   assert.equal(visibleMimeText(raw).trim(), `${notice}\r\n${contract.clue}`);
   assertDeliveredComposeBody(raw, contract);
 });
+for (const contentType of ['text/calendar', 'text/json']) {
+  for (const [encoding, encode] of [
+    ['base64', text => Buffer.from(text).toString('base64')],
+    ['quoted-printable', text => text.replaceAll(' ', '=20').replace('clinical', 'cli=\r\nnical')],
+  ]) {
+    test(`encrypted compose detects a clinical-text leak in a ${encoding} ${contentType} attachment`, () => {
+      const capture = attachmentText => 'Content-Type: multipart/mixed; boundary="fixture"\r\n\r\n'
+        + `--fixture\r\n${mimeText(`${notice}\r\n${contract.clue}`)}\r\n`
+        + `--fixture\r\nContent-Type: ${contentType}; charset=UTF-8\r\n`
+        + 'Content-Disposition: attachment; filename="fixture.txt"\r\n'
+        + `Content-Transfer-Encoding: ${encoding}\r\n\r\n${encode(attachmentText)}\r\n--fixture--\r\n`;
+      assertDeliveredComposeBody(capture('Unrelated synthetic event'), contract);
+      const leaked = capture(`Synthetic event: ${contract.message}`);
+      assert(visibleMimeText(leaked).includes(contract.message), 'Every text subtype must be decoded');
+      assert.throws(() => assertDeliveredComposeBody(leaked, contract), /leaked into cleartext MIME/);
+    });
+  }
+}

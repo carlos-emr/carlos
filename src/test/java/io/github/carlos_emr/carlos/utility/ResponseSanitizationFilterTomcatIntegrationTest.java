@@ -74,6 +74,7 @@ import static org.mockito.Mockito.when;
 public class ResponseSanitizationFilterTomcatIntegrationTest {
     private static final String PRIVATE_MARKER = "FAKE-5575-private-diagnostic";
     private static final String ENTITY = "{\"patientName\":\"FAKE-5575-patient\",\"note\":\"synthetic-prefix\"}";
+    private static final String LATE_ENTITY = "{\"patients\":[" + (ENTITY + ",").repeat(300) + ENTITY + "]}";
     private static final String XML = "<patient><name>FAKE-5575-patient</name><note>synthetic-prefix</note></patient>";
     private static final String SAFE_VALIDATION = "{\"error\":\"Invalid synthetic date\"}";
     private static final String STACK = "java.lang.IllegalStateException: " + PRIVATE_MARKER
@@ -86,6 +87,9 @@ public class ResponseSanitizationFilterTomcatIntegrationTest {
 
     @BeforeAll
     static void startTomcat() throws Exception {
+        assertThat(LATE_ENTITY.getBytes(StandardCharsets.UTF_8).length)
+                .isGreaterThan(8192)
+                .isLessThan(ResponseSanitizationFilter.DEFAULT_WEB_SERVICE_RESPONSE_BUFFER_BYTES);
         Path docBase = Files.createDirectories(baseDir.resolve("webapp"));
         tomcat = new Tomcat();
         tomcat.setBaseDir(baseDir.resolve("tomcat").toString());
@@ -146,8 +150,14 @@ public class ResponseSanitizationFilterTomcatIntegrationTest {
     @DisplayName("should expose the synthetic fixture only in the disabled negative control")
     void shouldExposeFixture_whenSanitizationIsDisabled(String mode) throws Exception {
         HttpResponse<String> response = get("/disabled/ws/rs/" + mode);
-        assertThat(response.statusCode()).isEqualTo(500);
-        assertThat(response.body()).isEqualTo("xml".equals(mode) ? XML : ENTITY);
+        // Without the filter's enlarged /ws buffer, the large prefix commits the
+        // default 200 before the servlet can set 500. This is the leak being pinned.
+        assertThat(response.statusCode()).isEqualTo("late-stream".equals(mode) ? 200 : 500);
+        assertThat(response.body()).isEqualTo(switch (mode) {
+            case "xml" -> XML;
+            case "late-stream" -> LATE_ENTITY;
+            default -> ENTITY;
+        });
         assertThat(response.body()).doesNotContain("Reference ID:");
     }
 
@@ -246,7 +256,7 @@ public class ResponseSanitizationFilterTomcatIntegrationTest {
                 return;
             }
             if ("/rs/late-stream".equals(mode)) {
-                response.getOutputStream().write(ENTITY.getBytes(StandardCharsets.UTF_8));
+                response.getOutputStream().write(LATE_ENTITY.getBytes(StandardCharsets.UTF_8));
                 response.setStatus(500);
                 return;
             }

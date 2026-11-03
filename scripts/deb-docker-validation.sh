@@ -106,6 +106,7 @@ BASE_IMAGE="${BASE_IMAGE:-ubuntu:26.04}"
 PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.60.0}"
 # Match the repository's exact dependency; a floating install changes the audit rules.
 AXE_CORE_VERSION="4.14.0"
+ENTITIES_VERSION="4.5.0"
 BUILD_PROXY="${BUILD_PROXY:-}"
 BUILD_CA_BUNDLE="${BUILD_CA_BUNDLE:-}"
 APT_FORCE_HTTPS="${APT_FORCE_HTTPS:-false}"
@@ -195,6 +196,7 @@ ARG BUILD_PROXY=
 ARG APT_FORCE_HTTPS=false
 ARG PLAYWRIGHT_VERSION
 ARG AXE_CORE_VERSION
+ARG ENTITIES_VERSION
 RUN --mount=type=secret,id=validation_ca,required=true,mode=0444 set -e; \
     if [ "$APT_FORCE_HTTPS" = true ]; then sed -i 's#http://#https://#g' /etc/apt/sources.list.d/*.sources; fi; \
     if [ -n "$BUILD_PROXY" ]; then printf 'Acquire::http::Proxy "%s";\nAcquire::https::Proxy "%s";\n' "$BUILD_PROXY" "$BUILD_PROXY" > /etc/apt/apt.conf.d/99carlos-validation-proxy; fi; \
@@ -212,7 +214,7 @@ RUN --mount=type=secret,id=validation_ca,required=true,mode=0444 set -e; \
     cd /root && npm init -y >/dev/null; \
     if [ -n "$BUILD_PROXY" ]; then export HTTPS_PROXY="$BUILD_PROXY"; fi; \
     export NODE_EXTRA_CA_CERTS=/run/secrets/validation_ca; \
-    npm install --save-exact --no-audit --no-fund "playwright@${PLAYWRIGHT_VERSION}" "axe-core@${AXE_CORE_VERSION}"
+    npm install --save-exact --no-audit --no-fund "playwright@${PLAYWRIGHT_VERSION}" "axe-core@${AXE_CORE_VERSION}" "entities@${ENTITIES_VERSION}"
 ENV container=docker
 STOPSIGNAL SIGRTMIN+3
 CMD ["/sbin/init"]
@@ -221,6 +223,7 @@ EOF
   docker build --network host --secret "id=validation_ca,src=$ctx/extra-ca.crt" -t "$IMAGE" \
     --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg BUILD_PROXY="$BUILD_PROXY" \
     --build-arg APT_FORCE_HTTPS="$APT_FORCE_HTTPS" --build-arg PLAYWRIGHT_VERSION="$PLAYWRIGHT_VERSION" --build-arg AXE_CORE_VERSION="$AXE_CORE_VERSION" \
+    --build-arg ENTITIES_VERSION="$ENTITIES_VERSION" \
     "$ctx" >"$LOG_DIR/image-build.log" 2>&1 || { rm -rf "$ctx"; die "image build failed; see $LOG_DIR/image-build.log"; }
   rm -rf "$ctx"
 }
