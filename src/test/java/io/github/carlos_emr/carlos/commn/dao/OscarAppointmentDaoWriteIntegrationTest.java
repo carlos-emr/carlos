@@ -413,6 +413,18 @@ public class OscarAppointmentDaoWriteIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        void shouldUpdateOnlySelectedAppointment_whenIdsContainOverflowAndSqlText() {
+            Appointment selected = createAndPersist(today, PROVIDER_NO, 100, "A");
+            Appointment neighbour = createAndPersist(today, PROVIDER_NO, 101, "A");
+            int updated = oscarAppointmentDao.updateApptStatus(
+                    selected.getId() + ",2147483648,999999999999999999999,1) OR 1=1 --", "B");
+            assertThat(updated).isEqualTo(1);
+            entityManager.clear();
+            assertThat(entityManager.find(Appointment.class, selected.getId()).getStatus()).isEqualTo("B");
+            assertThat(entityManager.find(Appointment.class, neighbour.getId()).getStatus()).isEqualTo("A");
+        }
+
+        @Test
         @DisplayName("should return 0 when all IDs are non-numeric")
         void shouldReturnZero_whenAllIdsNonNumeric() {
             // When

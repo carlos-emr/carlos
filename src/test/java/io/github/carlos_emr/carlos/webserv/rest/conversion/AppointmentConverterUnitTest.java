@@ -53,6 +53,21 @@ class AppointmentConverterUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldExposeEditVersion_andNeverApplyClientTokenAsAnAuditField() {
+        Appointment appointment = new Appointment();
+        appointment.setUpdateDateTime(new Date(123_000L));
+        AppointmentConverter converter = new AppointmentConverter();
+        AppointmentTo1 response = converter.getAsTransferObject(null, appointment);
+        assertThat(response.getEditVersion()).isEqualTo("123000");
+        response.setEditVersion("forged");
+        response.setUpdateDateTime(new Date(0));
+        converter.applyEditableProperties(response, appointment);
+        assertThat(appointment.getEditVersion()).isEqualTo("123000");
+        appointment.setUpdateDateTime(null);
+        assertThat(converter.getAsTransferObject(null, appointment).getEditVersion()).isEqualTo("unversioned");
+    }
+
+    @Test
     @DisplayName("should copy editable JavaBean properties onto a domain Appointment")
     void shouldCopyEditableProperties_toDomainAppointment() throws Exception {
         AppointmentTo1 to = new AppointmentTo1();

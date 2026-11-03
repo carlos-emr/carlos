@@ -78,6 +78,32 @@ public class SiteDaoIntegrationTest extends CarlosTestBase {
         return entity;
     }
 
+    @Test
+    void shouldAdvanceAppointmentEditVersion_whenRenamingItsSite() throws Exception {
+        Site site = createSite("edit-version");
+        site.setName("FAKE old site");
+        var appointment = new io.github.carlos_emr.carlos.commn.model.Appointment();
+        appointment.setProviderNo("999998");
+        appointment.setAppointmentDate(java.sql.Date.valueOf("2027-01-01"));
+        appointment.setStartTime(java.sql.Time.valueOf("10:00:00"));
+        appointment.setEndTime(java.sql.Time.valueOf("10:14:00"));
+        appointment.setLocation(site.getName());
+        entityManager.persist(appointment);
+        entityManager.flush();
+        int appointmentId = appointment.getId();
+        String version = appointment.getEditVersion();
+        entityManager.detach(site);
+        site.setName("FAKE new site");
+
+        siteDao.save(site);
+        entityManager.flush();
+        entityManager.clear();
+
+        var refreshed = entityManager.find(io.github.carlos_emr.carlos.commn.model.Appointment.class, appointmentId);
+        assertThat(refreshed.getLocation()).isEqualTo("FAKE new site");
+        assertThat(refreshed.getEditVersion()).isNotEqualTo(version);
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {

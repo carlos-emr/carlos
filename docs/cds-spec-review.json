@@ -1627,7 +1627,7 @@
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAppointmentPersister.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java"
       ],
-      "normalization": "Year/month date, absent/long/cross-midnight duration, unsupported clock precision, missing zone/DST ambiguity or provider mismatch does not invent calendar timing. Offset normalized only with explicit zone; source status stays separate from native booked status; long purpose gets visible source reference. Native calendar days must round-trip the actual SQL DATE/legacy calendar; an unrepresentable day remains a typed source-only appointment with an explicit warning.",
+      "normalization": "Year/month date, absent/long/cross-midnight duration, unsupported clock precision, missing zone/DST ambiguity or provider mismatch does not invent calendar timing. Offset normalized only with explicit zone; source status stays separate from native booked status; long purpose gets visible source reference. Native calendar days must round-trip the actual SQL DATE/legacy calendar; an unrepresentable day remains a typed source-only appointment with an explicit warning. Native creation/update audit clocks remain local server metadata; the REST editVersion token is not CDS source data.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 13 (Appointments)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -3857,7 +3857,7 @@
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementNoteDAOImpl.java": "2f94fe9843bf74ae2a9b7fd9a9bd7ed41473cdf001ad0b6c6932879c2e4ff0f9",
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNote.java": "e4b8bf7231599353d70d6b27cebc8ecc116e4fd22f0a7244e81ca651aa156eaa",
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNoteExt.java": "fcb75e43347139bf853c54f7e646226c93c20c71e7ebb1006a3fe8b9e7798a5b",
-    "src/main/java/io/github/carlos_emr/carlos/commn/model/Appointment.java": "5cbd49838f40f4873b2eab6713ff1d12972ac341f0b07383ddf83f235520e7f6",
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Appointment.java": "7969638419911fc8f21364e754fee8d65134f0381a575212e4fd0c82fca1d9d4",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Contact.java": "d99fcad3390fc32ccc49a5bd6b834ef68ab22ee87c2b2dc665fc340aa18cc1ad",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Demographic.java": "d22ac0d5663ae5cffeaf9f0425125f4505230866806e103a6c78773d71d17950",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Document.java": "9489fc748126cbdb32dd339287ebb5762b8a47f9baa8ba17b152d138ff408a23",

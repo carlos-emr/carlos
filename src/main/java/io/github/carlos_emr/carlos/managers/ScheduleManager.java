@@ -35,6 +35,7 @@ package io.github.carlos_emr.carlos.managers;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.function.Consumer;
 
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
@@ -76,7 +77,25 @@ public interface ScheduleManager {
 
     public Appointment getAppointment(LoggedInInfo loggedInInfo, Integer appointmentId);
 
+    /**
+     * Legacy server-entity update used by SOAP; does not validate a client's read version.
+     * Read/echo clients must use the versioned overload below to reject lost updates.
+     */
     public void updateAppointment(LoggedInInfo loggedInInfo, Appointment appointment);
+
+    /**
+     * Validates the client's read version before archiving and editing the locked current row.
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated caller
+     * @param appointmentId Integer the appointment_no of the row to edit
+     * @param expectedVersion String the editVersion token the client read; must not be blank
+     * @param edit Consumer&lt;Appointment&gt; callback that applies editable fields to the locked row
+     * @return Appointment the updated appointment, carrying its next editVersion
+     * @throws AppointmentUpdateException when the version is missing or stale, or the row does not exist
+     * @throws SecurityException when the caller lacks the _appointment write privilege
+     */
+    Appointment updateAppointment(LoggedInInfo loggedInInfo, Integer appointmentId,
+            String expectedVersion, Consumer<Appointment> edit);
 
     public List<Appointment> getAppointmentsForDateRangeAndProvider(LoggedInInfo loggedInInfo, Date startTime, Date endTime, String providerNo);
 
@@ -97,4 +116,3 @@ public interface ScheduleManager {
     public boolean removeIfDoubleBooked(LoggedInInfo loggedInInfo, Calendar startTime, Calendar endTime, String providerNo, Appointment appointment);
 
 }
- 

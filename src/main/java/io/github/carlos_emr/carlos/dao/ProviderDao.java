@@ -62,7 +62,7 @@ public class ProviderDao extends OscarSuperDao {
             {"searchmygroupprovider", "select provider_no, last_name, first_name from mygroup where mygroup_no=? order by vieworder,provider_no"},
 
             {"searchmygroupno", "select mygroup_no from mygroup group by mygroup_no order by mygroup_no"},
-            {"updateapptstatus", "update appointment set status=?, lastupdateuser=?, updatedatetime=now() where appointment_no=? "},
+            {"updateapptstatus", "update appointment set status=?, lastupdateuser=?, updatedatetime=greatest(current_timestamp, coalesce(timestampadd(second, 1, updatedatetime), current_timestamp)) where appointment_no=? "},
             {"updatepreference", "update preference set start_hour=?, end_hour=?, every_min=?, mygroup_no=?, default_servicetype=?, color_template=? where provider_no=? "},
 
             {"search_demograph", "select *  from demographic where demographic_no=?"},

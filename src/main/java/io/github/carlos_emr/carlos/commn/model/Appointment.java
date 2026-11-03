@@ -90,6 +90,21 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
     @Column(name = "updatedatetime")
     private Date updateDateTime = new Date();
 
+    @Transient
+    private Long persistedUpdateTime;
+
+    /** Token clients must echo when submitting an edit, including legacy null timestamps. */
+    public String getEditVersion() {
+        return updateDateTime == null ? "unversioned" : Long.toString(updateDateTime.getTime());
+    }
+
+    @PostLoad
+    @PostPersist
+    @PostUpdate
+    protected void rememberUpdateTime() {
+        persistedUpdateTime = updateDateTime == null ? null : updateDateTime.getTime();
+    }
+
     private String creator;
 
     @Column(name = "lastupdateuser")
@@ -357,9 +372,16 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
     }
 
     @PrePersist
+    protected void jpaInitializeLastUpdateTime() {
+        this.updateDateTime = new Date(System.currentTimeMillis() / 1000 * 1000);
+    }
+
     @PreUpdate
     protected void jpaUpdateLastUpdateTime() {
-        this.updateDateTime = new Date();
+        // Production uses DATETIME without fractional seconds. Advance from the loaded
+        // value, even for two writes in one second or a caller that replaces the audit date.
+        long nextSecond = persistedUpdateTime == null ? 0 : (persistedUpdateTime / 1000 + 1) * 1000;
+        this.updateDateTime = new Date(Math.max(System.currentTimeMillis() / 1000 * 1000, nextSecond));
     }
 
     public static final Comparator<Appointment> APPT_DATE_COMPARATOR = new Comparator<Appointment>() {
