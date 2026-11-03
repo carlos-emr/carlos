@@ -87,21 +87,80 @@ public final class DocumentSummaryReviewBinding {
 
     /** Capture bytes supplied by the authorized bounded document loader, never a browser hash. */
     public static Source capture(Scope scope, Metadata metadata, byte[] originalBytes) {
+        try (CapturedSource captured = captureOwned(scope, metadata, originalBytes)) {
+            return captured.source();
+        }
+    }
+
+    /**
+     * Optional, bounded ownership of the exact bytes used for extraction and source hashing.
+     * A future original-document consumer can take an independent copy instead of reloading or
+     * rendering different bytes after review. This performs no signature or access verification,
+     * creates no session store, and grants no permission to review or send a document.
+     */
+    public static CapturedSource captureOwned(Scope scope, Metadata metadata, byte[] originalBytes) {
         Objects.requireNonNull(scope);
         Objects.requireNonNull(metadata);
         if (originalBytes == null || originalBytes.length == 0 || originalBytes.length > MAX_SOURCE_BYTES) {
             throw invalid();
         }
         byte[] snapshot = originalBytes.clone();
+        boolean retained = false;
         try {
             // Derive text from these same copied bytes; a caller cannot pair a hash with unrelated text.
             var extraction = ClinicalSummaryTextExtractor.bytes(snapshot, metadata.contentType());
-            return new Source(scope, metadata, snapshot, extraction);
+            var captured = new CapturedSource(new Source(scope, metadata, snapshot, extraction), snapshot);
+            retained = true;
+            return captured;
         } catch (java.io.IOException failure) {
             throw new IllegalArgumentException("Source text is unavailable.");
         } finally {
-            Arrays.fill(snapshot, (byte) 0);
+            if (!retained) Arrays.fill(snapshot, (byte) 0);
         }
+    }
+
+    /**
+     * Bytes-only custody, not a source-freshness or authorization capability. All byte access
+     * returns independent copies. Closing prevents new access through this object and clears its
+     * owned array; it cannot erase escaped copies, immutable extracted text (including extractor
+     * caches), or invalidate a previously obtained Source, Draft or Approval. Future consumers
+     * must independently recheck access, source freshness and the intended delivery bytes.
+     */
+    public static final class CapturedSource implements AutoCloseable {
+        private Source source;
+        private byte[] bytes;
+
+        private CapturedSource(Source source, byte[] bytes) {
+            this.source = source;
+            this.bytes = bytes;
+        }
+
+        /** Existing immutable hash/text evidence; obtaining it does not authorize later use. */
+        public synchronized Source source() {
+            requireOpen();
+            return source;
+        }
+
+        /** An independent exact copy, available only while this custody object is open. */
+        public synchronized byte[] copyBytes() {
+            requireOpen();
+            return bytes.clone();
+        }
+
+        private void requireOpen() {
+            if (bytes == null) throw new IllegalStateException("Captured source is closed.");
+        }
+
+        /** Idempotent disposal of this object's array only; escaped evidence/copies are unaffected. */
+        @Override public synchronized void close() {
+            if (bytes != null) {
+                Arrays.fill(bytes, (byte) 0);
+                bytes = null;
+                source = null;
+            }
+        }
+
+        @Override public String toString() { return "CapturedSummarySource[REDACTED]"; }
     }
 
     public static final class Draft {
