@@ -5,7 +5,8 @@ const assert = require('node:assert/strict');
 const { authzReadFixture } = require('./lib/authz-read-fixture');
 
 for (const [privilege, expected] of [[null, false], ['r', true], ['|u|', true], ['w', true], ['x', true],
-  ['|or|', true], ['|ow|', true], ['d', false], ['|o|', false]]) {
+  ['|or|', true], ['|ow|', true], ['d', false], ['|o|', false],
+  ['|od|w|',false], ['|w|od|',true], ['|OD|W|',false], ['|o|w|',true], ['|d|w|',true]]) {
   test(`fixture records schedule access from its role's _appointment privilege: ${privilege}`, () => {
     const sql = {
       value(query) {

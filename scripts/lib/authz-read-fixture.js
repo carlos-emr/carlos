@@ -224,7 +224,16 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
       // the schedule's expected 403 centrally for every restricted fixture.
       const scheduleAccess = sql.rows(`SELECT privilege FROM secObjPrivilege
         WHERE roleUserGroup=${sqlString(roleName)} AND objectName='_appointment'`)
-        .some(row => String(row[0]).split('|').some(right => /^(?:o)?[ruwx]$/i.test(right.trim())));
+        .some(row => {
+          // OscarRoleObjectPrivilege checks tokens in order: an "only" token
+          // stops even when it denies read access. A later w must not override od.
+          for (const token of String(row[0]).split('|')) {
+            const right = token.trim().toLowerCase();
+            if (/^(?:o)?[ruwx]$/.test(right)) return true;
+            if (right.length > 1 && right.startsWith('o')) return false;
+          }
+          return false;
+        });
       const login = { username, providerNo, role: roleName, scheduleAccess };
       // Registered before the first INSERT so cleanup() covers a half-built login.
       logins.push(login);
