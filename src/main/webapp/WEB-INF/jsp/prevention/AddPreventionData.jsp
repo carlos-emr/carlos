@@ -786,9 +786,9 @@
                                     <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
                                                                                           value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
-                                                                                          required<% if (!prevDateExplanation.isEmpty()) { %> aria-describedby="prevDateExplanation"<% } %>>
+                                                                                          required<% if (!prevDateExplanation.isEmpty()) { %> aria-describedby="prevDateExplanationInjection"<% } %>>
                                         <% if (!prevDateExplanation.isEmpty()) { %>
-                                        <div id="prevDateExplanation" class="form-text partial-date-explanation"><carlos:encode value='<%= prevDateExplanation %>' context="html"/></div>
+                                        <div id="prevDateExplanationInjection" class="form-text partial-date-explanation"><carlos:encode value='<%= prevDateExplanation %>' context="html"/></div>
                                         <label><input type="checkbox" name="prevDateConfirmedExact" value="true"><fmt:message key="global.partialDate.labelConfirmExact"/></label>
                                         <% } %></div>
                                 </div>
@@ -1132,9 +1132,9 @@
                                     <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
                                                                                           value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
-                                                                                          required<% if (!prevDateExplanation.isEmpty()) { %> aria-describedby="prevDateExplanation"<% } %>>
+                                                                                          required<% if (!prevDateExplanation.isEmpty()) { %> aria-describedby="prevDateExplanationH1n1"<% } %>>
                                         <% if (!prevDateExplanation.isEmpty()) { %>
-                                        <div id="prevDateExplanation" class="form-text partial-date-explanation"><carlos:encode value='<%= prevDateExplanation %>' context="html"/></div>
+                                        <div id="prevDateExplanationH1n1" class="form-text partial-date-explanation"><carlos:encode value='<%= prevDateExplanation %>' context="html"/></div>
                                         <label><input type="checkbox" name="prevDateConfirmedExact" value="true"><fmt:message key="global.partialDate.labelConfirmExact"/></label>
                                         <% } %></div>
                                 </div>
@@ -1389,9 +1389,9 @@
                                     <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                                           id="prevDate"
                                                                                                           value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
-                                                                                                          required<% if (!prevDateExplanation.isEmpty()) { %> aria-describedby="prevDateExplanation"<% } %>>
+                                                                                                          required<% if (!prevDateExplanation.isEmpty()) { %> aria-describedby="prevDateExplanationScreening"<% } %>>
                                         <% if (!prevDateExplanation.isEmpty()) { %>
-                                        <div id="prevDateExplanation" class="form-text partial-date-explanation"><carlos:encode value='<%= prevDateExplanation %>' context="html"/></div>
+                                        <div id="prevDateExplanationScreening" class="form-text partial-date-explanation"><carlos:encode value='<%= prevDateExplanation %>' context="html"/></div>
                                         <label><input type="checkbox" name="prevDateConfirmedExact" value="true"><fmt:message key="global.partialDate.labelConfirmExact"/></label>
                                         <% } %></div>
                                 </div>
@@ -1476,9 +1476,9 @@
                                     <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
                                                                                           value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
-                                                                                          required<% if (!prevDateExplanation.isEmpty()) { %> aria-describedby="prevDateExplanation"<% } %>>
+                                                                                          required<% if (!prevDateExplanation.isEmpty()) { %> aria-describedby="prevDateExplanationHistory"<% } %>>
                                         <% if (!prevDateExplanation.isEmpty()) { %>
-                                        <div id="prevDateExplanation" class="form-text partial-date-explanation"><carlos:encode value='<%= prevDateExplanation %>' context="html"/></div>
+                                        <div id="prevDateExplanationHistory" class="form-text partial-date-explanation"><carlos:encode value='<%= prevDateExplanation %>' context="html"/></div>
                                         <label><input type="checkbox" name="prevDateConfirmedExact" value="true"><fmt:message key="global.partialDate.labelConfirmExact"/></label>
                                         <% } %></div>
                                 </div>

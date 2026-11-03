@@ -270,7 +270,7 @@
                                             });
                                         </script>
 
-                                        <span class="label">Start Date:</span>
+                                        <label class="label" for="startDate"><fmt:message key="WriteScript.startDate"/>:</label>
                                         <input type="text" name="startDate" id="startDate" <% if (!startDateExplanation.isEmpty()) { %>aria-describedby="startDateExplanation"<% } %> size="10" maxlength="10"
                                                value="<carlos:encode value='<%= startDate %>' context="htmlAttribute"/>" onblur="checkStartDate();"/>
                                         <img src="<%= request.getContextPath() %>/images/cal.gif" id="startDateCal">(yyyy-mm-dd OR yyyy-mm OR yyyy)

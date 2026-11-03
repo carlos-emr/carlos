@@ -78,7 +78,10 @@ async function workflow(s) {
       const editor = await s.popup(index, link, 'prevention-editor');
       const dateBox = editor.locator('#prevDate');
       assert(await dateBox.getAttribute('type') === 'date' && await dateBox.inputValue() === date, 'Native picker lost its placeholder');
-      if (explanation) assert((await editor.locator('#prevDateExplanation').innerText()).includes(explanation), 'Prevention edit explanation missing');
+      if (explanation) {
+        const descriptionId = await dateBox.getAttribute('aria-describedby');
+        assert(descriptionId && (await editor.locator(`#${descriptionId}`).innerText()).includes(explanation), 'Prevention date is not associated with its explanation');
+      }
       await editor.locator('[name="comments"]').fill('FAKE original comment, amended');
       await Promise.all([editor.waitForEvent('close'), index.waitForEvent('load'), editor.locator('input[type="submit"][name="action"]').first().click()]);
       await expectValue(sql, `SELECT deleted FROM preventions WHERE id=${preventions[i]}`, '1', 'Original prevention was not replaced');
