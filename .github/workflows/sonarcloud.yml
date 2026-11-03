@@ -26,6 +26,11 @@ jobs:
           print('MEASURES', json.dumps(get('measures/component', component=project, pullRequest=5543, metricKeys='new_code_smells,new_technical_debt,new_development_cost,new_sqale_debt_ratio,new_maintainability_rating,new_lines')))
           data=get('issues/search',componentKeys=project,pullRequest=5543,resolved='false',ps=500)
           print('ISSUE_TOTAL', data.get('paging'))
+          try:
+              nav=get('navigation/component', component=project)
+              print('NAV_CONFIGURATION', json.dumps(nav.get('configuration',{})))
+          except Exception as error:
+              print('NAV_ERROR', type(error).__name__, str(error))
           print('BRANCH_SETTING', json.dumps(get('settings/values', component=project, keys='sonar.branch.longLivedBranches.regex')))
           for controller in get('webservices/list').get('webServices',[]):
               if controller.get('path')=='api/project_branches':
