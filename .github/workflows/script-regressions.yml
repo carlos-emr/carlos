@@ -117,3 +117,5 @@ jobs:
         run: node scripts/echart-note-lifecycle-browser-check.js
       - name: Check tickler CRUD synchronization in Chromium
         run: node scripts/tickler-crud-browser-check.js
+      - name: Check encounter select-box positioning in Chromium
+        run: node scripts/selectbox-position-browser-check.js
