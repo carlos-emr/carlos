@@ -225,7 +225,7 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
         mockRequest.setParameter("id", "100");
         data.when(() -> PreventionData.updatetPreventionData(eq("100"), eq("999998"), eq("42"), eq("2026-09"),
                 any(), any(), any(), any(), any(), any(), argThat(extra -> extra.stream()
-                    .anyMatch(entry -> "100".equals(entry.get("previousId")))), any())).thenReturn(101);
+                    .anyMatch(entry -> "100".equals(entry.get("previousId")))), any(), eq(false))).thenReturn(101);
         assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
         verify(manager).removePrevention("42");
     }
@@ -301,7 +301,7 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
         mockRequest.setParameter("id", "100");
         issueToken("100");
         data.when(() -> PreventionData.updatetPreventionData(eq("100"), any(), any(), any(), any(), any(), any(),
-                any(), any(), any(), any(), any())).thenReturn(101);
+                any(), any(), any(), any(), any(), eq(false))).thenReturn(101);
 
         assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
         // The first save replaced record 100, so it no longer validates; the repeat must not ask.
@@ -310,7 +310,7 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
         assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
 
         data.verify(() -> PreventionData.updatetPreventionData(any(), any(), any(), any(), any(), any(), any(),
-                any(), any(), any(), any(), any()), times(1));
+                any(), any(), any(), any(), any(), eq(false)), times(1));
     }
 
     @Test
@@ -322,7 +322,7 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
                 .thenThrow(new IllegalArgumentException("not in this chart yet"))
                 .thenAnswer(invocation -> null);
         data.when(() -> PreventionData.updatetPreventionData(eq("100"), any(), any(), any(), any(), any(), any(),
-                any(), any(), any(), any(), any())).thenReturn(101);
+                any(), any(), any(), any(), any(), eq(false))).thenReturn(101);
 
         assertThat(executeAction(new AddPrevention2Action())).isEqualTo("none");
         assertThat(mockResponse.getStatus()).isEqualTo(400);
@@ -330,7 +330,7 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
         assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
 
         data.verify(() -> PreventionData.updatetPreventionData(any(), any(), any(), any(), any(), any(), any(),
-                any(), any(), any(), any(), any()), times(1));
+                any(), any(), any(), any(), any(), eq(false)), times(1));
     }
 
     @Test

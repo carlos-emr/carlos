@@ -1,3 +1,4 @@
+<%@ page import="io.github.carlos_emr.carlos.utility.PartialDateExplanation" %>
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -132,6 +133,7 @@
     String provider = (String) session.getAttribute("user");
     String dateFmt = "yyyy-MM-dd HH:mm";
     String prevDate = UtilDateUtilities.getToday(dateFmt);
+    String prevDateExplanation = "";
     String completed = "0";
     String nextDate = "";
     String summary = "";
@@ -153,7 +155,8 @@
         existingPrevention = PreventionData.getPreventionById(id);
 
         prevDate = (String) existingPrevention.get("preventionDate");
-        prevDate = partialDateDao.getDatePartial(prevDate, PartialDate.PREVENTION, Integer.parseInt(id), PartialDate.PREVENTION_PREVENTIONDATE);
+        prevDateExplanation = PartialDateExplanation.explain(partialDateDao.getDatePartial(prevDate,
+                PartialDate.PREVENTION, Integer.parseInt(id), PartialDate.PREVENTION_PREVENTIONDATE));
 
         providerName = (String) existingPrevention.get("providerName");
         provider = (String) existingPrevention.get("provider_no");
@@ -291,7 +294,7 @@
 
     //calc age at time of prevention
     Date dob = PreventionData.getDemographicDateOfBirth(LoggedInInfo.getLoggedInInfoFromSession(request), Integer.valueOf(demographic_no));
-    Date dateOfPrev = parseDate(prevDate);
+    Date dateOfPrev = prevDateExplanation.isEmpty() ? parseDate(prevDate) : null;
     String age = "";
     if (dateOfPrev != null) {
         age = UtilDateUtilities.calcAgeAtDate(dob, dateOfPrev);
@@ -781,7 +784,11 @@
                                     <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
                                                                                           value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
-                                                                                          required></div>
+                                                                                          required aria-describedby="prevDateExplanation">
+                                        <% if (!prevDateExplanation.isEmpty()) { %>
+                                        <div id="prevDateExplanation" class="form-text partial-date-explanation"><carlos:encode value='<%= prevDateExplanation %>' context="html"/></div>
+                                        <label><input type="checkbox" name="prevDateConfirmedExact" value="true">Confirm the selected date is exact</label>
+                                        <% } %></div>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
@@ -1123,7 +1130,11 @@
                                     <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
                                                                                           value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
-                                                                                          required></div>
+                                                                                          required aria-describedby="prevDateExplanation">
+                                        <% if (!prevDateExplanation.isEmpty()) { %>
+                                        <div id="prevDateExplanation" class="form-text partial-date-explanation"><carlos:encode value='<%= prevDateExplanation %>' context="html"/></div>
+                                        <label><input type="checkbox" name="prevDateConfirmedExact" value="true">Confirm the selected date is exact</label>
+                                        <% } %></div>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
@@ -1376,7 +1387,11 @@
                                     <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                                           id="prevDate"
                                                                                                           value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
-                                                                                                          required></div>
+                                                                                                          required aria-describedby="prevDateExplanation">
+                                        <% if (!prevDateExplanation.isEmpty()) { %>
+                                        <div id="prevDateExplanation" class="form-text partial-date-explanation"><carlos:encode value='<%= prevDateExplanation %>' context="html"/></div>
+                                        <label><input type="checkbox" name="prevDateConfirmedExact" value="true">Confirm the selected date is exact</label>
+                                        <% } %></div>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>
@@ -1459,7 +1474,11 @@
                                     <div class="col-sm-8"><input type="date" class="form-control form-control-sm" name="prevDate"
                                                                                           id="prevDate"
                                                                                           value="<carlos:encode value='<%= prevDate != null && prevDate.length() >= 10 ? prevDate.substring(0, 10) : (prevDate != null ? prevDate : "") %>' context="htmlAttribute"/>"
-                                                                                          required></div>
+                                                                                          required aria-describedby="prevDateExplanation">
+                                        <% if (!prevDateExplanation.isEmpty()) { %>
+                                        <div id="prevDateExplanation" class="form-text partial-date-explanation"><carlos:encode value='<%= prevDateExplanation %>' context="html"/></div>
+                                        <label><input type="checkbox" name="prevDateConfirmedExact" value="true">Confirm the selected date is exact</label>
+                                        <% } %></div>
                                 </div>
                                 <div class="row g-2 align-items-center mb-1">
                                     <div class="col-sm-4"><label for="provider" class="col-form-label col-form-label-sm fields"><fmt:message key="oscarprevention.addpreventiondata.provider"/></label></div>

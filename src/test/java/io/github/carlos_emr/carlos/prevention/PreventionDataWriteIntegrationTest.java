@@ -95,6 +95,26 @@ class PreventionDataWriteIntegrationTest extends CarlosTestBase {
         ReflectionTestUtils.setField(PreventionData.class, "preventionExtDao", failing);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"2019,2019-01-01,false,YYYY", "2019-05,2019-05-01,false,YYYY-MM",
+            "2019,2019-01-01,true,", "2019-05,2019-05-14,false,", "2019-01-01,2019-01-01,false,"})
+    void shouldRetainPrecisionAndImportProvenance_whenAmending(String source, String posted,
+            boolean exact, String expectedFormat) {
+        var extra = extensions();
+        extra.add(Map.of("cdsDateOriginal", source));
+        extra.add(Map.of("cdsDatePrecision", source.length() == 4 ? "YEAR" : source.length() == 7 ? "YEAR_MONTH" : "FULL_DATE"));
+        Integer original = insert(source, extra);
+        Integer replacement = PreventionData.updatetPreventionData("" + original, "999998", "" + PATIENT,
+                posted, "999998", "", "Flu", "0", "", "0", extensions(), "46233009", exact);
+        assertThat(partialDateDao.getFormat(io.github.carlos_emr.carlos.commn.model.PartialDate.PREVENTION,
+                replacement, io.github.carlos_emr.carlos.commn.model.PartialDate.PREVENTION_PREVENTIONDATE)).isEqualTo(expectedFormat);
+        var saved = PreventionData.getPreventionKeyValues("" + replacement);
+        assertThat(saved).containsEntry("cdsDateOriginal", source)
+                .containsEntry("comments", "owned prevention transaction regression");
+        assertThat(extensionDao.findByPreventionIdAndKey(replacement, "comments")).hasSize(1);
+        assertThat(preventionDao.find(original).isDeleted()).isTrue();
+    }
+
     @Test void shouldRollBackRecordAndPartialDate_whenAnExtensionFails() {
         failExtensionWrite();
         assertThatThrownBy(() -> insert("2026-09", extensions())).isInstanceOf(IllegalStateException.class);

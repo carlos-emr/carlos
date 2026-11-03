@@ -140,6 +140,11 @@ public final class RxAddAllergy2Action extends ActionSupport {
             }
         }
 
+        startDate = io.github.carlos_emr.carlos.utility.PartialDateExplanation.forSave(startDate,
+                original == null ? null : original.getStartDate(),
+                original == null ? null : original.getStartDateFormat(),
+                "true".equals(request.getParameter("startDateConfirmedExact")));
+
         String nonDrug = request.getParameter("nonDrug");
 
         // The class shortcuts send the ATC class they file the allergy under (#4576). A code that

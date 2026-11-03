@@ -274,7 +274,8 @@ public class AddPrevention2Action extends ActionSupport {
                 }
                 addHashtoArray(extraData, recordId, "previousId");
                 return PreventionData.updatetPreventionData(recordId, sessionUser, demographic_no, prevDate,
-                        providerNo, providerName, preventionType, refusedFlag, nextDate, neverWarnFlag, extraData, snomedId);
+                        providerNo, providerName, preventionType, refusedFlag, nextDate, neverWarnFlag, extraData, snomedId,
+                        "true".equals(request.getParameter("prevDateConfirmedExact")));
             };
             if (reservation == null) {
                 preventionId = save.get();

@@ -232,11 +232,36 @@ public class PreventionData {
     }
 
     public static Integer updatetPreventionData(String id, String creator, String demoNo, String date, String providerNo, String providerName, String preventionType, String refused, String nextDate, String neverWarn, ArrayList<Map<String, String>> list, String snomedId) {
+        return updatetPreventionData(id, creator, demoNo, date, providerNo, providerName, preventionType,
+                refused, nextDate, neverWarn, list, snomedId, false);
+    }
+
+    public static Integer updatetPreventionData(String id, String creator, String demoNo, String date,
+            String providerNo, String providerName, String preventionType, String refused, String nextDate,
+            String neverWarn, ArrayList<Map<String, String>> list, String snomedId, boolean confirmedExact) {
         return preventionTransaction().execute(status -> {
             requirePreventionInChart(Integer.parseInt(id), Integer.parseInt(demoNo));
+            Prevention original = preventionDao.find(Integer.parseInt(id));
+            String retainedDate = io.github.carlos_emr.carlos.utility.PartialDateExplanation.forSave(date,
+                    original.getPreventionDate(), partialDateDao.getFormat(PartialDate.PREVENTION,
+                            original.getId(), PartialDate.PREVENTION_PREVENTIONDATE), confirmedExact);
+            // Keep import provenance through amendments; comments remain the clinician's text.
+            ArrayList<Map<String, String>> replacementExtras = new ArrayList<>();
+            for (Map<String, String> values : list) {
+                Map<String, String> editable = new HashMap<>(values);
+                editable.keySet().removeIf(key -> key != null && key.startsWith("cds"));
+                replacementExtras.add(editable);
+            }
+            Map<String, String> provenance = new HashMap<>();
+            for (PreventionExt extension : preventionExtDao.findByPreventionId(original.getId())) {
+                if (extension.getkeyval() != null && extension.getkeyval().startsWith("cds") && extension.getVal() != null) {
+                    provenance.put(extension.getkeyval(), extension.getVal());
+                }
+            }
+            replacementExtras.add(provenance);
             deletePreventionData(id);
-            return insertPreventionData(creator, demoNo, date, providerNo, providerName,
-                    preventionType, refused, nextDate, neverWarn, list, snomedId, null);
+            return insertPreventionData(creator, demoNo, retainedDate, providerNo, providerName,
+                    preventionType, refused, nextDate, neverWarn, replacementExtras, snomedId, null);
         });
     }
 

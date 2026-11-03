@@ -139,6 +139,28 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @ParameterizedTest
+    @CsvSource({"YYYY,2019-01-01,false,YYYY", "YYYY-MM,2019-05-01,false,YYYY-MM",
+            "YYYY,2019-01-01,true,", "YYYY-MM,2019-05-14,false,"})
+    void shouldPreserveExplicitPrecisionOnUnrelatedAmendment(String format, String posted,
+            boolean exact, String expectedFormat) throws Exception {
+        Allergy original = new Allergy();
+        original.setId(42);
+        original.setStartDate(java.sql.Date.valueOf(format.equals("YYYY") ? "2019-01-01" : "2019-05-01"));
+        original.setStartDateFormat(format);
+        when(mockRxPatient.getAllergy(42)).thenReturn(original);
+        mockRequest.setParameter("allergyToArchive", "42");
+        mockRequest.setParameter("startDate", posted);
+        mockRequest.setParameter("startDateConfirmedExact", String.valueOf(exact));
+        mockRequest.setParameter("reactionDescription", "Updated reaction");
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        org.mockito.ArgumentCaptor<Allergy> saved = org.mockito.ArgumentCaptor.forClass(Allergy.class);
+        verify(mockRxPatient).addAllergy(any(), saved.capture());
+        assertThat(saved.getValue().getStartDateFormat()).isEqualTo(expectedFormat);
+        assertThat(saved.getValue().getReaction()).isEqualTo("Updated reaction");
+        assertThat(new java.text.SimpleDateFormat("yyyy-MM-dd").format(saved.getValue().getStartDate())).isEqualTo(posted);
+    }
+
     @Test
     @DisplayName("should throw SecurityException when missing _allergy privilege")
     void shouldThrowSecurityException_whenPrivilegeMissing() {
