@@ -65,6 +65,24 @@
             <result name="success">/WEB-INF/jsp/documentManager/aiDocumentSummary.jsp</result>
             <allowed-methods>generate</allowed-methods>
         </action>
+        <action name="documentManager/ReviewAiDocumentSummary" class="io.github.carlos_emr.carlos.clinical.summary.web.AiReviewedDocumentSummary2Action">
+            <result name="success">/WEB-INF/jsp/documentManager/aiDocumentSummary.jsp</result>
+        </action>
+        <action name="documentManager/GenerateReviewedAiDocumentSummary" class="io.github.carlos_emr.carlos.clinical.summary.web.AiReviewedDocumentSummary2Action" method="generate">
+            <result name="success">/WEB-INF/jsp/documentManager/aiDocumentSummary.jsp</result>
+            <allowed-methods>generate</allowed-methods>
+        </action>
+        <action name="documentManager/ApproveReviewedAiDocumentSummary" class="io.github.carlos_emr.carlos.clinical.summary.web.AiReviewedDocumentSummary2Action" method="approve">
+            <result name="success">/WEB-INF/jsp/documentManager/aiDocumentSummary.jsp</result>
+            <allowed-methods>approve</allowed-methods>
+        </action>
+        <action name="documentManager/DiscardReviewedAiDocumentSummary" class="io.github.carlos_emr.carlos.clinical.summary.web.AiReviewedDocumentSummary2Action" method="discard">
+            <result name="success">/WEB-INF/jsp/documentManager/aiDocumentSummary.jsp</result>
+            <allowed-methods>discard</allowed-methods>
+        </action>
+        <action name="documentManager/ReviewedAiSummaryOriginal" class="io.github.carlos_emr.carlos.clinical.summary.web.AiReviewedDocumentSummary2Action" method="original">
+            <allowed-methods>original</allowed-methods>
+        </action>
         <action name="oscarMDS/SendMRP" class="io.github.carlos_emr.carlos.mds.pageUtil.SendMostResponProv2Action">
             <result name="failure">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>

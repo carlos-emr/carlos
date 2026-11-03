@@ -88,6 +88,8 @@ public final class AiDocumentSummary2Action extends ActionSupport {
         var document = authorizedDocument(user, documentId);
         ClinicalSummaryTextExtractor.Extract extract = extract(document.filename(), document.contentType());
         request.setAttribute("documentSummaryId", documentId);
+        request.setAttribute("documentSummaryReviewAvailable",
+                io.github.carlos_emr.carlos.clinical.summary.DocumentSummaryReviewContext.enabled());
         // Same three flags as the eChart header, layout and document report, plus readable text.
         request.setAttribute("chartUpdatesEnabled",
                 ChartUpdateContext.enabled() && extract.complete() && !extract.text().isBlank());
