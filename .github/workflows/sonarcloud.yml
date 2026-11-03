@@ -1,85 +1,95 @@
-name: Issue 5533 release branch configuration
+name: Issue 5533 saved analysis audit
 on:
   push:
     branches: [codex/issue-5533-sonar-diagnostics]
 permissions:
   contents: read
-  packages: read
 jobs:
-  configure:
+  audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
-      - name: Recognize release slash branches without changing analysis history
+      - name: Audit saved branch triage without changing it
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          AUDIT_DIRECTORY: ${{ runner.temp }}/sonar-release-audit
         run: |
-          python3 - <<'PYCONFIG'
-          import base64, json, os, urllib.parse, urllib.request
+          python3 - <<'PY'
+          import base64, collections, concurrent.futures, json, os, pathlib, urllib.parse, urllib.request
           project='carlos-emr_carlos'
-          key='sonar.branch.longLivedBranches.regex'
-          previous='(branch|release)-.*'
-          desired='(branch|release)-.*|release/.*'
+          branch='release/2026.08'
+          directory=pathlib.Path(os.environ['AUDIT_DIRECTORY']);directory.mkdir(mode=0o700)
           headers={'Authorization':'Basic '+base64.b64encode((os.environ['SONAR_TOKEN']+':').encode()).decode()}
           def get(path, **params):
               request=urllib.request.Request('https://sonarcloud.io/api/'+path+'?'+urllib.parse.urlencode(params),headers=headers)
               with urllib.request.urlopen(request,timeout=30) as response:
                   return json.load(response)
-          def setting():
-              return next(item for item in get('settings/values',component=project,keys=key)['settings'] if item['key']==key)
-          original=setting()
-          print('ORIGINAL_BRANCH_SETTING',json.dumps(original))
-          if original.get('value') not in (previous,desired):
-              raise RuntimeError('Project pattern changed independently; refusing to overwrite it')
-          if original.get('value')!=desired:
-              body=urllib.parse.urlencode({'component':project,'key':key,'value':desired}).encode()
-              request=urllib.request.Request('https://sonarcloud.io/api/settings/set',data=body,headers={**headers,'Content-Type':'application/x-www-form-urlencoded'},method='POST')
-              with urllib.request.urlopen(request,timeout=30) as response:
-                  print('BRANCH_CONFIGURATION_WRITE_STATUS',response.status)
-          current=setting()
-          if current.get('value')!=desired:
-              raise RuntimeError('Branch pattern verification failed')
-          print('VERIFIED_BRANCH_SETTING',json.dumps(current))
-          print('RELEASE_BRANCH_BEFORE_ANALYSIS',json.dumps([item for item in get('project_branches/list',project=project)['branches'] if item['name']=='release/2026.08']))
-          PYCONFIG
-  baseline:
-    needs: configure
-    name: Refresh actual release analysis with bounded scanner heap
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    env:
-      SONAR_SCANNER_JAVA_OPTS: -Xmx8g
-    steps:
-      - name: Checkout exact release commit
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+          def branch_state():
+              return next(item for item in get('project_branches/list',project=project)['branches'] if item['name']==branch)
+          initial=branch_state()
+          summary={'branch':branch,'initial':initial,'complete':False}
+          def save_summary():
+              (directory/'summary.json').write_text(json.dumps(summary,indent=2))
+          save_summary()
+          if initial['type']!='SHORT':
+              summary.update(complete=True,alreadyLong=True)
+              save_summary();print('AUDIT_SUMMARY',json.dumps(summary));raise SystemExit(0)
+          controller=next(item for item in get('webservices/list')['webServices'] if item['path']=='api/issues')
+          search=next(item for item in controller['actions'] if item['key']=='search')
+          parameters={item['key']:item for item in search['params']}
+          status_key='issueStatuses' if 'issueStatuses' in parameters else 'statuses'
+          statuses=parameters[status_key].get('possibleValues')
+          if not statuses:
+              raise RuntimeError('Cannot establish complete issue status coverage')
+          print('INCLUDED_ISSUE_STATUSES',status_key,json.dumps(statuses))
+          def pages(path, name, **params):
+              result=[];seen=set();total=None
+              for page in range(1,41):
+                  response=get(path,**params,ps=500,p=page)
+                  current=response['paging']['total']
+                  if total is None: total=current
+                  if current!=total or total>20000:
+                      raise RuntimeError('Snapshot changed or exceeded its bound')
+                  rows=response.get(name,[])
+                  for row in rows:
+                      if row['key'] in seen: raise RuntimeError('Duplicate item during snapshot')
+                      seen.add(row['key']);result.append(row)
+                  if len(result)==total:return result
+                  if not rows:raise RuntimeError('Incomplete snapshot')
+              raise RuntimeError('Snapshot page bound exceeded')
+          issues=pages('issues/search','issues',componentKeys=project,branch=branch,additionalFields='comments',**{status_key:','.join(statuses)})
+          hotspots=pages('hotspots/search','hotspots',projectKey=project,branch=branch)
+          summary.update(issueCount=len(issues),issueStates=dict(collections.Counter(item.get('status') for item in issues)),issueResolutions=dict(collections.Counter(str(item.get('resolution')) for item in issues)),issueAssignees=sum(bool(item.get('assignee')) for item in issues),issueComments=sum(len(item.get('comments',[]))+len(item.get('comment',[])) for item in issues),hotspotCount=len(hotspots),hotspotStates=dict(collections.Counter(item.get('status') for item in hotspots)))
+          print('CURRENT_STATE_COUNTS',json.dumps(summary))
+          changes={}
+          def history(issue):
+              return issue['key'],get('issues/changelog',issue=issue['key']).get('changelog',[])
+          with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+              for index,(key,value) in enumerate(pool.map(history,issues),1):
+                  changes[key]=value
+                  if index%250==0:print('AUDITED_ISSUE_HISTORIES',index,flush=True)
+          details=[]
+          with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+              details=list(pool.map(lambda item:get('hotspots/show',hotspot=item['key']),hotspots))
+          manual_changes=sum(bool(change.get('user') or change.get('userName') or change.get('author')) for values in changes.values() for change in values)
+          hotspot_comments=sum(len(item.get('comments',[]))+len(item.get('comment',[])) for item in details)
+          hotspot_history=sum(bool(change.get('user') or change.get('userName') or change.get('author')) for item in details for change in item.get('changelog',[]))
+          reviewed_hotspots=sum(item.get('status')!='TO_REVIEW' or bool(item.get('resolution')) or bool(item.get('assignee')) for item in details)
+          final=branch_state()
+          summary.update(complete=True,manualIssueChanges=manual_changes,hotspotComments=hotspot_comments,manualHotspotChanges=hotspot_history,reviewedOrAssignedHotspots=reviewed_hotspots,final=final,snapshotChanged=initial.get('analysisDate')!=final.get('analysisDate'))
+          summary['hasManualTriage']=bool(summary['issueComments'] or summary['issueAssignees'] or manual_changes or hotspot_comments or hotspot_history or reviewed_hotspots)
+          if not summary['hasManualTriage']:
+              clean_issues=[{key:value for key,value in item.items() if key not in ('author','assignee','comments')} for item in issues]
+              clean_hotspots=[{key:value for key,value in item.items() if key not in ('author','assignee','comments')} for item in details]
+              (directory/'derived-state-backup.json').write_text(json.dumps({'branch':initial,'issues':clean_issues,'hotspots':clean_hotspots,'changes':changes}))
+          save_summary()
+          print('AUDIT_SUMMARY',json.dumps(summary))
+          PY
+      - name: Preserve generated state and triage counts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          ref: 7b65c40ec04e202a30024c326c390e371c29d3d9
-          persist-credentials: false
-          fetch-depth: 0
-      - name: Prepare SonarCloud cache
-        run: mkdir -p .sonar-cache
-      - name: Start normal dev container
-        uses: ./.github/actions/dev-container
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          maven-cache: restore
-          extra-run-args: -v ${{ github.workspace }}/.sonar-cache:/root/.sonar/cache
-      - name: Build and analyze exact release source
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          test "$(git rev-parse HEAD)" = 7b65c40ec04e202a30024c326c390e371c29d3d9
-          docker exec \
-            -e GITHUB_TOKEN \
-            -e SONAR_TOKEN \
-            -e SONAR_SCANNER_JAVA_OPTS \
-            carlos-tomcat-dev bash -c '
-              mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
-                -Pskip-dependency-lock \
-                -Dmaven.test.failure.ignore=true \
-                -Dsonar.host.url=https://sonarcloud.io \
-                -Dsonar.projectKey=carlos-emr_carlos \
-                -Dsonar.branch.name=release/2026.08 \
-                -Dsonar.scm.revision=7b65c40ec04e202a30024c326c390e371c29d3d9
-            '
+          name: sonar-release-baseline-audit
+          path: ${{ runner.temp }}/sonar-release-audit/*.json
+          if-no-files-found: error
+          retention-days: 14
