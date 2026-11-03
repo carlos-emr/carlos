@@ -495,16 +495,16 @@ public class RptDownloadCSVServlet extends HttpServlet {
             if (!joinedAr.isEmpty()) subQuery += " and " + joinedAr;
             subQuery += " group by " + ARTYPE + ".demographic_no," + ARTYPE + ".formCreated ";
             MiscUtils.getLogger().debug(" demographic and " + ARTYPE + " subQuery: " + subQuery);
-            String subFormId = "";
+            java.util.StringJoiner subFormIds = new java.util.StringJoiner(",");
             List<Object> subQueryParams = new ArrayList<>();
             subQueryParams.addAll(demoFilterParams);
             subQueryParams.addAll(arFilterParams);
             for (Integer number : ConfiguredReportQuery.identifiers(subQuery, subQueryParams.toArray())) {
-                subFormId += (subFormId.length() > 0 ? "," : "") + number;
+                subFormIds.add(String.valueOf(number));
             }
 
             sTempEle = sARSelect.length() > 0 ? ("," + sARSelect) : "";
-            subFormId = subFormId.length() > 0 ? subFormId : "0";
+            String subFormId = subFormIds.length() > 0 ? subFormIds.toString() : "0";
             String sql = "select demographic.demographic_no," + sDemoSelect + sTempEle + " from demographic," + ARTYPE + " where ";
             sql += " " + ARTYPE + ".ID in (" + subFormId + ") and demographic.demographic_no=" + ARTYPE + ".demographic_no " + ORDER_BY; // subFormId built from row.integer() (integer-only)
             MiscUtils.getLogger().debug(" demographic and " + ARTYPE + ": " + sql);
@@ -537,16 +537,16 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 if (!joinedAllAr.isEmpty()) subQuery += " and " + joinedAllAr;
                 subQuery += " group by " + ARTYPE + ".demographic_no," + ARTYPE + ".formCreated ";
                 MiscUtils.getLogger().debug(" demographic and " + ARTYPE + " subQuery: " + subQuery);
-                String subFormId = "";
+                java.util.StringJoiner subFormIds = new java.util.StringJoiner(",");
                 List<Object> subQueryParams = new ArrayList<>();
                 subQueryParams.addAll(demoFilterParams);
                 subQueryParams.addAll(arFilterParams);
                 for (Integer number : ConfiguredReportQuery.identifiers(subQuery, subQueryParams.toArray())) {
-                    subFormId += (subFormId.length() > 0 ? "," : "") + number;
+                    subFormIds.add(String.valueOf(number));
                 }
 
                 sTempEle = sARSelect.length() > 0 ? ("," + sARSelect) : "";
-                subFormId = subFormId.length() > 0 ? subFormId : "0";
+                String subFormId = subFormIds.length() > 0 ? subFormIds.toString() : "0";
                 String sql = "select demographic.demographic_no," + sDemoSelect + sTempEle + " from demographic," + ARTYPE + " where ";
                 sql += " " + ARTYPE + ".ID in (" + subFormId + ") and demographic.demographic_no=" + ARTYPE + ".demographic_no " + ORDER_BY; // subFormId built from row.integer() (integer-only)
                 MiscUtils.getLogger().debug(" demographic and " + ARTYPE + ": " + sql);
@@ -635,17 +635,17 @@ public class RptDownloadCSVServlet extends HttpServlet {
                 if (!joinedAr2.isEmpty()) subQuery += " and " + joinedAr2;
                 subQuery += " group by " + ARTYPE + ".demographic_no," + ARTYPE + ".formCreated ";
                 MiscUtils.getLogger().debug(" demographic and " + ARTYPE + " subQuery: " + subQuery);
-                String subFormId = "";
+                java.util.StringJoiner subFormIds = new java.util.StringJoiner(",");
                 List<Object> subQueryParams2 = new ArrayList<>();
                 subQueryParams2.addAll(demoFilterParams);
                 subQueryParams2.addAll(arFilterParams);
                 for (Integer number : ConfiguredReportQuery.identifiers(subQuery, subQueryParams2.toArray())) {
-                    subFormId += (subFormId.length() > 0 ? "," : "") + number;
+                    subFormIds.add(String.valueOf(number));
                 }
 
                 // total — subFormDemoNo and subFormId built from row.integer() (integer-only)
                 sTempEle = sARSelect.length() > 0 ? ("," + sARSelect) : "";
-                subFormId = subFormId.length() > 0 ? subFormId : "0";
+                String subFormId = subFormIds.length() > 0 ? subFormIds.toString() : "0";
                 String subFormDemoNo = subDemoNoList.isEmpty() ? "0" : String.join(",", subDemoNoList);
                 sql = "select demographic.demographic_no," + sDemoSelect + sTempEle + " from demographic," + ARTYPE + " where ";
                 sql += " demographic.demographic_no in (" + subFormDemoNo + ") and "; // subFormDemoNo built from row.integer() (integer-only)

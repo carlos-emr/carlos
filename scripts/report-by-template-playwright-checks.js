@@ -304,6 +304,20 @@ async function workflow(s) {
     h.assert(templateRow().length === 1, 'Deleting one template removed another');
   });
 
+  await s.step('oversized template results show their limit and offer no empty export', async () => {
+    const limitTitle = `${s.marker} RBT limit`;
+    const select = "SELECT REPEAT('x', 5242881) AS synthetic_limit";
+    const id = await uploadTemplate(templateXml(limitTitle, `${s.marker} limit probe`, select), limitTitle);
+    await openFromLibrary(limitTitle, id);
+    await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), 'Result report (limit)');
+    await frame.locator('.alert-warning', {hasText: 'too large to download'}).waitFor();
+    h.assert(await frame.locator('input[name="getCSV"],input[name="getXLS"]').count() === 0,
+      'An oversized result offered an empty export');
+    h.assert(await frame.locator('table#report2').count() === 0, 'An oversized result rendered partial rows');
+    await leaveResult(frame.locator('input[type="button"][value="Back"]'), 'Back (limit)');
+    await deleteFromConfiguration(id, limitTitle);
+  });
+
   // Last: saving XML that carries <param> through the front door was refused by the WAF before
   // issue #4133 (rule 1402 now excludes xmltext), so everything else is proven above it.
   await s.step('Edit Template saves the parameterised textarea XML and Done returns to the configuration', async () => {

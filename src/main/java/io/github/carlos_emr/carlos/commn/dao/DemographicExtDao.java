@@ -43,7 +43,7 @@ public interface DemographicExtDao extends AbstractDao<DemographicExt> {
     record ReportValue(Integer id, Integer demographicNo, String value) { }
 
     /**
-     * Finds fixed antenatal export values in timestamp and identifier order.
+     * Finds demographic extension values for configured report exports in timestamp and identifier order.
      * latestOnly preserves the legacy single latest row across the entire selected cohort.
      * @param key String extension key
      * @param demographicNumbers Collection of Integer patient identifiers
