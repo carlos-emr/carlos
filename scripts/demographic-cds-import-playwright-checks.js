@@ -186,9 +186,9 @@ async function assertImportAccessDenied(response, message) {
   const body = json ? await response.json() : await response.text();
   // The Struts privilege interceptor can refuse before the import action emits JSON.
   // Require the application's own header and explicit refusal page, never a WAF 403.
-  h.assert(response.status() === 403 && headers['x-permitted-cross-domain-policies'] !== undefined
+  h.assert(response.status() === 403 && Object.hasOwn(headers, h.APPLICATION_HEADER)
     && (json ? body.code === 'IMPORT_ACCESS_DENIED'
-      : body.includes('Security Exception') && body.includes('insufficient privileges')),
+      : h.isSecurityErrorBody(body)),
   `${message} (HTTP ${response.status()})`);
 }
 
@@ -596,15 +596,19 @@ async function workflow(s) {
     h.assert(await frame.locator('#patientRows tr').count() <= 50 && await frame.locator('#diagnosticRows tr').count() <= 50
       && await frame.locator('#uploadRows tr').count() <= 50, 'Operator DOM exceeded bounded page sizes');
   });
-  await s.step('Foreign run and physical report-path probes are refused without revealing paths', async () => {
+  await s.step('Foreign runs and invalid report types are refused; traversal probes identify the refusal layer', async () => {
     const foreign=await importApi(frame,'cdsImportStatus',{runId:randomUUID()});
     h.assert([403,404,409].includes(foreign.status) && foreign.body?.ok === false, 'Unknown run was exposed or treated as success');
     const invalid=await importApi(frame,'cdsImportReport',{runId:actual.job.id,type:'invalid'});
     h.assert(invalid.status === 400 && invalid.fromApplication && invalid.body?.code === 'IMPORT_REPORT_INVALID',
       'The application did not refuse an unknown report type');
     const report=await importApi(frame,'cdsImportReport',{runId:actual.job.id,type:'../../etc/passwd'});
-    h.assert(report.status === 400 && report.fromApplication && report.body?.code === 'IMPORT_REPORT_INVALID'
-      || report.status === 403 && report.waf, 'Physical report-path probe was not refused by the application or front-door WAF');
+    if (report.status === 403 && report.waf) {
+      console.log('NOTE traversal probe: front-door WAF refused; application not reached. Backend report allow-list verified separately.');
+    } else {
+      h.assert(report.status === 400 && report.fromApplication && report.body?.code === 'IMPORT_REPORT_INVALID',
+        'The application did not refuse a physical report path');
+    }
   });
 }
 
