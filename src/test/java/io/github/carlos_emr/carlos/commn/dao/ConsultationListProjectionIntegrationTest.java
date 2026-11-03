@@ -143,11 +143,10 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
             entityManager.persist(merge);
         }
         entityManager.flush(); entityManager.clear();
-        var productionDao = new ConsultationRequestMergedDemographicDaoImpl();
-        org.springframework.test.util.ReflectionTestUtils.setField(productionDao, "entityManager", entityManager);
-        assertThat(statements(3, () -> productionDao.getConsultationListRows(parentId)))
+        assertThat(requests).isInstanceOf(ConsultationRequestMergedDemographicDaoImpl.class);
+        assertThat(statements(3, () -> requests.getConsultationListRows(parentId)))
                 .extracting(ConsultationListRow::id).containsExactly(parent.getId(), child.getId());
-        assertThat(productionDao.getConsultationListRows(60004)).isEmpty();
+        assertThat(requests.getConsultationListRows(60004)).isEmpty();
     }
 
     private int patient() {
