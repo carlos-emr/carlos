@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (C) 2026 CARLOS Contributors
+# Modifications by CARLOS Contributors, 2026.
 """carlos-emr-host-conflicts: name, and where safe stop, what blocks the
 front door (TCP 80/443) or MariaDB on a fresh install.
 

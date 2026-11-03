@@ -1,5 +1,6 @@
 #!/bin/sh
 # postinst for carlos-emr.
+# Modifications by CARLOS Contributors, 2026.
 #
 # THIS IS THE ONLY PLACE THE PACKAGE USES ROOT. It creates the three system
 # accounts, lays out the directories, provisions the database, renders the

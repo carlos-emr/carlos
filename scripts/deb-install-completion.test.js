@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
+// Modifications by CARLOS Contributors, 2026.
 //
 // An install can provision nothing and still report success: every database
 // step in carlos-emr.postinst is non-fatal on purpose, so dpkg is never left

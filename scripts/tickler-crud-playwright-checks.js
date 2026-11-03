@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Modifications by CARLOS Contributors, 2026.
 /*
  * Browser CRUD checks for the CARLOS Tickler interface.
  *

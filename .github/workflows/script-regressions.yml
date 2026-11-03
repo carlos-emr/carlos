@@ -1,4 +1,4 @@
-# Browser-harness/source-contract tests and an isolated Chromium editor fixture.
+# Browser-harness/source-contract tests and isolated Chromium fixtures.
 # No VM, running application, database or secrets required.
 # Licensed under the repository's LICENSE.
 name: Script Regressions
@@ -115,3 +115,5 @@ jobs:
         run: node scripts/prevention-print-popup-browser-check.js
       - name: Check signed-note lifecycle locators in Chromium
         run: node scripts/echart-note-lifecycle-browser-check.js
+      - name: Check tickler CRUD synchronization in Chromium
+        run: node scripts/tickler-crud-browser-check.js
