@@ -828,7 +828,7 @@ Flowsheet: <span style="font-weight:normal"><carlos:encode value='<%= displayNam
 
     <!-- flowsheet xml output -->
     <textarea style="display:none;" cols="200" rows="200">
-            <%=outp.outputString(va)%>
+            <carlos:encode value='<%= outp.outputString(va) %>' context="html"/>
         </textarea><!-- flowsheet xml output END-->
 </div>
     <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
