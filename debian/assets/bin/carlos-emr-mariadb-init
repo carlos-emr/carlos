@@ -1,6 +1,20 @@
 #!/usr/bin/python3
 # SPDX-License-Identifier: AGPL-3.0-only
-# Copyright (C) 2026 CARLOS Contributors
+# Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+#
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU Affero General Public License version 3 as
+# published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+#
+# CARLOS EMR Project
+# https://github.com/carlos-emr/carlos
 """Finish a failed first MariaDB initialization without resetting existing data.
 
 The distribution's postinst deliberately ignores mariadb-install-db failures.
@@ -11,16 +25,31 @@ Exit 0 only after initialization, 2 when no initialization was needed, and 1
 when initialization was refused or failed. Only 0 permits a service restart.
 """
 
+import argparse
 import fcntl
 import os
 from pathlib import Path
+import pwd as system_accounts
 import re
+import shlex
 import subprocess
 import sys
 
 
 STATE = Path("/var/lib/carlos-emr")
 IMPORT_GUARD = "/usr/lib/carlos-emr/carlos-emr-o19-guard"
+PROPERTIES = Path("/etc/carlos-emr/carlos.properties")
+SKEL = Path("/usr/share/carlos-emr/skel/carlos.properties")
+WSREP_ENV_FILES = frozenset(("/run/mysqld/wsrep-new-cluster", "/run/mysqld/wsrep-start-position"))
+OPTION_ENV = frozenset(("MYSQLD_OPTS", "_WSREP_NEW_CLUSTER", "_WSREP_START_POSITION",
+                        "MYSQL_HOME", "MARIADB_HOME", "MYSQL_GROUP_SUFFIX", "MARIADB_GROUP_SUFFIX"))
+SERVICE_PROPERTIES = ("ExecStart", "ExecStartEx", "User", "Group", "ProtectHome", "SetLoginEnvironment",
+                      "Environment", "EnvironmentFiles", "PassEnvironment", "UnsetEnvironment",
+                      "RootDirectory", "RootImage", "WorkingDirectory", "BindPaths",
+                      "BindReadOnlyPaths", "TemporaryFileSystem", "PAMName", "PrivateTmp",
+                      "PrivateUsers", "DynamicUser", "InaccessiblePaths", "MountImages",
+                      "ExtensionImages", "ExtensionDirectories")
+COMMAND_ENV = {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C"}
 # Files a failed first start can leave before any database has been created.
 # Upgrade-info markers are deliberately absent: they identify an existing
 # installation whose missing system schema needs recovery, not initialization.
@@ -37,12 +66,125 @@ def say(message):
     print("carlos-emr: " + message, file=sys.stderr)
 
 
-def run(args, timeout=30, env=None):
+def run(args, timeout=30, env=None, cwd=None):
     return subprocess.run(args, text=True, stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE, timeout=timeout, env=env, check=False)
+                          stderr=subprocess.PIPE, timeout=timeout, env=env, cwd=cwd, check=False)
 
 
-def initialize():
+def hidden_by_protect_home(path):
+    resolved = path.resolve()
+    return any(resolved.is_relative_to(base) for base in (Path("/root"), Path("/home"), Path("/run/user")))
+
+
+def service_context():
+    """Prove that the mysql-user probe uses the stopped service's option context.
+
+    Do not try to interpret arbitrary ExecStart overrides as a shell command.
+    Unsupported service options need operator recovery, never a guessed datadir.
+    """
+    result = run(["systemctl", "show", "mariadb.service",
+                  "--property=" + ",".join(SERVICE_PROPERTIES)])
+    properties = dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
+    if result.returncode or not all(key in properties for key in SERVICE_PROPERTIES):
+        return None
+    if properties["User"] != "mysql" or properties["Group"] != "mysql":
+        return None
+    if properties["ProtectHome"] not in ("yes", "true") or properties["SetLoginEnvironment"] not in ("yes", "true"):
+        return None
+    if properties["WorkingDirectory"] not in ("", "/"):
+        return None
+    if any(properties[key] not in ("no", "false") for key in ("PrivateTmp", "PrivateUsers", "DynamicUser")):
+        return None
+    if any(properties[key] for key in ("RootDirectory", "RootImage", "BindPaths", "BindReadOnlyPaths",
+                                       "TemporaryFileSystem", "PAMName", "PassEnvironment", "UnsetEnvironment",
+                                       "InaccessiblePaths", "MountImages", "ExtensionImages", "ExtensionDirectories")):
+        return None
+    executable = "/usr/sbin/mariadbd"
+    command = properties["ExecStart"]
+    argv = re.findall(r"argv\[\]=(.*?)\s*;", command)
+    if re.findall(r"\bpath=([^ ;]+)", command) != [executable] or len(argv) != 1:
+        return None
+    if shlex.split(argv[0]) != [executable, "$MYSQLD_OPTS", "$_WSREP_NEW_CLUSTER", "$_WSREP_START_POSITION"]:
+        return None
+    # Legacy ExecStart hides '+'/'!' prefixes that change execution identity.
+    # The extended form must describe this same command without special flags.
+    extended = properties["ExecStartEx"]
+    extended_argv = re.findall(r"argv\[\]=(.*?)\s*;", extended)
+    if (re.findall(r"\bpath=([^ ;]+)", extended) != [executable]
+            or len(extended_argv) != 1 or shlex.split(extended_argv[0]) != shlex.split(argv[0])
+            or re.findall(r"\bflags=(.*?)\s*;", extended) != [""]):
+        return None
+    # Unit settings and manager variables are captured, never printed: either
+    # may contain credentials. Only empty MariaDB option settings are supported.
+    for setting in shlex.split(properties["Environment"]):
+        name, sep, value = setting.partition("=")
+        if not sep or name not in OPTION_ENV or value:
+            return None
+    manager = run(["systemctl", "show-environment"])
+    if manager.returncode:
+        return None
+    for setting in manager.stdout.splitlines():
+        name, _, value = setting.partition("=")
+        if name in OPTION_ENV and value:
+            return None
+    files = properties["EnvironmentFiles"]
+    entries = re.findall(r"(\S+) \(ignore_errors=(yes|no)\)", files)
+    if re.sub(r"\S+ \(ignore_errors=(?:yes|no)\)", "", files).strip():
+        return None
+    for name, optional in entries:
+        if name not in WSREP_ENV_FILES or optional != "yes":
+            return None
+        path = Path(name)
+        if path.is_symlink():
+            return None
+        if not path.exists():
+            continue
+        if not path.is_file() or path.stat().st_size > 4096:
+            return None
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith(("#", ";")):
+                continue
+            variable, sep, value = line.partition("=")
+            if (not sep or variable not in ("_WSREP_NEW_CLUSTER", "_WSREP_START_POSITION")
+                    or value.strip() not in ("", "''", '\"\"')):
+                return None
+    try:
+        home = Path(system_accounts.getpwnam("mysql").pw_dir)
+    except KeyError:
+        return None
+    if not home.is_absolute() or hidden_by_protect_home(home):
+        return None
+    # Clear the caller's environment AFTER runuser's PAM processing as well.
+    # Root's ~/.my.cnf and MYSQL_HOME must affect neither probe nor bootstrap.
+    return ["runuser", "-u", "mysql", "-g", "mysql", "--", "env", "-i",
+            "PATH=" + COMMAND_ENV["PATH"], "HOME=" + str(home), "USER=mysql", "LOGNAME=mysql",
+            "LC_ALL=C", "TMPDIR="]
+
+
+def untouched_site():
+    """An empty mountpoint is not evidence that an established site is new."""
+    if any(path.is_symlink() or not path.is_file() for path in (PROPERTIES, SKEL)):
+        return False
+    if PROPERTIES.read_bytes() != SKEL.read_bytes():
+        return False
+    documents = STATE / "CarlosDocument"
+    if documents.is_symlink():
+        return False
+    if documents.exists():
+        if not documents.is_dir():
+            return False
+        def fail_scan(error):
+            raise error
+        # rglob suppresses PermissionError, including on root-squashed NFS.
+        # Unreadable retained data must not masquerade as an empty new site.
+        for parent, directories, files in os.walk(documents, followlinks=False, onerror=fail_scan):
+            if files or any((Path(parent) / name).is_symlink() for name in directories):
+                return False
+    return True
+
+
+def initialize(accept_empty_datadir=False):
     if os.geteuid() != 0:
         say("MariaDB initialization requires root.")
         return 1
@@ -59,7 +201,10 @@ def initialize():
         except BlockingIOError:
             say("MariaDB initialization deferred: another provisioning run holds the database lock.")
             return 1
-        if os.path.isfile(IMPORT_GUARD) and run([IMPORT_GUARD]).returncode != 0:
+        if not os.path.isfile(IMPORT_GUARD) or not os.access(IMPORT_GUARD, os.X_OK):
+            say("MariaDB initialization deferred: the import guard is missing or not executable; repair the package first.")
+            return 1
+        if run([IMPORT_GUARD]).returncode != 0:
             say("MariaDB initialization deferred: an OSCAR 19 import owns the database.")
             return 1
 
@@ -74,10 +219,16 @@ def initialize():
                 say("MariaDB initialization deferred: a database process is running or could not be checked.")
                 return 1
 
+        context = service_context()
+        if context is None:
+            say("MariaDB service options or environment differ from the supported mysql-user context; "
+                "refusing to guess its data directory. See README.Debian for manual recovery.")
+            return 1
+
         # Read the server's effective configuration, including its compiled
         # default. Ubuntu 26.04 uses /var/lib/mariadb, older systems commonly
         # use /var/lib/mysql, and an operator may have moved either one.
-        help_result = run(["mariadbd", "--verbose", "--help"])
+        help_result = run(context + ["mariadbd", "--verbose", "--help"], env=COMMAND_ENV, cwd="/")
         match = re.search(r"^datadir[ \t]+(.+?)[ \t]*$", help_result.stdout, re.MULTILINE)
         if help_result.returncode != 0 or match is None:
             say("Could not determine MariaDB's configured data directory; leaving it unchanged.")
@@ -89,7 +240,7 @@ def initialize():
             say("MariaDB's data directory contains whitespace unsupported by mariadb-install-db; "
                 "leaving it unchanged for manual recovery.")
             return 1
-        if not datadir.is_absolute() or not datadir.is_dir():
+        if not datadir.is_absolute() or not datadir.is_dir() or hidden_by_protect_home(datadir):
             say("MariaDB's configured data directory is absent or invalid; leaving it unchanged.")
             return 1
         if (datadir / "mysql").exists():
@@ -108,14 +259,21 @@ def initialize():
                     "(see 'Missing MariaDB system tables' in README.Debian).")
                 return 1
 
+        if not accept_empty_datadir and not untouched_site():
+            say("MariaDB's mysql schema is missing, but this site's configuration or retained documents "
+                "do not prove an unfinished first initialization. Check that the database volume is mounted "
+                "and recover the existing database. Only for an intentionally new database, rerun with "
+                "--accept-empty-datadir (see README.Debian).")
+            return 1
+
         say(f"Initializing missing MariaDB system tables in {datadir}; existing files are retained.")
         # timeout also terminates the initializer's bootstrap-server children.
         # Match the distribution's workaround for libpam-tmpdir (#1022994).
-        result = run(["timeout", "--kill-after=10", "180", "mariadb-install-db",
+        result = run(["timeout", "--kill-after=10", "180"] + context + ["mariadb-install-db",
                       f"--datadir={datadir}", "--user=mysql",
                       "--auth-root-authentication-method=socket", "--skip-test-db",
                       "--disable-log-bin"], timeout=200,
-                     env={**os.environ, "TMPDIR": ""})
+                     env=COMMAND_ENV, cwd="/")
         if result.returncode != 0 or not (datadir / "mysql" / "db.frm").is_file():
             say("MariaDB system-table initialization failed; no files were removed. "
                 "See the initializer output below and README.Debian.")
@@ -125,13 +283,17 @@ def initialize():
         return 0
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--accept-empty-datadir", action="store_true",
+                        help="accept a new empty database after checking mounts/backups; never overwrites existing schemas")
+    options = parser.parse_args([] if argv is None else argv)
     try:
-        return initialize()
-    except (OSError, subprocess.TimeoutExpired) as exc:
+        return initialize(options.accept_empty_datadir)
+    except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
         say(f"MariaDB initialization could not finish: {exc}. No files were removed.")
         return 1
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

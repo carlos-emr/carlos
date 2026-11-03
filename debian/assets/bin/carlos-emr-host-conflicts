@@ -431,7 +431,7 @@ mariadb_cause() {
                 grep -F '[ERROR]' | grep -vE '\[ERROR\] Aborting[[:space:]]*$' |
                 tail -n 1 | sed 's/^[0-9-]* *[0-9:]* *[0-9]* *//' | cut -c1-200)"
             if printf '%s\n' "${last}" | grep -E "mysql\.(db|servers|global_priv|user).*doesn't exist" >/dev/null; then
-                say "cause: mariadb.service is ${state}: MariaDB's mysql system tables are missing; see 'Missing MariaDB system tables' in /usr/share/doc/carlos-emr/README.Debian. Reconfigure carlos-emr to retry initialization of an empty data directory; an existing database needs recovery from backup"
+                say "cause: mariadb.service is ${state}: MariaDB's mysql system tables are missing; see 'Missing MariaDB system tables' in /usr/share/doc/carlos-emr/README.Debian. On a new site, reconfigure carlos-emr to retry initialization; on an existing site, check the data volume mount and recover the database from backup"
                 return 0
             fi
             say "cause: mariadb.service is ${state}${last:+ (its last error: ${last})}; see: sudo journalctl -u mariadb -n 50"

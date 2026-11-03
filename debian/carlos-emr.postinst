@@ -941,8 +941,10 @@ except ValueError:
             sd_invoke start mariadb.service >/dev/null 2>&1 || true
             # mariadb-server ignores an install-db failure. After a purge and
             # reinstall that can leave a stopped server with no mysql system
-            # tables. The helper retries ONLY an uninitialized datadir; it
-            # refuses existing data, a running server and an active import.
+            # tables. The helper retries ONLY an unfinished first-site init;
+            # configured/retained sites must first check mounts or explicitly
+            # accept a new empty database. It refuses existing datadir data,
+            # ambiguous service options, a running server and active imports.
             # A refusal/failure follows the ordinary incomplete-install path.
             if [ "$(systemctl is-active mariadb.service 2>/dev/null || true)" = failed ] &&
                     /usr/lib/carlos-emr/carlos-emr-mariadb-init; then
