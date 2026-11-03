@@ -1,4 +1,5 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.PartialDateExplanation" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPatientData" %>
@@ -112,8 +113,8 @@
                 Allergy a = patient.getAllergy(Integer.parseInt(allergyToArchive));
                 if (a != null) {
                     reaction = a.getReaction() != null ? a.getReaction() : "";
-                    startDate = a.getStartDate() == null ? "" : new java.text.SimpleDateFormat("yyyy-MM-dd").format(a.getStartDate());
-                    startDateExplanation = PartialDateExplanation.explain(a.getStartDate(), a.getStartDateFormat());
+                    startDate = a.getStartDate() == null ? "" : new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ROOT).format(a.getStartDate());
+                    startDateExplanation = PartialDateExplanation.explain(a.getStartDate(), a.getStartDateFormat(), LocaleUtils.resolveBundleLocale(request));
                     ageOfOnset = a.getAgeOfOnset() != null ? a.getAgeOfOnset() : "";
                     lifeStage = a.getLifeStage() != null ? a.getLifeStage() : "";
                     severity = a.getSeverityOfReaction() != null ? a.getSeverityOfReaction() : "";
@@ -270,12 +271,12 @@
                                         </script>
 
                                         <span class="label">Start Date:</span>
-                                        <input type="text" name="startDate" id="startDate" aria-describedby="startDateExplanation" size="10" maxlength="10"
+                                        <input type="text" name="startDate" id="startDate" <% if (!startDateExplanation.isEmpty()) { %>aria-describedby="startDateExplanation"<% } %> size="10" maxlength="10"
                                                value="<carlos:encode value='<%= startDate %>' context="htmlAttribute"/>" onblur="checkStartDate();"/>
                                         <img src="<%= request.getContextPath() %>/images/cal.gif" id="startDateCal">(yyyy-mm-dd OR yyyy-mm OR yyyy)
                                         <% if (!startDateExplanation.isEmpty()) { %>
                                         <div id="startDateExplanation" class="partial-date-explanation"><carlos:encode value='<%= startDateExplanation %>' context="html"/></div>
-                                        <label><input type="checkbox" name="startDateConfirmedExact" value="true">Confirm the selected date is exact</label>
+                                        <label><input type="checkbox" name="startDateConfirmedExact" value="true"><fmt:message key="global.partialDate.labelConfirmExact"/></label>
                                         <% } %>
                                     </td>
                                 </tr>

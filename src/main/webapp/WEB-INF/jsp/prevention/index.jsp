@@ -1,4 +1,5 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.PartialDateExplanation" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -997,7 +998,7 @@
                                         <br/>
                                         <!--<%=refused(hdata.get("refused"))%>-->
                                         Date: <carlos:encode value='<%= (String)hdata.get("prevention_date_no_time") %>' context="html"/>
-                                                <small class="partial-date-explanation"><%= SafeEncode.forHtml(PartialDateExplanation.explain((String) hdata.get("prevention_date_no_time"))) %></small>
+                                                <small class="partial-date-explanation"><%= SafeEncode.forHtmlContent(PartialDateExplanation.explain((String) hdata.get("prevention_date_no_time"), LocaleUtils.resolveBundleLocale(request))) %></small>
                                                 <%if (hExt.get("comments") != null && (hExt.get("comments")).length()>0) {
                     if (io.github.carlos_emr.CarlosProperties.getInstance().getBooleanProperty("prevention_show_comments","yes")){%>
                                     <div class="comments">
@@ -1087,7 +1088,7 @@
                                             <p <%=r(hdata.get("refused"), result)%>>Age: <carlos:encode value='<%= hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "" %>' context="html"/> <br/>
                                                 <!--<%=refused(hdata.get("refused"))%>-->
                                                 Date: <carlos:encode value='<%= (String)hdata.get("prevention_date_no_time") %>' context="html"/>
-                                                <small class="partial-date-explanation"><%= SafeEncode.forHtml(PartialDateExplanation.explain((String) hdata.get("prevention_date_no_time"))) %></small>
+                                                <small class="partial-date-explanation"><%= SafeEncode.forHtmlContent(PartialDateExplanation.explain((String) hdata.get("prevention_date_no_time"), LocaleUtils.resolveBundleLocale(request))) %></small>
                                                         <%if (hExt.get("comments") != null && (hExt.get("comments")).length()>0) {
                      if (io.github.carlos_emr.CarlosProperties.getInstance().getBooleanProperty("prevention_show_comments","yes")){ %>
                                             <div class="comments">
@@ -1174,7 +1175,7 @@
                                             <p <%=r(hdata.get("refused"), result)%>>Age: <carlos:encode value='<%= hdata.get("age") != null ? String.valueOf(hdata.get("age")) : "" %>' context="html"/> <br/>
                                                 <!--<%=refused(hdata.get("refused"))%>-->
                                                 Date: <carlos:encode value='<%= (String) hdata.get("prevention_date_no_time") %>' context="html"/>
-                                                <small class="partial-date-explanation"><%= SafeEncode.forHtml(PartialDateExplanation.explain((String) hdata.get("prevention_date_no_time"))) %></small>
+                                                <small class="partial-date-explanation"><%= SafeEncode.forHtmlContent(PartialDateExplanation.explain((String) hdata.get("prevention_date_no_time"), LocaleUtils.resolveBundleLocale(request))) %></small>
                                                                                             </p>
                                         </div>
                                         <%}%>

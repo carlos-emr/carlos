@@ -1,4 +1,5 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.PartialDateExplanation" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%--
 
     Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
@@ -722,7 +723,7 @@
                                                 <td><%=allergy.getReaction() != null ? SafeEncode.forHtml(allergy.getReaction()) : "" %>
                                                 </td>
                                                 <td><%=startDate == null ? "" : SafeEncode.forHtml(startDate) %>
-                                                    <small class="partial-date-explanation"><%= SafeEncode.forHtml(PartialDateExplanation.explain(startDate)) %></small>
+                                                    <small class="partial-date-explanation"><%= SafeEncode.forHtmlContent(PartialDateExplanation.explain(startDate, LocaleUtils.resolveBundleLocale(request))) %></small>
                                                 </td>
                                                 <td><carlos:encode value='<%= allergy.getLifeStageDesc() %>' context="html"/>
                                                 </td>

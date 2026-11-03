@@ -10,6 +10,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Tag("unit")
+@org.junit.jupiter.api.parallel.Isolated("Temporarily changes the default locale")
 class PartialDateExplanationUnitTest {
     @Test void shouldExplainExplicitPartialDates() {
         assertThat(PartialDateExplanation.explain(Date.valueOf("2019-01-01"), "YYYY"))
@@ -34,10 +35,31 @@ class PartialDateExplanationUnitTest {
     }
 
     @Test void shouldRetainUnchangedAnchorsUntilExplicitlyConfirmed() {
+        assertThat(PartialDateExplanation.forSave("2019-01-01", Date.valueOf("2019-01-01"), "YYYY", false)).isEqualTo("2019");
         Date original = Date.valueOf("2019-05-01");
         assertThat(PartialDateExplanation.forSave("2019-05-01", original, "YYYY-MM", false)).isEqualTo("2019-05");
         assertThat(PartialDateExplanation.forSave("2019-05-01", original, "YYYY-MM", true)).isEqualTo("2019-05-01");
         assertThat(PartialDateExplanation.forSave("2019-05-14", original, "YYYY-MM", false)).isEqualTo("2019-05-14");
         assertThat(PartialDateExplanation.forSave(null, original, "YYYY-MM", false)).isNull();
+    }
+
+    @Test void shouldNormalizePartialDisplayValuesForNativeDatePickers() {
+        assertThat(PartialDateExplanation.pickerValue("2019")).isEqualTo("2019-01-01");
+        assertThat(PartialDateExplanation.pickerValue("2019-05")).isEqualTo("2019-05-01");
+        assertThat(PartialDateExplanation.pickerValue("2019-01-01")).isEqualTo("2019-01-01");
+        assertThat(PartialDateExplanation.pickerValue(null)).isNull();
+    }
+
+    @Test void shouldKeepIsoDatesStableUnderNonGregorianDefaultLocales() {
+        Date original = Date.valueOf("2019-01-01");
+        java.util.Locale previous = java.util.Locale.getDefault();
+        try {
+            java.util.Locale.setDefault(java.util.Locale.forLanguageTag("th-TH"));
+            assertThat(PartialDateExplanation.recordedValue(original, "YYYY")).isEqualTo("2019");
+            assertThat(PartialDateExplanation.forSave("2019-01-01", original, "YYYY", false)).isEqualTo("2019");
+            assertThat(PartialDateExplanation.explain("2019-05", java.util.Locale.FRENCH)).contains("mai 2019", "jour exact est inconnu");
+        } finally {
+            java.util.Locale.setDefault(previous);
+        }
     }
 }

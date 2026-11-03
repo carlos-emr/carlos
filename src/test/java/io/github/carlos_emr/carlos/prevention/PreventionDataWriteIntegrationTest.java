@@ -110,6 +110,7 @@ class PreventionDataWriteIntegrationTest extends CarlosTestBase {
                 replacement, io.github.carlos_emr.carlos.commn.model.PartialDate.PREVENTION_PREVENTIONDATE)).isEqualTo(expectedFormat);
         var saved = PreventionData.getPreventionKeyValues("" + replacement);
         assertThat(saved).containsEntry("cdsDateOriginal", source)
+                .containsEntry("cdsDatePrecision", source.length() == 4 ? "YEAR" : source.length() == 7 ? "YEAR_MONTH" : "FULL_DATE")
                 .containsEntry("comments", "owned prevention transaction regression");
         assertThat(extensionDao.findByPreventionIdAndKey(replacement, "comments")).hasSize(1);
         assertThat(preventionDao.find(original).isDeleted()).isTrue();
