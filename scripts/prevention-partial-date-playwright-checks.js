@@ -144,13 +144,19 @@ async function workflow(s) {
     const editor = await edit(yearOnlyNow, 'prevention-editor-impossible-day');
     const before = activeCount();
     const box = editor.locator('#prevDate');
-    await box.fill('2019-02-31').catch(error => { if (!/Malformed value/.test(error.message)) throw error; });
-    if (await box.inputValue() === '2019-01-01') await box.clear();
-    const saved = await save(editor);
-    const why = saved ? '' : await box.evaluate(el => el.validationMessage || '');
-    assert(!saved && why !== '' && activeCount() === before
+    // A native date input cannot retain an impossible calendar day. Probe the
+    // server with the real form/token so calendar validation is tested too.
+    const status = await editor.evaluate(async () => {
+      const form = document.getElementById('prevDate').form;
+      const data = new URLSearchParams(new FormData(form));
+      data.set('prevDate', '2019-02-31');
+      const response = await fetch(form.action, { method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: data.toString() });
+      return response.status;
+    });
+    assert(status === 400 && activeCount() === before
       && sql.value(`SELECT deleted FROM preventions WHERE id=${yearOnlyNow}`) === '0',
-      `2019-02-31 was ${saved ? 'saved' : `refused with ${JSON.stringify(why)}`}, and the active count went from ${before} to ${activeCount()}`);
+      `2019-02-31 returned HTTP ${status}, and the active count went from ${before} to ${activeCount()}`);
     // The same editor, corrected: the refusal must not block the next submit. An edit replaces the
     // prevention: the old row is marked deleted and a new one is added.
     await box.fill('2019-02-28');
