@@ -186,7 +186,7 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
 
         String result = action.execute();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("photoError");
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("No client selected.");
@@ -202,7 +202,7 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
 
         String result = action.execute();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("photoError");
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("No client selected.");
@@ -217,7 +217,7 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
 
         String result = action.execute();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("photoError");
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("No client selected.");
@@ -238,7 +238,7 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
 
         String result = action.execute();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("photoError");
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("Only GIF and JPG image types are allowed for the client photo.");
@@ -250,7 +250,7 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
     void shouldReturnError_whenNoImageUploaded() {
         String result = action.execute();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("photoError");
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("Please select an image to upload.");
@@ -291,7 +291,7 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
 
         String result = "deleteImage".equals(method) ? action.deleteImage() : action.saveImage();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("photoError");
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(action.getActionErrors()).containsExactly("No client selected.");
         assertThat(request.getAttribute("success")).isNull();
@@ -307,7 +307,7 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
 
         String result = "execute".equals(entry) ? action.execute() : action.deleteImage();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("photoError");
         assertThat(response.getStatus()).isEqualTo(500);
         assertThat(action.getActionErrors()).containsExactly("Error deleting image.");
         assertThat(request.getAttribute("success")).isNull();
@@ -325,7 +325,7 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
                 ? new SecurityException("storage denied") : new IllegalStateException("storage unavailable");
         doThrow(exception).when(clientImageManager).saveClientImage(any(ClientImage.class));
 
-        assertThat(action.execute()).isEqualTo("error");
+        assertThat(action.execute()).isEqualTo("photoError");
         assertThat(response.getStatus()).isEqualTo(500);
         assertThat(action.getActionErrors()).containsExactly("Error saving image.");
         assertThat(request.getAttribute("success")).isNull();
@@ -344,7 +344,7 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
         }
         action.setClientImageFileName("photo.jpg");
 
-        assertThat(action.execute()).isEqualTo("error");
+        assertThat(action.execute()).isEqualTo("photoError");
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(action.getActionErrors()).containsExactly("Invalid image upload.");
         assertThat(request.getAttribute("success")).isNull();

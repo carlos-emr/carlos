@@ -86,6 +86,18 @@ function consumeUnloadBeacon(recorder, since) {
     && entry.errorText === 'net::ERR_ABORTED' && new URL(entry.url).pathname.endsWith('/CaseManagementEntry'))));
 }
 
+/** Consume only the HTTP 400 document whose rendered error this step has asserted. */
+function consumeBadRequest(recorder, since, url) {
+  const index = recorder.badResponses.findIndex((entry, i) => i >= since.responses
+    && entry.status === 400 && entry.method === 'POST' && entry.url === url);
+  h.assert(index >= 0, 'The rejected photo POST was not recorded as HTTP 400');
+  recorder.badResponses.splice(index, 1);
+  for (let i = recorder.consoleIssues.length - 1; i >= since.console; i--) {
+    const entry = recorder.consoleIssues[i];
+    if (entry.location?.url === url && /status of 400 \(/.test(entry.text)) recorder.consoleIssues.splice(i, 1);
+  }
+}
+
 async function workflow(s) {
   const { sql, patient } = s;
   const stored = () => sql.rows(`SELECT image_type,SHA2(FROM_BASE64(contents),256) FROM client_image
@@ -159,12 +171,15 @@ async function workflow(s) {
     await manager.locator('#clientImage').setInputFiles({
       name: 'notes<em>.txt', mimeType: 'text/plain', buffer: Buffer.from(`${s.marker} not an image\n`),
     });
+    const since = {responses: s.recorder.badResponses.length, console: s.recorder.consoleIssues.length};
     const [post] = await Promise.all([
       manager.waitForResponse(r => new URL(r.url()).pathname.endsWith('/ClientImage') && r.request().method() === 'POST'),
       manager.waitForEvent('load'),
       manager.locator('button[type="submit"]', { hasText: 'Upload' }).click(),
     ]);
-    h.assert(post.status() === 200, `The refused upload answered HTTP ${post.status()}`);
+    h.assert(post.status() === 400, `The refused upload answered HTTP ${post.status()}, expected 400`);
+    await manager.locator('.alert.alert-danger').waitFor({state: 'visible'});
+    consumeBadRequest(s.recorder, since, post.url());
     h.assert(!manager.isClosed() && await manager.locator('#clientImage').count() === 1,
       'The refused upload did not keep the image manager open for another try');
     h.assert(JSON.stringify(stored()) === before, 'The refused upload changed the stored photo');
@@ -328,30 +343,42 @@ async function workflow(s) {
   });
 
   await s.step('A photo change that names no patient changes no photo, whichever manager was opened last', async () => {
-    // The second patient's manager was the last one opened; a Clear Photo POST without demographicNo
-    // used to fall back to the clientId that page left in the session. Sent with the login's own token.
-    const tokenField = managerB.locator('form input[name="CSRF-TOKEN"]').first();
-    await tokenField.waitFor({ state: 'attached' });
-    const token = await tokenField.inputValue();
-    h.assert(token, 'The second photo manager carries no CSRF token');
+    // Rewrite only the patient field of the real Clear Photo form submission, then render
+    // the server's response in that manager. This deliberately probes malformed POST input.
     const before = sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no IN (${patient},${patientB})`);
-    for (const demographicNo of [undefined, 'invalid', '0', '2147483648']) {
-      const response = await s.context.request.post(h.appUrl(s.config.baseUrl, '/ClientImage'), {
-        form: { method: 'deleteImage', 'CSRF-TOKEN': token, ...(demographicNo === undefined ? {} : {demographicNo}) },
-        maxRedirects: 0, failOnStatusCode: false,
-      });
-      const status = response.status();
-      const body = await response.text();
-      await response.dispose();
-      h.assert(status === 400, `Clear Photo with patient ${demographicNo ?? '(missing)'} answered HTTP ${status}, expected 400`);
-      // Parse the detached response DOM; this does not submit a form or invoke application handlers.
-      const errorText = await managerB.evaluate(html => new DOMParser().parseFromString(html, 'text/html')
-        .querySelector('.alert.alert-danger')?.textContent, body);
-      h.assert(errorText?.includes('No client selected.'), 'The invalid Clear Photo response did not render the error alert');
-      h.assert(!/opener\.location\.reload/.test(body), 'An invalid Clear Photo POST was answered as a success');
-      h.assert(sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no IN (${patient},${patientB})`) === before
-        && JSON.stringify(storedFor(patientB)) === JSON.stringify([['jpeg', sha(bPhoto)]]),
-      'An invalid Clear Photo POST changed a photo');
+    for (const values of [[], ['invalid'], ['0'], ['2147483648'], [patient, patientB]]) {
+      await h.gotoApp(managerB, s.config.baseUrl, `/casemgmt/ViewUploadimage?demographicNo=${patientB}`);
+      const rewritePatient = async route => {
+        h.assert(route.request().method() === 'POST', 'The malformed photo probe must submit the real form');
+        const form = new URLSearchParams(route.request().postData());
+        form.delete('demographicNo');
+        for (const value of values) form.append('demographicNo', value);
+        await route.continue({postData: form.toString()});
+      };
+      await managerB.route('**/ClientImage', rewritePatient);
+      const since = {responses: s.recorder.badResponses.length, console: s.recorder.consoleIssues.length};
+      let post;
+      try {
+        await h.withExpectedDialogs(managerB, async () => {
+          [post] = await Promise.all([
+            managerB.waitForResponse(isClientImagePost),
+            managerB.waitForEvent('load'),
+            managerB.locator('button[type="submit"]', {hasText: 'Clear Photo'}).click(),
+          ]);
+        });
+        h.assert(post.status() === 400, `Invalid Clear Photo answered HTTP ${post.status()}, expected 400`);
+        const error = managerB.locator('.alert.alert-danger');
+        await error.waitFor({state: 'visible'});
+        h.assert((await error.innerText()).includes('No client selected.'), 'The rejected photo POST did not display the error');
+        h.assert(await managerB.locator('button[type="submit"]').count() === 0,
+          'An invalid patient number rendered a photo mutation form');
+        h.assert(sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no IN (${patient},${patientB})`) === before
+          && JSON.stringify(storedFor(patientB)) === JSON.stringify([['jpeg', sha(bPhoto)]]),
+        'An invalid Clear Photo POST changed a photo');
+        consumeBadRequest(s.recorder, since, post.url());
+      } finally {
+        await managerB.unroute('**/ClientImage', rewritePatient);
+      }
     }
     await managerB.close();
   });

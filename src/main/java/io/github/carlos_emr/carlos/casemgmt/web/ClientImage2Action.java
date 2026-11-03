@@ -61,6 +61,8 @@ import java.util.List;
  * first cleared the second patient's photo (issue #4546).</p>
  */
 public class ClientImage2Action extends ActionSupport implements UploadedFilesAware {
+    private static final String PHOTO_ERROR = "photoError";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -181,7 +183,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
     private String imageError(String message, int status) {
         addActionError(message);
         response.setStatus(status);
-        return ERROR;
+        return PHOTO_ERROR;
     }
 
     /** Refuses photo mutations from safe-method requests, including direct action entry points. */
