@@ -27,6 +27,8 @@ import java.util.List;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -48,6 +50,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.AppointmentManager;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentTo1;
@@ -71,8 +74,7 @@ import static org.mockito.Mockito.when;
 /**
  * Unit tests for {@link ScheduleService}.
  *
- * <p>Focuses on the `saveSearchConfig` error-handling paths added for the
- * appointment-search hardening change.</p>
+ * <p>Covers schedule validation, authorization, and error-handling paths.</p>
  *
  * @since 2026-04-20
  */
@@ -115,6 +117,23 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         // Lenient: some tests exercise paths that short-circuit before the privilege check
         // (e.g. findUnknownFilter) or override the stub. Strict-by-default would fail those.
         lenient().when(securityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), any())).thenReturn(true);
+    }
+
+    @Test
+    @DisplayName("should preserve the manager's HTTP response when appointment count dates are invalid")
+    void shouldPreserveHttpResponse_whenAppointmentCountDatesAreInvalid() {
+        WebApplicationException badRequest = new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
+                .entity("Path parameter has the wrong format").header("X-Validation", "date-format").build());
+        when(scheduleManager.listProviderAppointmentCounts(loggedInInfo, "not-a-date", "2026-11-30"))
+                .thenThrow(badRequest);
+
+        // Use a separate logger so parallel endpoint tests cannot pollute this capture.
+        service.logger = LogManager.getLogger(getClass().getName() + ".invalidAppointmentCountDates");
+        try (LogCapture logs = LogCapture.forLogger(service.logger.getName())) {
+            assertThatThrownBy(() -> service.listProviderAppointmentCounts("not-a-date", "2026-11-30"))
+                    .isSameAs(badRequest);
+            assertThat(logs.events()).noneMatch(event -> event.getLevel().isMoreSpecificThan(Level.ERROR));
+        }
     }
 
     @Test
