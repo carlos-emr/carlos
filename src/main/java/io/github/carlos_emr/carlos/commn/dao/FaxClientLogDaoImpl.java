@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -31,6 +32,8 @@
  */
 
 package io.github.carlos_emr.carlos.commn.dao;
+
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationFaxRow;
 
 import java.util.Collections;
 import java.util.List;
@@ -68,6 +71,16 @@ public class FaxClientLogDaoImpl extends AbstractDaoImpl<FaxClientLog> implement
                 FaxClientLog.class);
         query.setParameter(1, faxIds);
         return query.getResultList();
+    }
+
+    @Override
+    public List<ConsultationFaxRow> findConsultationFaxRows(int requestId) {
+        return entityManager.createQuery("select new io.github.carlos_emr.carlos.consultation.dto.ConsultationFaxRow("
+                + "job.destination, job.recipient, job.status, log.startTime) "
+                + "from FaxClientLog log join FaxJob job on job.id = log.faxId "
+                + "where log.requestId = :requestId order by log.startTime desc",
+                ConsultationFaxRow.class)
+                .setParameter("requestId", requestId).getResultList();
     }
 
     @SuppressWarnings("unchecked")

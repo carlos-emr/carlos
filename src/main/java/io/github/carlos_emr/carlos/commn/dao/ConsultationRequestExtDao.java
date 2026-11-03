@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -33,6 +34,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
+import java.util.Collection;
 
 import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt;
 
@@ -40,6 +42,9 @@ public interface ConsultationRequestExtDao extends AbstractDao<ConsultationReque
     List<ConsultationRequestExt> getConsultationRequestExts(int requestId);
 
     String getConsultationRequestExtsByKey(int requestId, String key);
+
+    /** Loads extensions for a page in one query; empty input returns no rows. */
+    List<ConsultationRequestExt> getConsultationRequestExts(Collection<Integer> requestIds);
 
     void clear(int requestId);
 }

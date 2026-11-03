@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -32,6 +33,8 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationFaxRow;
+
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.FaxClientLog;
@@ -43,4 +46,7 @@ public interface FaxClientLogDao extends AbstractDao<FaxClientLog> {
     public List<FaxClientLog> findClientLogbyFaxIds(List<Integer> faxIds);
 
     public List<FaxClientLog> findClientLogbyRequestId(int requestId);
+
+    /** Returns consultation fax history joined to jobs, without one job lookup per log. */
+    List<ConsultationFaxRow> findConsultationFaxRows(int requestId);
 }

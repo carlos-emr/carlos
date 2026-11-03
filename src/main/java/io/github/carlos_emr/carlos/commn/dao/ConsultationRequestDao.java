@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * <p>
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
@@ -31,6 +32,8 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationListRow;
+
 import java.util.Date;
 import java.util.List;
 
@@ -41,6 +44,12 @@ import io.github.carlos_emr.carlos.consultation.dto.ConsultationMrpOptionDto;
 import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemDTO;
 
 public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest> {
+
+    /** Returns scalar rows with the same filters, visibility, order and paging as getConsults. */
+    List<ConsultationListRow> getConsultationListRows(ConsultationListFilterDto filter);
+
+    /** Returns scalar rows for the patient chart, retaining orphaned related records. */
+    List<ConsultationListRow> getConsultationListRows(Integer demographicNo);
 
     public static final int DEFAULT_CONSULT_REQUEST_RESULTS_LIMIT = 100;
 

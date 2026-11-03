@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * <p>
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
@@ -30,6 +31,8 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.consultation.dto.SpecialistListRow;
+
 import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
@@ -37,6 +40,9 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 public interface ProfessionalSpecialistDao extends AbstractDao<ProfessionalSpecialist> {
 
     List<ProfessionalSpecialist> findAll();
+
+    /** Returns active directory rows in last-name, first-name order without eager associations. */
+    List<SpecialistListRow> findListRows();
 
     List<ProfessionalSpecialist> findByFullName(String lastName, String firstName);
 

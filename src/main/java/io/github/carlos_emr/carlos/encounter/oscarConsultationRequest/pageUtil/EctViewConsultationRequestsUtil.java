@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -34,12 +35,12 @@ import org.apache.commons.lang3.time.DateFormatUtils;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao;
-import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
-import io.github.carlos_emr.carlos.commn.model.*;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ConsultationRequestExtKey;
 import io.github.carlos_emr.carlos.consultation.dto.ConsultationListFilterDto;
+import io.github.carlos_emr.carlos.consultation.dto.ConsultationListRow;
+import io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO;
 import io.github.carlos_emr.carlos.consultation.dto.ConsultationNameFormat;
-import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -47,7 +48,9 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import java.util.ArrayList;
-import java.util.Calendar;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -104,7 +107,7 @@ public class EctViewConsultationRequestsUtil {
    public List<String> followUpDate;
    public List<String> providerNo;   
    public List<String> siteName;
-   public List<Provider> consultProvider;
+   public List<ProviderSummaryDTO> consultProvider;
    public List<Boolean> eReferral; 
    
    public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, String team) {   
@@ -128,17 +131,31 @@ public class EctViewConsultationRequestsUtil {
               orderby, desc, searchDate, offset, limit, null, null));
    }
 
-   /**
-    * Loads one page of the Consultations list into the parallel row lists of this object.
-    *
-    * @param loggedInInfo LoggedInInfo the current user, used for the per-row demographic lookup
-    * @param filter ConsultationListFilterDto every list filter, including the optional consultant
-    *               and MRP filters (issue #3976)
-    * @return true when the page loaded; false when a lookup failed (the lists then hold the rows
-    *         loaded before the failure)
-    * @since 2026-09-30
-    */
+   /** Loads a page using scalar rows and bulk lookups, retaining patient-specific read checks. */
    public boolean estConsultationVecByTeam(LoggedInInfo loggedInInfo, ConsultationListFilterDto filter) {
+      initializeLists();
+      try {
+         return populate(loggedInInfo, SpringUtils.getBean(ConsultationRequestDao.class)
+                 .getConsultationListRows(filter), false);
+      } catch (Exception e) {
+         MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
+         return false;
+      }
+   }
+
+   /** Loads the patient's consultation rows without materializing eager associations. */
+   public boolean estConsultationVecByDemographic(LoggedInInfo loggedInInfo, String demoNo) {
+      initializeLists();
+      try {
+         return populate(loggedInInfo, SpringUtils.getBean(ConsultationRequestDao.class)
+                 .getConsultationListRows(Integer.valueOf(demoNo)), true);
+      } catch (Exception e) {
+         MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
+         return false;
+      }
+   }
+
+   private void initializeLists() {
       ids = new ArrayList<>();
       status = new ArrayList<>();
       patient = new ArrayList<>();
@@ -156,209 +173,68 @@ public class EctViewConsultationRequestsUtil {
       followUpDate = new ArrayList<>();
       consultProvider = new ArrayList<>();
       eReferral = new ArrayList<>();
-      
-      boolean verdict = true;
-      try {
-          ConsultationRequestDao consultReqDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);
-          ConsultationRequestExtDao consultationRequestExtDao = SpringUtils.getBean(ConsultationRequestExtDao.class);
-          DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-          ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
-          ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-          ConsultationServiceDao serviceDao = (ConsultationServiceDao) SpringUtils.getBean(ConsultationServiceDao.class);
-          ConsultationRequest consult;
-          Demographic demo;
-          Provider prov;
-          ProfessionalSpecialist specialist;
-          ConsultationServices services;
-          Calendar cal = Calendar.getInstance();
-          Date date1, date2;
-          String providerId, providerName, specialistName;
-          List<ConsultationRequest> consultList = consultReqDao.getConsults(filter);
+   }
 
-          for ( int idx = 0; idx < consultList.size(); ++idx ) {
-              consult = (ConsultationRequest) consultList.get(idx);
-              demo = consult.getDemographicId() == null ? null
-                      : demographicManager.getDemographic(loggedInInfo, consult.getDemographicId());
-
-              List<ConsultationRequestExt> extras = consultationRequestExtDao.getConsultationRequestExts(consult.getId());
-              Map<String, String> extraMap = consultationManager.getExtValuesAsMap(extras);
-              
-              String serviceDescription = "";
-              // If service id is 0, check the extensions table
-              if (Integer.valueOf(0).equals(consult.getServiceId())) {
-                 serviceDescription = extraMap.getOrDefault(ConsultationRequestExtKey.EREFERRAL_SERVICE.getKey(), "");
-              } else if (consult.getServiceId() != null) {
-                 services = serviceDao.find(consult.getServiceId());
-                 if (services != null) {
-                    serviceDescription = services.getServiceDesc();
-                 }
-              }
-
-              // Same contract as estConsultationVecByDemographic below: the whole loop
-              // shares one catch, so a consult whose demographic or most-responsible
-              // provider row is gone must degrade to "N/A" rather than NPE and blank the
-              // entire inbox list.
-              providerId = (demo != null) ? demo.getProviderNo() : null;
-              prov = (providerId != null && !providerId.isEmpty()) ? providerDao.getProvider(providerId) : null;
-              if ( prov != null ) {
-                  providerName = prov.getFormattedName();
-                  providerNo.add(prov.getProviderNo());
-              }
-              else {
-                  providerName = "N/A";
-                  providerNo.add("-1");
-              }
-
-              if ( consult.getProfessionalSpecialist() == null ) {
-                  specialistName = "N/A";
-                  if (Integer.valueOf(0).equals(consult.getServiceId())) {
-                     specialistName = extraMap.getOrDefault(ConsultationRequestExtKey.EREFERRAL_DOCTOR.getKey(), "N/A");
-                  }
-              }
-              else {
-                  specialist = consult.getProfessionalSpecialist();
-                  specialistName = formatSpecialistName(specialist.getLastName(), specialist.getFirstName());
-              }
-
-              boolean isEReferral = extraMap.containsKey(ConsultationRequestExtKey.EREFERRAL_REF.getKey());
-
-              demographicNo.add(consult.getDemographicId() != null ? consult.getDemographicId().toString() : "");
-              Date referralDate = consult.getReferralDate();
-              date.add(referralDate != null ? DateFormatUtils.ISO_DATE_FORMAT.format(referralDate) : "");
-              ids.add(consult.getId().toString());
-              status.add(consult.getStatus());
-              patient.add(demo != null ? demo.getFormattedName() : "");
-              provider.add(providerName);
-              service.add(serviceDescription);
-              vSpecialist.add(specialistName);
-              urgency.add(consult.getUrgency() != null ? consult.getUrgency() : "");
-              siteName.add(consult.getSiteName());
-              teams.add(consult.getSendTo());
-              eReferral.add(isEReferral);
-              
-              date1 = consult.getAppointmentDate();
-              date2 = consult.getAppointmentTime();
-              
-              String apptDateStr = "";
-              if ( date1 == null ) {
-            	  apptDateStr = "N/A";
-              } else if ( date1 != null && date2 == null ) {
-                  apptDateStr = DateFormatUtils.ISO_DATE_FORMAT.format(date1);
-              } else {
-            	  apptDateStr = DateFormatUtils.ISO_DATE_FORMAT.format(date1) + " " +  DateFormatUtils.ISO_TIME_FORMAT.format(date2);
-              }
-              
-              apptDate.add(apptDateStr);
-              patientWillBook.add(""+consult.isPatientWillBook());
-              
-              date1 = consult.getFollowUpDate();
-              if ( date1 == null ) {
-                  followUpDate.add("N/A");
-              }
-              else {
-                followUpDate.add(DateFormatUtils.ISO_DATE_FORMAT.format(date1));
-              }
-              
-              String cProvNo = consult.getProviderNo();
-              Provider cProv = (cProvNo != null && !cProvNo.isEmpty()) ? providerDao.getProvider(cProvNo) : null;
-              consultProvider.add(cProv);
-          }
-      } catch (Exception e) {            
-         MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
-         verdict = false;            
-      }                     
-      return verdict;      
-   }      
-   
-      
-   public boolean estConsultationVecByDemographic(LoggedInInfo loggedInInfo, String demoNo) {      
-      ids = new ArrayList<>();
-      status = new ArrayList<>();
-      patient = new ArrayList<>();
-      provider = new ArrayList<>();
-      service = new ArrayList<>();
-      vSpecialist = new ArrayList<>();
-      date = new ArrayList<>();
-      patientWillBook = new ArrayList<>();
-      urgency = new ArrayList<>();
-      apptDate = new ArrayList<>();
-      consultProvider = new ArrayList<>();
-      
-      boolean verdict = true;      
-      try {                           
-
-          ConsultationRequestDao consultReqDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);
-          ConsultationRequestExtDao consultationRequestExtDao = SpringUtils.getBean(ConsultationRequestExtDao.class);
-          ProviderDao providerDao = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-          DemographicManager demoManager = SpringUtils.getBean(DemographicManager.class);
-          ConsultationServiceDao serviceDao = (ConsultationServiceDao) SpringUtils.getBean(ConsultationServiceDao.class);
-
-          ProfessionalSpecialist specialist;
-          String specialistName = "";
-
-          List<ConsultationRequest> consultList = consultReqDao.getConsults(Integer.parseInt(demoNo));
-          for ( ConsultationRequest consult : consultList ) {
-              String serviceDescription = "unknown";
-              // If service id is 0, check the extensions table
-              if (Integer.valueOf(0).equals(consult.getServiceId())) {
-                 serviceDescription = consultationRequestExtDao.getConsultationRequestExtsByKey(consult.getId(), ConsultationRequestExtKey.EREFERRAL_SERVICE.getKey());
-              } else if (consult.getServiceId() != null) {
-                 ConsultationServices services = serviceDao.find(consult.getServiceId());
-                 if (services != null) {
-                    serviceDescription = services.getServiceDesc();
-                 }
-              }
-
-               if (consult.getProfessionalSpecialist() == null) {
-                  specialistName = "N/A";
-                  if (Integer.valueOf(0).equals(consult.getServiceId())) {
-                     specialistName = consultationRequestExtDao.getConsultationRequestExtsByKey(consult.getId(), ConsultationRequestExtKey.EREFERRAL_DOCTOR.getKey());
-                  }
-               }
-               else {
-                  specialist = consult.getProfessionalSpecialist();
-                  specialistName = formatSpecialistName(specialist.getLastName(), specialist.getFirstName());
-               }
-
-              // A consult row can outlive the records it points at. ConsultationRequestDaoImpl.getConsults
-              // deliberately no longer joins Demographic and Provider as existence filters, so a legacy
-              // row whose demographic or most-responsible provider was removed now reaches this loop
-              // instead of being silently dropped. The whole loop shares one catch, so any unguarded
-              // dereference here NPEs and blanks EVERY consult on the tab -- the precise failure the
-              // widened query exists to fix.
-              Demographic demo = consult.getDemographicId() == null ? null
-                      : demoManager.getDemographic(loggedInInfo, consult.getDemographicId());
-              String providerId = (demo != null) ? demo.getProviderNo() : null;
-              // Guard the LOOKUP RESULT, not just the id: a non-empty providerNo can still reference a
-              // provider row that no longer exists, and getProvider() returns null rather than throwing.
-              // This mirrors the null-tolerant handling of the consult's own provider below.
-              Provider mrp = (providerId != null && !providerId.isEmpty()) ? providerDao.getProvider(providerId) : null;
-              String providerName = (mrp != null) ? mrp.getFormattedName() : "N/A";
-
-              ids.add(consult.getId().toString());
-              status.add(consult.getStatus());
-              patient.add(demo != null ? demo.getFormattedName() : "");
-              provider.add(providerName);
-              service.add(serviceDescription);
-              vSpecialist.add(specialistName);
-              urgency.add(consult.getUrgency() != null ? consult.getUrgency() : "");
-              patientWillBook.add(""+consult.isPatientWillBook());
-              // The whole loop shares one catch, so a single null here (legacy/imported
-              // consults can carry a null referralDate or providerNo) would NPE and hide
-              // EVERY consult from the patient's Consultations tab. Guard both so one
-              // imperfect row cannot blank the list.
-              Date referralDate = consult.getReferralDate();
-              date.add(referralDate != null ? DateFormatUtils.ISO_DATE_FORMAT.format(referralDate) : "");
-
-              String cProvNo = consult.getProviderNo();
-              Provider cProv = (cProvNo != null && !cProvNo.isEmpty()) ? providerDao.getProvider(cProvNo) : null;
-              consultProvider.add(cProv);
-          }
-      } catch (Exception e) {         
-         MiscUtils.getLogger().error("Error ({})", e.getClass().getSimpleName());
-         verdict = false;         
-      }      
-      return verdict;      
+   private boolean populate(LoggedInInfo loggedInInfo, List<ConsultationListRow> rows, boolean patientChart) {
+      if (rows.isEmpty()) return true;
+      Set<Integer> patientIds = new LinkedHashSet<>();
+      Set<String> requestingProviders = new LinkedHashSet<>();
+      for (ConsultationListRow row : rows) {
+         if (row.demographicId() != null) patientIds.add(row.demographicId());
+         if (row.providerNo() != null && !row.providerNo().isEmpty()) requestingProviders.add(row.providerNo());
+      }
+      // This manager checks each distinct patient's read privilege/directives before fetching names.
+      // Do not replace it with a direct demographic join: the list's scope filter is an additional gate.
+      Map<Integer, String> names = SpringUtils.getBean(DemographicManager.class)
+              .getDemographicFormattedNames(loggedInInfo, patientIds);
+      Map<String, ProviderSummaryDTO> providers = requestingProviders.isEmpty() ? Map.of()
+              : SpringUtils.getBean(ProviderDao.class).getProviderSummariesByIds(requestingProviders);
+      Map<Integer, Map<String, String>> extensions = new HashMap<>();
+      for (ConsultationRequestExt ext : SpringUtils.getBean(ConsultationRequestExtDao.class)
+              .getConsultationRequestExts(rows.stream().map(ConsultationListRow::id).toList())) {
+         extensions.computeIfAbsent(ext.getRequestId(), ignored -> new HashMap<>()).put(ext.getKey(), ext.getValue());
+      }
+      for (ConsultationListRow row : rows) {
+         Map<String, String> extras = extensions.getOrDefault(row.id(), Map.of());
+         String description = row.resolvedServiceId() == null ? (patientChart ? "unknown" : "") : row.serviceDescription();
+         if (Integer.valueOf(0).equals(row.serviceId())) {
+            description = patientChart ? extras.get(ConsultationRequestExtKey.EREFERRAL_SERVICE.getKey())
+                    : extras.getOrDefault(ConsultationRequestExtKey.EREFERRAL_SERVICE.getKey(), "");
+         }
+         String specialist = row.specialistId() == null ? "N/A"
+                 : formatSpecialistName(row.specialistLastName(), row.specialistFirstName());
+         if (row.specialistId() == null && Integer.valueOf(0).equals(row.serviceId())) {
+            specialist = patientChart ? extras.get(ConsultationRequestExtKey.EREFERRAL_DOCTOR.getKey())
+                    : extras.getOrDefault(ConsultationRequestExtKey.EREFERRAL_DOCTOR.getKey(), "N/A");
+         }
+         ids.add(row.id().toString());
+         status.add(row.status());
+         String patientName = row.demographicId() == null ? "" : names.getOrDefault(row.demographicId(), "");
+         if (row.demographicId() != null && names.containsKey(row.demographicId())
+                 && row.patientAlias() != null && !row.patientAlias().isEmpty()) {
+            patientName += " (" + row.patientAlias() + ")";
+         }
+         patient.add(patientName);
+         provider.add(row.mrpNo() == null ? "N/A" : row.mrpLastName() + ", " + row.mrpFirstName());
+         providerNo.add(row.mrpNo() == null ? "-1" : row.mrpNo());
+         demographicNo.add(row.demographicId() == null ? "" : row.demographicId().toString());
+         service.add(description);
+         vSpecialist.add(specialist);
+         urgency.add(row.urgency() == null ? "" : row.urgency());
+         siteName.add(row.siteName());
+         teams.add(row.sendTo());
+         eReferral.add(extras.containsKey(ConsultationRequestExtKey.EREFERRAL_REF.getKey()));
+         date.add(row.referralDate() == null ? "" : DateFormatUtils.ISO_DATE_FORMAT.format(row.referralDate()));
+         String appointment = row.appointmentDate() == null ? "N/A" : DateFormatUtils.ISO_DATE_FORMAT.format(row.appointmentDate());
+         if (row.appointmentDate() != null && row.appointmentTime() != null) {
+            appointment += " " + DateFormatUtils.ISO_TIME_FORMAT.format(row.appointmentTime());
+         }
+         apptDate.add(appointment);
+         patientWillBook.add("" + Boolean.TRUE.equals(row.patientWillBook()));
+         followUpDate.add(row.followUpDate() == null ? "N/A" : DateFormatUtils.ISO_DATE_FORMAT.format(row.followUpDate()));
+         consultProvider.add(row.providerNo() == null ? null : providers.get(row.providerNo()));
+      }
+      return true;
    }
 
     /**
