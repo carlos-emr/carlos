@@ -366,8 +366,13 @@ async function assertEditor(page, label, response) {
   }
   // The heading is written before the export; require the end of the page too
   // so a JSP failure after the heading cannot pass as a rendered editor (#5188).
+  const exportTextarea = page.locator('textarea');
   if (await page.locator('#scrollToTop').count() !== 1
-      || !/<flowsheet\b/.test(await page.locator('textarea').inputValue())) {
+      || await exportTextarea.count() !== 1
+      || !await exportTextarea.evaluate((textarea) => {
+        const xml = new DOMParser().parseFromString(textarea.value, 'application/xml');
+        return xml.documentElement.tagName === 'flowsheet' && !xml.querySelector('parsererror');
+      })) {
     throw new Error(`${label} did not finish rendering the flowsheet editor and XML export`);
   }
   checks.push({ label, status: response.status(), url: page.url() });
