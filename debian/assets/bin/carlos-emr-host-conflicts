@@ -424,8 +424,16 @@ mariadb_cause() {
                 }
                 return 0
             fi
+            # The last ERROR is normally just "Aborting". Keep the useful
+            # cause a few lines above it: a failed first initialization after
+            # a purge/reinstall left no mysql privilege tables.
             last="$(journalctl -u mariadb.service -b --no-pager -o cat -n 300 2>/dev/null |
-                grep -F '[ERROR]' | tail -n 1 | sed 's/^[0-9-]* *[0-9:]* *[0-9]* *//' | cut -c1-200)"
+                grep -F '[ERROR]' | grep -vE '\[ERROR\] Aborting[[:space:]]*$' |
+                tail -n 1 | sed 's/^[0-9-]* *[0-9:]* *[0-9]* *//' | cut -c1-200)"
+            if printf '%s\n' "${last}" | grep -E "mysql\.(db|servers|global_priv|user).*doesn't exist" >/dev/null; then
+                say "cause: mariadb.service is ${state}: MariaDB's mysql system tables are missing; see 'Missing MariaDB system tables' in /usr/share/doc/carlos-emr/README.Debian. On a new site, reconfigure carlos-emr to retry initialization; on an existing site, check the data volume mount and recover the database from backup"
+                return 0
+            fi
             say "cause: mariadb.service is ${state}${last:+ (its last error: ${last})}; see: sudo journalctl -u mariadb -n 50"
             return 0 ;;
         activating)

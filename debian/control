@@ -67,6 +67,7 @@ Depends:
  libtomcat11-java (>= 11.0),
  mariadb-server (>= 1:11.4),
  mariadb-client (>= 1:11.4),
+ tzdata,
  nginx (>= 1.25.1),
  libnginx-mod-http-modsecurity,
  modsecurity-crs,

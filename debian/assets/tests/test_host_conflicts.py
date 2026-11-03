@@ -508,6 +508,29 @@ class TestFrontDoor(HostConflictsCase):
 
 class TestMariadbCause(HostConflictsCase):
 
+    def test_missing_system_tables_are_not_hidden_by_aborting_or_systemd_warning(self):
+        r = self.run_script({
+            "mariadb_state": "failed", "listeners": [],
+            "journal": "[ERROR] Can't open and lock privilege tables: Table 'mysql.servers' doesn't exist\n"
+                       "[ERROR] Fatal error: Can't open and lock privilege tables: Table 'mysql.db' doesn't exist\n"
+                       "[ERROR] Aborting\n"
+                       "mariadb.service: Referenced but unset environment variable: MYSQLD_OPTS\n",
+        }, "mariadb")
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("mysql system tables are missing", r.stdout)
+        self.assertIn("Missing MariaDB system tables", r.stdout)
+        self.assertNotIn("last error: [ERROR] Aborting", r.stdout)
+        self.assertEqual(self.stops(), [])
+
+    def test_older_missing_table_error_does_not_replace_a_newer_failure(self):
+        r = self.run_script({
+            "mariadb_state": "failed", "listeners": [],
+            "journal": "[ERROR] Table 'mysql.db' doesn't exist\n[ERROR] Aborting\n"
+                       "[ERROR] InnoDB: Unsupported redo log format\n[ERROR] Aborting\n",
+        }, "mariadb")
+        self.assertIn("Unsupported redo log format", r.stdout)
+        self.assertNotIn("mysql system tables are missing", r.stdout)
+
     def test_failed_server_names_what_holds_3306(self):
         r = self.run_script({
             "mariadb_state": "failed",

@@ -465,6 +465,74 @@ log setting in the drop-in is therefore RELATIVE (log_bin = binlog) so that it
 follows the datadir; an absolute /var/lib/mysql/binlog stops the server from
 starting on this release.
 
+Missing MariaDB system tables. After a purge/reinstall, MariaDB may abort
+with "Table 'mysql.db' doesn't exist" (often also mysql.servers and
+mysql.gtid_slave_pos). These are MariaDB's own system tables, created by
+mariadb-install-db, before CARLOS can provision its application schema.
+The distribution's MariaDB postinst ignores initializer failures, so a
+configured mariadb-server package does not guarantee those tables exist.
+The systemd message about unset MYSQLD_OPTS/_WSREP_NEW_CLUSTER is not the
+reason the server aborts.
+
+When mariadb.service fails during configure, this package retries the
+initializer only for an unfinished first initialization: carlos.properties
+must still be byte-identical to the shipped skeleton and no retained clinical
+documents may exist. The data directory must have no mysql schema and contain
+nothing except files a failed first start can create. An empty mountpoint on
+an established site is NOT a new database: a configured site or retained
+documents prevent automatic initialization, including after an application purge.
+
+The helper validates the service's mysql identity, command, environment and
+filesystem context before probing its configured datadir. Custom service
+arguments (including MYSQLD_OPTS), nonempty Galera settings, environment files
+other than the distribution's optional empty wsrep files, or an unsupported
+service context require manual recovery. A datadir configured normally under
+/etc/mysql is supported. The probe and bootstrap both run as mysql with a
+clean environment, so root's .my.cnf cannot redirect them to another database.
+The helper keeps existing files, uses socket authentication for root, and
+creates no test database. During initialization it also loads the operating
+system's timezone data into the new mysql schema, so the configured named
+timezone can be used at normal service startup. It refuses existing schemas,
+upgrade-info files, unrecognized files, a partial mysql schema, running
+database processes, other provisioning runs, imports, and a missing or
+nonexecutable import guard. Paths
+with whitespace also require manual recovery (unsupported by the vendor's
+shell initializer). A refusal leaves the normal install-incomplete notice.
+
+After installing the fixed package, retry with:
+
+    sudo dpkg-reconfigure carlos-emr
+    sudo dpkg-reconfigure carlos-emr-drugref     (if installed)
+
+If a configured site has no mysql schema, first check that its original data
+volume is mounted and recover the database from a matching backup. Do not
+initialize a blank mountpoint and start a new clinical database in its place.
+Only when a NEW empty database is intentional (for example, after explicitly
+removing MariaDB's databases during purge), also check the document store.
+Purge deliberately retains /var/lib/carlos-emr/CarlosDocument. Restore the
+matching database and documents together, or verify a complete backup and
+archive the old document store outside its active path before creating a new
+database. Do not pair a fresh clinical schema with retained patient documents.
+The helper refuses document files, symlinks and unreadable document subtrees
+even with the explicit acceptance option. Once the active store is empty (or
+absent after a deliberate archive), accept the new database configuration with:
+
+    sudo /usr/lib/carlos-emr/carlos-emr-mariadb-init --accept-empty-datadir
+    sudo dpkg-reconfigure carlos-emr
+    sudo dpkg-reconfigure carlos-emr-drugref     (if installed)
+
+This option bypasses only the first-install configuration provenance check.
+It still refuses retained/unreadable documents, existing schemas or unrecognized datadir files,
+unknown service options, imports and locks.
+For an existing database with missing system tables, restore its mysql system
+schema from a matching backup before running `sudo carlos-ctl finish-install`.
+Do not delete the data directory, remove ibdata1, or run an initializer over
+a populated database to make the startup error disappear: CARLOS and DrugRef
+may still hold data even though MariaDB cannot open its privilege tables.
+To see which directory the server actually uses (do not assume a path):
+
+    sudo mariadbd --verbose --help 2>/dev/null | awk '$1 == "datadir" {sub(/^datadir[ \t]+/, ""); print}'
+
 MariaDB runs on this host, listening on loopback only, with four
 least-privilege accounts and no application ever connecting as root:
 
