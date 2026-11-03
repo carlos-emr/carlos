@@ -38064,7 +38064,7 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAppointmentPersister.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java"
         ],
-        "normalization": "Year/month date, absent/long/cross-midnight duration, unsupported clock precision, missing zone/DST ambiguity or provider mismatch does not invent calendar timing. Offset normalized only with explicit zone; source status stays separate from native booked status; long purpose gets visible source reference. Native calendar days must round-trip the actual SQL DATE/legacy calendar; an unrepresentable day remains a typed source-only appointment with an explicit warning.",
+        "normalization": "Year/month date, absent/long/cross-midnight duration, unsupported clock precision, missing zone/DST ambiguity or provider mismatch does not invent calendar timing. Offset normalized only with explicit zone; source status stays separate from native booked status; long purpose gets visible source reference. Native calendar days must round-trip the actual SQL DATE/legacy calendar; an unrepresentable day remains a typed source-only appointment with an explicit warning. Native creation/update audit clocks remain local server metadata; the REST editVersion token is not CDS source data.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 13 (Appointments)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -39783,7 +39783,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described.",
-    "sha256": "7bfd37a075e5a7ed99961bbe93abd591e2e1987144c1cf6701665e8a1d516604"
+    "sha256": "f99c93b7ef16b02997ec68129819e46902a68729e32611b95ccb1b3b095aa935"
   },
   "root": "cds:OmdCds",
   "schemas": [

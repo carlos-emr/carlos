@@ -108,6 +108,43 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
             .thenReturn(true);
     }
 
+    /** Verifies that version failures survive CXF routing and JSON serialization. */
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("versionedEditFailures")
+    void shouldReturnStableJsonError_whenVersionedAppointmentEditIsRefused(
+            String path, io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason reason,
+            int status, String code) {
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class));
+        registerMock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class,
+                mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class));
+        when(mockScheduleManager.updateAppointment(any(), eq(42), eq("1000"), any()))
+                .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(reason));
+        try (Response response = request().path(path)
+                .post("{\"id\":42,\"editVersion\":\"1000\",\"reason\":\"FAKE-edit\"}")) {
+            assertThat(response.getStatus()).isEqualTo(status);
+            java.util.Map<?, ?> error = response.readEntity(java.util.Map.class);
+            assertThat(error.get("code")).isEqualTo(code);
+            assertThat(response.getMediaType().toString()).startsWith("application/json");
+        }
+        verifyNoInteractions(mockAppointmentManager);
+    }
+
+    static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> versionedEditFailures() {
+        return java.util.stream.Stream.of("/schedule/updateAppointment", "/schedule/appointment/42/updateStatus",
+                "/schedule/appointment/42/updateType", "/schedule/appointment/42/updateUrgency").flatMap(path ->
+                java.util.stream.Stream.of(
+                    org.junit.jupiter.params.provider.Arguments.of(path,
+                        io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason.MISSING_VERSION,
+                        400, "APPOINTMENT_MISSING_VERSION"),
+                    org.junit.jupiter.params.provider.Arguments.of(path,
+                        io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason.STALE_VERSION,
+                        409, "APPOINTMENT_STALE_VERSION"),
+                    org.junit.jupiter.params.provider.Arguments.of(path,
+                        io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason.NOT_FOUND,
+                        404, "APPOINTMENT_NOT_FOUND")));
+    }
+
     /** Tests the appointment-count endpoint's HTTP success and error responses. */
     @Nested
     @DisplayName("GET /schedule/fetchProvidersApptsCount/{sDate}/{eDate}")
