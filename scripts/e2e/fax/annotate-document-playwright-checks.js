@@ -2001,9 +2001,13 @@ h.runCheck({name:'annotate-document',async run(context) {
   ownedFixture=createOwnedAnnotationFixture(readConfig());
   ownedFixture.create();
   try {await main({...context,fixture:ownedFixture});}
-  finally {
-    notes.forEach(line=>console.log(line));findings.forEach(line=>console.log(line));
-    h.assert(findings.length===0,`${findings.length} annotation check(s) failed`);
+  catch (error) {
+    if (error?.name === 'SkipCheck') {
+      h.assert(findings.length===0,`${findings.length} annotation check(s) failed before unavailable fax prerequisite: ${error.message}`);
+    }
+    throw error;
   }
+  finally {notes.forEach(line=>console.log(line));findings.forEach(line=>console.log(line));}
+  h.assert(findings.length===0,`${findings.length} annotation check(s) failed`);
   console.log('All annotation viewer checks passed');
 },async cleanup(){if(ownedFixture)await ownedFixture.cleanup();}});
