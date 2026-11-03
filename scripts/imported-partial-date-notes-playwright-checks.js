@@ -53,6 +53,15 @@ async function workflow(s) {
       const replacement = sql.value(`SELECT allergyid FROM allergies WHERE demographic_no=${patient} AND archived=0 AND DESCRIPTION=${sqlString(marker + (format || 'full'))}`);
       const precision = sql.value(`SELECT IFNULL(MAX(format),'full') FROM partial_date WHERE table_name=1 AND field_name=1 AND table_id=${replacement}`);
       assert(precision === (format || 'full'), 'Unrelated allergy edit changed precision');
+      if (format) {
+        await list.locator(`#allergy_${replacement} a.modifyAllergyLink`).click();
+        await form.waitFor({ state: 'visible' });
+        await form.locator('[name="startDateConfirmedExact"]').check();
+        await Promise.all([list.waitForEvent('load'), form.locator('input[type="submit"]').click()]);
+        const exact = sql.value(`SELECT allergyid FROM allergies WHERE demographic_no=${patient} AND archived=0 AND DESCRIPTION=${sqlString(marker + format)}`);
+        assert(sql.value(`SELECT COUNT(*) FROM partial_date WHERE table_name=1 AND field_name=1 AND table_id=${exact}`) === '0', 'Allergy exact-date confirmation retained partial precision');
+        assert(!(await list.locator(`#allergy_${exact} .partial-date-explanation`).innerText()).trim(), 'Confirmed exact allergy still shows a partial-date explanation');
+      }
     });
   }
   const index = await s.popup(chart, chart.locator('a[onclick*="ViewPreventionIndex"]').first(), 'prevention-index');
@@ -71,8 +80,11 @@ async function workflow(s) {
       await expectValue(sql, `SELECT deleted FROM preventions WHERE id=${preventions[i]}`, '1', 'Original prevention was not replaced');
       const replacement = sql.value(`SELECT p.id FROM preventions p JOIN preventionsExt x ON x.prevention_id=p.id AND x.keyval='previousId' AND x.val=${sqlString(preventions[i])} WHERE p.demographic_no=${patient} AND p.deleted=0`);
       assert(sql.value(`SELECT IFNULL(MAX(format),'full') FROM partial_date WHERE table_name=4 AND field_name=7 AND table_id=${replacement}`) === (format || 'full'), 'Comment amendment changed prevention precision');
-      assert(sql.value(`SELECT COUNT(*) FROM preventionsExt WHERE prevention_id=${replacement} AND keyval='comments'`) === '1', 'Comment was lost or duplicated');
-      assert(sql.value(`SELECT val FROM preventionsExt WHERE prevention_id=${replacement} AND keyval='comments'`) === 'FAKE original comment, amended', 'Comment value changed');
+      const checkComment = id => {
+        assert(sql.value(`SELECT COUNT(*) FROM preventionsExt WHERE prevention_id=${id} AND keyval='comments'`) === '1', 'Comment was lost or duplicated');
+        assert(sql.value(`SELECT val FROM preventionsExt WHERE prevention_id=${id} AND keyval='comments'`) === 'FAKE original comment, amended', 'Comment value changed');
+      };
+      checkComment(replacement);
       const expectedPrecision = format === 'YYYY' ? 'YEAR' : format === 'YYYY-MM' ? 'YEAR_MONTH' : 'FULL_DATE';
       const checkProvenance = id => {
         assert(sql.value(`SELECT COUNT(*) FROM preventionsExt WHERE prevention_id=${id} AND keyval='cdsDatePrecision'`) === '1', 'Import provenance was lost or duplicated');
@@ -86,6 +98,7 @@ async function workflow(s) {
         await Promise.all([exactEditor.waitForEvent('close'), index.waitForEvent('load'), exactEditor.locator('input[type="submit"][name="action"]').first().click()]);
         const exact = sql.value(`SELECT p.id FROM preventions p JOIN preventionsExt x ON x.prevention_id=p.id AND x.keyval='previousId' AND x.val=${sqlString(replacement)} WHERE p.demographic_no=${patient} AND p.deleted=0`);
         assert(sql.value(`SELECT COUNT(*) FROM partial_date WHERE table_name=4 AND field_name=7 AND table_id=${exact}`) === '0', 'Exact-date confirmation retained partial precision');
+        checkComment(exact);
         checkProvenance(exact);
         }
     });
