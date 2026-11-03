@@ -128,7 +128,7 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
         return evaluatePrivilege(loggedInInfo, objectName, privilege, demographicNo, false);
     }
 
-    // The caller selects only whether an existing NORIGHTS decision marks the session.
+    // Existing shared privilege evaluator; locale-safe hardening tracked in #2496.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Existing shared privilege evaluator; locale-safe hardening tracked in #2496")
     private boolean evaluatePrivilege(LoggedInInfo loggedInInfo, String objectName, String privilege,
                                       String demographicNo, boolean markAccountLocked) {
@@ -177,6 +177,7 @@ public class SecurityInfoManagerImpl implements SecurityInfoManager {
     }
 
     @SuppressWarnings("unchecked")
+    // Shared privilege policy; locale-safe hardening tracked in #2496.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Shared privilege policy; locale-safe hardening tracked in #2496")
     private boolean evaluatePrivilege(LoggedInInfo loggedInInfo, String objectName, String privilege,
                                       String demographicNo, boolean markAccountLocked, String roleNames,
