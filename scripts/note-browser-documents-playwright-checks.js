@@ -170,6 +170,12 @@ async function workflow(s) {
     await browser.locator('#doclist').selectOption(`${docA.id}-application/pdf`);
     const documentRows = () => sql.rows(`SELECT * FROM document WHERE document_no IN (${docA.id},${docB.id}) ORDER BY document_no`);
     const before = JSON.stringify(documentRows());
+    const formState = () => browser.locator('form[name="DisplayDoc"]').evaluate(form => ({
+      action: form.action,
+      values: [...new FormData(form).entries()],
+      selectedDocuments: [...form.querySelector('#doclist').selectedOptions].map(option => option.value),
+    }));
+    const formBefore = JSON.stringify(await formState());
     const responses = [];
     const requests = [];
     const isDelete = url => new URL(url).pathname.endsWith('/casemgmt/NoteBrowserDocumentDelete');
@@ -191,6 +197,7 @@ async function workflow(s) {
       h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm'
         && dialogs[0].text.endsWith(` ${docA.label}`), 'Document Delete did not offer the selected document confirmation');
       h.assert(requests.length === 0, 'Cancel sent a document Delete request');
+      h.assert(JSON.stringify(await formState()) === formBefore, 'Cancel changed the document selection or form fields');
       h.assert(JSON.stringify(documentRows()) === before, 'Cancel changed a document row');
       h.assert(await listed(docA) === 1 && await listed(docB) === 1, 'Cancel changed the published document list');
     } finally {
