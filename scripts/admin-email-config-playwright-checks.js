@@ -221,7 +221,7 @@ async function workflow(s) {
     await modal.waitFor({state: 'hidden', timeout: TIMEOUT});
     await compose.locator('#senderEmailAddress').selectOption(configId);
     await compose.locator('#subjectEmail').fill(subject);
-    await compose.locator('#bodyEmail').fill(body);
+    await compose.locator('#message').fill(body);
     await compose.locator('#emailPDFPassword').fill(`PW${hex}`);
     await compose.locator('#emailPDFPasswordClue').fill(`${marker} clue`);
     await compose.locator('#doNotAddAsNoteOption').check();
@@ -242,14 +242,18 @@ async function workflow(s) {
     await compose.waitForEvent('close', {timeout: TIMEOUT});
   });
 
-  await s.step('the sink received one message for the valid address with subject, body and PDF', async () => {
+  await s.step('the sink received one message with a secure notice and PDF, without cleartext clinical content', async () => {
     h.assert(sink.messages.length === 1, `The sink received ${sink.messages.length} messages; expected 1`);
     const [message] = sink.messages;
     h.assert(message.from === sender, 'The envelope sender is not the owned account');
     h.assert(JSON.stringify(message.rcpt) === JSON.stringify([recipient]), 'The envelope recipients are not exactly the valid patient address');
     h.assert(message.data.includes(`Subject: ${subject}`), 'The delivered subject differs from the composed subject');
-    h.assert(message.data.includes(`${marker} body line`) && message.data.includes(`${marker} clue`),
-      'The delivered body lacks the composed text or the password clue');
+    h.assert(message.data.includes('You have a secure message from your clinic.')
+      && message.data.includes('Please open the attached password-protected PDF to read it.')
+      && message.data.includes(`${marker} clue`),
+    'The delivered body lacks the secure-message notice or the password clue');
+    h.assert(!message.data.includes(`${marker} body line`),
+      'The composed clinical text leaked into the cleartext MIME');
     h.assert(/Content-Type: application\/pdf/i.test(message.data), 'The delivered message carries no PDF attachment');
     h.assert(!message.data.includes(invalidRecipient), 'The invalid address appears in the delivered message');
   });

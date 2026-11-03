@@ -211,7 +211,7 @@ async function workflow(s) {
   async function fill(composer, label) {
     await composer.locator('#senderEmailAddress').selectOption(configId);
     await composer.locator('#subjectEmail').fill(`${marker} ${label}`);
-    await composer.locator('#bodyEmail').fill(`${marker} body ${label}`);
+    await composer.locator('#message').fill(`${marker} body ${label}`);
     await composer.locator('#emailPDFPassword').fill(`PW${hex}${label}`);
     await composer.locator('#emailPDFPasswordClue').fill(`${marker} clue`);
     await composer.locator('#doNotAddAsNoteOption').check();
