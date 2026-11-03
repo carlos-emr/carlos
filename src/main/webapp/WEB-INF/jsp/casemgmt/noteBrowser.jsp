@@ -170,7 +170,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title><fmt:message key="encounter.noteBrowser.title"/> - <oscar:nameage
             demographicNo="<%= String.valueOf(patientNumber) %>"/></title>
-    <fmt:message key="dms.documentReport.msgDelete" var="deleteDocumentPrompt"/>
+    <fmt:message key="encounter.noteBrowser.confirmDeleteDocument" var="deleteDocumentPrompt"/>
     <script type="text/javascript">
         var noteBrowserPatient = '<%= SafeEncode.forJavaScript(demographicID) %>';
         var noteBrowserChartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
@@ -224,7 +224,7 @@
 
         function DeleteDoc() {
             var selected = getSelected(document.getElementById('doclist'));
-            if (selected.length !== 1 || !confirm('<%= SafeEncode.forJavaScript((String)pageContext.getAttribute("deleteDocumentPrompt")) %> ' + selected[0].title)) {
+            if (selected.length !== 1 || !confirm('<%= SafeEncode.forJavaScript((String)pageContext.getAttribute("deleteDocumentPrompt")) %>'.replace('{0}', function () { return selected[0].title; }))) {
                 return;
             }
             document.DisplayDoc.action = '<%= request.getContextPath() %>/casemgmt/NoteBrowserDocumentDelete';

@@ -266,11 +266,11 @@ for (const accepted of [false, true]) {
             submit() { submissions++; }};
         const before = JSON.stringify(fields);
         const dialogs = [];
-        assert.match(jsp, /<fmt:message key="dms\.documentReport\.msgDelete" var="deleteDocumentPrompt"\/>/);
+        assert.match(jsp, /<fmt:message key="encounter\.noteBrowser\.confirmDeleteDocument" var="deleteDocumentPrompt"\/>/);
         const promptExpression = '<%= SafeEncode.forJavaScript((String)pageContext.getAttribute("deleteDocumentPrompt")) %>';
         const handler = jsp.slice(start, end);
         assert.ok(handler.includes(promptExpression), 'Delete must use the JavaScript-encoded localized prompt');
-        const prompt = 'Czy na pewno chcesz usunąć';
+        const prompt = 'Czy na pewno chcesz usunąć {0}';
         const page = {docid: '42', document: {DisplayDoc: fields, getElementById: () => ({})},
             getSelected: () => [{title: "Patient's document <2026>"}],
             confirm(message) { dialogs.push(message); return accepted; }};
@@ -278,7 +278,7 @@ for (const accepted of [false, true]) {
             .replaceAll('<%= request.getContextPath() %>', '/carlos'), page);
         page.DeleteDoc();
         assert.equal(dialogs.length, 1, 'Delete must offer exactly one cancellable confirmation');
-        assert.equal(dialogs[0], `${prompt} Patient's document <2026>`);
+        assert.equal(dialogs[0], "Czy na pewno chcesz usunąć Patient's document <2026>");
         assert.equal(submissions, accepted ? 1 : 0);
         if (accepted) {
             assert.equal(fields.action, '/carlos/casemgmt/NoteBrowserDocumentDelete');
