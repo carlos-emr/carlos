@@ -568,6 +568,7 @@ public class BillingmasterDAO {
                 } catch (jakarta.persistence.PersistenceException failure) {
                     // Legacy SqlUtils returned no row on a JDBC failure, yielding this same
                     // validation error. Do not expose query/provider values through its cause.
+                    log.error("Unable to retrieve BC payment provider ({})", failure.getClass().getSimpleName());
                     throw new MissingBcPaymentProviderException();
                 }
                 String[] row = providers.isEmpty() ? null : new String[]{providers.getFirst()};

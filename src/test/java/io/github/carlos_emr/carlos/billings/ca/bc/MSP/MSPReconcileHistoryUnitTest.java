@@ -93,9 +93,13 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         var persistence = mock(jakarta.persistence.EntityManager.class);
         org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", persistence);
         when(persistence.isJoinedToTransaction()).thenThrow(new jakarta.persistence.PersistenceException("synthetic patient detail"));
-        assertThatThrownBy(() -> dao.findBcPayments("ALL", "ALL", "missing", "", "", false, false, true, false))
-                .isInstanceOf(BillingmasterDAO.MissingBcPaymentProviderException.class)
-                .hasMessage("Provider must have ohip no!").hasNoCause();
+        try (LogCapture logs = LogCapture.forLogger(BillingmasterDAO.class)) {
+            assertThatThrownBy(() -> dao.findBcPayments("ALL", "ALL", "missing", "", "", false, false, true, false))
+                    .isInstanceOf(BillingmasterDAO.MissingBcPaymentProviderException.class)
+                    .hasMessage("Provider must have ohip no!").hasNoCause();
+            assertThat(logs.messages()).containsExactly("Unable to retrieve BC payment provider (PersistenceException)");
+            assertThat(logs.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
+        }
     }
 
     @Test
