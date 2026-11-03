@@ -1076,6 +1076,12 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        void shouldDenyBulkRead_whenUserContextIsMissing() {
+            assertThat(securityInfoManager.hasDemographicReadPrivileges(null, List.of(1))).isFalse();
+            verifyNoInteractions(mockSecuserroleDao, mockSecObjPrivilegeDao);
+        }
+
+        @Test
         void shouldSkipAllReads_forEmptyPatientList() {
             assertThat(securityInfoManager.hasDemographicReadPrivileges(mockLoggedInInfo, List.of())).isTrue();
             verifyNoInteractions(mockSecuserroleDao, mockSecObjPrivilegeDao);
