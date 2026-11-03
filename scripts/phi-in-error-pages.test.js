@@ -97,14 +97,19 @@ test('shouldCarryThePatientInEveryProbe_andSendOnlyPlaceholdersNeverFixtureValue
   }
 });
 
-test('shouldRejectTheLabelProbeIdentifier_forEveryTenDigitHin', () => {
-  const probe = FAMILIES.find(family => family.name === 'demographic').probes.find(probe => probe.status === 400);
+test('shouldRejectNumericProbeValues_forEveryTenDigitHin', () => {
+  const invalidValues = [
+    FAMILIES.find(family => family.name === 'demographic').probes.find(probe => probe.status === 400).query.demographic_no,
+    FAMILIES.find(family => family.name === 'admin').probes.find(probe => probe.status === 400).query.limit1,
+  ];
   // Include both sides of Integer.MAX_VALUE: the original probe only failed
   // validation when its randomly drawn HIN overflowed that boundary.
   for (const hin of ['1000000000', '2147483647', '2147483648', '9999999999']) {
-    const identifier = probe.query.demographic_no.replace('{HIN}', hin);
-    assert.ok(identifier.includes(hin), 'the malformed identifier must still carry the HIN');
-    assert.ok(!/^[+-]?\d+$/.test(identifier), 'the probe must fail integer parsing even below Integer.MAX_VALUE');
+    for (const value of invalidValues) {
+      const invalid = value.replace('{HIN}', hin);
+      assert.ok(invalid.includes(hin), 'the malformed value must still carry the HIN');
+      assert.ok(!/^[+-]?\d+$/.test(invalid), 'the probe must fail integer parsing even below Integer.MAX_VALUE');
+    }
   }
 });
 
