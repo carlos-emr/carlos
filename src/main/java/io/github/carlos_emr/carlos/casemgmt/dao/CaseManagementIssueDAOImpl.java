@@ -91,11 +91,11 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
     public List<CaseManagementIssue> getIssuesByNote(Integer noteId, Boolean resolved) {
         if (resolved != null) {
             return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
-                    "from CaseManagementIssue cmi where cmi.notes.id = ?1 and cmi.resolved = ?2 order by cmi.resolved",
+                    "select cmi from CaseManagementIssue cmi join cmi.notes n where n.id = ?1 and cmi.resolved = ?2 order by cmi.resolved",
                     noteId, resolved);
         } else {
             return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
-                    "from CaseManagementIssue cmi where cmi.notes.id = ?1 order by cmi.resolved",
+                    "select cmi from CaseManagementIssue cmi join cmi.notes n where n.id = ?1 order by cmi.resolved",
                     noteId);
         }
     }
