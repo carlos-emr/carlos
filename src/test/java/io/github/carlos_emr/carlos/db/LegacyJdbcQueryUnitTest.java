@@ -402,6 +402,17 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
         verify(source, never()).getConnection();
     }
 
+    @Test
+    void shouldRejectUnsafeBoundedReport_beforeAcquiringConnection() throws Exception {
+        DataSource source = mock(DataSource.class);
+        registerMock(DataSource.class, source);
+        assertThatThrownBy(() -> LegacyJdbcQuery.getBoundedReportResultSet(
+                new ParameterizedSql("select 1; delete from synthetic", List.of()), 10,
+                System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(30)))
+                .isInstanceOf(SQLException.class).hasMessageContaining("Unsafe SQL detected");
+        verify(source, never()).getConnection();
+    }
+
     private List<Connection> mockConnections(int count) {
         List<Connection> connections = new ArrayList<>();
         for (int i = 0; i < count; i++) {

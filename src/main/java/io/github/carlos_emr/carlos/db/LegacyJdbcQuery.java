@@ -44,6 +44,8 @@ import java.util.regex.Pattern;
 
 import javax.sql.DataSource;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.datasource.DataSourceUtils;
 
@@ -139,6 +141,9 @@ public final class LegacyJdbcQuery {
      * @return owned cursor; closing it releases the statement and connection
      * @throws SQLException if validation, setup or execution fails
      */
+    @SuppressFBWarnings(
+            value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
+            justification = "Server-owned template SELECT is validated by trustedReportSelectSql; request values are JDBC-bound")
     public static ResultSet getBoundedReportResultSet(ParameterizedSql sql, int maxRows, long deadlineNanos)
             throws SQLException {
         if (maxRows < 1) {

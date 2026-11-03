@@ -164,6 +164,7 @@ public class SQLReporter implements Reporter {
             ParameterizedSql query;
             while ((query = genericReport.buildParameterizedSql(x, parameterMap)) != null) {
                 if (query.getSql().isEmpty()) {
+                    clearSequenceOutput(request, x);
                     request.setAttribute("errormsg", "Error: Cannot find all parameters for the query.  Check the template.");
                     request.setAttribute("templateid", templateId);
                     return false;
@@ -171,11 +172,7 @@ public class SQLReporter implements Reporter {
                 String[] result = executeQuery(query, true, budget);
                 if (result[1] == null) {
                     // Do not retain earlier successful subreports after the sequence fails.
-                    for (int previous = 0; previous < x; previous++) {
-                        request.removeAttribute("csv-" + previous);
-                        request.removeAttribute("sql-" + previous);
-                        request.removeAttribute("resultsethtml-" + previous);
-                    }
+                    clearSequenceOutput(request, x);
                     request.setAttribute("csv-" + x, "");
                     request.setAttribute("errormsg", result[0]);
                     request.setAttribute("templateid", templateId);
@@ -200,14 +197,22 @@ public class SQLReporter implements Reporter {
         return true;
     }
 
-    /** Executes and renders once; null CSV denotes a failed, non-downloadable report. */
-    private String[] executeQuery(ParameterizedSql query, boolean showSqlOnEmpty, ReportResultBudget budget) {
+    private void clearSequenceOutput(HttpServletRequest request, int count) {
+        for (int previous = 0; previous < count; previous++) {
+            request.removeAttribute("csv-" + previous);
+            request.removeAttribute("sql-" + previous);
+            request.removeAttribute("resultsethtml-" + previous);
+        }
+    }
+
+    /** Null CSV denotes budget failure or a failed sequence; ordinary single-query errors retain result navigation. */
+    private String[] executeQuery(ParameterizedSql query, boolean sequenced, ReportResultBudget budget) {
         try {
             budget.startQuery();
             try (ResultSet rs = LegacyJdbcQuery.getBoundedReportResultSet(
                     query, budget.remainingRows() + 1, budget.deadlineNanos())) {
                 try {
-                    return budget.render(rs, showSqlOnEmpty ? query.getSql() : null);
+                    return budget.render(rs, sequenced ? query.getSql() : null);
                 } catch (IOException | SQLException e) {
                     // Cancel before closing: a streaming cursor may still have unread rows.
                     try {
@@ -226,7 +231,7 @@ public class SQLReporter implements Reporter {
             return new String[]{REPORT_LIMIT_MESSAGE, null};
         } catch (SQLException | IOException e) {
             MiscUtils.getLogger().error("Error generating template report", e);
-            return new String[]{"An SQL query error has occured " + Encode.forHtml(e.getMessage()), ""};
+            return new String[]{"An SQL query error has occured " + Encode.forHtml(e.getMessage()), sequenced ? null : ""};
         }
     }
 }

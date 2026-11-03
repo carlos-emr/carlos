@@ -178,4 +178,44 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldDiscardEarlierSubreports_whenLaterQueryFails(boolean missingParameters) throws Exception {
+        ReportTemplatesDao dao = mock(ReportTemplatesDao.class);
+        registerMock(ReportTemplatesDao.class, dao);
+        ReportTemplates template = new ReportTemplates();
+        template.setActive(1);
+        when(dao.find(1)).thenReturn(template);
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.setParameter("templateId", "1");
+        var parameters = request.getParameterMap();
+        ReportObjectGeneric report = mock(ReportObjectGeneric.class);
+        when(report.isSequence()).thenReturn(true);
+        when(report.buildParameterizedSql(0, parameters)).thenReturn(new ParameterizedSql("select 1", List.of()));
+        when(report.buildParameterizedSql(1, parameters))
+                .thenReturn(new ParameterizedSql(missingParameters ? "" : "select 2", List.of()));
+        ResultSet rs = mock(ResultSet.class);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(rs.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnCount()).thenReturn(1);
+        when(metadata.getColumnType(1)).thenReturn(java.sql.Types.VARCHAR);
+        when(metadata.getColumnLabel(1)).thenReturn("h");
+        when(rs.next()).thenReturn(true, false);
+        when(rs.getCharacterStream(1)).thenReturn(new java.io.StringReader("synthetic"));
+        try (MockedConstruction<ReportManager> managers = mockConstruction(ReportManager.class,
+                (manager, context) -> when(manager.getReportTemplateNoParam("1")).thenReturn(report));
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong()))
+                    .thenReturn(rs).thenThrow(new java.sql.SQLException("synthetic query failure"));
+            assertThat(new SQLReporter().generateReport(request)).isFalse();
+            assertThat(request.getAttribute("csv-0")).isNull();
+            assertThat(request.getAttribute("sql-0")).isNull();
+            assertThat(request.getAttribute("resultsethtml-0")).isNull();
+            assertThat(request.getAttribute("errormsg").toString())
+                    .contains(missingParameters ? "Cannot find all parameters" : "synthetic query failure");
+            verify(report, never()).buildParameterizedSql(2, parameters);
+            verify(rs).close();
+        }
+    }
+
 }
