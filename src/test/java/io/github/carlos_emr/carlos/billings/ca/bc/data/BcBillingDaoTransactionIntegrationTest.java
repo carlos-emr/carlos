@@ -113,6 +113,25 @@ class BcBillingDaoTransactionIntegrationTest extends CarlosTestBase {
         assertThat(published).isFalse();
     }
 
+    @Test
+    void shouldRetainLegacyRequiresNewReads_whenCallerHasUncommittedStatuses() {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            service.markMasterBilled(masterId);
+            entityManager.flush();
+            assertThat(masters.findBcExtractClaims(billId)).isEmpty();
+            // Legacy public entry points suspend this transaction and see the committed row.
+            assertThat(masters.getBillingmaster(masterId).getBillingstatus()).isEqualTo("O");
+            assertThat(masters.getBillingmaster(String.valueOf(masterId)).getBillingstatus()).isEqualTo("O");
+            assertThat(masters.getBillingMasterByBillingMasterNo(String.valueOf(masterId)).getBillingstatus()).isEqualTo("O");
+            assertThat(masters.getBillingmasterByBillingNo(billId)).extracting(Billingmaster::getBillingstatus)
+                    .containsExactly("O");
+            assertThat(masters.getBillingMasterByBillingNo(String.valueOf(billId)))
+                    .extracting(Billingmaster::getBillingstatus).containsExactly("O");
+            status.setRollbackOnly();
+        });
+        assertThat(committedMasterStatus()).isEqualTo("O");
+    }
+
     private void assertCommittedState(String expected, int logs) {
         JdbcTemplate observer = new JdbcTemplate(dataSource);
         assertThat(observer.queryForObject("select status from billing where billing_no=?", String.class, billId))

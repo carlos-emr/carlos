@@ -22,7 +22,7 @@ required = {"generated": {**critical, "MeasurementPatientMatchMariaDbIntegration
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
                           "AbstractDaoFindAllOrderingIntegrationTest": 6}, "flyway": critical,
             "bc-flyway": {"BcBillingNativeMariaDbIntegrationTest": 7,
-                           "BcBillingDaoTransactionIntegrationTest": 2}}
+                           "BcBillingDaoTransactionIntegrationTest": 3}}
 counts = {mode: dict(tests=0, failures=0, errors=0, skipped=0) for mode in required}
 families = {mode: dict.fromkeys(required[mode], 0) for mode in required}
 lines = []

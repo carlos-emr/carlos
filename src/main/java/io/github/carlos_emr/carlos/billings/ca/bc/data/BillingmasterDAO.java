@@ -62,6 +62,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @Transactional(propagation = Propagation.REQUIRES_NEW)
 public class BillingmasterDAO {
     private static Logger log = MiscUtils.getLogger();
+    private static final String BILLING_TYPE_COLUMN = "b.billingtype";
 
     @PersistenceContext(unitName = "entityManagerFactory")
     protected EntityManager entityManager = null;
@@ -82,10 +83,15 @@ public class BillingmasterDAO {
     }
 
     public List<Billingmaster> getBillingMasterByBillingNo(String billingNo) {
-        return getBillingmasterByBillingNo(Integer.parseInt(billingNo));
+        return loadBillingmastersByBillingNo(Integer.parseInt(billingNo));
     }
 
     public List<Billingmaster> getBillingmasterByBillingNo(int billingNo) {
+        return loadBillingmastersByBillingNo(billingNo);
+    }
+
+    // Overloads share query code, while each public entry retains its own Spring boundary.
+    private List<Billingmaster> loadBillingmastersByBillingNo(int billingNo) {
         Query query = entityManager.createQuery("select b from Billingmaster b where b.billingNo = (:billingNo)");
         query.setParameter("billingNo", billingNo);
         List<Billingmaster> list = query.getResultList();
@@ -102,10 +108,14 @@ public class BillingmasterDAO {
      * Same as {@link #getBillingmaster(int)}
      */
     public Billingmaster getBillingmaster(String billingmasterNo) {
-        return getBillingmaster(Integer.parseInt(billingmasterNo));
+        return loadBillingmaster(Integer.parseInt(billingmasterNo));
     }
 
     public Billingmaster getBillingmaster(int billingmasterNo) {
+        return loadBillingmaster(billingmasterNo);
+    }
+
+    private Billingmaster loadBillingmaster(int billingmasterNo) {
         Query query = entityManager.createQuery("select b from Billingmaster b where b.billingmasterNo = (:billingmasterNo)");
         query.setParameter("billingmasterNo", billingmasterNo);
         List<Billingmaster> list = query.getResultList();
@@ -144,6 +154,10 @@ public class BillingmasterDAO {
     }
 
     public List<WCB> getWCBForms(int demographic) {
+        return loadWcbForms(demographic);
+    }
+
+    private List<WCB> loadWcbForms(int demographic) {
         Query query = entityManager.createQuery("select wcb from WCB wcb where wcb.demographic_no = (:demographicNo) order by wcb.id desc");
         query.setParameter("demographicNo", demographic);
         List<WCB> list = query.getResultList();
@@ -151,7 +165,7 @@ public class BillingmasterDAO {
     }
 
     public List<WCB> getWCBForms(String demographic) {
-        return getWCBForms(Integer.parseInt(demographic));
+        return loadWcbForms(Integer.parseInt(demographic));
     }
 
     public WCB getWCBForm(String formID) {
@@ -163,7 +177,7 @@ public class BillingmasterDAO {
     }
 
     public Billingmaster getBillingMasterByBillingMasterNo(String billingNo) {
-        return getBillingmaster(billingNo);
+        return loadBillingmaster(Integer.parseInt(billingNo));
     }
 
     public int markListAsBilled(List<String> list) { //TODO: Should be set form CONST var
@@ -383,7 +397,7 @@ public class BillingmasterDAO {
                   AND demographic.demographic_no = b.demographic_no
                 """ + criteriaQry + " " + orderByClause;
         return readBcRows(sql, criteriaParams.toArray(), rs -> new BillRow(
-                rs.getString("b.billingtype"),
+                rs.getString(BILLING_TYPE_COLUMN),
                 rs.getString("billing_no"),
                 rs.getString("demographic_no"),
                 rs.getString("billing_unit"),
@@ -429,7 +443,7 @@ public class BillingmasterDAO {
                 WHERE b.billing_no = bm.billing_no
                 """ + criteriaQry + " and bm.billingstatus != 'D' order by t_payment";
         return readBcRows(sql, criteriaParams.toArray(), rs -> new PaymentRow(
-                rs.getString("b.billingtype"),
+                rs.getString(BILLING_TYPE_COLUMN),
                 rs.getString("t_payment"),
                 rs.getString("paymentMethod"),
                 rs.getString("demographic_no"),
@@ -469,7 +483,7 @@ public class BillingmasterDAO {
                 """ + criteriaQry + " and bm.billingstatus != 'D'";
         return readBcRows(sql, criteriaParams.toArray(), rs -> new PrivatePaymentRow(
                 rs.getString("bm.billingmaster_no"),
-                rs.getString("b.billingtype"),
+                rs.getString(BILLING_TYPE_COLUMN),
                 rs.getString("demographic_no"),
                 rs.getString("demographic_name"),
                 rs.getString("service_date"),

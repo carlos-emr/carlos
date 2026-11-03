@@ -124,71 +124,14 @@ public class ExtractBean extends Object implements Serializable {
 
     /** Called by the Spring service inside one transaction; failures roll back all claim/status writes. */
     public void buildExtract() {
-        String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
-        if (vsFlag == 0) {
-            logNo = eFlag.equals("1") ? getSequence() : "1";
-            batchHeader = "VS1" + dataCenterId + forwardZero(logNo, 7) + "V6242" + "OSCAR_MCMASTER           " + "V1.1      " + "20030930" + "OSCAR MCMASTER                          " + "(905) 575-1300 " + space(25) + space(57) + "\r";
-            errorMsg = checkData.checkVS1("VS1", dataCenterId, forwardZero(logNo, 7), "V6242", "OSCAR_MCMASTER           ", "V1.1      ", "20030930", "OSCAR MCMASTER                          ", "(905) 575-1300 ", space(25), space(57));
-
-            logValue = batchHeader;
-            if (eFlag.equals("1")) setLog(logNo, logValue);
-            vsFlag = 1;
-        } else {
-            batchHeader = "";
-        }
+        initializeBatchHeader();
 
         htmlContentHeader = HtmlTeleplanHelper.htmlContentHeaderGen(providerNo, output.substring(0, 8), errorMsg);
         errorMsg = "";
 
         value = batchHeader;
         for (ExtractBillRow bill : billingmasterDao.findBcExtractBills(providerNo, dateRange, dateRangeParams)) {
-            patientCount = patientCount + 1;
-            invNo = bill.billingNo().toString();
-            demoName = bill.demographicName();
-
-            invCount = 0;
-            if (invNo == null || !invNo.matches("^[0-9]+$")) {
-                logger.warn("Skipping billing record due to invalid invoice number: {}", invNo);
-                continue;
-            }
-            for (ExtractClaimRow bm : billingmasterDao.findBcExtractClaims(Integer.parseInt(invNo))) {
-                recordCount = recordCount + 1;
-
-                logNo = eFlag.equals("1") ? getSequence() : "1";
-
-                String dataLine = getClaimDetailRecord(bm, logNo);
-                if (dataLine.length() != 424) {
-                    MiscUtils.getLogger().debug("dataLine2 {} Len{}", logNo, dataLine.length());
-                }
-                value = value + "\n" + dataLine + "\r";
-                logValue = dataLine;
-                if (eFlag.equals("1")) setLog(logNo, logValue);
-                dFee = Double.parseDouble(bm.billAmount());
-                bdFee = new BigDecimal(dFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-                BigTotal = BigTotal.add(bdFee);
-
-                if (invCount == 0) {
-                    htmlContent = htmlContent + HtmlTeleplanHelper.htmlLine(String.valueOf(bm.billingmasterNo()), invNo, demoName,
-                            bm.phn(), bm.serviceDate(), bm.billingCode(),
-                            bm.billAmount(), bm.dxCode1(), bm.dxCode2(),
-                            bm.dxCode3());
-                } else {
-                    htmlContent = htmlContent + HtmlTeleplanHelper.continuationLine(String.valueOf(bm.billingmasterNo()),
-                            bm.billingCode(), bm.billAmount(), bm.dxCode1(),
-                    bm.dxCode2(), bm.dxCode3());
-                }
-
-                errorMsg = checkData.checkC02(String.valueOf(bm.billingmasterNo()), bm);
-                htmlContent += errorMsg;
-
-                invCount = invCount + 1;
-                if (eFlag.compareTo("1") == 0) {
-                    setAsBilledMaster(String.valueOf(bm.billingmasterNo()));
-                }
-            }
-            if (eFlag.compareTo("1") == 0) {
-                setAsBilled(invNo);
-            }
+            appendInvoice(bill);
         }
         pCount = pCount + patientCount;
         rCount = rCount + recordCount;
@@ -201,6 +144,74 @@ public class ExtractBean extends Object implements Serializable {
         ohipClaim = String.valueOf(pCount);
     }
 
+    private void initializeBatchHeader() {
+        String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");
+        if (vsFlag == 0) {
+            logNo = eFlag.equals("1") ? getSequence() : "1";
+            batchHeader = "VS1" + dataCenterId + forwardZero(logNo, 7) + "V6242" + "OSCAR_MCMASTER           " + "V1.1      " + "20030930" + "OSCAR MCMASTER                          " + "(905) 575-1300 " + space(25) + space(57) + "\r";
+            errorMsg = checkData.checkVS1("VS1", dataCenterId, forwardZero(logNo, 7), "V6242", "OSCAR_MCMASTER           ", "V1.1      ", "20030930", "OSCAR MCMASTER                          ", "(905) 575-1300 ", space(25), space(57));
+
+            logValue = batchHeader;
+            if (eFlag.equals("1")) setLog(logNo, logValue);
+            vsFlag = 1;
+        } else {
+            batchHeader = "";
+        }
+    }
+
+    private void appendInvoice(ExtractBillRow bill) {
+        patientCount = patientCount + 1;
+        invNo = bill.billingNo().toString();
+        demoName = bill.demographicName();
+
+        invCount = 0;
+        if (invNo == null || !invNo.matches("^[0-9]+$")) {
+            logger.warn("Skipping billing record due to invalid invoice number: {}", invNo);
+            return;
+        }
+        for (ExtractClaimRow bm : billingmasterDao.findBcExtractClaims(Integer.parseInt(invNo))) {
+            appendClaim(bm);
+        }
+        if (eFlag.compareTo("1") == 0) {
+            setAsBilled(invNo);
+        }
+    }
+
+    private void appendClaim(ExtractClaimRow bm) {
+        recordCount = recordCount + 1;
+
+        logNo = eFlag.equals("1") ? getSequence() : "1";
+
+        String dataLine = getClaimDetailRecord(bm, logNo);
+        if (dataLine.length() != 424) {
+            MiscUtils.getLogger().debug("dataLine2 {} Len{}", logNo, dataLine.length());
+        }
+        value = value + "\n" + dataLine + "\r";
+        logValue = dataLine;
+        if (eFlag.equals("1")) setLog(logNo, logValue);
+        dFee = Double.parseDouble(bm.billAmount());
+        bdFee = new BigDecimal(dFee).setScale(2, BigDecimal.ROUND_HALF_UP);
+        BigTotal = BigTotal.add(bdFee);
+
+        if (invCount == 0) {
+            htmlContent = htmlContent + HtmlTeleplanHelper.htmlLine(String.valueOf(bm.billingmasterNo()), invNo, demoName,
+                    bm.phn(), bm.serviceDate(), bm.billingCode(),
+                    bm.billAmount(), bm.dxCode1(), bm.dxCode2(),
+                    bm.dxCode3());
+        } else {
+            htmlContent = htmlContent + HtmlTeleplanHelper.continuationLine(String.valueOf(bm.billingmasterNo()),
+                    bm.billingCode(), bm.billAmount(), bm.dxCode1(),
+                    bm.dxCode2(), bm.dxCode3());
+        }
+
+        errorMsg = checkData.checkC02(String.valueOf(bm.billingmasterNo()), bm);
+        htmlContent += errorMsg;
+
+        invCount = invCount + 1;
+        if (eFlag.compareTo("1") == 0) {
+            setAsBilledMaster(String.valueOf(bm.billingmasterNo()));
+        }
+    }
 
     public void setAsBilled(String newInvNo) {
         if (eFlag.equals("1")) SpringUtils.getBean(BcBillingService.class).markBillBilled(Integer.parseInt(newInvNo));
@@ -454,10 +465,10 @@ public class ExtractBean extends Object implements Serializable {
         return retval;
     }
 
-    public String getClaimDetailRecord(ExtractClaimRow bm, String LogNo) {
-        String dataLine = forwardSpace(bm.claimcode(), 3)            //p00   3
+    public String getClaimDetailRecord(ExtractClaimRow bm, String claimLogNo) {
+        return forwardSpace(bm.claimcode(), 3)            //p00   3
                 + forwardSpace(bm.datacenter(), 5)           //p02   5
-                + forwardZero(LogNo, 7)                                  //p04   7
+                + forwardZero(claimLogNo, 7)                                  //p04   7
                 + forwardSpace(bm.payeeNo(), 5)             //p06   5
                 + forwardSpace(bm.practitionerNo(), 5)      //p08   5
                 + forwardZero(bm.phn(), 10)                  //p14  10
@@ -509,6 +520,5 @@ public class ExtractBean extends Object implements Serializable {
                 + backwardSpace(bm.oinAddress3(), 25)       //p118 25
                 + backwardSpace(bm.oinAddress4(), 25)       //p120 25
                 + backwardSpace(bm.oinPostalcode(), 6);     //p122  6
-        return dataLine;
     }
 }
