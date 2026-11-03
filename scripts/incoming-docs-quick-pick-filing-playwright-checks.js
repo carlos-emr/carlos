@@ -13,17 +13,17 @@
  * Asserted, on the check's own queued PDFs and two owned FAKE patients only:
  *   - Data Entry Mode Fast stores the login's choice and offers the document type buttons;
  *   - filing a PDF for each owned patient through the patient search lists both under Last Patients, and offers the
- *     test login as a flag provider button;
- *   - LAST: on a third PDF, a document type button, the first patient's Last Patients button and the test login's
+ *     first patient's isolated MRP as a flag provider button;
+ *   - LAST: on a third PDF, a document type button, the first patient's Last Patients button and its isolated MRP's
  *     provider button fill exactly the type, the patient and the flag list, and Save files the document for that
- *     patient only, with that type, routed to the test login only; the second patient's document and routing are
+ *     patient only, with that type, routed to the picked provider only; the second patient's document and routing are
  *     unchanged, and the queue loses exactly that PDF.
  * Fixtures: three synthetic PDFs written into queue 1's File folder (INCOMINGDOCUMENT_DIR/1/File, which must exist);
- * the owned FAKE patient and a second owned FAKE patient, both with the test login as MRP; each one's program admission
- * (incoming-filing-program-fixture), which filing needs. The login's entry-mode preference is recorded and
- * restored exactly. The queue and the login's recent routing are shared, so the check must not run concurrently with
+ * the owned FAKE patient with an isolated MRP without forwarding rules, and a second owned FAKE patient with the
+ * test login as MRP; each one's program admission (incoming-filing-program-fixture), which filing needs. The login's
+ * entry-mode preference is recorded and restored exactly. The queue and the login's recent routing are shared, so the check must not run concurrently with
  * other checks (live wrapper: EXCLUSIVE=1). Cleanup removes the filed documents with their routing, links and stored
- * files (DOCUMENT_DIR), the queued PDFs left and the second patient, and asserts each is gone.
+ * files (DOCUMENT_DIR), the queued PDFs left, the second patient and the isolated MRP, and asserts each is gone.
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -35,13 +35,14 @@ const { createOwnedPatient, removeOwnedPatient } = require('./lib/owned-patient'
 const { prepareIncomingFilingProgram } = require('./lib/incoming-filing-program-fixture');
 const { cleanupFiling } = require('./lib/incoming-filing-capacity-check');
 const { fixturePdf } = require('./incoming-pdf-extraction-playwright-checks');
+const { prepareIsolatedMrp } = require('./lib/incoming-isolated-mrp-fixture');
 
 const TIMEOUT = 60000;
 
 /** The step labels; one place, so the script and the manifest agree. */
 const STEP = {
   fast: 'Data Entry Mode Fast stores the choice and offers the document type buttons',
-  recent: 'filing for two owned patients lists both under Last Patients and offers the test login as a provider button',
+  recent: 'filing for two owned patients lists both under Last Patients and offers the isolated MRP as a provider button',
   quick: 'the quick picks file a PDF for the chosen last patient only, with the picked type, routed to the picked provider',
 };
 
@@ -69,8 +70,12 @@ async function workflow(s) {
   const description = { a: `${marker} quick-pick first`, b: `${marker} quick-pick second`, quick: `${marker} quick-pick filed` };
   const owned = [];
   // Callbacks unwind in reverse: the second patient's admission, files and filings, the preference, the second patient,
-  // then the first patient's program fixture.
+  // then the isolated MRP restore and the first patient's program fixture.
   prepareIncomingFilingProgram(s);
+  // Keep the admission in the login's program domain, but route the quick-pick
+  // document to an owned provider so the login's real forwarding rules cannot add recipients.
+  const isolatedMrp = prepareIsolatedMrp(s);
+  const pickedProvider = isolatedMrp.number;
   let second = null;
   s.cleanup(() => {
     if (second) removeOwnedPatient(sql, second, marker);
@@ -134,7 +139,7 @@ async function workflow(s) {
     await page.waitForLoadState('networkidle');
   }
   /** Files the open PDF for a patient chosen through the patient search, flagged to the patient's MRP. */
-  async function fileThroughSearch(who, desc) {
+  async function fileThroughSearch(who, desc, mrpProvider) {
     const type = await page.locator('#docType option').evaluateAll(options => options.find(option => option.value)?.value);
     h.assert(type, 'The filing panel offers no document type');
     await page.locator('#docType').selectOption(type);
@@ -158,7 +163,7 @@ async function workflow(s) {
     await candidates.nth(matches[0]).click();
     h.assert(await page.locator('#demofind').inputValue() === who, 'The patient search did not select the owned patient');
     await page.locator('input[type="button"][value="MRP"]').click();
-    h.assert(JSON.stringify(await flagged()) === JSON.stringify([provider]), 'MRP did not flag the test login');
+    h.assert(JSON.stringify(await flagged()) === JSON.stringify([mrpProvider]), 'MRP did not flag exactly the chosen patient\'s provider');
     await save();
   }
   const filed = desc => sql.rows(`SELECT document_no FROM document WHERE docdesc=${q(desc)} AND doccreator=${q(provider)}`).map(([id]) => id);
@@ -181,9 +186,9 @@ async function workflow(s) {
 
   await s.step(STEP.recent, async () => {
     await openPdf(name.a);
-    await fileThroughSearch(patient, description.a);
+    await fileThroughSearch(patient, description.a, pickedProvider);
     await openPdf(name.b);
-    await fileThroughSearch(second, description.b);
+    await fileThroughSearch(second, description.b, provider);
     h.assert(filed(description.a).length === 1 && filed(description.b).length === 1, 'The two set-up filings did not each file one document');
     await openPdf(name.quick);
     for (const who of [patient, second]) {
@@ -192,8 +197,8 @@ async function workflow(s) {
     const order = await page.locator('input[id^="demvalueid"]').evaluateAll(buttons => buttons.map(button => button.id.slice('demvalueid'.length)));
     h.assert(order.indexOf(second) >= 0 && order.indexOf(second) < order.indexOf(patient),
       `Last Patients does not list the newest first (${JSON.stringify(order)})`);
-    h.assert(await page.locator(`input[type="button"][onclick^="addflagprovider("][onclick$="'${provider}');"]`).count() === 1,
-      'Fast mode offers no provider button for the test login');
+    h.assert(await page.locator(`input[type="button"][onclick^="addflagprovider("][onclick$="'${pickedProvider}');"]`).count() === 1,
+      'Fast mode offers no provider button for the isolated MRP');
   });
 
   await s.step(STEP.quick, async () => {
@@ -211,8 +216,9 @@ async function workflow(s) {
     h.assert((await page.locator('#autocompletedemo').inputValue()).toUpperCase().includes(marker.toUpperCase()),
       'The Last Patients button did not show the chosen patient');
     h.assert((await flagged()).length === 0, 'Choosing a Last Patient flagged a provider by itself');
-    await page.locator(`input[type="button"][onclick^="addflagprovider("][onclick$="'${provider}');"]`).click();
-    h.assert(JSON.stringify(await flagged()) === JSON.stringify([provider]), `The provider button did not flag exactly the test login (${JSON.stringify(await flagged())})`);
+    await page.locator(`input[type="button"][onclick^="addflagprovider("][onclick$="'${pickedProvider}');"]`).click();
+    h.assert(JSON.stringify(await flagged()) === JSON.stringify([pickedProvider]), `The provider button did not flag exactly the picked provider (${JSON.stringify(await flagged())})`);
+    isolatedMrp.verify();
     await save();
     const quick = filed(description.quick);
     h.assert(quick.length === 1, `Save filed ${quick.length} documents, not one`);
@@ -220,7 +226,8 @@ async function workflow(s) {
     const state = JSON.parse(docState(documentNo));
     h.assert(JSON.stringify(state.links) === JSON.stringify([['demographic', patient]])
       && JSON.stringify(state.patients) === JSON.stringify([[patient]]), `The quick-pick document is not the first patient's only (${JSON.stringify(state)})`);
-    h.assert(JSON.stringify(state.providers.map(([no]) => no)) === JSON.stringify([provider]), 'The quick-pick document is not routed to the test login only');
+    h.assert(JSON.stringify(state.providers.map(([no]) => no)) === JSON.stringify([pickedProvider]),
+      `The quick-pick document is not routed to the picked provider only (${JSON.stringify(state.providers)})`);
     h.assert(sql.value(`SELECT doctype FROM document WHERE document_no=${documentNo}`) === wantedType, 'The quick-pick document does not carry the picked type');
     h.assert(docState(secondDocument) === secondBefore
       && sql.value(`SELECT COUNT(*) FROM ctl_document WHERE module='demographic' AND module_id=${second}`) === secondCount,
