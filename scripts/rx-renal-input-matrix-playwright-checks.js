@@ -6,6 +6,13 @@ const {runWorkflow} = require('./lib/workflow-session');
 const {stageFromSearch} = require('./rx-edit-discontinue-playwright-checks');
 const {masterRecordLink} = require('./lib/master-record-link');
 const {CASES, renalInputFixture} = require('./lib/renal-input-fixture');
+const {failureMark, consumeExpectedFailure} = require('./lib/concurrency-support');
+async function consumeRenalRefusal(s,rx,response,mark) {
+  await rx.waitForLoadState('networkidle');
+  h.assert(s.recorder.badResponses.slice(mark.responses).every(entry=>entry.url===response.url()),
+    'The expected renal refusal cannot account for another failing request');
+  consumeExpectedFailure(s.recorder,mark,{status:400,method:'GET',path:/\/rx\/ViewRenalDosing$/});
+}
 async function workflow(s) {
   const name = process.env.RX_RENAL_CASE || 'male-valid';
   h.assert(Object.hasOwn(CASES,name),'Unknown RX_RENAL_CASE');
@@ -15,6 +22,7 @@ async function workflow(s) {
   const rx = await s.popup(s.master,masterRecordLink(s.master,'/rx/choosePatient').first(),'renal-matrix-rx');
   let card,panel,originalAtc;
   await s.step('renal inputs render through the native drug card without a server error',async()=>{
+    const mark=testCase.status===400?failureMark(s.recorder):null;
     const [response,staged]=await Promise.all([
       rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')&&new URL(r.url()).searchParams.get('demographicNo')===s.patient),
       stageFromSearch(rx,'CIPRO 500','CIPRO 500MG'),
@@ -23,6 +31,7 @@ async function workflow(s) {
     h.assert(originalAtc?.split(',').includes('J01MA02'),'The staged renal product is not ciprofloxacin (J01MA02)');
     h.assert(response.status()===(testCase.status||200),`Renal rendering returned HTTP ${response.status()}, expected ${testCase.status||200}`);await response.finished();
     await panel.locator('table.equation').waitFor({state:'visible'});
+    if(mark)await consumeRenalRefusal(s,rx,response,mark);
   });
   await s.step('render independent clinical inputs and exact inclusive recommendation boundaries',async()=>{
     const text=(await panel.innerText()).replace(/\s+/g,' '), selected=panel.locator('table.sofT tr.selected');
@@ -44,12 +53,14 @@ async function workflow(s) {
     await refresh();
     await panel.locator('table.sofT tr.selected').waitFor({state:'visible'});
     fixture.apply({weight:'40',cr:'not-a-number',crDate:null,lab:'200',labDate:'03-Jan-25'});
+    const mark=failureMark(s.recorder);
     const [refusal]=await refresh();
     h.assert(refusal.status()===400,'Invalid stored observation did not answer HTTP 400');await refusal.finished();
     await panel.getByRole('link',{name:'Refresh',exact:true}).waitFor({state:'visible'});
     await rx.waitForFunction(id=>document.querySelector(id)?.textContent.includes('N/A'),`#renalDosing_${card}`);
     h.assert(await panel.locator('table.equation').count()===1 && await panel.locator('tr.selected').count()===0,
       'Refused refresh retained a stale recommendation or appended a duplicate panel');
+    await consumeRenalRefusal(s,rx,refusal,mark);
     fixture.apply({age:0,weight:'80',cr:'100'});
     const [infant]=await refresh();
     h.assert(infant.status()===200,'An age below one year should render N/A without rejecting valid observations');await infant.finished();
@@ -58,9 +69,10 @@ async function workflow(s) {
   });
   await s.step('restoring valid observations refreshes the same panel without retaining stale input',async()=>{
     fixture.apply({...testCase,weight:'80',cr:'100',crDate:'2025-01-02',lab:undefined});
+    const mark=testCase.age<0?failureMark(s.recorder):null;
     const [response]=await Promise.all([rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
       panel.getByRole('link',{name:'Refresh',exact:true}).click()]);
-    h.assert(response.status()===(testCase.age<=0?400:200),'Restoring renal observations returned an unexpected status');await response.finished();
+    h.assert(response.status()===(testCase.age<0?400:200),'Restoring renal observations returned an unexpected status');await response.finished();
     const parameters=new URL(response.url()).searchParams;
     h.assert(parameters.get('demographicNo')===s.patient&&parameters.get('atcCode')===originalAtc&&parameters.get('divId')===`renalDosing_${card}`,
       'Refresh lost the originating patient, controlled drug or panel identity');
@@ -74,6 +86,7 @@ async function workflow(s) {
     }
     h.assert(await panel.locator('table.sofT tr.selected').count()===0,'Restored valid high clearance retained the previous recommendation');
     h.assert(s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${s.patient}`)==='0','Input checking unexpectedly saved a prescription');
+    if(mark)await consumeRenalRefusal(s,rx,response,mark);
   });
 }
 if(require.main===module)runWorkflow('rx-renal-input-matrix',workflow,{openPatient:true});
