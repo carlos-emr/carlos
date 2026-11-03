@@ -129,7 +129,7 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
     }
 
     private ConsultationListRow row(Integer id, Integer demographic, Integer service, String mrp, Integer specialist) {
-        return new ConsultationListRow(id, "1", demographic, "alias", "201", service, null, null, specialist, " Smith ", null,
+        return new ConsultationListRow(id, "1", demographic, "alias", "201", service, service, null, specialist, " Smith ", null,
                 mrp, "Lovelace", "Ada", null, "site", "team", null,
                 java.sql.Date.valueOf("2097-03-14"), null, null, null);
     }
@@ -215,6 +215,29 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
         verify(requests).getConsultationListRows(new ConsultationListFilterDto("team", true, null, null,
                 "2", "1", "1", 10, 20, null, null));
     }
+    @Test
+    void shouldPreserveFirstAndLastExtensionSelection_forChartAndTeamLists() {
+        var row = row(7, 42, 0, null, null);
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row));
+        when(requests.getConsultationListRows(42)).thenReturn(List.of(row));
+        var first = new ConsultationRequestExt();
+        first.setRequestId(7); first.setKey("ereferral_service"); first.setValue("First service");
+        var last = new ConsultationRequestExt();
+        last.setRequestId(7); last.setKey("ereferral_service"); last.setValue("Last service");
+        when(extensions.getConsultationRequestExts(List.of(7))).thenReturn(List.of(first, last));
+        assertThat(util.estConsultationVecByTeam(info, filter())).isTrue();
+        assertThat(util.service).containsExactly("Last service");
+        assertThat(util.estConsultationVecByDemographic(info, "42")).isTrue();
+        assertThat(util.service).containsExactly("First service");
+    }
+
+    @Test
+    void shouldRetainNullDescription_whenServiceRecordExists() {
+        when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(7, 42, 5, null, null)));
+        assertThat(util.estConsultationVecByTeam(info, filter())).isTrue();
+        assertThat(util.service).containsExactly((String) null);
+    }
+
     @ParameterizedTest(name = "[{index}] last={0}, first={1} -> \"{2}\"")
     @CsvSource(value = {
             "Smith     | Jane     | Smith, Jane",

@@ -67,7 +67,7 @@ public class ConsultationRequestExtDaoImpl extends AbstractDaoImpl<ConsultationR
     @Override
     public List<ConsultationRequestExt> getConsultationRequestExts(Collection<Integer> requestIds) {
         if (requestIds.isEmpty()) return List.of();
-        return entityManager.createQuery("select cre from ConsultationRequestExt cre where cre.requestId in :ids",
+        return entityManager.createQuery("select cre from ConsultationRequestExt cre where cre.requestId in :ids order by cre.id",
                 ConsultationRequestExt.class).setParameter("ids", requestIds).getResultList();
     }
 

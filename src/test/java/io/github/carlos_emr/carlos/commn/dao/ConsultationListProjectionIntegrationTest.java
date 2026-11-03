@@ -65,6 +65,10 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
     }
 
     private <T> T oneStatement(Supplier<T> read) {
+        return statements(1, read);
+    }
+
+    private <T> T statements(int expected, Supplier<T> read) {
         entityManager.flush();
         entityManager.clear();
         Statistics stats = entityManager.getEntityManagerFactory().unwrap(SessionFactory.class).getStatistics();
@@ -73,7 +77,7 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
         stats.clear();
         try {
             T value = read.get();
-            assertThat(stats.getPrepareStatementCount()).isEqualTo(1);
+            assertThat(stats.getPrepareStatementCount()).isEqualTo(expected);
             assertThat(stats.getEntityLoadCount()).isZero();
             return value;
         } finally {
@@ -91,7 +95,8 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
             assertThat(row.specialistId()).isNull();
             assertThat(row.serviceDescription()).isNull();
         });
-        assertThat(oneStatement(() -> requests.getConsultationListRows(60001))).hasSize(25);
+        // The production DAO also checks merged IDs once, independently of the number of consult rows.
+        assertThat(statements(2, () -> requests.getConsultationListRows(60001))).hasSize(25);
     }
 
     @ParameterizedTest
@@ -122,6 +127,49 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
         ConsultationListFilterDto wrongSite = new ConsultationListFilterDto("filter", true, null, null, null, null,
                 null, 0, 50, null, null, null, Set.of("other-site"));
         assertThat(requests.getConsultationListRows(wrongSite)).isEmpty();
+    }
+
+    @Test
+    void shouldIncludeMergedPatientConsultations_withProductionDaoSubclass() {
+        int parentId = patient();
+        int childId = patient();
+        int deletedId = patient();
+        ConsultationRequest parent = request(parentId, "merged", "1", 10);
+        ConsultationRequest child = request(childId, "merged", "1", 11);
+        request(deletedId, "merged", "1", 12);
+        for (int id : List.of(childId, deletedId)) {
+            DemographicMerged merge = new DemographicMerged();
+            merge.setDemographicNo(id); merge.setMergedTo(parentId); merge.setDeleted(id == deletedId ? 1 : 0);
+            entityManager.persist(merge);
+        }
+        entityManager.flush(); entityManager.clear();
+        var productionDao = new ConsultationRequestMergedDemographicDaoImpl();
+        org.springframework.test.util.ReflectionTestUtils.setField(productionDao, "entityManager", entityManager);
+        assertThat(statements(3, () -> productionDao.getConsultationListRows(parentId)))
+                .extracting(ConsultationListRow::id).containsExactly(parent.getId(), child.getId());
+        assertThat(productionDao.getConsultationListRows(60004)).isEmpty();
+    }
+
+    private int patient() {
+        Demographic patient = new Demographic();
+        patient.setSex("M"); patient.setFirstName("Synthetic"); patient.setLastName("Projection");
+        entityManager.persist(patient);
+        return patient.getDemographicNo();
+    }
+
+    @Test
+    void shouldKeepOneRowPerConsultation_whenServiceExtensionsAreDuplicated() {
+        ConsultationRequest request = request(60001, "duplicate", "1", 10);
+        request.setServiceId(0);
+        requests.merge(request);
+        for (String value : List.of("First", "Second")) {
+            ConsultationRequestExt ext = new ConsultationRequestExt();
+            ext.setRequestId(request.getId()); ext.setKey("ereferral_service"); ext.setValue(value);
+            extensions.persist(ext);
+        }
+        entityManager.flush(); entityManager.clear();
+        assertThat(requests.getConsultationListRows(filter("duplicate", null, null, 0, 50)))
+                .extracting(ConsultationListRow::id).containsExactly(request.getId());
     }
 
     @Test

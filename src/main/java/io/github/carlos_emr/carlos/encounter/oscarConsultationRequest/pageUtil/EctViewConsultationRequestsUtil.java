@@ -192,7 +192,9 @@ public class EctViewConsultationRequestsUtil {
       Map<Integer, Map<String, String>> extensions = new HashMap<>();
       for (ConsultationRequestExt ext : SpringUtils.getBean(ConsultationRequestExtDao.class)
               .getConsultationRequestExts(rows.stream().map(ConsultationListRow::id).toList())) {
-         extensions.computeIfAbsent(ext.getRequestId(), ignored -> new HashMap<>()).put(ext.getKey(), ext.getValue());
+         Map<String, String> values = extensions.computeIfAbsent(ext.getRequestId(), ignored -> new HashMap<>());
+         // The chart's legacy key lookup took the first match; the team list's map took the last.
+         if (!patientChart || !values.containsKey(ext.getKey())) values.put(ext.getKey(), ext.getValue());
       }
       for (ConsultationListRow row : rows) {
          Map<String, String> extras = extensions.getOrDefault(row.id(), Map.of());
