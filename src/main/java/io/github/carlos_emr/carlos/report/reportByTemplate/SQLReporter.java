@@ -226,7 +226,7 @@ public class SQLReporter implements Reporter {
             return new String[]{REPORT_LIMIT_MESSAGE, null};
         } catch (SQLException | IOException e) {
             MiscUtils.getLogger().error("Error generating template report", e);
-            return new String[]{"An SQL query error has occured " + Encode.forHtml(e.getMessage()), null};
+            return new String[]{"An SQL query error has occured " + Encode.forHtml(e.getMessage()), ""};
         }
     }
 }

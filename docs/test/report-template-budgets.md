@@ -29,9 +29,13 @@ parameters before execution. It sets a JDBC row ceiling with one overflow row,
 a query timeout derived from the remaining request deadline, and Connector/J's
 supported streaming fetch size. A cancellation timer remains armed through result
 consumption, since the JDBC execution timeout alone may end before streaming does.
-The same absolute monotonic deadline passes through connection acquisition and
-statement setup without restarting or rounding the cancellation timer. The renderer
-also checks that deadline between rows and reader chunks.
+Connection acquisition and JDBC setup retain the Spring datasource's existing
+limits (`db_max_wait`, 20 seconds by default, controls pool waits). Their elapsed
+time is charged to the same absolute monotonic deadline; an expired deadline
+prevents query execution. A blocked acquisition/setup operation is governed by
+the datasource/driver timeouts. The report cancellation timer is armed once the
+statement is ready, with the original deadline and nanosecond precision. The
+renderer also checks that deadline between rows and reader chunks.
 Budget exhaustion cancels the statement before closing the cursor, statement and
 Spring-managed connection. Scheduled cancellation is removed on close. Other
 legacy JDBC callers retain their scrollable cursor contract.

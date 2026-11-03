@@ -153,4 +153,29 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
             verify(report, never()).buildParameterizedSql(1, parameters);
         }
     }
+    @Test
+    @DisplayName("should retain result-page navigation for an ordinary SQL refusal")
+    void shouldKeepResultPageNavigation_whenStoredSqlIsRejected() throws Exception {
+        ReportTemplatesDao dao = mock(ReportTemplatesDao.class);
+        registerMock(ReportTemplatesDao.class, dao);
+        ReportTemplates template = new ReportTemplates();
+        template.setActive(1);
+        when(dao.find(1)).thenReturn(template);
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.setParameter("templateId", "1");
+        ReportObjectGeneric report = mock(ReportObjectGeneric.class);
+        when(report.buildParameterizedSql(request.getParameterMap()))
+                .thenReturn(new ParameterizedSql("update synthetic", List.of()));
+        try (MockedConstruction<ReportManager> managers = mockConstruction(ReportManager.class,
+                (manager, context) -> when(manager.getReportTemplateNoParam("1")).thenReturn(report));
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong()))
+                    .thenThrow(new java.sql.SQLException("Only SELECT statements are allowed"));
+            assertThat(new SQLReporter().generateReport(request)).isTrue();
+            assertThat(request.getAttribute("reportobject")).isSameAs(report);
+            assertThat(request.getAttribute("csv")).isEqualTo("");
+            assertThat(request.getAttribute("resultsethtml").toString()).contains("Only SELECT statements are allowed");
+        }
+    }
+
 }
