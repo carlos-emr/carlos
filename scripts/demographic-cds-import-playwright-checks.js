@@ -151,6 +151,7 @@ function childCleanup(id) {
     `DELETE FROM partial_date WHERE (table_name=2 AND table_id IN (${drugs})) OR (table_name=1 AND table_id IN (${allergies}))`,
     `DELETE FROM casemgmt_note_link WHERE note_id IN (SELECT note_id FROM (${notes}) n)`,
     `DELETE FROM casemgmt_issue_notes WHERE note_id IN (SELECT note_id FROM (${notes}) n)`,
+    `DELETE FROM casemgmt_note_ext WHERE note_id IN (SELECT note_id FROM (${notes}) n)`,
     `DELETE FROM casemgmt_note WHERE demographic_no=${h.sqlString(id)}`,
     `DELETE FROM casemgmt_issue WHERE demographic_no=${h.sqlString(id)}`,
     `DELETE FROM drugReason WHERE demographicNo=${id}`,
@@ -177,6 +178,18 @@ function remainingChildren(sql, id) {
     + (SELECT COUNT(*) FROM demographicArchive WHERE demographic_no=${id})
     + (SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${id})
     + (SELECT COUNT(*) FROM demographicPharmacy WHERE demographic_no=${id})`);
+}
+
+async function assertImportAccessDenied(response, message) {
+  const headers = response.headers();
+  const json = (headers['content-type'] || '').includes('application/json');
+  const body = json ? await response.json() : await response.text();
+  // The Struts privilege interceptor can refuse before the import action emits JSON.
+  // Require the application's own header and explicit refusal page, never a WAF 403.
+  h.assert(response.status() === 403 && headers['x-permitted-cross-domain-policies'] !== undefined
+    && (json ? body.code === 'IMPORT_ACCESS_DENIED'
+      : body.includes('Security Exception') && body.includes('insufficient privileges')),
+  `${message} (HTTP ${response.status()})`);
 }
 
 const metadataObservers = new WeakMap();
@@ -281,6 +294,7 @@ async function importApi(frame, route, params = {}, method = 'GET') {
       h.assert(version === String(API_VERSION) && body.apiVersion === API_VERSION, 'Live metadata protocol requires a client refresh');
     }
     return {status: response.status(), body, apiVersion:version, type: response.headers()['content-type'],
+      fromApplication: Object.hasOwn(response.headers(), h.APPLICATION_HEADER), waf: h.isWafPage(response.status(), text),
       redirected: response.status() >= 300 && response.status() < 400};
   } finally { await response.dispose(); }
 }
@@ -479,16 +493,12 @@ async function workflow(s) {
       const headers = {'CSRF-TOKEN':token,'X-Requested-With':'XMLHttpRequest'};
       for (const route of ['/form/importUpload', `/form/cdsImportStatus?runId=${actual.job.id}&apiVersion=${API_VERSION}`]) {
         const denied = await doctor.context.request.get(h.appUrl(s.config.baseUrl,route), {maxRedirects:0,headers});
-        const json = (denied.headers()['content-type'] || '').includes('application/json');
-        h.assert(denied.status() === 403 && denied.headers()['x-permitted-cross-domain-policies'] !== undefined
-          && (json ? (await denied.json()).code === 'IMPORT_ACCESS_DENIED' : route === '/form/importUpload'),
-          'An ordinary doctor acquired import-administration or run access');
+        await assertImportAccessDenied(denied, 'An ordinary doctor acquired import-administration or run access');
       }
       const denied = await doctor.context.request.post(h.appUrl(s.config.baseUrl,'/form/cdsUpload'),
         {maxRedirects:0,headers,
           form:{operation:'begin',fileName:'denied.xml',expectedBytes:'1',apiVersion:API_VERSION}});
-      h.assert(denied.status() === 403 && (await denied.json()).code === 'IMPORT_ACCESS_DENIED',
-        'An ordinary doctor reserved upload bytes');
+      await assertImportAccessDenied(denied, 'An ordinary doctor reserved upload bytes');
       h.assert(s.sql.value('SELECT COUNT(*) FROM cds_import_upload') === count, 'Denied import administration changed durable uploads');
       const readable = await doctor.context.request.get(h.appUrl(s.config.baseUrl,
         `/demographic/cdsSourceFields?demographicNo=${id}&category=Demographics`), {maxRedirects:0,headers});
@@ -589,8 +599,12 @@ async function workflow(s) {
   await s.step('Foreign run and physical report-path probes are refused without revealing paths', async () => {
     const foreign=await importApi(frame,'cdsImportStatus',{runId:randomUUID()});
     h.assert([403,404,409].includes(foreign.status) && foreign.body?.ok === false, 'Unknown run was exposed or treated as success');
+    const invalid=await importApi(frame,'cdsImportReport',{runId:actual.job.id,type:'invalid'});
+    h.assert(invalid.status === 400 && invalid.fromApplication && invalid.body?.code === 'IMPORT_REPORT_INVALID',
+      'The application did not refuse an unknown report type');
     const report=await importApi(frame,'cdsImportReport',{runId:actual.job.id,type:'../../etc/passwd'});
-    h.assert(report.status === 400, 'Physical report-path probe was not refused');
+    h.assert(report.status === 400 && report.fromApplication && report.body?.code === 'IMPORT_REPORT_INVALID'
+      || report.status === 403 && report.waf, 'Physical report-path probe was not refused by the application or front-door WAF');
   });
 }
 
