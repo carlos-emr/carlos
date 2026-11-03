@@ -44,6 +44,7 @@ const legacyPages = [
 const markupRules = ['Web:InputWithoutLabelCheck', 'Web:UnsupportedTagsInHtml5Check'];
 const cpd = list('sonar.cpd.exclusions');
 const excluded = (file) => list('sonar.exclusions').some(pattern => matches(pattern, file));
+const inSources = (file) => list('sonar.sources').some(source => file === source || file.startsWith(`${source}/`));
 const ignoredRules = (file) => [...new Set(criteria.filter(entry => matches(entry.resource, file))
   .map(entry => entry.rule))].sort();
 
@@ -67,6 +68,10 @@ test('legacy BC markup criteria suppress exactly the two approved rules on the t
   ]);
   for (const file of legacyPages) {
     assert.ok(fs.existsSync(path.join(root, file)), file);
+    assert.equal(inSources(file), true, `${file} must remain in sonar.sources`);
+    const inclusions = list('sonar.inclusions');
+    assert.ok(inclusions.length === 0 || inclusions.some(pattern => matches(pattern, file)),
+      `${file} must remain inside any configured sonar.inclusions`);
     assert.equal(excluded(file), false, `${file} must still be analyzed`);
     assert.deepEqual(ignoredRules(file), [...markupRules].sort(),
       `${file}: security and every other rule must remain enabled`);
