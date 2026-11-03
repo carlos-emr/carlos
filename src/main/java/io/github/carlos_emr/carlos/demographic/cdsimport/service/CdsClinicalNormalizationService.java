@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import com.google.common.base.Ascii;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsClinicalDiagnosticDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImmunizationDto;
@@ -38,7 +39,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.Locale;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 
@@ -84,7 +84,7 @@ public class CdsClinicalNormalizationService {
             }
             duration = match.group(1);
             durationUnit = match.group(2) == null ? "D"
-                    : match.group(2).substring(0, 1).toUpperCase(Locale.ROOT);
+                    : Ascii.toUpperCase(match.group(2).substring(0, 1));
         }
         String quantity = numericText(text(record, "Quantity", 1024), "Quantity", false);
         String dose = text(record, "Dosage", 120);
