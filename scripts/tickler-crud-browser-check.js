@@ -56,6 +56,7 @@ vm.runInNewContext(
     const resetReceived = new Promise(resolve => { resetStarted = resolve; });
     const resetGate = new Promise(resolve => { releaseReset = resolve; });
     let holdReset = false;
+    let rowMessage = 'owned tickler';
     await page.route('http://tickler.test/**', async route => {
       const url = new URL(route.request().url());
       if (url.pathname === '/') {
@@ -76,7 +77,7 @@ vm.runInNewContext(
         resetStarted();
         await resetGate;
       }
-      const rows = !needle || 'owned tickler'.includes(needle) ? [{message: 'owned tickler'}] : [];
+      const rows = !needle || rowMessage.includes(needle) ? [{message: rowMessage}] : [];
       await route.fulfill({contentType: 'application/json', body: JSON.stringify({
         draw: Number(url.searchParams.get('draw')), recordsTotal: 1, recordsFiltered: rows.length, data: rows,
       })});
@@ -113,9 +114,10 @@ vm.runInNewContext(
     assert.equal(await helpers.probe(page, 'missing tickler'), false);
     assert.deepEqual(searches, ['', 'owned tickler', '', 'missing tickler', '']);
     const beforeRefresh = searches.length;
+    rowMessage = 'edited tickler';
     await helpers.refresh(page, () => page.locator('#save').click());
     assert.equal(searches.length, beforeRefresh + 1, 'An edit must refresh the list exactly once');
-    assert.equal(await page.locator('#ticklerResults tbody').innerText(), 'owned tickler');
+    assert.equal(await page.locator('#ticklerResults tbody').innerText(), 'edited tickler');
     assert.deepEqual(failures, []);
     assert.deepEqual(errors, []);
     console.log('PASS tickler CRUD synchronization: native DataTables searches, held reset, and broadcast refresh');
