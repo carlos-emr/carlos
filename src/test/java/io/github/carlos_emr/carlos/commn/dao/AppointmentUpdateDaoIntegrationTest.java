@@ -249,7 +249,8 @@ class AppointmentUpdateDaoIntegrationTest {
         assertThat(read().getEditVersion()).isNotEqualTo(version);
         assertThat(read().getStatus()).isEqualTo("B");
         assertThatThrownBy(() -> save(clientA, version, row -> row.setReason("FAKE-stale")))
-                .isInstanceOf(AppointmentUpdateException.class);
+                .isInstanceOfSatisfying(AppointmentUpdateException.class,
+                        e -> assertThat(e.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
         assertState("FAKE-original", 0);
     }
 
@@ -273,7 +274,8 @@ class AppointmentUpdateDaoIntegrationTest {
         });
         assertThat(read().getEditVersion()).isNotEqualTo(version);
         assertThatThrownBy(() -> save(clientA, version, row -> row.setReason("FAKE-stale")))
-                .isInstanceOf(AppointmentUpdateException.class);
+                .isInstanceOfSatisfying(AppointmentUpdateException.class,
+                        e -> assertThat(e.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
         assertState("FAKE-original", 0);
     }
 

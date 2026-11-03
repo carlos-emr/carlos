@@ -36,6 +36,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.UUID;
 
 import jakarta.ws.rs.Consumes;
@@ -278,12 +279,21 @@ public class ScheduleService extends AbstractServiceImpl {
 
         SchedulingResponse response = new SchedulingResponse();
         AppointmentConverter converter = new AppointmentConverter();
-        Appointment appt;
+        Appointment appt = updateVersionedAppointment(appointmentTo.getId(), appointmentTo,
+                current -> converter.applyEditableProperties(appointmentTo, current));
+
+        response.setAppointment(converter.getAsTransferObject(getLoggedInInfo(), appt));
+        return response;
+    }
+
+    private Appointment updateVersionedAppointment(Integer id, AppointmentTo1 submitted, Consumer<Appointment> edit) {
+        if (submitted == null) {
+            throw new WebApplicationException(Response.status(Status.BAD_REQUEST)
+                    .entity("Appointment payload is required").build());
+        }
         try {
-            // Only apply client-editable fields after the shared service validates the
-            // read version under its row lock. Never mutate a managed entity beforehand.
-            appt = scheduleManager.updateAppointment(getLoggedInInfo(), appointmentTo.getId(),
-                    appointmentTo.getEditVersion(), current -> converter.applyEditableProperties(appointmentTo, current));
+            // Validation and all mutations run under the shared manager's row lock.
+            return scheduleManager.updateAppointment(getLoggedInInfo(), id, submitted.getEditVersion(), edit);
         } catch (AppointmentUpdateException e) {
             Status status = switch (e.getReason()) {
                 case MISSING_VERSION -> Status.BAD_REQUEST;
@@ -294,9 +304,6 @@ public class ScheduleService extends AbstractServiceImpl {
                     .entity(Map.of("code", "APPOINTMENT_" + e.getReason().name(),
                             "message", e.getMessage())).build());
         }
-
-        response.setAppointment(converter.getAsTransferObject(getLoggedInInfo(), appt));
-        return response;
     }
 
     @POST
@@ -360,14 +367,10 @@ public class ScheduleService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
 
+        Appointment appointment = updateVersionedAppointment(id, appt,
+                current -> current.setStatus(appt.getStatus()));
         SchedulingResponse response = new SchedulingResponse();
-        AppointmentConverter converter = new AppointmentConverter();
-        String status = appt.getStatus();
-
-        Appointment appointment = appointmentManager.updateAppointmentStatus(getLoggedInInfo(), id, status);
-
-        response.setAppointment(converter.getAsTransferObject(getLoggedInInfo(), appointment));
-
+        response.setAppointment(new AppointmentConverter().getAsTransferObject(getLoggedInInfo(), appointment));
         return response;
     }
 
@@ -380,14 +383,10 @@ public class ScheduleService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
 
+        Appointment appointment = updateVersionedAppointment(id, appt,
+                current -> current.setType(appt.getType()));
         SchedulingResponse response = new SchedulingResponse();
-        AppointmentConverter converter = new AppointmentConverter();
-        String type = appt.getType();
-
-        Appointment appointment = appointmentManager.updateAppointmentType(getLoggedInInfo(), id, type);
-
-        response.setAppointment(converter.getAsTransferObject(getLoggedInInfo(), appointment));
-
+        response.setAppointment(new AppointmentConverter().getAsTransferObject(getLoggedInInfo(), appointment));
         return response;
     }
 
@@ -400,21 +399,10 @@ public class ScheduleService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
 
-        // This route was previously unrouted (missing @POST); now that it is reachable, guard a
-        // null/empty request body rather than NPE-ing on appt.getUrgency().
-        if (appt == null) {
-            throw new WebApplicationException(Response.status(Status.BAD_REQUEST)
-                    .entity("Appointment payload is required").build());
-        }
-
+        Appointment appointment = updateVersionedAppointment(id, appt,
+                current -> current.setUrgency(appt.getUrgency()));
         SchedulingResponse response = new SchedulingResponse();
-        AppointmentConverter converter = new AppointmentConverter();
-        String urgency = appt.getUrgency();
-
-        Appointment appointment = appointmentManager.updateAppointmentUrgency(getLoggedInInfo(), id, urgency);
-
-        response.setAppointment(converter.getAsTransferObject(getLoggedInInfo(), appointment));
-
+        response.setAppointment(new AppointmentConverter().getAsTransferObject(getLoggedInInfo(), appointment));
         return response;
     }
 

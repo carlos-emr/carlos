@@ -399,6 +399,54 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
                 .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus()).isEqualTo(400));
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"Status", "Type", "Urgency"})
+    void shouldApplyOnlyNamedField_whenVersionedPartialEditSucceeds(String field) {
+        registerMock(DemographicDao.class, Mockito.mock(DemographicDao.class));
+        registerMock(ProviderDao.class, Mockito.mock(ProviderDao.class));
+        Appointment current = new Appointment();
+        current.setId(42);
+        current.setStatus("old-status");
+        current.setType("old-type");
+        current.setUrgency("old-urgency");
+        current.setReason("preserved");
+        current.setCreator("server-creator");
+        current.setLastUpdateUser("server-updater");
+        current.setUpdateDateTime(new Date(123000));
+        when(scheduleManager.updateAppointment(eq(loggedInInfo), eq(42), eq("123000"), any()))
+                .thenAnswer(call -> {
+                    java.util.function.Consumer<Appointment> edit = call.getArgument(3);
+                    edit.accept(current);
+                    return current;
+                });
+        AppointmentTo1 submitted = new AppointmentTo1();
+        submitted.setId(999); // Path identity controls a partial edit.
+        submitted.setEditVersion("123000");
+        submitted.setStatus("new");
+        submitted.setType("new");
+        submitted.setUrgency("new");
+        submitted.setReason("over-posted");
+        submitted.setCreator("over-posted");
+        submitted.setLastUpdateUser("over-posted");
+
+        var response = switch (field) {
+            case "Status" -> service.updateAppointmentStatus(42, submitted);
+            case "Type" -> service.updateAppointmentType(42, submitted);
+            case "Urgency" -> service.updateAppointmentUrgency(42, submitted);
+            default -> throw new AssertionError(field);
+        };
+
+        assertThat(current.getId()).isEqualTo(42);
+        assertThat(current.getStatus()).isEqualTo("Status".equals(field) ? "new" : "old-status");
+        assertThat(current.getType()).isEqualTo("Type".equals(field) ? "new" : "old-type");
+        assertThat(current.getUrgency()).isEqualTo("Urgency".equals(field) ? "new" : "old-urgency");
+        assertThat(current.getReason()).isEqualTo("preserved");
+        assertThat(current.getCreator()).isEqualTo("server-creator");
+        assertThat(current.getLastUpdateUser()).isEqualTo("server-updater");
+        assertThat(response.getAppointment().getEditVersion()).isEqualTo("123000");
+        verifyNoInteractions(appointmentManager);
+    }
+
     @Test
     @DisplayName("should reject updateUrgency with bad request when the request body is null")
     void shouldRejectUpdateUrgency_whenBodyIsNull() {

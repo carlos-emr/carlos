@@ -26,5 +26,8 @@ An appointment changed since the read returns HTTP 409 with code
 Reload the appointment and reconcile edits before retrying. A removed appointment
 returns HTTP 404 with code `APPOINTMENT_NOT_FOUND`. Refused writes change neither
 the appointment nor its archive. Existing clients must adopt this read/echo flow;
-there is no unconditional-write fallback. Creator and creation-audit fields remain
+there is no unconditional-write fallback. The specialized
+`/schedule/appointment/{id}/updateStatus`, `/updateType`, and `/updateUrgency` routes
+require the same token and return the same errors; each changes only its named field.
+Creator and creation-audit fields remain
 server managed, and the updating provider comes from the authenticated session.

@@ -364,6 +364,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
     }
 
     @Test
+    @Tag("update")
     void shouldRejectVersionedEdit_whenWritePrivilegeIsMissing() {
         when(mockSecurityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), isNull()))
                 .thenReturn(false);
@@ -374,6 +375,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
     }
 
     @Test
+    @Tag("update")
     void shouldRejectStaleVersion_beforeArchivingOrApplyingChanges() {
         Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
         current.setUpdateDateTime(new Date(2000));
