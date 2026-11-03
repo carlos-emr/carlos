@@ -146,6 +146,13 @@ public class CarlosProperties extends Properties {
             return "";
         }
 
+        // The modern chart is mandatory (#4793), including on installs with an old false
+        // override. Keep this at the shared reader so getProperty(key, defaultValue) and
+        // boolean accessors agree. Remove the obsolete flag and legacy branches in #5599.
+        if ("AbandonOldChart".equals(key)) {
+            return "true";
+        }
+
         if (key == null || key.trim().isEmpty()) {
             MiscUtils.getLogger().warn("Attempted to retrieve property with blank key.");
             throw new IllegalArgumentException("Property key cannot be blank.");

@@ -12,6 +12,7 @@ import io.github.carlos_emr.carlos.commn.model.HashAudit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -44,6 +45,7 @@ import static org.mockito.Mockito.*;
  * @since 2026-10-15
  */
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
+@Isolated
 class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagementNoteDaoBaseIntegrationTest {
     private static final AtomicInteger NEXT_DEMOGRAPHIC = new AtomicInteger(780000);
     @Autowired @Qualifier("CaseManagementNoteExtDAO")
@@ -64,7 +66,8 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
     void prepareTransactionFixture() {
         tx = new TransactionTemplate(transactionManager);
         demo = String.valueOf(NEXT_DEMOGRAPHIC.incrementAndGet());
-        previousAbandonOldChart = CarlosProperties.getInstance().getProperty("AbandonOldChart");
+        previousAbandonOldChart = (String) CarlosProperties.getInstance().get("AbandonOldChart");
+        // An old deployment override must not re-enable mirroring (#4793).
         CarlosProperties.getInstance().setProperty("AbandonOldChart", "false");
     }
 
@@ -137,7 +140,7 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
                         .contains("2026", "new value");
                 assertThat(caseManagementNoteDAO.getNote(fixture.siblingId()).getPosition()).isZero();
                 assertThat(cpps.getCPP(demo).getSocialHistory()).contains("Atomic signed draft");
-                assertThat(charts.getLatestChart(Integer.parseInt(demo)).getEncounter()).contains("Atomic signed draft");
+                assertLegacyChartUnchanged(fixture);
                 assertThat(hashCount(value.getNoteId())).isEqualTo(1);
                 assertThat(issueCount()).isEqualTo(1);
                 throw new IllegalStateException("late extension failure");
@@ -177,7 +180,7 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
         var result = service(extensions).saveCppNoteRevision(draft, "Doctor", "", positions,
                 List.of(extension("startDate", "2026", null), extension("newKey", "new value", java.sql.Date.valueOf("2026-10-15"))));
 
-        assertThat(result.legacyChartText()).contains(draft.getNote());
+        assertThat(result.legacyChartText()).isEmpty();
         tx.executeWithoutResult(status -> assertSuccessfulSave(fixture, result.note(), archived));
         assertThat(draft.getId()).isEqualTo(fixture.originalId());
         assertThat(draft.getIssues()).allSatisfy(issue -> assertThat(issue.getId()).isNull());
@@ -351,7 +354,7 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
         lookupIds.add(issue.getId());
         CaseManagementNote sibling = createNote(demo, "Untouched sibling", new Date(1000));
         sibling.setPosition(4);
-        if (!existingNote) return new Fixture(null, sibling.getId(), issue);
+        if (!existingNote) return new Fixture(null, sibling.getId(), issue, legacyChartState());
         CaseManagementNote original = createNote(demo, "Original signed history", new Date(1000));
         original.setSigned(true);
         original.setSigning_provider_no("999998");
@@ -374,7 +377,7 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
         cpp.setSocialHistory("Old projection");
         cpps.saveCPP(cpp);
         charts.saveEchart(original, cpp, "Doctor", "");
-        return new Fixture(original.getId(), sibling.getId(), issue);
+        return new Fixture(original.getId(), sibling.getId(), issue, legacyChartState());
     }
 
     private CaseManagementNote draft(Fixture fixture) {
@@ -427,8 +430,7 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
         assertThat(sibling.getUpdate_date().getTime()).isEqualTo(1000L);
         String projection = cpps.getCPP(demo).getSocialHistory();
         assertThat(projection).contains("\n-----[[").endsWith("]]-----\nAtomic signed draft");
-        assertThat(charts.getLatestChart(Integer.parseInt(demo)).getSocialHistory()).isEqualTo(projection);
-        assertThat(charts.getLatestChart(Integer.parseInt(demo)).getEncounter()).contains("Atomic signed draft");
+        assertLegacyChartUnchanged(fixture);
         List<CaseManagementNoteExt> currentExtensions = extensions.getExtByNote(saved.getId());
         assertThat(currentExtensions).filteredOn(e -> "startDate".equals(e.getKeyVal()))
                 .hasSize(fixture.originalId() == null ? 1 : 2)
@@ -456,6 +458,19 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
         assertThat(links.getLinkByNote(saved.getId())).extracting(CaseManagementNoteLink::getTableId).containsExactly(77L);
     }
 
+    private void assertLegacyChartUnchanged(Fixture fixture) {
+        assertThat(legacyChartState()).as("modern saves leave every legacy revision unchanged")
+                .isEqualTo(fixture.legacyCharts());
+    }
+
+    private List<String> legacyChartState() {
+        return charts.getChartsForDemographic(Integer.parseInt(demo)).stream()
+                .map(c -> c.getId() + ":" + c.getTimestamp().getTime() + ":" + c.getDemographicNo()
+                        + ":" + c.getProviderNo() + ":" + c.getSubject() + ":" + c.getSocialHistory()
+                        + ":" + c.getFamilyHistory() + ":" + c.getMedicalHistory() + ":" + c.getOngoingConcerns()
+                        + ":" + c.getReminders() + ":" + c.getEncounter()).toList();
+    }
+
     private long hashCount(Long noteId) {
         return entityManager.createQuery("select count(h) from HashAudit h where h.type = :type and h.id2 = :id", Long.class)
                 .setParameter("type", HashAudit.NOTE).setParameter("id", noteId.toString()).getSingleResult();
@@ -474,12 +489,10 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
                         .map(e -> e.getId() + ":" + e.getKeyVal() + ":" + e.getValue() + ":" + e.getDateValue()).toList()
                         + ":" + links.getLinkByNote(n.getId()).stream().map(l -> l.getId() + ":" + l.getTableId()).toList()).toList();
         CaseManagementCPP cpp = cpps.getCPP(demo);
-        List<String> chartState = charts.getChartsForDemographic(Integer.parseInt(demo)).stream()
-                .map(c -> c.getId() + ":" + c.getEncounter() + ":" + c.getSocialHistory() + ":" + c.getTimestamp().getTime()).toList();
         return new Snapshot(notes, cpp == null ? null : cpp.getId() + ":" + cpp.getSocialHistory() + ":" + cpp.getUpdate_date().getTime(),
-                chartState, issueCount());
+                legacyChartState(), issueCount());
     }
 
-    private record Fixture(Long originalId, Long siblingId, Issue issue) { }
+    private record Fixture(Long originalId, Long siblingId, Issue issue, List<String> legacyCharts) { }
     private record Snapshot(List<String> notes, String cpp, List<String> charts, long issues) { }
 }
