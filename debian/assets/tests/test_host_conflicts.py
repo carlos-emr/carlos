@@ -880,16 +880,14 @@ class TestRootAccessDocumentation(unittest.TestCase):
 
 
 class TestCompatSymlinkWording(unittest.TestCase):
-    """A reinstall after a purge recreates the document-store compat symlink;
-    calling that "an interrupted rename" worried a beta2 tester."""
+    """The existing store's layout cannot establish why its compat link is absent."""
 
     def run_heal(self, old_version):
         text = POSTINST.read_text()
         start = text.index('            elif [ -d "${STATE}/CarlosDocument" ] && [ ! -e "${STATE}/OscarDocument" ]; then')
-        # From the branch's own test to the end of its inner if/fi.
-        message = text.index("compat symlink for the document store an earlier purge kept", start)
-        end = text.index("\n                fi\n", message) + len("\n                fi\n")
-        block = text[start + len("            el"):end] + "fi\n"
+        # Lift the branch as a standalone if, including its closing fi.
+        end = text.index("\n            fi\n", start) + len("\n            fi\n")
+        block = text[start + len("            el"):end]
         with tempfile.TemporaryDirectory() as tmp:
             os.mkdir(os.path.join(tmp, "CarlosDocument"))
             r = subprocess.run(["sh", "-c", f'set -- configure {old_version}\nSTATE="{tmp}"\n' + block],
@@ -901,11 +899,15 @@ class TestCompatSymlinkWording(unittest.TestCase):
 
     def test_reinstall_after_purge_is_not_called_an_interrupted_rename(self):
         out = self.run_heal("")
-        self.assertIn("an earlier purge kept", out)
+        self.assertIn("compat symlink for the existing document store", out)
         self.assertNotIn("interrupted", out)
 
-    def test_an_upgrade_still_reports_the_interrupted_rename(self):
-        self.assertIn("after an interrupted rename", self.run_heal("2026.08.0~beta1"))
+    def test_normal_upgrades_are_not_called_interrupted_renames(self):
+        for old_version in ("2026.08.0~beta1", "2026.08.0~beta5"):
+            with self.subTest(old_version=old_version):
+                out = self.run_heal(old_version)
+                self.assertIn("compat symlink for the existing document store", out)
+                self.assertNotIn("interrupted", out)
 
 
 if __name__ == "__main__":
