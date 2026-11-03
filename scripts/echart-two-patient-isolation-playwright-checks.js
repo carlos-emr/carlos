@@ -1095,9 +1095,25 @@ async function run(s) {
   const read = async route => {
     const response = await context.request.get(h.appUrl(s.config.baseUrl, route), {maxRedirects: 0, failOnStatusCode: false});
     try {
-      return {status: response.status(), body: norm(await response.text())};
+      return {status: response.status(), headers: response.headers(), body: norm(await response.text())};
     } finally { await response.dispose(); }
   };
+
+  /**
+   * Missing IDs reach the JSP's 400; invalid/conflicting aliases are denied
+   * by ViewClinical2Action with 403 before the JSP runs. A 403 must be CARLOS's
+   * own refusal, with unchanged owned notes; a WAF block cannot satisfy it.
+   */
+  async function assertInvalidView(route, status, label) {
+    const where = `demographic_no IN (${A},${B})`;
+    const before = sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE ${where}`);
+    const refused = await read(route);
+    h.assert(refused.status === status, `${label} answered HTTP ${refused.status}, expected ${status}`);
+    h.assert(!namesA(refused.body) && !namesB(refused.body), `${label} exposed an owned patient name`);
+    if (status === 403) {
+      await h.assertRefused(s, {response: refused, table: 'casemgmt_note', where, before, label});
+    }
+  }
 
   for (const d of directions) {
     await isolatedWrite(d, 'chart print', async () => {
@@ -1273,11 +1289,11 @@ async function run(s) {
       const foreign = await read(`/encounter/ViewEcharthistoryprint?echartid=${legacy[other].revision}&demographic_no=${d.patient}`);
       h.assert(foreign.status === 200 && d.ownName(foreign.body) && !d.otherName(foreign.body)
         && !foreign.body.includes(`${marker}-${other}-`), `${d.label}'s history print showed the other patient's revision`);
-      for (const route of [`/encounter/ViewEncounterPrint?echartid=${legacy[d.label].revision}`,
-        `/encounter/ViewEcharthistoryprint?echartid=${legacy[d.label].revision}&demographic_no=0`]) {
-        const refused = await read(route);
-        h.assert(refused.status === 400 && !namesA(refused.body) && !namesB(refused.body),
-          `A legacy print without a valid patient answered HTTP ${refused.status}`);
+      for (const [route, status] of [
+        [`/encounter/ViewEncounterPrint?echartid=${legacy[d.label].revision}`, 400],
+        [`/encounter/ViewEcharthistoryprint?echartid=${legacy[d.label].revision}&demographic_no=0`, 403],
+      ]) {
+        await assertInvalidView(route, status, 'A legacy print without a valid patient');
       }
       assertPatientStateUnchanged(before, snapshot(d.other), `${d.label}'s legacy prints`);
     });
@@ -1371,11 +1387,12 @@ async function run(s) {
         }
       }
       h.assert(JSON.stringify(sql.rows(schedules)) === schedulesBefore, 'A refused immunization schedule request wrote a schedule');
-      for (const route of ['/encounter/immunization/ViewSchedule', '/encounter/immunization/ViewScheduleConfig',
-        `/encounter/immunization/ViewScheduleConfig?demographic_no=${d.patient}&demographicNo=${d.other}`]) {
-        const refused = await read(route);
-        h.assert(refused.status === 400 && !namesA(refused.body) && !namesB(refused.body),
-          `An immunization schedule page without one valid patient answered HTTP ${refused.status}`);
+      for (const [route, status] of [
+        ['/encounter/immunization/ViewSchedule', 400],
+        ['/encounter/immunization/ViewScheduleConfig', 400],
+        [`/encounter/immunization/ViewScheduleConfig?demographic_no=${d.patient}&demographicNo=${d.other}`, 403],
+      ]) {
+        await assertInvalidView(route, status, 'An immunization schedule page without one valid patient');
       }
     });
   }
