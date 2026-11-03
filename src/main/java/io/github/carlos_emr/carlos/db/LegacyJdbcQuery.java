@@ -141,9 +141,6 @@ public final class LegacyJdbcQuery {
      * @return owned cursor; closing it releases the statement and connection
      * @throws SQLException if validation, setup or execution fails
      */
-    @SuppressFBWarnings(
-            value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
-            justification = "Server-owned template SELECT is validated by trustedReportSelectSql; request values are JDBC-bound")
     public static ResultSet getBoundedReportResultSet(ParameterizedSql sql, int maxRows, long deadlineNanos)
             throws SQLException {
         if (maxRows < 1) {
@@ -158,9 +155,7 @@ public final class LegacyJdbcQuery {
         PreparedStatement ps = null;
         ReportQueryDeadline deadline = null;
         try {
-            // codeql[java/sql-injection] -- TrustedSql validates the report SELECT; values are bound below.
-            ps = connection.prepareStatement(trusted.sql, ResultSet.TYPE_FORWARD_ONLY, // nosemgrep: formatted-sql-string -- validated server-owned report SELECT
-                    ResultSet.CONCUR_READ_ONLY);
+            ps = prepareStreamingReportStatement(connection, trusted);
             ps.setMaxRows(maxRows);
             // Connector/J's supported streaming mode avoids buffering the entire result.
             ps.setFetchSize(Integer.MIN_VALUE);
@@ -194,6 +189,16 @@ public final class LegacyJdbcQuery {
             }
             throw e;
         }
+    }
+
+    @SuppressFBWarnings(
+            value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
+            justification = "Only TrustedSql created by structural SELECT validation reaches this preparation sink")
+    private static PreparedStatement prepareStreamingReportStatement(Connection connection, TrustedSql sql)
+            throws SQLException {
+        // codeql[java/sql-injection] -- TrustedSql is constructed only after SELECT validation; values are bound by the caller.
+        return connection.prepareStatement(sql.sql(), ResultSet.TYPE_FORWARD_ONLY,
+                ResultSet.CONCUR_READ_ONLY); // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- validated TrustedSql boundary
     }
 
     public static ResultSet getPreparedResultSet(TrustedSql sql, Object... params) throws SQLException {
