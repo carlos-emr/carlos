@@ -520,13 +520,18 @@ async function run(s) {
         : /^\s*<(?:!doctype|html)/i.test(bytes.subarray(0, 128).toString('utf8')) ? 'HTML' : 'other';
       h.assert(new URL(response.url()).origin === new URL(s.config.baseUrl).origin,
         'The Plot control pointed outside the application');
-      const verification = await context.request.get(response.url(), {timeout: TIMEOUT});
+      let verification;
+      let diagnostic = `The Plot control returned something other than PNG bytes (browser=${kind}, bytes=${bytes.length}, verification=unavailable)`;
       try {
+        verification = await context.request.get(response.url(), {timeout: TIMEOUT});
         const verified = await verification.body();
-        throw new Error(`The Plot control returned something other than PNG bytes (browser=${kind}, bytes=${bytes.length}, verificationStatus=${verification.status()}, verificationPng=${verified.subarray(0, 8).equals(pngSignature)})`);
+        diagnostic = `The Plot control returned something other than PNG bytes (browser=${kind}, bytes=${bytes.length}, verificationStatus=${verification.status()}, verificationPng=${verified.subarray(0, 8).equals(pngSignature)})`;
+      } catch {
+        // Playwright errors include URLs; retain only the fixed metadata above.
       } finally {
-        await verification.dispose();
+        if (verification) await verification.dispose().catch(() => {});
       }
+      throw new Error(diagnostic);
     }
     return sha(bytes);
   }
