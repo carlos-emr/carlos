@@ -1,38 +1,85 @@
-name: Issue 5533 refreshed baseline diagnostics
+name: Issue 5533 release branch configuration
 on:
   push:
     branches: [codex/issue-5533-sonar-diagnostics]
 permissions:
   contents: read
+  packages: read
 jobs:
-  diagnostics:
+  configure:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Read release baseline and PR findings
+      - name: Recognize release slash branches without changing analysis history
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          python3 - <<'PY'
+          python3 - <<'PYCONFIG'
           import base64, json, os, urllib.parse, urllib.request
-          def get(path, **params):
-              request = urllib.request.Request('https://sonarcloud.io/api/' + path + '?' + urllib.parse.urlencode(params), headers={'Authorization':'Basic ' + base64.b64encode((os.environ['SONAR_TOKEN']+':').encode()).decode()})
-              with urllib.request.urlopen(request, timeout=30) as response:
-                  return json.load(response)
           project='carlos-emr_carlos'
-          print('BRANCHES', json.dumps(get('project_branches/list', project=project)))
-          print('PR_METADATA', json.dumps([pr for pr in get('project_pull_requests/list', project=project).get('pullRequests',[]) if str(pr.get('key'))=='5543']))
-          print('QUALITY', json.dumps(get('qualitygates/project_status', projectKey=project, pullRequest=5543)))
-          print('MEASURES', json.dumps(get('measures/component', component=project, pullRequest=5543, metricKeys='new_code_smells,new_technical_debt,new_development_cost,new_sqale_debt_ratio,new_maintainability_rating,new_lines')))
-          data=get('issues/search',componentKeys=project,pullRequest=5543,resolved='false',ps=500)
-          print('ISSUE_TOTAL', data.get('paging'))
-          try:
-              nav=get('navigation/component', component=project)
-              print('NAV_CONFIGURATION', json.dumps(nav.get('configuration',{})))
-          except Exception as error:
-              print('NAV_ERROR', type(error).__name__, str(error))
-          print('BRANCH_SETTING', json.dumps(get('settings/values', component=project, keys='sonar.branch.longLivedBranches.regex')))
-          for controller in get('webservices/list').get('webServices',[]):
-              if controller.get('path')=='api/project_branches':
-                  print('BRANCH_API', json.dumps(controller))
-          PY
+          key='sonar.branch.longLivedBranches.regex'
+          previous='(branch|release)-.*'
+          desired='(branch|release)-.*|release/.*'
+          headers={'Authorization':'Basic '+base64.b64encode((os.environ['SONAR_TOKEN']+':').encode()).decode()}
+          def get(path, **params):
+              request=urllib.request.Request('https://sonarcloud.io/api/'+path+'?'+urllib.parse.urlencode(params),headers=headers)
+              with urllib.request.urlopen(request,timeout=30) as response:
+                  return json.load(response)
+          def setting():
+              return next(item for item in get('settings/values',component=project,keys=key)['settings'] if item['key']==key)
+          original=setting()
+          print('ORIGINAL_BRANCH_SETTING',json.dumps(original))
+          if original.get('value') not in (previous,desired):
+              raise RuntimeError('Project pattern changed independently; refusing to overwrite it')
+          if original.get('value')!=desired:
+              body=urllib.parse.urlencode({'component':project,'key':key,'value':desired}).encode()
+              request=urllib.request.Request('https://sonarcloud.io/api/settings/set',data=body,headers={**headers,'Content-Type':'application/x-www-form-urlencoded'},method='POST')
+              with urllib.request.urlopen(request,timeout=30) as response:
+                  print('BRANCH_CONFIGURATION_WRITE_STATUS',response.status)
+          current=setting()
+          if current.get('value')!=desired:
+              raise RuntimeError('Branch pattern verification failed')
+          print('VERIFIED_BRANCH_SETTING',json.dumps(current))
+          print('RELEASE_BRANCH_BEFORE_ANALYSIS',json.dumps([item for item in get('project_branches/list',project=project)['branches'] if item['name']=='release/2026.08']))
+          PYCONFIG
+  baseline:
+    needs: configure
+    name: Refresh actual release analysis with bounded scanner heap
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SONAR_SCANNER_JAVA_OPTS: -Xmx8g
+    steps:
+      - name: Checkout exact release commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 7b65c40ec04e202a30024c326c390e371c29d3d9
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Prepare SonarCloud cache
+        run: mkdir -p .sonar-cache
+      - name: Start normal dev container
+        uses: ./.github/actions/dev-container
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          maven-cache: restore
+          extra-run-args: -v ${{ github.workspace }}/.sonar-cache:/root/.sonar/cache
+      - name: Build and analyze exact release source
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          test "$(git rev-parse HEAD)" = 7b65c40ec04e202a30024c326c390e371c29d3d9
+          docker exec \
+            -e GITHUB_TOKEN \
+            -e SONAR_TOKEN \
+            -e SONAR_SCANNER_JAVA_OPTS \
+            carlos-tomcat-dev bash -c '
+              mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar \
+                -Pskip-dependency-lock \
+                -Dmaven.test.failure.ignore=true \
+                -Dsonar.host.url=https://sonarcloud.io \
+                -Dsonar.projectKey=carlos-emr_carlos \
+                -Dsonar.branch.name=release/2026.08 \
+                -Dsonar.scm.revision=7b65c40ec04e202a30024c326c390e371c29d3d9
+            '
