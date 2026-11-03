@@ -24,7 +24,7 @@ class ReportQueryDeadlineUnitTest {
         ResultSet delegate = mock(ResultSet.class);
         CountDownLatch cancelled = new CountDownLatch(1);
         doAnswer(ignored -> { cancelled.countDown(); return null; }).when(statement).cancel();
-        try (ReportQueryDeadline deadline = new ReportQueryDeadline(statement, 1);
+        try (ReportQueryDeadline deadline = new ReportQueryDeadline(statement, System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
              ResultSet rs = deadline.wrap(delegate)) {
             assertThat(cancelled.await(5, TimeUnit.SECONDS)).isTrue();
             assertThatThrownBy(rs::next).isInstanceOf(SQLTimeoutException.class);
@@ -32,4 +32,36 @@ class ReportQueryDeadlineUnitTest {
         verify(statement).cancel();
         verify(delegate).close();
     }
+    @Test
+    void shouldCloseCursor_withoutWaitingForSlowDriverCancellation() throws Exception {
+        Statement statement = mock(Statement.class);
+        ResultSet delegate = mock(ResultSet.class);
+        CountDownLatch cancelling = new CountDownLatch(1);
+        CountDownLatch releaseCancellation = new CountDownLatch(1);
+        doAnswer(ignored -> {
+            cancelling.countDown();
+            releaseCancellation.await(5, TimeUnit.SECONDS);
+            return null;
+        }).when(statement).cancel();
+        try (ReportQueryDeadline deadline = new ReportQueryDeadline(statement,
+                System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
+             ResultSet rs = deadline.wrap(delegate)) {
+            assertThat(cancelling.await(5, TimeUnit.SECONDS)).isTrue();
+            try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+                try {
+                    executor.submit(() -> { rs.close(); return null; }).get(1, TimeUnit.SECONDS);
+                    verify(delegate).close();
+                } finally {
+                    releaseCancellation.countDown();
+                }
+            }
+        }
+    }
+
+    @Test
+    void shouldRejectExpiredDeadline_beforeSchedulingCancellation() {
+        assertThatThrownBy(() -> new ReportQueryDeadline(mock(Statement.class), System.nanoTime() - 1))
+                .isInstanceOf(SQLTimeoutException.class);
+    }
+
 }

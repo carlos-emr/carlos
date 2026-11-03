@@ -125,7 +125,7 @@ class ReportResultBudgetUnitTest {
         AtomicLong time = new AtomicLong();
         ReportResultBudget budget = new ReportResultBudget(time::get);
         time.set(TimeUnit.SECONDS.toNanos(12));
-        assertThat(budget.remainingSeconds()).isEqualTo(18);
+        assertThat(budget.deadlineNanos() - time.get()).isEqualTo(TimeUnit.SECONDS.toNanos(18));
         for (int query = 0; query < ReportResultBudget.MAX_QUERIES; query++) {
             budget.startQuery();
             assertThat(budget.render(rows(0, ""), null)[1]).isEmpty();
@@ -135,11 +135,13 @@ class ReportResultBudgetUnitTest {
 
     @Test
     void shouldRejectWideMetadata_beforeReadingCells() throws Exception {
-        ResultSet rs = rows(1, "a");
-        when(rs.getMetaData().getColumnCount()).thenReturn(ReportResultBudget.MAX_COLUMNS + 1);
-        assertThatThrownBy(() -> new ReportResultBudget().render(rs, null))
-                .isInstanceOf(ReportResultBudget.LimitExceededException.class);
-        verify(rs, never()).getCharacterStream(1);
+        for (int count : new int[]{0, 1}) {
+            ResultSet rs = rows(count, "a");
+            when(rs.getMetaData().getColumnCount()).thenReturn(ReportResultBudget.MAX_COLUMNS + 1);
+            assertThatThrownBy(() -> new ReportResultBudget().render(rs, null))
+                    .isInstanceOf(ReportResultBudget.LimitExceededException.class);
+            verify(rs, never()).getCharacterStream(1);
+        }
     }
 
     private ResultSet rows(int count, String value) throws Exception {

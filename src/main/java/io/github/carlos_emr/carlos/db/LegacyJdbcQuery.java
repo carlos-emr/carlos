@@ -31,6 +31,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayDeque;
@@ -38,6 +39,7 @@ import java.util.Deque;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import javax.sql.DataSource;
@@ -133,14 +135,17 @@ public final class LegacyJdbcQuery {
      *
      * @param sql validated report template and bound parameters
      * @param maxRows positive JDBC row ceiling, including the overflow sentinel
-     * @param timeoutSeconds positive JDBC query timeout
+     * @param deadlineNanos absolute deadline from System.nanoTime(), shared by the request
      * @return owned cursor; closing it releases the statement and connection
      * @throws SQLException if validation, setup or execution fails
      */
-    public static ResultSet getBoundedReportResultSet(ParameterizedSql sql, int maxRows, int timeoutSeconds)
+    public static ResultSet getBoundedReportResultSet(ParameterizedSql sql, int maxRows, long deadlineNanos)
             throws SQLException {
-        if (maxRows < 1 || timeoutSeconds < 1) {
-            throw new IllegalArgumentException("Report query limits must be positive");
+        if (maxRows < 1) {
+            throw new IllegalArgumentException("Report row limit must be positive");
+        }
+        if (deadlineNanos - System.nanoTime() <= 0) {
+            throw new SQLTimeoutException("Report query deadline exceeded");
         }
         TrustedSql trusted = trustedReportSelectSql(sql.getSql());
         DataSource dataSource = dataSource();
@@ -152,11 +157,18 @@ public final class LegacyJdbcQuery {
             ps = connection.prepareStatement(trusted.sql, ResultSet.TYPE_FORWARD_ONLY, // nosemgrep: formatted-sql-string -- validated server-owned report SELECT
                     ResultSet.CONCUR_READ_ONLY);
             ps.setMaxRows(maxRows);
-            ps.setQueryTimeout(timeoutSeconds);
             // Connector/J's supported streaming mode avoids buffering the entire result.
             ps.setFetchSize(Integer.MIN_VALUE);
             bindParams(ps, sql.getParamsArray());
-            deadline = new ReportQueryDeadline(ps, timeoutSeconds);
+            long remainingNanos = deadlineNanos - System.nanoTime();
+            if (remainingNanos <= 0) {
+                throw new SQLTimeoutException("Report query deadline exceeded");
+            }
+            // JDBC uses integer seconds; only this fallback rounds up. The timer
+            // retains the original absolute deadline, including acquisition/setup.
+            ps.setQueryTimeout((int) Math.min(Integer.MAX_VALUE, Math.max(1,
+                    (remainingNanos + TimeUnit.SECONDS.toNanos(1) - 1) / TimeUnit.SECONDS.toNanos(1))));
+            deadline = new ReportQueryDeadline(ps, deadlineNanos);
             ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- validated, parameterized report boundary
             return registerThreadResource(deadline.wrap(StatementClosingResultSet.wrap(rs, ps, connection, dataSource)));
         } catch (SQLException | RuntimeException e) {
@@ -173,7 +185,7 @@ public final class LegacyJdbcQuery {
             closeStatement(ps);
             DataSourceUtils.releaseConnection(connection, dataSource);
             if (deadline != null && deadline.isExpired() && e instanceof SQLException) {
-                throw new java.sql.SQLTimeoutException("Report query deadline exceeded", e);
+                throw new SQLTimeoutException("Report query deadline exceeded", e);
             }
             throw e;
         }

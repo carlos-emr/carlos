@@ -48,7 +48,8 @@ public final class ReportTemplateBudgetProbe {
         String outcome;
         ReportResultBudget budget = new ReportResultBudget();
         try (ResultSet rs = LegacyJdbcQuery.getBoundedReportResultSet(new ParameterizedSql(sql, List.of()),
-                ReportResultBudget.MAX_ROWS + 1, scenario.contains("timeout") ? 1 : ReportResultBudget.TIMEOUT_SECONDS)) {
+                ReportResultBudget.MAX_ROWS + 1, System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(
+                        scenario.contains("timeout") ? 1 : ReportResultBudget.TIMEOUT_SECONDS))) {
             try {
                 String[] output = budget.render(rs, null);
                 outcome = "complete html=" + output[0].length() + " csv=" + output[1].length();
@@ -68,8 +69,8 @@ public final class ReportTemplateBudgetProbe {
         if (scenario.contains("timeout") && (!outcome.equals("timed out") || millis > 4000)) {
             throw new AssertionError("Expected cancellation within four seconds");
         }
-        if (scenario.equals("100000") && !outcome.startsWith("limited:")) {
-            throw new AssertionError("Expected row budget exhaustion");
+        if ((scenario.equals("100000") || scenario.equals("large-cell")) && !outcome.startsWith("limited:")) {
+            throw new AssertionError("Expected row or cell budget exhaustion");
         }
     }
 }

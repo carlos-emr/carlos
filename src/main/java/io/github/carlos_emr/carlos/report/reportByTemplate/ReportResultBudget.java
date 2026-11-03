@@ -60,10 +60,8 @@ final class ReportResultBudget {
         return MAX_ROWS - rows;
     }
 
-    int remainingSeconds() throws LimitExceededException {
-        checkDeadline();
-        long remaining = TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS) - (nanoTime.getAsLong() - started);
-        return (int) Math.max(1, (remaining + TimeUnit.SECONDS.toNanos(1) - 1) / TimeUnit.SECONDS.toNanos(1));
+    long deadlineNanos() {
+        return started + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS);
     }
 
     void startQuery() throws LimitExceededException {
@@ -75,6 +73,11 @@ final class ReportResultBudget {
 
     String[] render(ResultSet rs, String sqlOnEmpty) throws SQLException, IOException {
         checkDeadline();
+        ResultSetMetaData metadata = rs.getMetaData();
+        int columns = metadata.getColumnCount();
+        if (columns < 1 || columns > MAX_COLUMNS) {
+            throw new LimitExceededException(SQLReporter.REPORT_LIMIT_MESSAGE);
+        }
         LimitedOutput html = new LimitedOutput(false);
         Writer htmlWriter = new OutputStreamWriter(html, StandardCharsets.UTF_8);
         if (!rs.next()) {
@@ -83,11 +86,6 @@ final class ReportResultBudget {
             htmlWriter.write("The query returned no results.");
             htmlWriter.flush();
             return new String[]{html.text(), ""};
-        }
-        ResultSetMetaData metadata = rs.getMetaData();
-        int columns = metadata.getColumnCount();
-        if (columns < 1 || columns > MAX_COLUMNS) {
-            throw new LimitExceededException(SQLReporter.REPORT_LIMIT_MESSAGE);
         }
         LimitedOutput csv = new LimitedOutput(true);
         try (CSVPrinter printer = new CSVPrinter(new OutputStreamWriter(csv, StandardCharsets.UTF_8), CSVFormat.DEFAULT)) {

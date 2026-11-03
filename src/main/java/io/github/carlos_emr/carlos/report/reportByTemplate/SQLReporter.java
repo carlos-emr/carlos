@@ -205,7 +205,7 @@ public class SQLReporter implements Reporter {
         try {
             budget.startQuery();
             try (ResultSet rs = LegacyJdbcQuery.getBoundedReportResultSet(
-                    query, budget.remainingRows() + 1, budget.remainingSeconds())) {
+                    query, budget.remainingRows() + 1, budget.deadlineNanos())) {
                 try {
                     return budget.render(rs, showSqlOnEmpty ? query.getSql() : null);
                 } catch (IOException | SQLException e) {

@@ -7,40 +7,36 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLTimeoutException;
 import java.sql.Statement;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /** Keeps cancellation armed while Connector/J is consuming a streaming result. */
 final class ReportQueryDeadline implements AutoCloseable {
-    private static final ScheduledThreadPoolExecutor TIMER = timer();
     private final Statement statement;
-    private final ScheduledFuture<?> cancellation;
-    private boolean closed;
+    private final CompletableFuture<Void> cancellation = new CompletableFuture<>();
+    private enum State { OPEN, EXPIRED, CLOSED }
+    private final AtomicReference<State> state = new AtomicReference<>(State.OPEN);
     private volatile boolean expired;
 
-    ReportQueryDeadline(Statement statement, int seconds) {
+    ReportQueryDeadline(Statement statement, long deadlineNanos) throws SQLTimeoutException {
         this.statement = statement;
-        // A slow driver cancellation must not delay other reports' deadlines.
-        cancellation = TIMER.schedule(() -> Thread.startVirtualThread(this::expire), seconds, TimeUnit.SECONDS);
+        long remainingNanos = deadlineNanos - System.nanoTime();
+        if (remainingNanos <= 0) {
+            throw new SQLTimeoutException("Report query deadline exceeded");
+        }
+        // CompletableFuture uses the JDK's shared delay scheduler. Its timer only
+        // dispatches work: a slow driver cannot delay other reports or hold cleanup.
+        cancellation.orTimeout(remainingNanos, TimeUnit.NANOSECONDS).exceptionallyAsync(failure -> {
+            expire();
+            return null;
+        }, task -> Thread.startVirtualThread(task));
     }
 
-    private static ScheduledThreadPoolExecutor timer() {
-        ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1, task -> {
-            Thread thread = new Thread(task, "report-query-deadline");
-            thread.setDaemon(true);
-            return thread;
-        });
-        executor.setRemoveOnCancelPolicy(true);
-        executor.setKeepAliveTime(1, TimeUnit.SECONDS);
-        executor.allowCoreThreadTimeOut(true);
-        return executor;
-    }
-
-    private synchronized void expire() {
-        if (!closed) {
+    private void expire() {
+        if (state.compareAndSet(State.OPEN, State.EXPIRED)) {
             expired = true;
             try {
                 statement.cancel();
@@ -86,8 +82,9 @@ final class ReportQueryDeadline implements AutoCloseable {
     }
 
     @Override
-    public synchronized void close() {
-        closed = true;
-        cancellation.cancel(false);
+    public void close() {
+        state.set(State.CLOSED);
+        // Completing the future removes its pending JDK timeout task.
+        cancellation.complete(null);
     }
 }

@@ -359,13 +359,13 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
         when(statement.executeQuery()).thenReturn(rs);
 
         try (ResultSet owned = LegacyJdbcQuery.getBoundedReportResultSet(
-                new ParameterizedSql("select ?", List.of("synthetic")), 101, 7)) {
+                new ParameterizedSql("select ?", List.of("synthetic")), 101, System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(7))) {
             assertThat(owned).isNotNull();
             InOrder order = inOrder(statement);
             order.verify(statement).setMaxRows(101);
-            order.verify(statement).setQueryTimeout(7);
             order.verify(statement).setFetchSize(Integer.MIN_VALUE);
             order.verify(statement).setObject(1, "synthetic");
+            order.verify(statement).setQueryTimeout(7);
             order.verify(statement).executeQuery();
         }
         verify(rs).close();
@@ -384,12 +384,22 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
                 .thenReturn(statement);
         when(statement.executeQuery()).thenThrow(new java.sql.SQLTimeoutException("synthetic timeout"));
         assertThatThrownBy(() -> LegacyJdbcQuery.getBoundedReportResultSet(
-                new ParameterizedSql("select 1", List.of()), 10, 1))
+                new ParameterizedSql("select 1", List.of()), 10, System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(1)))
                 .isInstanceOf(java.sql.SQLTimeoutException.class);
         InOrder order = inOrder(statement, connection);
         order.verify(statement).cancel();
         order.verify(statement).close();
         order.verify(connection).close();
+    }
+
+    @Test
+    void shouldRefuseExpiredReport_beforeAcquiringConnection() throws Exception {
+        DataSource source = mock(DataSource.class);
+        registerMock(DataSource.class, source);
+        assertThatThrownBy(() -> LegacyJdbcQuery.getBoundedReportResultSet(
+                new ParameterizedSql("select 1", List.of()), 10, System.nanoTime() - 1))
+                .isInstanceOf(java.sql.SQLTimeoutException.class);
+        verify(source, never()).getConnection();
     }
 
     private List<Connection> mockConnections(int count) {

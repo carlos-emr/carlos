@@ -29,7 +29,9 @@ parameters before execution. It sets a JDBC row ceiling with one overflow row,
 a query timeout derived from the remaining request deadline, and Connector/J's
 supported streaming fetch size. A cancellation timer remains armed through result
 consumption, since the JDBC execution timeout alone may end before streaming does.
-The renderer also checks the monotonic deadline between rows and reader chunks.
+The same absolute monotonic deadline passes through connection acquisition and
+statement setup without restarting or rounding the cancellation timer. The renderer
+also checks that deadline between rows and reader chunks.
 Budget exhaustion cancels the statement before closing the cursor, statement and
 Spring-managed connection. Scheduled cancellation is removed on close. Other
 legacy JDBC callers retain their scrollable cursor contract.
@@ -68,12 +70,12 @@ Observed in Ubuntu 26.04.1, OpenJDK 25.0.4.1 and MariaDB 11.8.6, with `-Xmx128m`
 
 | Dataset | Duration | Sum of heap-pool peaks | Outcome |
 | --- | ---: | ---: | --- |
-| 10 rows, 64 accented characters per value | 401 ms | 30.1 MiB | Complete |
-| 10,000 rows, same values | 875 ms | 72.9 MiB | Complete |
-| 100,000 available rows, same values | 946 ms | 70.9 MiB | Row limit; no partial output |
-| One 16 MiB field | 1,956 ms | 66.6 MiB | Cell limit; bounded reader stops |
-| `SLEEP(5)` | 1,237 ms | 29.1 MiB | Timed out |
-| 1,000 rows with `SLEEP(0.02)` per row | 1,292 ms | 29.2 MiB | Timed out during streaming |
+| 10 rows, 64 accented characters per value | 123 ms | 30.1 MiB | Complete |
+| 10,000 rows, same values | 338 ms | 75.8 MiB | Complete |
+| 100,000 available rows, same values | 335 ms | 70.9 MiB | Row limit; no partial output |
+| One 16 MiB field | 511 ms | 66.6 MiB | Cell limit; bounded reader stops |
+| `SLEEP(5)` | 1,037 ms | 28.1 MiB | Timed out |
+| 1,000 rows with `SLEEP(0.02)` per row | 1,032 ms | 28.1 MiB | Timed out during streaming |
 
 These are synthetic local measurements, not production latency or exhaustion
 claims. Automated regressions cover the exact CSV byte boundary, UTF-8 and quote
