@@ -195,7 +195,8 @@ async function workflow(s) {
         for (const response of responses) await response.finished();
       }
       h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm'
-        && dialogs[0].text.endsWith(` ${docA.label}`), 'Document Delete did not offer the selected document confirmation');
+        && dialogs[0].text === `Are you sure you want to delete ${docA.label}`,
+      'Document Delete did not offer the localized selected document confirmation');
       h.assert(requests.length === 0, 'Cancel sent a document Delete request');
       h.assert(JSON.stringify(await formState()) === formBefore, 'Cancel changed the document selection or form fields');
       h.assert(JSON.stringify(documentRows()) === before, 'Cancel changed a document row');
@@ -210,7 +211,8 @@ async function workflow(s) {
     await browser.locator('#doclist').selectOption(`${docA.id}-application/pdf`);
     const dialogs = await h.withExpectedDialogs(browser,
       () => submitFrom(browser.locator('#docbuttons input[type="button"][value="Delete"]'), 'NoteBrowserDocumentDelete'));
-    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm' && dialogs[0].text.endsWith(` ${docA.label}`),
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm'
+      && dialogs[0].text === `Are you sure you want to delete ${docA.label}`,
       'Delete did not confirm exactly the selected document');
     h.assert(status(docA) === 'D' && status(docB) === 'A', 'Delete did not mark exactly the selected document deleted');
     h.assert(await listed(docA) === 0 && await listed(docB) === 1, 'The published list did not follow the delete');
@@ -508,5 +510,7 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('note-browser-documents', workflow, { openPatient: true, preflight: () => requirePoppler('pdftotext') });
+if (require.main === module) runWorkflow('note-browser-documents', workflow, {
+  openPatient: true, contextOptions: { locale: 'en-CA' }, preflight: () => requirePoppler('pdftotext'),
+});
 module.exports = { workflow };
