@@ -335,15 +335,21 @@ async function workflow(s) {
     const token = await tokenField.inputValue();
     h.assert(token, 'The second photo manager carries no CSRF token');
     const before = sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no IN (${patient},${patientB})`);
-    const response = await s.context.request.post(h.appUrl(s.config.baseUrl, '/ClientImage'), {
-      form: { method: 'deleteImage', 'CSRF-TOKEN': token }, maxRedirects: 0, failOnStatusCode: false,
-    });
-    const body = await response.text();
-    await response.dispose();
-    h.assert(!/opener\.location\.reload/.test(body), 'A Clear Photo POST that names no patient was answered as a success');
-    h.assert(sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no IN (${patient},${patientB})`) === before
-      && JSON.stringify(storedFor(patientB)) === JSON.stringify([['jpeg', sha(bPhoto)]]),
-    'A Clear Photo POST that names no patient deleted a photo (ClientImage fell back to the session clientId)');
+    for (const demographicNo of [undefined, 'invalid', '0', '2147483648']) {
+      const response = await s.context.request.post(h.appUrl(s.config.baseUrl, '/ClientImage'), {
+        form: { method: 'deleteImage', 'CSRF-TOKEN': token, ...(demographicNo === undefined ? {} : {demographicNo}) },
+        maxRedirects: 0, failOnStatusCode: false,
+      });
+      const status = response.status();
+      const body = await response.text();
+      await response.dispose();
+      h.assert(status === 400, `Clear Photo with patient ${demographicNo ?? '(missing)'} answered HTTP ${status}, expected 400`);
+      h.assert(body.includes('No client selected.'), 'The invalid Clear Photo response did not explain the error');
+      h.assert(!/opener\.location\.reload/.test(body), 'An invalid Clear Photo POST was answered as a success');
+      h.assert(sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no IN (${patient},${patientB})`) === before
+        && JSON.stringify(storedFor(patientB)) === JSON.stringify([['jpeg', sha(bPhoto)]]),
+      'An invalid Clear Photo POST changed a photo');
+    }
     await managerB.close();
   });
 

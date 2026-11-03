@@ -96,14 +96,12 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
         log.info("client image upload requested");
 
         if (demographicNo == null) {
-            addActionError("No client selected.");
-            return ERROR;
+            return imageError("No client selected.", HttpServletResponse.SC_BAD_REQUEST);
         }
         validatePatientWriteAccess(demographicNo);
 
         if (clientImage == null || clientImageFileName == null || clientImageFileName.isBlank()) {
-            addActionError("Please select an image to upload.");
-            return ERROR;
+            return imageError("Please select an image to upload.", HttpServletResponse.SC_BAD_REQUEST);
         }
 
         // Get file extension from original filename
@@ -115,8 +113,8 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
         log.info("extension = " + type);
 
         if (!"jpeg".equals(type) && !"gif".equals(type)) {
-            addActionError("Only GIF and JPG image types are allowed for the client photo.");
-            return ERROR;
+            return imageError("Only GIF and JPG image types are allowed for the client photo.",
+                    HttpServletResponse.SC_BAD_REQUEST);
         }
 
         // Ensure that the upload directory is correct and create a new image object that will be saved to the client
@@ -139,8 +137,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
         } catch (Exception e) {
             log.error("Error saving image", e);
-            addActionError("Error saving image.");
-            return ERROR;
+            return imageError("Error saving image.", HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
 
         request.setAttribute("success", true);
@@ -160,8 +157,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
         if (demographicNo == null) {
             log.warn("client image delete requested without a valid patient number");
-            addActionError("No client selected.");
-            return ERROR;
+            return imageError("No client selected.", HttpServletResponse.SC_BAD_REQUEST);
         }
         validatePatientWriteAccess(demographicNo);
 
@@ -171,12 +167,18 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
             LogAction.addLogSynchronous(loggedInInfo, "ClientImage2Action.deleteImage", "clientId=" + demographicNo);
         } catch (Exception e) {
             log.error("Error deleting image", e);
-            addActionError("Error deleting image.");
-            return ERROR;
+            return imageError("Error deleting image.", HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
 
         request.setAttribute("success", true);
         return SUCCESS;
+    }
+
+    /** Renders the photo manager's error message with the appropriate HTTP failure status. */
+    private String imageError(String message, int status) {
+        addActionError(message);
+        response.setStatus(status);
+        return ERROR;
     }
 
     /** Refuses photo mutations from safe-method requests, including direct action entry points. */

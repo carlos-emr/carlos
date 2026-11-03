@@ -51,6 +51,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -186,6 +187,8 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo("error");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("No client selected.");
         verifyNoInteractions(clientImageManager);
     }
@@ -200,6 +203,8 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo("error");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("No client selected.");
         verifyNoInteractions(clientImageManager);
     }
@@ -213,6 +218,8 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo("error");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("No client selected.");
         verifyNoInteractions(clientImageManager);
     }
@@ -232,6 +239,8 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo("error");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("Only GIF and JPG image types are allowed for the client photo.");
         verifyNoInteractions(clientImageManager);
     }
@@ -242,6 +251,8 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
         String result = action.execute();
 
         assertThat(result).isEqualTo("error");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("Please select an image to upload.");
         verifyNoInteractions(clientImageManager);
     }
@@ -270,6 +281,51 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo("success");
         verify(clientImageManager).deleteClientImage(123);
         assertThat(request.getAttribute("success")).isEqualTo(true);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"saveImage", "deleteImage"})
+    @DisplayName("should return bad request from direct entry points without a patient")
+    void shouldReturnBadRequest_whenDirectEntryPointHasNoPatient(String method) {
+        request.removeParameter("demographicNo");
+
+        String result = "deleteImage".equals(method) ? action.deleteImage() : action.saveImage();
+
+        assertThat(result).isEqualTo("error");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(action.getActionErrors()).containsExactly("No client selected.");
+        assertThat(request.getAttribute("success")).isNull();
+        verifyNoInteractions(clientImageManager);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"execute", "deleteImage"})
+    @DisplayName("should retain server error status when photo deletion fails")
+    void shouldReturnServerError_whenImageDeletionFails(String entry) {
+        request.setParameter("method", "deleteImage");
+        doThrow(new IllegalStateException("storage unavailable")).when(clientImageManager).deleteClientImage(123);
+
+        String result = "execute".equals(entry) ? action.execute() : action.deleteImage();
+
+        assertThat(result).isEqualTo("error");
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(action.getActionErrors()).containsExactly("Error deleting image.");
+        assertThat(request.getAttribute("success")).isNull();
+    }
+
+    @Test
+    @DisplayName("should retain server error status when photo storage fails")
+    void shouldReturnServerError_whenImageStorageFails() throws Exception {
+        tempUploadFile = File.createTempFile("client-image", ".jpg");
+        Files.write(tempUploadFile.toPath(), new byte[]{1, 2, 3});
+        action.setClientImage(tempUploadFile);
+        action.setClientImageFileName("photo.jpg");
+        doThrow(new IllegalStateException("storage unavailable")).when(clientImageManager).saveClientImage(any(ClientImage.class));
+
+        assertThat(action.execute()).isEqualTo("error");
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(action.getActionErrors()).containsExactly("Error saving image.");
+        assertThat(request.getAttribute("success")).isNull();
     }
 
     /**
