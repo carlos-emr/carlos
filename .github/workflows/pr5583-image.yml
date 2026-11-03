@@ -1,0 +1,88 @@
+# Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+# 
+# This software is published under the GPL GNU General Public License.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# 
+# CARLOS EMR Project
+# https://github.com/carlos-emr/carlos
+# Disposable investigation only; this workflow is not part of PR #5583.
+name: PR 5583 Image Response Diagnostic
+on:
+  push:
+    branches: [validation/pr-5583-runtime]
+permissions:
+  contents: read
+jobs:
+  image-response:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 98b2a84a2f6e69c23493f4a249685828cf2f950a
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
+      - name: Install the runtime browser version
+        run: |
+          npm install --prefix "$RUNNER_TEMP/png-probe" --no-audit --no-fund playwright@1.60.0 pngjs@7.0.0
+          "$RUNNER_TEMP/png-probe/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Compare navigation bytes with the actual served PNG
+        run: |
+          NODE_PATH="$RUNNER_TEMP/png-probe/node_modules" node <<'JS'
+          const assert = require('node:assert/strict');
+          const http = require('node:http');
+          const {PNG} = require('pngjs');
+          const {chromium} = require('playwright');
+          const {getLaunchOptions} = require('./scripts/lib/playwright-harness');
+          (async () => {
+            const png = new PNG({width: 4, height: 4});
+            png.data.fill(255);
+            const expected = PNG.sync.write(png);
+            const server = http.createServer((request, response) => {
+              if (request.url.startsWith('/GraphMeasurements')) {
+                response.writeHead(200, {'Content-Type': 'image/png', 'Cache-Control': 'no-store'});
+                response.end(expected);
+              } else { response.writeHead(204); response.end(); }
+            });
+            await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+            let browser;
+            try {
+              browser = await chromium.launch(getLaunchOptions());
+              const page = await browser.newPage();
+              const url = 'http://127.0.0.1:' + server.address().port + '/GraphMeasurements?demographic_no=1';
+              const response = await page.goto(url);
+              const navigation = await response.body();
+              await page.waitForFunction(() => {
+                const image = document.querySelector('img');
+                return image && image.complete && image.naturalWidth === 4;
+              });
+              const direct = await page.context().request.get(url);
+              const actual = await direct.body();
+              assert(actual.equals(expected));
+              console.log(JSON.stringify({
+                browser: browser.version(), navigationType: response.headers()['content-type'],
+                navigationLength: navigation.length, actualLength: actual.length,
+                navigationPng: navigation.subarray(0,8).equals(expected.subarray(0,8)),
+                navigationHtml: /^\s*<(?:!doctype|html)/i.test(navigation.toString('utf8')),
+                browserImageRendered: true, directPng: true,
+              }));
+            } finally {
+              if (browser) await browser.close();
+              await new Promise(resolve => server.close(resolve));
+            }
+          })().catch(error => { console.error(error); process.exitCode = 1; });
+          JS
