@@ -944,7 +944,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         }
         idClean.deleteCharAt(idClean.length() - 1);
         Query q = entityManager
-                .createQuery("update Appointment set status=?1 where id in (" + idClean.toString() + ")");
+                .createQuery("update Appointment set status=?1, updateDateTime=greatest(current_timestamp, coalesce(timestampadd(second, 1, updateDateTime), current_timestamp)) where id in (" + idClean.toString() + ")");
         q.setParameter(1, status);
         return q.executeUpdate();
     }

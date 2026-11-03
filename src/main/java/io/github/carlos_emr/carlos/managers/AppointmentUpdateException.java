@@ -10,12 +10,16 @@ public class AppointmentUpdateException extends RuntimeException {
     private final Reason reason;
 
     public AppointmentUpdateException(Reason reason) {
-        super(switch (reason) {
+        super(messageFor(reason));
+        this.reason = reason;
+    }
+
+    private static String messageFor(Reason reason) {
+        return switch (reason) {
             case MISSING_VERSION -> "Appointment editVersion is required";
             case NOT_FOUND -> "Appointment not found";
             case STALE_VERSION -> "Appointment has changed; reload before saving";
-        });
-        this.reason = reason;
+        };
     }
 
     public Reason getReason() {

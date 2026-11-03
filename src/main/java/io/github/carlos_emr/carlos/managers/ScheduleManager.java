@@ -77,6 +77,10 @@ public interface ScheduleManager {
 
     public Appointment getAppointment(LoggedInInfo loggedInInfo, Integer appointmentId);
 
+    /**
+     * Legacy server-entity update used by SOAP; does not validate a client's read version.
+     * Read/echo clients must use the versioned overload below to reject lost updates.
+     */
     public void updateAppointment(LoggedInInfo loggedInInfo, Appointment appointment);
 
     /** Validates the client's read version before archiving and editing the locked current row. */

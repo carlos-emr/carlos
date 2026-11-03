@@ -120,10 +120,13 @@ class AppointmentUpdateDaoIntegrationTest {
 
     @AfterEach
     void cleanup() throws Exception {
-        if (factory != null) factory.close();
-        if (server != null && database != null) {
-            try (var connection = DriverManager.getConnection(server, credentials); var statement = connection.createStatement()) {
-                statement.executeUpdate("DROP DATABASE IF EXISTS " + database);
+        try {
+            if (factory != null) factory.close();
+        } finally {
+            if (server != null && database != null) {
+                try (var connection = DriverManager.getConnection(server, credentials); var statement = connection.createStatement()) {
+                    statement.executeUpdate("DROP DATABASE IF EXISTS " + database);
+                }
             }
         }
     }
@@ -234,6 +237,44 @@ class AppointmentUpdateDaoIntegrationTest {
         assertThat(Long.parseLong(second.getEditVersion())).isEqualTo(future.getTime() + 2000);
         assertThat(read().getEditVersion()).isEqualTo(second.getEditVersion());
         assertState("FAKE-second", 2);
+    }
+
+    @Test
+    void shouldInvalidateReadVersion_whenBulkStatusUpdateSkipsEntityCallbacks() {
+        String version = read().getEditVersion();
+        tx(em -> {
+            assertThat(appointments.updateApptStatus(Integer.toString(id), "B")).isEqualTo(1);
+            return null;
+        });
+        assertThat(read().getEditVersion()).isNotEqualTo(version);
+        assertThat(read().getStatus()).isEqualTo("B");
+        assertThatThrownBy(() -> save(clientA, version, row -> row.setReason("FAKE-stale")))
+                .isInstanceOf(AppointmentUpdateException.class);
+        assertState("FAKE-original", 0);
+    }
+
+    @Test
+    void shouldInvalidateReadVersion_whenLegacyJdbcStatusUpdateSkipsEntityCallbacks() {
+        String version = read().getEditVersion();
+        String[][] registry = (String[][]) ReflectionTestUtils.getField(
+                new io.github.carlos_emr.carlos.dao.ProviderDao(), "dbQueries");
+        String sql = java.util.Arrays.stream(registry).filter(entry -> "updateapptstatus".equals(entry[0]))
+                .findFirst().orElseThrow()[1];
+        tx(em -> {
+            em.unwrap(org.hibernate.Session.class).doWork(connection -> {
+                try (var update = connection.prepareStatement(sql)) {
+                    update.setString(1, "B");
+                    update.setString(2, "FAKE-B");
+                    update.setInt(3, id);
+                    assertThat(update.executeUpdate()).isEqualTo(1);
+                }
+            });
+            return null;
+        });
+        assertThat(read().getEditVersion()).isNotEqualTo(version);
+        assertThatThrownBy(() -> save(clientA, version, row -> row.setReason("FAKE-stale")))
+                .isInstanceOf(AppointmentUpdateException.class);
+        assertState("FAKE-original", 0);
     }
 
     @Test

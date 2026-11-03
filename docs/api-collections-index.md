@@ -12,8 +12,10 @@ This index explains the three artifacts included in this repository for testing 
 
 ## REST appointment edit precondition
 
-Appointment responses include an `editVersion` string. Clients posting to
-`/schedule/updateAppointment` must echo the token from the appointment they read,
+Responses serialized as `AppointmentTo1` include an `editVersion` string. Fetch the
+current appointment with `POST /schedule/getAppointment` and body `{"id":42}` before
+editing; the day and `fetchDays` summaries do not carry this token. Clients posting
+to `/schedule/updateAppointment` must echo the token from the appointment they read,
 alongside its `id` and editable fields. Preserve it as an opaque string, including
 `"unversioned"` on a legacy row with no update timestamp. Use the new token returned
 by a successful edit for the next save.
