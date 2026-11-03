@@ -195,6 +195,7 @@ test('should match every shipped baseline entry against a signature a packaged i
   // Still unexplained on that run, recorded or not (the flowsheet one is finding
   // 176): the baseline must not grow to swallow them (report, don't encode).
   for (const open of [
+    'ERROR app.CarlosExceptionMappingInterceptor (CarlosExceptionMappingInterceptor.java:197) @MeasurementTemplateFlowSheetConfig.getExportFlowsheet :: org.apache.jasper.JasperException java.lang.NullPointerException',
     'ERROR app.CarlosExceptionMappingInterceptor (CarlosExceptionMappingInterceptor.java:197) :: org.hibernate.exception.ConstraintViolationException java.sql.SQLIntegrityConstraintViolationException',
     'ERROR oscarMeasurements.HealthTrackerPage_jspf (HealthTrackerPage_jspf.java:652) @MeasurementFlowSheet.getMessages :: java.lang.IllegalStateException',
     'ERROR utility.ErrorPageLogger (ErrorPageLogger.java:135) uri=/carlos/eform/addEForm status=500 @CarlosExceptionMappingInterceptor.intercept :: org.apache.jasper.JasperException java.lang.NullPointerException',
