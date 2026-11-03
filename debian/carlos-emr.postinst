@@ -524,24 +524,13 @@ case "$1" in
                     exit 1
                 fi
             elif [ -d "${STATE}/CarlosDocument" ] && [ ! -e "${STATE}/OscarDocument" ]; then
-                # Convergence heal (review finding): a prior migration was
-                # interrupted between the mv (an atomic rename) and the compat
-                # symlink, so CarlosDocument holds the data but the
-                # OscarDocument -> CarlosDocument symlink was never created and
-                # DB-stored absolute paths under .../OscarDocument stopped
-                # resolving. Recreate it. Idempotent, and gated to the
-                # pre-boundary / no-prior-version window so a genuinely fresh
-                # install (CarlosDocument not yet created by tmpfiles at this
-                # point) never gains a spurious symlink.
+                # Ensure stored absolute paths under OscarDocument still resolve.
+                # This layout can follow an interrupted rename, a purge that
+                # retained the store, or an ordinary upgrade from a version that
+                # already used CarlosDocument. The paths alone cannot tell which.
+                # Keep the existing pre-boundary / no-prior-version gate.
                 ln -sfn CarlosDocument "${STATE}/OscarDocument"
-                if [ -n "${2:-}" ]; then
-                    echo "carlos-emr: restored the OscarDocument -> CarlosDocument compat symlink after an interrupted rename"
-                else
-                    # No prior version: a reinstall after a purge, which keeps
-                    # the document store and removes this symlink. Nothing was
-                    # interrupted; saying so worried a beta2 tester.
-                    echo "carlos-emr: recreated the OscarDocument -> CarlosDocument compat symlink for the document store an earlier purge kept"
-                fi
+                echo "carlos-emr: created the OscarDocument -> CarlosDocument compat symlink for the existing document store"
             fi
         fi
 
@@ -1610,6 +1599,14 @@ OAUTH_ACCESS_DEFAULTS
         # front door it is not about to configure would be all cost.
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
             free_front_door "${2:-}"
+            # Disable the distribution's default site before init-config tests
+            # or reloads nginx. Its IPv6 listeners can fail on an IPv4-only host,
+            # recording an incomplete install that the later CARLOS site setup
+            # would otherwise repair in this same configure. Keep the conffile
+            # and any administrator-created real file.
+            if [ -L /etc/nginx/sites-enabled/default ]; then
+                rm -f /etc/nginx/sites-enabled/default
+            fi
         fi
         [ -e /etc/nginx/sites-enabled/carlos-emr ] || export CARLOS_CONFIGURE_FIRST_RUN=1
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
@@ -1922,13 +1919,6 @@ OAUTH_ACCESS_DEFAULTS
 
         # --- nginx ----------------------------------------------------------
         if [ -d /etc/nginx/sites-enabled ]; then
-            # Ubuntu's nginx ships a default site on port 80 that would answer
-            # for any host name this server does not match, including the ACME
-            # challenge. Remove the symlink (never the file — it is another
-            # package's conffile).
-            if [ -L /etc/nginx/sites-enabled/default ]; then
-                rm -f /etc/nginx/sites-enabled/default
-            fi
             ln -sfn /etc/nginx/sites-available/carlos-emr /etc/nginx/sites-enabled/carlos-emr
         fi
         if nginx -t >/dev/null 2>&1; then

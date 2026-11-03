@@ -646,3 +646,39 @@ test('an import holding the lock defers like the import gate: no marker, no migr
   assert.ok(drugref.indexOf('acquire_provision_lock || provision_lock_rc=$?') <
     drugref.indexOf('carlos-ctl db-users'));
 });
+
+test('configure removes only the stock nginx symlink before its first configuration test', () => {
+  const start = postinst.indexOf('        if [ "${PROVISION_LOCK_HELD}" = 1 ]; then\n            free_front_door "${2:-}"');
+  const end = postinst.indexOf('        unset CARLOS_CONFIGURE_FIRST_RUN', start);
+  assert.ok(start >= 0 && end > start);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-nginx-order-'));
+  try {
+    for (const [kind, locked, initStatus, incomplete] of [
+      ['symlink', true, 0, false],
+      ['file', true, 0, true],
+      ['absent', true, 1, true],
+      ['symlink', false, 0, false],
+    ]) {
+      const nginx = path.join(root, kind + '-' + locked + '-' + initStatus);
+      const enabled = path.join(nginx, 'sites-enabled');
+      fs.mkdirSync(enabled, {recursive: true});
+      const target = path.join(nginx, 'stock-conffile');
+      fs.writeFileSync(target, 'listen [::]:80 default_server;\n');
+      const defaultSite = path.join(enabled, 'default');
+      if (kind === 'symlink') fs.symlinkSync(target, defaultSite);
+      if (kind === 'file') fs.writeFileSync(defaultSite, 'administrator site\n');
+      const block = postinst.slice(start, end).replaceAll('/etc/nginx', nginx);
+      const script = 'set -e\nPROVISION_LOCK_HELD=' + (locked ? '1' : '0') + '\n'
+        + 'free_front_door() { :; }\n'
+        + 'mark_incomplete() { printf "incomplete\\n"; }\n'
+        + 'carlos-ctl() { [ ! -e "' + defaultSite + '" ] && return ' + initStatus + '; return 1; }\n'
+        + block;
+      const result = spawnSync('sh', ['-c', script], {encoding: 'utf8'});
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout.includes('incomplete'), incomplete, JSON.stringify({kind, locked, initStatus, result}));
+      assert.equal(fs.existsSync(defaultSite), kind === 'file' || !locked);
+      assert.equal(fs.readFileSync(target, 'utf8'), 'listen [::]:80 default_server;\n');
+      if (kind === 'file') assert.equal(fs.readFileSync(defaultSite, 'utf8'), 'administrator site\n');
+    }
+  } finally { fs.rmSync(root, {recursive: true, force: true}); }
+});
