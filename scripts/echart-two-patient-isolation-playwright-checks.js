@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+// Modifications by CARLOS Contributors, 2026.
 /*
  * Two patients' charts open in one login must stay isolated from each other.
  *
@@ -512,8 +513,26 @@ async function run(s) {
     h.assert(response.status() === 200 && (response.headers()['content-type'] || '').startsWith('image/png'),
       'The Plot control did not answer with a PNG');
     const bytes = await response.body();
-    h.assert(bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
-      'The Plot control returned something other than PNG bytes');
+    const pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+    if (!bytes.subarray(0, 8).equals(pngSignature)) {
+      // Record format metadata only; image payloads can contain clinical details.
+      const kind = bytes.length === 0 ? 'empty'
+        : /^\s*<(?:!doctype|html)/i.test(bytes.subarray(0, 128).toString('utf8')) ? 'HTML' : 'other';
+      h.assert(new URL(response.url()).origin === new URL(s.config.baseUrl).origin,
+        'The Plot control pointed outside the application');
+      let verification;
+      let diagnostic = `The Plot control returned something other than PNG bytes (browser=${kind}, bytes=${bytes.length}, verification=unavailable)`;
+      try {
+        verification = await context.request.get(response.url(), {timeout: TIMEOUT});
+        const verified = await verification.body();
+        diagnostic = `The Plot control returned something other than PNG bytes (browser=${kind}, bytes=${bytes.length}, verificationStatus=${verification.status()}, verificationPng=${verified.subarray(0, 8).equals(pngSignature)})`;
+      } catch {
+        // Playwright errors include URLs; retain only the fixed metadata above.
+      } finally {
+        if (verification) await verification.dispose().catch(() => {});
+      }
+      throw new Error(diagnostic);
+    }
     return sha(bytes);
   }
 

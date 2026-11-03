@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
+// Modifications by CARLOS Contributors, 2026.
 //
 // An install can provision nothing and still report success: every database
 // step in carlos-emr.postinst is non-fatal on purpose, so dpkg is never left
@@ -645,4 +646,51 @@ test('an import holding the lock defers like the import gate: no marker, no migr
   assert.match(drugref, /if \[ "\$\{provision_lock_rc\}" = 2 \]; then[\s\S]*?OSCAR 19 import is in progress[\s\S]*?exit 1/);
   assert.ok(drugref.indexOf('acquire_provision_lock || provision_lock_rc=$?') <
     drugref.indexOf('carlos-ctl db-users'));
+});
+
+test('configure removes only the stock nginx symlink before its first configuration test', () => {
+  const start = postinst.indexOf('        if [ "${PROVISION_LOCK_HELD}" = 1 ]; then\n            free_front_door "${2:-}"');
+  const end = postinst.indexOf('        unset CARLOS_CONFIGURE_FIRST_RUN', start);
+  assert.ok(start >= 0 && end > start);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-nginx-order-'));
+  try {
+    for (const [kind, locked, initStatus, incomplete] of [
+      ['symlink', true, 0, false],
+      ['file', true, 0, true],
+      ['absent', true, 1, true],
+      ['symlink', false, 0, false],
+    ]) {
+      const nginx = path.join(root, kind + '-' + locked + '-' + initStatus);
+      const enabled = path.join(nginx, 'sites-enabled');
+      fs.mkdirSync(enabled, {recursive: true});
+      const target = path.join(nginx, 'stock-conffile');
+      fs.writeFileSync(target, 'listen [::]:80 default_server;\n');
+      const defaultSite = path.join(enabled, 'default');
+      if (kind === 'symlink') fs.symlinkSync(target, defaultSite);
+      if (kind === 'file') fs.writeFileSync(defaultSite, 'administrator site\n');
+      const block = postinst.slice(start, end).replaceAll('/etc/nginx', nginx);
+      const bin = path.join(nginx, 'bin');
+      fs.mkdirSync(bin);
+      fs.writeFileSync(path.join(bin, 'carlos-ctl'), '#!/bin/sh\n'
+        + '[ "$1" = init-config ] || exit 2\n'
+        + 'printf "init-config\\n"\n'
+        + '[ ! -e "$CARLOS_TEST_DEFAULT_SITE" ] || exit 1\n'
+        + 'exit "$CARLOS_TEST_INIT_STATUS"\n', {mode: 0o755});
+      const script = 'set -e\nPROVISION_LOCK_HELD=' + (locked ? '1' : '0') + '\n'
+        + 'free_front_door() { :; }\n'
+        + 'mark_incomplete() { printf "incomplete\\n"; }\n'
+        + block;
+      const result = spawnSync('sh', ['-c', script], {
+        encoding: 'utf8',
+        env: {...process.env, PATH: bin + path.delimiter + process.env.PATH,
+          CARLOS_TEST_DEFAULT_SITE: defaultSite, CARLOS_TEST_INIT_STATUS: String(initStatus)},
+      });
+      assert.equal(result.stdout.includes('init-config'), locked);
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout.includes('incomplete'), incomplete, JSON.stringify({kind, locked, initStatus, result}));
+      assert.equal(fs.existsSync(defaultSite), kind === 'file');
+      assert.equal(fs.readFileSync(target, 'utf8'), 'listen [::]:80 default_server;\n');
+      if (kind === 'file') assert.equal(fs.readFileSync(defaultSite, 'utf8'), 'administrator site\n');
+    }
+  } finally { fs.rmSync(root, {recursive: true, force: true}); }
 });
