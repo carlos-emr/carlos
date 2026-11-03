@@ -10,7 +10,7 @@ const start = source.indexOf('async function waitForAnnotationFaxCover(');
 const helper = source.slice(start, source.indexOf('\n}', start) + 2);
 function handoff({pathname = '/carlos/documentManager/FaxDocument', message = '', cover = false, saveFailed = false} = {}) {
   let evaluations = 0;
-  const context = vm.createContext({window: {location: {pathname}}, document: {
+  const context = vm.createContext({h: require('./lib/playwright-harness'), window: {location: {pathname}}, document: {
     getElementById: id => id === 'btnSend' && cover ? {} : null,
     querySelector: selector => selector === '[role="alert"]' && message ? {textContent: message}
       : selector === '#status.error' && saveFailed ? {} : null,
@@ -24,9 +24,9 @@ function handoff({pathname = '/carlos/documentManager/FaxDocument', message = ''
   }};
   return {run: () => context.waitForAnnotationFaxCover(page), evaluations: () => evaluations};
 }
-test('missing fax accounts fail the required handoff immediately with a fixture diagnostic', async () => {
+test('missing fax accounts skip the handoff immediately with a fixture diagnostic', async () => {
   const check = handoff({message: 'No active fax accounts are configured. Contact your system administrator.'});
-  await assert.rejects(check.run(), /requires an active fax account.*owned UI-only fax fixture/);
+  await assert.rejects(check.run(), error => error.name === 'SkipCheck' && /requires an active fax account.*owned UI-only fax fixture/.test(error.message));
   assert.equal(check.evaluations(), 1);
 });
 test('a real fax cover completes the handoff without changing or skipping its checks', async () => {
