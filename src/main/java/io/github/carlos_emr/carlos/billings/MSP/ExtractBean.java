@@ -161,15 +161,16 @@ public class ExtractBean extends Object implements Serializable {
 
     private void appendInvoice(ExtractBillRow bill) {
         patientCount = patientCount + 1;
-        invNo = bill.billingNo().toString();
+        int billingNo = bill.billingNo();
+        invNo = Integer.toString(billingNo);
         demoName = bill.demographicName();
 
         invCount = 0;
-        if (invNo == null || !invNo.matches("^[0-9]+$")) {
+        if (billingNo < 0) {
             logger.warn("Skipping billing record due to invalid invoice number: {}", invNo);
             return;
         }
-        for (ExtractClaimRow bm : billingmasterDao.findBcExtractClaims(Integer.parseInt(invNo))) {
+        for (ExtractClaimRow bm : billingmasterDao.findBcExtractClaims(billingNo)) {
             appendClaim(bm);
         }
         if (eFlag.compareTo("1") == 0) {

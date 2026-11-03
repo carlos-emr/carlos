@@ -44,6 +44,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.anyInt;
 
 /**
  * Issue #3950: the legacy BC extract ({@code billings.MSP.ExtractBean}) builds the same report HTML
@@ -121,6 +124,17 @@ class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
         bean.seteFlag("0");
         bean.setProviderNo("91234");
         assertThatThrownBy(bean::dbQuery).isInstanceOf(NumberFormatException.class);
+    }
+
+    @Test
+    void shouldSkipNegativeInvoiceKeys_preservingTheLegacyNumericFilter() {
+        when(billingmasterDao.findBcExtractBills(anyString(), anyString(), any()))
+                .thenReturn(List.of(new ExtractBillRow(-1, "FAKE")));
+        ExtractBean bean = new ExtractBean();
+        bean.seteFlag("0");
+        bean.setProviderNo("91234");
+        bean.dbQuery();
+        verify(billingmasterDao, never()).findBcExtractClaims(anyInt());
     }
 
 }

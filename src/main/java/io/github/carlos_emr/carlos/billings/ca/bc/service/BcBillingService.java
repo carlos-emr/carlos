@@ -29,17 +29,35 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/** Owns the legacy extract's generated log identifiers and all related billing status changes. */
+/**
+ * Owns the legacy extract's log rows and billing status changes in one REQUIRED transaction.
+ * Use the Spring-managed proxy so writes join that boundary and HTML publication occurs after commit.
+ *
+ * @since 2026-11-02
+ */
 @Service
 @Transactional(rollbackFor = Exception.class)
 public class BcBillingService {
     private final BillingmasterDAO billingmasterDao;
 
+    /**
+     * Creates the service with the qualified legacy BC billing DAO.
+     *
+     * @param billingmasterDao BillingmasterDAO whose participating writes require this transaction
+     */
     public BcBillingService(@Qualifier("billingmasterDAO") BillingmasterDAO billingmasterDao) {
         this.billingmasterDao = billingmasterDao;
     }
 
-    /** Builds the output before committing; publishes the HTML file only after a successful return. */
+    /**
+     * Starts or joins the class-level Spring transaction and builds the extract within it.
+     * Build failures roll back log rows and status updates. HTML publication is registered
+     * only after a successful build and runs after the owning transaction commits.
+     *
+     * @param extract ExtractBean containing the prepared provider/date/export selection
+     * @throws RuntimeException if building the extract fails; participating writes are rolled back
+     * @throws IllegalStateException if invoked without transaction synchronization by bypassing Spring
+     */
     public void generateExtract(ExtractBean extract) {
         extract.buildExtract();
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -50,10 +68,22 @@ public class BcBillingService {
         });
     }
 
+    /**
+     * Starts or joins the service transaction and marks its invoice billed.
+     *
+     * @param id int billing primary key
+     * @throws RuntimeException if the participating persistence write fails
+     */
     public void markBillBilled(int id) {
         billingmasterDao.markBcBillBilled(id);
     }
 
+    /**
+     * Starts or joins the service transaction and marks its claim billed.
+     *
+     * @param id int billingmaster primary key
+     * @throws RuntimeException if the participating persistence write fails
+     */
     public void markMasterBilled(int id) {
         billingmasterDao.markBcMasterBilled(id);
     }

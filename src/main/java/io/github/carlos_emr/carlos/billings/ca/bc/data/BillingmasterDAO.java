@@ -368,7 +368,22 @@ public class BillingmasterDAO {
         return billings;
     }
 
-    /** Materializes the legacy BC native read on the caller transaction. */
+    /**
+     * Reads detached invoice/report rows on the caller transaction with legacy native filters and order.
+     *
+     * @param account String billing-account filter using SQL LIKE; null or ALL omits it
+     * @param payeeNo String payee filter using SQL LIKE; null or ALL omits it
+     * @param providerNo String appointment-provider identifier; null or ALL omits it
+     * @param startDate String inclusive native TO_DAYS boundary; null/empty omits it
+     * @param endDate String inclusive native TO_DAYS boundary; null/empty omits it
+     * @param excludeWCB boolean whether to omit WCB billing rows
+     * @param excludeMSP boolean whether to omit MSP billing rows
+     * @param excludePrivate boolean whether to omit private billing rows
+     * @param exludeICBC boolean whether to omit ICBC billing rows
+     * @param type String legacy report selector controlling status exclusions and ordering
+     * @return {@code List<BillRow>} values in the selected report order; empty when nothing matches
+     * @since 2026-11-02
+     */
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<BillRow> findBcBills(String account, String payeeNo, String providerNo,
             String startDate, String endDate, boolean excludeWCB, boolean excludeMSP,
@@ -422,7 +437,22 @@ public class BillingmasterDAO {
                 rs.getString("last_name")));
     }
 
-    /** Materializes the legacy BC native read on the caller transaction. */
+    /**
+     * Reads detached MSP payment/refund rows ordered by native payment date.
+     *
+     * @param account String billing-account filter using SQL LIKE; null or ALL omits it
+     * @param payeeNo String payee filter using SQL LIKE; null or ALL omits it
+     * @param providerNo String provider identifier resolved to an OHIP number; null or ALL omits it
+     * @param startDate String inclusive payment-date boundary; dashed/compact dates accepted, null/empty omits it
+     * @param endDate String inclusive payment-date boundary; dashed/compact dates accepted, null/empty omits it
+     * @param excludeWCB boolean whether to omit WCB billing rows
+     * @param excludeMSP boolean whether to omit MSP billing rows
+     * @param excludePrivate boolean whether to omit private billing rows
+     * @param exludeICBC boolean whether to omit ICBC billing rows
+     * @return {@code List<PaymentRow>} values with raw Teleplan amounts; deleted claims are excluded
+     * @throws RuntimeException if a requested provider has no OHIP-number lookup row
+     * @since 2026-11-02
+     */
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<PaymentRow> findBcPayments(String account, String payeeNo, String providerNo,
             String startDate, String endDate, boolean excludeWCB, boolean excludeMSP,
@@ -466,7 +496,17 @@ public class BillingmasterDAO {
                 rs.getString("teleplanS00.t_aja7")));
     }
 
-    /** Materializes the legacy BC native read on the caller transaction. */
+    /**
+     * Reads signed private-payment history on the caller transaction; excludes internal adjustments.
+     *
+     * @param account String billing-account filter using SQL LIKE; null or ALL omits it
+     * @param payeeNo String payee filter using SQL LIKE; null or ALL omits it
+     * @param providerNo String appointment-provider identifier; null or ALL omits it
+     * @param startDate String inclusive native TO_DAYS boundary; null/empty omits it
+     * @param endDate String inclusive native TO_DAYS boundary; null/empty omits it
+     * @return {@code List<PrivatePaymentRow>} values with decimal-dollar amounts and calendar creation dates
+     * @since 2026-11-02
+     */
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<PrivatePaymentRow> findBcPrivatePayments(String account, String payeeNo, String providerNo,
             String startDate, String endDate) {
@@ -569,7 +609,15 @@ public class BillingmasterDAO {
     }
 
 
-    /** Matches the original submission date LIKE pattern and data centre. */
+    /**
+     * Tests the original submission date LIKE pattern and data-centre restriction.
+     *
+     * @param billingmasterNo String claim identifier bound to the native query
+     * @param receivedDate String SQL LIKE pattern for sentdate; no wildcard is added here
+     * @param dataCenterNo String data-centre number matched exactly
+     * @return boolean true when at least one matching submission link exists
+     * @since 2026-11-02
+     */
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public boolean hasBcMatchingBillingRecord(String billingmasterNo, String receivedDate, String dataCenterNo) {
         String qry = "SELECT tsl.id \n" +
@@ -582,7 +630,14 @@ public class BillingmasterDAO {
         return !readBcRows(qry, new Object[]{billingmasterNo, dataCenterNo, receivedDate}, rs -> rs.getInt(1)).isEmpty();
     }
 
-    /** Reads only the report fields from the existing WCB mapping. */
+    /**
+     * Reads the report fields from the first existing WCB mapping for an invoice.
+     *
+     * @param billingNo String decimal invoice identifier
+     * @return WcbRow containing raw fee/code values, or null when no form matches
+     * @throws NumberFormatException if billingNo is not a decimal integer
+     * @since 2026-11-02
+     */
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public WcbRow findBcWcb(String billingNo) {
         WCB wcb = loadWcbByBillingNo(Integer.parseInt(billingNo));
@@ -616,8 +671,14 @@ public class BillingmasterDAO {
 
 
     /**
-     * Restricts the legacy extract by provider_ohip_no. Project only the required columns:
-     * optional legacy billing fields may be NULL despite primitive fields in the entity mapping.
+     * Reads eligible O/W invoices by provider_ohip_no without hydrating nullable legacy entity columns.
+     *
+     * @param providerOhipNo String billing physician OHIP number matched exactly
+     * @param dateRange String non-null optional AND clauses over billing_date/visitdate with comparison placeholders
+     * @param dates String array of positional values, one per placeholder; values retain JDBC null semantics
+     * @return {@code List<ExtractBillRow>} values in the native query order
+     * @throws IllegalArgumentException if dateRange contains unsupported SQL syntax
+     * @since 2026-11-02
      */
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<ExtractBillRow> findBcExtractBills(String providerOhipNo, String dateRange, String[] dates) {
@@ -632,7 +693,13 @@ public class BillingmasterDAO {
         return readBcRows(sql, params, rs -> new ExtractBillRow(rs.getObject("billing_no", Integer.class), rs.getString("demographic_name")));
     }
 
-    /** Projects open claims without hydrating unrelated nullable legacy entity fields. */
+    /**
+     * Reads open claim columns without hydrating unrelated nullable legacy primitive fields.
+     *
+     * @param billingNo int invoice primary key
+     * @return {@code List<ExtractClaimRow>} values with raw fixed-width formatter inputs; empty when no open claims match
+     * @since 2026-11-02
+     */
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<ExtractClaimRow> findBcExtractClaims(int billingNo) {
         String sql = "select bill_amount, billingmaster_no, phn, service_date, billing_code, dx_code1, dx_code2, dx_code3, claimcode, datacenter, payee_no, practitioner_no, name_verify, dependent_num, billing_unit, clarification_code, anatomical_area, after_hour, new_program, payment_mode, service_to_day, submission_code, service_location, referral_flag1, referral_no1, referral_flag2, referral_no2, time_call, service_start_time, service_end_time, birth_date, correspondence_code, mva_claim_code, icbc_claim_no, original_claim, facility_no, facility_sub_no, oin_insurer_code, oin_registration_no, oin_birthdate, oin_first_name, oin_second_name, oin_surname, oin_sex_code, oin_address, oin_address2, oin_address3, oin_address4, oin_postalcode from billingmaster where billing_no=? and billingstatus='O'";
@@ -688,21 +755,40 @@ public class BillingmasterDAO {
                 rs.getString("oin_postalcode")));
     }
 
-    /** Participates in the service boundary; existing REQUIRES_NEW callers retain their policy. */
+    /**
+     * Marks a claim B within the active service transaction; does not create an independent commit.
+     *
+     * @param id int billingmaster primary key
+     * @throws org.springframework.transaction.IllegalTransactionStateException if called through Spring without an active transaction
+     * @since 2026-11-02
+     */
     @Transactional(propagation = Propagation.MANDATORY)
     public void markBcMasterBilled(int id) {
         entityManager.createQuery("update Billingmaster b set b.billingstatus = 'B' where b.billingmasterNo = :id")
                 .setParameter("id", id).executeUpdate();
     }
 
-    /** Updates only the billing status without hydrating nullable legacy primitive columns. */
+    /**
+     * Marks an invoice B without hydrating nullable legacy columns; requires an active service transaction.
+     *
+     * @param id int billing primary key
+     * @throws org.springframework.transaction.IllegalTransactionStateException if called through Spring without an active transaction
+     * @since 2026-11-02
+     */
     @Transactional(propagation = Propagation.MANDATORY)
     public void markBcBillBilled(int id) {
         entityManager.createQuery("update Billing b set b.status = 'B' where b.id = :id")
                 .setParameter("id", id).executeUpdate();
     }
 
-    /** Detached remittance fields; Jasper field names and native ordering are preserved. */
+    /**
+     * Reads the detached Jasper remittance fields in provider/service-date/patient order.
+     *
+     * @param payeeNo String payee SQL LIKE pattern, preserving caller-supplied wildcards
+     * @param s21Id String S21 remittance identifier bound to the native query
+     * @return {@code List<RemittanceRow>} values with unchanged Jasper field names, nulls and raw amount strings
+     * @since 2026-11-02
+     */
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<RemittanceRow> findBcRemittance(String payeeNo, String s21Id) {
         String qry = "SELECT billing_code, provider.first_name, provider.last_name, t_practitionerno, t_s00type, billingmaster.service_date as 't_servicedate', t_payment," + "t_datacenter, billing.demographic_name, billing.demographic_no, teleplanS00.t_paidamt, t_exp1, t_exp2, t_exp3, t_exp4, t_exp5, t_exp6, t_dataseq " + " from teleplanS00, billing, billingmaster, provider " + " where teleplanS00.t_officeno = billingmaster.billingmaster_no " + " and teleplanS00.s21_id = ?"
@@ -728,7 +814,14 @@ public class BillingmasterDAO {
                 rs.getString("t_dataseq")));
     }
 
-    /** Detached remittance fields; Jasper field names and native ordering are preserved. */
+    /**
+     * Reads detached remittance adjustments, preserving native decimal comparison and ordering.
+     *
+     * @param payeeNo String payee number matched exactly (this query does not use LIKE)
+     * @param s21Id String S21 remittance identifier bound to the native query
+     * @return {@code List<AdjustmentRemittanceRow>} values ordered by provider, service date and patient
+     * @since 2026-11-02
+     */
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public List<AdjustmentRemittanceRow> findBcAdjustmentRemittance(String payeeNo, String s21Id) {
         String qry = "SELECT b.billing_no, bm.billingmaster_no, bm.billing_code, p.first_name, p.last_name, ts00.t_practitionerno, ts00.t_s00type, ts00.t_msprcddate, bm.service_date, ts00.t_payment, ts00.t_datacenter, b.demographic_name, b.demographic_no, \n" +

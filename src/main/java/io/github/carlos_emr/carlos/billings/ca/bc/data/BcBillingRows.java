@@ -21,9 +21,26 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
-/** Detached BC billing projections. JDBC values retain the legacy money and date representation. */
+/**
+ * Detached BC billing projections with no live persistence resources.
+ *
+ * <p>Strings retain JDBC nulls, blanks and legacy column formats. Claimed fees and private
+ * payments are decimal dollar strings; Teleplan amounts retain implied cents and negative
+ * overpunch suffixes. No rounding, trimming or date parsing happens in these carriers.
+ * Diagnostic descriptions redact all field values.</p>
+ *
+ * @since 2026-11-02
+ */
 public final class BcBillingRows {
     private BcBillingRows() {}
+    /**
+     * Invoice/report columns joined to the billing provider. {@code billAmount} is a decimal
+     * dollar string and {@code serviceDate} retains compact {@code yyyyMMdd}. {@code serviceToDay}
+     * is the legacy two-digit end-day field. {@code updateDate} and {@code dob} retain their source
+     * JDBC/legacy representations.
+     *
+     * @since 2026-11-02
+     */
     public record BillRow(
             String billingtype,
             String billingNo,
@@ -55,6 +72,13 @@ public final class BcBillingRows {
         }
     }
 
+    /**
+     * MSP payment/refund columns. {@code tPaidamt} and {@code tAja1} through {@code tAja7}
+     * retain Teleplan implied-cent strings, including negative overpunch suffixes.
+     * Payment and service dates retain compact {@code yyyyMMdd} values.
+     *
+     * @since 2026-11-02
+     */
     public record PaymentRow(
             String billingtype,
             String tPayment,
@@ -84,6 +108,14 @@ public final class BcBillingRows {
         }
     }
 
+    /**
+     * Private payment-history columns, excluding internal adjustments in the report query.
+     * {@code amountReceived} is a signed decimal dollar string; {@code serviceDate} is compact
+     * {@code yyyyMMdd}. {@code creationDate} is an immutable SQL-calendar date ({@code yyyy-MM-dd}),
+     * or null when the database value is null.
+     *
+     * @since 2026-11-02
+     */
     public record PrivatePaymentRow(
             String billingmasterNo,
             String billingtype,
@@ -102,6 +134,12 @@ public final class BcBillingRows {
         }
     }
 
+    /**
+     * The fee, fee item and diagnosis used by WCB billing reports. {@code amount} retains
+     * the stored decimal dollar string; optional source values remain null or blank.
+     *
+     * @since 2026-11-02
+     */
     public record WcbRow(
             String amount,
             String feeItem,
@@ -112,6 +150,14 @@ public final class BcBillingRows {
         }
     }
 
+    /**
+     * The unchanged 18-field Jasper remittance contract. Snake-case component names match
+     * template fields. {@code t_paidamt} retains implied cents and Teleplan overpunch encoding;
+     * {@code t_servicedate} and {@code t_payment} retain compact {@code yyyyMMdd} strings.
+     * Nullable identifiers and explanation fields remain null.
+     *
+     * @since 2026-11-02
+     */
     public record RemittanceRow(
             String billing_code,
             String first_name,
@@ -137,6 +183,15 @@ public final class BcBillingRows {
         }
     }
 
+    /**
+     * Remittance adjustment/report columns in the legacy native query order. Teleplan paid
+     * and adjustment amounts retain implied cents/overpunch strings, while {@code bill_amount}
+     * retains decimal dollars. Service/payment dates retain {@code yyyyMMdd}; the MSP-received
+     * date retains its source Teleplan text.
+     * {@code differential} is the native SQL comparison result: {@code +}, {@code -}, or empty.
+     *
+     * @since 2026-11-02
+     */
     public record AdjustmentRemittanceRow(
             Integer billing_no,
             Integer billingmaster_no,
@@ -180,11 +235,26 @@ public final class BcBillingRows {
             return "AdjustmentRemittanceRow[redacted]";
         }
     }
+    /**
+     * An eligible extract invoice key and unescaped display name. {@code billingNo} is the
+     * non-null numeric primary key; the caller retains the legacy exclusion of negative keys.
+     *
+     * @since 2026-11-02
+     */
     public record ExtractBillRow(Integer billingNo, String demographicName) {
         @Override
         public String toString() { return "ExtractBillRow[redacted]"; }
     }
 
+    /**
+     * Raw claim columns for the legacy fixed-width Teleplan formatter. {@code billAmount}
+     * is the required claimed fee in decimal dollars, not an optional unpaid remittance amount.
+     * Service/birth dates retain compact {@code yyyyMMdd}, while {@code serviceToDay} is the
+     * two-digit end-day field. Time columns retain legacy fixed-width text. Nulls/blanks and padding
+     * decisions stay with the existing formatter and validator.
+     *
+     * @since 2026-11-02
+     */
     public record ExtractClaimRow(
             String billAmount,
             Integer billingmasterNo,

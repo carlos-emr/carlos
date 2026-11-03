@@ -28,11 +28,23 @@ import net.sf.jasperreports.engine.JRDataSource;
 import net.sf.jasperreports.engine.JRException;
 import net.sf.jasperreports.engine.JRField;
 
-/** Adapts detached remittance rows to the unchanged pdf_rep_msprem template field contract. */
+/**
+ * Adapts detached remittance rows to the unchanged pdf_rep_msprem template field contract.
+ * The caller reads fields only after {@link #next()} returns true; raw amounts and nulls
+ * are passed to Jasper without normalization.
+ *
+ * @since 2026-11-02
+ */
 public final class BcRemittanceDataSource implements JRDataSource {
     private final Iterator<RemittanceRow> rows;
     private RemittanceRow row;
 
+    /**
+     * Creates an iterator over the supplied report rows, preserving their DAO order.
+     *
+     * @param rows List of RemittanceRow values; must not be null or modified during report filling
+     * @throws NullPointerException if rows is null
+     */
     public BcRemittanceDataSource(List<RemittanceRow> rows) {
         this.rows = rows.iterator();
     }
