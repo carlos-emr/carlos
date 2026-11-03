@@ -19,11 +19,11 @@
  *     patient only, with that type, routed to the picked provider only; the second patient's document and routing are
  *     unchanged, and the queue loses exactly that PDF.
  * Fixtures: three synthetic PDFs written into queue 1's File folder (INCOMINGDOCUMENT_DIR/1/File, which must exist);
- * the owned FAKE patient with an isolated MRP without forwarding rules, and a second owned FAKE patient with the
- * test login as MRP; each one's program admission (incoming-filing-program-fixture), which filing needs. The login's
- * entry-mode preference is recorded and restored exactly. The queue and the login's recent routing are shared, so the check must not run concurrently with
+ * the owned FAKE patient and a second owned FAKE patient, each with an isolated MRP without forwarding rules and
+ * a program admission (incoming-filing-program-fixture), which filing needs. The login's entry-mode preference is
+ * recorded and restored exactly. The queue and the login's recent routing are shared, so the check must not run concurrently with
  * other checks (live wrapper: EXCLUSIVE=1). Cleanup removes the filed documents with their routing, links and stored
- * files (DOCUMENT_DIR), the queued PDFs left, the second patient and the isolated MRP, and asserts each is gone.
+ * files (DOCUMENT_DIR), the queued PDFs left, the second patient and the isolated MRPs, and asserts each is gone.
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -69,8 +69,8 @@ async function workflow(s) {
   const name = { a: `${marker}-first.pdf`, b: `${marker}-second.pdf`, quick: `${marker}-quick.pdf` };
   const description = { a: `${marker} quick-pick first`, b: `${marker} quick-pick second`, quick: `${marker} quick-pick filed` };
   const owned = [];
-  // Callbacks unwind in reverse: the second patient's admission, files and filings, the preference, the second patient,
-  // then the isolated MRP restore and the first patient's program fixture.
+  // Reverse cleanup: files and filings, preference, second MRP restore, second admission and patient,
+  // then first MRP restore and first program fixture.
   prepareIncomingFilingProgram(s);
   // Keep the admission in the login's program domain, but route the quick-pick
   // document to an owned provider so the login's real forwarding rules cannot add recipients.
@@ -82,6 +82,11 @@ async function workflow(s) {
     h.assert(!second || sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${second}`) === '0',
       'The second owned patient was not removed');
   });
+  second = createOwnedPatient(sql, { marker, provider });
+  // Each admission stays in the login's program domain. Isolate the second MRP too:
+  // forwarded recipients on that setup filing could evict the first provider from the ten recent routing rows.
+  prepareIncomingFilingProgram({ ...s, patient: second });
+  const secondMrp = prepareIsolatedMrp({ ...s, patient: second });
   const key = 'incoming_document_entry_mode';
   const preference = sql.rows(`SELECT id,value,IF(value IS NULL,1,0) FROM property WHERE provider_no=${q(provider)} AND name=${q(key)} ORDER BY id`);
   s.cleanup(() => {
@@ -101,10 +106,6 @@ async function workflow(s) {
     for (const file of owned) if (fs.existsSync(file)) fs.unlinkSync(file);
     h.assert(owned.every(file => !fs.existsSync(file)), 'An owned queue file was not removed');
   });
-  second = createOwnedPatient(sql, { marker, provider });
-  // Filing needs the patient in the login's program domain; each owned patient gets its own admission. Its cleanup is
-  // registered last, so it runs first, while the second patient still exists.
-  prepareIncomingFilingProgram({ ...s, patient: second });
   const queueOwner = fs.statSync(directory);
   for (const k of ['a', 'b', 'quick']) {
     const file = path.join(directory, name[k]);
@@ -188,7 +189,7 @@ async function workflow(s) {
     await openPdf(name.a);
     await fileThroughSearch(patient, description.a, pickedProvider);
     await openPdf(name.b);
-    await fileThroughSearch(second, description.b, provider);
+    await fileThroughSearch(second, description.b, secondMrp.number);
     h.assert(filed(description.a).length === 1 && filed(description.b).length === 1, 'The two set-up filings did not each file one document');
     await openPdf(name.quick);
     for (const who of [patient, second]) {
@@ -219,6 +220,7 @@ async function workflow(s) {
     await page.locator(`input[type="button"][onclick^="addflagprovider("][onclick$="'${pickedProvider}');"]`).click();
     h.assert(JSON.stringify(await flagged()) === JSON.stringify([pickedProvider]), `The provider button did not flag exactly the picked provider (${JSON.stringify(await flagged())})`);
     isolatedMrp.verify();
+    secondMrp.verify();
     await save();
     const quick = filed(description.quick);
     h.assert(quick.length === 1, `Save filed ${quick.length} documents, not one`);
