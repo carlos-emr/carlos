@@ -3234,7 +3234,7 @@
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java"
       ],
-      "normalization": "Numeric day/integer boundaries checked; no treatment end date inferred from dispense duration; int overflow requires review.",
+      "normalization": "Initial duration accepts a whole number with optional D/W/M/Y or singular/plural day/week/month/year, case insensitive; a bare number means days. Preserve amount/unit without approximating months/years. Refill duration remains independent numeric days. No treatment end date inferred from dispense duration; int overflow requires review.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 10 (MedicationsAndTreatments)",
         "EMR Data Migration Requirements v1.1 DP02.01",

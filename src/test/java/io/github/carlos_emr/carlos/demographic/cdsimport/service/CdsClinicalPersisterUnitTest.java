@@ -48,6 +48,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -64,6 +67,57 @@ class CdsClinicalPersisterUnitTest {
     private final PartialDateDao dates = mock(PartialDateDao.class);
     private final CdsMedicationPersister medications =
             new CdsMedicationPersister(drugs, dates, normalization);
+
+    @ParameterizedTest
+    @CsvSource({"14,14,D", "14D,14,D", "14 day,14,D", "14 days,14,D",
+            "2W,2,W", "2 W,2,W", "2 week,2,W", "2 weeks,2,W",
+            "3M,3,M", "3 M,3,M", "3 month,3,M", "3 months,3,M",
+            "1Y,1,Y", "1 Y,1,Y", "1 year,1,Y", "1 years,1,Y", "2 wEeKs,2,W"})
+    void shouldPreserveMedicationDurationUnits_withoutApproximatingCalendarMonthsOrYears(
+            String lexical, String amount, String unit) throws Exception {
+        Drug drug = candidate(Map.of("Duration", lexical, "RefillDuration", "15"));
+        assertThat(drug.getDuration()).isEqualTo(amount);
+        assertThat(drug.getDurUnit()).isEqualTo(unit);
+        assertThat(drug.getRefillDuration()).isEqualTo(15);
+        assertThat(drug.getEndDate()).isNull();
+    }
+
+    @Test
+    void shouldUseWrittenDateForCreationHistory_whenStartDiffers() throws Exception {
+        withTemporalZone(() -> {
+            Drug drug = candidate(Map.of("PrescriptionWrittenDate/FullDate", "2010-03-04",
+                    "StartDate/FullDate", "2010-03-10"));
+            assertThat(drug.getCreateDate()).isEqualTo(java.sql.Date.valueOf("2010-03-04"));
+            assertThat(drug.getRxDate()).isEqualTo(java.sql.Date.valueOf("2010-03-10"));
+        });
+    }
+
+    @Test
+    void shouldUseStartDateForCreationHistory_whenWrittenDateIsAbsent() throws Exception {
+        Drug drug = candidate(Map.of("StartDate/FullDate", "2011-05-06"));
+        assertThat(drug.getCreateDate()).isEqualTo(java.sql.Date.valueOf("2011-05-06"));
+        assertThat(drug.getWrittenDate()).isNull();
+    }
+
+    @Test
+    void shouldRetainPartialWrittenAnchorForCreationHistory_withoutChangingItsPrecision() throws Exception {
+        Drug drug = candidate(Map.of("PrescriptionWrittenDate/YearMonth", "2012-06",
+                "StartDate/FullDate", "2012-06-15"));
+        assertThat(drug.getCreateDate()).isEqualTo(java.sql.Date.valueOf("2012-06-01"));
+        var source = normalization.medication(medication(Map.of("PrescriptionWrittenDate/YearMonth", "2012-06")));
+        assertThat(source.written().legacyPartialFormat()).isEqualTo("YYYY-MM");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Aborted", "Completed", "Obsolete", "Nullified"})
+    void shouldKeepNonactiveMedicationHistorical_withItsSourceReasonAndCreationDate(String status) throws Exception {
+        Drug drug = candidate(Map.of("PrescriptionStatus", status,
+                "PrescriptionWrittenDate/FullDate", "2013-07-08", "Duration", "1 year"));
+        assertThat(drug.isArchived()).isTrue();
+        assertThat(drug.getArchivedReason()).isEqualTo("cds:" + status);
+        assertThat(drug.getCreateDate()).isEqualTo(java.sql.Date.valueOf("2013-07-08"));
+        assertThat(drug.getCdsCurrentness()).isEqualTo("HISTORICAL");
+    }
 
     @AfterEach
     void clearTransactionMarker() {
