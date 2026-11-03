@@ -12,9 +12,9 @@ for(const equation of ['80.0 100.0 sCr 2025-Jan-02','79.0 100.0 sCr 2025-Jan-02'
     const response={status:()=>200,finished:async()=>{},url:()=>
       'https://127.0.0.1/carlos/rx/ViewRenalDosing?demographicNo=42&atcCode=J01MA02&divId=renalDosing_7'};
     const rx={waitForResponse:async()=>response,waitForFunction:async()=>{},locator:()=>panel};
-    vm.runInNewContext(source,{URL,process:{env:{}},module,require(name){
+    vm.runInNewContext(source,{URL,process:{env:{RX_RENAL_CASE:'refresh-unit'}},module,require(name){
       if(name==='./lib/playwright-harness')return h;
-      if(name==='./lib/renal-input-fixture')return {CASES:{'male-valid':{clearance:80,sex:'M',age:60}},
+      if(name==='./lib/renal-input-fixture')return {CASES:{'refresh-unit':{clearance:80,sex:'M',age:60}},
         renalInputFixture:()=>({apply:value=>events.push(value)})};
       if(name==='./rx-edit-discontinue-playwright-checks')return {stageFromSearch:async()=>7};
       if(name==='./lib/master-record-link')return {masterRecordLink:()=>({first(){return this;}})};

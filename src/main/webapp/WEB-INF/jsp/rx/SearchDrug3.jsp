@@ -2839,8 +2839,8 @@ function updateQty(element){
          function getRenalDosingInformation(divId,atcCode){
                var url = "<%= request.getContextPath() %>/rx/ViewRenalDosing";
                var ran_number=Math.round(Math.random()*1000000);
-               var params = "demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&divId="+divId+"&rand="+ran_number;
-               CarlosAjax.updater(divId,url, {method:'get',parameters:params,insertion: 'bottom'});
+               var params = "demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&divId="+encodeURIComponent(divId)+"&rand="+ran_number;
+               CarlosAjax.updater(divId,url, {method:'get',parameters:params});
          }
          function getLUC(divId,randomId,din){
              var url = ctx + "/rx/ViewLimitedUseCode";

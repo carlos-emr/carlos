@@ -39,6 +39,7 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.SortHashtable" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.RenalDosingInput" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.RenalDosingFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.DosingRecomendation" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
@@ -80,30 +81,20 @@
     double weight = -1;
     Hashtable measurementHash = EctMeasurementsDataBeanHandler.getLast(demographicNo, "WT");
 
-    String wt = null;
     Date wtDate = null;
-if (measurementHash != null &&
-    measurementHash.get("value") != null &&
-    !((String)measurementHash.get("value")).trim().isEmpty()) {
-    try {
-        double value = Double.parseDouble((String)measurementHash.get("value"));
-        if (!Double.isNaN(value) && !Double.isInfinite(value)) {
-            // value is a valid non-null, non-empty, parseable double
-            // proceed with using the value
-            weight = Double.parseDouble((String) measurementHash.get("value"));
-            wtDate = (Date) measurementHash.get("dateObserved_date");
-        }
-    } catch (NumberFormatException e) {
-        // Handle or log invalid number format
+    boolean invalidInput = age <= 0;
+    if (measurementHash != null && measurementHash.get("value") != null) {
+        weight = RenalDosingInput.positiveNumber((String) measurementHash.get("value"));
+        wtDate = (Date) measurementHash.get("dateObserved_date");
+        invalidInput |= !Double.isFinite(weight);
     }
-}
 
     double measurementsCr = -1;
     Date measurementsCrDate = null;
 
     measurementHash = EctMeasurementsDataBeanHandler.getLast(demographicNo, "sCr");
     if (measurementHash != null && measurementHash.get("value") != null) {
-        measurementsCr = Double.parseDouble((String) measurementHash.get("value"));
+        measurementsCr = RenalDosingInput.positiveNumber((String) measurementHash.get("value"));
         measurementsCrDate = (Date) measurementHash.get("dateObserved_date");
     }
 
@@ -118,11 +109,7 @@ if (measurementHash != null &&
         Hashtable hash = (Hashtable) labs.get(0);
         String sCrStr = (String) hash.get("result");
         sCrDate = (Date) hash.get("collDateDate");
-        try {
-            sCr = Double.parseDouble(sCrStr);
-        } catch (Exception e) {
-            MiscUtils.getLogger().debug("No idea if this is ok or not, some one else left the block blank", e);
-        }
+        sCr = RenalDosingInput.positiveNumber(sCrStr);
     }
 
 
@@ -138,7 +125,14 @@ if (measurementHash != null &&
 
 
 //////
-
+    // Validate the selected source, retaining its date even when unusable: an older
+    // valid lab must not silently override a newer invalid measurement.
+    invalidInput |= sCrDate != null && !Double.isFinite(sCr);
+    if (invalidInput) {
+        // Keep the N/A panel and Refresh link in the refusal response so a correction
+        // can be reread without retaining a previously highlighted recommendation.
+        response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+    }
 
     boolean ageb, weightb, sCrb, equate;
     ageb = weightb = sCrb = equate = false;
@@ -211,8 +205,8 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
     }
 </style>
 <div style="float:left; margin-left:10px; margin-right: 10px;">
-    <h3>Dosing Information <small><a href="javascript: function myFunction() {return false; }"
-                                     onclick="getRenalDosingInformation();">Refresh</a></small></h3>
+    <h3>Dosing Information <small><a href="#"
+        onclick="getRenalDosingInformation('<carlos:encode value='<%= request.getParameter("divId") == null ? "renalDosing" : request.getParameter("divId") %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= atc %>' context="javaScriptAttribute"/>'); return false;">Refresh</a></small></h3>
     <table class="sofT">
         <tr class="heading">
             <th>Clcr</th>

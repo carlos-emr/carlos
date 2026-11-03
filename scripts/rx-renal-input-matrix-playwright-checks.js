@@ -21,7 +21,7 @@ async function workflow(s) {
     ]);
     card=staged;panel=rx.locator(`#renalDosing_${card}`);originalAtc=new URL(response.url()).searchParams.get('atcCode');
     h.assert(originalAtc?.split(',').includes('J01MA02'),'The staged renal product is not ciprofloxacin (J01MA02)');
-    h.assert(response.status()===200,`Renal rendering returned HTTP ${response.status()}`);await response.finished();
+    h.assert(response.status()===(testCase.status||200),`Renal rendering returned HTTP ${response.status()}, expected ${testCase.status||200}`);await response.finished();
     await panel.locator('table.equation').waitFor({state:'visible'});
   });
   await s.step('render independent clinical inputs and exact inclusive recommendation boundaries',async()=>{
@@ -37,11 +37,25 @@ async function workflow(s) {
       if(testCase.source)h.assert(text.includes(testCase.source),'The displayed creatinine source date is wrong');
     }
   });
+  if(name==='male-valid')await s.step('invalid refresh removes an existing dose recommendation and remains refreshable',async()=>{
+    fixture.apply({weight:'40',cr:'200'});
+    const refresh=()=>Promise.all([rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
+      panel.getByRole('link',{name:'Refresh',exact:true}).click()]);
+    await refresh();
+    await panel.locator('table.sofT tr.selected').waitFor({state:'visible'});
+    fixture.apply({weight:'40',cr:'not-a-number'});
+    const [refusal]=await refresh();
+    h.assert(refusal.status()===400,'Invalid stored observation did not answer HTTP 400');await refusal.finished();
+    await panel.getByRole('link',{name:'Refresh',exact:true}).waitFor({state:'visible'});
+    await rx.waitForFunction(id=>document.querySelector(id)?.textContent.includes('N/A'),`#renalDosing_${card}`);
+    h.assert(await panel.locator('table.equation').count()===1 && await panel.locator('tr.selected').count()===0,
+      'Refused refresh retained a stale recommendation or appended a duplicate panel');
+  });
   await s.step('restoring valid observations refreshes the same panel without retaining stale input',async()=>{
     fixture.apply({...testCase,weight:'80',cr:'100',crDate:'2025-01-02',lab:undefined});
     const [response]=await Promise.all([rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
       panel.getByRole('link',{name:'Refresh',exact:true}).click()]);
-    h.assert(response.status()===200,'Restoring renal observations returned a server error');await response.finished();
+    h.assert(response.status()===(testCase.age<=0?400:200),'Restoring renal observations returned an unexpected status');await response.finished();
     const parameters=new URL(response.url()).searchParams;
     h.assert(parameters.get('demographicNo')===s.patient&&parameters.get('atcCode')===originalAtc&&parameters.get('divId')===`renalDosing_${card}`,
       'Refresh lost the originating patient, controlled drug or panel identity');

@@ -17161,11 +17161,7 @@
       "envSet": {
         "RX_RENAL_CASE": "male-valid"
       },
-      "notes": "Independent renal input/source/threshold matrix case male-valid (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case male-valid (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-female-valid",
@@ -17182,11 +17178,7 @@
       "envSet": {
         "RX_RENAL_CASE": "female-valid"
       },
-      "notes": "Independent renal input/source/threshold matrix case female-valid (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case female-valid (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-older-low-weight",
@@ -17203,11 +17195,7 @@
       "envSet": {
         "RX_RENAL_CASE": "older-low-weight"
       },
-      "notes": "Independent renal input/source/threshold matrix case older-low-weight (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case older-low-weight (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-younger-high-weight",
@@ -17224,11 +17212,7 @@
       "envSet": {
         "RX_RENAL_CASE": "younger-high-weight"
       },
-      "notes": "Independent renal input/source/threshold matrix case younger-high-weight (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case younger-high-weight (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-missing-weight",
@@ -17245,11 +17229,7 @@
       "envSet": {
         "RX_RENAL_CASE": "missing-weight"
       },
-      "notes": "Independent renal input/source/threshold matrix case missing-weight (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case missing-weight (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-missing-cr",
@@ -17266,11 +17246,7 @@
       "envSet": {
         "RX_RENAL_CASE": "missing-cr"
       },
-      "notes": "Independent renal input/source/threshold matrix case missing-cr (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case missing-cr (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-missing-both",
@@ -17287,11 +17263,7 @@
       "envSet": {
         "RX_RENAL_CASE": "missing-both"
       },
-      "notes": "Independent renal input/source/threshold matrix case missing-both (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case missing-both (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-future-age",
@@ -17308,11 +17280,7 @@
       "envSet": {
         "RX_RENAL_CASE": "future-age"
       },
-      "notes": "Independent renal input/source/threshold matrix case future-age (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case future-age (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-lab-only",
@@ -17329,11 +17297,7 @@
       "envSet": {
         "RX_RENAL_CASE": "lab-only"
       },
-      "notes": "Independent renal input/source/threshold matrix case lab-only (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case lab-only (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-lab-newer",
@@ -17350,11 +17314,7 @@
       "envSet": {
         "RX_RENAL_CASE": "lab-newer"
       },
-      "notes": "Independent renal input/source/threshold matrix case lab-newer (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case lab-newer (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-measurement-newer",
@@ -17371,11 +17331,7 @@
       "envSet": {
         "RX_RENAL_CASE": "measurement-newer"
       },
-      "notes": "Independent renal input/source/threshold matrix case measurement-newer (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case measurement-newer (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-equal-date-lab",
@@ -17392,11 +17348,7 @@
       "envSet": {
         "RX_RENAL_CASE": "equal-date-lab"
       },
-      "notes": "Independent renal input/source/threshold matrix case equal-date-lab (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case equal-date-lab (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-newer-unusable-source",
@@ -17434,11 +17386,7 @@
       "envSet": {
         "RX_RENAL_CASE": "weight-blank"
       },
-      "notes": "Independent renal input/source/threshold matrix case weight-blank (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case weight-blank (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-cr-blank",
@@ -17476,11 +17424,7 @@
       "envSet": {
         "RX_RENAL_CASE": "weight-text"
       },
-      "notes": "Independent renal input/source/threshold matrix case weight-text (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case weight-text (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-cr-text",
@@ -17518,11 +17462,7 @@
       "envSet": {
         "RX_RENAL_CASE": "weight-zero"
       },
-      "notes": "Independent renal input/source/threshold matrix case weight-zero (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case weight-zero (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-cr-zero",
@@ -17539,11 +17479,7 @@
       "envSet": {
         "RX_RENAL_CASE": "cr-zero"
       },
-      "notes": "Independent renal input/source/threshold matrix case cr-zero (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case cr-zero (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-weight-negative",
@@ -17560,11 +17496,7 @@
       "envSet": {
         "RX_RENAL_CASE": "weight-negative"
       },
-      "notes": "Independent renal input/source/threshold matrix case weight-negative (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case weight-negative (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-cr-negative",
@@ -17581,11 +17513,7 @@
       "envSet": {
         "RX_RENAL_CASE": "cr-negative"
       },
-      "notes": "Independent renal input/source/threshold matrix case cr-negative (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case cr-negative (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-weight-nan",
@@ -17602,11 +17530,7 @@
       "envSet": {
         "RX_RENAL_CASE": "weight-nan"
       },
-      "notes": "Independent renal input/source/threshold matrix case weight-nan (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case weight-nan (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-cr-nan",
@@ -17623,11 +17547,7 @@
       "envSet": {
         "RX_RENAL_CASE": "cr-nan"
       },
-      "notes": "Independent renal input/source/threshold matrix case cr-nan (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case cr-nan (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-weight-infinity",
@@ -17644,11 +17564,7 @@
       "envSet": {
         "RX_RENAL_CASE": "weight-infinity"
       },
-      "notes": "Independent renal input/source/threshold matrix case weight-infinity (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case weight-infinity (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-cr-infinity",
@@ -17686,11 +17602,7 @@
       "envSet": {
         "RX_RENAL_CASE": "boundary-4"
       },
-      "notes": "Independent renal input/source/threshold matrix case boundary-4 (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case boundary-4 (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-boundary-5",
@@ -17707,11 +17619,7 @@
       "envSet": {
         "RX_RENAL_CASE": "boundary-5"
       },
-      "notes": "Independent renal input/source/threshold matrix case boundary-5 (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case boundary-5 (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-boundary-6",
@@ -17728,11 +17636,7 @@
       "envSet": {
         "RX_RENAL_CASE": "boundary-6"
       },
-      "notes": "Independent renal input/source/threshold matrix case boundary-6 (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case boundary-6 (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-boundary-29",
@@ -17749,11 +17653,7 @@
       "envSet": {
         "RX_RENAL_CASE": "boundary-29"
       },
-      "notes": "Independent renal input/source/threshold matrix case boundary-29 (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case boundary-29 (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-boundary-30",
@@ -17770,11 +17670,7 @@
       "envSet": {
         "RX_RENAL_CASE": "boundary-30"
       },
-      "notes": "Independent renal input/source/threshold matrix case boundary-30 (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case boundary-30 (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-boundary-31",
@@ -17791,11 +17687,7 @@
       "envSet": {
         "RX_RENAL_CASE": "boundary-31"
       },
-      "notes": "Independent renal input/source/threshold matrix case boundary-31 (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case boundary-31 (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-limited-use-code-persistence",
@@ -17835,11 +17727,7 @@
         "measurementType",
         "measurementGroupStyle"
       ],
-      "fixtures": "Owned patients and observations; supplies an owned Renal Dosing measurement group only when absent and removes its exact rows. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "Refresh replaces the equation and crosses into the inclusive reduced-dose recommendation"
-      }
+      "fixtures": "Owned patients and observations; supplies an owned Renal Dosing measurement group only when absent and removes its exact rows. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "rx-minor-interaction-levels",
