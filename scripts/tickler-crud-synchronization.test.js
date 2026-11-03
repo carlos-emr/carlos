@@ -159,8 +159,9 @@ test('tickler edit observes its own broadcast refresh before saving and waits th
   assert.deepEqual(fixture.events, ['listener', 'save', 'body', 'drawn']);
 });
 
-test('tickler synchronization preserves HTTP and aborted-body failures', async () => {
-  for (const [status, failure, message] of [[500, null, /HTTP 500/], [200, new Error('aborted'), /did not finish/]]) {
+test('tickler synchronization rejects redirects, HTTP errors, and aborted bodies', async () => {
+  for (const [status, failure, message] of [[302, null, /HTTP 302/], [500, null, /HTTP 500/],
+    [200, new Error('aborted'), /did not finish/]]) {
     const fixture = refreshFixture(status, failure);
     await assert.rejects(fixture.refresh(fixture.page, fixture.save), message);
     assert(!fixture.events.includes('drawn'));

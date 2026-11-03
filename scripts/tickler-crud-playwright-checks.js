@@ -252,7 +252,7 @@ async function refreshTicklerListAfter(page, save) {
     { timeout: 30000 }),
     save(),
   ]);
-  assert(response.status() < 400, `tickler list refresh returned HTTP ${response.status()}`);
+  assert(response.status() === 200, `tickler list refresh returned HTTP ${response.status()}`);
   assert(!await response.finished(), 'tickler list refresh did not finish');
   await waitForTicklerListReady(page);
 }
