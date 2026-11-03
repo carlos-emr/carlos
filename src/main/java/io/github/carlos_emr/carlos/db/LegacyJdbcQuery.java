@@ -126,6 +126,59 @@ public final class LegacyJdbcQuery {
         return getPreparedResultSet(trustedReportSelectSql(sql.getSql()), false, sql.getParamsArray());
     }
 
+    /**
+     * Executes a template report with a forward-only, streaming MySQL cursor.
+     * The extra row lets the consumer detect overflow instead of silently truncating.
+     * Other legacy callers retain their scrollable cursor contract.
+     *
+     * @param sql validated report template and bound parameters
+     * @param maxRows positive JDBC row ceiling, including the overflow sentinel
+     * @param timeoutSeconds positive JDBC query timeout
+     * @return owned cursor; closing it releases the statement and connection
+     * @throws SQLException if validation, setup or execution fails
+     */
+    public static ResultSet getBoundedReportResultSet(ParameterizedSql sql, int maxRows, int timeoutSeconds)
+            throws SQLException {
+        if (maxRows < 1 || timeoutSeconds < 1) {
+            throw new IllegalArgumentException("Report query limits must be positive");
+        }
+        TrustedSql trusted = trustedReportSelectSql(sql.getSql());
+        DataSource dataSource = dataSource();
+        Connection connection = getRequiredConnection(dataSource);
+        PreparedStatement ps = null;
+        ReportQueryDeadline deadline = null;
+        try {
+            // codeql[java/sql-injection] -- TrustedSql validates the report SELECT; values are bound below.
+            ps = connection.prepareStatement(trusted.sql, ResultSet.TYPE_FORWARD_ONLY, // nosemgrep: formatted-sql-string -- validated server-owned report SELECT
+                    ResultSet.CONCUR_READ_ONLY);
+            ps.setMaxRows(maxRows);
+            ps.setQueryTimeout(timeoutSeconds);
+            // Connector/J's supported streaming mode avoids buffering the entire result.
+            ps.setFetchSize(Integer.MIN_VALUE);
+            bindParams(ps, sql.getParamsArray());
+            deadline = new ReportQueryDeadline(ps, timeoutSeconds);
+            ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- validated, parameterized report boundary
+            return registerThreadResource(deadline.wrap(StatementClosingResultSet.wrap(rs, ps, connection, dataSource)));
+        } catch (SQLException | RuntimeException e) {
+            if (deadline != null) {
+                deadline.close();
+            }
+            if (ps != null) {
+                try {
+                    ps.cancel();
+                } catch (SQLException cancelFailure) {
+                    e.addSuppressed(cancelFailure);
+                }
+            }
+            closeStatement(ps);
+            DataSourceUtils.releaseConnection(connection, dataSource);
+            if (deadline != null && deadline.isExpired() && e instanceof SQLException) {
+                throw new java.sql.SQLTimeoutException("Report query deadline exceeded", e);
+            }
+            throw e;
+        }
+    }
+
     public static ResultSet getPreparedResultSet(TrustedSql sql, Object... params) throws SQLException {
         return getPreparedResultSet(sql, false, params);
     }

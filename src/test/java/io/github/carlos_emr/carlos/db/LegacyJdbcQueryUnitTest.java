@@ -346,6 +346,52 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
                 .noneMatch(method -> "statement".equals(method.getName()));
     }
 
+    @Test
+    void shouldSetStreamingReportBudgets_beforeExecutingAndReleaseResources() throws Exception {
+        DataSource source = mock(DataSource.class);
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet rs = mock(ResultSet.class);
+        registerMock(DataSource.class, source);
+        when(source.getConnection()).thenReturn(connection);
+        when(connection.prepareStatement("select ?", ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY))
+                .thenReturn(statement);
+        when(statement.executeQuery()).thenReturn(rs);
+
+        try (ResultSet owned = LegacyJdbcQuery.getBoundedReportResultSet(
+                new ParameterizedSql("select ?", List.of("synthetic")), 101, 7)) {
+            assertThat(owned).isNotNull();
+            InOrder order = inOrder(statement);
+            order.verify(statement).setMaxRows(101);
+            order.verify(statement).setQueryTimeout(7);
+            order.verify(statement).setFetchSize(Integer.MIN_VALUE);
+            order.verify(statement).setObject(1, "synthetic");
+            order.verify(statement).executeQuery();
+        }
+        verify(rs).close();
+        verify(statement).close();
+        verify(connection).close();
+    }
+
+    @Test
+    void shouldCancelAndReleaseReportQuery_afterExecutionTimeout() throws Exception {
+        DataSource source = mock(DataSource.class);
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        registerMock(DataSource.class, source);
+        when(source.getConnection()).thenReturn(connection);
+        when(connection.prepareStatement("select 1", ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY))
+                .thenReturn(statement);
+        when(statement.executeQuery()).thenThrow(new java.sql.SQLTimeoutException("synthetic timeout"));
+        assertThatThrownBy(() -> LegacyJdbcQuery.getBoundedReportResultSet(
+                new ParameterizedSql("select 1", List.of()), 10, 1))
+                .isInstanceOf(java.sql.SQLTimeoutException.class);
+        InOrder order = inOrder(statement, connection);
+        order.verify(statement).cancel();
+        order.verify(statement).close();
+        order.verify(connection).close();
+    }
+
     private List<Connection> mockConnections(int count) {
         List<Connection> connections = new ArrayList<>();
         for (int i = 0; i < count; i++) {

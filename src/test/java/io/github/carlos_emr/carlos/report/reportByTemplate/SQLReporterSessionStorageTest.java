@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
-import io.github.carlos_emr.carlos.report.data.RptResultStruct;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +43,7 @@ import jakarta.servlet.http.HttpSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -82,14 +82,14 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
         when(report.buildParameterizedSql(parameters)).thenReturn(new ParameterizedSql("select 1", List.of()));
 
         ResultSet resultSet = mock(ResultSet.class);
-        when(resultSet.isBeforeFirst()).thenReturn(false);
+        when(resultSet.next()).thenReturn(false);
 
         try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class,
                 (mock, context) -> {
                     when(mock.getReportTemplateNoParam("1")).thenReturn(report);
                 });
              MockedStatic<LegacyJdbcQuery> legacyJdbcQuery = mockStatic(LegacyJdbcQuery.class)) {
-            legacyJdbcQuery.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(ParameterizedSql.class))).thenReturn(resultSet);
+            legacyJdbcQuery.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyInt())).thenReturn(resultSet);
 
             boolean generated = new SQLReporter().generateReport(request);
 
@@ -120,31 +120,32 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
         when(report.buildParameterizedSql(1, parameters)).thenReturn(null);
 
         ResultSet resultSet = mock(ResultSet.class);
-        when(resultSet.isBeforeFirst()).thenReturn(true);
-
-        // Exercise the configured production cap so the regression test detects drift.
-        String oversizedCell = "a".repeat(SQLReporter.MAX_CSV_EXPORT_LENGTH + 1);
+        when(resultSet.next()).thenReturn(true);
+        java.sql.Statement statement = mock(java.sql.Statement.class);
+        when(resultSet.getStatement()).thenReturn(statement);
         ResultSetMetaData metadata = mock(ResultSetMetaData.class);
         when(resultSet.getMetaData()).thenReturn(metadata);
         when(metadata.getColumnCount()).thenReturn(1);
-        when(metadata.getColumnLabel(1)).thenReturn("synthetic");
-        when(resultSet.next()).thenReturn(true, false);
-        when(resultSet.getString(1)).thenReturn(oversizedCell);
+        when(metadata.getColumnType(1)).thenReturn(java.sql.Types.VARCHAR);
+        when(metadata.getColumnLabel(1)).thenReturn("value");
+        when(resultSet.getCharacterStream(1)).thenAnswer(ignored -> new java.io.StringReader("a".repeat(64 * 1024)));
+
         try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class,
                 (mock, context) -> {
                     when(mock.getReportTemplateNoParam("1")).thenReturn(report);
                 });
-             MockedStatic<LegacyJdbcQuery> legacyJdbcQuery = mockStatic(LegacyJdbcQuery.class);
-             MockedStatic<RptResultStruct> resultStruct = mockStatic(RptResultStruct.class)) {
-            legacyJdbcQuery.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(ParameterizedSql.class))).thenReturn(resultSet);
-            resultStruct.when(() -> RptResultStruct.getStructure2(resultSet)).thenReturn("<table></table>");
+             MockedStatic<LegacyJdbcQuery> legacyJdbcQuery = mockStatic(LegacyJdbcQuery.class)) {
+            legacyJdbcQuery.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyInt())).thenReturn(resultSet);
 
             boolean generated = new SQLReporter().generateReport(request);
 
-            assertThat(generated).isTrue();
+            assertThat(generated).isFalse();
             verify(reportManagers.constructed().get(0)).getReportTemplateNoParam("1");
             verify(request).setAttribute("csv-0", "");
             verify(request).setAttribute("errormsg", SQLReporter.CSV_EXPORT_LIMIT_MESSAGE);
+            verify(statement).cancel();
+            verify(resultSet).close();
+            verify(report, never()).buildParameterizedSql(1, parameters);
         }
     }
 }
