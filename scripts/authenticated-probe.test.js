@@ -30,11 +30,11 @@ test('does not forward unrelated, expired or wrong-path cookies', async () => {
   await authenticatedProbe(session, '/carlos/save');
   assert.equal(calls[0][1].headers.Cookie, 'JSESSIONID=synthetic');
 });
-test('rejects missing session, foreign origins and mutating methods before sending', async () => {
+test('rejects missing session, foreign origins and unsupported methods before sending', async () => {
   const { session, calls } = fixture([]);
   await assert.rejects(authenticatedProbe(session, '/carlos/save'), /session cookie/);
   await assert.rejects(authenticatedProbe(session, 'https://other.invalid/carlos/save'), /origin/);
-  await assert.rejects(authenticatedProbe(session, '/carlos/save', { method: 'POST' }), /GET and HEAD/);
+  await assert.rejects(authenticatedProbe(session, '/carlos/save', { method: 'PUT' }), /GET, HEAD and POST/);
   assert.equal(calls.length, 0);
 });
 test('rejects login redirects even for callers checking only unchanged rows', async () => {
@@ -138,4 +138,81 @@ test('authentication-state transport remains origin-bound and read-only without 
   await assert.rejects(authenticationStateProbe(session,'https://other.invalid/carlos/login'),/origin/);
   await assert.rejects(authenticationStateProbe(session,'/carlos/login',{method:'POST'}),/GET and HEAD/);
   assert.equal(calls.length,1);
+});
+
+test('POST carries the live session and its CSRF token without trusting caller headers', async () => {
+  const { session, calls } = fixture();
+  let disposed = false;
+  session.context.request.fetch = withHeartbeat(async (url, options) => {
+    calls.push([url, options]);
+    if (new URL(url).pathname === '/carlos/csrfguard') return { status: () => 200,
+      text: async () => 'var masterTokenValue = "synthetic-token";', dispose: async () => { disposed = true; } };
+    return { status: () => 403 };
+  });
+  await authenticatedProbe(session, '/carlos/print', { method: 'POST', headers: {
+    'csrf-token': 'stale-token', 'x-requested-with': 'wrong', Cookie: 'unrelated',
+  } });
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0][1].headers.Cookie, 'JSESSIONID=synthetic');
+  assert.equal(calls[0][1].maxRedirects, 0);
+  assert.deepEqual(calls[1][1].headers, {
+    Cookie: 'JSESSIONID=synthetic', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': 'synthetic-token',
+  });
+  assert(disposed, 'The token response must be disposed');
+});
+
+for (const [status, body] of [[302, 'var masterTokenValue="irrelevant";'], [403, 'Forbidden'], [200, '<html>Login</html>']]) {
+  test(`POST never sends its target when CSRF bootstrap fails: HTTP ${status}, token=${body.includes('masterTokenValue')}`, async () => {
+    const { session } = fixture();
+    let disposed = false, count = 0;
+    session.context.request.fetch = withHeartbeat(async url => {
+      count++;
+      assert.equal(new URL(url).pathname, '/carlos/csrfguard');
+      return { status: () => status, text: async () => body, dispose: async () => { disposed = true; } };
+    });
+    await assert.rejects(authenticatedProbe(session, '/carlos/print', { method: 'POST' }), /CSRF/);
+    assert.equal(count, 1);
+    assert(disposed);
+  });
+}
+
+test('real Playwright POST reaches patient authorization with the session and CSRF header', async t => {
+  const http = require('node:http');
+  const { request } = require('playwright');
+  const seen = [];
+  const server = http.createServer((req, res) => {
+    seen.push({ method: req.method, url: req.url, cookie: req.headers.cookie, token: req.headers['csrf-token'] });
+    if (req.url === '/carlos/status/SessionHeartbeat') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ valid: req.headers.cookie === 'JSESSIONID=synthetic' }));
+    } else if (req.url === '/carlos/csrfguard') {
+      res.writeHead(200, { 'content-type': 'text/javascript' });
+      res.end('var masterTokenValue = "current-token";');
+    } else {
+      const valid = req.method === 'POST' && req.headers.cookie === 'JSESSIONID=synthetic'
+        && req.headers['csrf-token'] === 'current-token' && req.headers['x-requested-with'] === 'XMLHttpRequest';
+      res.writeHead(valid ? 403 : 400, { 'x-permitted-cross-domain-policies': 'none', 'content-type': 'text/html' });
+      res.end(valid ? 'Security Exception' : 'Invalid transport');
+    }
+  });
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const baseUrl = new URL(`http://127.0.0.1:${server.address().port}/carlos`);
+  const api = await request.newContext({ storageState: { cookies: [{ ...cookie, httpOnly: true, sameSite: 'Lax' }], origins: [] } });
+  t.after(() => api.dispose());
+  const context = { cookies: async () => (await api.storageState()).cookies, request: api };
+  const { probe, forbiddenByApp } = require('./lib/authz-read-probe');
+  const result = await probe(context, new URL('/carlos/print', baseUrl).href, { method: 'POST', baseUrl });
+  assert.equal(forbiddenByApp(result), true);
+  assert.deepEqual(seen.map(row => row.url), ['/carlos/status/SessionHeartbeat', '/carlos/csrfguard', '/carlos/print']);
+  assert(seen.every(row => row.cookie === 'JSESSIONID=synthetic'));
+  assert.equal(seen.at(-1).token, 'current-token');
+});
+
+test('probe failures preserve their transport diagnostic instead of implying a server HTTP status', async () => {
+  const { probe } = require('./lib/authz-read-probe');
+  const { session } = fixture([]);
+  const answer = await probe(session.context, 'http://127.0.0.1/carlos/print', { method: 'POST', baseUrl: session.config.baseUrl });
+  assert.equal(answer.status, 0);
+  assert.match(answer.error, /requires an application session cookie/);
 });

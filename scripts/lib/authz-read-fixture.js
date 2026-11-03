@@ -53,8 +53,7 @@ const PROVIDER_PREFERENCE_TABLES = ['ProviderPreferenceAppointmentScreenEForm', 
  * and nothing more. It holds no sec object a clinical, billing or administrative write needs.
  *
  * Nothing is added for the login itself: a login with no sec object at all signs in through the
- * form and lands on the schedule (authz-read-role-matrix proves it with er_clerk, which the
- * seed leaves without a single secObjPrivilege row), and providercontrol needs `_appointment` r,
+ * form and lands on the schedule's deliberate 403 page. providercontrol needs `_appointment` r,
  * which `w` already includes (OscarRoleObjectPrivilege's r < u < w hierarchy).
  */
 const WRITE_RESTRICTED_PRIVILEGES = Object.freeze({ _demographic: 'r', _appointment: 'w', _eChart: 'r' });
@@ -208,7 +207,7 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
 
     /**
      * Create a login holding exactly one seeded role.
-     * @return {username, providerNo, role}; sign in with config.testPassword / config.testPin.
+     * @return {username, providerNo, role, scheduleAccess}; sign in with config.testPassword / config.testPin.
      */
     addLogin(roleName) {
       assert(sql.value(`SELECT COUNT(*) FROM security WHERE user_name=${sqlString(testUser)}`) === '1',
@@ -220,7 +219,13 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
       assert(sql.value(`SELECT COUNT(*) FROM security WHERE user_name=${sqlString(username)}`) === '0',
         'A security row already carries this run\'s authz-read username');
       const providerNo = unusedProviderNo();
-      const login = { username, providerNo, role: roleName };
+      // A login holds exactly one role. Match the gate's r/u/w hierarchy and
+      // legacy "only" prefixes, so signIn can validate (and narrowly excuse)
+      // the schedule's expected 403 centrally for every restricted fixture.
+      const scheduleAccess = sql.rows(`SELECT privilege FROM secObjPrivilege
+        WHERE roleUserGroup=${sqlString(roleName)} AND objectName='_appointment'`)
+        .some(row => String(row[0]).split('|').some(right => /^(?:o)?[ruwx]$/i.test(right.trim())));
+      const login = { username, providerNo, role: roleName, scheduleAccess };
       // Registered before the first INSERT so cleanup() covers a half-built login.
       logins.push(login);
       const p = sqlString(providerNo);

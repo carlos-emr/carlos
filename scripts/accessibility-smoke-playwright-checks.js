@@ -3,6 +3,14 @@
 'use strict';
 const {runWorkflow}=require('./lib/workflow-session');
 const {eachUiQualitySurface}=require('./lib/ui-quality-surfaces');
+const {SkipCheck}=require('./lib/playwright-harness');
+function preflightConfig({resolve=require.resolve}={}) {
+  try {resolve('axe-core/axe.min.js');}
+  catch(error) {
+    if(error.code!=='MODULE_NOT_FOUND')throw error;
+    throw new SkipCheck('accessibility-smoke requires the pinned axe-core dependency; install the validation image dependencies');
+  }
+}
 async function workflow(s) {
   await eachUiQualitySurface(s,async(label,page)=>s.step(`${label}: report accessibility rules`,async()=>{
     await page.addScriptTag({path:require.resolve('axe-core/axe.min.js')});
@@ -16,5 +24,5 @@ async function workflow(s) {
     console.log(JSON.stringify({surface:label,...report}));
   }));
 }
-if(require.main===module)runWorkflow('accessibility-smoke',workflow,{openPatient:true});
-module.exports={workflow};
+if(require.main===module)runWorkflow('accessibility-smoke',workflow,{openPatient:true,preflightConfig});
+module.exports={workflow,preflightConfig};

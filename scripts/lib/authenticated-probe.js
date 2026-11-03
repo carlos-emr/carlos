@@ -6,7 +6,7 @@
  * Chromium sends them. Replay only this application's cookies explicitly, with
  * redirects disabled so a refusal probe cannot leak them to another origin.
  */
-async function prepareRead(session, target, options, requireSessionCookie) {
+async function prepareRead(session, target, options, requireSessionCookie, allowPost = false) {
   const {allowSecurityErrorRedirect = false, ...requestOptions} = options;
   const base = session.config.baseUrl;
   const url = new URL(target, base);
@@ -18,8 +18,9 @@ async function prepareRead(session, target, options, requireSessionCookie) {
   if (!['http:', 'https:'].includes(url.protocol) || (url.protocol === 'http:' && !loopback)) {
     throw new Error('Authenticated probes require HTTPS outside loopback');
   }
-  if (!['GET', 'HEAD'].includes(options.method || 'GET')) {
-    throw new Error('Authenticated refusal probes support only GET and HEAD');
+  if (!(allowPost ? ['GET', 'HEAD', 'POST'] : ['GET', 'HEAD']).includes(options.method || 'GET')) {
+    throw new Error(allowPost ? 'Authenticated refusal probes support only GET, HEAD and POST'
+      : 'Authentication-state probes support only GET and HEAD');
   }
   const now = Date.now() / 1000;
   const browserCookies=await session.context.cookies();
@@ -51,7 +52,7 @@ async function authenticationStateProbe(session,target,options={}) {
 }
 
 async function authenticatedProbe(session,target,options={}) {
-  const {base,url,cookieHeader,allowSecurityErrorRedirect,requestOptions,headers}=await prepareRead(session,target,options,true);
+  const {base,url,cookieHeader,allowSecurityErrorRedirect,requestOptions,headers}=await prepareRead(session,target,options,true,true);
   // A retained cookie is not proof of a live server-side session. The method
   // guard can answer 405 even after logout or a service restart. Verify the
   // actual session immediately before EACH probe using this same transport.
@@ -63,6 +64,27 @@ async function authenticatedProbe(session,target,options={}) {
   try {
     if(proof.status()!==200||(await proof.json()).valid!==true)throw new Error('Authenticated probe session is invalid; refusal evidence is inconclusive');
   } finally {await proof.dispose();}
+  if (options.method === 'POST') {
+    // The patient-lock print probe needs a genuine authenticated POST. Fetch
+    // this session's master token instead of mistaking CSRFGuard's rejection
+    // for the patient authorization check the caller means to exercise.
+    const tokenUrl = new URL(base.pathname.replace(/\/$/, '') + '/csrfguard', base);
+    const tokenResponse = await session.context.request.fetch(tokenUrl.href, {
+      method: 'GET', headers: { Cookie: cookieHeader(tokenUrl), Accept: 'text/javascript' },
+      maxRedirects: 0, failOnStatusCode: false,
+      ...(requestOptions.timeout === undefined ? {} : { timeout: requestOptions.timeout }),
+    });
+    try {
+      if (tokenResponse.status() !== 200) throw new Error('Authenticated POST probe could not fetch its CSRF token');
+      const match = /masterTokenValue\s*=\s*["']([^"'\r\n]+)["']/.exec(await tokenResponse.text());
+      if (!match) throw new Error('Authenticated POST probe received no CSRF master token');
+      for (const name of Object.keys(headers)) {
+        if (['csrf-token', 'x-requested-with'].includes(name.toLowerCase())) delete headers[name];
+      }
+      headers['X-Requested-With'] = 'XMLHttpRequest';
+      headers['CSRF-TOKEN'] = match[1];
+    } finally { await tokenResponse.dispose(); }
+  }
   const response = await session.context.request.fetch(url.href, {
     ...requestOptions,
     headers,

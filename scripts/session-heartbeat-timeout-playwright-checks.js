@@ -72,9 +72,13 @@ async function searchTicklers(page, needle) {
   await waitForTicklerTable(page);
 }
 
+function preflightConfig({env=process.env}={}) {
+  if(env.CARLOS_DISPOSABLE_VM!=='true')throw new h.SkipCheck('The clinic-wide fixture requires CARLOS_DISPOSABLE_VM=true');
+  if(env.EXCLUSIVE!=='1')throw new h.SkipCheck('The clinic-wide Suggested Text fixture requires EXCLUSIVE=1');
+}
+
 async function workflow(s) {
-  h.assert(process.env.CARLOS_DISPOSABLE_VM === 'true', 'The clinic-wide fixture requires CARLOS_DISPOSABLE_VM=true');
-  h.assert(process.env.EXCLUSIVE === '1', 'The clinic-wide Suggested Text fixture requires EXCLUSIVE=1');
+  preflightConfig();
   const { sql, context, config, recorder, patient, provider, marker } = s;
   const contexts = [];
   s.cleanup(async () => { for (const ctx of contexts) await ctx.close().catch(() => {}); });
@@ -300,5 +304,5 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('session-heartbeat-timeout', workflow, { openPatient: true });
-module.exports = { workflow };
+if (require.main === module) runWorkflow('session-heartbeat-timeout', workflow, { openPatient: true, preflightConfig });
+module.exports = { workflow, preflightConfig };

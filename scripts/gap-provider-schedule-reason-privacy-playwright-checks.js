@@ -4,18 +4,12 @@
  * gap-provider-schedule-reason-privacy — what the day sheet shows of an appointment's REASON and NOTES,
  * and the per-provider "*" toggle that reveals them (appointmentprovideradminday.jsp:
  * SHOW_APPT_REASON, TOGGLE_REASON_BY_PROVIDER ▸ toggleReason() / updateTooltipsForProvider()).
- * No check read what the schedule discloses on screen: the reason text and the appointment tooltip are
- * the day sheet's most exposed PHI (every person at the front desk sees the screen).
- *
  * User path (throwaway login, its own day sheet): Schedule ▸ the provider's column header ▸ "*".
  * Asserted: with the default configuration (SHOW_APPT_REASON unset) an appointment's reason and notes
- * appear neither as text in the grid nor in any tooltip (title attribute) of the day sheet, while the
- * appointment's own link opens the edit popup that does show them; and the column header offers the
- * reason toggle "*" (the JSP gives TOGGLE_REASON_BY_PROVIDER defaultVal="yes", but
- * CarlosPropertiesCheck only honours a defaultVal of "true", so with the property unset the toggle
- * is never rendered and a front desk cannot reveal reasons for one provider). The toggle assertion
- * and the tooltip exposure (it carries the notes and the free-text reason, ISSUES L329) are asserted together in the last
- * step; the show/hide behaviour behind the toggle cannot be driven until it is reachable.
+ * stay out of the grid, but the appointment's hover tooltip and edit popup show both. The tooltip
+ * behavior is intentional: the owner confirmed it in #5214 (closed not_planned), so #5576 retires the
+ * former disclosure assertion. The column-header reason toggle must still reveal and hide the
+ * reason without changing the tooltip or the stored appointment details.
  * Fixtures: the throwaway login (lib/gap-provider-fixture.js, a number owning no appointment rows), one owned FAKE- patient and one
  * appointment on the throwaway's own schedule today. Cleanup removes the appointment, then the
  * throwaway, and asserts they are gone.
@@ -45,9 +39,7 @@ async function workflow(s) {
   context.on('page', page => h.wireStrictPage(page, 'throwaway', recorder));
   const schedule = await h.login(context, { ...config, testUser: fixture.username }, recorder, { label: 'throwaway-login' });
   const link = schedule.locator('a.apptLink').first();
-  const defects = [];
-
-  await s.step('the day sheet lists the appointment without its reason or notes in the grid (the hover tooltip is collected for the last step)', async () => {
+  await s.step('the day sheet hides reason and notes in the grid and shows both in the hover tooltip', async () => {
     await link.waitFor({ state: 'attached' });
     const exposure = await schedule.evaluate(({ reasonText, notesText }) => {
       const visible = [...document.querySelectorAll('body *')].filter(el => el.children.length === 0
@@ -58,18 +50,13 @@ async function workflow(s) {
       const titles = [...document.querySelectorAll('[title], [data-bs-original-title], [data-bs-title], .tooltip')]
         .map(el => [el.getAttribute('title'), el.getAttribute('data-bs-original-title'), el.getAttribute('data-bs-title'),
           el.classList.contains('tooltip') ? el.textContent : ''].filter(Boolean).join(' ')).join(' ');
-      // The hover tooltip is built from name, time, type, reason CODE name, notes and warnings (appointmentprovideradminday.jsp
-      // appointmentTooltipFull): it carries the notes by design, so only the free-text reason must stay out of it.
+      // #5214: the appointment's free-text reason and notes belong in the tooltip.
       return { visible: visible.includes(reasonText) || visible.includes(notesText), titles: titles.includes(reasonText),
         notesInTooltip: titles.includes(notesText) };
     }, { reasonText: reason, notesText: notes });
     h.assert(!exposure.visible, 'The default day sheet shows the appointment reason or notes in the grid');
-    // The hover tooltip (appointmentprovideradminday.jsp appointmentTooltipFull, shown unconditionally because
-    // SHOW_APPT_REASON_TOOLTIP is hard-coded on) must not disclose the free-text reason or notes either; Bootstrap moves
-    // `title` into data-bs-original-title, which is why a plain [title] scan never saw it. The exposure is collected
-    // here and asserted in the last step, so the grid/popup proofs and the toggle check all run first.
-    if (exposure.titles) defects.push('the hover tooltip carries the appointment\'s free-text reason');
-    if (exposure.notesInTooltip) defects.push('the hover tooltip carries the appointment\'s notes');
+    h.assert(exposure.titles, 'The hover tooltip lost the appointment\'s free-text reason');
+    h.assert(exposure.notesInTooltip, 'The hover tooltip lost the appointment\'s notes');
   });
 
   await s.step('the appointment\'s own link opens the edit popup, which does show the reason and notes', async () => {
@@ -90,12 +77,6 @@ async function workflow(s) {
     h.assert(!await reasonText.isVisible(), 'The toggle did not hide the reason again');
   });
 
-  await s.step('the provider column header offers the "*" reason toggle, and the tooltip keeps the reason and notes out', async () => {
-    if (await schedule.locator('a.expand-reason-btn').count() < 1) {
-      defects.push('the day sheet column header has no reason toggle "*": TOGGLE_REASON_BY_PROVIDER defaultVal="yes" is not honoured by CarlosPropertiesCheck (only "true" is), so it is hidden while the property is unset');
-    }
-    h.assert(defects.length === 0, defects.join('; '));
-  });
 }
 
 if (require.main === module) runWorkflow('gap-provider-schedule-reason-privacy', workflow, { openPatient: true, openMaster: false });

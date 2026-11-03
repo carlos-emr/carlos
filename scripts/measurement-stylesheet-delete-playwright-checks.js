@@ -14,20 +14,22 @@ async function workflow(s) {
   const q = h.sqlString;
   const cssName = `${marker}.css`;
   const peerName = `${marker}-peer.css`;
+  const unusedName = `${marker}-unused.css`;
   const group = `${marker} orphan`;
   const peer = `${marker} peer`;
   const owned = () => sql.value(`SELECT
     (SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName IN (${q(group)},${q(peer)})) +
-    (SELECT COUNT(*) FROM measurementCSSLocation WHERE location IN (${q(cssName)},${q(peerName)}))`);
+    (SELECT COUNT(*) FROM measurementCSSLocation WHERE location IN (${q(cssName)},${q(peerName)},${q(unusedName)}))`);
   h.assert(owned() === '0', 'Per-run style fixtures already exist');
   s.cleanup(() => {
     sql.execute(`DELETE FROM measurementGroupStyle WHERE groupName IN (${q(group)},${q(peer)});
-      DELETE FROM measurementCSSLocation WHERE location IN (${q(cssName)},${q(peerName)})`);
+      DELETE FROM measurementCSSLocation WHERE location IN (${q(cssName)},${q(peerName)},${q(unusedName)})`);
     h.assert(owned() === '0', 'Owned stylesheet fixtures remain after cleanup');
   });
   const css = sql.value(`INSERT INTO measurementCSSLocation(location) VALUES (${q(cssName)}); SELECT LAST_INSERT_ID()`);
   const peerCss = sql.value(`INSERT INTO measurementCSSLocation(location) VALUES (${q(peerName)}); SELECT LAST_INSERT_ID()`);
-  h.assert(/^[1-9]\d*$/.test(css) && /^[1-9]\d*$/.test(peerCss), 'CSS fixture IDs are invalid');
+  const unusedCss = sql.value(`INSERT INTO measurementCSSLocation(location) VALUES (${q(unusedName)}); SELECT LAST_INSERT_ID()`);
+  h.assert([css, peerCss, unusedCss].every(id => /^[1-9]\d*$/.test(id)), 'CSS fixture IDs are invalid');
   sql.execute(`INSERT INTO measurementGroupStyle(groupName,cssID) VALUES (${q(group)},${css}),(${q(peer)},${peerCss})`);
   const snapshot = () => sql.rows(`SELECT groupID,groupName,cssID FROM measurementGroupStyle
     WHERE groupName IN (${q(group)},${q(peer)}) ORDER BY groupID`);
@@ -43,19 +45,19 @@ async function workflow(s) {
   await iframe.waitFor();
   const menu = await (await iframe.elementHandle()).contentFrame();
   h.assert(menu, 'Customize Measurements frame is missing');
-  const open = async () => {
+  const open = async (selectedCss = css) => {
     const page = await s.popup(admin, menu.getByRole('link', {name: 'View All Style Sheet', exact: true}), 'stylesheet-list');
     await page.waitForLoadState('load');
-    await page.locator(`input[name="deleteCheckbox"][value="${css}"]`).check();
+    await page.locator(`input[name="deleteCheckbox"][value="${selectedCss}"]`).check();
     return page;
   };
-  const submit = async page => {
+  const submit = async (page, selectedCss = css) => {
     const response = page.waitForResponse(r => r.request().method() === 'POST'
       && new URL(r.url()).pathname.endsWith('/oscarMeasurements/DeleteMeasurementStyleSheet'));
     await page.getByRole('button', {name: 'Delete', exact: true}).click();
     const result = await response;
     const params = new URLSearchParams(result.request().postData() || '');
-    h.assert(params.getAll('deleteCheckbox').join(',') === css, 'Form submitted an unowned selection');
+    h.assert(params.getAll('deleteCheckbox').join(',') === selectedCss, 'Form submitted an unowned selection');
     h.assert(result.status() < 400, `Stylesheet deletion returned HTTP ${result.status()}`);
     await page.waitForLoadState('load');
     await h.assertNotErrorPage(page, 'stylesheet deletion');
@@ -66,6 +68,21 @@ async function workflow(s) {
     await submit(page);
     h.assert((await page.locator('.action-errors').innerText()).includes(cssName), 'Refusal does not identify the selected stylesheet');
     h.assert(JSON.stringify(snapshot()) === initial, 'Refusal changed a mapping');
+    await page.close();
+  });
+
+  await s.step('deleting an unused stylesheet removes the stylesheet row and preserves both used mappings', async () => {
+    // Finding 170's ordinary deletion is independent of orphan cleanup below:
+    // deleting a stale mapping alone never proves that a stylesheet can go away.
+    const page = await open(unusedCss);
+    await submit(page, unusedCss);
+    h.assert(sql.value(`SELECT COUNT(*) FROM measurementCSSLocation WHERE cssID=${unusedCss}`) === '0',
+      'The unused stylesheet survived Delete');
+    h.assert(await page.locator(`input[name="deleteCheckbox"][value="${unusedCss}"]`).count() === 0,
+      'The deleted stylesheet is still offered by the native list');
+    h.assert(JSON.stringify(snapshot()) === initial, 'Deleting the unused stylesheet changed a used mapping');
+    h.assert(sql.value(`SELECT COUNT(*) FROM measurementCSSLocation WHERE cssID IN (${css},${peerCss})`) === '2',
+      'Deleting the unused stylesheet removed a used stylesheet');
     await page.close();
   });
 

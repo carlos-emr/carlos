@@ -328,8 +328,12 @@ async function workflow(s) {
         `A bad Service Date was not explained to the user: ${alertText}`);
       h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no IN (${alpha},${bravo})`) === '0',
         'A refused date wrote ticklers');
-      // The ISO date the picker emits (and a typed one) is accepted; the same receipt is reused.
-      await form.locator('input[name="serviceDate"]').fill('2030-12-31');
+      // Exercise the actual picker output, not a server-formatted value typed by
+      // the check. The rejected submission above keeps the same receipt alive.
+      // This fixture date is deliberately stable; allow a bounded walk beyond
+      // the shared helper's ordinary two-year range.
+      await ui.pickDate(dashboard, form.locator('input[name="serviceDate"]'), '2030-12-31',
+        { timeout: TIMEOUT, maxMonthSteps: 120 });
       await form.locator('textarea[name="messageAppend"]').fill(`${marker} recall`);
       const invalid = await form.evaluate(element => Object.fromEntries(new FormData(element)));
       // Match the save controller: DOMPurify removes the hidden name="method" field.

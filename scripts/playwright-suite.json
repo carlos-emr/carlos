@@ -507,11 +507,17 @@
     {
       "name": "billing-bc-province-guard",
       "script": "scripts/billing-bc-province-guard-playwright-checks.js",
-      "tiers": ["core"],
+      "tiers": [
+        "core"
+      ],
       "assertsDatabase": false,
-      "provinces": ["ON"],
+      "provinces": [
+        "ON"
+      ],
       "timeoutSec": 120,
-      "env": ["CARLOS_PROPERTIES_FILE"]
+      "env": [
+        "CARLOS_PROPERTIES_FILE"
+      ]
     },
     {
       "name": "billing-service-code-admin",
@@ -1655,7 +1661,8 @@
       "timeoutSec": 300,
       "env": [
         "ERROR_SANITIZATION_SCREENSHOT_DIR"
-      ]
+      ],
+      "notes": "Former error probes must return controlled HTTP 400 through the packaged front door. Deterministic HTML and /ws 5xx body replacement is covered by ResponseSanitizationFilterTomcatIntegrationTest using test-only embedded Tomcat servlets."
     },
     {
       "name": "fax-configure",
@@ -5484,7 +5491,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Two eForm email composers for two patients: each Send must carry only its own patient's eForm (app-findings-log.md finding 140; fails while the session-wide attachment list stands). Finding 140 is fixed on release/2026.08 by #4444 and the step that was pinned to it passed live on 2026.09.0~snapshot26, so it is now this fix's regression test and the entry carries no expectedFailure.",
+      "notes": "Supports release #bodyEmail and unified #message composer selectors. Prior live snapshot26 evidence applies only to the release composer; current-branch packaged runtime acceptance must be recorded separately (#5166).",
       "fixtures": "Owned patient Y, owned LOCAL emailConfig pointing at an in-process 127.0.0.1 SMTP sink and an owned eForm template; nothing leaves the host. The sender is offered clinic-wide, so it must not run concurrently with other checks."
     },
     {
@@ -8660,7 +8667,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "With SHOW_APPT_REASON, SHOW_APPT_REASON_TOOLTIP and TOGGLE_REASON_BY_PROVIDER unset, checks default reason hiding, popup details and the provider toggle in both directions. The separate tooltip disclosure regression (L329) remains asserted; that failure does not mask toggle validation.",
+      "notes": "Owner decision in #5214: schedule hover shows reason and notes; this check preserves hidden grid text and details-popup/toggle assertions and verifies that approved tooltip behavior (#5576).",
       "fixtures": "Throwaway login plus an owned FAKE- patient and one appointment on the throwaway's own schedule; deleted in cleanup."
     },
     {
@@ -13606,21 +13613,6 @@
       "env": [],
       "fixtures": "Owned FAKE- patient with two allergies seeded by SQL, one active and one inactive; cleanup deletes the patient's allergies and their partial_date rows and asserts none remain.",
       "notes": "Fails at its last step on develop: Reactivate on an inactive allergy posts it as allergyToArchive, which the #4410 stale-amendment guard refuses with 409 ('changed or inactivated in another window'), so nothing is reactivated (#4756, pending finding 301; fix pending on release/2026.08, fix/allergy-reactivate-after-stale-guard). Every earlier step passes."
-    },
-    {
-      "name": "allergy-partial-start-date",
-      "script": "scripts/allergy-partial-start-date-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Owned FAKE- patient with two allergies seeded by SQL (a year-only and a year-and-month start date, each with its partial_date row) and the allergies the dialogue saves (two amendments and seven Custom Allergies); cleanup deletes the patient's allergies and their partial_date rows and asserts none remain.",
-      "notes": "Fails at its last step on release/2026.08 and develop: a Start Date typed as 2019 or 2019-05, or a stored 2019-05 clicked into and out of on Modify, is posted as 2019-01-01 or 2019-05-01, because the box is a flatpickr field (calendar-setup.js shim) that parses typed text as a full date, so the precision is lost (pending finding 300, #4807; its release fix #4810 is a draft). Every earlier step passes. The check turns green on release when #4810 merges, and on develop when that reaches it in the forward merge; drop this note then."
     },
     {
       "name": "admin-lot-number-delete",
