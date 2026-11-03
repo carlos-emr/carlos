@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2026 CARLOS EMR Contributors. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -1005,6 +1006,93 @@ public class SecurityInfoManagerUnitTest extends CarlosUnitTestBase {
                 (LoggedInInfo) null, TEST_OBJECT_NAME, SecurityInfoManager.READ, 123);
 
             assertThat(result).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("Bulk demographic read privileges")
+    class BulkDemographicReadPrivileges {
+        private void privileges(List<SecObjPrivilege> rows) {
+            when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenAnswer(invocation -> {
+                Collection<String> names = invocation.getArgument(0);
+                return rows.stream().filter(row -> names.stream().anyMatch(name -> name.equalsIgnoreCase(row.getId().getObjectName().stripTrailing())))
+                        .sorted(Comparator.comparingInt(SecObjPrivilege::getPriority).reversed()).toList();
+            });
+        }
+
+        @Test
+        void shouldReadRolesAndPrivilegesOnce_forManyPatients() {
+            privileges(List.of(createPrivilege(ROLE_DOCTOR, "_demographic", "r", 0)));
+            List<Integer> patients = java.util.stream.IntStream.rangeClosed(1, 100).boxed().toList();
+            assertThat(securityInfoManager.hasDemographicReadPrivileges(mockLoggedInInfo, patients)).isTrue();
+            verify(mockSecuserroleDao).findActiveByProviderNo(TEST_PROVIDER_NO);
+            verify(mockSecObjPrivilegeDao).findByObjectNames(any());
+            verifyNoMoreInteractions(mockSecuserroleDao, mockSecObjPrivilegeDao);
+        }
+
+        @Test
+        void shouldMatchSinglePatientPolicy_forOverridesAndPriority() {
+            privileges(List.of(
+                    createPrivilege(ROLE_DOCTOR, "_demographic", "x", 0),
+                    createPrivilege(ROLE_DOCTOR, "_demographic$1", "or", 5),
+                    createPrivilege(ROLE_DOCTOR, "_demographic$2", "d", 5),
+                    createPrivilege(ROLE_ADMIN, "_demographic$3", "o", 5),
+                    createPrivilege(TEST_PROVIDER_NO, "_demographic$4", "w", 5),
+                    createPrivilege(ROLE_DOCTOR, "_demographic$5", "0", 5)));
+            for (int patient : List.of(1, 2, 3, 4, 5, 6)) {
+                boolean expected = securityInfoManager.hasPrivilege(mockLoggedInInfo, "_demographic", SecurityInfoManager.READ, patient);
+                assertThat(securityInfoManager.hasDemographicReadPrivileges(mockLoggedInInfo, List.of(patient)))
+                        .as("patient %s", patient).isEqualTo(expected);
+            }
+        }
+
+        @Test
+        void shouldHonorStoredObjectCase_forCaseInsensitiveDatabaseNames() {
+            privileges(List.of(createPrivilege(ROLE_DOCTOR, "_DEMOGRAPHIC", "r", 0)));
+            assertThat(securityInfoManager.hasPrivilege(mockLoggedInInfo, "_demographic", SecurityInfoManager.READ, 1)).isTrue();
+            assertThat(securityInfoManager.hasDemographicReadPrivileges(mockLoggedInInfo, List.of(1, 2))).isTrue();
+        }
+
+        @Test
+        void shouldLockAndDeny_whenPatientHasNoRights() {
+            privileges(List.of(createPrivilege(ROLE_DOCTOR, "_demographic", "x", 0),
+                    createPrivilege(ROLE_DOCTOR, "_demographic$2", "o", 5)));
+            assertThat(securityInfoManager.hasDemographicReadPrivileges(mockLoggedInInfo, List.of(1, 2, 3))).isFalse();
+            verify(mockSession).setAttribute("accountLocked", true);
+            verify(mockLoggedInInfo).setSession(mockSession);
+        }
+
+        @Test
+        void shouldBoundQueriesAndDiscardSnapshots_betweenOperations() {
+            privileges(List.of(createPrivilege(ROLE_DOCTOR, "_demographic", "r", 0)));
+            List<Integer> patients = java.util.stream.IntStream.rangeClosed(1, 501).boxed().toList();
+            assertThat(securityInfoManager.hasDemographicReadPrivileges(mockLoggedInInfo, patients)).isTrue();
+            var names = org.mockito.ArgumentCaptor.forClass(Collection.class);
+            verify(mockSecObjPrivilegeDao, times(2)).findByObjectNames(names.capture());
+            assertThat(names.getAllValues()).allSatisfy(batch -> assertThat(batch).hasSizeLessThanOrEqualTo(500));
+            when(mockSecuserroleDao.findActiveByProviderNo(TEST_PROVIDER_NO)).thenReturn(List.of());
+            assertThat(securityInfoManager.hasDemographicReadPrivileges(mockLoggedInInfo, patients)).isFalse();
+            verify(mockSecuserroleDao, times(2)).findActiveByProviderNo(TEST_PROVIDER_NO);
+        }
+
+        @Test
+        void shouldSkipAllReads_forEmptyPatientList() {
+            assertThat(securityInfoManager.hasDemographicReadPrivileges(mockLoggedInInfo, List.of())).isTrue();
+            verifyNoInteractions(mockSecuserroleDao, mockSecObjPrivilegeDao);
+        }
+
+        @Test
+        void shouldFailClosed_whenBulkPrivilegeReadFails() {
+            when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenThrow(new IllegalStateException("unavailable"));
+            assertThat(securityInfoManager.hasDemographicReadPrivileges(mockLoggedInInfo, List.of(1))).isFalse();
+        }
+
+        @Test
+        void shouldPropagatePatientDirective_whenBulkPrivilegeReadThrowsDirective() {
+            var directive = new PatientDirectiveException("restricted");
+            when(mockSecObjPrivilegeDao.findByObjectNames(any())).thenThrow(directive);
+            assertThatThrownBy(() -> securityInfoManager.hasDemographicReadPrivileges(mockLoggedInInfo, List.of(1)))
+                    .isSameAs(directive);
         }
     }
 }
