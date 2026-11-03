@@ -499,7 +499,7 @@
 	</servlet>
 	<servlet>
 		<servlet-name>pdfCustomedCreator</servlet-name>
-		<servlet-class>io.github.carlos_emr.carlos.form.pdfservlet.FrmCustomedPDFServlet</servlet-class>
+		<servlet-class>io.github.carlos_emr.carlos.form.pdfservlet.PrescriptionPdfServlet</servlet-class>
 		<load-on-startup>1</load-on-startup>
 	</servlet>
 	<servlet>
