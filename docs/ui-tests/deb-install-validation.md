@@ -942,6 +942,8 @@ provider and its schedule rows; leave `TEST_SCHEDULE_PROVIDER` unset.
 Its picker can wait up to five and a half minutes for the active-provider cache
 to expire after SQL creates the fixture. It fails if the owned provider never
 appears, and never falls back to editing a shared provider's schedule.
+Use a schedule administrator allowed to select other providers; a login restricted
+by `_admin.schedule.curprovider_only` cannot operate on this owned fixture.
 
 ```bash
 lxc exec carlos-test -- bash -c '

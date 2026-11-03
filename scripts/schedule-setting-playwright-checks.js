@@ -435,9 +435,8 @@ async function runWizard(context, page, cancellation) {
   if (!weekFrame) {
     return;
   }
-  // Deliberately no provider number: it is an identifier that joins back to
-  // records, and what a failed run actually needs to know is HOW the provider was
-  // chosen — a caller reproducing the run sets TEST_SCHEDULE_PROVIDER themselves.
+  // Report how the provider was chosen, without logging its identifier.
+  // The provider is always this run's owned fixture; TEST_SCHEDULE_PROVIDER stays unset.
   visited.push({
     label: 'schedule-week-setting',
     url: recordableUrl(weekFrame.url()),

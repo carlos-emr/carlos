@@ -11,7 +11,7 @@ async function waitForScheduleProvider(loadFrame, provider, {now=Date.now,
   let frame=await loadFrame();
   while(frame && await frame.locator(`select[name="provider_no"] option[value="${provider}"]`).count()===0) {
     checkpoint();
-    h.assert(now()<deadline, 'Schedule Setting never offered the owned provider after the active-provider cache expired');
+    h.assert(now()<deadline, 'Schedule Setting never offered the owned provider after the active-provider cache expired; the login must be allowed to select another provider (check _admin.schedule.curprovider_only restrictions)');
     await pause(15000); checkpoint(); frame=await loadFrame();
   }
   return frame;
