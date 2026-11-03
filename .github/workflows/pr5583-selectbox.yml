@@ -1,0 +1,62 @@
+# Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+# 
+# This software is published under the GPL GNU General Public License.
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# 
+# CARLOS EMR Project
+# https://github.com/carlos-emr/carlos
+# Disposable browser regression verification only.
+name: PR 5583 Select Box Regression
+on:
+  push:
+    branches: [validation/pr-5583-runtime]
+    paths: [.github/workflows/pr5583-selectbox.yml]
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 9d1834711db9c6889e3a1cdf772eed12ffdbe567
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
+      - name: Install Playwright and the pinned browser
+        run: |
+          npm install --prefix "$RUNNER_TEMP/select-probe" --no-audit --no-fund playwright@1.60.0
+          rev="$(sed -n 's/^rev=//p' debian/chromium.pin)"
+          chrome_sha="$(sed -n 's/^chrome_sha256=//p' debian/chromium.pin)"
+          driver_sha="$(sed -n 's/^chromedriver_sha256=//p' debian/chromium.pin)"
+          bash debian/fetch-chromium.sh "$rev" "$chrome_sha" "$driver_sha" "$RUNNER_TEMP/pinned-chromium"
+          echo "CHROME_PATH=$RUNNER_TEMP/pinned-chromium/chrome-linux/chrome" >> "$GITHUB_ENV"
+          echo "NODE_PATH=$RUNNER_TEMP/select-probe/node_modules" >> "$GITHUB_ENV"
+      - name: Reproduce the bug on main, then verify the fix
+        run: |
+          set -euo pipefail
+          source=src/main/webapp/share/javascript/select.js
+          cp "$source" "$RUNNER_TEMP/fixed-select.js"
+          curl -fsSL https://raw.githubusercontent.com/carlos-emr/carlos/ca0758757817854ecb03d7380336fa78502f4658/src/main/webapp/share/javascript/select.js > "$source"
+          if node scripts/selectbox-position-browser-check.js >"$RUNNER_TEMP/baseline.log" 2>&1; then
+            echo "::error::The baseline unexpectedly passed the positioning regression"
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/baseline.log"
+          grep -E 'dropdown must (align|sit directly)' "$RUNNER_TEMP/baseline.log"
+          cp "$RUNNER_TEMP/fixed-select.js" "$source"
+          node scripts/selectbox-position-browser-check.js
