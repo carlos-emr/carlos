@@ -43,3 +43,22 @@ test('other server refusals and a failed save remain failures without logging cl
     });
   }
 });
+
+test('a missing fax account cannot hide annotation findings already collected', async () => {
+  const h = require('./lib/playwright-harness');
+  for (const findings of [[], ['FAIL an earlier annotation assertion']]) {
+    let check;
+    const context = vm.createContext({
+      h: {...h, runCheck: options => {check=options;}},
+      legacyHarness: {armInterruption() {}},
+      createOwnedAnnotationFixture: () => ({create() {}, cleanup() {}}), readConfig: () => ({}),
+      main: async () => {throw new h.SkipCheck('active fax account required');},
+      notes: [], findings, console: {log() {}},
+    });
+    vm.runInContext(source.slice(source.indexOf('let ownedFixture;')), context);
+    await assert.rejects(check.run({}), error => findings.length
+      ? error.name !== 'SkipCheck' && /1 annotation check/.test(error.message)
+      : error instanceof h.SkipCheck);
+    await check.cleanup();
+  }
+});
