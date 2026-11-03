@@ -669,15 +669,26 @@ test('configure removes only the stock nginx symlink before its first configurat
       if (kind === 'symlink') fs.symlinkSync(target, defaultSite);
       if (kind === 'file') fs.writeFileSync(defaultSite, 'administrator site\n');
       const block = postinst.slice(start, end).replaceAll('/etc/nginx', nginx);
+      const bin = path.join(nginx, 'bin');
+      fs.mkdirSync(bin);
+      fs.writeFileSync(path.join(bin, 'carlos-ctl'), '#!/bin/sh\n'
+        + '[ "$1" = init-config ] || exit 2\n'
+        + 'printf "init-config\\n"\n'
+        + '[ ! -e "$CARLOS_TEST_DEFAULT_SITE" ] || exit 1\n'
+        + 'exit "$CARLOS_TEST_INIT_STATUS"\n', {mode: 0o755});
       const script = 'set -e\nPROVISION_LOCK_HELD=' + (locked ? '1' : '0') + '\n'
         + 'free_front_door() { :; }\n'
         + 'mark_incomplete() { printf "incomplete\\n"; }\n'
-        + 'carlos-ctl() { [ ! -e "' + defaultSite + '" ] && return ' + initStatus + '; return 1; }\n'
         + block;
-      const result = spawnSync('sh', ['-c', script], {encoding: 'utf8'});
+      const result = spawnSync('sh', ['-c', script], {
+        encoding: 'utf8',
+        env: {...process.env, PATH: bin + path.delimiter + process.env.PATH,
+          CARLOS_TEST_DEFAULT_SITE: defaultSite, CARLOS_TEST_INIT_STATUS: String(initStatus)},
+      });
+      assert.equal(result.stdout.includes('init-config'), locked);
       assert.equal(result.status, 0, result.stderr);
       assert.equal(result.stdout.includes('incomplete'), incomplete, JSON.stringify({kind, locked, initStatus, result}));
-      assert.equal(fs.existsSync(defaultSite), kind === 'file' || !locked);
+      assert.equal(fs.existsSync(defaultSite), kind === 'file');
       assert.equal(fs.readFileSync(target, 'utf8'), 'listen [::]:80 default_server;\n');
       if (kind === 'file') assert.equal(fs.readFileSync(defaultSite, 'utf8'), 'administrator site\n');
     }

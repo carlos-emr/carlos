@@ -36,8 +36,8 @@ const searchSource = section('async function searchTicklerList(', 'async functio
 const refreshSource = section('async function waitForTicklerDraw(', 'async function setTicklerListStatus(');
 
 function searchFixture(found = true) {
-  const events = [];
-  let input = '', search = '', pending = null, rows = [];
+  const events = [], requests = [], scheduled = [];
+  let input = '', search = '', rows = [];
   const settings = {bDrawing: false, jqXHR: {readyState: 4}};
   const table = {
     search: () => search,
@@ -53,30 +53,36 @@ function searchFixture(found = true) {
       assert.equal(selector, '#ticklerResults_filter input[type="search"]');
       return {
         inputValue: async () => input,
-        async fill(value) { input = value; pending = value; events.push(['input', value]); },
+        async fill(value) {
+          input = value;
+          events.push(['input', value]);
+          // Only input schedules a draw. The polling stub merely observes it.
+          scheduled.push(() => {
+            search = value;
+            settings.jqXHR = {readyState: 1};
+            requests.push(value);
+          }, () => {
+            settings.jqXHR.readyState = 4;
+            settings.bDrawing = true;
+          }, () => {
+            rows = found && value ? [{message: value}] : [];
+            settings.bDrawing = false;
+            events.push(['drawn', value]);
+          });
+        },
       };
     },
     async waitForFunction(callback, argument) {
-      if (pending !== null) {
-        assert.equal(evaluate(callback, argument), false, 'Search must wait for the native debounce');
-        search = pending;
-        pending = null;
-        settings.jqXHR = {readyState: 1};
-        assert.equal(evaluate(callback, argument), false, 'Search must wait for the response body');
-        settings.jqXHR.readyState = 4;
-        settings.bDrawing = true;
-        assert.equal(evaluate(callback, argument), false, 'Search must wait for the rendered rows');
-        rows = found && search ? [{message: search}] : [];
-        settings.bDrawing = false;
-        events.push(['drawn', search]);
+      while (!evaluate(callback, argument)) {
+        assert(scheduled.length, 'Predicate did not settle after all scheduled input/draw work');
+        await scheduled.shift()();
       }
-      assert.equal(evaluate(callback, argument), true);
     },
     async evaluate(callback) { return evaluate(callback); },
   };
   const sandbox = {};
   vm.runInNewContext(searchSource + '\nthis.probe = probeTicklerSearch; this.search = searchTicklerList;', sandbox);
-  return {page, events, probe: sandbox.probe, search: sandbox.search};
+  return {page, events, requests, probe: sandbox.probe, search: sandbox.search};
 }
 
 for (const found of [true, false]) {
@@ -86,6 +92,7 @@ for (const found of [true, false]) {
     assert.deepEqual(fixture.events, [
       ['input', 'owned tickler'], ['drawn', 'owned tickler'], ['input', ''], ['drawn', ''],
     ]);
+    assert.deepEqual(fixture.requests, ['owned tickler', '']);
   });
 }
 
@@ -93,6 +100,7 @@ test('an already settled search does not send another list request', async () =>
   const fixture = searchFixture();
   await fixture.search(fixture.page, '');
   assert.deepEqual(fixture.events, []);
+  assert.deepEqual(fixture.requests, []);
 });
 
 function refreshFixture(status = 200, bodyFailure = null) {
