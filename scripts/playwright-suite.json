@@ -18351,11 +18351,7 @@
       "envSet": {
         "DIALOG_CONFIRMATION_TARGET": "document"
       },
-      "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently.",
-      "expectedFailure": {
-        "finding": 336,
-        "step": "dismissing document Delete confirms once and leaves both document rows unchanged"
-      }
+      "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently. Fixed by #5572."
     },
     {
       "script": "scripts/tickler-demo-main-status-playwright-checks.js",
