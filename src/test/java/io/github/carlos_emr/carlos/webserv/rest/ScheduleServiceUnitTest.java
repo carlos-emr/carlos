@@ -341,7 +341,7 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
                 .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
                         .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
 
-        verify(scheduleManager, never()).updateAppointment(any(), any());
+        verifyNoInteractions(scheduleManager, appointmentManager);
     }
 
     @Test
@@ -349,19 +349,21 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
     void shouldRespondNotFound_whenAppointmentMissing() {
         registerMock(DemographicDao.class, Mockito.mock(DemographicDao.class));
         registerMock(ProviderDao.class, Mockito.mock(ProviderDao.class));
-        when(scheduleManager.updateAppointment(any(), eq(404), any(), any()))
+        when(scheduleManager.updateAppointment(any(), eq(404), eq("read-version"), any()))
                 .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(
                         io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason.NOT_FOUND));
 
         AppointmentTo1 to = new AppointmentTo1();
         to.setId(404);
+        to.setEditVersion("read-version");
 
         assertThatThrownBy(() -> service.updateAppointment(to))
                 .isInstanceOf(WebApplicationException.class)
                 .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
                         .isEqualTo(Response.Status.NOT_FOUND.getStatusCode()));
 
-        verify(scheduleManager, never()).updateAppointment(any(), any());
+        verify(scheduleManager).updateAppointment(eq(loggedInInfo), eq(404), eq("read-version"), any());
+        verifyNoInteractions(appointmentManager);
     }
 
     @Test
@@ -455,6 +457,6 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
                 .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus())
                         .isEqualTo(Response.Status.BAD_REQUEST.getStatusCode()));
 
-        verify(appointmentManager, never()).updateAppointmentUrgency(any(), anyInt(), any());
+        verifyNoInteractions(scheduleManager, appointmentManager);
     }
 }

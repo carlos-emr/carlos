@@ -40,6 +40,7 @@ import static org.mockito.Mockito.*;
 
 /** Uses the CI MariaDB DAO lane when configured, and H2 for the ordinary test lane. */
 @Tag("integration")
+@Tag("dao")
 @Tag("mariadb-native")
 class AppointmentUpdateDaoIntegrationTest {
     private SessionFactory factory;
