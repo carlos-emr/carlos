@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.QrCodeUtils;
 import io.github.carlos_emr.carlos.utility.QrCodeUtils.QrCodesOrientation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -73,41 +74,31 @@ public final class PrescriptionQrCodeUIBean {
 
     public static byte[] getPrescriptionHl7QrCodeImage(int prescriptionId) {
 
-        logger.debug("Display QR Code for prescriptionId={}", prescriptionId);
+        String diagnosticPrescriptionId = LogSafe.sanitize(Integer.toString(prescriptionId));
+        logger.debug("Display QR Code for prescriptionId={}", diagnosticPrescriptionId);
 
-        // Fixed operation names retain the failure site without serializing exception content.
-        String stage = "loadClinic";
         try {
             Clinic clinic = clinicDAO.getClinic();
-            stage = "loadPrescription";
             Prescription prescription = prescriptionDao.find(prescriptionId);
-            stage = "loadProvider";
             Provider provider = providerDao.getProvider(prescription.getProviderNo());
-            stage = "loadDemographic";
             Demographic demographic = demographicDao.getDemographicById(prescription.getDemographicId());
-            stage = "loadDrugs";
             List<Drug> drugs = drugDao.findByPrescriptionId(prescription.getId().intValue());
 
-            stage = "buildHl7";
             OMP_O09 hl7PrescriptionMessage = OmpO09Builder.makeOmpO09(clinic, provider, demographic, prescription, drugs);
-            stage = "encodeHl7";
             String hl7PrescriptionString = Hl7ParserUtils.pipeParser.encode(hl7PrescriptionMessage);
             // The HL7 message contains patient and medication data; only log operational metadata.
             logger.debug("Encoded prescription QR code: prescriptionId={}, drugCount={}, payloadLength={}",
-                    prescriptionId, drugs.size(), hl7PrescriptionString.length());
+                    diagnosticPrescriptionId, drugs.size(), hl7PrescriptionString.length());
 
-            stage = "configureQr";
             int qrCodeScale = Integer.valueOf(CarlosProperties.getInstance().getProperty("QR_CODE_IMAGE_SCALE_FACTOR"));
-            ErrorCorrectionLevel ecLevel = getEcLevel();
 
-            stage = "renderQr";
-            byte[] image = QrCodeUtils.toMultipleQrCodePngs(hl7PrescriptionString, ecLevel, QrCodesOrientation.VERTICAL, qrCodeScale);
+            byte[] image = QrCodeUtils.toMultipleQrCodePngs(hl7PrescriptionString, getEcLevel(), QrCodesOrientation.VERTICAL, qrCodeScale);
 
             return (image);
         } catch (Exception e) {
             // Parser and renderer exceptions can repeat clinical values in messages and causes.
-            logger.error("Prescription QR code generation failed: prescriptionId={}, stage={}, errorType={}",
-                    prescriptionId, stage, e.getClass().getName());
+            logger.error("Prescription QR code generation failed: prescriptionId={}, errorType={}, diagnostic={}",
+                    diagnosticPrescriptionId, e.getClass().getName(), LogSafe.exceptionTrace(e));
         }
 
         return (null);
