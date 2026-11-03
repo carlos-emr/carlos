@@ -31,6 +31,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
@@ -479,24 +482,15 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
         }
     }
 
-    /**
-     * Tests for getIssuesByNote(Integer noteId, Boolean resolved).
-     *
-     * <p>This method navigates the CaseManagementIssue → notes collection
-     * (via casemgmt_issue_notes join table) to find issues linked to a given note.
-     * The current HQL uses {@code cmi.notes.id} which is an illegal dereference of a
-     * collection property in Hibernate 5 — you cannot navigate through a collection
-     * to access element properties without an explicit join. This causes a QueryException.
-     * PR #89 rewrites the HQL to use proper join syntax.</p>
-     */
+    /** Real Hibernate queries through both sides of the note/issue many-to-many mapping. */
     @Nested
-    @DisplayName("getIssuesByNote (2 params: noteId, resolved)")
+    @DisplayName("getIssuesByNote (noteId, resolved)")
     class GetIssuesByNote {
 
         private CaseManagementNote createAndLinkNote(String demoNo, CaseManagementIssue... cmis) {
             CaseManagementNote note = new CaseManagementNote();
             note.setDemographic_no(demoNo);
-            note.setNote("Test note for issue link");
+            note.setNote("Synthetic note for issue lookup");
             note.setProviderNo("999998");
             note.setUuid(UUID.randomUUID().toString());
             note.setUpdate_date(new Date());
@@ -504,51 +498,77 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             note.setSigned(false);
             note.setArchived(false);
             note.setLocked(false);
+            note.getIssues().addAll(List.of(cmis));
             caseManagementNoteDAO.saveNote(note);
-
-            for (CaseManagementIssue cmi : cmis) {
-                note.getIssues().add(cmi);
-            }
-            caseManagementNoteDAO.updateNote(note);
+            entityManager.flush();
             hibernateTemplate.flush();
             return note;
         }
 
-        @Test
-        @Tag("query")
-        @DisplayName("should throw IllegalArgumentException due to illegal collection dereference")
-        void shouldThrowIllegalArgumentException_whenDereferencingCollectionProperty() {
-            // Given — create a note linked to testIssue1 via CMI
-            CaseManagementIssue cmi = createCaseManagementIssue("20200", testIssue1);
+        @ParameterizedTest
+        @NullSource
+        @ValueSource(booleans = {false, true})
+        void shouldReturnExactIssuesOnce_whenNoteHasMultipleAssociations(Boolean resolved) {
+            CaseManagementIssue active = createCaseManagementIssue("20200", testIssue1);
+            CaseManagementIssue secondActive = createCaseManagementIssue("20200", testIssue2);
+            CaseManagementIssue inactive = createResolvedIssue("20200", testIssue2);
+            CaseManagementNote target = createAndLinkNote("20200", active, secondActive, inactive);
+            // One issue belongs to multiple notes; other issues belong only to another
+            // note on the same patient, another patient, or no note at all.
+            CaseManagementIssue otherNoteIssue = createCaseManagementIssue("20200", testIssue1);
+            createAndLinkNote("20200", active, otherNoteIssue);
+            createAndLinkNote("20300", createCaseManagementIssue("20300", testIssue1),
+                    createResolvedIssue("20300", testIssue2));
+            createCaseManagementIssue("20200", testIssue1);
+            entityManager.flush();
             hibernateTemplate.flush();
-            CaseManagementNote note = createAndLinkNote("20200", cmi);
+            entityManager.clear();
 
-            // When/Then — the HQL "cmi.notes.id" illegally dereferences a collection
-            // property. Hibernate cannot navigate through a Set to access element
-            // properties without an explicit join. This documents the pre-change bug.
-            // Hibernate 5's ExceptionConverterImpl.convert() wraps QueryException as
-            // IllegalArgumentException (JPA convention) rather than HibernateQueryException.
-            assertThatThrownBy(() ->
-                caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), null)
-            ).isInstanceOf(IllegalArgumentException.class);
+            List<Long> expected = resolved == null
+                    ? List.of(active.getId(), secondActive.getId(), inactive.getId())
+                    : resolved ? List.of(inactive.getId()) : List.of(active.getId(), secondActive.getId());
+            List<CaseManagementIssue> found = caseManagementIssueDAO.getIssuesByNote(
+                    Math.toIntExact(target.getId()), resolved);
+            assertThat(found).extracting(CaseManagementIssue::getId)
+                    .containsExactlyInAnyOrderElementsOf(expected);
+            assertThat(found).extracting(CaseManagementIssue::isResolved).isSorted();
         }
 
-        @Test
-        @Tag("filter")
-        @DisplayName("should throw IllegalArgumentException with resolved filter due to same collection bug")
-        void shouldThrowIllegalArgumentException_whenFilteringByResolved() {
-            // Given — create resolved + unresolved CMIs linked to same note
-            CaseManagementIssue unresolvedCmi = createCaseManagementIssue("20300", testIssue1);
-            CaseManagementIssue resolvedCmi = createResolvedIssue("20300", testIssue2);
-            hibernateTemplate.flush();
-            CaseManagementNote note = createAndLinkNote("20300", unresolvedCmi, resolvedCmi);
+        @ParameterizedTest
+        @NullSource
+        @ValueSource(booleans = {false, true})
+        void shouldReturnEmpty_whenNoteHasNoIssues(Boolean resolved) {
+            createAndLinkNote("20200", createCaseManagementIssue("20200", testIssue1),
+                    createResolvedIssue("20200", testIssue2));
+            CaseManagementNote empty = createAndLinkNote("20200");
+            entityManager.clear();
 
-            // When/Then — same collection dereference bug regardless of resolved filter
-            // Hibernate 5's ExceptionConverterImpl.convert() wraps QueryException as
-            // IllegalArgumentException (JPA convention) rather than HibernateQueryException.
-            assertThatThrownBy(() ->
-                caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), false)
-            ).isInstanceOf(IllegalArgumentException.class);
+            assertThat(caseManagementIssueDAO.getIssuesByNote(Math.toIntExact(empty.getId()), resolved)).isEmpty();
+        }
+
+        @ParameterizedTest
+        @NullSource
+        @ValueSource(booleans = {false, true})
+        void shouldReturnEmpty_whenNoteDoesNotExist(Boolean resolved) {
+            CaseManagementNote existing = createAndLinkNote("20200",
+                    createCaseManagementIssue("20200", testIssue1), createResolvedIssue("20200", testIssue2));
+            int missingId = Math.toIntExact(existing.getId()) + 1;
+            assertThat(entityManager.find(CaseManagementNote.class, (long) missingId)).isNull();
+            entityManager.clear();
+
+            assertThat(caseManagementIssueDAO.getIssuesByNote(missingId, resolved)).isEmpty();
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        void shouldReturnEmpty_whenNoIssueMatchesResolvedFilter(boolean resolved) {
+            CaseManagementIssue issue = resolved
+                    ? createCaseManagementIssue("20200", testIssue1)
+                    : createResolvedIssue("20200", testIssue1);
+            CaseManagementNote note = createAndLinkNote("20200", issue);
+            entityManager.clear();
+
+            assertThat(caseManagementIssueDAO.getIssuesByNote(Math.toIntExact(note.getId()), resolved)).isEmpty();
         }
     }
 

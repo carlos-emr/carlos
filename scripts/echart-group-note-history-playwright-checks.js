@@ -32,6 +32,8 @@ async function workflow(s) {
   let privateId;
   let futureId;
   let groupLink;
+  let ownerIssue;
+  let recipientIssue;
   let childrenRemoved = false;
   // The recipient search must not also load the unrelated owner through a shared surname prefix.
   const ownerName = `FAKE-GROUP${randomBytes(8).toString('hex')}`;
@@ -122,6 +124,17 @@ async function workflow(s) {
     groupLink = sql.value(`INSERT INTO GroupNoteLink (noteId,demographicNo,anonymous,active,created)
       VALUES (${sharedId},${patient},0,1,NOW()); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(groupLink), 'The exact-revision group link was not created');
+    const catalog = sql.rows("SELECT issue_id FROM issue WHERE type='system' ORDER BY issue_id LIMIT 2");
+    h.assert(catalog.length === 2 && catalog.every(([id]) => /^[1-9]\d*$/.test(id)), 'The issue catalog fixtures are missing');
+    function seedIssue(demographic, issue) {
+      const id = sql.value(`INSERT INTO casemgmt_issue (demographic_no,issue_id,acute,certain,major,resolved,update_date)
+        VALUES (${demographic},${issue},0,1,0,0,NOW()); SELECT LAST_INSERT_ID()`);
+      h.assert(/^[1-9]\d*$/.test(id), 'The owned patient issue was not created');
+      return id;
+    }
+    ownerIssue = seedIssue(owner, catalog[0][0]);
+    recipientIssue = seedIssue(patient, catalog[1][0]);
+    sql.execute(`INSERT INTO casemgmt_issue_notes (id,note_id) VALUES (${ownerIssue},${sharedId}),(${ownerIssue},${privateId})`);
     const ownerBeforeChart = JSON.stringify(readPatientState(sql, owner));
     readerSession = await loginAs(reader);
     readerSession.context.on('page', page => h.wireStrictPage(page, 'group-history', recorder));
@@ -139,6 +152,19 @@ async function workflow(s) {
 
   const snapshot = () => JSON.stringify({recipient: readPatientState(sql, patient), owner: readPatientState(sql, owner),
     links: sql.rows(`SELECT * FROM GroupNoteLink WHERE demographicNo IN (${patient},${owner}) ORDER BY id`)});
+  await s.step('reopening Current Issues preserves both patient states and keeps group-owner issues out of recipient controls', async () => {
+    const before = snapshot();
+    await chart.reload();
+    await waitForNavbars(chart, 30000);
+    await chart.locator('#notesFilterToggle').click();
+    await chart.locator('#filter').waitFor({state: 'visible'});
+    h.assert(await chart.locator(`input[name="issues"][value="${recipientIssue}"]`).count() === 1,
+      'Current Issues omitted the recipient issue');
+    h.assert(await chart.locator(`input[name="issues"][value="${ownerIssue}"]`).count() === 0,
+      'Current Issues added an issue from the group-note owner');
+    h.assert(snapshot() === before, 'Reopening Current Issues changed a patient record or group link');
+    await chart.locator('#notesFilterToggle').click();
+  });
   const address = (id, target = patient) => h.appUrl(config.baseUrl,
     `/CaseManagementEntry?method=notehistory&demographicNo=${target}&noteId=${id}`);
   const clinicalTexts = Object.values(texts);
