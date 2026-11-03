@@ -490,9 +490,12 @@ service context require manual recovery. A datadir configured normally under
 /etc/mysql is supported. The probe and bootstrap both run as mysql with a
 clean environment, so root's .my.cnf cannot redirect them to another database.
 The helper keeps existing files, uses socket authentication for root, and
-creates no test database. It refuses existing schemas, upgrade-info files,
-unrecognized files, a partial mysql schema, running database processes, other
-provisioning runs, imports, and a missing or nonexecutable import guard. Paths
+creates no test database. During initialization it also loads the operating
+system's timezone data into the new mysql schema, so the configured named
+timezone can be used at normal service startup. It refuses existing schemas,
+upgrade-info files, unrecognized files, a partial mysql schema, running
+database processes, other provisioning runs, imports, and a missing or
+nonexecutable import guard. Paths
 with whitespace also require manual recovery (unsupported by the vendor's
 shell initializer). A refusal leaves the normal install-incomplete notice.
 

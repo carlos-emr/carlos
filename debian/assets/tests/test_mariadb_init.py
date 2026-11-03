@@ -46,6 +46,8 @@ class TestMariaDBInitialization(unittest.TestCase):
         self.datadir = root / "custom-datadir"
         self.datadir.mkdir()
         self.state = root / "state"
+        self.runtime = root / "runtime"
+        self.runtime.mkdir()
         self.guard = root / "o19-guard"
         self.guard.write_text("#!/bin/sh\nexit 0\n")
         self.guard.chmod(0o755)
@@ -55,6 +57,7 @@ class TestMariaDBInitialization(unittest.TestCase):
         self.skel.write_bytes(self.properties.read_bytes())
         self.wsrep_files = (root / "wsrep-new-cluster", root / "wsrep-start-position")
         stack.enter_context(patch.object(init, "STATE", self.state))
+        stack.enter_context(patch.object(init, "RUNTIME", self.runtime))
         stack.enter_context(patch.object(init, "IMPORT_GUARD", str(self.guard)))
         stack.enter_context(patch.object(init, "PROPERTIES", self.properties))
         stack.enter_context(patch.object(init, "SKEL", self.skel))
@@ -85,6 +88,11 @@ class TestMariaDBInitialization(unittest.TestCase):
         self.guard_rc = 0
         self.process_rc = 1
         self.help_rc = 0
+        self.timezone_rc = 0
+        self.timezone_sql = "INSERT INTO time_zone_name (Name, Time_zone_id) VALUES ('Etc/UTC', 1);\n"
+        self.timezone_exception = None
+        self.timezone_files = []
+        self.timezone_snapshots = []
         self.init_rc = 0
         self.create_tables = True
         self.init_exception = None
@@ -111,6 +119,14 @@ class TestMariaDBInitialization(unittest.TestCase):
             rc = self.process_rc
         elif args[0] == "runuser" and args[-3:] == ["mariadbd", "--verbose", "--help"]:
             out, rc = f"datadir    {self.datadir}/\n", self.help_rc
+        elif args[0] == "runuser" and args[-4:] == ["mariadb-tzinfo-to-sql", "--no-defaults",
+                                                  "--skip-write-binlog", "/usr/share/zoneinfo"]:
+            self.assertEqual(timeout, 60)
+            self.assertEqual(env, {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C"})
+            self.assertEqual(cwd, "/")
+            if self.timezone_exception:
+                raise self.timezone_exception
+            out, err, rc = self.timezone_sql, "timezone diagnostic\n", self.timezone_rc
         elif args[0] == str(self.guard):
             rc = self.guard_rc
         elif args[0] == "timeout":
@@ -118,6 +134,10 @@ class TestMariaDBInitialization(unittest.TestCase):
             self.assertEqual(timeout, 200)
             self.assertEqual(env, {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C"})
             self.assertEqual(cwd, "/")
+            extra, = [arg.split("=", 1)[1] for arg in args if arg.startswith("--extra-file=")]
+            sql = Path(extra)
+            self.timezone_files.append(sql)
+            self.timezone_snapshots.append((sql, sql.read_text(), sql.stat().st_mode & 0o777))
             if self.init_exception:
                 raise self.init_exception
             rc, err = self.init_rc, "initializer diagnostic\n"
@@ -131,9 +151,13 @@ class TestMariaDBInitialization(unittest.TestCase):
     def initialized(self):
         return [args for args in self.calls if "mariadb-install-db" in args]
 
+    def timezone_preparations(self):
+        return [args for args in self.calls if "mariadb-tzinfo-to-sql" in args]
+
     def assert_refused(self, argv=None):
         self.assertEqual(init.main(argv), 1)
         self.assertEqual(self.initialized(), [])
+        self.assertEqual(self.timezone_preparations(), [])
 
     def test_initializes_empty_configured_directory_with_socket_root_and_no_test_db(self):
         self.assertEqual(init.main(), 0)
@@ -143,9 +167,43 @@ class TestMariaDBInitialization(unittest.TestCase):
         self.assertIn("--auth-root-authentication-method=socket", args)
         self.assertIn("--skip-test-db", args)
         self.assertIn("--disable-log-bin", args)
+        self.assertIn("--default-time-zone=SYSTEM", args)
         # A repeated configure must keep the initialized privilege tables.
         self.assertEqual(init.main(), 2)
         self.assertEqual(len(self.initialized()), 1)
+        self.assertEqual(len(self.timezone_preparations()), 1)
+
+    def test_timezone_generation_failure_empty_output_or_timeout_does_not_initialize(self):
+        for rc, output, exception in (
+            (1, self.timezone_sql, None),
+            (0, " \n\t", None),
+            (0, "", subprocess.TimeoutExpired("mariadb-tzinfo-to-sql", 60)),
+        ):
+            with self.subTest(returncode=rc, output=output, exception=exception):
+                self.calls.clear()
+                self.timezone_rc, self.timezone_sql, self.timezone_exception = rc, output, exception
+                self.assertEqual(init.main(), 1)
+                self.assertEqual(len(self.timezone_preparations()), 1)
+                self.assertEqual(self.initialized(), [])
+                self.assertEqual(list(self.datadir.iterdir()), [])
+                self.assertEqual(list(self.runtime.iterdir()), [])
+
+    def test_bootstrap_reads_complete_public_timezone_sql_and_tempfile_is_removed(self):
+        self.assertEqual(init.main(), 0)
+        sql, contents, mode = self.timezone_snapshots[0]
+        self.assertEqual(sql.parent, self.runtime)
+        self.assertEqual(contents, "USE mysql;\n" + self.timezone_sql)
+        self.assertEqual(mode, 0o644)
+        self.assertFalse(sql.exists())
+        self.assertEqual(list(self.runtime.iterdir()), [])
+
+    def test_timezone_preparation_is_skipped_for_an_already_initialized_database(self):
+        (self.datadir / "mysql").mkdir()
+        (self.datadir / "mysql/db.frm").touch()
+        self.assertEqual(init.main(), 2)
+        self.assertEqual(self.timezone_preparations(), [])
+        self.assertEqual(self.initialized(), [])
+        self.assertEqual(list(self.runtime.iterdir()), [])
 
     def test_failed_first_start_artifacts_are_kept_byte_for_byte(self):
         files = {name: name.encode() for name in (
@@ -343,9 +401,11 @@ class TestMariaDBInitialization(unittest.TestCase):
                   "USER=mysql", "LOGNAME=mysql", "LC_ALL=C", "TMPDIR="]
         commands = [(args, env, cwd) for args, env, cwd in self.invocations
                     if args[0] in ("runuser", "timeout")]
-        self.assertEqual(len(commands), 2)
-        probe, bootstrap = commands
+        self.assertEqual(len(commands), 3)
+        probe, timezone, bootstrap = commands
         self.assertEqual(probe[0], prefix + ["mariadbd", "--verbose", "--help"])
+        self.assertEqual(timezone[0], prefix + ["mariadb-tzinfo-to-sql", "--no-defaults",
+                                              "--skip-write-binlog", "/usr/share/zoneinfo"])
         self.assertEqual(bootstrap[0][3:3 + len(prefix)], prefix)
         for _, env, cwd in commands:
             self.assertEqual(env, {"PATH": "/usr/sbin:/usr/bin:/sbin:/bin", "LC_ALL": "C"})
@@ -455,6 +515,9 @@ class TestMariaDBInitialization(unittest.TestCase):
         self.init_exception = FileNotFoundError("initializer missing")
         self.assertEqual(init.main(), 1)
         self.assertIn("No files were removed", self.stderr.getvalue())
+        self.assertEqual(len(self.timezone_files), 3)
+        self.assertTrue(all(not path.exists() for path in self.timezone_files))
+        self.assertEqual(list(self.runtime.iterdir()), [])
 
     def test_initializer_success_without_privilege_tables_is_failure(self):
         self.create_tables = False
