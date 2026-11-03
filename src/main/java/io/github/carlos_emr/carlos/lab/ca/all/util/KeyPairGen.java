@@ -119,7 +119,7 @@ public final class KeyPairGen {
             OscarKeyDao oscarKeyDao = (OscarKeyDao) SpringUtils.getBean(OscarKeyDao.class);
             OscarKey oscarKey = oscarKeyDao.find("oscar");
 
-            return (oscarKey.getPublicKey());
+            return oscarKey == null ? null : oscarKey.getPublicKey();
         } catch (Exception e) {
             logger.error("Could not get public key", e);
             return null;
