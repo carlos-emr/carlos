@@ -519,7 +519,7 @@ absent after a deliberate archive), accept the new database configuration with:
     sudo dpkg-reconfigure carlos-emr-drugref     (if installed)
 
 This option bypasses only the first-install configuration provenance check.
-It still refuses retained/unreadable documents, existing datadir contents,
+It still refuses retained/unreadable documents, existing schemas or unrecognized datadir files,
 unknown service options, imports and locks.
 For an existing database with missing system tables, restore its mysql system
 schema from a matching backup before running `sudo carlos-ctl finish-install`.
