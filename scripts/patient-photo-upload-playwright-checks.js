@@ -344,7 +344,10 @@ async function workflow(s) {
       const body = await response.text();
       await response.dispose();
       h.assert(status === 400, `Clear Photo with patient ${demographicNo ?? '(missing)'} answered HTTP ${status}, expected 400`);
-      h.assert(body.includes('No client selected.'), 'The invalid Clear Photo response did not explain the error');
+      // Parse the detached response DOM; this does not submit a form or invoke application handlers.
+      const errorText = await managerB.evaluate(html => new DOMParser().parseFromString(html, 'text/html')
+        .querySelector('.alert.alert-danger')?.textContent, body);
+      h.assert(errorText?.includes('No client selected.'), 'The invalid Clear Photo response did not render the error alert');
       h.assert(!/opener\.location\.reload/.test(body), 'An invalid Clear Photo POST was answered as a success');
       h.assert(sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no IN (${patient},${patientB})`) === before
         && JSON.stringify(storedFor(patientB)) === JSON.stringify([['jpeg', sha(bPhoto)]]),

@@ -313,19 +313,42 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("success")).isNull();
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(strings = {"storage", "security"})
     @DisplayName("should retain server error status when photo storage fails")
-    void shouldReturnServerError_whenImageStorageFails() throws Exception {
+    void shouldReturnServerError_whenImageStorageFails(String failure) throws Exception {
         tempUploadFile = File.createTempFile("client-image", ".jpg");
         Files.write(tempUploadFile.toPath(), new byte[]{1, 2, 3});
         action.setClientImage(tempUploadFile);
         action.setClientImageFileName("photo.jpg");
-        doThrow(new IllegalStateException("storage unavailable")).when(clientImageManager).saveClientImage(any(ClientImage.class));
+        RuntimeException exception = "security".equals(failure)
+                ? new SecurityException("storage denied") : new IllegalStateException("storage unavailable");
+        doThrow(exception).when(clientImageManager).saveClientImage(any(ClientImage.class));
 
         assertThat(action.execute()).isEqualTo("error");
         assertThat(response.getStatus()).isEqualTo(500);
         assertThat(action.getActionErrors()).containsExactly("Error saving image.");
         assertThat(request.getAttribute("success")).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"outside", "missing"})
+    @DisplayName("should return bad request when the upload path is invalid")
+    void shouldReturnBadRequest_whenUploadPathInvalid(String path) throws Exception {
+        if ("missing".equals(path)) {
+            tempUploadFile = File.createTempFile("client-image", ".jpg");
+            Files.delete(tempUploadFile.toPath());
+            action.setClientImage(tempUploadFile);
+        } else {
+            action.setClientImage(new File("photo.jpg").getAbsoluteFile());
+        }
+        action.setClientImageFileName("photo.jpg");
+
+        assertThat(action.execute()).isEqualTo("error");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(action.getActionErrors()).containsExactly("Invalid image upload.");
+        assertThat(request.getAttribute("success")).isNull();
+        verifyNoInteractions(clientImageManager);
     }
 
     /**

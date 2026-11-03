@@ -117,15 +117,18 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
                     HttpServletResponse.SC_BAD_REQUEST);
         }
 
-        // Ensure that the upload directory is correct and create a new image object that will be saved to the client
+        File validatedImage;
         try {
-            // Validate that the uploaded file is in an allowed temp directory
             if (!PathValidationUtils.isInAllowedTempDirectory(clientImage)) {
-                throw new IllegalArgumentException("Invalid file path: " + clientImage.getPath());
+                return imageError("Invalid image upload.", HttpServletResponse.SC_BAD_REQUEST);
             }
+            validatedImage = PathValidationUtils.validateUpload(clientImage);
+        } catch (SecurityException e) {
+            log.warn("client image upload rejected by path validation");
+            return imageError("Invalid image upload.", HttpServletResponse.SC_BAD_REQUEST);
+        }
 
-            // Re-validate at point of use for static analysis visibility
-            File validatedImage = PathValidationUtils.validateUpload(clientImage);
+        try {
             byte[] imageData = Files.readAllBytes(validatedImage.toPath());
 
             ClientImage clientImageObj = new ClientImage();
