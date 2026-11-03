@@ -17,20 +17,16 @@
  * the behaviour the filter exists for, and the one thing the rest of the suite
  * never exercised.
  *
- * Every other check drives success paths, so a filter that had stopped
- * sanitizing entirely would have kept the suite green. This one deliberately
- * provokes two real 500s and asserts the client receives the generic
- * "Reference ID" page instead of whatever the failing component produced.
+ * This checks both a controlled client-input refusal and a real server error
+ * through the packaged front door.
  *
  * What it pins:
  *
- *   1. An exception that escapes the WHOLE filter chain is answered with the
- *      sanitized page, not a container error page and not a stack trace.
- *      /form/createcustomedpdf is a plain servlet, excluded from Struts via
- *      struts.action.excludePattern, so nothing downstream converts its
- *      NullPointerException into sendError() first -- which is what makes it
- *      one of the few routes that reaches the filter's uncaught-exception
- *      branch at all.
+ *   1. Missing or malformed satellite-clinic addresses receive HTTP 400 with no
+ *      exception details or reflected input. This route formerly supplied an
+ *      uncaught NullPointerException fixture; issue #5533 fixes that defect.
+ *      The filter's uncaught-exception branch remains covered by
+ *      ResponseSanitizationFilterUnitTest, without depending on a live bug.
  *   2. A /ws 5xx has its body REPLACED even though the body carries no stack
  *      trace. That rule exists because a serialization failure mid-response
  *      leaves a clean, well-formed JSON prefix -- potentially patient
@@ -64,14 +60,14 @@
  * Optional: CHROME_PATH, ERROR_SANITIZATION_SCREENSHOT_DIR (default /tmp).
  *
  * FIXTURE SAFETY: creates and deletes nothing. Both routes are GETs that fail
- * before any write -- assertion 1 throws before the servlet touches a file, DB
+ * before any write -- assertion 1 refuses input before touching a file, DB
  * or audit trail. Assertion 2's resource records one OscarLog audit row, which
  * is append-only.
  *
  * EXPECTED LOG NOISE: this check makes the server log real errors on purpose.
- * "Uncaught exception escaped filter chain" and "Sanitizing ... error response
- * body" ERROR lines in `journalctl -u carlos-emr` during this check are the
- * check working, not a failure.
+ * "Sanitizing ... error response body" ERROR lines for the /ws 5xx in
+ * `journalctl -u carlos-emr` are expected. Satellite-address refusals must
+ * produce no uncaught exceptions.
  */
 
 
@@ -175,37 +171,29 @@ legacyHarness.runLegacyCheck('error-sanitization',async({cancellation})=>{
     // reach the recorder's badResponses -- which is why the cleanliness guard other
     // checks apply would not fight this one.
 
-    // --- 1: an exception escaping the entire chain -------------------------------
-    //
-    // useSC=true with no scAddress makes FrmCustomedPDFServlet.parseSCAddress call
-    // split() on null. It is thrown from the try-with-resources resource expression,
-    // whose catches cover only DocumentException/FileNotFoundException, so it unwinds
-    // past every filter to ResponseSanitizationFilter's own catch.
-    const escapedPath = '/form/createcustomedpdf?useSC=true';
-    const escaped = await page.request.get(`${config.baseUrl.href}${escapedPath}`, {
-      failOnStatusCode: false,
-      maxRedirects: 0,
-    });
-    cancellation?.throwIfCancelled();
-    const escapedBody = await escaped.text();
-    cancellation?.throwIfCancelled();
-
-    // Negative control, and the most valuable assertion here: errorpage.jsp means the
-    // exception was caught and converted to sendError() somewhere downstream, so the
-    // filter's uncaught-exception branch never ran and a green result would be hollow.
-    assert(
-      !escapedBody.includes('CARLOS Error:'),
-      `GET ${escapedPath} returned errorpage.jsp rather than the sanitized page, so the `
-        + 'exception did not escape the chain and this check is no longer exercising the '
-        + "filter's uncaught-exception branch. Re-point it at a route that still throws "
-        + '(see the header comment for the fallback trigger).',
-    );
-    assertSanitizedErrorPage(
-      `GET ${escapedPath}`,
-      escaped.status(),
-      escapedBody,
-      escaped.headers()['content-type'],
-    );
+    // --- 1: satellite-clinic input errors are deliberate 400 responses -----------
+    const satelliteCases = [
+      { useSC: 'true' },
+      { useSC: 'true', scAddress: '' },
+      { useSC: 'TrUe', scAddress: 'PRIVATE_INVALID_SATELLITE_ADDRESS' },
+      { useSC: 'true', scAddress: '<b>Dr A</b><br>Clinic<br>Street' },
+    ];
+    for (const parameters of satelliteCases) {
+      const target = `${config.baseUrl.href}/form/createcustomedpdf?${new URLSearchParams(parameters)}`;
+      const response = await page.request.get(target, { failOnStatusCode: false, maxRedirects: 0 });
+      cancellation?.throwIfCancelled();
+      const body = await response.text();
+      cancellation?.throwIfCancelled();
+      assert(response.status() === 400,
+        `Invalid satellite clinic address: expected HTTP 400, got ${response.status()}`);
+      assert(!response.headers()['content-disposition'], 'Invalid input started a PDF download');
+      assert(!REFERENCE_ID_PATTERN.test(body), 'A controlled 400 reached the server-error sanitizer');
+      assert(!body.includes('PRIVATE_INVALID_SATELLITE_ADDRESS'), 'The error page reflected the address');
+      for (const marker of STACK_TRACE_MARKERS) {
+        assert(!body.includes(marker), `Satellite-address refusal leaked a stack-trace marker: ${marker}`);
+      }
+      await response.dispose();
+    }
 
     // --- 2: a /ws 5xx body is replaced even with no stack trace -------------------
     //
@@ -252,8 +240,8 @@ legacyHarness.runLegacyCheck('error-sanitization',async({cancellation})=>{
     cancellation?.throwIfCancelled();
 
     console.log(
-      'PASS error sanitization: an exception escaping the filter chain and a /ws 5xx both come '
-      + 'back as the generic Reference ID page, through the packaged front door, with no '
+      'PASS error sanitization: invalid satellite addresses receive HTTP 400 and a /ws 5xx '
+      + 'receives the generic Reference ID page, through the packaged front door, with no '
       + 'stack-trace markers and no underlying entity leaked',
     );
   } catch (error) {

@@ -1654,17 +1654,17 @@ Notes on the contract:
   It shrinks the notes wrapper in the browser before watching the poll: the
   pagination only fires when that pane overflows and sits at the top, which a
   tall headless window never reproduces on its own.
-- **`error-sanitization-playwright-checks.js` provokes two real 500s on
-  purpose**, and must also run through `:443`. It is the only check that
-  exercises `ResponseSanitizationFilter`'s error-replacement path — every other
-  script drives success paths, so a filter that stopped sanitizing entirely
-  would leave the suite green. While it runs, `journalctl -u carlos-emr` will
-  show `Uncaught exception escaped filter chain` and `Sanitizing ... error
-  response body` at ERROR: that is the check working, not a failure. It creates
-  and deletes nothing (one append-only `OscarLog` audit row from the `/ws`
-  probe). To confirm it can still fail — worth doing after any change to the
-  filter — set `response.sanitization.enabled=false` in
-  `/etc/carlos-emr/carlos.properties`, `carlos-ctl restart`, and re-run: it
+- **`error-sanitization-playwright-checks.js` validates controlled 400s and a
+  real `/ws` 500**, through `:443`. Since issue #5533, missing and malformed
+  satellite-clinic addresses must return 400 before PDF generation; the check
+  no longer relies on that defect to provoke an uncaught exception. The
+  uncaught-exception sanitizer branch remains unit-tested. The `/ws` probe
+  still verifies error-body replacement and emits `Sanitizing ... error
+  response body` at ERROR; the satellite probes must produce no uncaught
+  exceptions. The check creates and deletes nothing (one append-only
+  `OscarLog` audit row from `/ws`). To confirm the replacement assertion can
+  still fail after a filter change, set `response.sanitization.enabled=false`
+  in `/etc/carlos-emr/carlos.properties`, `carlos-ctl restart`, and re-run: it
   must FAIL. Restore the property and restart afterwards.
 
 ### TLS verification for the browser checks (issue #3598)
@@ -1706,7 +1706,7 @@ Message text is never printed unless `--show-messages` is given, because log
 messages can carry patient data. The baseline explains three kinds of event,
 each entry citing the check, the issue or the findings-log row behind it:
 
-- errors the suite provokes on purpose (the 500s of `error-sanitization`, the
+- errors the suite provokes on purpose (the `/ws` 500 of `error-sanitization`, the
   malformed lab uploads, the refusal and rollback probes, the tokenless CSRF
   replays);
 - the validation environment (no internet, a page closed mid-download, a fixture

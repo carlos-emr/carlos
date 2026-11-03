@@ -156,11 +156,6 @@ test('should match each shipped baseline entry against the event it was written 
   // PHI-free reconstructions of the events each entry explains, so a regex
   // that silently stopped matching (a typo, an escaped space) fails here.
   const lines = [
-    '2026-10-08 04:40:11,662 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:341) - Uncaught exception escaped filter chain [uri=/carlos/form/createcustomedpdf correlationId=x]',
-    'jakarta.servlet.ServletException: java.lang.NullPointerException: x',
-    '\tat io.github.carlos_emr.carlos.form.pdfservlet.FrmCustomedPDFServlet.parseSCAddress(FrmCustomedPDFServlet.java:981)',
-    'Caused by: java.lang.NullPointerException: x',
-    ...NPE_EVENT,
     '2026-10-08 04:40:11,913 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:393) - Sanitizing output-stream error response body [status=500 uri=/carlos/ws/rs/schedule/fetchProvidersApptsCount/not-a-date/not-a-date]',
     '2026-10-08 04:40:11,881 ERROR rest.ScheduleService (ScheduleService.java:657) - ScheduleService.listProviderAppointmentCounts error',
     'jakarta.ws.rs.WebApplicationException: HTTP 400 Bad Request',
@@ -172,7 +167,20 @@ test('should match each shipped baseline entry against the event it was written 
   const r = audit(t, lines, { baseline: fs.readFileSync(BASELINE, 'utf8') });
   assert.equal(r.status, 0, r.out);
   assert.doesNotMatch(r.out, /^UNKNOWN /m);
-  assert.equal((r.out.match(/^KNOWN /gm) || []).length, 7, 'each reconstructed event should be its own KNOWN signature');
+  assert.equal((r.out.match(/^KNOWN /gm) || []).length, 5, 'each reconstructed event should be its own KNOWN signature');
+});
+
+test('should fail if the fixed satellite-address crash recurs', (t) => {
+  const r = audit(t, [
+    '2026-10-08 04:40:11,662 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:341) - Uncaught exception escaped filter chain [uri=/carlos/form/createcustomedpdf correlationId=x]',
+    'jakarta.servlet.ServletException: java.lang.NullPointerException: x',
+    '\tat io.github.carlos_emr.carlos.form.pdfservlet.FrmCustomedPDFServlet.parseSCAddress(FrmCustomedPDFServlet.java:981)',
+    'Caused by: java.lang.NullPointerException: x',
+    ...NPE_EVENT,
+  ], { baseline: fs.readFileSync(BASELINE, 'utf8') });
+  assert.equal(r.status, 1, r.out);
+  assert.equal((r.out.match(/^UNKNOWN /gm) || []).length, 2);
+  assert.doesNotMatch(r.out, /^KNOWN /m);
 });
 
 test('should match every shipped baseline entry against a signature a packaged install produced', () => {
