@@ -2,7 +2,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { authenticatedProbe } = require('./lib/authenticated-probe');
+const { authenticatedProbe, cookiesForUrl } = require('./lib/authenticated-probe');
 const cookie = { name: 'JSESSIONID', value: 'synthetic', domain: '127.0.0.1', path: '/carlos', secure: true, expires: -1 };
 function withHeartbeat(fetch) {return async(url,options)=>new URL(url).pathname.endsWith('/status/SessionHeartbeat')?{status:()=>200,json:async()=>({valid:true}),dispose:async()=>{}}:fetch(url,options);}
 function fixture(cookies = [cookie], status = 405) {
@@ -138,4 +138,19 @@ test('authentication-state transport remains origin-bound and read-only without 
   await assert.rejects(authenticationStateProbe(session,'https://other.invalid/carlos/login'),/origin/);
   await assert.rejects(authenticationStateProbe(session,'/carlos/login',{method:'POST'}),/GET and HEAD/);
   assert.equal(calls.length,1);
+});
+
+// The same selector serves authenticated malformed-form probes without broadening
+// the existing GET/HEAD refusal transport.
+test('shared cookie matching respects domain scope, path boundaries, expiry and longest-path order', () => {
+  const destination = new URL('https://app.example.invalid/carlos/prevention/save');
+  const selected = cookiesForUrl([
+    {...cookie, value:'root', domain:'.example.invalid', path:'/'},
+    {...cookie, value:'app', domain:'app.example.invalid', path:'/carlos'},
+    {...cookie, value:'specific', domain:'.example.invalid', path:'/carlos/prevention'},
+    {...cookie, value:'host-only', domain:'example.invalid', path:'/'},
+    {...cookie, value:'wrong-boundary', domain:'.example.invalid', path:'/carlos/prev'},
+    {...cookie, value:'expired', domain:'.example.invalid', expires:10},
+  ], destination, 20);
+  assert.deepEqual(selected.map(value=>value.value), ['specific','app','root']);
 });

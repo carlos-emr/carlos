@@ -1,6 +1,17 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 'use strict';
 
+function cookiesForUrl(browserCookies, destination, now = Date.now() / 1000) {
+  return browserCookies.filter(cookie => {
+    const domain = cookie.domain.toLowerCase(),host=destination.hostname.toLowerCase();
+    const domainMatches = domain.startsWith('.') ? host === domain.slice(1) || host.endsWith(domain) : host === domain;
+    const path = cookie.path || '/';
+    const pathMatches = destination.pathname === path || (destination.pathname.startsWith(path)
+      && (path.endsWith('/') || destination.pathname[path.length] === '/'));
+    return domainMatches && pathMatches && (cookie.expires === -1 || cookie.expires > now);
+  }).sort((a,b)=>(b.path||'/').length-(a.path||'/').length);
+}
+
 /**
  * Playwright's APIRequestContext omits Secure cookies on HTTP loopback even when
  * Chromium sends them. Replay only this application's cookies explicitly, with
@@ -23,18 +34,8 @@ async function prepareRead(session, target, options, requireSessionCookie) {
   }
   const now = Date.now() / 1000;
   const browserCookies=await session.context.cookies();
-  function cookiesFor(destination) {
-    return browserCookies.filter(cookie => {
-      const domain = cookie.domain.toLowerCase(),host=destination.hostname.toLowerCase();
-      const domainMatches = domain.startsWith('.') ? host === domain.slice(1) || host.endsWith(domain) : host === domain;
-      const path = cookie.path || '/';
-      const pathMatches = destination.pathname === path || (destination.pathname.startsWith(path)
-        && (path.endsWith('/') || destination.pathname[path.length] === '/'));
-      return domainMatches && pathMatches && (cookie.expires === -1 || cookie.expires > now);
-    }).sort((a,b)=>(b.path||'/').length-(a.path||'/').length);
-  }
   const cookieHeader=destination=>{
-    const cookies=cookiesFor(destination);
+    const cookies=cookiesForUrl(browserCookies, destination, now);
     if(requireSessionCookie&&!cookies.some(cookie=>cookie.name==='JSESSIONID'&&cookie.value))throw new Error('Authenticated probe requires an application session cookie');
     return cookies.map(cookie=>`${cookie.name}=${cookie.value}`).join('; ');
   };
@@ -87,4 +88,4 @@ async function authenticatedProbe(session,target,options={}) {
   return response;
 }
 
-module.exports = { authenticatedProbe, authenticationStateProbe };
+module.exports = { authenticatedProbe, authenticationStateProbe, cookiesForUrl };

@@ -24,6 +24,7 @@
 // asserts none remain.
 const { assert, sqlString } = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { cookiesForUrl } = require('./lib/authenticated-probe');
 
 const PREVENTION = 4;
 const PREVENTION_DATE = 7;
@@ -156,9 +157,11 @@ async function workflow(s) {
     data.set('prevDate', '2019-02-31');
     // The browser sends Secure session cookies on loopback HTTP, whereas the API
     // client does not. Carry only this application's session into the probe.
-    const cookie = (await s.context.cookies()).filter(value => value.name === 'JSESSIONID'
-      && value.domain.replace(/^\./, '') === actionUrl.hostname && actionUrl.pathname.startsWith(value.path))
-      .map(value => `${value.name}=${value.value}`).join('; ');
+    assert(actionUrl.protocol === 'https:' || ['localhost', '127.0.0.1', '[::1]'].includes(actionUrl.hostname),
+      'Authenticated invalid-date probes require HTTPS outside loopback');
+    const cookies = cookiesForUrl(await s.context.cookies(), actionUrl);
+    assert(cookies.some(value => value.name === 'JSESSIONID' && value.value), 'Invalid-date probe requires the application session');
+    const cookie = cookies.map(value => `${value.name}=${value.value}`).join('; ');
     const response = await s.context.request.post(request.action, { data: data.toString(), maxRedirects: 0,
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookie } });
     const status = response.status();
