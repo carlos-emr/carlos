@@ -26,6 +26,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const {chromium} = require('playwright');
+const {getLaunchOptions} = require('./lib/playwright-harness');
 
 const source = fs.readFileSync(path.join(__dirname, 'tickler-crud-playwright-checks.js'), 'utf8');
 function section(start, end) {
@@ -42,8 +43,8 @@ vm.runInNewContext(
   helpers);
 
 (async () => {
-  const browser = await chromium.launch({headless: true, args: ['--no-sandbox'],
-    ...(process.env.CHROME_PATH ? {executablePath: process.env.CHROME_PATH} : {})});
+  const chromePath = process.env.CHROME_BIN || process.env.CHROME_PATH || process.env.CARLOS_SMOKE_CHROMIUM;
+  const browser = await chromium.launch(getLaunchOptions(chromePath));
   let releaseReset = () => {};
   try {
     const page = await browser.newPage();
