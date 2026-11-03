@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -39,6 +40,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -169,6 +172,43 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
     @Nested
     @DisplayName("GET /demographics")
     class GetAllDemographics {
+
+        @ParameterizedTest
+        @CsvSource({"0,501", "0,2147483647", "0,-1", "-1,10"})
+        @DisplayName("should return 400 before reading demographics for invalid pagination")
+        void shouldReturn400_whenListPaginationIsInvalid(int offset, int limit) {
+            try (Response response = request().path("/demographics")
+                    .query("offset", offset).query("limit", limit).get()) {
+                assertThat(response.getStatus()).isEqualTo(400);
+                verifyNoInteractions(mockDemographicManager);
+            }
+        }
+
+        @ParameterizedTest
+        @CsvSource({"0,0", "0,1", "0,500", "2147483647,10"})
+        @DisplayName("should preserve supported demographic list pagination boundaries")
+        void shouldReturn200_whenListPaginationIsWithinBounds(int offset, int limit) {
+            when(mockDemographicManager.getActiveDemographicCount(any())).thenReturn(0L);
+            when(mockDemographicManager.getActiveDemographics(any(), eq(offset), eq(limit)))
+                    .thenReturn(Collections.emptyList());
+            try (Response response = request().path("/demographics")
+                    .query("offset", offset).query("limit", limit).get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                verify(mockDemographicManager).getActiveDemographics(any(), eq(offset), eq(limit));
+            }
+        }
+
+        @Test
+        @DisplayName("should preserve zero defaults for omitted list pagination")
+        void shouldUseZeroDefaults_whenListPaginationIsOmitted() {
+            when(mockDemographicManager.getActiveDemographicCount(any())).thenReturn(0L);
+            when(mockDemographicManager.getActiveDemographics(any(), eq(0), eq(0)))
+                    .thenReturn(Collections.emptyList());
+            try (Response response = request().path("/demographics").get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                verify(mockDemographicManager).getActiveDemographics(any(), eq(0), eq(0));
+            }
+        }
 
         @Test
         @DisplayName("should return 200 with demographics list")

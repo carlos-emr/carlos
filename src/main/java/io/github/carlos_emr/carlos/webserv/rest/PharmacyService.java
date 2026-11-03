@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -80,7 +81,9 @@ public class PharmacyService extends AbstractServiceImpl {
     /**
      * Loads all active pharmacies available on the system
      * <p/>
-     * In case limit or offset parameters are set to null or zero, the entire result set is returned.
+     * A null offset starts at the first row; a null limit uses the DAO maximum (5000).
+     * A zero limit returns an empty page. Negative values and limits above the maximum
+     * are rejected with HTTP 400.
      *
      * @param offset First record in the entire result set to be returned
      * @param limit  Maximum total number of records that should be returned
@@ -91,6 +94,11 @@ public class PharmacyService extends AbstractServiceImpl {
     public OscarSearchResponse<PharmacyInfoTo1> getPharmacies(@QueryParam("offset") Integer offset, @QueryParam("limit") Integer limit) {
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), SECURITY_OBJECT, "r", null)) {
             throw new AccessDeniedException(SECURITY_OBJECT, "r");
+        }
+        // Reject client errors before the DAO can throw an uncaught select-limit exception.
+        if ((offset != null && offset < 0)
+                || (limit != null && (limit < 0 || limit > PharmacyInfoDao.MAX_LIST_RETURN_SIZE))) {
+            throw new BadRequestException("Invalid pharmacy pagination");
         }
         OscarSearchResponse<PharmacyInfoTo1> result = new OscarSearchResponse<PharmacyInfoTo1>();
         result.getContent().addAll(converter.getAllAsTransferObjects(getLoggedInInfo(), pharmacyInfoDao.findAll(offset, limit)));

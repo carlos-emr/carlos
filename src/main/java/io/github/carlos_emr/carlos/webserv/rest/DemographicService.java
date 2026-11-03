@@ -242,7 +242,8 @@ public class DemographicService extends AbstractServiceImpl {
     /**
      * Finds all demographics.
      * <p/>
-     * In case limit or offset parameters are set to null or zero, the entire result set is returned.
+     * A null or zero offset starts at the first row; a null or zero limit uses the DAO
+     * maximum (500). Negative values and limits above the maximum are rejected with HTTP 400.
      *
      * @param offset First record in the entire result set to be returned
      * @param limit  Maximum total number of records that should be returned
@@ -251,6 +252,10 @@ public class DemographicService extends AbstractServiceImpl {
     @GET
     public OscarSearchResponse<DemographicTo1> getAllDemographics(@QueryParam("offset") Integer offset, @QueryParam("limit") Integer limit) {
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("r");
+        if ((offset != null && offset < 0)
+                || (limit != null && (limit < 0 || limit > DemographicDao.MAX_SEARCH_RESULT_SIZE))) {
+            throw new BadRequestException("Invalid demographic list pagination");
+        }
         OscarSearchResponse<DemographicTo1> result = new OscarSearchResponse<DemographicTo1>();
 
         if (offset == null) {
