@@ -40,6 +40,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.TreeMap;
 
 import jakarta.ws.rs.WebApplicationException;
@@ -71,6 +72,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
@@ -257,6 +259,36 @@ public class ScheduleManagerImpl implements ScheduleManager {
 
         // save new changes
         oscarAppointmentDao.merge(appointment);
+    }
+
+    @Override
+    @Transactional
+    public Appointment updateAppointment(LoggedInInfo loggedInInfo, Integer appointmentId,
+            String expectedVersion, Consumer<Appointment> edit) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
+            throw new SecurityException("missing required sec object (_appointment)");
+        }
+        if (expectedVersion == null || expectedVersion.isBlank()) {
+            throw new AppointmentUpdateException(AppointmentUpdateException.Reason.MISSING_VERSION);
+        }
+        Appointment current = oscarAppointmentDao.findForUpdate(appointmentId);
+        if (current == null) {
+            throw new AppointmentUpdateException(AppointmentUpdateException.Reason.NOT_FOUND);
+        }
+        if (!current.getEditVersion().equals(expectedVersion)) {
+            throw new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION);
+        }
+        // Archive the unmodified locked row. Validation, archive and mutation share this
+        // transaction: a rejected edit or failed flush cannot leave a stray archive behind.
+        appointmentArchiveDao.archiveAppointment(current);
+        edit.accept(current);
+        current.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
+        oscarAppointmentDao.merge(current);
+        // Run the version callback before serializing the response token.
+        oscarAppointmentDao.flush();
+        LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.updateAppointment",
+                "appointmentId=" + current.getId());
+        return current;
     }
 
     public List<Appointment> getAppointmentsForDateRangeAndProvider(LoggedInInfo loggedInInfo, Date startTime, Date endTime, String providerNo) {

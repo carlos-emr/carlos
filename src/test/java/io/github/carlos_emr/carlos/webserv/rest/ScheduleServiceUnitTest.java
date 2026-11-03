@@ -35,7 +35,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -301,10 +300,17 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         existing.setCreator("origCreator");
         existing.setCreatorSecurityId(7);
         existing.setReason("old reason");
-        when(appointmentManager.getAppointment(any(), eq(42))).thenReturn(existing);
+        when(scheduleManager.updateAppointment(eq(loggedInInfo), eq(42), eq("original-version"), any()))
+                .thenAnswer(call -> {
+                    java.util.function.Consumer<Appointment> edit = call.getArgument(3);
+                    edit.accept(existing);
+                    existing.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
+                    return existing;
+                });
 
         AppointmentTo1 hostile = new AppointmentTo1();
         hostile.setId(42);
+        hostile.setEditVersion("original-version");
         hostile.setReason("new reason");
         hostile.setCreator("hacker");
         hostile.setCreatorSecurityId(999);
@@ -313,9 +319,9 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
 
         service.updateAppointment(hostile);
 
-        ArgumentCaptor<Appointment> captor = ArgumentCaptor.forClass(Appointment.class);
-        verify(scheduleManager).updateAppointment(eq(loggedInInfo), captor.capture());
-        Appointment saved = captor.getValue();
+        verify(scheduleManager).updateAppointment(eq(loggedInInfo), eq(42), eq("original-version"), any());
+        verifyNoInteractions(appointmentManager);
+        Appointment saved = existing;
 
         assertThat(saved.getReason()).isEqualTo("new reason");
         assertThat(saved.getCreateDateTime()).isEqualTo(originalCreate);
@@ -341,7 +347,11 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should respond not found when the appointment to update does not exist")
     void shouldRespondNotFound_whenAppointmentMissing() {
-        when(appointmentManager.getAppointment(any(), eq(404))).thenReturn(null);
+        registerMock(DemographicDao.class, Mockito.mock(DemographicDao.class));
+        registerMock(ProviderDao.class, Mockito.mock(ProviderDao.class));
+        when(scheduleManager.updateAppointment(any(), eq(404), any(), any()))
+                .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(
+                        io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason.NOT_FOUND));
 
         AppointmentTo1 to = new AppointmentTo1();
         to.setId(404);
@@ -352,6 +362,41 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
                         .isEqualTo(Response.Status.NOT_FOUND.getStatusCode()));
 
         verify(scheduleManager, never()).updateAppointment(any(), any());
+    }
+
+    @Test
+    void shouldReturnStableConflict_whenSharedServiceRejectsStaleVersion() {
+        AppointmentTo1 to = new AppointmentTo1();
+        registerMock(DemographicDao.class, Mockito.mock(DemographicDao.class));
+        registerMock(ProviderDao.class, Mockito.mock(ProviderDao.class));
+        to.setId(42);
+        to.setEditVersion("stale");
+        when(scheduleManager.updateAppointment(any(), eq(42), eq("stale"), any()))
+                .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(
+                        io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason.STALE_VERSION));
+        assertThatThrownBy(() -> service.updateAppointment(to))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> {
+                    Response response = ((WebApplicationException) e).getResponse();
+                    assertThat(response.getStatus()).isEqualTo(409);
+                    assertThat(((java.util.Map<?, ?>) response.getEntity()).get("code"))
+                            .isEqualTo("APPOINTMENT_STALE_VERSION");
+                });
+        verifyNoInteractions(appointmentManager);
+    }
+
+    @Test
+    void shouldReturnBadRequest_whenEditVersionIsMissing() {
+        registerMock(DemographicDao.class, Mockito.mock(DemographicDao.class));
+        registerMock(ProviderDao.class, Mockito.mock(ProviderDao.class));
+        AppointmentTo1 to = new AppointmentTo1();
+        to.setId(42);
+        when(scheduleManager.updateAppointment(any(), eq(42), isNull(), any()))
+                .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(
+                        io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason.MISSING_VERSION));
+        assertThatThrownBy(() -> service.updateAppointment(to))
+                .isInstanceOf(WebApplicationException.class)
+                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus()).isEqualTo(400));
     }
 
     @Test

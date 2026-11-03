@@ -35,6 +35,7 @@ package io.github.carlos_emr.carlos.managers;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.function.Consumer;
 
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
@@ -77,6 +78,10 @@ public interface ScheduleManager {
     public Appointment getAppointment(LoggedInInfo loggedInInfo, Integer appointmentId);
 
     public void updateAppointment(LoggedInInfo loggedInInfo, Appointment appointment);
+
+    /** Validates the client's read version before archiving and editing the locked current row. */
+    Appointment updateAppointment(LoggedInInfo loggedInInfo, Integer appointmentId,
+            String expectedVersion, Consumer<Appointment> edit);
 
     public List<Appointment> getAppointmentsForDateRangeAndProvider(LoggedInInfo loggedInInfo, Date startTime, Date endTime, String providerNo);
 

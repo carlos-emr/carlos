@@ -65,6 +65,7 @@ import io.github.carlos_emr.carlos.commn.model.AppointmentType;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.LookupListItem;
 import io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode;
+import io.github.carlos_emr.carlos.managers.AppointmentUpdateException;
 import io.github.carlos_emr.carlos.managers.AppointmentManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
@@ -275,24 +276,24 @@ public class ScheduleService extends AbstractServiceImpl {
                     .entity("Appointment id is required").build());
         }
 
-        // Load the persisted appointment and apply only client-editable fields onto it, so the
-        // server-managed identity/audit fields (createDateTime, creator, creatorSecurityId,
-        // bookingSource) are preserved rather than overwritten by the request payload, and the
-        // updating provider is stamped server-side. A blind DTO->entity merge here would corrupt
-        // the creation audit trail and allow over-posting.
-        Appointment appt = appointmentManager.getAppointment(getLoggedInInfo(), appointmentTo.getId());
-        if (appt == null) {
-            throw new WebApplicationException(Response.status(Status.NOT_FOUND)
-                    .entity("Appointment not found").build());
-        }
-
         SchedulingResponse response = new SchedulingResponse();
         AppointmentConverter converter = new AppointmentConverter();
-
-        converter.applyEditableProperties(appointmentTo, appt);
-        appt.setLastUpdateUser(getLoggedInInfo().getLoggedInProviderNo());
-
-        scheduleManager.updateAppointment(getLoggedInInfo(), appt);
+        Appointment appt;
+        try {
+            // Only apply client-editable fields after the shared service validates the
+            // read version under its row lock. Never mutate a managed entity beforehand.
+            appt = scheduleManager.updateAppointment(getLoggedInInfo(), appointmentTo.getId(),
+                    appointmentTo.getEditVersion(), current -> converter.applyEditableProperties(appointmentTo, current));
+        } catch (AppointmentUpdateException e) {
+            Status status = switch (e.getReason()) {
+                case MISSING_VERSION -> Status.BAD_REQUEST;
+                case NOT_FOUND -> Status.NOT_FOUND;
+                case STALE_VERSION -> Status.CONFLICT;
+            };
+            throw new WebApplicationException(Response.status(status)
+                    .entity(Map.of("code", "APPOINTMENT_" + e.getReason().name(),
+                            "message", e.getMessage())).build());
+        }
 
         response.setAppointment(converter.getAsTransferObject(getLoggedInInfo(), appt));
         return response;

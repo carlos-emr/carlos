@@ -363,6 +363,29 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
         }
     }
 
+    @Test
+    void shouldRejectVersionedEdit_whenWritePrivilegeIsMissing() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq("_appointment"), eq("w"), isNull()))
+                .thenReturn(false);
+        assertThatThrownBy(() -> scheduleManager.updateAppointment(mockLoggedInInfo, 77, "123", row -> {
+            throw new AssertionError("Unauthorized edit callback ran");
+        })).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(mockOscarAppointmentDao, mockAppointmentArchiveDao);
+    }
+
+    @Test
+    void shouldRejectStaleVersion_beforeArchivingOrApplyingChanges() {
+        Appointment current = createTestAppointment(77, TEST_PROVIDER, new Date());
+        current.setUpdateDateTime(new Date(2000));
+        when(mockOscarAppointmentDao.findForUpdate(77)).thenReturn(current);
+        assertThatThrownBy(() -> scheduleManager.updateAppointment(mockLoggedInInfo, 77, "1000", row -> {
+            throw new AssertionError("Stale edit callback ran");
+        })).isInstanceOf(AppointmentUpdateException.class);
+        verifyNoInteractions(mockAppointmentArchiveDao);
+        verify(mockOscarAppointmentDao, never()).merge(any());
+        verify(mockOscarAppointmentDao, never()).flush();
+    }
+
     // -----------------------------------------------------------------------
     // getAppointmentsForPatient
     // -----------------------------------------------------------------------
