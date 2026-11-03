@@ -18,12 +18,13 @@
 # CARLOS EMR Project
 # https://github.com/carlos-emr/carlos
 # Disposable investigation only; this workflow is not part of PR #5583.
-name: PR 5583 Image Response Diagnostic
+name: PR 5583 Runtime Diagnostics
 on:
   push:
     branches: [validation/pr-5583-runtime]
 permissions:
   contents: read
+  actions: read
 jobs:
   image-response:
     runs-on: ubuntu-24.04
@@ -31,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 98b2a84a2f6e69c23493f4a249685828cf2f950a
+          ref: de05d14a48dc6bed35d621f66ca84aa4a214cff5
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
@@ -40,6 +41,13 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/png-probe" --no-audit --no-fund playwright@1.60.0 pngjs@7.0.0
           "$RUNNER_TEMP/png-probe/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Fetch the package's pinned Chromium
+        run: |
+          rev="$(sed -n 's/^rev=//p' debian/chromium.pin)"
+          chrome_sha="$(sed -n 's/^chrome_sha256=//p' debian/chromium.pin)"
+          driver_sha="$(sed -n 's/^chromedriver_sha256=//p' debian/chromium.pin)"
+          bash debian/fetch-chromium.sh "$rev" "$chrome_sha" "$driver_sha" "$RUNNER_TEMP/pinned-chromium"
+          echo "PACKAGED_CHROME=$RUNNER_TEMP/pinned-chromium/chrome-linux/chrome" >> "$GITHUB_ENV"
       - name: Compare navigation bytes with the actual served PNG
         run: |
           NODE_PATH="$RUNNER_TEMP/png-probe/node_modules" node <<'JS'
@@ -49,8 +57,14 @@ jobs:
           const {chromium} = require('playwright');
           const {getLaunchOptions} = require('./scripts/lib/playwright-harness');
           (async () => {
-            const png = new PNG({width: 4, height: 4});
-            png.data.fill(255);
+            const png = new PNG({width: 1000, height: 600});
+            for (let y = 0; y < 600; y++) for (let x = 0; x < 1000; x++) {
+              const at = (y * 1000 + x) * 4;
+              png.data[at] = (x * 17 + y * 13) % 256;
+              png.data[at + 1] = (x + y * 7) % 256;
+              png.data[at + 2] = (x * 3 + y) % 256;
+              png.data[at + 3] = 255;
+            }
             const expected = PNG.sync.write(png);
             const server = http.createServer((request, response) => {
               if (request.url.startsWith('/GraphMeasurements')) {
@@ -61,28 +75,45 @@ jobs:
             await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
             let browser;
             try {
-              browser = await chromium.launch(getLaunchOptions());
+              for (const chromePath of [undefined, process.env.PACKAGED_CHROME]) {
+              browser = await chromium.launch(getLaunchOptions(chromePath));
               const page = await browser.newPage();
               const url = 'http://127.0.0.1:' + server.address().port + '/GraphMeasurements?demographic_no=1';
               const response = await page.goto(url);
               const navigation = await response.body();
               await page.waitForFunction(() => {
                 const image = document.querySelector('img');
-                return image && image.complete && image.naturalWidth === 4;
+                return image && image.complete && image.naturalWidth === 1000;
               });
               const direct = await page.context().request.get(url);
               const actual = await direct.body();
               assert(actual.equals(expected));
               console.log(JSON.stringify({
-                browser: browser.version(), navigationType: response.headers()['content-type'],
+                executable: chromePath ? 'packaged' : 'playwright', browser: browser.version(), navigationType: response.headers()['content-type'],
                 navigationLength: navigation.length, actualLength: actual.length,
                 navigationPng: navigation.subarray(0,8).equals(expected.subarray(0,8)),
                 navigationHtml: /^\s*<(?:!doctype|html)/i.test(navigation.toString('utf8')),
                 browserImageRendered: true, directPng: true,
               }));
+              await browser.close(); browser = null;
+              }
             } finally {
               if (browser) await browser.close();
               await new Promise(resolve => server.close(resolve));
             }
           })().catch(error => { console.error(error); process.exitCode = 1; });
           JS
+  installation-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Read the packaged-container health result
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh run download 41700612829 --repo carlos-emr/carlos \
+            --name pr5583-packaged-evidence --dir "$RUNNER_TEMP/evidence"
+          cat "$RUNNER_TEMP/evidence/pr5583-install-logs/carlos-ctl-check.log"
+          printf 'Transient notice count: '
+          grep -Fc 'is installed but is NOT ready to use' "$RUNNER_TEMP/evidence/pr5583-install-logs/install.log" || true
