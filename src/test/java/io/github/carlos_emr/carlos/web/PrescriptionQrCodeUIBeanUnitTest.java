@@ -152,6 +152,7 @@ public class PrescriptionQrCodeUIBeanUnitTest extends CarlosUnitTestBase {
             assertThat(PrescriptionQrCodeUIBean.getPrescriptionHl7QrCodeImage(PRESCRIPTION_ID)).isNull();
             assertThat(logs.events()).anyMatch(event -> event.getLevel() == Level.ERROR);
             assertThat(render(logs)).contains("prescriptionId=5322", "errorType=java.lang.IllegalArgumentException")
+                    .contains("stage=" + (rendererFailure ? "renderQr" : "buildHl7"))
                     .doesNotContain(PATIENT, MEDICATION, "SYNTHETIC5322SUPPRESSED");
             assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
         }
