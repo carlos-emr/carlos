@@ -21,8 +21,6 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -30,12 +28,10 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.BillRecipientsDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingHistoryDao;
@@ -43,10 +39,11 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.TeleplanS00Dao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS00;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.BillRow;
 import io.github.carlos_emr.carlos.entities.MSPBill;
 import io.github.carlos_emr.carlos.entities.Provider;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -61,14 +58,13 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
     private BillingHistoryDao historyDao;
     private TeleplanS00Dao teleplanDao;
     private MSPReconcile reconcile;
-    private ResultSet rows;
-    private MockedStatic<LegacyJdbcQuery> jdbc;
+    private BillingmasterDAO billingmasterDao;
 
     @BeforeEach
     void setUp() throws Exception {
         createAndRegisterMock(BillRecipientsDao.class);
         createAndRegisterMock(BillingDao.class);
-        createAndRegisterMock(BillingmasterDAO.class);
+        billingmasterDao = createAndRegisterMock(BillingmasterDAO.class);
         historyDao = createAndRegisterMock(BillingHistoryDao.class);
         teleplanDao = createAndRegisterMock(TeleplanS00Dao.class);
         reconcile = spy(new MSPReconcile());
@@ -78,23 +74,54 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         provider.setFirstName("Test");
         provider.setLastName("Provider");
         doReturn(provider).when(reconcile).getProvider(anyString(), anyInt());
-        rows = mock(ResultSet.class);
-        LegacyJdbcQuery.TrustedSql reportSql = LegacyJdbcQuery.trustedReportSelectSql("SELECT 1");
-        jdbc = mockStatic(LegacyJdbcQuery.class);
-        jdbc.when(() -> LegacyJdbcQuery.trustedReportSelectSql(anyString())).thenReturn(reportSql);
-        jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(
-                any(LegacyJdbcQuery.TrustedSql.class), any(Object[].class))).thenReturn(rows);
     }
 
-    @AfterEach
-    void closeJdbcMock() {
-        jdbc.close();
+    @Test
+    void shouldPreserveZeroOutputWithoutLoggingErrors_forSpacePaddedUnpaidAmounts() {
+        try (LogCapture logs = LogCapture.forLogger(MSPReconcile.class)) {
+            assertThat(MSPReconcile.convCurValue("       ")).isEqualTo("0");
+            assertThat(MSPReconcile.convCurValue("")).isEqualTo("0.0");
+            assertThat(MSPReconcile.convCurValue(null)).isEqualTo("0.0");
+            assertThat(MSPReconcile.convCurValue("000123M")).isEqualTo("-12.34");
+            assertThat(logs.events()).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldPreserveProviderValidationFailure_whenLookupCannotReadDatabase() {
+        var dao = new BillingmasterDAO();
+        var persistence = mock(jakarta.persistence.EntityManager.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", persistence);
+        when(persistence.isJoinedToTransaction()).thenThrow(new jakarta.persistence.PersistenceException("synthetic patient detail"));
+        try (LogCapture logs = LogCapture.forLogger(BillingmasterDAO.class)) {
+            assertThatThrownBy(() -> dao.findBcPayments("ALL", "ALL", "missing", "", "", false, false, true, false))
+                    .isInstanceOf(BillingmasterDAO.MissingBcPaymentProviderException.class)
+                    .hasMessage("Provider must have ohip no!").hasNoCause();
+            assertThat(logs.messages()).containsExactly("Unable to retrieve BC payment provider (PersistenceException)");
+            assertThat(logs.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
+        }
+    }
+
+    @Test
+    void shouldPreserveProviderValidationFailure_forLegacyPayments() {
+        when(billingmasterDao.findBcPayments(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean()))
+                .thenThrow(new BillingmasterDAO.MissingBcPaymentProviderException());
+        assertThatThrownBy(() -> reconcile.getPayments("ALL", "ALL", "missing", "", "", false, false, true, false))
+                .isInstanceOf(BillingmasterDAO.MissingBcPaymentProviderException.class)
+                .hasMessage("Provider must have ohip no!").hasNoCause();
+        var strict = new MSPReconcile(true);
+        assertThatThrownBy(() -> strict.getPayments("ALL", "ALL", "missing", "", "", false, false, true, false))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Billing export data could not be read").hasNoCause();
     }
 
     @Test
     void shouldPropagateReadFailures_withoutPatientDetailsForAtomicExports() throws Exception {
         var strict = new MSPReconcile(true);
-        when(rows.next()).thenThrow(new SQLException("synthetic patient detail"));
+        when(billingmasterDao.findBcBills(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any()))
+                .thenThrow(new IllegalStateException("synthetic patient detail"));
+        when(billingmasterDao.findBcPayments(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean()))
+                .thenThrow(new IllegalStateException("synthetic patient detail"));
         assertThatThrownBy(() -> strict.getBillsByType("ALL", "ALL", "ALL", "", "", false, false, false, false,
                 MSPReconcile.REP_ACCOUNT_REC)).isInstanceOf(IllegalStateException.class)
                 .hasMessage("Billing export data could not be read").hasNoCause();
@@ -103,16 +130,12 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
     }
 
     private void reportRows(String... types) throws Exception {
-        int[] index = {-1};
-        when(rows.next()).thenAnswer(call -> ++index[0] < types.length);
-        when(rows.getString(anyString())).thenAnswer(call -> switch ((String) call.getArgument(0)) {
-            case "billingmaster_no", "billing_no" -> String.valueOf(41 + index[0]);
-            case "b.billingtype" -> types[index[0]];
-            case "billingstatus" -> "O";
-            case "bill_amount" -> "100.00";
-            case "b.provider_no", "apptProvider_no" -> "12345";
-            default -> "";
-        });
+        List<BillRow> bills = new ArrayList<>();
+        for (int i = 0; i < types.length; i++) {
+            bills.add(new BillRow(types[i], String.valueOf(41 + i), "", "", "", "", "O", "", "", "", String.valueOf(41 + i), "100.00", "", "", "", "", "", "", "", "", "12345", "12345", "", ""));
+        }
+        when(billingmasterDao.findBcBills(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any()))
+                .thenReturn(bills);
     }
 
     private MSPReconcile.BillSearch report(String type) {
@@ -127,7 +150,6 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         when(teleplanDao.findByOfficeNumber("0000042")).thenReturn(List.of(payment));
         when(historyDao.getTotalPaidFromHistoryByBillingMasterNos(Set.of(41, 42, 43)))
                 .thenAnswer(call -> {
-                    verify(rows).close();
                     return Map.of(41, 30.0, 42, 5.0);
                 });
 
@@ -139,7 +161,6 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
                 .containsExactly("70.0", "70.0", "100.0");
         verify(historyDao).getTotalPaidFromHistoryByBillingMasterNos(Set.of(41, 42, 43));
         verify(historyDao, never()).getTotalPaidFromHistory(anyInt(), anyBoolean());
-        verify(rows).close();
     }
 
     @Test
@@ -209,7 +230,6 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         reportRows();
         assertThat(report(MSPReconcile.REP_INVOICE).list).isEmpty();
         verifyNoInteractions(historyDao);
-        verify(rows).close();
     }
 
     @Test
@@ -220,20 +240,19 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldCloseCursor_whenReadingFails() throws Exception {
-        when(rows.next()).thenThrow(new SQLException("Synthetic read failure"));
+    void shouldReturnNoRows_whenDaoReadFails() throws Exception {
+        when(billingmasterDao.findBcBills(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any()))
+                .thenThrow(new IllegalStateException("Synthetic read failure"));
         assertThat(report(MSPReconcile.REP_INVOICE).list).isEmpty();
-        verify(rows).close();
         verifyNoInteractions(historyDao);
     }
 
     @Test
-    void shouldCloseCursorBeforeEnrichment_whenTotalsFail() throws Exception {
+    void shouldReturnNoRows_whenTotalsFail() throws Exception {
         reportRows("Pri");
         when(historyDao.getTotalPaidFromHistoryByBillingMasterNos(anyCollection()))
                 .thenThrow(new IllegalStateException("Synthetic aggregation failure"));
         assertThat(report(MSPReconcile.REP_INVOICE).list).isEmpty();
-        verify(rows).close();
     }
     @Test
     void shouldBatchPaidAndOwing_forLargeBulkSettleList() {
