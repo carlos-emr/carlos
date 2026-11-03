@@ -175,6 +175,19 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
 
         @ParameterizedTest
         @CsvSource({"0,501", "0,2147483647", "0,-1", "-1,10"})
+        @DisplayName("should return 403 before validating pagination when demographic read is denied")
+        void shouldReturn403_whenInvalidListPaginationIsRequestedWithoutReadPrivilege(int offset, int limit) {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), any()))
+                    .thenReturn(false);
+            try (Response response = request().path("/demographics")
+                    .query("offset", offset).query("limit", limit).get()) {
+                assertThat(response.getStatus()).isEqualTo(403);
+                verifyNoInteractions(mockDemographicManager);
+            }
+        }
+
+        @ParameterizedTest
+        @CsvSource({"0,501", "0,2147483647", "0,-1", "-1,10"})
         @DisplayName("should return 400 before reading demographics for invalid pagination")
         void shouldReturn400_whenListPaginationIsInvalid(int offset, int limit) {
             try (Response response = request().path("/demographics")
