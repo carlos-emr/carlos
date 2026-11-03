@@ -927,7 +927,9 @@ by #4407.
 The Docker wrapper installs these same pinned dependencies. `accessibility-smoke`
 requires axe-core; if it is absent, the check reports SKIP before creating fixtures.
 On a fresh install, `annotate-document` reports SKIP when the Save and fax handoff
-finds no active fax account available to the test provider. Supply an owned UI-only
+finds no active fax account available to the test provider, provided no earlier
+annotation findings were collected and fixture cleanup succeeds. Earlier findings,
+browser/server errors and cleanup failures still report FAIL. Supply an owned UI-only
 fax account to exercise that handoff. `demographic-cds-import` and
 `audit-log-demographic-import` report SKIP when the import feature or approved
 source/profile is unavailable; see [CDS import configuration](../cds-import-configuration.md)
