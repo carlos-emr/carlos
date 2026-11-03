@@ -87,7 +87,7 @@
             ? EDocUtil.listDocs(loggedInInfo, "demographic", demoNo, null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE)
             : new ArrayList<>();
     ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = securityInfoManager.hasPrivilege(loggedInInfo, "_hrm", "r", null)
-            ? HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demoNo, false)
+            ? HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demoNo, true)
             : new ArrayList<>();
     List<AttachmentLabResultData> allLabsSortedByVersions = securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", null)
             ? attachmentManager.getAllLabsSortedByVersions(loggedInInfo, demoNo)

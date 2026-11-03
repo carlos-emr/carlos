@@ -719,7 +719,7 @@ public class DocumentPreview2Action extends ActionSupport {
                         EDocUtil.listDocs(loggedInInfo, "demographic", demographicNo, null, EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE))
                 : new ArrayList<>();
         ArrayList<HashMap<String, ? extends Object>> allHRMDocuments = hasPrivilege(loggedInInfo, "_hrm", SecurityInfoManager.READ, demographicNo)
-                ? HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicNo, false)
+                ? HRMUtil.listHRMDocuments(loggedInInfo, "report_date", false, demographicNo, true)
                 : new ArrayList<>();
         List<AttachmentLabResultData> allLabsSortedByVersions = hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, demographicNo)
                 ? documentAttachmentManager.getAllLabsSortedByVersions(loggedInInfo, demographicNo)
