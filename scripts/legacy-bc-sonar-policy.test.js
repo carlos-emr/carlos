@@ -28,6 +28,7 @@ function matches(pattern, file) {
     if (token === '?') return '[^/]';
     return token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }).join('');
+  // nosemgrep: javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp -- Test-only matcher over committed POM globs and local fixture paths; literal regex characters are escaped above, and no application or request input reaches it.
   return new RegExp(`^${regex}$`).test(file);
 }
 
