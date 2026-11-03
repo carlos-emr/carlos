@@ -202,8 +202,6 @@ async function workflow(s) {
     await composer.locator('#senderEmailAddress').selectOption(configId);
     await composer.locator('#subjectEmail').fill(`${marker} ${label}`);
     await composer.locator('#message').fill(`${marker} body ${label}`);
-    await composer.locator('#emailPDFPassword').fill(`PW${hex}${label}`);
-    await composer.locator('#emailPDFPasswordClue').fill(`${marker} clue`);
     await composer.locator('#doNotAddAsNoteOption').check();
     await Promise.all([composer.waitForURL(/\/email\/emailSendAction/, { timeout: TIMEOUT }), composer.locator('#btnSend').click()]);
     await composer.locator('#successMessage').waitFor({ timeout: TIMEOUT });
