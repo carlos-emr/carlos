@@ -70,7 +70,8 @@ class AiReviewedDocumentSummaryActionUnitTest {
         doAnswer(invocation -> { state.remove(invocation.getArgument(0)); return null; }).when(session).removeAttribute(anyString());
         when(context.load(any(LoggedInInfo.class), eq(11))).thenReturn(new DocumentSummaryReviewContext.Snapshot(SCOPE, META));
         when(context.read(any())).thenAnswer(ignored -> bytes()); when(context.currentSource(any())).thenAnswer(ignored -> source());
-        when(generator.summarize(TEXT)).thenReturn(summary());
+        var generatedSummary = summary();
+        when(generator.summarize(TEXT)).thenReturn(generatedSummary);
         action = new AiReviewedDocumentSummary2Action(context, generator, "FAKE-model@r1");
     }
     @AfterEach void close() {
@@ -95,7 +96,8 @@ class AiReviewedDocumentSummaryActionUnitTest {
         when(request.getMethod()).thenReturn("POST"); assertThat(action.generate()).isEqualTo(ActionSupport.SUCCESS); return current();
     }
     private void token(DocumentSummaryReviewSession review) {
-        when(request.getParameterValues("draftId")).thenReturn(new String[]{review.view(actor, SCOPE, source()).draftId().toString()});
+        String draftId = review.view(actor, SCOPE, source()).draftId().toString();
+        when(request.getParameterValues("draftId")).thenReturn(new String[]{draftId});
     }
     private void approve(DocumentSummaryReviewSession review) throws Exception {
         when(request.getMethod()).thenReturn("POST"); token(review);
@@ -137,7 +139,8 @@ class AiReviewedDocumentSummaryActionUnitTest {
     }
     @Test void changedLoginCannotUseExistingReview() throws Exception {
         var review = generate(); token(review);
-        authentication.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(actor(72));
+        var nextLogin = actor(72);
+        authentication.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(nextLogin);
         assertThat(action.approve()).isEqualTo(ActionSupport.NONE);
         verify(response).sendError(409);
         assertThat(current()).isNull();
@@ -170,7 +173,8 @@ class AiReviewedDocumentSummaryActionUnitTest {
     @Test void staleGenerationFailureDoesNotRemoveNewerSessionsDraft() throws Exception {
         final DocumentSummaryReviewSession[] winner = new DocumentSummaryReviewSession[1];
         var winnerGenerator = mock(DocumentSummaryService.class);
-        when(winnerGenerator.summarize(TEXT)).thenReturn(summary());
+        var winnerSummary = summary();
+        when(winnerGenerator.summarize(TEXT)).thenReturn(winnerSummary);
         when(generator.summarize(TEXT)).thenAnswer(ignored -> {
             winner[0] = DocumentSummaryReviewSession.generate(SCOPE, META, AiReviewedDocumentSummaryActionUnitTest::bytes, winnerGenerator, "FAKE-winner", actor);
             state.put(GENERATION_KEY, UUID.randomUUID()); state.put(DocumentSummaryReviewSession.SESSION_KEY, winner[0]);
