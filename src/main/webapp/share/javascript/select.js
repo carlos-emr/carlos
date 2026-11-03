@@ -21,6 +21,7 @@
 //
 // Rewritten as vanilla JS for CARLOS EMR (2026) — replaces Prototype/Scriptaculous dependency.
 // VERSION 1.0
+// Modifications by CARLOS Contributors, 2026.
 
 /**
  * CarlosAutocomplete — vanilla JS autocomplete dropdown over a <select> element.
@@ -233,15 +234,23 @@ var CarlosAutocomplete = (function () {
             return;
         }
 
-        // Position dropdown below the input
+        // Measure the containing block after showing the dropdown: display:none
+        // elements have no offsetParent. Encounter editors use positioned parents,
+        // so document coordinates would apply that parent's offset a second time.
         var rect = this.input.getBoundingClientRect();
-        var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-        var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-        this.dropdown.style.top = (rect.bottom + scrollTop) + 'px';
-        this.dropdown.style.left = (rect.left + scrollLeft) + 'px';
-        this.dropdown.style.width = rect.width + 'px';
-
         this.dropdown.style.display = 'block';
+        var parent = this.dropdown.offsetParent;
+        if (parent && parent !== document.body && parent !== document.documentElement) {
+            var parentRect = parent.getBoundingClientRect();
+            this.dropdown.style.top = (rect.bottom - parentRect.top - parent.clientTop + parent.scrollTop) + 'px';
+            this.dropdown.style.left = (rect.left - parentRect.left - parent.clientLeft + parent.scrollLeft) + 'px';
+        } else {
+            var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+            this.dropdown.style.top = (rect.bottom + scrollTop) + 'px';
+            this.dropdown.style.left = (rect.left + scrollLeft) + 'px';
+        }
+        this.dropdown.style.width = rect.width + 'px';
         this.isOpen = true;
         this.activeIndex = -1;
     };
