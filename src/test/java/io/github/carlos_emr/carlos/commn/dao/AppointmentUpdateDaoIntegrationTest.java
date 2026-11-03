@@ -243,7 +243,7 @@ class AppointmentUpdateDaoIntegrationTest {
     void shouldInvalidateReadVersion_whenBulkStatusUpdateSkipsEntityCallbacks() {
         String version = read().getEditVersion();
         tx(em -> {
-            assertThat(appointments.updateApptStatus(Integer.toString(id), "B")).isEqualTo(1);
+            assertThat(appointments.updateApptStatus(id + ",2147483648,999999999999999999999,1) OR 1=1 --", "B")).isEqualTo(1);
             return null;
         });
         assertThat(read().getEditVersion()).isNotEqualTo(version);
