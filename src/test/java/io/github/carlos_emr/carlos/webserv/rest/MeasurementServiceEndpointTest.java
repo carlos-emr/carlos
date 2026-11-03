@@ -37,7 +37,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicReference;
+
 import jakarta.ws.rs.client.Entity;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestFilter;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 
 import org.junit.jupiter.api.DisplayName;
@@ -84,6 +90,29 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
         Response response=request().path("/measurements/123").post(Entity.json("{\"types\":[\"BP\"]}"));
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.readEntity(String.class)).contains("requires review");
+    }
+
+    /**
+     * Server-side capture of the Content-Type the endpoint actually received. A fresh instance is
+     * built for every test (the base class rebuilds the providers in each {@code @BeforeEach}), so
+     * no state is shared between tests.
+     */
+    private HeaderCaptureFilter headerCapture;
+
+    /** Records, on the server side, whether a request arrived with a Content-Type header. */
+    static final class HeaderCaptureFilter implements ContainerRequestFilter {
+        final AtomicReference<String> contentType = new AtomicReference<>("not-called");
+
+        @Override
+        public void filter(ContainerRequestContext requestContext) throws IOException {
+            contentType.set(requestContext.getHeaderString(HttpHeaders.CONTENT_TYPE));
+        }
+    }
+
+    @Override
+    protected List<Object> additionalServerProviders() {
+        headerCapture = new HeaderCaptureFilter();
+        return List.of(headerCapture);
     }
 
     @Override
@@ -334,6 +363,35 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
                 .thenReturn(Collections.emptyList());
             Response post = request().path("/measurements/123").post(Entity.json("{\"types\":[\"BP\"]}"));
             assertThat(post.getStatus()).isEqualTo(200);
+        }
+
+        @Test
+        @DisplayName("should answer 200 when the request carries no Content-Type")
+        void shouldReturn200_whenContentTypeAbsent() {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_measurement"), eq("r"), eq(null)))
+                .thenReturn(true);
+            when(mockMeasurementManager.getMeasurementTypes(any(LoggedInInfo.class))).thenReturn(Collections.emptyList());
+
+            Response response = request().path("/measurements/types")
+                .replaceHeader(HttpHeaders.CONTENT_TYPE, null).get();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            // What the server received, not what the client meant to send.
+            assertThat(headerCapture.contentType.get()).isNull();
+        }
+
+        @Test
+        @DisplayName("should not route POST /measurements/types to any method")
+        void shouldReturn404_whenPostingToTypes() {
+            // 404 is CXF behaviour, not JAX-RS specification behaviour (the specification would
+            // answer 405): CXF cannot convert "types" to the Integer path parameter of
+            // POST /{demographicNo}, so that method is not selected. A CXF upgrade that changes
+            // this should be read as a routing change, not as a regression here.
+            Response response = request().path("/measurements/types")
+                .post(Entity.json("{\"types\":[\"BP\"]}"));
+
+            assertThat(response.getStatus()).isEqualTo(404);
+            verifyNoInteractions(mockMeasurementManager, projections, mockSecurityInfoManager);
         }
     }
 }
