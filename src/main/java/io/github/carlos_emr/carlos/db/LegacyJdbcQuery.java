@@ -196,7 +196,7 @@ public final class LegacyJdbcQuery {
             ps.setMaxRows(maximumRows + 1);
             ps.setQueryTimeout(timeoutSeconds);
             bindParams(ps, params);
-            ResultSet rs = ps.executeQuery();
+            ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- TrustedSql has a private constructor reached only after SELECT validation; request values are JDBC-bound
             return registerThreadResource(StatementClosingResultSet.wrap(rs, ps, connection, dataSource));
         } catch (SQLException | RuntimeException e) {
             closeStatement(ps);
