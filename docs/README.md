@@ -36,6 +36,7 @@ Key testing resources:
 
 | Document | Description |
 |----------|-------------|
+| [Spreadsheet exports](spreadsheet-exports.md) | BC billing CSV and Dx Research XLSX column contracts, compatibility changes, and failure behavior |
 | [MyDrugref](MyDrugref.md) | Drug reference system documentation |
 | [Form Resources README](README-form-resources.md) | Medical forms and resources |
 | [eForm chrome styling](eform-chrome-bootstrap-scope.md) | Why the eForm toolbar, alert and picker use a scoped Bootstrap copy, and the rule against global stylesheets on eForm pages |
@@ -49,6 +50,7 @@ Key testing resources:
 | [Container-provided Jakarta APIs](container-provided-apis.md) | Which web-tier Jakarta APIs Tomcat 11 supplies (`provided`), why JSTL still ships in the WAR, and the checks that hold it |
 | [JasperReports and OpenPDF 3](jasperreports-openpdf3.md) | Shared PDF dependencies, stock OpenPDF and Brotli decisions, and report-export compatibility checks (#5471) |
 | [JDK equivalents audit](jdk-equivalents-audit.md) | Behaviour-preserving Commons replacements, compatibility coverage and retained legacy semantics (#5483) |
+| [Library conventions for new code](architecture/library-conventions.md) | Preferred JDK and library APIs, HTTP-client decision, and legacy compatibility boundaries (#5485) |
 | [GitHub Issue Management](github-issue-management.md) | Issue tracking and workflow |
 | [Database Schema Management](database-schema-management.md) | Flyway baseline, forward migrations, where migrations run |
 | [Database Index Review (2026-09-04)](database-index-review-2026-09-04.md) | Index state vs. DAO query patterns; rationale for the V1.0.18/V1.0.19 index migrations |

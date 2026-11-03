@@ -152,28 +152,10 @@ test('should explain every shipped baseline entry with an issue, a recorded find
   }
 });
 
-test('should fail if the fixed satellite-clinic PDF exception recurs', (t) => {
-  const r = audit(t, [
-    '2026-10-08 04:40:11,662 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:341) - Uncaught exception escaped filter chain [uri=/carlos/form/createcustomedpdf correlationId=x]',
-    'jakarta.servlet.ServletException: java.lang.NullPointerException: x',
-    '\tat io.github.carlos_emr.carlos.form.pdfservlet.FrmCustomedPDFServlet.parseSCAddress(FrmCustomedPDFServlet.java:981)',
-    'Caused by: java.lang.NullPointerException: x',
-    ...NPE_EVENT,
-  ], { baseline: fs.readFileSync(BASELINE, 'utf8') });
-  assert.equal(r.status, 1, r.out + r.err);
-  assert.match(r.out, /^UNKNOWN +1 +ERROR utility\.ResponseSanitizationFilter /m);
-  assert.match(r.out, /^UNKNOWN +1 +ERROR utility\.DbConnectionFilter /m);
-  assert.match(r.out, /^FAIL server log audit: 2 unexplained signature\(s\), 0 known, 2 event\(s\)/m);
-});
-
 test('should match each shipped baseline entry against the event it was written for', (t) => {
   // PHI-free reconstructions of the events each entry explains, so a regex
   // that silently stopped matching (a typo, an escaped space) fails here.
   const lines = [
-    '2026-10-08 04:40:11,913 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:393) - Sanitizing output-stream error response body [status=500 uri=/carlos/ws/rs/schedule/fetchProvidersApptsCount/not-a-date/not-a-date]',
-    '2026-10-08 04:40:11,881 ERROR rest.ScheduleService (ScheduleService.java:657) - ScheduleService.listProviderAppointmentCounts error',
-    'jakarta.ws.rs.WebApplicationException: HTTP 400 Bad Request',
-    '\tat io.github.carlos_emr.carlos.managers.ScheduleManagerImpl.listProviderAppointmentCounts(ScheduleManagerImpl.java:351)',
     '2026-10-08 04:41:40,319 ERROR action.Log (Log.java:73) - CSRF violation: (user:<anonymous>, ip:127.0.0.1, method:POST, error:Required Token is missing from the Request)',
     '2026-10-08 04:37:51,825 ERROR pageUtil.PrintAppointmentReceipt2Action (PrintAppointmentReceipt2Action.java:173) - user home: /var/lib/carlos-emr',
     '2026-10-08 04:43:26,812 ERROR dao.DemographicPharmacyDaoImpl (DemographicPharmacyDaoImpl.java:149) - UNKNOWN PHARMACY TO UNLINK',
@@ -181,7 +163,32 @@ test('should match each shipped baseline entry against the event it was written 
   const r = audit(t, lines, { baseline: fs.readFileSync(BASELINE, 'utf8') });
   assert.equal(r.status, 0, r.out);
   assert.doesNotMatch(r.out, /^UNKNOWN /m);
-  assert.equal((r.out.match(/^KNOWN /gm) || []).length, 5, 'each reconstructed event should be its own KNOWN signature');
+  assert.equal((r.out.match(/^KNOWN /gm) || []).length, 3, 'each reconstructed event should be its own KNOWN signature');
+});
+
+test('should fail if the fixed schedule-date server error recurs', (t) => {
+  const r = audit(t, [
+    '2026-10-08 04:40:11,913 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:393) - Sanitizing output-stream error response body [status=500 uri=/carlos/ws/rs/schedule/fetchProvidersApptsCount/not-a-date/not-a-date]',
+    '2026-10-08 04:40:11,881 ERROR rest.ScheduleService (ScheduleService.java:657) - ScheduleService.listProviderAppointmentCounts error',
+    'jakarta.ws.rs.WebApplicationException: HTTP 400 Bad Request',
+    '\tat io.github.carlos_emr.carlos.managers.ScheduleManagerImpl.listProviderAppointmentCounts(ScheduleManagerImpl.java:351)',
+  ], { baseline: fs.readFileSync(BASELINE, 'utf8') });
+  assert.equal(r.status, 1, r.out + r.err);
+  assert.equal((r.out.match(/^UNKNOWN /gm) || []).length, 2);
+  assert.doesNotMatch(r.out, /^KNOWN /m);
+});
+
+test('should fail if the fixed satellite-address crash recurs', (t) => {
+  const r = audit(t, [
+    '2026-10-08 04:40:11,662 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:341) - Uncaught exception escaped filter chain [uri=/carlos/form/createcustomedpdf correlationId=x]',
+    'jakarta.servlet.ServletException: java.lang.NullPointerException: x',
+    '\tat io.github.carlos_emr.carlos.form.pdfservlet.FrmCustomedPDFServlet.parseSCAddress(FrmCustomedPDFServlet.java:981)',
+    'Caused by: java.lang.NullPointerException: x',
+    ...NPE_EVENT,
+  ], { baseline: fs.readFileSync(BASELINE, 'utf8') });
+  assert.equal(r.status, 1, r.out);
+  assert.equal((r.out.match(/^UNKNOWN /gm) || []).length, 2);
+  assert.doesNotMatch(r.out, /^KNOWN /m);
 });
 
 test('should match every shipped baseline entry against a signature a packaged install produced', () => {

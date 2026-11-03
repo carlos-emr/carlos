@@ -631,6 +631,8 @@ public class ScheduleService extends AbstractServiceImpl {
      * @param sDateStr start date in format "yyyy-MM-dd"
      * @param eDateStr end date in format "yyyy-MM-dd"
      * @return ProviderApptsCountResponse containing appointment counts
+     * @throws WebApplicationException with HTTP 400 for missing or malformed dates,
+     *         or an HTTP error response if the appointment count lookup fails
      */
     @GET
     @Path("/fetchProvidersApptsCount/{sDate}/{eDate}")
@@ -661,6 +663,8 @@ public class ScheduleService extends AbstractServiceImpl {
             }
 
             return response;
+        } catch (WebApplicationException e) {
+            throw e;
         } catch (Exception e) {
             logger.error("ScheduleService.listProviderAppointmentCounts error", e);
             throw new WebApplicationException(Response.status(Status.INTERNAL_SERVER_ERROR).entity("Internal server error").build());
@@ -774,12 +778,12 @@ public class ScheduleService extends AbstractServiceImpl {
             forNewId.setSearchName(appointmentSearch.getSearchName());
             forNewId.setSearchType(appointmentSearch.getSearchType());
 
-            if (currentAppointmentSearch != null) {
-                currentAppointmentSearch.setActive(false);
-                appointmentSearchDao.merge(currentAppointmentSearch);
-            }
+            currentAppointmentSearch.setActive(false);
+            appointmentSearchDao.merge(currentAppointmentSearch);
 
-            logger.info("searchConfig\n" + XmlUtils.toString(d, true));
+            if (logger.isInfoEnabled()) {
+                logger.info("searchConfig\n{}", XmlUtils.toString(d, true));
+            }
         } catch (Exception e) {
             logger.error("save Search Config Error ", e);
             return Response.status(Status.INTERNAL_SERVER_ERROR)

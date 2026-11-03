@@ -1654,18 +1654,16 @@ Notes on the contract:
   It shrinks the notes wrapper in the browser before watching the poll: the
   pagination only fires when that pane overflows and sits at the top, which a
   tall headless window never reproduces on its own.
-- **`error-sanitization-playwright-checks.js` provokes two real 500s on
-  purpose**, and must also run through `:443`. It is the only check that
-  exercises `ResponseSanitizationFilter`'s error-replacement path — every other
-  script drives success paths, so a filter that stopped sanitizing entirely
-  would leave the suite green. While it runs, `journalctl -u carlos-emr` will
-  show `Uncaught exception escaped filter chain` and `Sanitizing ... error
-  response body` at ERROR: that is the check working, not a failure. It creates
-  and deletes nothing (one append-only `OscarLog` audit row from the `/ws`
-  probe). To confirm it can still fail — worth doing after any change to the
-  filter — set `response.sanitization.enabled=false` in
-  `/etc/carlos-emr/carlos.properties`, `carlos-ctl restart`, and re-run: it
-  must FAIL. Restore the property and restart afterwards.
+- **`error-sanitization-playwright-checks.js` validates controlled 400s through
+  `:443`.** Missing and malformed satellite-clinic addresses return 400 before
+  PDF generation (#5533), and malformed schedule dates preserve the manager's
+  400 and public validation message (#5545). Both probes must produce no
+  server-error signatures; their former log-audit allowances are removed.
+  Uncaught exceptions, `/ws` 5xx body replacement, partial serialization and
+  committed-response guards remain covered by `ResponseSanitizationFilterUnitTest`.
+  `ScheduleServiceEndpointTest` covers the endpoint's unexpected-failure 500.
+  The browser check creates and deletes nothing (one append-only `OscarLog`
+  audit row from `/ws`).
 
 ### TLS verification for the browser checks (issue #3598)
 
@@ -1706,8 +1704,8 @@ Message text is never printed unless `--show-messages` is given, because log
 messages can carry patient data. The baseline explains three kinds of event,
 each entry citing the check, the issue or the findings-log row behind it:
 
-- errors the suite provokes on purpose (the 500s of `error-sanitization`, the
-  malformed lab uploads, the refusal and rollback probes, the tokenless CSRF
+- errors the suite provokes on purpose (the malformed lab uploads, the refusal
+  and rollback probes, the tokenless CSRF
   replays);
 - the validation environment (no internet, a page closed mid-download, a fixture
   patient deleted while the chart is still loading, a service restart);

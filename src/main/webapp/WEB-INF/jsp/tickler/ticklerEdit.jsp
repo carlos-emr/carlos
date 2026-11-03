@@ -26,6 +26,7 @@
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
+    Modifications by CARLOS Contributors, 2026.
 
 --%>
 <%--
@@ -413,6 +414,13 @@
                             // SecurityError: cross-origin redirect — almost certainly a session timeout
                             console.error('[ticklerEdit] iframe cross-origin access blocked — possible session expiry:', e);
                             alert('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.errorSessionExpired") %>' context="javaScriptBlock"/>');
+                            enableSubmitButtons();
+                            return;
+                        }
+                        var attachmentsRefused = iframe.contentDocument &&
+                            iframe.contentDocument.getElementById('tickler-edit-attachments-refused');
+                        if (attachmentsRefused) {
+                            CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerEdit.attachments.error") %>' context="javaScriptBlock"/>');
                             enableSubmitButtons();
                             return;
                         }
