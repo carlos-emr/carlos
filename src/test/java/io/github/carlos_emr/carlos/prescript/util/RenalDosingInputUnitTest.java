@@ -16,7 +16,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RenalDosingInputUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @NullAndEmptySource
-    @ValueSource(strings = {" ", "not-a-number", "0", "-1", "NaN", "Infinity", "-Infinity", "1e309"})
+    @ValueSource(strings = {" ", "not-a-number", "0", "-1", "NaN", "Infinity", "-Infinity", "1e309",
+            "0x1p6", "80f", "80d", "80kg", "1,000", "+", "."})
     @DisplayName("should refuse missing, malformed, nonpositive and nonfinite observations")
     void shouldRefuse_whenObservationCannotSupportCalculation(String observation) {
         assertThat(RenalDosingInput.positiveNumber(observation)).isNaN();

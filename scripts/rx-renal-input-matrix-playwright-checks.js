@@ -50,6 +50,11 @@ async function workflow(s) {
     await rx.waitForFunction(id=>document.querySelector(id)?.textContent.includes('N/A'),`#renalDosing_${card}`);
     h.assert(await panel.locator('table.equation').count()===1 && await panel.locator('tr.selected').count()===0,
       'Refused refresh retained a stale recommendation or appended a duplicate panel');
+    fixture.apply({age:0,weight:'80',cr:'100'});
+    const [infant]=await refresh();
+    h.assert(infant.status()===200,'An age below one year should render N/A without rejecting valid observations');await infant.finished();
+    await rx.waitForFunction(id=>document.querySelector(id)?.textContent.includes('N/A'),`#renalDosing_${card}`);
+    h.assert(await panel.locator('tr.selected').count()===0,'An age below one year selected an adult dose');
   });
   await s.step('restoring valid observations refreshes the same panel without retaining stale input',async()=>{
     fixture.apply({...testCase,weight:'80',cr:'100',crDate:'2025-01-02',lab:undefined});

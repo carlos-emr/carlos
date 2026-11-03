@@ -67,6 +67,10 @@
 <%
     String atc = StringUtils.noNull(request.getParameter("atcCode"));
     String demographicNo = StringUtils.noNull(request.getParameter("demographicNo"));
+    String divId = request.getParameter("divId");
+    if (divId == null) {
+        divId = "renalDosing";
+    }
 
     DosingRecomendation rd = RenalDosingFactory.getDosingInformation(atc);
     if (rd == null) {  // No data so don't continue
@@ -82,7 +86,7 @@
     Hashtable measurementHash = EctMeasurementsDataBeanHandler.getLast(demographicNo, "WT");
 
     Date wtDate = null;
-    boolean invalidInput = age <= 0;
+    boolean invalidInput = age < 0;
     if (measurementHash != null && measurementHash.get("value") != null) {
         weight = RenalDosingInput.positiveNumber((String) measurementHash.get("value"));
         wtDate = (Date) measurementHash.get("dateObserved_date");
@@ -208,7 +212,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
 </style>
 <div style="float:left; margin-left:10px; margin-right: 10px;">
     <h3>Dosing Information <small><a href="#"
-        onclick="getRenalDosingInformation('<carlos:encode value='<%= request.getParameter("divId") == null ? "renalDosing" : request.getParameter("divId") %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= atc %>' context="javaScriptAttribute"/>'); return false;">Refresh</a></small></h3>
+        onclick="getRenalDosingInformation('<carlos:encode value='<%= divId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= atc %>' context="javaScriptAttribute"/>'); return false;">Refresh</a></small></h3>
     <table class="sofT">
         <tr class="heading">
             <th>Clcr</th>

@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const source=fs.readFileSync('src/main/webapp/WEB-INF/jsp/rx/SearchDrug3.jsp','utf8');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../src/main/webapp/WEB-INF/jsp/rx/SearchDrug3.jsp'),'utf8');
 const refresh=source.slice(source.indexOf('function getRenalDosingInformation(divId,atcCode)'),source.indexOf('function getLUC(',source.indexOf('function getRenalDosingInformation(divId,atcCode)')));
 for(const status of [200,400])test(`only the latest renal refresh can replace a panel, including HTTP ${status}`,()=>{
   const panel={innerHTML:'previous calculation'},requests=[];
