@@ -319,7 +319,7 @@ async function installNavigationGuard(context) {
 
 function wirePage(page) {
   page.on('response', (response) => {
-    if (expectedErrorUrls.has(response.url()) && response.status() === 500) {
+    if (expectedErrorUrls.has(response.url()) && response.status() === 404) {
       confirmedExpectedErrorUrls.add(response.url());
       return;
     }
@@ -363,6 +363,12 @@ async function assertEditor(page, label, response) {
   }
   if (!/Edit Flowsheet/.test(body) || /CARLOS Error:|unexpected error/i.test(body)) {
     throw new Error(`${label} did not render the flowsheet editor`);
+  }
+  // The heading is written before the export; require the end of the page too
+  // so a JSP failure after the heading cannot pass as a rendered editor (#5188).
+  if (await page.locator('#scrollToTop').count() !== 1
+      || !/<flowsheet\b/.test(await page.locator('textarea').inputValue())) {
+    throw new Error(`${label} did not finish rendering the flowsheet editor and XML export`);
   }
   checks.push({ label, status: response.status(), url: page.url() });
 }
@@ -489,9 +495,11 @@ async function verifyMeasurementVisibilityToggle(page) {
   await row.getByTitle('Hide this measurement').waitFor({ state: 'visible', timeout: 30000 });
 }
 
-async function verifyEditorFailureStatus(page) {
+async function verifyMissingEditorStatus(page, flowsheet) {
   const target = new URL(appUrl('/encounter/oscarMeasurements/adminFlowsheet/ViewEditFlowsheet'));
-  target.searchParams.set('flowsheet', `missing-${Date.now()}`);
+  if (flowsheet !== null) {
+    target.searchParams.set('flowsheet', flowsheet);
+  }
   target.searchParams.set('displayName', 'Missing test flowsheet');
   expectedErrorUrls.add(target.toString());
   let response;
@@ -501,13 +509,14 @@ async function verifyEditorFailureStatus(page) {
     expectedErrorUrls.delete(target.toString());
   }
   const body = await page.locator('body').innerText();
-  if (!response || response.status() !== 500) {
-    throw new Error(`Invalid editor render returned HTTP ${response ? response.status() : 'unknown'}, expected 500`);
+  if (!response || response.status() !== 404) {
+    throw new Error(`Missing editor returned HTTP ${response ? response.status() : 'unknown'}, expected 404`);
   }
-  if (!/CARLOS Error:\s*500/.test(body) || /CARLOS Error:\s*0/.test(body)) {
-    throw new Error('Invalid editor render did not display CARLOS Error: 500');
+  if (!/CARLOS Error:\s*404/.test(body) || /CARLOS Error:\s*(0|500)\b/.test(body)
+      || await page.locator('#measurementTbl').count() !== 0) {
+    throw new Error('Missing editor did not display a complete CARLOS Error: 404 page');
   }
-  checks.push({ label: 'editor-error-status', status: response.status(), url: page.url() });
+  checks.push({ label: 'editor-not-found-status', status: response.status(), url: page.url() });
 }
 
 let browser;
@@ -594,7 +603,9 @@ installCleanupSignalHandlers(cleanupResources);
     await editFromManager(page, 'Periodic Health Visit', 'system-edit');
     await verifyMeasurementVisibilityToggle(page);
     await editFromManager(page, displayName, 'user-edit');
-    await verifyEditorFailureStatus(page);
+    for (const missingFlowsheet of [`missing-${Date.now()}`, '', null]) {
+      await verifyMissingEditorStatus(page, missingFlowsheet);
+    }
 
     const blockingFindings = findings;
     if (blockingFindings.length) {

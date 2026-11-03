@@ -212,6 +212,11 @@
 
     String flowsheet = temp;
     MeasurementTemplateFlowSheetConfig templateConfig = MeasurementTemplateFlowSheetConfig.getInstance();
+    // Reject missing/deleted templates before rendering or applying any saved customizations.
+    if (templateConfig.getFlowSheet(flowsheet) == null) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_NOT_FOUND);
+        return;
+    }
     // Resolve from the saved template: customization POSTs do not carry its display name.
     String displayNameValue = templateConfig.getDisplayName(flowsheet);
     if (displayNameValue == null) displayNameValue = "";
