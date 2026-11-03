@@ -255,9 +255,10 @@ class TestMariaDBInitialization(unittest.TestCase):
         clinical = documents / "clinical-fixture.pdf"
         clinical.write_bytes(b"synthetic document")
         self.assert_refused()
+        self.assert_refused(["--accept-empty-datadir"])
         self.assertEqual(clinical.read_bytes(), b"synthetic document")
 
-    def test_unreadable_document_scan_fails_closed_unless_explicitly_accepted(self):
+    def test_unreadable_document_scan_always_fails_closed(self):
         documents = self.state / "CarlosDocument"
         documents.mkdir(parents=True)
 
@@ -273,8 +274,8 @@ class TestMariaDBInitialization(unittest.TestCase):
             self.assertIn("unreadable", self.stderr.getvalue())
             self.assertFalse((self.datadir / "mysql").exists())
             walk.reset_mock()
-            self.assertEqual(init.main(["--accept-empty-datadir"]), 0)
-            walk.assert_not_called()
+            self.assert_refused(["--accept-empty-datadir"])
+            walk.assert_called_once()
 
     def test_empty_document_directories_are_allowed_but_symlinks_are_not(self):
         documents = self.state / "CarlosDocument"
@@ -283,6 +284,7 @@ class TestMariaDBInitialization(unittest.TestCase):
         link = nested / "missing-document"
         link.symlink_to(self.datadir / "missing-target")
         self.assert_refused()
+        self.assert_refused(["--accept-empty-datadir"])
         link.unlink()
         self.assertEqual(init.main(), 0)
 
@@ -292,15 +294,26 @@ class TestMariaDBInitialization(unittest.TestCase):
         target.mkdir()
         (self.state / "CarlosDocument").symlink_to(target, target_is_directory=True)
         self.assert_refused()
+        self.assert_refused(["--accept-empty-datadir"])
 
-    def test_explicit_acceptance_bypasses_only_site_provenance(self):
+    def test_explicit_acceptance_allows_missing_configuration_without_documents(self):
         self.properties.unlink()
+        self.assert_refused()
+        self.assertEqual(init.main(["--accept-empty-datadir"]), 0)
+
+    def test_explicit_acceptance_allows_different_configuration_without_documents(self):
+        self.properties.write_bytes(b"# existing configured site\ndb_username=carlos\n")
+        self.assert_refused()
+        self.assertEqual(init.main(["--accept-empty-datadir"]), 0)
+
+    def test_explicit_acceptance_refuses_configured_site_with_retained_documents(self):
+        self.properties.write_bytes(b"# existing configured site\ndb_username=carlos\n")
         documents = self.state / "CarlosDocument"
         documents.mkdir(parents=True)
         clinical = documents / "fixture.pdf"
         clinical.write_bytes(b"synthetic retained document")
         self.assert_refused()
-        self.assertEqual(init.main(["--accept-empty-datadir"]), 0)
+        self.assert_refused(["--accept-empty-datadir"])
         self.assertEqual(clinical.read_bytes(), b"synthetic retained document")
 
     def test_explicit_acceptance_does_not_bypass_existing_data(self):

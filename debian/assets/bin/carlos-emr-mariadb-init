@@ -166,8 +166,11 @@ def untouched_site():
     """An empty mountpoint is not evidence that an established site is new."""
     if any(path.is_symlink() or not path.is_file() for path in (PROPERTIES, SKEL)):
         return False
-    if PROPERTIES.read_bytes() != SKEL.read_bytes():
-        return False
+    return PROPERTIES.read_bytes() == SKEL.read_bytes()
+
+
+def empty_document_store():
+    """Even an explicitly new database must not inherit old patient documents."""
     documents = STATE / "CarlosDocument"
     if documents.is_symlink():
         return False
@@ -259,8 +262,13 @@ def initialize(accept_empty_datadir=False):
                     "(see 'Missing MariaDB system tables' in README.Debian).")
                 return 1
 
+        if not empty_document_store():
+            say("Retained clinical documents cannot be paired with a new empty database. Restore a matching "
+                "database and document backup, or verify and archive the complete old document store outside "
+                "the active CarlosDocument path before retrying. See README.Debian.")
+            return 1
         if not accept_empty_datadir and not untouched_site():
-            say("MariaDB's mysql schema is missing, but this site's configuration or retained documents "
+            say("MariaDB's mysql schema is missing, but this site's configuration "
                 "do not prove an unfinished first initialization. Check that the database volume is mounted "
                 "and recover the existing database. Only for an intentionally new database, rerun with "
                 "--accept-empty-datadir (see README.Debian).")
@@ -286,7 +294,7 @@ def initialize(accept_empty_datadir=False):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--accept-empty-datadir", action="store_true",
-                        help="accept a new empty database after checking mounts/backups; never overwrites existing schemas")
+                        help="accept new database configuration after checking mounts/backups; never bypasses document or datadir checks")
     options = parser.parse_args([] if argv is None else argv)
     try:
         return initialize(options.accept_empty_datadir)

@@ -505,14 +505,22 @@ If a configured site has no mysql schema, first check that its original data
 volume is mounted and recover the database from a matching backup. Do not
 initialize a blank mountpoint and start a new clinical database in its place.
 Only when a NEW empty database is intentional (for example, after explicitly
-removing MariaDB's databases during purge), accept that choice with:
+removing MariaDB's databases during purge), also check the document store.
+Purge deliberately retains /var/lib/carlos-emr/CarlosDocument. Restore the
+matching database and documents together, or verify a complete backup and
+archive the old document store outside its active path before creating a new
+database. Do not pair a fresh clinical schema with retained patient documents.
+The helper refuses document files, symlinks and unreadable document subtrees
+even with the explicit acceptance option. Once the active store is empty (or
+absent after a deliberate archive), accept the new database configuration with:
 
     sudo /usr/lib/carlos-emr/carlos-emr-mariadb-init --accept-empty-datadir
     sudo dpkg-reconfigure carlos-emr
     sudo dpkg-reconfigure carlos-emr-drugref     (if installed)
 
-This option bypasses only the first-install provenance check. It still
-refuses existing datadir contents, unknown service options, imports and locks.
+This option bypasses only the first-install configuration provenance check.
+It still refuses retained/unreadable documents, existing datadir contents,
+unknown service options, imports and locks.
 For an existing database with missing system tables, restore its mysql system
 schema from a matching backup before running `sudo carlos-ctl finish-install`.
 Do not delete the data directory, remove ibdata1, or run an initializer over
