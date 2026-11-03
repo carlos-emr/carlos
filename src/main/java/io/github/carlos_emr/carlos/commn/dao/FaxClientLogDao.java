@@ -47,6 +47,12 @@ public interface FaxClientLogDao extends AbstractDao<FaxClientLog> {
 
     public List<FaxClientLog> findClientLogbyRequestId(int requestId);
 
-    /** Returns consultation fax history joined to jobs, without one job lookup per log. */
+    /**
+     * Returns consultation fax history joined to jobs, without one job lookup per log.
+     * Logs whose job is missing are excluded, preserving the existing display behavior.
+     *
+     * @param requestId int the consultation request ID
+     * @return {@code List<ConsultationFaxRow>} in newest-first log order; empty if no jobs match
+     */
     List<ConsultationFaxRow> findConsultationFaxRows(int requestId);
 }

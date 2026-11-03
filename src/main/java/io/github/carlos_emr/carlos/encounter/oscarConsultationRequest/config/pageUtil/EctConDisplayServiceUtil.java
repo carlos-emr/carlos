@@ -34,6 +34,7 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pa
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
+import org.apache.commons.lang3.StringUtils;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultationServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
@@ -95,7 +96,8 @@ public class EctConDisplayServiceUtil {
             fNameVec.add(ps.firstName());
             lNameVec.add(ps.lastName());
             proLettersVec.add(ps.professionalLetters());
-            addressVec.add(ps.streetAddress());
+            // Preserve ProfessionalSpecialist.getStreetAddress() for raw projected values.
+            addressVec.add(StringUtils.trimToEmpty(ps.streetAddress()));
             phoneVec.add(ps.phoneNumber());
             faxVec.add(ps.faxNumber());
             websiteVec.add(ps.webSite());

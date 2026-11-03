@@ -73,6 +73,7 @@ public class FaxClientLogDaoImpl extends AbstractDaoImpl<FaxClientLog> implement
         return query.getResultList();
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<ConsultationFaxRow> findConsultationFaxRows(int requestId) {
         return entityManager.createQuery("select new io.github.carlos_emr.carlos.consultation.dto.ConsultationFaxRow("

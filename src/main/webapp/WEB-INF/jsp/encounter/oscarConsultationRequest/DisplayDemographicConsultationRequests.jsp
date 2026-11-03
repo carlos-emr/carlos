@@ -301,7 +301,7 @@
                     </a>
                 </td>
                 <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><carlos:encode value='<%= provider %>' context="html"/></td>
-                <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><%= (cProv != null) ? SafeEncode.forHtml(cProv.getLastName() + ", " + cProv.getFirstName()) : "" %></td>
+                <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><%= (cProv != null) ? SafeEncode.forHtmlContent(cProv.getLastName() + ", " + cProv.getFirstName()) : "" %></td>
                 <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
                     <a href="javascript:popupConsultation(700,960,'<carlos:encode value='<%= viewRequestUrl %>' context="javaScriptAttribute"/>')">
                         <carlos:encode value='<%= StringUtils.trimToEmpty(service) %>' context="html"/>

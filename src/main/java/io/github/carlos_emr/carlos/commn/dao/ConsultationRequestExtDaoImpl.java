@@ -64,6 +64,7 @@ public class ConsultationRequestExtDaoImpl extends AbstractDaoImpl<ConsultationR
         return null;
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<ConsultationRequestExt> getConsultationRequestExts(Collection<Integer> requestIds) {
         if (requestIds.isEmpty()) return List.of();

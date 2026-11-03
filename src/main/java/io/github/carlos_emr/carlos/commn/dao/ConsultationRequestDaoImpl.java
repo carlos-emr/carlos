@@ -118,12 +118,14 @@ public class ConsultationRequestDaoImpl extends AbstractDaoImpl<ConsultationRequ
         return query == null ? List.of() : query.getResultList();
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<ConsultationListRow> getConsultationListRows(ConsultationListFilterDto filter) {
         Query query = consultationListQuery(filter, LIST_ROW_SELECTION);
         return query == null ? List.of() : query.getResultList();
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<ConsultationListRow> getConsultationListRows(Integer demographicNo) {
         return entityManager.createQuery("SELECT " + LIST_ROW_SELECTION

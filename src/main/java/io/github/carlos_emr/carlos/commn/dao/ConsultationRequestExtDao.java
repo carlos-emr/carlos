@@ -43,7 +43,12 @@ public interface ConsultationRequestExtDao extends AbstractDao<ConsultationReque
 
     String getConsultationRequestExtsByKey(int requestId, String key);
 
-    /** Loads extensions for a page in one query; empty input returns no rows. */
+    /**
+     * Loads extensions for a page in one query, ordered by extension ID.
+     *
+     * @param requestIds {@code Collection<Integer>} of consultation request IDs; must not be null
+     * @return {@code List<ConsultationRequestExt>} of matching extensions; empty input returns no rows
+     */
     List<ConsultationRequestExt> getConsultationRequestExts(Collection<Integer> requestIds);
 
     void clear(int requestId);

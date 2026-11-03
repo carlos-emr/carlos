@@ -21,7 +21,21 @@
  */
 package io.github.carlos_emr.carlos.consultation.dto;
 
-/** Scalar specialist directory row; excludes entity associations. */
+/**
+ * Scalar specialist directory row; excludes entity associations. String components
+ * are raw database values, so nullable legacy fields and surrounding whitespace are retained.
+ *
+ * @param id Integer the persisted specialist ID, non-null
+ * @param firstName String the given name, possibly null
+ * @param lastName String the family name, possibly null
+ * @param professionalLetters String the professional credentials, possibly null
+ * @param streetAddress String the unnormalized mailing address, possibly null
+ * @param phoneNumber String the contact phone number, possibly null
+ * @param faxNumber String the contact fax number, possibly null
+ * @param webSite String the website address, possibly null
+ * @param emailAddress String the email address, possibly null
+ * @param specialtyType String the specialty description, possibly null
+ */
 public record SpecialistListRow(
         Integer id,
         String firstName,

@@ -43,7 +43,7 @@ import org.springframework.stereotype.Repository;
 @Repository("consultationRequestDao")
 public class ConsultationRequestMergedDemographicDaoImpl extends ConsultationRequestDaoImpl implements ConsultationRequestMergedDemographicDao {
 
-    /** Includes rows filed under merged patient records, matching the entity-list contract. */
+    /** {@inheritDoc} */
     @Override
     public List<ConsultationListRow> getConsultationListRows(Integer demographicNo) {
         List<ConsultationListRow> result = super.getConsultationListRows(demographicNo);

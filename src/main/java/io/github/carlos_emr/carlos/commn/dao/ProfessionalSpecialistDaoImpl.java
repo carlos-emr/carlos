@@ -51,6 +51,7 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
         super(ProfessionalSpecialist.class);
     }
 
+    /** {@inheritDoc} */
     @Override
     public List<SpecialistListRow> findListRows() {
         return entityManager.createQuery("select new io.github.carlos_emr.carlos.consultation.dto.SpecialistListRow("

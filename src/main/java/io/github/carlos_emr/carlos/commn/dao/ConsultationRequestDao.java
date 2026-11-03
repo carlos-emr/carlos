@@ -45,10 +45,26 @@ import io.github.carlos_emr.carlos.consultation.dto.ConsultationRequestListItemD
 
 public interface ConsultationRequestDao extends AbstractDao<ConsultationRequest> {
 
-    /** Returns scalar rows with the same filters, visibility, order and paging as getConsults. */
+    /**
+     * Returns scalar rows with the same filters, visibility, order and paging as
+     * {@link #getConsults(ConsultationListFilterDto)}.
+     *
+     * @param filter ConsultationListFilterDto the list filters; must not be null
+     * @return {@code List<ConsultationListRow>} of matching requests; empty if either
+     *         explicitly supplied visibility set is empty
+     * @throws NullPointerException if {@code filter} is null
+     */
     List<ConsultationListRow> getConsultationListRows(ConsultationListFilterDto filter);
 
-    /** Returns scalar rows for the patient chart, retaining orphaned related records. */
+    /**
+     * Returns scalar rows for the patient chart, retaining requests whose related
+     * specialist, service, patient or provider is missing, with null related fields.
+     * The bound {@link ConsultationRequestMergedDemographicDaoImpl} bean also includes
+     * requests filed under active merged patient records.
+     *
+     * @param demographicNo Integer the patient demographic number
+     * @return {@code List<ConsultationListRow>} of matching requests, with no ordering guarantee
+     */
     List<ConsultationListRow> getConsultationListRows(Integer demographicNo);
 
     public static final int DEFAULT_CONSULT_REQUEST_RESULTS_LIMIT = 100;

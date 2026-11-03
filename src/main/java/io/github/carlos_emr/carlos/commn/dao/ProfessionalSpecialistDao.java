@@ -41,7 +41,11 @@ public interface ProfessionalSpecialistDao extends AbstractDao<ProfessionalSpeci
 
     List<ProfessionalSpecialist> findAll();
 
-    /** Returns active directory rows in last-name, first-name order without eager associations. */
+    /**
+     * Returns active directory rows in last-name, first-name order without eager associations.
+     *
+     * @return {@code List<SpecialistListRow>} of specialists not marked deleted; empty if none match
+     */
     List<SpecialistListRow> findListRows();
 
     List<ProfessionalSpecialist> findByFullName(String lastName, String firstName);

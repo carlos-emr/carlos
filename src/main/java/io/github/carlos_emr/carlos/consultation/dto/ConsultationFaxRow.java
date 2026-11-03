@@ -21,6 +21,13 @@
  */
 package io.github.carlos_emr.carlos.consultation.dto;
 
-/** Scalar fax history row for a consultation, in the existing newest-first log order. */
+/**
+ * Scalar fax history row for a consultation, in the existing newest-first log order.
+ *
+ * @param destination String the fax job's destination number, possibly null
+ * @param recipient String the fax job's recipient name, possibly null
+ * @param status FaxJob.STATUS the job's current status, possibly null
+ * @param sent java.util.Date the log's start time, possibly null; not proof of successful delivery
+ */
 public record ConsultationFaxRow(String destination, String recipient, io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS status, java.util.Date sent) {
 }
