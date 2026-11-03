@@ -108,6 +108,32 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
             .thenReturn(true);
     }
 
+    /** Verifies that version failures survive CXF routing and JSON serialization. */
+    @ParameterizedTest
+    @CsvSource({
+        "MISSING_VERSION,400,APPOINTMENT_MISSING_VERSION",
+        "STALE_VERSION,409,APPOINTMENT_STALE_VERSION",
+        "NOT_FOUND,404,APPOINTMENT_NOT_FOUND"
+    })
+    void shouldReturnStableJsonError_whenVersionedAppointmentEditIsRefused(
+            io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason reason,
+            int status, String code) {
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class));
+        registerMock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class,
+                mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class));
+        when(mockScheduleManager.updateAppointment(any(), eq(42), any(), any()))
+                .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(reason));
+        try (Response response = request().path("/schedule/updateAppointment")
+                .post("{\"id\":42,\"editVersion\":\"1000\",\"reason\":\"FAKE-edit\"}")) {
+            assertThat(response.getStatus()).isEqualTo(status);
+            java.util.Map<?, ?> error = response.readEntity(java.util.Map.class);
+            assertThat(error.get("code")).isEqualTo(code);
+            assertThat(response.getMediaType().toString()).startsWith("application/json");
+        }
+        verifyNoInteractions(mockAppointmentManager);
+    }
+
     /** Tests the appointment-count endpoint's HTTP success and error responses. */
     @Nested
     @DisplayName("GET /schedule/fetchProvidersApptsCount/{sDate}/{eDate}")
