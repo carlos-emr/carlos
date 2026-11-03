@@ -182,7 +182,8 @@ async function workflow(s) {
   });
 
   const openReport = async (report, label) => {
-    const viewer = await s.popup(list, list.locator(`#tblHRM a[onclick*="Display?id=${report.id}'"]`), label);
+    // The report link carries demographicNo after the ID; keep the parameter boundary exact.
+    const viewer = await s.popup(list, list.locator(`#tblHRM a[onclick*="Display?id=${report.id}&"]`), label);
     await viewer.locator(`#hrmdoc_${report.id}`).waitFor({ state: 'attached' });
     await expectValue(sql, `SELECT viewed FROM HRMDocumentToProvider WHERE hrmDocumentId=${report.id} AND providerNo=${h.sqlString(provider)}`,
       '1', 'Opening the report did not mark this provider\'s link viewed');

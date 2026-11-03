@@ -34,6 +34,55 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class HRMResultsDataUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
+    @ValueSource(strings = {"42,42,42", "41,41,42,42,40,40", "42,41,42,40,41,40", "40,41,42,40,41,42"})
+    void shouldGroupDistinctVersionsWithoutSelfDuplicates_whenReportsHaveMultipleProviderRoutes(String routedIds) {
+        var providers = createAndRegisterMock(HRMDocumentToProviderDao.class);
+        var documents = createAndRegisterMock(HRMDocumentDao.class);
+        createAndRegisterMock(HRMDocumentToDemographicDao.class);
+        createAndRegisterMock(DemographicManager.class);
+        var info = mock(LoggedInInfo.class);
+        List<Integer> ids = java.util.Arrays.stream(routedIds.split(",")).map(Integer::valueOf).toList();
+        List<HRMDocumentToProvider> routes = ids.stream().map(id -> {
+            var route = new HRMDocumentToProvider();
+            route.setHrmDocumentId(id);
+            return route;
+        }).toList();
+        when(providers.findByProviderNoLimit(anyString(), anyList(), anyBoolean(), any(), any(),
+                anyInt(), anyInt(), anyBoolean(), anyInt(), anyInt(), isNull())).thenReturn(routes);
+
+        try (var parser = mockStatic(HRMReportParser.class)) {
+            for (Integer id : ids.stream().distinct().toList()) {
+                var document = mock(HRMDocument.class);
+                when(document.getId()).thenReturn(id);
+                when(document.getTimeReceived()).thenReturn(new Date(1700000000000L));
+                when(document.getReportFile()).thenReturn("synthetic-" + id + ".xml");
+                when(documents.findById(id)).thenReturn(List.of(document));
+                var report = mock(HRMReport.class);
+                when(report.getHrmDocumentId()).thenReturn(id);
+                when(report.getLegalName()).thenReturn("Patient,Test");
+                when(report.getSendingFacilityId()).thenReturn("SYNTHETIC");
+                when(report.getSendingFacilityReportNo()).thenReturn("SHARED-REPORT");
+                when(report.getDeliverToUserId()).thenReturn("999998");
+                when(report.getMessageUniqueId()).thenReturn("a^b^c^d^e^" + (20261102000000L + id));
+                parser.when(() -> HRMReportParser.parseReport(info, "synthetic-" + id + ".xml")).thenReturn(report);
+            }
+
+            var results = new HRMResultsData().populateHRMdocumentsResultsData(
+                    info, "", "", null, null, false, 0, 100);
+
+            assertThat(results).singleElement().satisfies(result -> {
+                assertThat(result.getSegmentID()).isEqualTo("42");
+                assertThat(result.getDuplicateLabIds()).containsExactlyInAnyOrderElementsOf(
+                        ids.stream().distinct().filter(id -> id != 42).toList());
+            });
+            for (Integer id : ids.stream().distinct().toList()) {
+                verify(documents).findById(id);
+                parser.verify(() -> HRMReportParser.parseReport(info, "synthetic-" + id + ".xml"));
+            }
+        }
+    }
+
+    @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"1234567890"})
     void shouldKeepMatchedReportVisible_withMissingOrPresentHealthNumber(String hin) {
