@@ -24,6 +24,8 @@
 
 --%>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FormsManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
@@ -239,7 +241,7 @@
                        String[] hrmVersionIds = String.valueOf(hrm.get("duplicateLabIds")).split(",");
                        boolean hasAttachedHrmVersion = Arrays.stream(hrmVersionIds).anyMatch(attachedHrmIds::contains); %>
                 <details <%= hasAttachedHrmVersion ? "open" : "" %>>
-                    <summary>Earlier versions</summary>
+                    <summary><fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.earlierVersions"/></summary>
                     <% for (int versionIndex = 0; versionIndex < hrmVersionIds.length; versionIndex++) {
                            String hrmVersionId = hrmVersionIds[versionIndex];
                            String hrmVersionCheckboxId = buildDomId("hrmNo", hrmVersionId); %>

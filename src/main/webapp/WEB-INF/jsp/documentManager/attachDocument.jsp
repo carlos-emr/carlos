@@ -59,6 +59,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message var="previewAction" key="encounter.oscarConsultationRequest.AttachDocPopup.previewAction"/>
+<fmt:message var="hrmVersionsLabel" key="encounter.oscarConsultationRequest.AttachDocPopup.earlierVersions"/>
 <%-- Completeness-report category labels, shared with EFormRenderMissingContent.jsp and
      fax/EFormMissingContent.jsp so the nine categories cannot drift between surfaces. Resolved into
      vars here because they are consumed inside a JavaScript string literal further down. --%>
@@ -230,6 +231,11 @@
         .attachmentContainer .caret-down {
             transform: rotate(45deg) !important;
         }
+
+        .attachmentContainer .hrm-version-toggle {
+            min-width: 24px;
+            min-height: 24px;
+        }
     </style>
 
 
@@ -285,13 +291,17 @@
             'pagehide.carlosDocumentPreview', cancelAttachmentPreview);
 
         function toggleLabVersionList(collapseBtn) {
-            jQuery(collapseBtn).toggleClass('caret-down');
-            jQuery(collapseBtn).parent().find('.collapsible-content').slideToggle(100);
+            var arrow = jQuery(collapseBtn).is('button') ? jQuery(collapseBtn).find('.collapse-arrow') : jQuery(collapseBtn);
+            arrow.toggleClass('caret-down');
+            arrow.closest('li').children('.collapsible-content').slideToggle(100);
+            arrow.closest('li').children('.hrm-version-toggle').attr('aria-expanded', String(arrow.hasClass('caret-down')));
         }
 
         function expandLabVersionList(collapseBtn) {
-            jQuery(collapseBtn).addClass('caret-down');
-            jQuery(collapseBtn).parent().find('.collapsible-content').slideDown(100);
+            var arrow = jQuery(collapseBtn).is('button') ? jQuery(collapseBtn).find('.collapse-arrow') : jQuery(collapseBtn);
+            arrow.addClass('caret-down');
+            arrow.closest('li').children('.collapsible-content').slideDown(100);
+            arrow.closest('li').children('.hrm-version-toggle').attr('aria-expanded', 'true');
         }
 
         if (typeof pdfCache == 'undefined') {
@@ -689,7 +699,9 @@
                                         <%-- Keep prior versions grouped under their report so existing delegates
                                              can be pre-checked and removed without silently changing attachments. --%>
                                         <c:if test="${not empty hrm['duplicateLabIds']}">
-                                            <i class="collapse-arrow" onclick="toggleLabVersionList(this)"></i>
+                                            <button class="preview-button hrm-version-toggle" type="button" onclick="toggleLabVersionList(this)"
+                                                    aria-label="${carlos:forHtmlAttribute(hrmVersionsLabel)}" aria-expanded="false"
+                                                    aria-controls="hrmVersions${carlos:forHtmlAttribute(hrm['id'])}"><i class="collapse-arrow" aria-hidden="true"></i></button>
                                         </c:if>
                                         <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"
                                                  onclick="${carlos:forHtmlAttribute(hrmPreviewOnclick)}">
@@ -697,7 +709,7 @@
                                         </button>
                                         <c:if test="${not empty hrm['duplicateLabIds']}">
                                             <c:set var="hrmVersionIds" value="${fn:split(hrm['duplicateLabIds'], ',')}"/>
-                                            <ul class="collapsible-content" style="list-style-type: none;padding:0;">
+                                            <ul id="hrmVersions${carlos:forHtmlAttribute(hrm['id'])}" class="collapsible-content" style="list-style-type: none;padding:0;">
                                                 <c:forEach items="${hrmVersionIds}" var="hrmVersionId" varStatus="hrmVersionLoop">
                                                     <fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.earlierVersionOf" var="hrmVersionLabel">
                                                         <fmt:param value="${hrmVersionLoop.count}"/>

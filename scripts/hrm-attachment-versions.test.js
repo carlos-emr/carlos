@@ -20,6 +20,7 @@ function picker() {
     { prefix: 'hrm_', version: true, checked: true },
     { prefix: 'hrm_', disabled: true, checked: false },
     { prefix: 'lab_', checked: false },
+    { prefix: 'lab_', version: true, checked: false },
   ];
   const context = { jQuery(element) {
     if (typeof element !== 'string') return { prop() { return element.checked; } };
@@ -36,17 +37,17 @@ function picker() {
 test('selecting all HRM reports keeps previous attachments without adding older versions', () => {
   const { options, toggle } = picker();
   toggle({ checked: true }, 'hrm_');
-  assert.deepEqual(options.map(option => option.checked), [true, false, true, false, false]);
+  assert.deepEqual(options.map(option => option.checked), [true, false, true, false, false, false]);
 });
 
 test('clearing all HRM reports removes current and previously attached versions', () => {
   const { options, toggle } = picker();
   toggle({ checked: false }, 'hrm_');
-  assert.deepEqual(options.map(option => option.checked), [false, false, false, false, false]);
+  assert.deepEqual(options.map(option => option.checked), [false, false, false, false, false, false]);
 });
 
 test('selecting all labs still selects lab options', () => {
   const { options, toggle } = picker();
   toggle({ checked: true }, 'lab_');
-  assert.deepEqual(options.map(option => option.checked), [false, false, true, false, true]);
+  assert.deepEqual(options.map(option => option.checked), [false, false, true, false, true, true]);
 });
