@@ -203,6 +203,7 @@ async function openImportFrame(s, label = 'cds-import-admin') {
   observed.prover = createCdsMetadataProver({frame,config:s.config,sql:s.sql,readApi:importApi});
   await frame.locator('#cdsImportForm #importFile').waitFor();
   if (await frame.locator('#cdsOptions').isDisabled()) {
+    h.assertStrictPage(s.recorder);
     throw new h.SkipCheck('Required import feature/source registration is unavailable');
   }
   await frame.waitForFunction(() => Boolean(document.querySelector('input[name="CSRF-TOKEN"]')?.value));
@@ -210,7 +211,10 @@ async function openImportFrame(s, label = 'cds-import-admin') {
     const option = options.find(value => value.dataset.profile === 'pcon-2024-02') || options[0];
     return option ? option.value : null;
   });
-  if (!source) throw new h.SkipCheck('Required approved import source/profile is missing');
+  if (!source) {
+    h.assertStrictPage(s.recorder);
+    throw new h.SkipCheck('Required approved import source/profile is missing');
+  }
   await frame.locator('#cdsSource').selectOption(source);
   h.assert(!await frame.locator('#mergeExisting').isChecked(), 'Existing-patient merge must default off');
   const ready = await initialStatus; h.assert(ready.status() === 200, 'Initial owner-scoped upload status was refused');

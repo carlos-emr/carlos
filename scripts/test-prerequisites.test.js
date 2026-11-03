@@ -39,7 +39,8 @@ test('CDS import missing source or disabled feature skips before upload; transpo
   const source=fs.readFileSync(path.join(__dirname,'demographic-cds-import-playwright-checks.js'),'utf8');
   const start=source.indexOf('async function openImportFrame(');
   const helper=source.slice(start,source.indexOf('\n}',start)+2);
-  for(const state of [{disabled:true},{source:null},{error:true},{source:'approved-source'}]) {
+  for(const state of [{disabled:true},{source:null},{error:true},{source:'approved-source'},
+    {disabled:true,diagnostic:true},{source:null,diagnostic:true}]) {
     let selected=false;
     const frame={locator(selector){return {
       waitFor:async()=>{},isDisabled:async()=>Boolean(state.disabled),
@@ -53,8 +54,11 @@ test('CDS import missing source or disabled feature skips before upload; transpo
       observeCdsMetadata:async()=>({transport:{qualifyResponse:async()=>({qualified:false})}}),
       revealAuditLink:async()=>{},createCdsMetadataProver:()=>({}),importApi(){},qualifyCdsMetadata:async()=>{}};
     vm.createContext(context);vm.runInContext(helper,context);
-    const operation=context.openImportFrame({schedule:{locator(){return {first(){return this;}};}}});
+    const recorder=h.createRecorder();
+    if(state.diagnostic)recorder.pageErrors.push({label:'import',text:'synthetic uncaught error'});
+    const operation=context.openImportFrame({recorder,schedule:{locator(){return {first(){return this;}};}}});
     if(state.error)await assert.rejects(operation,/source transport failed/);
+    else if(state.diagnostic)await assert.rejects(operation,error=>error.name!=='SkipCheck'&&/JavaScript-layer/.test(error.message));
     else if(state.disabled||!state.source)await assert.rejects(operation,error=>error.name==='SkipCheck'&&/Required/.test(error.message));
     else await assert.doesNotReject(operation);
     assert.equal(selected,Boolean(state.source));

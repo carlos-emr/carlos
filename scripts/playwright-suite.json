@@ -5406,8 +5406,8 @@
       ],
       "timeoutSec": 180,
       "env": [],
-      "notes": "Deletes an orphan group-style mapping from an already-open administration form after a competing stylesheet removal; preserves a peer, checks refusal for referenced styles and replay/GET/HEAD safety.",
-      "fixtures": "Two per-run marker CSS locations and group-style mappings; cleanup removes only marker-owned rows and verifies none remain."
+      "notes": "Deletes an ordinary unused stylesheet and verifies both used mappings survive. Also removes an orphan mapping from an already-open form after a competing stylesheet removal, checks refusal for referenced styles, and preserves replay/GET/HEAD safety.",
+      "fixtures": "Three per-run marker CSS locations: two with group-style mappings and one unused stylesheet. Cleanup removes only marker-owned rows and verifies none remain."
     },
     {
       "name": "report-age-sex-visit",

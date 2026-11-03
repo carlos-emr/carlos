@@ -34,14 +34,56 @@ configuration profiles, dialog checks, UI quality checks and supervised cleanup.
 See [the existing task/evidence map](harness-coverage-5456.md). This follow-up
 uses the real Dashboard date picker for the successful save, exercises deletion
 of an ordinary unused measurement stylesheet while preserving used mappings,
-and pins the HDL-versus-total-cholesterol defect with explicit TODO regressions
-against the actual calculator functions (finding 166 / #4553).
+and pins the HDL-versus-total-cholesterol defect with four explicit TODO
+regressions against the actual calculator functions (finding 166 / #4553).
+The Vancouver measurement test now uses the requested 23:00 local time.
+`eform-letterhead.test.js` executes the editor's real generic/FHT rendering
+functions and registered AP mapping with nonempty synthetic contact details,
+and verifies every requested key is defined in the shipped `apconfig.xml`.
+The current source already uses `doctor_address_label`, `doctor_work_phone`
+and `doctor_fax`; this test asserts their corrected behavior without a TODO.
+
+Task 39's current implementation is mapped below. An existing assertion is
+not evidence that it ran on a newly built package.
+
+| Finding | Current assertion and remaining scope |
+| --- | --- |
+| 154 | `dashboard-display` now selects the successful service date through the actual picker; its invalid-date refusal and exact stored-date assertions remain. Packaged retake pending. |
+| 152 | `demographic-measurement-modal.test.js` runs the real observation-date code at 23:00 in `America/Vancouver`, asserting the fixed local date. |
+| 161 | `cdm-measurement-report` already asserts inclusion of a reading entered at 14:30 on the report's end date, using an isolated historical day instead of today's shared data. |
+| 157 | `dx-registry-status-update` already visits the chart registry before adding individual report codes and verifies no default quick-list contamination. |
+| 159 | **Forged additional-review replay remains pending.** `encoder-null-document-review` covers legitimate first/additional review, but does not send a foreign `extraReviewerId`. The action still uses the posted identity; no application repair or unverified failure pin is claimed. |
+| 151 | `rx-unique-medication-list` already verifies unique current medications in the E-Chart, consultation and REST summary. |
+| 166 | Framingham and UKPDS tests exercise HDL equal to and greater than total cholesterol, including clearing an earlier answer. Four TODOs report the open #4553 application defect. |
+| 136 | `schedule-month-week-links` already drives native month week-number links and validates authorized/restricted provider behavior. |
+| 142 | `schedule-role-access` covers #4696's current contract: only visible tabs are polled; direct requests for forbidden tabs return 403 and bad tab IDs return 400. This supersedes the plan's old 200-without-`_msg` wording. |
+| 143 | `demo-dataset-contract.test.js` already checks that additive datasets have no orphan tickler links. |
+| 167 | `gap-encounter-rx-drug-info-on-host` already checks an unknown DIN's name-search fallback and its bracketed server-log result. |
+| 169 | `double-submit-eform` already requires the complete "patient's eForms" recovery text. |
+| 170 | `measurement-stylesheet-delete` now deletes a third, unused owned stylesheet through the native list, while retaining both used mappings. Packaged retake pending. |
+| 177 | The new executed JavaScript/AP-definition tests cover the fixed letterhead keys. A packaged AP lookup and rendered-letterhead retake remains pending. |
 
 Do not close the plan on the strength of registrations or helper tests. Its
-remaining acceptance includes current-build finding retakes, required clinical
-profile prerequisites, the CAISI client-mode maintainer decision, and a complete
-final-source SIGINT/SIGTERM residue inventory. Historical #5456 runtime results
-are not new runtime results for this change.
+remaining acceptance includes:
+
+- Current-build browser/finding retakes and residue audits, including the
+  additional-review identity pin, and a fresh published N-1 to local-build
+  upgrade run. #5456's earlier successful upgrade is retained historical evidence.
+- Real profile prerequisites and byte-exact restoration. Existing multisite
+  evidence includes a WAF-blocked consultation navigation and absent active
+  clinic-NBR membership; CAISI authoring's later steps are blocked by findings
+  330/331. These are not passing workflows.
+- The explicit maintainer decision about retaining CAISI client mode before
+  relying on it. No synthetic replacement for an unavailable client-mode
+  workflow is added.
+- A complete final-source real-OS-signal SIGINT/SIGTERM interruption inventory,
+  checking SQL residue and configured file bytes/type/ownership/mode after
+  accepted work. All database manifest entries already reach signal-aware
+  entry points, and real child-process cleanup/profile regressions pass.
+  The historical midpoint SIGINT inventory had 65 passes and three blocked
+  prerequisites; checkpoint-handler injection is not a second OS-signal run.
+
+Historical #5456 runtime results are not new runtime results for this change.
 
 ## Branch-inapplicable race coverage #4102
 
