@@ -88,6 +88,30 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldPreserveProviderValidationFailure_whenLookupCannotReadDatabase() {
+        var dao = new BillingmasterDAO();
+        var persistence = mock(jakarta.persistence.EntityManager.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", persistence);
+        when(persistence.isJoinedToTransaction()).thenThrow(new jakarta.persistence.PersistenceException("synthetic patient detail"));
+        assertThatThrownBy(() -> dao.findBcPayments("ALL", "ALL", "missing", "", "", false, false, true, false))
+                .isInstanceOf(BillingmasterDAO.MissingBcPaymentProviderException.class)
+                .hasMessage("Provider must have ohip no!").hasNoCause();
+    }
+
+    @Test
+    void shouldPreserveProviderValidationFailure_forLegacyPayments() {
+        when(billingmasterDao.findBcPayments(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean()))
+                .thenThrow(new BillingmasterDAO.MissingBcPaymentProviderException());
+        assertThatThrownBy(() -> reconcile.getPayments("ALL", "ALL", "missing", "", "", false, false, true, false))
+                .isInstanceOf(BillingmasterDAO.MissingBcPaymentProviderException.class)
+                .hasMessage("Provider must have ohip no!").hasNoCause();
+        var strict = new MSPReconcile(true);
+        assertThatThrownBy(() -> strict.getPayments("ALL", "ALL", "missing", "", "", false, false, true, false))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Billing export data could not be read").hasNoCause();
+    }
+
+    @Test
     void shouldPropagateReadFailures_withoutPatientDetailsForAtomicExports() throws Exception {
         var strict = new MSPReconcile(true);
         when(billingmasterDao.findBcBills(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any()))

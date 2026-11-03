@@ -50,6 +50,12 @@ class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldMatchPackagedSqlSettings_forApplicationConnections() {
+        assertThat(jdbc.queryForObject("select @@SESSION.innodb_strict_mode", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("select @@SESSION.sql_mode", String.class)).isEmpty();
+    }
+
+    @Test
     void shouldPreserveProviderStatusDateAndServiceOrder_forInvoiceReads() {
         master(MASTER + 1, "O", "20261001", "12.30");
         master(MASTER + 2, "D", "20261010", "5.00");
@@ -106,7 +112,11 @@ class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
             assertThat(bill.seqNum).isEqualTo("0000042");
         });
         assertThatThrownBy(() -> dao.findBcPayments("BC54", "81234", "missing", "", "", false, false, true, false))
-                .isInstanceOf(RuntimeException.class).hasMessage("Provider must have ohip no!");
+                .isInstanceOf(BillingmasterDAO.MissingBcPaymentProviderException.class).hasMessage("Provider must have ohip no!");
+        assertThatThrownBy(() -> new MSPReconcile().getPayments("BC54", "81234", "missing", "", "", false, false, true, false))
+                .isInstanceOf(BillingmasterDAO.MissingBcPaymentProviderException.class).hasMessage("Provider must have ohip no!");
+        assertThatThrownBy(() -> new MSPReconcile(true).getPayments("BC54", "81234", "missing", "", "", false, false, true, false))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Billing export data could not be read").hasNoCause();
         assertThat(dao.findBcPayments("other", "81234", "BC54", "", "", false, false, true, false)).isEmpty();
     }
 

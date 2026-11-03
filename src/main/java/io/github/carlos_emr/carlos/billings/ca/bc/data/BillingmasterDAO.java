@@ -64,6 +64,21 @@ public class BillingmasterDAO {
     private static Logger log = MiscUtils.getLogger();
     private static final String BILLING_TYPE_COLUMN = "b.billingtype";
 
+    /**
+     * Signals the legacy payment-provider validation failure separately from report-read failures.
+     * Carries no provider or patient values, so callers can preserve the legacy error safely.
+     *
+     * @since 2026-11-03
+     */
+    public static final class MissingBcPaymentProviderException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        /** Creates the existing, value-free provider validation error. */
+        public MissingBcPaymentProviderException() {
+            super("Provider must have ohip no!");
+        }
+    }
+
     @PersistenceContext(unitName = "entityManagerFactory")
     protected EntityManager entityManager = null;
 
@@ -450,7 +465,7 @@ public class BillingmasterDAO {
      * @param excludePrivate boolean whether to omit private billing rows
      * @param exludeICBC boolean whether to omit ICBC billing rows
      * @return {@code List<PaymentRow>} values with raw Teleplan amounts; deleted claims are excluded
-     * @throws RuntimeException if a requested provider has no OHIP-number lookup row
+     * @throws MissingBcPaymentProviderException if the provider lookup fails or has no OHIP-number row
      * @since 2026-11-02
      */
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
@@ -547,14 +562,21 @@ public class BillingmasterDAO {
         }
         if (providerNo != null && !providerNo.trim().equalsIgnoreCase("all")) {
             if (MSPReconcile.REP_PAYREF.equals(repType)) {
-                List<String> providers = readBcRows("select ohip_no from provider where provider_no = ?", new Object[]{providerNo}, rs -> rs.getString(1));
+                List<String> providers;
+                try {
+                    providers = readBcRows("select ohip_no from provider where provider_no = ?", new Object[]{providerNo}, rs -> rs.getString(1));
+                } catch (jakarta.persistence.PersistenceException failure) {
+                    // Legacy SqlUtils returned no row on a JDBC failure, yielding this same
+                    // validation error. Do not expose query/provider values through its cause.
+                    throw new MissingBcPaymentProviderException();
+                }
                 String[] row = providers.isEmpty() ? null : new String[]{providers.getFirst()};
                 if (row != null && row.length > 0) {
                     String ohip_no = row[0];
                     criteriaQry += " and t_practitionerno = ?";
                     criteriaParams.add(ohip_no);
                 } else {
-                    throw new RuntimeException("Provider must have ohip no!");
+                    throw new MissingBcPaymentProviderException();
                 }
             } else {
                 criteriaQry += " and b.apptProvider_no = ?";

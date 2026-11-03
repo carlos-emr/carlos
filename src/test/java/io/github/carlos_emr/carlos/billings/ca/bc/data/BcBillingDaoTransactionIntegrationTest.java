@@ -99,6 +99,17 @@ class BcBillingDaoTransactionIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldRejectUnproxiedExtract_beforeAnyLogOrStatusWrite() {
+        var unproxied = new BcBillingService(masters);
+        assertThatThrownBy(() -> unproxied.generateExtract(extract(false)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("A transaction is required to generate a BC billing extract");
+        assertThat(logId).isNull();
+        assertThat(committedMasterStatus()).isEqualTo("O");
+        assertThat(published).isFalse();
+    }
+
+    @Test
     void shouldCommitGeneratedLogAndBothStatuses_whenExtractCompletes() {
         service.generateExtract(extract(false));
         assertCommittedState("B", 1);

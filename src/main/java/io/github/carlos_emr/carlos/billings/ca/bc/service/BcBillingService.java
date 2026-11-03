@@ -51,14 +51,19 @@ public class BcBillingService {
 
     /**
      * Starts or joins the class-level Spring transaction and builds the extract within it.
+     * Requires an actual transaction and synchronization before any build work can write rows.
      * Build failures roll back log rows and status updates. HTML publication is registered
      * only after a successful build and runs after the owning transaction commits.
      *
      * @param extract ExtractBean containing the prepared provider/date/export selection
      * @throws RuntimeException if building the extract fails; participating writes are rolled back
-     * @throws IllegalStateException if invoked without transaction synchronization by bypassing Spring
+     * @throws IllegalStateException if invoked without an active transaction and synchronization
      */
     public void generateExtract(ExtractBean extract) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || !TransactionSynchronizationManager.isSynchronizationActive()) {
+            throw new IllegalStateException("A transaction is required to generate a BC billing extract");
+        }
         extract.buildExtract();
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override

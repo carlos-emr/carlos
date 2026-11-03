@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillRecipient;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO.MissingBcPaymentProviderException;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.*;
 
 import java.beans.BeanInfo;
@@ -1497,6 +1498,9 @@ public class MSPReconcile {
                     billSearch.count++;
                 }
             }
+        } catch (MissingBcPaymentProviderException e) {
+            if (!failOnReadError) throw e;
+            reportReadFailure(e);
         } catch (Exception e) {
             reportReadFailure(e);
         }

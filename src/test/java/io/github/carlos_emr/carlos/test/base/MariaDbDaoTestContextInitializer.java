@@ -91,8 +91,9 @@ public class MariaDbDaoTestContextInitializer
                     .add("username", credentials.getProperty("user"))
                     .add("password", credentials.getProperty("password"))
                     // Match the packaged server's configured SQL mode for this compatibility lane.
-                    .add("connectionInitSqls", List.of(migrated ? "SET SESSION sql_mode=''"
-                            : "SET SESSION sql_mode='NO_AUTO_VALUE_ON_ZERO'"));
+                    .add("connectionInitSqls", List.of((migrated ? "SET SESSION sql_mode=''"
+                            : "SET SESSION sql_mode='NO_AUTO_VALUE_ON_ZERO'")
+                            + ("bc".equals(province) ? ", innodb_strict_mode=0" : "")));
             factory.getBeanDefinition("databaseInitializer").getPropertyValues().add("enabled", !migrated);
             if (!migrated) {
                 var fixtures = new ResourceDatabasePopulator(new ClassPathResource("test-lookup-tables.sql"));
