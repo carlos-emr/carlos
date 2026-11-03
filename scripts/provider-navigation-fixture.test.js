@@ -45,6 +45,7 @@ function fixtureSql(name = 'schedule-links', property = [row(3, 'cpp_single_line
   };
   const fixture = providerNavigationFixture(sql, 'fixture', name);
   return {fixture, writes, reads, entryMode() { current.property = [row(8, 'incoming_document_entry_mode', 'Normal')]; },
+    viewMode(value = 'Pdf') { current.property = [row(8, 'view_document_as', value)]; },
     tamper() { current.ProviderPreference[0][0] = hex('77'); },
     addForm() { current.ProviderPreferenceAppointmentScreenForm.push(['999998', 'unexpected form'].map(hex)); }, change(group = '123456') {
     current.property = [row(3, 'cpp_single_line', 'no'), row(6, 'incoming_document_default_queue', '1')];
@@ -108,7 +109,7 @@ test('the MRP filing check removes a first-read Normal entry mode without touchi
   const f = fixtureSql('incoming-docs-delete-pdf-mrp', []);
   f.entryMode(); f.fixture.cleanup();
   assert.equal(f.writes.length, 1);
-  assert.match(f.writes[0], /name IN \('incoming_document_default_queue','incoming_document_entry_mode'\)/);
+  assert.match(f.writes[0], /name IN \('incoming_document_default_queue','incoming_document_entry_mode','view_document_as'\)/);
   assert.match(f.writes[0], /DELETE FROM property[^;]*id=UNHEX\('38'\)/);
   assert.ok(f.reads.every(query => !query.includes('ProviderPreference')));
 });
@@ -120,6 +121,28 @@ test('the MRP filing check restores a NULL entry mode in place after the native 
   assert.match(f.writes[0], /UPDATE property SET value=NULL[^;]*id=UNHEX\('38'\)/);
   assert.doesNotMatch(f.writes[0], /DELETE FROM property/);
 });
+
+for (const name of ['incoming-docs-delete-pdf-mrp', 'incoming-docs-quick-pick-filing']) {
+  test(`${name} removes an initially absent PDF view preference`, () => {
+    const f = fixtureSql(name, []);
+    f.viewMode(); f.fixture.cleanup();
+    assert.equal(f.writes.length, 1);
+    assert.match(f.writes[0], /DELETE FROM property[^;]*id=UNHEX\('38'\)/);
+    assert.ok(f.reads.every(query => !query.includes('ProviderPreference')));
+  });
+  test(`${name} restores a NULL PDF view preference in place`, () => {
+    const f = fixtureSql(name, [row(8, 'view_document_as', null)]);
+    f.viewMode(); f.fixture.cleanup();
+    assert.match(f.writes[0], /UPDATE property SET value=NULL[^;]*id=UNHEX\('38'\)/);
+    assert.doesNotMatch(f.writes[0], /DELETE FROM property/);
+  });
+  test(`${name} refuses cleanup of an unexpected view preference change`, () => {
+    const f = fixtureSql(name, []);
+    f.viewMode('Image');
+    assert.throws(() => f.fixture.cleanup(), /Unexpected navigation property change/);
+    assert.equal(f.writes.length, 0);
+  });
+}
 
 test('refuses unrelated preference changes and preference identity replacement', () => {
   for (const [name, value] of [['defaultDxCode', 'changed'], ['providerNo', '77'], ['startHour', '12'], ['printQrCodeOnPrescriptions', '1']]) {
