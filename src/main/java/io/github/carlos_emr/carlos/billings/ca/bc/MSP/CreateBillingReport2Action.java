@@ -152,7 +152,7 @@ public class CreateBillingReport2Action extends ActionSupport {
                 reportParams.put("payee", payeeProv.getFullName());
                 reportParams.put("payeeno", payee);
                 String s21id = request.getParameter("rano");
-                osc.fillDocumentStream(reportParams, outputStream, docFmt, reportInstream, msp.getMSPRemittanceQuery(payee, s21id));
+                osc.fillDocumentStream(reportParams, outputStream, docFmt, reportInstream, new BcRemittanceDataSource(msp.getMSPRemittanceQuery(payee, s21id)));
             } else if (repType.equals(MSPReconcile.REP_MSPREMSUM)) {
                 String s21id = request.getParameter("rano");
                 S21 s21 = msp.getS21Record(s21id);

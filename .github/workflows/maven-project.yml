@@ -293,6 +293,17 @@ jobs:
             -Dgroups=spring-context -Dtest.forkCount=1 -Dcarlos.test.schema.expected=flyway \
             -Dsurefire.reportNameSuffix=flyway
 
+      - name: Verify BC billing reads and transaction outcomes against the Flyway schema
+        if: always()
+        run: |
+          docker exec -e CARLOS_TEST_MARIADB_DAO=true -e CARLOS_TEST_MARIADB_SCHEMA=flyway \
+            -e CARLOS_TEST_MARIADB_PROVINCE=bc \
+            -e CARLOS_TEST_MARIADB_URL=jdbc:mysql://host.docker.internal:3306/ \
+            carlos-tomcat-dev mvn --batch-mode --no-transfer-progress surefire:test \
+            -Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest \
+            '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=1 \
+            -Dsurefire.reportNameSuffix=bc-flyway
+
       - name: Verify MariaDB coverage and summarize results
         if: always()
         # Maven's container creates root-owned target directories; write the
