@@ -2392,6 +2392,75 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @ValueSource(strings = {"invalid", "0", "-1", "2147483648", "99999999999", " 1"})
+    void shouldRenderWithoutQrCode_whenScriptIdIsInvalid(String scriptId) throws Exception {
+        MockHttpServletRequest request = createPreviewRequest();
+        request.setMethod("GET");
+        if (scriptId == null) {
+            request.removeParameter("scriptId");
+        } else {
+            request.setParameter("scriptId", scriptId);
+        }
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+        servlet.init(new MockServletConfig(new MockServletContext()));
+
+        try (MockedStatic<LoggedInInfo> loginMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<PrescriptionQrCodeUIBean> qrMock = mockStatic(PrescriptionQrCodeUIBean.class)) {
+            loginMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            qrMock.when(() -> PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider("999998"))
+                    .thenReturn(true);
+
+            servlet.service(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            qrMock.verify(() -> PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider("999998"));
+            qrMock.verifyNoMoreInteractions();
+            try (org.apache.pdfbox.pdmodel.PDDocument pdf = org.apache.pdfbox.Loader.loadPDF(response.getContentAsByteArray())) {
+                assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(pdf)).contains("Test prescription");
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PageSize.LETTER", "PageSize.A6", "PageSize.HALFLETTER"})
+    void shouldRenderPharmacyPreview_whenPatientNameIsMissing(String paper) throws Exception {
+        MockHttpServletRequest request = createPreviewRequest();
+        request.setMethod("GET");
+        request.removeParameter("patientName");
+        request.removeParameter("rxDate");
+        request.setParameter("rxPageSize", paper);
+        request.setParameter("pharmacyInfo", "7");
+        io.github.carlos_emr.carlos.commn.model.PharmacyInfo pharmacy =
+                new io.github.carlos_emr.carlos.commn.model.PharmacyInfo();
+        pharmacy.setName("Preview Pharmacy");
+        pharmacy.setAddress("1 Pharmacy Lane");
+        io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao pharmacyInfoDao =
+                mock(io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao.class);
+        when(pharmacyInfoDao.getPharmacy(7)).thenReturn(pharmacy);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao.class, pharmacyInfoDao);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DemographicPharmacyDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.DemographicPharmacyDao.class));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+        FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+        servlet.init(new MockServletConfig(new MockServletContext()));
+
+        serviceAs(servlet, request, response, loggedInInfo);
+
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        try (org.apache.pdfbox.pdmodel.PDDocument pdf = org.apache.pdfbox.Loader.loadPDF(response.getContentAsByteArray())) {
+            assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(pdf))
+                    .contains("Preview Pharmacy", "123 Test Street", "Dr Test", "Test prescription");
+        }
+    }
+
     @Test
     void shouldPreserveConfiguredSatelliteDelimiterText_whenBindingAndParsing() throws Exception {
         String previousMultisites = (String) CarlosProperties.getInstance().get("multisites");

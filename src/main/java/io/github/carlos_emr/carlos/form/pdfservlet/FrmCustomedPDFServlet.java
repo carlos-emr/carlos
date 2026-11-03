@@ -1766,6 +1766,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         patientHIN = Objects.requireNonNullElse(patientHIN, "");
         patientChartNo = Objects.requireNonNullElse(patientChartNo, "");
         pracNo = Objects.requireNonNullElse(pracNo, "");
+        patientName = Objects.requireNonNullElse(patientName, "");
 
         boolean isShowDemoDOB = (showPatientDOB != null && showPatientDOB.equalsIgnoreCase("true"));
         if (!isShowDemoDOB)
@@ -1859,7 +1860,10 @@ public class FrmCustomedPDFServlet extends HttpServlet {
         if (!PrescriptionQrCodeUIBean.isPrescriptionQrCodeEnabledForProvider(providerNo)) {
             return;
         }
-        int scriptId = Integer.parseInt(request.getParameter("scriptId"));
+        int scriptId = parsePositiveInt(request.getParameter("scriptId"));
+        if (scriptId < 0) {
+            return;
+        }
         byte[] imageBytes = PrescriptionQrCodeUIBean.getPrescriptionHl7QrCodeImage(scriptId);
         if (imageBytes == null) {
             return;
