@@ -62,7 +62,7 @@ Medication/allergy DATE destinations do not carry a source timestamp's full time
 | Refill duration | Independent numeric-day value; never derive treatment end/currentness from dispense duration |
 | Quantity/refill quantity/repeats | Independent values with strict numeric/target-range checking; overflow or non-core textual values require review, never leading-number truncation |
 | Written/start dates | Separate native dates and existing partial metadata; absent dates stay null rather than import time |
-| Creation history | Written-date calendar anchor, falling back to the start-date anchor. Partial precision remains in the corresponding source/date metadata. Only when both dates are absent is creation time a technical import timestamp |
+| Creation history (`Drug.create_date`) | Written-date calendar anchor, falling back to the start-date anchor. Partial precision remains in the corresponding source/date metadata. Only when both dates are absent is creation time a technical import timestamp |
 | LongTerm/Past/Compliance | Nullable independent source indicators |
 | Substitution/authority | Nullable independent source indicators; NonAuthoritativeIndicator accepts its own Y/y/N/n vocabulary, not the Boolean alternatives of another field |
 | TreatmentType/PrescriptionStatus | Raw source values preserved separately; PRN long-term and short-term remain distinct |
@@ -70,7 +70,7 @@ Medication/allergy DATE destinations do not carry a source timestamp's full time
 | Provider Notes | Exact provider-only text in `Drug.comment`; never concatenated into special/SIG or pharmacy instructions |
 | Pharmacy instructions | `special_instruction`, separate from provider Notes |
 | Original prescriber | Truthful external name/OHIP; an unresolved local provider reference is empty and never replaced with the importing clinician |
-| Import actor/time | Owning unit's audit and native creation/creator metadata, separate from source clinical authorship/time |
+| Import actor/time | Owning unit's audit records the importing actor and actual import time, separately from the original prescriber and historical `Drug.create_date` anchor |
 | Description, source prescription/reference IDs, residuals and other leaves | Corresponding protected category fields with their exact source meaning and visible disposition; not a successful generic Notes fallback |
 
 CT035 Active maps to CURRENT; New and Suspended remain distinct; Aborted/Completed/Obsolete/Nullified are historical. Missing lifecycle status is UNKNOWN unless an explicit PastMedications assertion establishes history. Missing start date never establishes past status. Definite conflicts such as Active plus PastMedications=Y require review. Only known historical rows are archived; UNKNOWN/NEW/SUSPENDED are not silently turned into completed/discontinued prescriptions.
