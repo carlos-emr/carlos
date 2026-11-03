@@ -149,13 +149,14 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         original.setStartDate(java.sql.Date.valueOf(format.equals("YYYY") ? "2019-01-01" : "2019-05-01"));
         original.setStartDateFormat(format);
         when(mockRxPatient.getAllergy(42)).thenReturn(original);
+        when(mockRxPatient.amendActiveAllergy(any(), any(), eq(42))).thenReturn(true);
         mockRequest.setParameter("allergyToArchive", "42");
         mockRequest.setParameter("startDate", posted);
         mockRequest.setParameter("startDateConfirmedExact", String.valueOf(exact));
         mockRequest.setParameter("reactionDescription", "Updated reaction");
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
         org.mockito.ArgumentCaptor<Allergy> saved = org.mockito.ArgumentCaptor.forClass(Allergy.class);
-        verify(mockRxPatient).addAllergy(any(), saved.capture());
+        verify(mockRxPatient).amendActiveAllergy(any(), saved.capture(), eq(42));
         assertThat(saved.getValue().getStartDateFormat()).isEqualTo(expectedFormat);
         assertThat(saved.getValue().getReaction()).isEqualTo("Updated reaction");
         assertThat(new java.text.SimpleDateFormat("yyyy-MM-dd").format(saved.getValue().getStartDate())).isEqualTo(posted);

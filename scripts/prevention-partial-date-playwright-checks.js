@@ -120,7 +120,7 @@ async function workflow(s) {
     }
     await expectValue(sql, `SELECT COUNT(*) FROM preventions WHERE id=${yearOnly} AND deleted='1'`, '1', 'The edit did not replace the prevention');
     const rows = active();
-    assert(offered === '2019' && rows.includes(`2019-01-01|YYYY|${comment}`),
+    assert(offered === '2019-01-01' && rows.includes(`2019-01-01|YYYY|${comment}`),
       `The box offered ${JSON.stringify(offered)}; after the edit the active preventions are ${JSON.stringify(rows)}`);
     yearOnlyNow = sql.value(`SELECT p.id FROM preventions p JOIN preventionsExt x ON x.prevention_id=p.id AND x.keyval='comments'
       WHERE p.demographic_no=${patient} AND p.deleted='0' AND x.val=${sqlString(comment)}`);
@@ -130,7 +130,8 @@ async function workflow(s) {
     const editor = await edit(yearOnlyNow, 'prevention-editor-invalid');
     const before = activeCount();
     const box = editor.locator('#prevDate');
-    await box.fill('2019-13');
+    await box.fill('2019-13').catch(error => { if (!/Malformed value/.test(error.message)) throw error; });
+    if (await box.inputValue() === '2019-01-01') await box.clear();
     const saved = await save(editor);
     const why = saved ? '' : await box.evaluate(el => el.validationMessage || '');
     assert(!saved && why !== '' && activeCount() === before
@@ -143,7 +144,8 @@ async function workflow(s) {
     const editor = await edit(yearOnlyNow, 'prevention-editor-impossible-day');
     const before = activeCount();
     const box = editor.locator('#prevDate');
-    await box.fill('2019-02-31');
+    await box.fill('2019-02-31').catch(error => { if (!/Malformed value/.test(error.message)) throw error; });
+    if (await box.inputValue() === '2019-01-01') await box.clear();
     const saved = await save(editor);
     const why = saved ? '' : await box.evaluate(el => el.validationMessage || '');
     assert(!saved && why !== '' && activeCount() === before

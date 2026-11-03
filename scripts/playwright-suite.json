@@ -18514,6 +18514,21 @@
         "finding": 334,
         "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved"
       }
+    },
+    {
+      "name": "imported-partial-date-notes",
+      "script": "scripts/imported-partial-date-notes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned FAKE- patient with allergy and prevention rows and explicit partial_date metadata; cleanup deletes all owned clinical rows, extensions and metadata. Must not run concurrently with other checks.",
+      "notes": "Issue #5163: year-only and year-month placeholder explanations beside normal date pickers; unrelated amendments retain precision and comments, full January 1 dates stay exact, explicit confirmation clears partial precision, and CDS provenance is not lost or duplicated."
     }
   ]
 }

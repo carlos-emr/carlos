@@ -67,7 +67,7 @@ async function workflow(s) {
       return headers.findIndex(text => /^Start Date$/i.test(text));
     }, `allergy_${id}`);
     assert(column >= 0, 'The allergy list has no Start Date column');
-    return (await row.locator('td').nth(column).innerText()).trim();
+    return row.locator('td').nth(column).evaluate(cell => [...cell.childNodes].filter(node => node.nodeType === Node.TEXT_NODE).map(node => node.textContent).join('').trim());
   }
   /** Submit the reaction form; resolves, once the allergy list has reloaded, with the startDate the dialogue posted. */
   async function submit() {
@@ -86,12 +86,12 @@ async function workflow(s) {
     }
   });
 
-  await s.step('Modify on the year-only allergy offers 2019', async () => {
+  await s.step('Modify on the year-only allergy offers its normalized date and explanation', async () => {
     await page.locator(`#allergy_${yearOnly} a.modifyAllergyLink`).click();
     await form.waitFor({ state: 'visible' });
     assert(await form.locator('#allergyToArchive').inputValue() === yearOnly, 'Modify lost the allergy it amends');
     const offered = await form.locator('#startDate').inputValue();
-    assert(offered === '2019', `Modify offers the start date as ${JSON.stringify(offered)}`);
+    assert(offered === '2019-01-01', `Modify offers the start date as ${JSON.stringify(offered)}`);
   });
 
   await s.step('amending only the reaction keeps the start date year-only', async () => {
@@ -194,7 +194,7 @@ async function workflow(s) {
     const expected = {
       year: { sent: '2019', stored: '2019-01-01|YYYY', listed: '2019' },
       month: { sent: '2019-05', stored: '2019-05-01|YYYY-MM', listed: '2019-05' },
-      modify: { offered: '2019-05', afterFocus: '2019-05', sent: '2019-05', stored: '2019-05-01|YYYY-MM' },
+      modify: { offered: '2019-05-01', afterFocus: '2019-05-01', sent: '2019-05-01', stored: '2019-05-01|YYYY-MM' },
     };
     assert(JSON.stringify(found) === JSON.stringify(expected), `Partial start dates were saved as ${JSON.stringify(found)}`);
   });
