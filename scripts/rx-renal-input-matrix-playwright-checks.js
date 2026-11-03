@@ -43,7 +43,7 @@ async function workflow(s) {
       panel.getByRole('link',{name:'Refresh',exact:true}).click()]);
     await refresh();
     await panel.locator('table.sofT tr.selected').waitFor({state:'visible'});
-    fixture.apply({weight:'40',cr:'not-a-number'});
+    fixture.apply({weight:'40',cr:'not-a-number',crDate:null,lab:'200',labDate:'03-Jan-25'});
     const [refusal]=await refresh();
     h.assert(refusal.status()===400,'Invalid stored observation did not answer HTTP 400');await refusal.finished();
     await panel.getByRole('link',{name:'Refresh',exact:true}).waitFor({state:'visible'});

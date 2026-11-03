@@ -48,13 +48,13 @@ function renalInputFixture(s) {
   function measure(type, value, date, instruction) {
     if (value === null || value === undefined) return;
     sql.execute(`INSERT INTO measurements(type,demographicNo,providerNo,dataField,measuringInstruction,comments,dateObserved,dateEntered)
-      VALUES (${h.sqlString(type)},${patient},${h.sqlString(provider)},${h.sqlString(value)},${h.sqlString(instruction)},${h.sqlString(marker)},${h.sqlString(date)},NOW())`);
+      VALUES (${h.sqlString(type)},${patient},${h.sqlString(provider)},${h.sqlString(value)},${h.sqlString(instruction)},${h.sqlString(marker)},${date===null?'NULL':h.sqlString(date)},NOW())`);
   }
   return {clear, apply(testCase) {
     clear();
     const age = testCase.age ?? 60;
     sql.execute(`UPDATE demographic SET sex=${h.sqlString(testCase.sex || 'M')},year_of_birth=YEAR(CURDATE())-(${age}),month_of_birth='01',date_of_birth='01' WHERE demographic_no=${patient}`);
-    measure('WT',testCase.weight,'2025-01-01','in kg'); measure('SCR',testCase.cr,testCase.crDate || '2025-01-02','umol/L');
+    measure('WT',testCase.weight,'2025-01-01','in kg'); measure('SCR',testCase.cr,testCase.crDate===undefined?'2025-01-02':testCase.crDate,'umol/L');
     if (testCase.lab !== undefined) {
       const report=h.insertId(sql,`INSERT INTO labReportInformation(location_id,print_date,print_time,total_BType,total_CType,total_DType)
         VALUES (${h.sqlString(marker)},'20250103','00:00','1','1','0')`,'owned renal CML report');reports.push(report);

@@ -17365,11 +17365,7 @@
       "envSet": {
         "RX_RENAL_CASE": "newer-unusable-source"
       },
-      "notes": "Independent renal input/source/threshold matrix case newer-unusable-source (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 339,
-        "step": "renal inputs render through the native drug card without a server error"
-      }
+      "notes": "Independent renal input/source/threshold matrix case newer-unusable-source (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-weight-blank",
@@ -17403,11 +17399,7 @@
       "envSet": {
         "RX_RENAL_CASE": "cr-blank"
       },
-      "notes": "Independent renal input/source/threshold matrix case cr-blank (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 339,
-        "step": "renal inputs render through the native drug card without a server error"
-      }
+      "notes": "Independent renal input/source/threshold matrix case cr-blank (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-weight-text",
@@ -17441,11 +17433,7 @@
       "envSet": {
         "RX_RENAL_CASE": "cr-text"
       },
-      "notes": "Independent renal input/source/threshold matrix case cr-text (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 339,
-        "step": "renal inputs render through the native drug card without a server error"
-      }
+      "notes": "Independent renal input/source/threshold matrix case cr-text (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-weight-zero",
@@ -17581,11 +17569,7 @@
       "envSet": {
         "RX_RENAL_CASE": "cr-infinity"
       },
-      "notes": "Independent renal input/source/threshold matrix case cr-infinity (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 340,
-        "step": "render independent clinical inputs and exact inclusive recommendation boundaries"
-      }
+      "notes": "Independent renal input/source/threshold matrix case cr-infinity (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-boundary-4",

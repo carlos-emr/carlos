@@ -96,6 +96,8 @@
     if (measurementHash != null && measurementHash.get("value") != null) {
         measurementsCr = RenalDosingInput.positiveNumber((String) measurementHash.get("value"));
         measurementsCrDate = (Date) measurementHash.get("dateObserved_date");
+        // An undated unusable reading cannot safely be ordered against a valid lab.
+        invalidInput |= measurementsCrDate == null && !Double.isFinite(measurementsCr);
     }
 
 
@@ -150,7 +152,7 @@
 
 
     int Clcr = 0;
-    if (ageb & weightb & sCrb) {
+    if (!invalidInput && ageb && weightb && sCrb) {
         equate = true;
         Clcr = RxUtil.getClcr(age, weight, sCr, female);
     }
@@ -216,7 +218,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
             for (int i = 0; i < list.size(); i++) {
                 Hashtable h = (Hashtable) list.get(i);
                 String sel = "";
-                if (rd.valueInRangeOfDose(Clcr, h) & ageb & weightb & sCrb) {
+                if (equate && rd.valueInRangeOfDose(Clcr, h)) {
                     sel = "class=\"selected\" ";
                 }
 

@@ -2837,10 +2837,19 @@ function updateQty(element){
     }
 
          function getRenalDosingInformation(divId,atcCode){
+               var panel = document.getElementById(divId);
+               if (!panel) return;
+               var requestNumber = (panel.renalDosingRequest || 0) + 1;
+               panel.renalDosingRequest = requestNumber;
                var url = "<%= request.getContextPath() %>/rx/ViewRenalDosing";
                var ran_number=Math.round(Math.random()*1000000);
                var params = "demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&divId="+encodeURIComponent(divId)+"&rand="+ran_number;
-               CarlosAjax.updater(divId,url, {method:'get',parameters:params});
+               CarlosAjax.request(url, {method:'get',parameters:params,onComplete:function(transport) {
+                   // A slow earlier response must not replace more recently requested guidance.
+                   if (panel.renalDosingRequest === requestNumber && document.getElementById(divId) === panel) {
+                       panel.innerHTML = transport.responseText;
+                   }
+               }});
          }
          function getLUC(divId,randomId,din){
              var url = ctx + "/rx/ViewLimitedUseCode";

@@ -6,7 +6,12 @@ public final class RenalDosingInput {
     private RenalDosingInput() {
     }
 
-    /** Returns a positive finite observation, or NaN when it cannot support a calculation. */
+    /**
+     * Validates a stored observation before using it in a dosing calculation.
+     *
+     * @param observation String containing the recorded observation, possibly null
+     * @return double positive finite observation, or NaN when it cannot support a calculation
+     */
     public static double positiveNumber(String observation) {
         if (observation == null) {
             return Double.NaN;
