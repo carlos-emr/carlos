@@ -89,8 +89,13 @@ public interface DashboardManager {
     boolean addDashboard(LoggedInInfo loggedInInfo, Dashboard dashboard);
 
     /**
-     * Toggles the Dashboard active boolean switch. True for active, false for not
-     * active.
+     * Set the active state of an unlocked dashboard. Requires dashboard write access.
+     *
+     * @param loggedInInfo LoggedInInfo identifying the caller whose write privilege is checked
+     * @param dashboardId int identifier of the dashboard to update
+     * @param state Boolean desired active state, never null: true for active, false for inactive
+     * @return boolean true when the update was accepted; false for denied access, a locked dashboard,
+     *         or a missing dashboard
      */
     boolean toggleDashboardActive(LoggedInInfo loggedInInfo, int dashboardId, Boolean state);
 

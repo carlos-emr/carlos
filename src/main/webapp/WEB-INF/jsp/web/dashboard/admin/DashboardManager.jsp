@@ -19,6 +19,17 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  --%>
+<%--
+  Indicator Dashboard Manager: list dashboards and create, edit, activate or inactivate them.
+  Features: localized labels, context-safe output encoding, and privilege-aware write controls.
+  Request attributes: dashboards (the list), dashboardCanWrite (write controls), editedDashboard
+  (selected dashboard), dashboardName/dashboardDescription (submitted values after a refusal),
+  and dashboardManagerError (the localized error-message key).
+  Forms: CSRF-protected POST operation=save submits name/description and an optional dashboardId;
+  operation=status submits dashboardId and the explicit desired active state.
+
+  @since 2026-11-03
+--%>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>

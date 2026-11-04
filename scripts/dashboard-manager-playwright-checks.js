@@ -36,20 +36,21 @@ const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-suppo
 async function workflow(s) {
   const { sql, marker, recorder } = s;
   const fixture = throwawayLoginFixture({ sql, marker, provider: s.provider, testUser: s.config.testUser });
+  const ownedWhere = 'creator=? AND name LIKE ?';
+  const ownedParameters = () => [fixture.providerNo, marker + '%'];
+  const countOwned = () => sql.value(`SELECT COUNT(*) FROM dashboard WHERE ${ownedWhere}`, ownedParameters());
   s.cleanup(() => fixture.cleanup());
   s.cleanup(() => {
     if (!fixture.providerNo) return;
-    const owner = h.sqlString(fixture.providerNo);
-    const owned = `creator=${owner} AND name LIKE ${h.sqlString(marker + '%')}`;
-    sql.execute(`DELETE FROM dashboard WHERE ${owned};
-      DELETE FROM secObjPrivilege WHERE roleUserGroup=${owner}
-      AND objectName IN ('_dashboardManager','_admin','_admin.reporting')`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM dashboard WHERE ${owned}`) === '0', 'Owned dashboards were not removed');
+    sql.execute(`DELETE FROM dashboard WHERE ${ownedWhere}`, ownedParameters());
+    sql.execute('DELETE FROM secObjPrivilege WHERE roleUserGroup=? AND objectName IN (?,?,?)',
+      [fixture.providerNo, '_dashboardManager', '_admin', '_admin.reporting']);
+    h.assert(countOwned() === '0', 'Owned dashboards were not removed');
   });
   fixture.create();
   for (const [object, right] of [['_dashboardManager', 'x'], ['_admin', 'r'], ['_admin.reporting', 'r']]) {
     sql.execute(`INSERT INTO secObjPrivilege (roleUserGroup,objectName,privilege,priority,provider_no)
-      VALUES (${h.sqlString(fixture.providerNo)},${h.sqlString(object)},${h.sqlString(right)},0,${h.sqlString(s.provider)})`);
+      VALUES (?,?,?,0,?)`, [fixture.providerNo, object, right, s.provider]);
   }
   const context = await h.newContext(s.context.browser(), s.config);
   context.on('page', page => h.wireStrictPage(page, 'dashboard-manager', recorder));
@@ -81,7 +82,7 @@ async function workflow(s) {
     const mark = failureMark(recorder);
     await navigate(() => form().evaluate(element => element.submit()));
     h.assert(await frame.getByRole('alert').isVisible(), 'The validation alert is hidden');
-    h.assert(sql.value(`SELECT COUNT(*) FROM dashboard WHERE creator=${h.sqlString(fixture.providerNo)}`) === '0',
+    h.assert(sql.value('SELECT COUNT(*) FROM dashboard WHERE creator=?', [fixture.providerNo]) === '0',
       'An invalid save created a dashboard');
     consumeExpectedFailure(recorder, mark, { status: 400, method: 'POST', path: /\/web\/dashboard\/admin\/DashboardManager$/ });
   });
@@ -89,9 +90,9 @@ async function workflow(s) {
     await form().getByLabel('Name', { exact: true }).fill(name);
     await form().getByLabel('Description', { exact: true }).fill(description);
     await navigate(() => form().getByRole('button', { name: 'Save', exact: true }).click());
-    id = sql.value(`SELECT id FROM dashboard WHERE creator=${h.sqlString(fixture.providerNo)} AND name=${h.sqlString(name)}`);
+    id = sql.value('SELECT id FROM dashboard WHERE creator=? AND name=?', [fixture.providerNo, name]);
     h.assert(/^[1-9]\d*$/.test(id), 'Created dashboard was not persisted');
-    h.assert(sql.value(`SELECT active+0 FROM dashboard WHERE id=${id}`) === '1', 'New dashboard is not active');
+    h.assert(sql.value('SELECT active+0 FROM dashboard WHERE id=?', [id]) === '1', 'New dashboard is not active');
     await frame.goto(frame.url());
     h.assert(await row().locator('th').innerText() === name, 'Dashboard name did not round-trip as plain text');
   });
@@ -101,7 +102,7 @@ async function workflow(s) {
     await form().getByLabel('Name', { exact: true }).fill(renamed);
     await form().getByLabel('Description', { exact: true }).fill(description + ' edited');
     await navigate(() => form().getByRole('button', { name: 'Save', exact: true }).click());
-    h.assert(sql.value(`SELECT CONCAT(name,'|',description,'|',creator,'|',active+0) FROM dashboard WHERE id=${id}`)
+    h.assert(sql.value("SELECT CONCAT(name,'|',description,'|',creator,'|',active+0) FROM dashboard WHERE id=?", [id])
       === `${renamed}|${description} edited|${fixture.providerNo}|1`, 'Edit lost dashboard fields or metadata');
     h.assert(await row().locator('th').innerText() === renamed, 'Renamed dashboard is not listed');
   });
@@ -109,27 +110,28 @@ async function workflow(s) {
     await s.step(`${button} persists after reload`, async () => {
       await navigate(() => row().getByRole('button', { name: button, exact: true }).click());
       await frame.goto(frame.url());
-      h.assert(sql.value(`SELECT active+0 FROM dashboard WHERE id=${id}`) === active, `${button} did not persist`);
+      h.assert(sql.value('SELECT active+0 FROM dashboard WHERE id=?', [id]) === active, `${button} did not persist`);
       h.assert((await row().locator('td').nth(1).innerText()).trim() === (active === '1' ? 'Active' : 'Inactive'),
         'Listed active state differs from the database');
     });
   }
   await s.step('legacy nullable flags remain editable and can be activated', async () => {
-    sql.execute(`UPDATE dashboard SET active=NULL, locked=NULL WHERE id=${id}`);
+    sql.execute('UPDATE dashboard SET active=NULL, locked=NULL WHERE id=?', [id]);
     await frame.goto(frame.url());
     h.assert((await row().locator('td').nth(1).innerText()).trim() === 'Inactive', 'A nullable active flag was not treated as inactive');
     await navigate(() => row().getByRole('link', { name: 'Edit Dashboard', exact: true }).click());
     await form().getByLabel('Description', { exact: true }).fill('Legacy null flags');
     await navigate(() => form().getByRole('button', { name: 'Save', exact: true }).click());
-    h.assert(sql.value(`SELECT COUNT(*) FROM dashboard WHERE id=${id} AND description='Legacy null flags'
-      AND active IS NULL AND locked IS NULL`) === '1', 'Legacy metadata edit failed or changed unrelated flags');
+    h.assert(sql.value(`SELECT COUNT(*) FROM dashboard WHERE id=? AND description=?
+      AND active IS NULL AND locked IS NULL`, [id, 'Legacy null flags']) === '1',
+      'Legacy metadata edit failed or changed unrelated flags');
     await navigate(() => row().getByRole('button', { name: 'Activate', exact: true }).click());
-    h.assert(sql.value(`SELECT active+0 FROM dashboard WHERE id=${id}`) === '1', 'Legacy dashboard could not be activated');
+    h.assert(sql.value('SELECT active+0 FROM dashboard WHERE id=?', [id]) === '1', 'Legacy dashboard could not be activated');
   });
   await s.step('stored dashboard markup stays literal in the list and editor', async () => {
     const literalName = renamed + ' <b>literal</b>';
     const literalDescription = 'Text & </textarea><b>literal</b>';
-    sql.execute(`UPDATE dashboard SET name=${h.sqlString(literalName)}, description=${h.sqlString(literalDescription)} WHERE id=${id}`);
+    sql.execute('UPDATE dashboard SET name=?, description=? WHERE id=?', [literalName, literalDescription, id]);
     await frame.goto(frame.url());
     h.assert(await row().locator('th').innerText() === literalName, 'Stored name was interpreted as markup');
     h.assert(await row().locator('b').count() === 0, 'Stored text created HTML elements');
@@ -140,8 +142,7 @@ async function workflow(s) {
     await h.screenshot(frame.page(), s.config.screenshotDir, 'dashboard-manager');
   });
   await s.step('a POST without the CSRF token is refused and changes nothing', async () => {
-    const where = `creator=${h.sqlString(fixture.providerNo)} AND name LIKE ${h.sqlString(marker + '%')}`;
-    const before = sql.value(`SELECT COUNT(*) FROM dashboard WHERE ${where}`);
+    const before = countOwned();
     const target = new URL(h.appUrl(s.config.baseUrl, '/web/dashboard/admin/DashboardManager'));
     // APIRequestContext omits Secure cookies on HTTP loopback even when Chromium sends them.
     // Replay only this application's most-specific session cookie, without following redirects.
@@ -157,16 +158,17 @@ async function workflow(s) {
     h.assert(cookie && cookie.value, 'Missing authenticated application session for the CSRF probe');
     const response = await context.request.post(target.href,
       { headers: { Cookie: `JSESSIONID=${cookie.value}` }, form: { operation: 'save', name: marker + ' CSRF probe' }, maxRedirects: 0 });
-    await h.assertRefused(s, { response, table: 'dashboard', where, before, label: 'Dashboard save without CSRF token' });
+    await h.assertRefused(s, { response, table: 'dashboard', where: ownedWhere, parameters: ownedParameters(), before,
+      label: 'Dashboard save without CSRF token' });
   });
   await s.step('a GET save is refused and changes nothing', async () => {
     const url = new URL(h.appUrl(s.config.baseUrl, '/web/dashboard/admin/DashboardManager'));
     url.searchParams.set('operation', 'save');
     url.searchParams.set('name', marker + ' Get probe');
-    const where = `creator=${h.sqlString(fixture.providerNo)} AND name LIKE ${h.sqlString(marker + '%')}`;
-    const before = sql.value(`SELECT COUNT(*) FROM dashboard WHERE ${where}`);
+    const before = countOwned();
     const response = await authenticatedProbe({ ...s, context }, url.href);
-    await h.assertRefused(s, { response, table: 'dashboard', where, before, label: 'GET dashboard save' });
+    await h.assertRefused(s, { response, table: 'dashboard', where: ownedWhere, parameters: ownedParameters(), before,
+      label: 'GET dashboard save' });
   });
 }
 

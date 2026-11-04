@@ -44,9 +44,24 @@ public interface DashboardDao extends AbstractDao<Dashboard> {
 
     List<Dashboard> getDashboards();
 
-    /** Update only editable metadata on an unlocked dashboard, preserving concurrent status changes. */
+    /**
+     * Update only editable metadata on an unlocked dashboard, preserving concurrent status changes.
+     *
+     * @param id int identifier of the dashboard to update
+     * @param name String dashboard display name
+     * @param description String dashboard description
+     * @param edited Date timestamp of the metadata edit
+     * @return boolean true when exactly one unlocked row was updated; false when locked or missing
+     */
     boolean updateMetadata(int id, String name, String description, Date edited);
 
-    /** Update only status and edit time on an unlocked dashboard, preserving concurrent edits. */
+    /**
+     * Update only status and edit time on an unlocked dashboard, preserving concurrent edits.
+     *
+     * @param id int identifier of the dashboard to update
+     * @param active boolean desired active state
+     * @param edited Date timestamp of the status change
+     * @return boolean true when exactly one unlocked row was updated; false when locked or missing
+     */
     boolean updateActive(int id, boolean active, Date edited);
 }
