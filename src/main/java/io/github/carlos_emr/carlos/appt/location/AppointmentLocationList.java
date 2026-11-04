@@ -29,6 +29,8 @@ import java.util.stream.Stream;
 
 import org.apache.commons.lang3.StringUtils;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.LookupListItem;
 
@@ -225,6 +227,8 @@ public final class AppointmentLocationList {
     }
 
     /* Location names match ignoring case and surrounding spaces. */
+    // FindSecBugs IMPROPER_UNICODE: case-folds a clinic-chosen location name to compare two names for display uniqueness; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-folds a clinic-chosen location name to compare two names for display uniqueness; not a security or authorization decision")
     static String normaliseName(String name) {
         return StringUtils.trimToEmpty(name).toLowerCase(Locale.ROOT);
     }

@@ -36,6 +36,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:set var="appointmentStatusTabEnabled" value="<%= CarlosProperties.getInstance().isAppointmentStatusEditingEnabled() %>"/>
 <ul class="nav nav-tabs mb-3">
     <c:if test="${appointmentStatusTabEnabled}">

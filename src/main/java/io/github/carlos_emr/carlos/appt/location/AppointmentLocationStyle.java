@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import io.github.carlos_emr.carlos.commn.model.LookupListItem;
 
 /**
@@ -87,6 +89,8 @@ public final class AppointmentLocationStyle {
      * @return String the lower-case {@code #rrggbb} colour, or null for blank
      * @throws IllegalArgumentException if it is neither blank nor {@code #rrggbb}
      */
+    // FindSecBugs IMPROPER_UNICODE: lower-cases an already validated ASCII #rrggbb colour for storage; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "lower-cases an already validated ASCII #rrggbb colour for storage; not a security or authorization decision")
     public static String normaliseColour(String colour) {
         if (colour == null || colour.isBlank()) {
             return null;
