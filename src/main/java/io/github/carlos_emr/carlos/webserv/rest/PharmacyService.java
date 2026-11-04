@@ -40,6 +40,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
+import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 import io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao;
 import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.PharmacyInfo;
@@ -88,6 +89,7 @@ public class PharmacyService extends AbstractServiceImpl {
      * @param offset First record in the entire result set to be returned
      * @param limit  Maximum total number of records that should be returned
      * @return Returns all pharmacy records available on the system
+     * @throws BadRequestException if pagination is negative or the limit exceeds the DAO maximum
      */
     @GET
     @Path("/")
@@ -97,7 +99,7 @@ public class PharmacyService extends AbstractServiceImpl {
         }
         // Reject client errors before the DAO can throw an uncaught select-limit exception.
         if ((offset != null && offset < 0)
-                || (limit != null && (limit < 0 || limit > PharmacyInfoDao.MAX_LIST_RETURN_SIZE))) {
+                || (limit != null && (limit < 0 || limit > AbstractDao.MAX_LIST_RETURN_SIZE))) {
             throw new BadRequestException("Invalid pharmacy pagination");
         }
         OscarSearchResponse<PharmacyInfoTo1> result = new OscarSearchResponse<PharmacyInfoTo1>();

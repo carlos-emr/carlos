@@ -248,6 +248,7 @@ public class DemographicService extends AbstractServiceImpl {
      * @param offset First record in the entire result set to be returned
      * @param limit  Maximum total number of records that should be returned
      * @return Returns all demographics.
+     * @throws BadRequestException if pagination is negative or the limit exceeds the DAO maximum
      */
     @GET
     public OscarSearchResponse<DemographicTo1> getAllDemographics(@QueryParam("offset") Integer offset, @QueryParam("limit") Integer limit) {
