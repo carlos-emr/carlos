@@ -43,6 +43,17 @@ public class AppointmentTo1 implements Serializable {
 
     private Integer id;
 
+    private String editVersion;
+
+    /** Echo the token from the last read; omitting it cannot authorize an unconditional update. */
+    public String getEditVersion() {
+        return editVersion;
+    }
+
+    public void setEditVersion(String editVersion) {
+        this.editVersion = editVersion;
+    }
+
     private String providerNo;
 
     private Date appointmentDate;

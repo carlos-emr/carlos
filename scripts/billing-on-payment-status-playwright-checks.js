@@ -26,6 +26,7 @@
  * billing-on-payment-status.
  */
 
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {captureScheduleContext, assertScheduleContext} = require('./lib/native-schedule-context');
 const ui = require('./lib/playwright-ui');
@@ -230,8 +231,7 @@ async function workflow(s) {
     };
     await toggle('Y', 'checked');
     await toggle('N', 'uncheck');
-    const probe = await context.request.get(h.appUrl(s.config.baseUrl, ER_ROUTE),
-      { params: { id: errorId, val: 'Y' }, maxRedirects: 0 });
+    const probe = await authenticatedProbe({context, config: s.config}, h.appUrl(s.config.baseUrl, ER_ROUTE), { params: { id: errorId, val: 'Y' }, maxRedirects: 0 });
     h.assert(probe.status() === 405 && probe.headers().allow === 'POST', `${ER_ROUTE} must reject GET with Allow: POST`);
     h.assert(erStatus() === 'N', 'A refused GET changed the error-report status');
     h.assert(header(hcp.headerId) === `O|HCP|${money(ohipFee)}|0.00`, 'Acknowledging the error row changed the OHIP bill');

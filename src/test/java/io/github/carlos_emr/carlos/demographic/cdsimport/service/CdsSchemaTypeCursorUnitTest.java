@@ -40,10 +40,118 @@ import org.xml.sax.Locator;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
-/** Compare against Xerces' independent PSVI metadata rather than reproducing the cursor algorithm. */
+/** Compare owned metadata against the JDK validator's independent PSVI metadata. */
 @Tag("unit")
 class CdsSchemaTypeCursorUnitTest {
     @TempDir Path temp;
+
+    @Test
+    void shouldUseJdkImplementations_forCdsParsingAndValidation() throws Exception {
+        assertEquals("java.xml", CdsXmlParser.xmlReader(CdsInputLimitsDto.defaults()).getClass().getModule().getName());
+        assertEquals("java.xml", CdsSchemaValidator.newValidator().getClass().getModule().getName());
+    }
+
+    @Test
+    void shouldReachConfiguredCdsBoundaries_beforeJdkDefaultsRejectInput() throws Exception {
+        var limits = CdsInputLimitsDto.defaults();
+        for (String xml : new String[] {
+                "<e>".repeat(limits.maxXmlDepth()) + "</e>".repeat(limits.maxXmlDepth()),
+                "<" + "n".repeat(limits.maxXmlNameCharacters()) + "/>",
+                "<e xmlns:p='urn:" + "n".repeat(limits.maxNamespaceUriCharacters() - 4) + "'/>"}) {
+            var reader = CdsXmlParser.xmlReader(limits);
+            AtomicInteger starts = new AtomicInteger();
+            reader.setContentHandler(new DefaultHandler() {
+                @Override public void startElement(String uri, String local, String name, Attributes attributes) {
+                    starts.incrementAndGet();
+                }
+            });
+            reader.parse(new InputSource(new StringReader(xml)));
+            assertTrue(starts.get() > 0);
+        }
+    }
+
+    @Test
+    void shouldAdmitPolicyAllowedAttributesAndEscapes_beyondJdkDefaultCeilings() throws Exception {
+        var limits = CdsInputLimitsDto.defaults();
+        StringBuilder attributes = new StringBuilder();
+        for (int i = 0; i < CdsXmlParser.MAX_ELEMENT_ATTRIBUTES; i++) attributes.append(" a").append(i).append("='v'");
+        for (int i = 1; i < limits.maxNamespaceAliases(); i++) attributes.append(" xmlns:p").append(i).append("='urn:p").append(i).append("'");
+        // JDK 25 defaults: 200 attributes (xmlns included) and 100,000 predefined references per document.
+        String[] documents = {"<e" + attributes + "/>", "<e>" + "&amp;&lt;".repeat(150_000) + "</e>"};
+        for (String xml : documents) {
+            var reader = CdsXmlParser.xmlReader(limits);
+            AtomicInteger characters = new AtomicInteger();
+            reader.setContentHandler(new DefaultHandler() {
+                @Override public void characters(char[] text, int offset, int length) { characters.addAndGet(length); }
+            });
+            reader.parse(new InputSource(new StringReader(xml)));
+            if (xml.startsWith("<e>")) assertEquals(300_000, characters.get());
+        }
+    }
+
+    @Test
+    void shouldSealValidSource_whenEscapedClinicalTextExceedsJdkEntityDefaults() throws Exception {
+        String fixture = resource("/demographic/cds-import-summary.xml");
+        String note = "<MyClinicalNotesContent>";
+        assertTrue(fixture.contains(note));
+        String xml = fixture.replace(note, note + "a &amp; b &lt; c &gt; d &quot;e&apos; ".repeat(40_000));
+        Path run = Files.createTempDirectory(temp, "escaped-");
+        Path source = run.resolve("source.xml");
+        Files.writeString(source, xml);
+        new CdsXmlParser().parse(source, run.resolve("spool"), CdsInputLimitsDto.defaults(), () -> false, record -> {});
+        assertTrue(Files.exists(run.resolve("spool/parse.seal")));
+    }
+
+    @Test
+    void shouldReportCdsResourceCodes_whenFirstXmlBoundaryIsExceeded() throws Exception {
+        var limits = CdsInputLimitsDto.defaults();
+        String fixture = resource("/demographic/cds-import-summary.xml");
+        String[] values = {
+                "<cdsd:Content><" + "n".repeat(limits.maxXmlNameCharacters() + 1) + "/></cdsd:Content>",
+                "<cdsd:Content xmlns:p='urn:" + "n".repeat(limits.maxNamespaceUriCharacters() - 3) + "'/>",
+                "<cdsd:Content>" + "<e>".repeat(limits.maxXmlDepth())
+                        + "</e>".repeat(limits.maxXmlDepth()) + "</cdsd:Content>"};
+        String[] codes = {"CDS_XML_NAME_RESOURCE_LIMIT", "CDS_XML_NAMESPACE_RESOURCE_LIMIT", "CDS_XML_DEPTH_LIMIT"};
+        for (int i = 0; i < values.length; i++) {
+            String xml = beforeNotes(fixture, residual(values[i]));
+            CdsInputException failure = assertThrows(CdsInputException.class, () -> parse(xml));
+            assertEquals(codes[i], failure.code());
+        }
+    }
+
+    @Test
+    void shouldRejectUnsupportedMetadataConstructs_insteadOfGuessingStreamingSafety() {
+        for (String content : new String[] {
+                "<xs:simpleType><xs:list itemType='xs:string'/></xs:simpleType>",
+                "<xs:simpleType><xs:union memberTypes='xs:string xs:integer'/></xs:simpleType>",
+                "<xs:complexType><xs:sequence><xs:any processContents='lax'/></xs:sequence></xs:complexType>",
+                "<xs:complexType><xs:complexContent><xs:extension base='xs:anyType'/></xs:complexContent></xs:complexType>"}) {
+            String schema = "<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' targetNamespace='cds'>"
+                    + "<xs:element name='OmdCds'>" + content + "</xs:element></xs:schema>";
+            byte[] main = schema.getBytes(StandardCharsets.UTF_8);
+            byte[] datatypes = emptyDatatypes();
+            IllegalStateException failure = assertThrows(IllegalStateException.class,
+                    () -> CdsSchemaModel.read(main, datatypes));
+            assertEquals("CDS_PINNED_SCHEMA_METADATA_UNAVAILABLE", failure.getMessage());
+            assertEquals("CDS_PINNED_SCHEMA_METADATA_UNSUPPORTED", failure.getCause().getMessage(), content);
+        }
+    }
+
+    @Test
+    void shouldRefuseDtds_whenReadingSchemaMetadata() throws Exception {
+        Path marker = Files.writeString(temp.resolve("synthetic-marker.txt"), "synthetic metadata marker");
+        String schema = "<!DOCTYPE xs:schema [<!ENTITY marker SYSTEM '" + marker.toUri() + "'>]>"
+                + "<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' targetNamespace='cds'>"
+                + "<xs:annotation><xs:documentation>&marker;</xs:documentation></xs:annotation></xs:schema>";
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+                () -> CdsSchemaModel.read(schema.getBytes(StandardCharsets.UTF_8), emptyDatatypes()));
+        assertInstanceOf(org.xml.sax.SAXParseException.class, failure.getCause());
+    }
+
+    private static byte[] emptyDatatypes() {
+        return "<xs:schema xmlns:xs='http://www.w3.org/2001/XMLSchema' targetNamespace='cds_dt'/>"
+                .getBytes(StandardCharsets.UTF_8);
+    }
 
     @Test
     void shouldMatchPsviTypesInEveryFixtureContext_andAllDeclaredAttributes() throws Exception {
@@ -181,6 +289,13 @@ class CdsSchemaTypeCursorUnitTest {
         }
     }
 
+    private static void assertType(org.w3c.dom.TypeInfo actual, CdsSchemaModel.Type metadata, String context) {
+        assertNotNull(actual, context);
+        assertNotNull(metadata, context);
+        assertEquals(actual.getTypeNamespace(), metadata.getTypeNamespace(), context);
+        assertEquals(actual.getTypeName(), metadata.getTypeName(), context);
+    }
+
     private static void assertMetadata(String xml) throws Exception {
         assertMetadata(xml, true);
     }
@@ -198,15 +313,15 @@ class CdsSchemaTypeCursorUnitTest {
         });
         validator.setContentHandler(new DefaultHandler() {
             @Override public void startElement(String uri, String local, String qualified, Attributes attributes) {
-                assertSame(reference.getElementTypeInfo(), cursor.elementType(), uri + ":" + local);
+                assertType(reference.getElementTypeInfo(), cursor.elementType(), uri + ":" + local);
                 for (int i = 0; i < attributes.getLength(); i++) {
-                    assertSame(reference.getAttributeTypeInfo(i), cursor.attributeType(attributes.getURI(i), attributes.getLocalName(i)),
+                    assertType(reference.getAttributeTypeInfo(i), cursor.attributeType(attributes.getURI(i), attributes.getLocalName(i)),
                             qualified + "/@" + attributes.getQName(i));
                 }
                 elements.incrementAndGet();
             }
         });
-        var reader = CdsXmlParser.xmlReader();
+        var reader = CdsXmlParser.xmlReader(CdsInputLimitsDto.defaults());
         reader.setContentHandler(new DefaultHandler() {
             @Override public void setDocumentLocator(Locator locator) { validator.setDocumentLocator(locator); }
             @Override public void startDocument() throws SAXException { validator.startDocument(); }

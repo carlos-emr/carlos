@@ -18,19 +18,25 @@ critical = {
 }
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
+# CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
 required = {"generated": {**critical, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
-                          "AbstractDaoFindAllOrderingIntegrationTest": 6}, "flyway": critical}
+                          "AbstractDaoFindAllOrderingIntegrationTest": 6,
+                          "CaseManagementIssueDAOIntegrationTest": 21},
+            "flyway": {**critical, "CaseManagementIssueDAOIntegrationTest": 22},
+            "bc-flyway": {"BcBillingNativeMariaDbIntegrationTest": 8,
+                           "BcBillingDaoTransactionIntegrationTest": 4}}
 counts = {mode: dict(tests=0, failures=0, errors=0, skipped=0) for mode in required}
 families = {mode: dict.fromkeys(required[mode], 0) for mode in required}
 lines = []
 reports = list(args.reports.glob("TEST-*.xml"))
 for report in reports:
     root = ET.parse(report).getroot()
-    mode = "flyway" if report.stem.endswith("-flyway") else "generated"
+    mode = ("bc-flyway" if report.stem.endswith("-bc-flyway")
+            else "flyway" if report.stem.endswith("-flyway") else "generated")
     suite = report.stem.removeprefix("TEST-")
-    if mode == "flyway":
-        suite = suite.removesuffix("-flyway")
+    if mode != "generated":
+        suite = suite.removesuffix("-" + mode)
     family_name = suite.rsplit(".", 1)[-1].split("$", 1)[0]
     # Actual testcase elements avoid existing nested-suite header discrepancies.
     for case in root.iter("testcase"):

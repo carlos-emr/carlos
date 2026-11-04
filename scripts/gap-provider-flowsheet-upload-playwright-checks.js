@@ -23,6 +23,7 @@
  * DeleteMeasurementTypes with nothing ticked, which only re-reads the table) and asserts the flowsheet is no
  * longer listed; the dx trigger matches no patient so nothing else sees the rows in the meantime.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
@@ -147,7 +148,7 @@ async function body(s, state) {
 
   await s.step('GET against the upload route is refused and stores nothing', async () => {
     const before = sql.value('SELECT COUNT(*) FROM Flowsheet');
-    const response = await s.context.request.get(`${s.config.baseUrl}/admin/ManageFlowsheetsUpload`, { maxRedirects: 0 });
+    const response = await authenticatedProbe(s, `${s.config.baseUrl}/admin/ManageFlowsheetsUpload`, { maxRedirects: 0 });
     h.assert(response.status() === 405, `GET answered HTTP ${response.status()}, not 405`);
     h.assert(sql.value('SELECT COUNT(*) FROM Flowsheet') === before, 'A GET changed the stored flowsheets');
   });

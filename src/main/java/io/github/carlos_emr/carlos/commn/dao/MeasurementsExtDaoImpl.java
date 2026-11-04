@@ -79,6 +79,19 @@ public class MeasurementsExtDaoImpl extends AbstractDaoImpl<MeasurementsExt> imp
     }
 
     @Override
+    public List<MeasurementsExt> findByMeasurementIdsAndKey(List<Integer> measurementIds, String key) {
+        if (measurementIds.isEmpty()) {
+            return List.of();
+        }
+        return entityManager.createQuery(
+                "select m FROM MeasurementsExt m WHERE m.measurementId IN (?1) AND m.keyVal = ?2",
+                MeasurementsExt.class)
+                .setParameter(1, measurementIds)
+                .setParameter(2, key)
+                .getResultList();
+    }
+
+    @Override
     public MeasurementsExt getMeasurementsExtByMeasurementIdAndKeyVal(Integer measurementId, String keyVal) {
         String queryStr = "select m FROM MeasurementsExt m WHERE m.measurementId = ?1 AND m.keyVal = ?2";
         Query q = entityManager.createQuery(queryStr);

@@ -75,7 +75,7 @@ test('shouldPinEachFindingAtItsOwnStep_inItsOwnManifestEntry', () => {
   assert.deepEqual([...byName.keys()].sort(), ['lab-to-flowsheet', 'lab-to-flowsheet-fraction', 'lab-to-flowsheet-long-value',
     'lab-to-flowsheet-observed-time', 'lab-to-flowsheet-upload-time']);
   const expected = {
-    'lab-to-flowsheet': { pin: undefined, finding: 258, step: check.STEP.link },
+    'lab-to-flowsheet': { pin: undefined, finding: 258, step: check.STEP.link, fixed: true },
     // Finding 256 is fixed (#4613): its entry keeps the value steps but no longer expects them to fail.
     'lab-to-flowsheet-long-value': { pin: 'value', finding: 256, step: check.STEP.value, fixed: true },
     // Finding 257 is fixed: its pin step is now a plain assertion, so the entry carries no expectedFailure.

@@ -113,3 +113,13 @@ for (const value of [null, { status: () => 500 }]) {
       /native upload did not finish/);
   });
 }
+
+test('clinical free-text cancellation before priming starts no demographic save and closes the page',async()=>{
+ const source=fs.readFileSync(path.join(__dirname,'clinical-freetext-playwright-checks.js'),'utf8');
+ let writes=0,closed=0;
+ const page={goto:async()=>{},locator:()=>({first:()=>({waitFor:async()=>{}})}),waitForFunction:async()=>{},close:async()=>{closed++;}};
+ const sandbox=vm.createContext({wirePage:()=>{},assert:h.assert,captureForm:async()=>[['CSRF-TOKEN','token']],replay:async()=>{writes++;return 200;}});
+ vm.runInContext(extract(source,'runWorkflow'),sandbox);
+ await assert.rejects(sandbox.runWorkflow({newPage:async()=>page},{name:'demographic',open:()=>'/form',ready:'form',formName:'demo',primeBeforeCapture:true},{throwIfCancelled(){throw new Error('interrupted');}}),/interrupted/);
+ assert.equal(writes,0);assert.equal(closed,1);
+});

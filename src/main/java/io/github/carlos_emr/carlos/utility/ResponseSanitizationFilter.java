@@ -1183,14 +1183,15 @@ public class ResponseSanitizationFilter implements Filter {
         }
 
         /**
-         * Clears the capture buffers along with the real response state, mirroring
-         * {@link #resetBuffer()} for the header-clearing variant.
+         * Clears the capture buffers and accessor selection along with the real response state.
+         * Unlike {@link #resetBuffer()}, a full reset permits switching between writer and stream.
          */
         @Override
         public void reset() {
             // Full reset releases channel selection as well as the body. Cached writers in
             // any downstream wrapper must also be released so new output reaches this capture.
             super.reset();
+            discardCapturedOutput();
             switchingWriter = null;
             switchingOutputStream = null;
             shieldedPassthroughStream = null;

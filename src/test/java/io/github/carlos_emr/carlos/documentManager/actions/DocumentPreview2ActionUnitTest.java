@@ -205,6 +205,25 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(mockSecurityInfoManager);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"fetchConsultDocuments", "fetchEFormDocuments", "fetchTicklerDocuments"})
+    void shouldFilterHrmVersions_whenLoadingAttachmentPicker(String method) {
+        request.setParameter("method", method);
+        request.setParameter("demographicNo", "123");
+        observeFallbackReadersWithoutTouchingDatabase();
+        var report = new java.util.HashMap<String, Object>();
+        report.put("id", 42);
+        report.put("duplicateLabIds", "40,41");
+        var reports = new ArrayList<java.util.HashMap<String, ? extends Object>>(List.of(report));
+        hrmUtilMock.when(() -> HRMUtil.listHRMDocuments(mockLoggedInInfo, "report_date", false, "123", true))
+                .thenReturn(reports);
+
+        assertThat(action.execute()).isEqualTo("fetchDocuments");
+        assertThat(request.getAttribute("allHRMDocuments")).isEqualTo(reports);
+        hrmUtilMock.verify(() -> HRMUtil.listHRMDocuments(mockLoggedInInfo, "report_date", false, "123", true));
+        hrmUtilMock.verifyNoMoreInteractions();
+    }
+
     @Test
     @DisplayName("should default to fetch consult documents when method is missing")
     void shouldDefaultToFetchConsultDocuments_whenMethodIsMissing() {

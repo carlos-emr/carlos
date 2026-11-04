@@ -60,7 +60,7 @@ public class EctDisplayConsult2Action extends EctDisplayAction {
     private String cmd = "consultation";
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
 
         String appointmentNo = bean.appointmentNo;
 
@@ -84,7 +84,7 @@ public class EctDisplayConsult2Action extends EctDisplayAction {
             theRequests.estConsultationVecByDemographic(loggedInInfo, bean.demographicNo);
 
             //determine cut off period for highlighting
-            UserPropertyDAO pref = (UserPropertyDAO) WebApplicationContextUtils.getWebApplicationContext(request.getSession().getServletContext()).getBean(UserPropertyDAO.class);
+            UserPropertyDAO pref = (UserPropertyDAO) WebApplicationContextUtils.getWebApplicationContext(request.getServletContext()).getBean(UserPropertyDAO.class);
 
             UserProperty up = pref.getProp(bean.providerNo, UserProperty.CONSULTATION_TIME_PERIOD_WARNING);
             String timeperiod = null;

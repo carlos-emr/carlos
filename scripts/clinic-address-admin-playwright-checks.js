@@ -22,6 +22,7 @@
  * so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Reading the PDF needs Poppler's
  * pdftotext; without it only that assertion is skipped, and the run prints a SKIP line for it.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
@@ -296,7 +297,7 @@ async function workflow(s) {
     const probeName = `FAKE ${tag} written by GET`;
     const where = `clinic_no=${clinicNo} AND clinic_name=${q(probeName)}`;
     for (const method of ['GET', 'HEAD']) {
-      const response = await context.request.fetch(h.appUrl(s.config.baseUrl, SECTION)
+      const response = await authenticatedProbe({context, config: s.config}, h.appUrl(s.config.baseUrl, SECTION)
         + `?method=update&clinic.id=${clinicNo}&clinic.clinicName=${encodeURIComponent(probeName)}`,
       { method, maxRedirects: 0, failOnStatusCode: false });
       await h.assertRefused(s, { label: `${method} admin/ManageClinic method=update`, table: 'clinic', where, before: '0', response });
