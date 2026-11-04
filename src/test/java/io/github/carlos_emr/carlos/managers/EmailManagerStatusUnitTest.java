@@ -109,6 +109,17 @@ class EmailManagerStatusUnitTest {
     }
 
     @Test
+    @DisplayName("should reject a null status before writing to the database")
+    void shouldRejectNullStatus_beforeUpdatingLog() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
+
+        assertThatThrownBy(() -> emailManager.updateEmailStatus(loggedInInfo, new EmailLog(), null, null))
+                .isInstanceOf(NullPointerException.class);
+
+        verifyNoInteractions(emailLogDao);
+    }
+
+    @Test
     @DisplayName("should deny both status-update entry points before accessing the database when write privilege is missing")
     void shouldDenyStatusUpdates_whenWritePrivilegeMissing() {
         assertThatThrownBy(() -> emailManager.updateEmailStatus(loggedInInfo, 7003, EmailStatus.RESOLVED, null))

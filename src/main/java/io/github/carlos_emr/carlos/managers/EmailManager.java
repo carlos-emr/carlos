@@ -265,7 +265,7 @@ public class EmailManager {
             throw new SecurityException("missing required sec object (_email)");
         }
 
-        Date newTimestamp = emailStatus == EmailStatus.RESOLVED ? null : new Date();
+        Date newTimestamp = emailStatus.equals(EmailStatus.RESOLVED) ? null : new Date();
 
         emailLogDao.updateEmailStatus(emailLog.getId(), emailStatus, errorMessage, newTimestamp);
         if (emailStatus == EmailStatus.RESOLVED) {
