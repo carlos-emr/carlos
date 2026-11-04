@@ -28,6 +28,8 @@ Improvements over the original version:
 - Any raw concatenated operand (not a builder var, counter, or class
   metadata) vetoes all allowlisting for its statement
 - No file-wide bypass: setParameter usage elsewhere never whitelists other matches
+- Requires SQL structure or an explicit query context before treating words
+  such as FROM, SET and VALUES as SQL rather than ordinary English
 - For Edit/MultiEdit, reconstructs the full post-edit file before scanning
 
 Exit codes:
@@ -553,6 +555,46 @@ def get_file_content_from_input(tool_input: dict, tool_name: str) -> tuple[str, 
 
     return file_path, content
 
+
+def has_sql_context(statement: str) -> bool:
+    """Require query structure, a query variable, or an actual SQL sink.
+
+    A keyword alone is only a candidate: exception/log messages often contain
+    'from', 'set' or 'values'. Inspect literal contents for SQL clauses, and
+    masked Java code for sinks/assignments so prose cannot invent a sink.
+    Context stays within this statement; a nearby query must not turn an
+    unrelated message into SQL.
+    """
+    code = _mask_string_literals(statement)
+    if re.search(
+        r'\b(?:executeQuery|executeUpdate|execute|createQuery|createNativeQuery|'
+        r'createSQLQuery|prepareStatement|prepareCall)\s*\(', code
+    ):
+        return True
+
+    literals = re.findall(r'"((?:[^"\\]|\\.)*)"', statement)
+    # Query-named assignments also cover incomplete fragments, e.g.
+    # sql = "UPDATE " + table. Names supply context, never safety evidence.
+    assignments = re.findall(r'\b([A-Za-z_$][\w$]*)\s*\+?=(?!=)', code)
+    # Generic builder names (sb/buf/conditions) are equally common for prose.
+    if any(
+        QUERY_BUILDER_VARS.fullmatch(name)
+        and name.lower() not in {'sb', 'buf', 'conditions', 'servicecodevalues'}
+        for name in assignments
+    ):
+        return True
+
+    sql_structure = (
+        r'\bSELECT\b[^;]*\bFROM\b|'
+        r'\bINSERT\s+INTO\b|\bDELETE\s+FROM\b|'
+        r'\bUPDATE\s+[\w.$`]+\s+SET\b|'
+        r'^\s*FROM\s+[\w.$`]+\b|'
+        r'\b(?:WHERE|SET|ON)\s+[\w.$`]+\s*(?:[=<>!]|LIKE\b|IN\s*\(|IS\b|BETWEEN\b)|'
+        r'\bVALUES\s*\(|\b(?:ORDER|GROUP)\s+BY\s+[\w.$`]+\b'
+    )
+    return any(re.search(sql_structure, literal, re.IGNORECASE) for literal in literals)
+
+
 def check_sql_injection_patterns(content: str) -> list[str]:
     """def check_sql_injection_patterns(content: str) -> list[str]:
     
@@ -574,8 +616,8 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     # preserved, so reported positions remain valid.
     content = mask_java_comments(content)
 
-    # SQL keywords to look for
-    sql_keywords = r'(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN|ORDER\s+BY|GROUP\s+BY)'
+    # Broad candidates are confirmed against statement-local SQL context below.
+    sql_keywords = r'\b(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN|ORDER\s+BY|GROUP\s+BY)\b'
 
     # Pattern 1: String concatenation with SQL keywords
     concat_pattern = rf'["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+\s*\w+'
@@ -589,12 +631,12 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     builder_pattern = rf'(?:StringBuilder|StringBuffer)\s*\(\s*["\'][^"\']*{sql_keywords}'
     append_pattern = rf'\.append\s*\(\s*["\'][^"\']*{sql_keywords}'
 
-    # Pattern 4: executeQuery/executeUpdate with concatenation
-    execute_concat = rf'(?:executeQuery|executeUpdate|execute)\s*\(\s*["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+'
-    execute_concat2 = r'(?:executeQuery|executeUpdate|execute)\s*\(\s*\w+\s*\+\s*["\']'
+    # Pattern 4: JDBC query sinks with concatenation (even without a keyword)
+    execute_concat = r'(?:executeQuery|executeUpdate|execute|prepareStatement|prepareCall)\s*\(\s*"(?:[^"\\]|\\.)*"\s*\+'
+    execute_concat2 = r'(?:executeQuery|executeUpdate|execute|prepareStatement|prepareCall)\s*\(\s*\w+\s*\+\s*["\']'
 
     # Pattern 5: createQuery/createNativeQuery with concatenation
-    create_query_concat = rf'(?:createQuery|createNativeQuery|createSQLQuery)\s*\(\s*["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+'
+    create_query_concat = r'(?:createQuery|createNativeQuery|createSQLQuery)\s*\(\s*"(?:[^"\\]|\\.)*"\s*\+'
     create_query_concat2 = r'(?:createQuery|createNativeQuery|createSQLQuery)\s*\(\s*\w+\s*\+\s*["\']'
 
     # Pattern 6: Direct variable in SQL string construction
@@ -637,6 +679,9 @@ def check_sql_injection_patterns(content: str) -> list[str]:
             # Get the full statement containing this match
             statement = get_statement_containing(content, match.start(), match.end())
 
+            if not has_sql_context(statement):
+                continue
+
             # Skip if match is a safe pattern (never for always-unsafe patterns)
             if not always_unsafe and is_safe_pattern(match_text, statement, content):
                 continue
@@ -671,6 +716,9 @@ def check_sql_injection_patterns(content: str) -> list[str]:
         for match in matches:
             match_text = match.group(0)
             statement = get_statement_containing(content, match.start(), match.end())
+
+            if not has_sql_context(statement):
+                continue
 
             if not always_unsafe and is_safe_pattern(match_text, statement, content):
                 continue

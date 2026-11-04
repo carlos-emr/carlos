@@ -441,5 +441,425 @@
         "new_string": "CriteriaBuilder cb = entityManager.getCriteriaBuilder();\nCriteriaQuery<User> cq = cb.createQuery(User.class);\nRoot<User> root = cq.from(User.class);\ncq.select(root).where(cb.equal(root.get(\"id\"), userId));"
       }
     }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "EmailManager status transition",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "throw new IllegalStateException(\"Invalid email transport status transition from \" + previousStatus + \" to \" + emailStatus);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "XML debug message",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "MiscUtils.getLogger().debug(\"Error reading XML file from \" + fileName);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "set in exception",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "throw new IllegalArgumentException(\"Cannot set value to \" + value);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "values in message",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String message = \"Invalid values: \" + values;"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "into in message",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.info(\"Loading records into \" + destination);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "where in message",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.debug(\"Location where processing stopped: \" + location);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "update in message",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.warn(\"Cannot update record \" + recordId);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "delete in message",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.warn(\"Cannot delete record \" + recordId);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "keyword substring",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.info(\"Updated settings \" + settings);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "quoted prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.warn(\"Invalid values from '\" + source + \"'\");"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "formatted prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String message = String.format(\"Error reading XML file from %s\", fileName);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "builder prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "StringBuilder message = new StringBuilder(\"Invalid values from \").append(source);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "appended prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "message.append(\"Cannot update record \").append(recordId);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "nearby query does not taint prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String sql = \"SELECT * FROM patient WHERE id = ?\"; logger.warn(\"Cannot delete record \" + recordId);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "sink mentioned in prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.warn(\"Cannot update executeQuery(value) from \" + source);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "text block prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String message = \"\"\"\nInvalid values from \n\"\"\" + source;"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "standalone HQL FROM",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String result = \"FROM Patient p \" + filter;"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "SQL SET fragment",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String fragment = \"SET status = \" + userStatus;"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "SQL VALUES fragment",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String fragment = \"VALUES (\" + rawValue + \")\";"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "SQL INSERT INTO",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String result = \"INSERT INTO \" + userTable;"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "SQL UPDATE SET",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String result = \"UPDATE patient SET status = \" + userStatus;"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "SQL DELETE FROM",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String result = \"DELETE FROM \" + userTable;"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "SQL ORDER BY fragment",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String result = \"ORDER BY p.name \" + userDirection;"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "SQL JOIN predicate",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String result = \"JOIN patient p ON p.id = \" + userId;"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "partial query assignment",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String sql = \"UPDATE \" + userTable;"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "formatted SQL",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String result = String.format(\"DELETE FROM patient WHERE id = %s\", userId);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "quoted SQL",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String result = \"SELECT * FROM patient WHERE name = '\" + name + \"'\";"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "keywordless JDBC sink",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "stmt.executeQuery(\"CALL \" + procedure);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "keywordless prepareStatement",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "conn.prepareStatement(\"CALL \" + procedure);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "prepareStatement quote sandwich",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "conn.prepareStatement(\"SELECT * FROM patient WHERE name = '\" + name + \"'\");"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "keywordless JPA sink",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "em.createNativeQuery(\"CALL \" + procedure);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "parenthesized sink operand",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "em.createQuery(\"FROM \" + (userEntity));"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "generic sb builder with prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/Message.java",
+        "content": "StringBuilder sb = new StringBuilder(\"Invalid values from \").append(source);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "generic buf builder with prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/Message.java",
+        "content": "StringBuilder buf = new StringBuilder(\"Invalid values from \").append(source);"
+      }
+    }
+  },
+  {
+    "section": "SQL context regressions (#3847)",
+    "description": "generic conditions builder with prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/Message.java",
+        "content": "StringBuilder conditions = new StringBuilder(\"Invalid values from \").append(source);"
+      }
+    }
   }
 ]

@@ -82,6 +82,43 @@ for case in cases:
 PYFIXTURES
 )
 
+# Exercise reconstruction from a real file: unrelated edits must not be blocked
+# by pre-existing prose, while a newly introduced query must still be blocked.
+fixture_dir=$(mktemp -d)
+trap 'rm -rf -- "$fixture_dir"' EXIT
+python3 - "$fixture_dir" <<'PYEDIT'
+import sys
+from pathlib import Path
+
+Path(sys.argv[1], "EmailManager.java").write_text('''class EmailManager {
+    void check() {
+        throw new IllegalStateException("Invalid email transport status transition from "
+                + previousStatus + " to " + emailStatus);
+    }
+    int retries = 1;
+}
+''', encoding="utf-8")
+PYEDIT
+while IFS=$'\t' read -r description expected_exit json_payload; do
+    run_test "$description" "$expected_exit" "$json_payload"
+done < <(python3 - "$fixture_dir/EmailManager.java" <<'PYEDIT'
+import json
+import sys
+
+for tool in ("Edit", "MultiEdit"):
+    for expected_exit, replacement in (
+        (0, "int retries = 2;"),
+        (2, 'String sql = "SELECT * FROM users WHERE id = " + userId;'),
+    ):
+        edit = {"old_string": "int retries = 1;", "new_string": replacement}
+        tool_input = {"file_path": sys.argv[1]}
+        tool_input.update(edit if tool == "Edit" else {"edits": [edit]})
+        payload = {"tool_name": tool, "tool_input": tool_input}
+        description = f"{tool} reconstructs existing prose (expected {expected_exit})"
+        print("\t".join((description, str(expected_exit), json.dumps(payload))))
+PYEDIT
+)
+
 echo ""
 
 # ----------------------------------------------------------------
