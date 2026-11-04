@@ -573,6 +573,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @Tag("flyway-schema")
         @EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_SCHEMA", matches = "flyway")
         @DisplayName("should deduplicate legacy join rows on the migrated production schema")
         void shouldReturnEachIssueOnce_whenLinkRowsAreDuplicated() {

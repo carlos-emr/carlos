@@ -276,12 +276,13 @@ jobs:
 
       - name: Run existing DAO suites on physical MariaDB
         run: |
+          # Schema-specific cases run in the next lane; this lane must have no skips.
           docker exec -e CARLOS_TEST_MARIADB_DAO=true \
             -e CARLOS_TEST_MARIADB_SCHEMA=generated \
             -e CARLOS_TEST_MARIADB_URL=jdbc:mysql://host.docker.internal:3306/ \
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress test \
             '-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest' \
-            '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=3
+            '-Dgroups=spring-context | mariadb-native' -DexcludedGroups=flyway-schema -Dtest.forkCount=3
 
       - name: Verify critical DAO paths against the Flyway schema
         if: always()
