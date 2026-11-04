@@ -58,7 +58,10 @@ or decrypted credentials while troubleshooting.
   survive through its volume, so preserve the key before rebuilding:
 
   1. Stop Tomcat in the existing container with
-     `docker exec carlos-tomcat-dev server stop` to stop application writes.
+     `docker exec carlos-tomcat-dev server stop`, then wait until its
+     `org.apache.catalina.startup.Bootstrap` process has exited. The stop wrapper
+     can return before shutdown completes; confirm the process is gone before
+     exporting configuration or backing up the database.
   2. Export the complete configuration to a private directory outside the
      repository and keep it with the database backup. For example, after
      creating `/absolute/private/carlos-config` with mode `0700`, run:
