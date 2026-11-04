@@ -1383,9 +1383,13 @@ Ontario, Canada
                                     }
                                     %>
                                 </select>
-                                <% } else if (locationMode) { %>
+                                <% } else if (locationMode) {
+                                    // A re-render (patient search) starts on what the form posted, as an option value.
+                                    AppointmentLocationList.Choice postedLocation = AppointmentLocationList.Choice.posted(
+                                            bFirstDisp ? null : request.getParameter("locationCode"), null);
+                                %>
                                 <appt:locationSelect choices="<%= appointmentLocations.getActiveItems() %>"
-                                                     selected='<%= bFirstDisp ? "" : request.getParameter("locationCode") %>'
+                                                     selected="<%= postedLocation.value() %>"
                                                      selectId="locationCode" labelledBy="apptLocationLabel"
                                                      cssClass="form-select form-select-sm"/>
                                 <% } else { %>

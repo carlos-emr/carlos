@@ -64,6 +64,23 @@ public final class AppointmentLocationList {
     public record Choice(String value, String legacy) {
 
         /**
+         * The choice a re-rendered booking form starts on, from what it posted (a patient search,
+         * a refused save). The value is only ever an item id, {@link #LEGACY_VALUE} or blank,
+         * never the posted text itself.
+         *
+         * @param postedCode String the posted {@code locationCode}, or null
+         * @param legacy String the legacy free-text location to offer again, or null
+         * @return Choice the starting choice
+         */
+        public static Choice posted(String postedCode, String legacy) {
+            if (postedCode != null && LEGACY_VALUE.equals(postedCode.trim())) {
+                return new Choice(LEGACY_VALUE, legacy);
+            }
+            Integer code = parseCode(postedCode);
+            return new Choice(code == null ? "" : String.valueOf(code), legacy);
+        }
+
+        /**
          * @return Integer the chosen item's id, or null for "Not specified" or the legacy text
          */
         public Integer code() {

@@ -170,6 +170,15 @@ class AppointmentLocationListUnitTest {
     }
 
     @Test
+    void shouldKeepPostedChoice_asOptionValueOnly() {
+        assertThat(AppointmentLocationList.Choice.posted(" 12 ", null).value()).isEqualTo("12");
+        assertThat(AppointmentLocationList.Choice.posted("legacy", "Basement"))
+                .isEqualTo(new AppointmentLocationList.Choice(AppointmentLocationList.LEGACY_VALUE, "Basement"));
+        assertThat(AppointmentLocationList.Choice.posted("12\"><script>", null).value()).isEmpty();
+        assertThat(AppointmentLocationList.Choice.posted(null, null).value()).isEmpty();
+    }
+
+    @Test
     void shouldParseNullCode_asNoCode() {
         assertThat(AppointmentLocationList.parseCode(null)).isNull();
     }

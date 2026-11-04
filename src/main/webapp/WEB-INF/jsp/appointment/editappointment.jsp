@@ -1217,7 +1217,7 @@
                             // refused save) keeps what the form posted, with its legacy text still offered.
                             AppointmentLocationList.Choice locationChoice = bFirstDisp
                                     ? appointmentLocations.choiceFor(appt.getLocationCode(), appt.getLocation())
-                                    : new AppointmentLocationList.Choice(request.getParameter("locationCode"), request.getParameter("location"));
+                                    : AppointmentLocationList.Choice.posted(request.getParameter("locationCode"), request.getParameter("location"));
                         %>
 		<label for="locationCode" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
 		<appt:locationSelect choices="<%= appointmentLocations.getChoices(locationChoice.code()) %>"
