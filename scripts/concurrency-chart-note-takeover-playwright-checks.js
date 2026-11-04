@@ -10,11 +10,9 @@
  * lost the lock, then types its own text and clicks Save.
  *
  * Asserted: the explicit takeover is offered exactly once (control); B's note is stored; A's text is NOT written to the chart or over B's note;
- * and A is told, with its typed text still in the editor.
- * A's save writes nothing over B's note (control). The check then fails at its last step: A's Save posts
- * the whole form through saveNoteAjax('save'), which ignores lostNoteLock; the server answers 200 with the
- * "did not have the exclusive note lock" page and the chart replaces its notes pane with it, so the editor
- * and the typed clinical text vanish with no alert (the ajaxsave path alerts and keeps the editor).
+ * B's note text and revision remain unchanged; and A is told its save was refused, with its typed text
+ * still in the editor. Only the one expected HTTP 409 and its matching resource console error are
+ * consumed; every other browser diagnostic stays fatal.
  *
  * Fixtures: the owned FAKE- patient only; the notes, drafts and locks the two windows leave are removed
  * by the session cleanup (the harness deletes casemgmt_note_lock / casemgmt_tmpsave for the patient)
@@ -22,7 +20,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { openSecondSession } = require('./lib/concurrency-support');
+const { openSecondSession, failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 
 const TAKEOVER = /^You have started to edit this note in another window at [^\n]+\.\nDo you wish to continue\?$/;
@@ -32,6 +30,11 @@ const isEntry = method => response => response.request().method() === 'POST'
 
 async function workflow(s) {
   const { sql, patient, marker } = s;
+  const entryUrl = new URL(h.appUrl(s.config.baseUrl, '/CaseManagementEntry'));
+  const isAppEntry = url => {
+    const actual = new URL(url);
+    return actual.origin === entryUrl.origin && actual.pathname === entryUrl.pathname;
+  };
   s.cleanup(() => {
     const notes = sql.rows(`SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`).map(row => row[0]);
     h.assert(notes.every(id => /^[1-9]\d*$/.test(id)), 'Owned note id is invalid');
@@ -50,6 +53,12 @@ async function workflow(s) {
   const editorOf = chart => chart.locator('#encMainDiv textarea[name="caseNote_note"]');
   let takeovers = 0;
   let bChart;
+  let savedNotes;
+  // Revisions are rows sharing a UUID, not a physical revision column. Snapshot all owned note rows
+  // as well, so even an extra revision which preserves B's text cannot pass the stale-save assertion.
+  const noteSnapshot = () => JSON.stringify(sql.rows(`SELECT n.note_id, n.uuid, n.note,
+    (SELECT COUNT(*) FROM casemgmt_note r WHERE r.uuid=n.uuid) AS revision
+    FROM casemgmt_note n WHERE n.demographic_no=? ORDER BY n.note_id`, [patient]));
 
   const aChart = await s.chart();
   await editorOf(aChart).waitFor({ state: 'visible', timeout: 20000 });
@@ -73,35 +82,46 @@ async function workflow(s) {
     await editor.click();
     await editor.fill(textB);
     const [saved] = await Promise.all([bChart.waitForResponse(isEntry('save'), { timeout: 30000 }), bChart.locator('#saveImg').first().click()]);
+    h.assert(isAppEntry(saved.url()), 'Session B\'s save left the configured application endpoint');
     h.assert(saved.status() === 200, `Session B's save answered HTTP ${saved.status()}`);
     await expectValue(sql, notesWith(textB), '1', 'Session B\'s note did not reach casemgmt_note');
+    savedNotes = noteSnapshot();
   });
   let alerts;
   await s.step('session A, which lost the lock, clicks Save: nothing is written over session B\'s note', async () => {
     const editor = editorOf(aChart);
     await editor.click();
     await editor.fill(textA);
+    const mark = failureMark(s.recorder);
+    let refusedUrl;
     // Whatever the page does about it (an alert, or none) is asserted by the next step; accept it here.
     alerts = await h.withExpectedDialogs(aChart, async () => {
       const [response] = await Promise.all([aChart.waitForResponse(isEntry('save'), { timeout: 30000 }), aChart.locator('#saveImg').first().click()]);
-      h.assert(response.status() < 500, `The stale window's save answered HTTP ${response.status()}`);
+      h.assert(isAppEntry(response.url()), 'The stale save left the configured application endpoint');
+      h.assert(response.status() === 409, `The stale window's save answered HTTP ${response.status()}, expected 409`);
+      refusedUrl = h.withoutQueryStrings(response.url());
       await aChart.waitForTimeout(1500); // the page applies the response (and any alert) after it arrives
     });
+    h.assert(s.recorder.badResponses.slice(mark.responses).every(entry => isAppEntry(entry.url)),
+      'The stale save recorded an HTTP failure outside the configured application endpoint');
+    const resourceErrors = s.recorder.consoleIssues.slice(mark.console).filter(entry => entry.location
+      && h.withoutQueryStrings(entry.location.url) === refusedUrl
+      && entry.text.startsWith('Failed to load resource:') && entry.text.includes('status of 409 ('));
+    h.assert(resourceErrors.length <= 1, 'The stale save reported more than one matching resource-console error');
+    consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/CaseManagementEntry$/ });
     h.assert(sql.value(notesWith(textA)) === '0', 'The stale window\'s text was written to the chart');
     h.assert(sql.value(notesWith(textB)) === '1', 'Session B\'s note is no longer the stored note');
+    h.assert(noteSnapshot() === savedNotes, 'The stale save changed Session B\'s note text or revision');
   });
-  await s.step('session A is told its note lock was lost and its typed text is still in the editor', async () => {
+  await s.step('session A is told its save was refused and its typed text is still in the editor', async () => {
     const editor = editorOf(aChart);
     const kept = await editor.count() > 0 && await editor.inputValue() === textA;
     const body = await aChart.locator('body').innerText();
-    h.assert(kept,
-      `The stale window's Save (saveNoteAjax('save') -> CaseManagementEntry method=save, HTTP 200 "windowCloseError" page) replaced the chart's notes area with `
-      + `${/exclusive note lock/.test(body) ? 'the text "Your note was not saved as you did not have the exclusive note lock"' : 'an error page'}; the note editor and the `
-      + `clinical text typed into it are gone (${alerts.length} alert(s) raised). The ajaxsave path (409 + noteLockLostError alert, editor kept) and the autosave `
-      + 'indicator handle a lost lock; this Save path ignores lostNoteLock and treats the refusal page as the new notes pane.');
-    // Keeping the editor is not enough: the user must also be told the lock was lost, by the noteLockLostError alert or a visible message.
-    const told = alerts.some(alert => /lock/i.test(alert.text)) || /note lock/i.test(body);
-    h.assert(told, 'The stale window kept its editor but gave the user no alert or visible message that the note lock was lost');
+    h.assert(kept, `The stale window's refused Save lost the editor or its typed text (${alerts.length} alert(s) raised)`);
+    // The Save handler appends the status to a localized failure message (English: "Failed to save note! 409").
+    const told = alerts.some(alert => alert.type === 'alert'
+      && (/lock/i.test(alert.text) || /\s409$/.test(alert.text))) || /note lock/i.test(body);
+    h.assert(told, 'The stale window kept its editor but gave the user no alert or visible message that the save was refused');
   });
 }
 
