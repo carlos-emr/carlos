@@ -34,6 +34,21 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
+    @Test
+    @DisplayName("should reload a stored status even when the persistence context holds the previous status")
+    void shouldReloadStatus_whenPersistenceContextIsStale() {
+        EmailLog log = new EmailLog();
+        log.setStatus(EmailLog.EmailStatus.FAILED);
+        entityManager.persist(log);
+        entityManager.flush();
+        entityManager.createQuery("UPDATE EmailLog e SET e.status = :status WHERE e.id = :id")
+                .setParameter("status", EmailLog.EmailStatus.RESOLVED).setParameter("id", log.getId()).executeUpdate();
+        assertThat(log.getStatus()).isEqualTo(EmailLog.EmailStatus.FAILED);
+
+        assertThat(emailLogDao.findFresh(log.getId()).getStatus()).isEqualTo(EmailLog.EmailStatus.RESOLVED);
+        assertThat(emailLogDao.findFresh(-1)).isNull();
+    }
+
     @ParameterizedTest
     @EnumSource(EmailLog.EmailStatus.class)
     @DisplayName("should resolve only failed rows, preserving their original send time")

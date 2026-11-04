@@ -84,7 +84,11 @@ public interface EmailLogDao extends AbstractDao<EmailLog> {
      * @param status EmailLog.EmailStatus the new delivery status (SUCCESS, FAILED, or RESOLVED)
      * @param errorMessage String the error message for failed deliveries; null for successful deliveries
      * @param timestamp Date the timestamp of the status update; typically the current time
-     * @return int the number of records updated (should be 1 for successful update, 0 if ID not found)
+     * @return int 1 if updated; 0 if the ID is missing or a RESOLVED transition was rejected
+     *         because the stored status is not FAILED
      */
     public int updateEmailStatus(Integer id, EmailLog.EmailStatus status, String errorMessage, Date timestamp);
+
+    /** Returns the current stored log, bypassing a stale persistence-context snapshot; null if missing. */
+    EmailLog findFresh(Integer id);
 }

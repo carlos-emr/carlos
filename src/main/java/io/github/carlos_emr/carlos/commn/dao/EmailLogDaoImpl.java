@@ -5,6 +5,7 @@ import java.util.Date;
 import java.util.List;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.LockModeType;
 
 import org.springframework.stereotype.Repository;
 
@@ -159,7 +160,7 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      * @param status EmailLog.EmailStatus the new email status (SUCCESS, FAILED, or RESOLVED)
      * @param errorMessage String the error message to record, or {@code null} to clear existing error message
      * @param timestamp Date the timestamp to set, typically current time or email processing time
-     * @return int the number of database rows updated (1 if record exists and was updated, 0 if not found)
+     * @return int 1 if updated; 0 if missing or a RESOLVED transition was rejected because the row is not FAILED
      */
     @Override
     public int updateEmailStatus(Integer id, EmailLog.EmailStatus status, String errorMessage, Date timestamp) {
@@ -176,5 +177,18 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
             query.setParameter("failed", EmailLog.EmailStatus.FAILED);
         }
         return query.executeUpdate();
+    }
+
+    @Override
+    public EmailLog findFresh(Integer id) {
+        List<EmailLog> logs = entityManager.createQuery("SELECT e FROM EmailLog e WHERE e.id = :id", EmailLog.class)
+                .setParameter("id", id).setLockMode(LockModeType.PESSIMISTIC_READ).getResultList();
+        if (logs.isEmpty()) {
+            return null;
+        }
+        EmailLog log = logs.get(0);
+        // The row lock keeps a concurrent delete from racing the refresh, which also bypasses L1 state.
+        entityManager.refresh(log, LockModeType.PESSIMISTIC_READ);
+        return log;
     }
 }

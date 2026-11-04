@@ -61,14 +61,32 @@ class EmailManagerStatusUnitTest {
     void shouldKeepStatus_whenResolutionDoesNotUpdateRow() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
         EmailLog log = new EmailLog();
+        ReflectionTestUtils.setField(log, "id", 7003);
         log.setStatus(EmailStatus.SUCCESS);
         log.setErrorMessage("FAKE original message");
         when(emailLogDao.find(Integer.valueOf(7003))).thenReturn(log);
+        when(emailLogDao.findFresh(7003)).thenReturn(log);
 
         assertThat(emailManager.updateEmailStatus(loggedInInfo, 7003, EmailStatus.RESOLVED, null)).isSameAs(log);
 
         assertThat(log.getStatus()).isEqualTo(EmailStatus.SUCCESS);
         assertThat(log.getErrorMessage()).isEqualTo("FAKE original message");
+    }
+
+    @Test
+    @DisplayName("should return the stored state when another resolver wins the conditional update")
+    void shouldReloadStatus_whenAnotherResolverUpdatesFirst() {
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
+        EmailLog stale = new EmailLog();
+        ReflectionTestUtils.setField(stale, "id", 7003);
+        stale.setStatus(EmailStatus.FAILED);
+        EmailLog resolved = new EmailLog();
+        resolved.setStatus(EmailStatus.RESOLVED);
+        when(emailLogDao.find(Integer.valueOf(7003))).thenReturn(stale);
+        when(emailLogDao.findFresh(7003)).thenReturn(resolved);
+
+        assertThat(emailManager.updateEmailStatus(loggedInInfo, 7003, EmailStatus.RESOLVED, null)).isSameAs(resolved);
+        assertThat(stale.getStatus()).isEqualTo(EmailStatus.FAILED);
     }
 
     @Test
