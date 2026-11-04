@@ -223,15 +223,18 @@ public class EmailManager {
      * @param emailLogId Integer the unique identifier of the email log entry to update
      * @param emailStatus EmailStatus the new status to set (SUCCESS, FAILED, RESOLVED, etc.)
      * @param errorMessage String the error message to store, empty string if no error
-     * @return EmailLog the updated email log entry with new status and timestamp
-     * @throws RuntimeException if user lacks _email WRITE privilege
+     * @return EmailLog the updated email log entry with new status and timestamp, or null if not found
+     * @throws SecurityException if user lacks _email WRITE privilege
      */
     public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, Integer emailLogId, EmailStatus emailStatus, String errorMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         EmailLog emailLog = emailLogDao.find(emailLogId);
+        if (emailLog == null) {
+            return null;
+        }
         return updateEmailStatus(loggedInInfo, emailLog, emailStatus, errorMessage);
     }
 
@@ -252,16 +255,19 @@ public class EmailManager {
      * @param emailStatus EmailStatus the new status to set
      * @param errorMessage String the error message to store, empty string if no error
      * @return EmailLog the updated email log entry with new status and timestamp
-     * @throws RuntimeException if user lacks _email WRITE privilege
+     * @throws SecurityException if user lacks _email WRITE privilege
      */
     public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, EmailLog emailLog, EmailStatus emailStatus, String errorMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required security object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         Date newTimestamp = (!emailStatus.equals(EmailStatus.RESOLVED)) ? new Date() : emailLog.getTimestamp();
 
-        emailLogDao.updateEmailStatus(emailLog.getId(), emailStatus, errorMessage, newTimestamp);
+        int updated = emailLogDao.updateEmailStatus(emailLog.getId(), emailStatus, errorMessage, newTimestamp);
+        if (emailStatus == EmailStatus.RESOLVED && updated == 0) {
+            return emailLog;
+        }
 
         // Update object in memory so caller still has the right values
         emailLog.setStatus(emailStatus);

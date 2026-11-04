@@ -100,7 +100,7 @@ public class ManageEmails2Action extends ActionSupport {
             return resendEmail();
         } else if ("setResolved".equals(mtd)) {
             setResolved();
-            return null;
+            return NONE;
         }
 
         return showEmailManager();
@@ -196,18 +196,28 @@ public class ManageEmails2Action extends ActionSupport {
      * @see EmailStatus#RESOLVED
      */
     public void setResolved() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
+            throw new SecurityException("missing required sec object (_email)");
+        }
         if (!"POST".equals(request.getMethod())) {
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             response.setHeader("Allow", "POST");
             return;
         }
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String emailLogId = request.getParameter("logId");
         if (!StringUtils.isInteger(emailLogId)) {
             JSONUtil.errorResponse(response, "errorMessage", "Invalid email log id");
             return;
         }
-        emailManager.updateEmailStatus(loggedInInfo, Integer.parseInt(emailLogId), EmailStatus.RESOLVED, null);
+        EmailLog emailLog = emailManager.updateEmailStatus(loggedInInfo, Integer.parseInt(emailLogId), EmailStatus.RESOLVED, null);
+        if (emailLog == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            JSONUtil.jsonResponse(response, "errorMessage", "Email log not found");
+        } else if (emailLog.getStatus() != EmailStatus.RESOLVED) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            JSONUtil.jsonResponse(response, "errorMessage", "Only failed emails can be resolved");
+        }
     }
 
     /**

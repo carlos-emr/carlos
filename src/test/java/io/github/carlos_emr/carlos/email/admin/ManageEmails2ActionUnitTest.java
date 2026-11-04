@@ -59,9 +59,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -75,6 +75,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
 
     private EmailComposeManager emailComposeManager;
     private EmailManager emailManager;
+    private SecurityInfoManager securityInfoManager;
     private DocumentAttachmentManager documentAttachmentManager;
     private MockedStatic<ServletActionContext> servletActionContext;
     private final MockHttpSession session = new MockHttpSession();
@@ -85,7 +86,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         emailManager = mock(EmailManager.class);
         documentAttachmentManager = mock(DocumentAttachmentManager.class);
         DemographicManager demographicManager = mock(DemographicManager.class);
-        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
+        securityInfoManager = mock(SecurityInfoManager.class);
         registerMock(EmailComposeManager.class, emailComposeManager);
         registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
         registerMock(DemographicManager.class, demographicManager);
@@ -136,11 +137,50 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
     @DisplayName("should dispatch the Resolve POST to the status update instead of rendering the manager")
     void shouldResolveEmail_whenDispatchedFromExecute() {
         LoggedInInfo loggedInInfo = new LoggedInInfo();
+        EmailLog resolved = new EmailLog();
+        resolved.setStatus(EmailLog.EmailStatus.RESOLVED);
+        when(emailManager.updateEmailStatus(loggedInInfo, 7003, EmailLog.EmailStatus.RESOLVED, null))
+                .thenReturn(resolved);
         MockHttpServletResponse response = resolve("7003", loggedInInfo);
 
         verify(emailManager).updateEmailStatus(loggedInInfo, 7003, EmailLog.EmailStatus.RESOLVED, null);
         verifyNoInteractions(emailComposeManager);
         assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("should return a JSON not-found error for a missing email log")
+    void shouldRejectResolve_whenLogDoesNotExist() throws Exception {
+        MockHttpServletResponse response = resolve("7004", new LoggedInInfo());
+
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(response.getContentType()).startsWith("application/json");
+        assertThat(response.getContentAsString()).contains("Email log not found");
+        verifyNoInteractions(emailComposeManager);
+    }
+
+    @Test
+    @DisplayName("should report a conflict when the email cannot transition to resolved")
+    void shouldRejectResolve_whenEmailIsNotFailed() throws Exception {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        EmailLog sent = new EmailLog();
+        sent.setStatus(EmailLog.EmailStatus.SUCCESS);
+        when(emailManager.updateEmailStatus(loggedInInfo, 7003, EmailLog.EmailStatus.RESOLVED, null)).thenReturn(sent);
+
+        MockHttpServletResponse response = resolve("7003", loggedInInfo);
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentAsString()).contains("Only failed emails can be resolved");
+    }
+
+    @Test
+    @DisplayName("should check write privilege in the action before dispatching any update")
+    void shouldDenyResolve_whenActionWritePrivilegeMissing() {
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(false);
+
+        assertThatThrownBy(() -> resolve("7003", new LoggedInInfo()))
+                .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_email)");
+        verifyNoInteractions(emailManager);
     }
 
     @ParameterizedTest
@@ -193,7 +233,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
 
-        assertThat(new ManageEmails2Action().execute()).isNull();
+        assertThat(new ManageEmails2Action().execute()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
         return response;
     }
 

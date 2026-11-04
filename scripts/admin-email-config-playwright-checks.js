@@ -289,9 +289,10 @@ async function workflow(s) {
   let manager;
   const cards = () => manager.locator('#results .email-status-card');
   async function fetchEmails(status) {
-    const today = sql.value("SELECT DATE_FORMAT(CURDATE(),'%Y-%m-%d')");
-    for (const selector of ['#dateBegin', '#dateEnd']) {
-      await manager.locator(selector).fill(today);
+    const [dates] = sql.rows(`SELECT DATE_FORMAT(MIN(timestamp),'%Y-%m-%d'), DATE_FORMAT(MAX(timestamp),'%Y-%m-%d')
+      FROM emailLog WHERE id IN (${sentLog},${failedLog})`);
+    for (const [index, selector] of ['#dateBegin', '#dateEnd'].entries()) {
+      await manager.locator(selector).fill(dates[index]);
       await manager.locator(selector).press('Tab');
     }
     await manager.locator('#senderEmailAddress').selectOption(sender);

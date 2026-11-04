@@ -162,11 +162,17 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
     @Override
     public int updateEmailStatus(Integer id, EmailLog.EmailStatus status, String errorMessage, Date timestamp) {
         String hql = "UPDATE EmailLog e SET e.status = :status, e.errorMessage = :msg, e.timestamp = :ts WHERE e.id = :id";
+        if (status == EmailLog.EmailStatus.RESOLVED) {
+            hql += " AND e.status = :failed";
+        }
         Query query = entityManager.createQuery(hql);
         query.setParameter("id", id);
         query.setParameter("status", status);
         query.setParameter("msg", errorMessage);
         query.setParameter("ts", timestamp);
+        if (status == EmailLog.EmailStatus.RESOLVED) {
+            query.setParameter("failed", EmailLog.EmailStatus.FAILED);
+        }
         return query.executeUpdate();
     }
 }
