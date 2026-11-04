@@ -98,6 +98,8 @@ class FrmBCAR20202ActionPatientAccessUnitTest extends CarlosUnitTestBase {
         registerMock(FormBCAR2020Dao.class, formDao);
         registerMock(FormBCAR2020DataDao.class, dataDao);
         registerMock(FormBCAR2020TextDao.class, textDao);
+        registerMock(BCAR2020FormSaveService.class,
+                new BCAR2020FormSaveService(formDao, dataDao, textDao, securityInfoManager));
         registerMock(PrintResourceLogDao.class, printLogDao);
         // FrmBCAR2020Record's constructor (through FrmRecordFactory) looks these up.
         registerMock(DemographicManager.class, mock(DemographicManager.class));
