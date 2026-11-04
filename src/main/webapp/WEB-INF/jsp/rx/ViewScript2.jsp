@@ -452,7 +452,7 @@
 
             function printHalfLetter(method, scriptId) {
                 if (typeof hasPreview === 'undefined' || !hasPreview || !frames['preview']
-                        || signatureAssociationPending) return;
+                        || signatureAssociationPending || signatureAssociationFailed) return;
                 onPrint2(method, scriptId, null, false, null, null, 'PageSize.HALFLETTER');
             }
 
@@ -1366,9 +1366,10 @@ function updateHalfLetterPrintControls() {
         return;
     }
     if (!button) return;
-    button.disabled = signatureAssociationPending;
-    button.style.opacity = signatureAssociationPending ? '0.5' : '';
-    button.style.cursor = signatureAssociationPending ? 'wait' : 'pointer';
+    const blocked = signatureAssociationPending || signatureAssociationFailed;
+    button.disabled = blocked;
+    button.style.opacity = blocked ? '0.5' : '';
+    button.style.cursor = signatureAssociationPending ? 'wait' : (signatureAssociationFailed ? 'not-allowed' : 'pointer');
 }
 
 function associateSavedSignature(event, scriptId) {

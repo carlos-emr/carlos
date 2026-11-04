@@ -15,13 +15,14 @@ const onload = source.match(/<iframe id='preview'[^>]*onload="([^"]+)"/);
 assert.ok(onload, 'the preview must apply the current note after each load');
 
 for (const value of ['A new note & "quotes"\nsecond line', '']) {
-  for (const pending of [false, true]) {
-    test(`a reloaded preview uses the current note (${JSON.stringify(value)}, signature pending=${pending})`, () => {
+  for (const [pending, failed] of [[false, false], [true, false], [false, true]]) {
+    test(`a reloaded preview uses the current note (${JSON.stringify(value)}, signature pending=${pending}, failed=${failed})`, () => {
       const notes = { style: {}, textContent: 'stale' }, hidden = { value: 'stale' };
-      const printButton = { disabled: !pending, style: {} };
+      const printButton = { disabled: !(pending || failed), style: {} };
       const context = {
         hasPreview: true,
         signatureAssociationPending: pending,
+        signatureAssociationFailed: failed,
         document: { getElementById: id => id === 'additionalNotes' ? { value } : null },
         frames: { preview: { document: {
           getElementById: id => id === 'additNotes' ? notes : id === 'halfLetterPrint' ? printButton : null,
@@ -33,7 +34,7 @@ for (const value of ['A new note & "quotes"\nsecond line', '']) {
       vm.runInNewContext(onload[1], context);
       assert.equal(notes.textContent, value);
       assert.equal(hidden.value, value.replace(/\n/g, '\r\n'));
-      assert.equal(printButton.disabled, pending);
+      assert.equal(printButton.disabled, pending || failed);
     });
   }
 }
