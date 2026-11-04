@@ -275,6 +275,8 @@ public final class DocumentSummaryReviewBinding {
         public Instant generatedAt() { return draft.generatedAt; }
         public Instant revisedAt() { return draft.revisedAt; }
         public DocumentSummary summary() { return draft.summary; }
+        /** The language the summary was written in, for the reading-aid artifact; never the reviewer. */
+        public String language() { return draft.language; }
         public boolean extractionComplete() { return draft.extractionComplete(); }
         public String extractionDisclosure() { return draft.extractionDisclosure(); }
         public String patientNotice() {
