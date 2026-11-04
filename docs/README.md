@@ -72,7 +72,9 @@ Key testing resources:
 ### For New Team Members
 
 1. Read the main project context: [CLAUDE.md](../CLAUDE.md)
-2. Follow the branch and release policy: [Release Process](release-process.md)
+2. Follow the branch and release policy: [Release Process](release-process.md).
+   Read the [2026.08 release notes](release-notes-2026.08.md) and
+   [startup encryption key guide](startup-encryption-key.md) before deploying.
 3. Review development guidelines: [DS Guideline](dsGuideline.md)
 4. Understand the test framework: [test/](test/)
 5. Study the architecture: [Struts Actions](struts-actions-summary.md)
