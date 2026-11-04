@@ -951,9 +951,18 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
     /** Runs the real Spring completion callbacks for mocked database writes. */
     private static class NoDatabaseTransactions extends org.springframework.transaction.support.AbstractPlatformTransactionManager {
         @Override protected Object doGetTransaction() { return new Object(); }
-        @Override protected void doBegin(Object transaction, org.springframework.transaction.TransactionDefinition definition) { }
-        @Override protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) { }
-        @Override protected void doRollback(org.springframework.transaction.support.DefaultTransactionStatus status) { }
+        @Override
+        protected void doBegin(Object transaction, org.springframework.transaction.TransactionDefinition definition) {
+            // No database: Spring manages synchronization for this fixture.
+        }
+        @Override
+        protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {
+            // Spring dispatches successful commit callbacks.
+        }
+        @Override
+        protected void doRollback(org.springframework.transaction.support.DefaultTransactionStatus status) {
+            // Spring reports confirmed rollback to synchronization listeners.
+        }
     }
 
     @Test

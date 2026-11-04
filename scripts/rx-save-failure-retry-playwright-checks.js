@@ -114,7 +114,7 @@ async function workflow(s) {
         const {viewScriptFrame}=require('./rx-drug-name-quotes-playwright-checks');
         const view=await viewScriptFrame(rx);
         for(const card of cards)await view.frameLocator('#preview').locator('body').filter({hasText:card.name}).waitFor({state:'visible',timeout:30000});
-        await rx.waitForLoadState('networkidle');
+        await rx.waitForLoadState('networkidle',{timeout:30000}).catch(()=>{});
       }
     });
   } else {

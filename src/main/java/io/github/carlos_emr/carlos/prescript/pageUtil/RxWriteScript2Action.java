@@ -115,7 +115,6 @@ public final class RxWriteScript2Action extends ActionSupport {
     private static final String UP_TO_NINE_DIGITS = "\\d{1,9}";
     /** Medication audit-log content prefix, followed by the drug id. */
     private static final String AUDIT_DRUG_ID = "drugid=";
-    private final PartialDateDao partialDateDao = SpringUtils.getBean(PartialDateDao.class);
 
     /** The only {@code action} values {@link #updateReRxDrug()} will act on. */
     private static final Set<String> RE_RX_ACTIONS =
@@ -1633,8 +1632,8 @@ public final class RxWriteScript2Action extends ActionSupport {
                             if ((val == null) || (val.equals(""))) {
                                 rx.setRxDate(RxUtil.StringToDate("0000-00-00", "yyyy-MM-dd"));
                             } else {
-                                rx.setRxDateFormat(partialDateDao.getFormat(val));
-                                rx.setRxDate(partialDateDao.StringToDate(val));
+                                rx.setRxDateFormat(getPartialDateDao().getFormat(val));
+                                rx.setRxDate(getPartialDateDao().StringToDate(val));
                             }
                         } else if (elem.equals("pickupDate_" + num)) {
                             if ((val != null) && (!val.equals(""))) {
@@ -1648,8 +1647,8 @@ public final class RxWriteScript2Action extends ActionSupport {
                             if (val == null || (val.equals(""))) {
                                 rx.setWrittenDate(RxUtil.StringToDate("0000-00-00", "yyyy-MM-dd"));
                             } else {
-                                rx.setWrittenDateFormat(partialDateDao.getFormat(val));
-                                rx.setWrittenDate(partialDateDao.StringToDate(val));
+                                rx.setWrittenDateFormat(getPartialDateDao().getFormat(val));
+                                rx.setWrittenDate(getPartialDateDao().StringToDate(val));
                             }
 
                         } else if (elem.equals("outsideProviderName_" + num)) {
@@ -2132,6 +2131,11 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
     }
 
+    /** Resolves the current context's DAO without retaining it in the serializable action. */
+    private static PartialDateDao getPartialDateDao() {
+        return SpringUtils.getBean(PartialDateDao.class);
+    }
+
     private String persistStashLocked(LoggedInInfo loggedInInfo, RxSessionBean bean) {
         // Consume every rendered card version before any database write. Committed or uncertain
         // saves cannot be replayed; persistStashTransaction restores these only on confirmed rollback.
@@ -2184,10 +2188,10 @@ public final class RxWriteScript2Action extends ActionSupport {
 
                 //write partial date
                 if (StringUtils.filled(rx.getWrittenDateFormat()))
-                    partialDateDao.setPartialDate(PartialDate.DRUGS, rx.getDrugId(), PartialDate.DRUGS_WRITTENDATE, rx.getWrittenDateFormat());
+                    getPartialDateDao().setPartialDate(PartialDate.DRUGS, rx.getDrugId(), PartialDate.DRUGS_WRITTENDATE, rx.getWrittenDateFormat());
 
                 if (StringUtils.filled(rx.getRxDateFormat()))
-                    partialDateDao.setPartialDate(PartialDate.DRUGS, rx.getDrugId(), PartialDate.DRUGS_STARTDATE, rx.getRxDateFormat());
+                    getPartialDateDao().setPartialDate(PartialDate.DRUGS, rx.getDrugId(), PartialDate.DRUGS_STARTDATE, rx.getRxDateFormat());
             } catch (Exception e) {
                 // Abort the entire batch, including its header and any earlier medications.
                 // Never print or clear an unsuccessful prescription.
