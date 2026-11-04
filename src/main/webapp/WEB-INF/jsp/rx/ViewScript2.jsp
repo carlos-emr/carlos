@@ -1348,9 +1348,27 @@
 function updateSignatureAssociationControls() {
     const warning = document.getElementById('signatureAssociationError');
     if (warning) warning.hidden = !signatureAssociationFailed;
+    updateHalfLetterPrintControls();
     if (typeof canFaxScript !== 'undefined') {
         setFaxControlsDisabled(shouldDisableFaxControls());
     }
+}
+
+function updateHalfLetterPrintControls() {
+    let button;
+    try {
+        const previewFrame = frames['preview'];
+        button = previewFrame && previewFrame.document
+                ? previewFrame.document.getElementById('halfLetterPrint') : null;
+    } catch (unavailablePreview) {
+        // Navigation can temporarily hide the preview document. Its load handler resynchronizes
+        // the button, and the click guard still prevents printing during the signature save.
+        return;
+    }
+    if (!button) return;
+    button.disabled = signatureAssociationPending;
+    button.style.opacity = signatureAssociationPending ? '0.5' : '';
+    button.style.cursor = signatureAssociationPending ? 'wait' : 'pointer';
 }
 
 function associateSavedSignature(event, scriptId) {
@@ -1469,7 +1487,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 				<td>
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
-                                        <iframe id='preview' name='preview' width=420px height=890px onload="setComment()"
+                                        <iframe id='preview' name='preview' width=420px height=890px onload="setComment(); updateHalfLetterPrintControls()"
 							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/><%= viewScriptChartContext.isEmpty() ? "" : "&amp;chartContext=" + SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(viewScriptChartContext)) %>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>

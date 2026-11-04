@@ -19,7 +19,7 @@ function setup() {
     signatureAssociationPending: false, signatureAssociationFailed: false,
     isSignatureSaved: false, hasStoredSignature: false,
     faxSubmissionPending: false, faxQueued: false, faxSubmissionUncertain: false,
-    faxPreviewReloading: false, hasPreview: true, hasFaxNumber: true,
+    faxPreviewReloading: false, hasPreview: true, hasFaxNumber: true, frames: {},
     hasFaxSenderAccount: true, canFaxScript: true,
     cancelPendingFax() {}, getCsrfToken: () => 'fixture',
     setFaxControlsDisabled(value) { disabled = value; },
@@ -58,22 +58,44 @@ test('fax remains locked until the signature association is explicitly confirmed
 test('half-letter print and reprint wait for the signature association to finish', async () => {
   for (const method of ['print', 'rePrint']) {
     const s = setup();
-    s.context.frames = { preview: {} };
+    const button = { disabled: false, style: {} };
+    s.context.frames = { preview: { document: { getElementById: () => button } } };
     const submissions = [];
     s.context.onPrint2 = (...args) => submissions.push(args);
     const pending = s.save('12');
+    assert.equal(button.disabled, true);
+    assert.equal(button.style.opacity, '0.5');
     s.context.printHalfLetter(method, '45');
     assert.equal(submissions.length, 0, 'a PDF must not render the previous signature during the save');
 
     await flush();
     s.requests[0].resolve(confirmed());
     await pending;
+    assert.equal(button.disabled, false);
+    assert.equal(button.style.opacity, '');
     s.context.printHalfLetter(method, '45');
     assert.equal(submissions.length, 1);
     assert.equal(submissions[0][0], method);
     assert.equal(submissions[0][1], '45');
     assert.equal(submissions[0][6], 'PageSize.HALFLETTER');
   }
+});
+
+test('preview reload reflects the pending signature save and unlocks after confirmation', async () => {
+  const s = setup();
+  const pending = s.save('12');
+  await flush();
+  const button = { disabled: false, style: {} };
+  s.context.frames.preview = { document: { getElementById: () => button } };
+  s.context.setComment = () => {};
+  const onload = jsp.match(/<iframe id='preview'[^>]*onload="([^"]+)"/)[1];
+  vm.runInContext(onload, s.context);
+  assert.equal(button.disabled, true);
+  assert.equal(button.style.cursor, 'wait');
+  s.requests[0].resolve(confirmed());
+  await pending;
+  assert.equal(button.disabled, false);
+  assert.equal(button.style.cursor, 'pointer');
 });
 
 for (const scenario of ['no-preview', 'missing-frame', 'loading-frame', 'missing-fields', 'inaccessible-frame', 'ready']) {
