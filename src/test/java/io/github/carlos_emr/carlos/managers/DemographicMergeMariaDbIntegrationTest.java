@@ -5,8 +5,11 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.DemographicMergedDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicMergedDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.base.IsolatedJpaTestDatabase;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -56,6 +59,7 @@ class DemographicMergeMariaDbIntegrationTest extends CarlosUnitTestBase {
     @Autowired private DataSource dataSource;
     @Autowired private DemographicDao patients;
     @Autowired private DemographicMergedDao merges;
+    @Autowired private OscarLogDao auditLogs;
     @Autowired private PlatformTransactionManager transactions;
     @PersistenceContext private EntityManager em;
     private DemographicManager manager;
@@ -81,6 +85,7 @@ class DemographicMergeMariaDbIntegrationTest extends CarlosUnitTestBase {
         var target = new DemographicManagerImpl();
         ReflectionTestUtils.setField(target, "demographicDao", patients);
         ReflectionTestUtils.setField(target, "demographicMergedDao", merges);
+        ReflectionTestUtils.setField(target, "transactionManager", transactions);
         var proxy = new ProxyFactory(target);
         proxy.setInterfaces(DemographicManager.class);
         // Read the production annotations: deleting @Transactional must break the rollback proof.
@@ -105,6 +110,39 @@ class DemographicMergeMariaDbIntegrationTest extends CarlosUnitTestBase {
              var query = connection.prepareStatement("SELECT COUNT(*) FROM demographic_merged WHERE demographic_no=? AND deleted=0")) {
             query.setInt(1, child);
             try (var rows = query.executeQuery()) { rows.next(); return rows.getLong(1); }
+        }
+    }
+
+    private long audits(String action) throws Exception {
+        try (var connection = dataSource.getConnection();
+             var query = connection.prepareStatement("SELECT COUNT(*) FROM log WHERE action=?")) {
+            query.setString(1, action);
+            try (var rows = query.executeQuery()) { rows.next(); return rows.getLong(1); }
+        }
+    }
+
+    @Test
+    void shouldPersistMergeAndUnmergeAudits_whenObservedAfterCommit() throws Exception {
+        // A static interaction assertion cannot prove the audit transaction committed.
+        logActionMock.close();
+        logActionMock = null;
+        Object previous = ReflectionTestUtils.getField(LogAction.class, "oscarLogDao");
+        ReflectionTestUtils.setField(LogAction.class, "oscarLogDao", auditLogs);
+        try {
+            String merge = "DemographicManager.mergeDemographics";
+            String unmerge = "DemographicManager.unmergeDemographics";
+            long beforeMerge = audits(merge);
+            long beforeUnmerge = audits(unmerge);
+            manager.mergeDemographics(actor, parent, List.of(first));
+            assertThat(active(first)).isEqualTo(1);
+            assertThat(audits(merge)).isEqualTo(beforeMerge + 1);
+            assertThat(audits(unmerge)).isEqualTo(beforeUnmerge);
+            manager.unmergeDemographics(actor, parent, List.of(first));
+            assertThat(active(first)).isZero();
+            assertThat(audits(merge)).isEqualTo(beforeMerge + 1);
+            assertThat(audits(unmerge)).isEqualTo(beforeUnmerge + 1);
+        } finally {
+            ReflectionTestUtils.setField(LogAction.class, "oscarLogDao", previous);
         }
     }
 
@@ -208,7 +246,7 @@ class DemographicMergeMariaDbIntegrationTest extends CarlosUnitTestBase {
             var factory = new LocalContainerEntityManagerFactoryBean();
             factory.setDataSource(dataSource);
             factory.setManagedTypes(PersistenceManagedTypes.of(Demographic.class.getName(), DemographicMerged.class.getName(),
-                    io.github.carlos_emr.carlos.commn.model.Provider.class.getName()));
+                    io.github.carlos_emr.carlos.commn.model.Provider.class.getName(), OscarLog.class.getName()));
             factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
             factory.setJpaPropertyMap(database.jpaProperties());
             return factory;
@@ -216,5 +254,6 @@ class DemographicMergeMariaDbIntegrationTest extends CarlosUnitTestBase {
         @Bean PlatformTransactionManager transactionManager(EntityManagerFactory factory) { return new JpaTransactionManager(factory); }
         @Bean DemographicDao demographicDao() { return new DemographicDaoImpl(); }
         @Bean DemographicMergedDao demographicMergedDao() { return new DemographicMergedDaoImpl(); }
+        @Bean OscarLogDao auditLogDao() { return new OscarLogDaoImpl(); }
     }
 }

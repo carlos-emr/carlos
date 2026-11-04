@@ -25,15 +25,15 @@ REQUIRED = {"generated": {**CRITICAL, "MeasurementPatientMatchMariaDbIntegration
                           "ConsultationListProjectionIntegrationTest": 17,
                           "BCAR2020FormSaveTransactionIntegrationTest": 15,
                           "RxCorrectionSaveRollbackIntegrationTest": 2,
-                          "DemographicMergeMariaDbIntegrationTest": 6},
+                          "DemographicMergeMariaDbIntegrationTest": 7},
             "flyway": {**CRITICAL, "CaseManagementIssueDAOIntegrationTest": 22,
                        "ConsultationListProjectionIntegrationTest": 17,
                        "RxCorrectionSaveRollbackIntegrationTest": 2,
-                          "DemographicMergeMariaDbIntegrationTest": 6},
+                       "DemographicMergeMariaDbIntegrationTest": 7},
             "bc-flyway": {"BcBillingNativeMariaDbIntegrationTest": 8,
                            "BcBillingDaoTransactionIntegrationTest": 4,
                            "BCAR2020FormSaveTransactionIntegrationTest": 15,
-                           "DemographicMergeMariaDbIntegrationTest": 6}}
+                           "DemographicMergeMariaDbIntegrationTest": 7}}
 
 
 def verify(reports: Path, output: Path) -> dict:

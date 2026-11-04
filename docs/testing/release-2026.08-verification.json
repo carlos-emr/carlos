@@ -937,7 +937,7 @@
         "src/test/java/io/github/carlos_emr/carlos/managers/DemographicMergeMariaDbIntegrationTest.java"
       ],
       "implementation": "Add a physical MariaDB patient-merge rollback/concurrency lane and preserve explicit invalid-pagination and quick-list denial contracts.",
-      "cases": "Late merge failure, lock contention, deadlock victim rollback, cycles, duplicate merges; invalid list pagination 400; quick-list role denial 403; failed mutations preserve all prior state.",
+      "cases": "Late merge failure, lock contention, deadlock victim rollback, cycles, duplicate merges; invalid list pagination 400; quick-list role denial 403; failed mutations preserve all prior state. Merge/unmerge audit rows must be committed and visible from an independent connection; an after-commit callback interaction alone is insufficient.",
       "acceptance": "Each committed merge is complete once; refused or failed requests leave zero partial writes and return the documented status.",
       "requiredChecks": [
         "evidence-self-tests",
@@ -1606,6 +1606,10 @@
             {
               "name": "shouldCommitOnlyOneAcyclicMerge_whenRequestsContend(boolean)",
               "container": ""
+            },
+            {
+              "name": "shouldPersistMergeAndUnmergeAudits_whenObservedAfterCommit",
+              "container": ""
             }
           ]
         }
@@ -1668,7 +1672,7 @@
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
-        "DemographicMergeMariaDbIntegrationTest": 6
+        "DemographicMergeMariaDbIntegrationTest": 7
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -1710,7 +1714,7 @@
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
         "CaseManagementIssueDAOIntegrationTest": 22,
-        "DemographicMergeMariaDbIntegrationTest": 6
+        "DemographicMergeMariaDbIntegrationTest": 7
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -1747,12 +1751,12 @@
         "-Djacoco.dataFile={run}/jacoco.exec",
         "-Dtest.coverageDirectory={run}/coverage"
       ],
-      "minimumCases": 33,
+      "minimumCases": 34,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 8,
         "BcBillingDaoTransactionIntegrationTest": 4,
-        "DemographicMergeMariaDbIntegrationTest": 6
+        "DemographicMergeMariaDbIntegrationTest": 7
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"

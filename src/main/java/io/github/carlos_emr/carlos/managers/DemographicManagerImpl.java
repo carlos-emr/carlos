@@ -53,6 +53,11 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
@@ -90,6 +95,9 @@ public class DemographicManagerImpl implements DemographicManager {
 
     @Autowired
     private DemographicMergedDao demographicMergedDao;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
 
     @Autowired
@@ -747,14 +755,19 @@ public class DemographicManagerImpl implements DemographicManager {
         }
     }
 
-    private static void auditMergeAfterCommit(LoggedInInfo info, String operation, Integer id) {
+    private void auditMergeAfterCommit(LoggedInInfo info, String operation, Integer id) {
         Runnable audit = () -> LogAction.addLogSynchronous(info, operation, "id=" + id);
-        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
-            org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
-                    new org.springframework.transaction.support.TransactionSynchronization() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            var auditTransaction = new TransactionTemplate(transactionManager);
+            // afterCommit still has the completed transaction's resources bound. REQUIRED
+            // would join that transaction and silently lose the audit when it is cleaned up.
+            auditTransaction.setPropagationBehavior(
+                    TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
                         @Override public void afterCommit() {
                             try {
-                                audit.run();
+                                auditTransaction.executeWithoutResult(status -> audit.run());
                             } catch (RuntimeException failure) {
                                 logger.error("Committed patient {} audit could not be recorded ({})",
                                         operation, failure.getClass().getSimpleName());

@@ -53,7 +53,9 @@ migrations and the branch version/SCM metadata are preserved.
   one winner without cycles or duplicate links. The tests also exposed and fix
   reversed parent/child bindings in the unmerge DAO. A scalar locking query
   avoids locking eager relationship gaps. The DAO's default method preserves
-  compatibility for extension implementations.
+  compatibility for extension implementations. A separate-connection audit
+  assertion exposed lost after-commit writes; audit callbacks now use a fresh
+  transaction, and real merge/unmerge audit rows must be visible after return.
 * Document first/additional reviews derive the actor from the session. Extra
   review preserves the stored first reviewer and time. Forged hidden reviewer
   fields have active regressions.
