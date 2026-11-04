@@ -338,6 +338,10 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
                              "profile": profile, "artifact": str(artifact.resolve()) if artifact else ""}
             substitutions.update({name: os.environ.get(variable, "") for name, variable in check.get("environmentInputs", {}).items()})
             argv = [arg.format_map(substitutions) for arg in check["command"]]
+            if argv[0] == "python3":
+                # An absolute venv entry point must keep its pinned dependencies
+                # even when the caller has not activated that venv in PATH.
+                argv[0] = sys.executable
             receipt["command"] = check["command"]  # Template only: no expanded credentials/paths.
             environment = dict(os.environ)
             environment.update({key: value.format_map(substitutions) for key, value in check.get("environment", {}).items()})

@@ -71,7 +71,12 @@ migrations and the branch version/SCM metadata are preserved.
   as evidence. They retain skips, TODOs, expected failures, unexpected successes,
   cancellation, subtest failures and both primary/cleanup errors. Node identities
   include engine numbers and parent containers so table-driven equal labels do
-  not collapse distinct executions. Empty discovery never passes.
+  not collapse distinct executions. Empty discovery never passes. Python checks
+  reuse the verifier's interpreter and its pinned virtual-environment dependencies
+  even when that environment is not in `PATH`.
+* Prescription QR fixtures own a HAPI context with an in-memory ID generator.
+  They no longer create or share the library's default counter file in the
+  source checkout, and the context closes after each test.
 * JUnit evidence validates filenames, owning suites, counters, actual cases,
   duplicates and first-attempt/flaky/rerun failures. It handles Surefire's real
   parenthesized lane suffixes and JUnit display-name containers. Surefire 3.5.6
@@ -83,7 +88,8 @@ migrations and the branch version/SCM metadata are preserved.
   tests and zero reported skips. They remain missing until their native lane
   executes. A family with only skipped cases cannot satisfy global readiness.
 * JaCoCo agent data and reports are separated per lane; direct `surefire:test`
-  CI invocations attach the agent. The diff audit reports instructions,
+  CI invocations attach the agent. CI writes and checks each report inside the
+  build container to preserve its output ownership. The diff audit reports instructions,
   branches, partially covered lines and unmapped sources, with independent
   instruction/branch gates. Proposed 90/85 floors were replaced by the required
   baseline/ratchet review.

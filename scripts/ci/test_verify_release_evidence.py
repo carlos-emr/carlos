@@ -11,6 +11,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 import release_verification as gate
 from junit_evidence import EvidenceError
@@ -81,6 +82,20 @@ if '--nonzero' in sys.argv: sys.exit(7)
         self.assertTrue(result["releaseReady"])
         self.assertEqual(result["requiredExecutions"], 2)
         self.assertEqual(result["receivedExecutions"], 2)
+
+    def test_python_children_use_the_entrypoint_interpreter_without_venv_activation(self):
+        alternate = self.base / "alternate-bin"
+        alternate.mkdir()
+        python = alternate / "python3"
+        python.write_text("#!/bin/sh\nexit 91\n")
+        python.chmod(0o700)
+        self.plan["checks"][1]["command"][0] = "python3"
+        self.save_plan()
+        self.commit()
+        with patch.dict(os.environ, {"PATH": str(alternate) + os.pathsep + os.environ["PATH"]}):
+            result = self.run_check()
+        self.assertEqual(result["exitCode"], 0)
+        self.assertEqual(result["outcome"], "PASS")
 
     def test_missing_lane_and_missing_build_are_incomplete(self):
         self.seed()

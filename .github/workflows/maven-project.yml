@@ -290,9 +290,9 @@ jobs:
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress test jacoco:report \
             '-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest' \
             '-Dgroups=spring-context | mariadb-native' -DexcludedGroups=flyway-schema -Dtest.forkCount=3 \
-            -Djacoco.destFile=target/jacoco-mariadb-generated.exec -Djacoco.dataFile=target/jacoco-mariadb-generated.exec
-          mkdir -p target/coverage-mariadb/generated
-          cp target/site/jacoco/jacoco.xml target/coverage-mariadb/generated/jacoco.xml
+            -Djacoco.destFile=target/jacoco-mariadb-generated.exec -Djacoco.dataFile=target/jacoco-mariadb-generated.exec \
+            -Dtest.coverageDirectory=target/coverage-mariadb/generated
+          docker exec carlos-tomcat-dev test -s target/coverage-mariadb/generated/jacoco.xml
 
       - name: Verify critical DAO paths against the Flyway schema
         if: always()
@@ -303,9 +303,9 @@ jobs:
             -Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,ConsultationListProjectionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest \
             '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=1 -Dcarlos.test.schema.expected=flyway \
             -Dsurefire.reportNameSuffix=flyway \
-            -Djacoco.destFile=target/jacoco-mariadb-flyway.exec -Djacoco.dataFile=target/jacoco-mariadb-flyway.exec
-          mkdir -p target/coverage-mariadb/flyway
-          cp target/site/jacoco/jacoco.xml target/coverage-mariadb/flyway/jacoco.xml
+            -Djacoco.destFile=target/jacoco-mariadb-flyway.exec -Djacoco.dataFile=target/jacoco-mariadb-flyway.exec \
+            -Dtest.coverageDirectory=target/coverage-mariadb/flyway
+          docker exec carlos-tomcat-dev test -s target/coverage-mariadb/flyway/jacoco.xml
 
       - name: Verify BC billing reads and transaction outcomes against the Flyway schema
         if: always()
@@ -317,9 +317,9 @@ jobs:
             -Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest \
             '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=1 \
             -Dsurefire.reportNameSuffix=bc-flyway \
-            -Djacoco.destFile=target/jacoco-mariadb-bc-flyway.exec -Djacoco.dataFile=target/jacoco-mariadb-bc-flyway.exec
-          mkdir -p target/coverage-mariadb/bc-flyway
-          cp target/site/jacoco/jacoco.xml target/coverage-mariadb/bc-flyway/jacoco.xml
+            -Djacoco.destFile=target/jacoco-mariadb-bc-flyway.exec -Djacoco.dataFile=target/jacoco-mariadb-bc-flyway.exec \
+            -Dtest.coverageDirectory=target/coverage-mariadb/bc-flyway
+          docker exec carlos-tomcat-dev test -s target/coverage-mariadb/bc-flyway/jacoco.xml
 
       - name: Verify MariaDB coverage and summarize results
         if: always()
