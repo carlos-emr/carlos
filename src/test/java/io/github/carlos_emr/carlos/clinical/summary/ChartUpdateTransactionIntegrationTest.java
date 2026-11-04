@@ -67,6 +67,7 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
     private CarlosProperties properties;
     private ChartUpdateContext.Snapshot snapshot;
     private ChartUpdateContext context;
+    private io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService attachments;
     private final java.util.List<Issue> createdIssues = new java.util.ArrayList<>();
 
     @BeforeEach void configure() {
@@ -108,7 +109,11 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
         when(security.hasPrivilege(any(), anyString(), anyString(), nullable(String.class))).thenReturn(true);
         ReflectionTestUtils.setField(nativeTicklers, "securityInfoManager", security);
         ReflectionTestUtils.setField(nativeTicklers, "ticklerDao", ticklerDao);
-        var target = new ReviewedChartUpdateService(context, receipts, nativeTicklers, caseManagementManager, providers);
+        // The source-document attachment is develop's TicklerAttachmentService (its own transactional
+        // write, covered by its own tests); here it is a mock, and the transactional tickler and receipt
+        // writes are what is under test.
+        attachments = mock(io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService.class);
+        var target = new ReviewedChartUpdateService(context, receipts, nativeTicklers, attachments, caseManagementManager, providers);
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(transactionManager);
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
@@ -164,10 +169,11 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
         assertThat(apply()).isEqualTo(new ReviewedChartUpdateService.Result("tickler", result.target(), true));
         transactions.executeWithoutResult(status -> {
             assertThat(ticklerDao.findActiveByDemographicNo(PATIENT)).hasSize(1);
-            assertThat(em.createQuery("select count(l) from TicklerLink l where l.ticklerNo = :id", Long.class)
-                    .setParameter("id", (int) result.target()).getSingleResult()).isEqualTo(1);
             assertThat(receipts.find(review.receiptKey(proposal.key())).getTarget()).isEqualTo(result.target());
         });
+        // The source document was attached once, to the committed tickler; the replay attached nothing.
+        verify(attachments, times(1)).syncAttachments(eq(user), argThat(t -> t.getId() == (int) result.target()),
+                eq(java.util.Map.of(io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType.DOC, List.of("42"))));
     }
 
     @Test void shouldRejectSameReminderFromLaterSource_usingCommittedReceipt() {
@@ -203,9 +209,10 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
         transactions.executeWithoutResult(status -> {
             assertThat(ticklerDao.findActiveByDemographicNo(PATIENT)).isEmpty();
             assertThat(receipts.find(review.receiptKey(proposal.key()))).isNull();
-            assertThat(em.createQuery("select count(l) from TicklerLink l where l.tableName = 'DOC' and l.tableId = 42", Long.class)
-                    .getSingleResult()).isZero();
         });
+        // The attachment call happened inside the rolled-back transaction; its own rows are the
+        // attachment service's concern and are not asserted here.
+        verify(attachments).syncAttachments(eq(user), any(), any());
     }
 
     private void prepareHistory() {

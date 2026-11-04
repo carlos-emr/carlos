@@ -30,7 +30,8 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.model.ChartUpdateReceipt;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
-import io.github.carlos_emr.carlos.commn.model.TicklerLink;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.time.LocalDate;
@@ -38,6 +39,8 @@ import java.time.ZoneId;
 import java.util.Objects;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +52,7 @@ public class ReviewedChartUpdateService {
     private final ChartUpdateContext context;
     private final ChartUpdateReceiptStore receipts;
     private final TicklerManager ticklers;
+    private final TicklerAttachmentService attachments;
     private final CaseManagementManager notes;
     private final ProviderDao providers;
 
@@ -56,10 +60,11 @@ public class ReviewedChartUpdateService {
     public record Result(String kind, long target, boolean replay) { }
 
     public ReviewedChartUpdateService(ChartUpdateContext context, ChartUpdateReceiptStore receipts,
-            TicklerManager ticklers, CaseManagementManager notes, ProviderDao providers) {
+            TicklerManager ticklers, TicklerAttachmentService attachments, CaseManagementManager notes, ProviderDao providers) {
         this.context = context;
         this.receipts = receipts;
         this.ticklers = ticklers;
+        this.attachments = Objects.requireNonNull(attachments);
         this.notes = notes;
         this.providers = providers;
     }
@@ -146,11 +151,9 @@ public class ReviewedChartUpdateService {
         tickler.setCreateDate(new Date());
         tickler.setUpdateDate(new Date());
         if (!ticklers.addTickler(user, tickler) || tickler.getId() == null) throw new IllegalStateException("Tickler was not saved.");
-        TicklerLink link = new TicklerLink();
-        link.setTableName("DOC");
-        link.setTableId((long) snapshot.documentId());
-        link.setTicklerNo(tickler.getId());
-        if (!ticklers.addTicklerLink(user, link)) throw new IllegalStateException("Source link was not saved.");
+        // The source document rides as a tickler attachment (develop's picker model, which replaced
+        // tickler links): the service checks the caller's read on the document and its patient.
+        attachments.syncAttachments(user, tickler, Map.of(DocumentType.DOC, List.of(String.valueOf(snapshot.documentId()))));
         return tickler.getId();
     }
 
