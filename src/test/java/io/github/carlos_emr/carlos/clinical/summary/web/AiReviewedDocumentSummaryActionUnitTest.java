@@ -409,6 +409,50 @@ class AiReviewedDocumentSummaryActionUnitTest {
         assertThat(view.notice()).contains("Statut de la révision").doesNotContain("Review status");
         verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", view.notice());
     }
+
+    @Test void spanishPolishAndPortugueseRecordsGiveTheirOwnNoticeOnThePageAndInTheReview() throws Exception {
+        String[][] cases = {{"es", "Estado de la revisión"}, {"pl", "Status weryfikacji"}, {"pt-BR", "Situação da revisão"}};
+        for (String[] c : cases) {
+            clearInvocations(request);
+            when(context.load(any(LoggedInInfo.class), eq(11)))
+                    .thenReturn(new DocumentSummaryReviewContext.Snapshot(SCOPE, META, c[0]));
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", DocumentSummaryReviewBinding.unreviewedNotice(c[0]));
+            var review = generate();
+            try {
+                var view = review.view(actor, SCOPE, source());
+                assertThat(view.notice()).as(c[0]).contains(c[1]).doesNotContain("Review status", "Statut de la");
+                verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", view.notice());
+            } finally {
+                review.close();
+            }
+        }
+    }
+
+    @Test void aCapRefusalWritesNoGenerateRowOnlyADistinctRefusedRowWithTheIds() throws Exception {
+        int capacity = DocumentSummaryReviewSession.capacity();
+        var held = new java.util.ArrayList<DocumentSummaryReviewSession>();
+        try {
+            for (int i = 0; i < capacity; i++) {
+                held.add(DocumentSummaryReviewSession.generate(SCOPE, META, () -> bytes(), generator, "FAKE-model", actor));
+            }
+            when(request.getMethod()).thenReturn("POST");
+            clearInvocations(request);
+            assertThat(action.generate()).isEqualTo(ActionSupport.SUCCESS);
+            audit.verify(() -> LogAction.addLogSynchronous(any(), eq("DocumentSummary.reviewGenerate"), anyString(), anyString(), any(), anyString()), never());
+            audit.verify(() -> LogAction.addLogSynchronous(actor, "DocumentSummary.reviewGenerateRefused", AUDIT, "11", 7, "documentId=11"));
+            assertThat(current()).isNull();
+            verify(request).setAttribute(eq("documentSummaryError"), anyString());
+            // The refused request never reached the model: only the held generations called it.
+            verify(generator, times(capacity)).summarize(TEXT);
+        } finally {
+            held.forEach(DocumentSummaryReviewSession::close);
+        }
+        // With room again the same request is admitted and logged as a real generation, once.
+        var review = generate();
+        assertThat(current()).isSameAs(review);
+        audit.verify(() -> LogAction.addLogSynchronous(actor, "DocumentSummary.reviewGenerate", AUDIT, "11", 7, "documentId=11"), times(1));
+    }
     @Test void discardWritesAnAuditEntryForTheDocument() throws Exception {
         var review = generate(); approve(review); token(review);
         when(request.getMethod()).thenReturn("POST");

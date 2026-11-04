@@ -314,6 +314,70 @@ class DocumentSummaryReviewBindingUnitTest {
     }
 
     @Test
+    void spanishPolishAndPortugueseRenderTheirOwnNoticeVersionWithoutMixingLanguages() {
+        var source = source();
+        var english = draft(source);
+        record Case(String language, String version, String heading, String status, String unconfirmed, String reviewed, String closing) {}
+        for (var c : new Case[]{
+                new Case("es", "carlos-5537-es-1", "Ayuda de lectura generada por IA — abra el documento original\n",
+                        "Estado de la revisión: ", "revisión sin confirmar",
+                        "revisado por el profesional de la salud FAKE Reviewer el " + REVIEWED, "no confíe en este resumen."),
+                new Case("pl", "carlos-5537-pl-1", "Pomoc w czytaniu wygenerowana przez AI — proszę otworzyć oryginalny dokument\n",
+                        "Status weryfikacji: ", "weryfikacja niepotwierdzona",
+                        "zweryfikowano przez pracownika ochrony zdrowia FAKE Reviewer w dniu " + REVIEWED,
+                        "nie należy polegać na tym streszczeniu."),
+                new Case("pt-BR", "carlos-5537-pt-BR-1", "Auxílio de leitura gerado por IA — abra o documento original\n",
+                        "Situação da revisão: ", "revisão não confirmada",
+                        "revisado pelo profissional de saúde FAKE Reviewer em " + REVIEWED, "não confie neste resumo.")}) {
+            var draft = service(GENERATED).prepare(source, summary("FAKE document describes blood work."), "FAKE-local-model@revision1", c.language());
+            assertThat(draft.language()).isEqualTo(c.language());
+            assertThat(draft.version()).isNotEqualTo(english.version());
+            assertThat(DocumentSummaryReviewBinding.noticeVersion(c.language())).isEqualTo(c.version());
+            assertThat(draft.previewNotice()).as(c.language()).startsWith(c.heading())
+                    .contains(c.status() + c.unconfirmed(), c.closing())
+                    .doesNotContain("Review status", "Statut de la", "AI-generated", "Reviewed by");
+            var approved = service(REVIEWED).approve(draft, draft.id(), source, actor(), true);
+            assertThat(approved.patientNotice()).as(c.language()).startsWith(c.heading())
+                    .contains(c.status() + c.reviewed(), c.closing())
+                    .doesNotContain("Review status", "Statut de la", "Reviewed by clinician");
+            assertThat(DocumentSummaryReviewBinding.unreviewedNotice(c.language())).isEqualTo(draft.previewNotice());
+        }
+        // Polish says przychodnia for the clinic, never klinika; the three versions are distinct.
+        assertThat(DocumentSummaryReviewBinding.unreviewedNotice("pl")).contains("przychodni").doesNotContainIgnoringCase("klinik");
+        assertThat(java.util.Set.of(DocumentSummaryReviewBinding.NOTICE_VERSION, DocumentSummaryReviewBinding.NOTICE_VERSION_FR,
+                DocumentSummaryReviewBinding.NOTICE_VERSION_ES, DocumentSummaryReviewBinding.NOTICE_VERSION_PL,
+                DocumentSummaryReviewBinding.NOTICE_VERSION_PT_BR)).hasSize(5);
+        assertThat(DocumentSummaryReviewBinding.NOTICE_LANGUAGES).containsExactlyInAnyOrder("en", "fr", "es", "pl", "pt-BR");
+        // Anything else is still refused, and an unknown language renders English.
+        assertThatThrownBy(() -> service(GENERATED).prepare(source, summary("FAKE document."), "FAKE-model", "pt"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(DocumentSummaryReviewBinding.unreviewedNotice("de")).isEqualTo(english.previewNotice());
+    }
+
+    @Test
+    void noticeLanguageFollowsTheRecordNotTheBrowserAndFrenchWinsOverASpokenLanguage() {
+        // Spoken language gives Spanish, Polish and Portuguese, by exact token.
+        for (String value : new String[]{"Spanish", "spanish; castilian", "Spanish; Castilian", " SPA ", "es", "es-MX", "es_ES", "Español", "espanol", "Castellano"})
+            assertThat(DocumentSummaryReviewBinding.noticeLanguage("English", value)).as(value).isEqualTo("es");
+        for (String value : new String[]{"Polish", "POLISH", "pl", "pol", "pl-PL", "Polski", "^Polish"})
+            assertThat(DocumentSummaryReviewBinding.noticeLanguage("English", value)).as(value).isEqualTo("pl");
+        for (String value : new String[]{"Portuguese", "por", "pt", "pt-BR", "pt_PT", "Português", "portugues", "Brazilian Portuguese"})
+            assertThat(DocumentSummaryReviewBinding.noticeLanguage(null, value)).as(value).isEqualTo("pt-BR");
+        // An unknown, empty or merely similar spoken language is English: never a prefix match.
+        for (String value : new String[]{"Cree", "Mandarin", "English", "French", "Spanglish", "Polynesian", "Portuguese Creole", "polish-ish", "spa-x", "es-", " ", "", "unknown", "Pol", null})
+            assertThat(DocumentSummaryReviewBinding.noticeLanguage("English", value)).as(String.valueOf(value)).isEqualTo("en");
+        // The official language French wins over a spoken language of another notice language.
+        assertThat(DocumentSummaryReviewBinding.noticeLanguage("French", "Spanish")).isEqualTo("fr");
+        assertThat(DocumentSummaryReviewBinding.noticeLanguage("fr-CA", "Polish")).isEqualTo("fr");
+        assertThat(DocumentSummaryReviewBinding.noticeLanguage("Français", "Portuguese")).isEqualTo("fr");
+        // A spoken French alone does not give French (French comes from the official language), and the
+        // one-argument form is unchanged.
+        assertThat(DocumentSummaryReviewBinding.noticeLanguage("English", "French")).isEqualTo("en");
+        assertThat(DocumentSummaryReviewBinding.noticeLanguage("Spanish")).isEqualTo("en");
+        assertThat(DocumentSummaryReviewBinding.noticeLanguage("French")).isEqualTo("fr");
+    }
+
+    @Test
     void noticeLanguageFollowsThePatientsOfficialLanguageAndDefaultsToEnglish() {
         for (String value : new String[]{"French", "french", " FRENCH ", "fr", "fr-CA", "fr_CA", "FRE", "fra", "Français", "francais"})
             assertThat(DocumentSummaryReviewBinding.noticeLanguage(value)).as(value).isEqualTo("fr");
