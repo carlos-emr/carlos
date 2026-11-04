@@ -340,6 +340,8 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
             assertThat(faxImporter.getPollingFailures().get(1).attempts()).isEqualTo(1);
             assertThat(faxImporter.getPollingFailures().get(1).nextRetry()).isEqualTo(now.get().plusSeconds(60));
             assertThat(logs.messages().stream().filter(m -> m.contains("Inbound fax polling failed"))).hasSize(2);
+            assertThat(logs.messages()).anyMatch(m -> m.contains("HTTP n/a"));
+            assertThat(logs.messages()).noneMatch(m -> m.contains("HTTP 0"));
         }
     }
 
@@ -372,14 +374,16 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
         FaxConfig config = createFaxConfig(1, true, true);
         when(faxConfigDao.findAll(null, null)).thenReturn(List.of(config));
         when(faxProviderClientFactory.getClient(config)).thenThrow(new IllegalStateException("PRIVATE_CREDENTIAL"));
-        faxImporter.poll();
-        java.nio.file.Path accountDir = java.nio.file.Files.createDirectories(faxIncomingDir.resolve("1"));
-        java.nio.file.Files.writeString(accountDir.resolve("pending.pdf"), "invalid PDF");
         try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+            faxImporter.poll();
+            java.nio.file.Path accountDir = java.nio.file.Files.createDirectories(faxIncomingDir.resolve("1"));
+            java.nio.file.Files.writeString(accountDir.resolve("pending.pdf"), "invalid PDF");
             faxImporter.poll();
             verify(faxProviderClientFactory).getClient(config);
             assertThat(logs.messages()).anyMatch(m -> m.contains("Retrying import of pending fax"));
             assertThat(logs.messages().toString()).doesNotContain("PRIVATE_CREDENTIAL");
+            assertThat(logs.messages()).anyMatch(m -> m.contains("HTTP n/a"));
+            assertThat(logs.messages()).noneMatch(m -> m.contains("HTTP 0"));
         }
     }
 

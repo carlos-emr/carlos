@@ -437,11 +437,11 @@ public class FaxImporter {
 
     private void recordPollFailure(FaxConfig faxConfig, Exception failure) {
         if (pollBackoff.failed(faxConfig.getId())) {
+            String httpStatus = failure instanceof FaxProviderException providerFailure && providerFailure.getHttpStatus() > 0
+                    ? Integer.toString(providerFailure.getHttpStatus()) : "n/a";
             log.warn("Inbound fax polling failed for account {} ({}, HTTP {}, type={}); retries will back off up to one hour. "
                             + "Check credentials and configuration in Administration > Faxes > Configure Fax.",
-                    faxConfig.getId(), faxConfig.getProviderType(),
-                    failure instanceof FaxProviderException providerFailure ? providerFailure.getHttpStatus() : 0,
-                    failure.getClass().getSimpleName());
+                    faxConfig.getId(), faxConfig.getProviderType(), httpStatus, failure.getClass().getSimpleName());
         }
     }
 
