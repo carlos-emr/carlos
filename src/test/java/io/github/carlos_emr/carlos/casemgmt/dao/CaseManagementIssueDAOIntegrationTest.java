@@ -31,6 +31,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
@@ -99,6 +100,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
 
     private CaseManagementIssue createCaseManagementIssue(String demographicNo, Issue issue) {
         CaseManagementIssue cmi = new CaseManagementIssue();
+        cmi.setType("");
         cmi.setDemographic_no(Integer.valueOf(demographicNo));
         cmi.setIssue_id(issue.getId());
         cmi.setAcute(false);
@@ -118,6 +120,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
      */
     private CaseManagementIssue createCaseManagementIssue(String demographicNo, Issue issue, Date updateDate) {
         CaseManagementIssue cmi = new CaseManagementIssue();
+        cmi.setType("");
         cmi.setDemographic_no(Integer.valueOf(demographicNo));
         cmi.setIssue_id(issue.getId());
         cmi.setAcute(false);
@@ -132,6 +135,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
 
     private CaseManagementIssue createResolvedIssue(String demographicNo, Issue issue) {
         CaseManagementIssue cmi = new CaseManagementIssue();
+        cmi.setType("");
         cmi.setDemographic_no(Integer.valueOf(demographicNo));
         cmi.setIssue_id(issue.getId());
         cmi.setAcute(false);
@@ -161,6 +165,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
         void shouldPersistIssue_whenValidDataProvided() {
             // Given
             CaseManagementIssue cmi = new CaseManagementIssue();
+            cmi.setType("");
             cmi.setDemographic_no(600);
             cmi.setIssue_id(testIssue1.getId());
             cmi.setAcute(true);
@@ -209,6 +214,7 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             List<CaseManagementIssue> issues = new ArrayList<>();
             for (int i = 0; i < 3; i++) {
                 CaseManagementIssue cmi = new CaseManagementIssue();
+                cmi.setType("");
                 cmi.setDemographic_no(700 + i);
                 cmi.setIssue_id(testIssue1.getId());
                 cmi.setAcute(false);
@@ -484,10 +490,8 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
      *
      * <p>This method navigates the CaseManagementIssue → notes collection
      * (via casemgmt_issue_notes join table) to find issues linked to a given note.
-     * The current HQL uses {@code cmi.notes.id} which is an illegal dereference of a
-     * collection property in Hibernate 5 — you cannot navigate through a collection
-     * to access element properties without an explicit join. This causes a QueryException.
-     * PR #89 rewrites the HQL to use proper join syntax.</p>
+     * Executes the production JpqlQueryHelper path against Hibernate and H2, guarding
+     * against illegal collection dereferences and implicit multi-entity projections.</p>
      */
     @Nested
     @DisplayName("getIssuesByNote (2 params: noteId, resolved)")
@@ -498,6 +502,11 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             note.setDemographic_no(demoNo);
             note.setNote("Test note for issue link");
             note.setProviderNo("999998");
+            note.setSigning_provider_no("");
+            note.setProgram_no("");
+            note.setReporter_caisi_role("");
+            note.setReporter_program_team("");
+            note.setHistory("");
             note.setUuid(UUID.randomUUID().toString());
             note.setUpdate_date(new Date());
             note.setObservation_date(new Date());
@@ -516,39 +525,77 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("should throw IllegalArgumentException due to illegal collection dereference")
-        void shouldThrowIllegalArgumentException_whenDereferencingCollectionProperty() {
-            // Given — create a note linked to testIssue1 via CMI
-            CaseManagementIssue cmi = createCaseManagementIssue("20200", testIssue1);
-            hibernateTemplate.flush();
-            CaseManagementNote note = createAndLinkNote("20200", cmi);
+        @DisplayName("should return only linked issues, unresolved first, without duplicates")
+        void shouldReturnLinkedIssues_whenResolvedFilterIsAbsent() {
+            CaseManagementIssue unresolved = createCaseManagementIssue("20200", testIssue1);
+            CaseManagementIssue resolved = createResolvedIssue("20200", testIssue2);
+            CaseManagementIssue unrelated = createCaseManagementIssue("20200", testIssue2);
+            CaseManagementNote note = createAndLinkNote("20200", unresolved, resolved);
+            createAndLinkNote("20200", unresolved, unrelated);
+            entityManager.clear();
 
-            // When/Then — the HQL "cmi.notes.id" illegally dereferences a collection
-            // property. Hibernate cannot navigate through a Set to access element
-            // properties without an explicit join. This documents the pre-change bug.
-            // Hibernate 5's ExceptionConverterImpl.convert() wraps QueryException as
-            // IllegalArgumentException (JPA convention) rather than HibernateQueryException.
-            assertThatThrownBy(() ->
-                caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), null)
-            ).isInstanceOf(IllegalArgumentException.class);
+            assertThat(caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), null))
+                    .extracting(CaseManagementIssue::getId)
+                    .containsExactly(unresolved.getId(), resolved.getId());
         }
 
         @Test
         @Tag("filter")
-        @DisplayName("should throw IllegalArgumentException with resolved filter due to same collection bug")
-        void shouldThrowIllegalArgumentException_whenFilteringByResolved() {
-            // Given — create resolved + unresolved CMIs linked to same note
+        @DisplayName("should return only linked issues matching either resolved state")
+        void shouldReturnLinkedIssues_whenFilteringByResolved() {
             CaseManagementIssue unresolvedCmi = createCaseManagementIssue("20300", testIssue1);
             CaseManagementIssue resolvedCmi = createResolvedIssue("20300", testIssue2);
             hibernateTemplate.flush();
             CaseManagementNote note = createAndLinkNote("20300", unresolvedCmi, resolvedCmi);
 
-            // When/Then — same collection dereference bug regardless of resolved filter
-            // Hibernate 5's ExceptionConverterImpl.convert() wraps QueryException as
-            // IllegalArgumentException (JPA convention) rather than HibernateQueryException.
-            assertThatThrownBy(() ->
-                caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), false)
-            ).isInstanceOf(IllegalArgumentException.class);
+            createAndLinkNote("20300", createCaseManagementIssue("20300", testIssue2),
+                    createResolvedIssue("20300", testIssue1));
+            entityManager.clear();
+
+            assertThat(caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), false))
+                    .extracting(CaseManagementIssue::getId).containsExactly(unresolvedCmi.getId());
+            assertThat(caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), true))
+                    .extracting(CaseManagementIssue::getId).containsExactly(resolvedCmi.getId());
+        }
+
+        @Test
+        @DisplayName("should return no issues for an unlinked or missing note with any filter")
+        void shouldReturnEmpty_whenNoteHasNoLinkedIssues() {
+            CaseManagementIssue unrelated = createCaseManagementIssue("20400", testIssue1);
+            createAndLinkNote("20400", unrelated);
+            CaseManagementNote emptyNote = createAndLinkNote("20400");
+            entityManager.clear();
+
+            for (Boolean resolved : new Boolean[]{null, false, true}) {
+                assertThat(caseManagementIssueDAO.getIssuesByNote(emptyNote.getId().intValue(), resolved)).isEmpty();
+                assertThat(caseManagementIssueDAO.getIssuesByNote(Integer.MAX_VALUE, resolved)).isEmpty();
+            }
+        }
+
+        @Test
+        @Tag("flyway-schema")
+        @EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_SCHEMA", matches = "flyway")
+        @DisplayName("should deduplicate legacy join rows on the migrated production schema")
+        void shouldReturnEachIssueOnce_whenLinkRowsAreDuplicated() {
+            // Hibernate's generated schema adds a composite primary key here;
+            // the production Flyway baseline permits duplicate link rows.
+            CaseManagementIssue unresolved = createCaseManagementIssue("20500", testIssue1);
+            CaseManagementIssue resolved = createResolvedIssue("20500", testIssue2);
+            CaseManagementNote note = createAndLinkNote("20500", unresolved, resolved);
+            entityManager.createNativeQuery("insert into casemgmt_issue_notes (id, note_id) "
+                            + "select id, note_id from casemgmt_issue_notes where note_id = :noteId")
+                    .setParameter("noteId", note.getId()).executeUpdate();
+            assertThat(((Number) entityManager.createNativeQuery(
+                            "select count(*) from casemgmt_issue_notes where note_id = :noteId")
+                    .setParameter("noteId", note.getId()).getSingleResult()).intValue()).isEqualTo(4);
+            entityManager.clear();
+
+            assertThat(caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), null))
+                    .extracting(CaseManagementIssue::getId).containsExactly(unresolved.getId(), resolved.getId());
+            assertThat(caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), false))
+                    .extracting(CaseManagementIssue::getId).containsExactly(unresolved.getId());
+            assertThat(caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), true))
+                    .extracting(CaseManagementIssue::getId).containsExactly(resolved.getId());
         }
     }
 
