@@ -81,6 +81,17 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
+    void shouldRenderControlsDisabled_forUserWhoCanOnlyRead() throws Exception {
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(mockRequest.getAttribute("canChange")).isEqualTo(true);
+
+        denyPrivilege("_admin.schedule", "w");
+        denyPrivilege("_admin", "w");
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(mockRequest.getAttribute("canChange")).isEqualTo(false);
+    }
+
+    @Test
     void shouldRequireScheduleAdminReadPrivilege_forViews() {
         denyPrivilege("_admin.schedule", "r");
         denyPrivilege("_admin", "r");

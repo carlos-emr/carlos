@@ -88,10 +88,12 @@
 
 <div class="d-flex align-items-center mb-3">
     <h1 class="h5 mb-0 me-auto"><fmt:message key="admin.appt.status.mgr.title"/></h1>
+    <c:if test="${canChange}">
     <form action="${carlos:forHtmlAttribute(statusAction)}" method="post" data-confirm="${carlos:forHtmlAttribute(confirmReset)}">
         <input type="hidden" name="dispatch" value="reset"/>
         <button class="btn btn-sm btn-outline-secondary" type="submit"><fmt:message key="admin.appt.status.mgr.label.reset"/></button>
     </form>
+    </c:if>
 </div>
 
 <s:if test="hasActionErrors()">
@@ -108,7 +110,8 @@
     </div>
 </c:if>
 
-<div class="table-responsive">
+<%-- A disabled fieldset disables every control inside it, whichever form each belongs to. --%>
+<fieldset class="table-responsive"${canChange ? '' : ' disabled'}>
     <table id="statusTable" class="table table-sm table-striped align-middle"
            data-icon-base="${carlos:forHtmlAttribute(ctx)}/images/">
         <thead>
@@ -210,7 +213,7 @@
         </c:forEach>
         </tbody>
     </table>
-</div>
+</fieldset>
 
 <script>
     (function () {

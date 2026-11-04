@@ -211,8 +211,9 @@
                                         <input type="hidden" name="dispatch" value="updateIcon"/>
                                         <input type="hidden" name="id" value="${item.id}"/>
                                         <label class="visually-hidden" for="icon-${item.id}"><fmt:message key="admin.appt.location.label.icon"/></label>
-                                        <%-- Only whitelisted icons reach the class attribute, as in the chip. --%>
-                                        <c:set var="shownIcon" value="${locationIcons.contains(item.icon) ? item.icon : defaultLocationIcon}"/>
+                                        <%-- Only whitelisted icons reach the class attribute, as in the chip. The
+                                             emptiness test comes first: List.of(...).contains(null) throws. --%>
+                                        <c:set var="shownIcon" value="${empty item.icon or not locationIcons.contains(item.icon) ? defaultLocationIcon : item.icon}"/>
                                         <i class="fa-solid ${carlos:forHtmlAttribute(shownIcon)} location-icon-preview" aria-hidden="true"
                                            data-current="${carlos:forHtmlAttribute(shownIcon)}" data-default-icon="${carlos:forHtmlAttribute(defaultLocationIcon)}"></i>
                                         <select class="form-select form-select-sm location-icon" id="icon-${item.id}" name="icon" aria-describedby="row-${item.id}">

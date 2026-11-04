@@ -229,6 +229,11 @@ public class AppointmentStatus2Action extends ActionSupport {
         request.setAttribute("allStatus", allStatus);
         request.setAttribute("iconSet", AppointmentStatusMgr.ICON_SET);
         request.setAttribute("descriptionMaxLength", AppointmentStatusMgr.DESCRIPTION_MAX_LENGTH);
+        // A user who can only read sees the controls disabled; the action would refuse their changes.
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        request.setAttribute("canChange",
+                securityInfoManager.hasPrivilege(loggedInInfo, SCHEDULE_ADMIN_SECURITY_OBJECT, WRITE, null)
+                        || securityInfoManager.hasPrivilege(loggedInInfo, ADMIN_SECURITY_OBJECT, WRITE, null));
         int usedStatusIndex = apptStatusMgr.checkStatusUsuage(allStatus);
         if (usedStatusIndex >= 0 && usedStatusIndex < allStatus.size()) {
             request.setAttribute("useStatus", allStatus.get(usedStatusIndex).getStatus());

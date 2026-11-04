@@ -167,6 +167,32 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"order", "add", "remove"})
+    void shouldLeaveAppointmentLocationList_whenGenericManagerPostsChange(String operation) {
+        // The Location List keeps its rules on its own page (#3982); this page changes none of its items.
+        request.setMethod("POST");
+        request.setParameter("method", operation);
+        request.setParameter("lookupListItemId", "7");
+        request.setParameter("lookupListItemDisplayOrder", "2");
+        request.setParameter("lookupListId", "3");
+        request.setParameter("lookupListItemLabel", "Room 1");
+        io.github.carlos_emr.carlos.commn.model.LookupList locations = new io.github.carlos_emr.carlos.commn.model.LookupList();
+        locations.setId(3);
+        when(lists.findLookupListByName(login, io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver.LIST_NAME))
+                .thenReturn(locations);
+        io.github.carlos_emr.carlos.commn.model.LookupListItem item = new io.github.carlos_emr.carlos.commn.model.LookupListItem();
+        item.setId(7);
+        item.setLookupListId(3);
+        when(lists.findLookupListItemById(login, 7)).thenReturn(item);
+
+        assertThat(new LookupListManager2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        verify(lists, never()).addLookupListItem(any(), any());
+        verify(lists, never()).updateLookupListItemDisplayOrder(any(), anyInt(), anyInt());
+        verify(lists, never()).removeLookupListItem(any(), anyInt());
+    }
+
     @Test
     void shouldRetainLookupViews_whenRequestIsGet() {
         request.setMethod("GET");
