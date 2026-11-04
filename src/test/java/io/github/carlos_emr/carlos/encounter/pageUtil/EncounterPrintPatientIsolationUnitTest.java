@@ -63,8 +63,9 @@ import static org.mockito.Mockito.verifyNoInteractions;
  * (a revision from the split chart, the eChart history report and the messenger's encounter
  * attachment) loaded the requested revision into that shared bean, overwriting another window's
  * entry, and failed when the login had not entered any chart. Both now load a request-owned bean
- * through {@link EctSessionBean#setUpEncounterPage(LoggedInInfo, String, String)}, which shows a
- * revision only when it belongs to the printed patient.</p>
+ * through {@link EctSessionBean#setUpEncounterPage(LoggedInInfo, String, String)}. Since #4793,
+ * the mandatory modern policy keeps these retained routes' patient headers scoped but never
+ * loads a legacy revision. Permanent removal is tracked in #5599.</p>
  *
  * @since 2026-10-16
  */
@@ -119,18 +120,19 @@ class EncounterPrintPatientIsolationUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should print the requested revision when it is this patient's")
-        void shouldPrintRequestedRevision_whenItBelongsToThePatient() {
+        @DisplayName("should keep the requested patient's header without loading its legacy revision")
+        void shouldKeepRequestedPatientHeader_whenLegacyRevisionExists() {
             when(charts.find((Object) 41)).thenReturn(revision(41, Integer.parseInt(A), "Alpha history"));
 
             EctSessionBean printed = new EctSessionBean();
             printed.setUpEncounterPage(login, "41", A);
 
-            assertThat(printed.eChartId).isEqualTo("41");
-            assertThat(printed.socialHistory).isEqualTo("Alpha history");
-            assertThat(printed.encounter).isEqualTo("Alpha history encounter");
+            assertThat(printed.eChartId).isEmpty();
+            assertThat(new String[]{printed.socialHistory, printed.familyHistory, printed.medicalHistory,
+                    printed.ongoingConcerns, printed.reminders, printed.encounter}).containsOnly("");
             assertThat(printed.patientLastName).isEqualTo("FAKE-Alpha");
             assertThat(printed.familyDoctorNo).isEqualTo("111111");
+            verifyNoInteractions(charts);
         }
 
         @Test
@@ -145,6 +147,7 @@ class EncounterPrintPatientIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(printed.socialHistory).isEmpty();
             assertThat(printed.encounter).isEmpty();
             assertThat(printed.patientLastName).isEqualTo("FAKE-Alpha");
+            verifyNoInteractions(charts);
         }
 
         @ParameterizedTest(name = "[{0}]")
