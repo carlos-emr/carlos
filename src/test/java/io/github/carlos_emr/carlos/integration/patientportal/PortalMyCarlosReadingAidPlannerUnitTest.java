@@ -49,7 +49,18 @@ class PortalMyCarlosReadingAidPlannerUnitTest {
         assertEquals(Outcome.INCLUDE, plan.outcome());
         assertTrue(plan.includesAid());
         assertEquals(OFFER.approvalId(), plan.approvalId());
+        // Nothing is audited as included until staging has accepted the aid.
+        assertTrue(rows.isEmpty());
+        planner.included(PATIENT, DOCUMENT, plan, true);
         assertEquals(List.of(new Row(PATIENT, DOCUMENT, OFFER.approvalId(), Action.INCLUDED)), rows);
+    }
+
+    @Test void shouldAuditThatTheAidWasNotIncluded_whenStagingRefusedIt() {
+        var plan = planner.plan(PATIENT, DOCUMENT, ORIGINAL, OFFER, false);
+        planner.included(PATIENT, DOCUMENT, plan, false);
+        assertEquals(List.of(new Row(PATIENT, DOCUMENT, OFFER.approvalId(), Action.NOT_INCLUDED_STAGING_REFUSED)), rows);
+        assertThrows(IllegalArgumentException.class,
+                () -> planner.included(PATIENT, DOCUMENT, planner.plan(PATIENT, DOCUMENT, ORIGINAL, OFFER, true), true));
     }
 
     @Test void shouldLeaveTheAidOut_andAuditTheOmission_whenStaffTicksItOut() {

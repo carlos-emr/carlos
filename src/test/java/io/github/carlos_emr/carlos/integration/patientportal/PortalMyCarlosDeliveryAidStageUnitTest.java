@@ -138,6 +138,7 @@ class PortalMyCarlosDeliveryAidStageUnitTest {
         var tooLate = f.aid(C_ID, 12, b, RECIPIENT, SIGNER, RAW_MAPPING, f.deviceKeys, CREATED + 7200, b.snapshot().documentSha256());
         var result = f.service.stageWithAid(f.staff, b.copy(), b.snapshot(), tooLate.copy(), tooLate.snapshot());
         assertEquals(PortalMyCarlosDeliveryOutboxService.AidResult.REFUSED, result.aid());
+        assertEquals(PortalMyCarlosDeliveryOutboxService.AidRefusal.CONFLICT, result.reason());
         assertEquals(1, f.rows.size());
         assertEquals("staged", f.rows.get(result.originalRowId()).state());
     }
@@ -187,6 +188,57 @@ class PortalMyCarlosDeliveryAidStageUnitTest {
         // The retry re-sends the aid's own retained bytes, not the original's.
         verify(f.client).upload(eq(123), eq(C_ID), eq(f.deviceKeys.kid()), eq(c.snapshot().body().copy()));
         verifyNoMoreInteractions(f.client);
+    }
+
+    @Test void shouldRefuseAnAid_whoseSignedOriginalIdIsNotTheSnapshotsPairedOriginal() {
+        var b = f.original(B_ID, 11); f.service.stageOriginal(f.staff, b.copy(), b.snapshot());
+        // The manifest names another original than the snapshot does: the device would file under one
+        // relation and CARLOS fence by the other.
+        var c = f.aid(C_ID, 12, b, RECIPIENT, SIGNER, RAW_MAPPING, f.deviceKeys, CREATED + 3600,
+                b.snapshot().documentSha256(), D_ID);
+        assertThrows(IllegalArgumentException.class, () -> f.service.stageAid(f.staff, c.copy(), c.snapshot()));
+        assertEquals(1, f.rowInserts);
+    }
+
+    @Test void shouldKeepTheOriginalAndReportWhy_whenTheAidHalfFailsUnexpectedly() {
+        var b = f.original(B_ID, 11); var c = f.aid(C_ID, 12, b);
+        f.failSecondInsert = true;
+        var result = f.service.stageWithAid(f.staff, b.copy(), b.snapshot(), c.copy(), c.snapshot());
+        assertEquals(PortalMyCarlosDeliveryOutboxService.AidResult.FAILED, result.aid());
+        assertEquals(PortalMyCarlosDeliveryOutboxService.AidRefusal.UNEXPECTED, result.reason());
+        assertEquals(0, result.readingAidRowId());
+        assertEquals("staged", f.rows.get(result.originalRowId()).state());
+        assertEquals(1, f.rows.size());
+    }
+
+    @Test void shouldRefuseASecondAidWithTheSameContent_butAllowAChangedOneOrOneAfterTheFirstDied() {
+        var b = f.original(B_ID, 11); f.service.stageOriginal(f.staff, b.copy(), b.snapshot());
+        var first = f.aid(C_ID, 12, b);
+        long firstRow = f.service.stageAid(f.staff, first.copy(), first.snapshot());
+        // A double submit: the same aid under a fresh delivery ID.
+        var twin = f.aid(D_ID, 12, b);
+        assertThrows(PortalMyCarlosDeliveryOutboxService.ImmutableConflict.class,
+                () -> f.service.stageAid(f.staff, twin.copy(), twin.snapshot()));
+        assertEquals(2, f.rowInserts);
+        // A changed aid is a newer review: staged; the device decides by the signed review time.
+        var changed = f.aid(D_ID, 13, b);
+        assertTrue(f.service.stageAid(f.staff, changed.copy(), changed.snapshot()) > 0);
+        // Once the first aid died, an aid with its content is allowed again.
+        var third = f.aid("00000000-0000-4000-8000-000000000004", 12, b);
+        f.rows.put(firstRow, withState(f.rows.get(firstRow), "error"));
+        assertTrue(f.service.stageAid(f.staff, third.copy(), third.snapshot()) > 0);
+    }
+
+    @Test void shouldFenceTheAidAtClaim_whenItsOriginalIsErroredExpiredOrRemoved() {
+        var b = f.original(B_ID, 11); var c = f.aid(C_ID, 12, b);
+        long originalRow = f.service.stageOriginal(f.staff, b.copy(), b.snapshot());
+        long aidRow = f.service.stageAid(f.staff, c.copy(), c.snapshot());
+        for (String dead : List.of("error", "expired", "removed")) {
+            f.rows.put(aidRow, withState(f.rows.get(aidRow), "staged"));
+            f.rows.put(originalRow, withState(f.rows.get(originalRow), dead));
+            assertNull(f.service.claim(aidRow), dead);
+            assertEquals("fenced", f.rows.get(aidRow).state(), dead);
+        }
     }
 
     @Test void shouldRefuseSnapshotsWhoseKindAndPairingDisagree() {
@@ -329,6 +381,12 @@ class PortalMyCarlosDeliveryAidStageUnitTest {
                         call.getArgument(3), null, null, row.version() + 1, call.getArgument(4), null, null, null));
                 return true;
             });
+            when(outbox.historyReferences(anyString(), anyInt(), anyLong(), anyInt())).thenAnswer(call -> {
+                requireOwner(); long requested = call.getArgument(2); long before = requested == 0L ? Long.MAX_VALUE : requested;
+                return rows.values().stream().filter(row -> row.id() < before).sorted((x, y) -> Long.compare(y.id(), x.id()))
+                        .limit((int) call.getArgument(3))
+                        .map(row -> new PortalMyCarlosDeliveryOutboxDao.Reference(row.id(), row.deliveryId(), row.deviceKid())).toList();
+            });
             when(transactions.withApprovalState(any())).thenAnswer(call -> {
                 boolean outer = owned; owned = true;
                 try { return ((java.util.function.Supplier<?>) call.getArgument(0)).get(); }
@@ -346,7 +404,11 @@ class PortalMyCarlosDeliveryAidStageUnitTest {
         /** An aid whose signed manifest claims name {@code claimedHash} for its original, with its own lifetime. */
         Intent aid(String id, int marker, Intent original, String recipient, String signer, String source, DeviceKeys keys,
                 long expires, String claimedHash) {
-            String claims = "{\"pair\":{\"original_delivery_id\":\"" + original.snapshot().deliveryId()
+            return aid(id, marker, original, recipient, signer, source, keys, expires, claimedHash, original.snapshot().deliveryId());
+        }
+        Intent aid(String id, int marker, Intent original, String recipient, String signer, String source, DeviceKeys keys,
+                long expires, String claimedHash, String claimedOriginalId) {
+            String claims = "{\"pair\":{\"original_delivery_id\":\"" + claimedOriginalId
                     + "\",\"original_document_sha256\":\"" + claimedHash + "\"}}";
             String compact = base64(claims.getBytes(StandardCharsets.US_ASCII)) + "." + base64(new byte[64]);
             return build(id, marker, recipient, signer, source, keys, expires, "reading-aid/1",

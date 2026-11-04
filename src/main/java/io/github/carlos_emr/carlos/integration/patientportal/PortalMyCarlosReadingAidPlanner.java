@@ -16,7 +16,7 @@ import java.util.Optional;
  *   <li>Answer 2: an aid is sent only for an approval that names the same original hash and the
  *       same summary version as the one being sent now; anything else drops the aid.
  *   <li>Answer 3: when an approved summary exists the aid is included by default, and staff may
- *       tick it out; either choice leaves an audit row. With no approved summary nothing is offered
+ *       tick it out; either choice leaves an audit row (INCLUDED only once staging accepted the aid). With no approved summary nothing is offered
  *       and nothing is audited.
  * </ul>
  */
@@ -38,7 +38,7 @@ final class PortalMyCarlosReadingAidPlanner {
         void readingAid(int demographicNo, int documentNo, String approvalId, Action action);
     }
 
-    enum Action { INCLUDED, LEFT_OUT, NOT_INCLUDED_APPROVAL_CHANGED }
+    enum Action { INCLUDED, LEFT_OUT, NOT_INCLUDED_APPROVAL_CHANGED, NOT_INCLUDED_STAGING_REFUSED }
 
     /** What the send form shows: an approval and the summary version it covers. */
     record Offer(String approvalId, String summaryVersion) {
@@ -87,7 +87,14 @@ final class PortalMyCarlosReadingAidPlanner {
             audit.readingAid(demographicNo, documentNo, shown.approvalId(), Action.NOT_INCLUDED_APPROVAL_CHANGED);
             return new Plan(Outcome.APPROVAL_NO_LONGER_MATCHES, null);
         }
-        audit.readingAid(demographicNo, documentNo, shown.approvalId(), Action.INCLUDED);
+        // INCLUDED is audited by included(), once staging has accepted the aid.
         return new Plan(Outcome.INCLUDE, shown.approvalId());
+    }
+
+    /** Call after staging: the audit row says the aid was included only if it was staged. */
+    void included(int demographicNo, int documentNo, Plan plan, boolean staged) {
+        if (!plan.includesAid()) throw new IllegalArgumentException("plan does not include an aid");
+        audit.readingAid(demographicNo, documentNo, plan.approvalId(),
+                staged ? Action.INCLUDED : Action.NOT_INCLUDED_STAGING_REFUSED);
     }
 }

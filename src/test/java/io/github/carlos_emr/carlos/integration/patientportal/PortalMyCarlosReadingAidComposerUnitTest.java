@@ -34,7 +34,7 @@ class PortalMyCarlosReadingAidComposerUnitTest {
             new Bytes(x25519), new Bytes(ed25519));
 
     private String manifest(byte[] json, String delivery, String recipient, String kid, String typ, long size) {
-        String claims = "{\"typ\":\"" + typ + "\",\"delivery_id\":\"" + delivery + "\",\"recipient_id\":\"" + recipient
+        String claims = "{\"v\":1,\"typ\":\"" + typ + "\",\"delivery_id\":\"" + delivery + "\",\"recipient_id\":\"" + recipient
                 + "\",\"device_key_id\":\"" + kid + "\",\"kid\":\"" + SIGNER + "\",\"created_at\":" + CREATED
                 + ",\"expires_at\":" + EXPIRES + ",\"pair\":{\"original_delivery_id\":\"" + ORIGINAL_ID
                 + "\",\"original_document_sha256\":\"" + "e".repeat(64) + "\"},\"reading_aid\":{\"sha256\":\""
@@ -79,6 +79,15 @@ class PortalMyCarlosReadingAidComposerUnitTest {
         }
         assertThrows(IllegalArgumentException.class,
                 () -> PortalMyCarlosDeliveryComposer.composeAid(AID_ID, RECIPIENT, device, JSON, good(), CREATED, EXPIRES + 1, SIGNER));
+        // A manifest with no pair claims, or another version, is refused before sealing.
+        String noPair = good().replaceFirst("^[^.]+", base64(new String(Base64.getUrlDecoder().decode(good().split("\\.")[0]),
+                StandardCharsets.US_ASCII).replaceFirst(",\"pair\":\\{[^}]*\\}", "").getBytes(StandardCharsets.US_ASCII)));
+        String otherVersion = good().replaceFirst("^[^.]+", base64(new String(Base64.getUrlDecoder().decode(good().split("\\.")[0]),
+                StandardCharsets.US_ASCII).replace("\"v\":1", "\"v\":2").getBytes(StandardCharsets.US_ASCII)));
+        for (String bad : new String[] {noPair, otherVersion}) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> PortalMyCarlosDeliveryComposer.composeAid(AID_ID, RECIPIENT, device, JSON, bad, CREATED, EXPIRES, SIGNER));
+        }
     }
 
     @Test void shouldRefuseAnAidOverTheContractsJsonLimitOrWithNoJson() {

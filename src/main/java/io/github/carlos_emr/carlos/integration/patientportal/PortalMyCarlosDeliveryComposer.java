@@ -198,7 +198,8 @@ final class PortalMyCarlosDeliveryComposer {
         var claims = PortalMyCarlosDeviceApprovalCodec.envelope(compactManifest).payload().copy();
         com.fasterxml.jackson.databind.JsonNode m = PortalMyCarlosDeliveryCodec.object(claims, 8192);
         com.fasterxml.jackson.databind.JsonNode aid = m.get("reading_aid");
-        if (aid == null || !"mycarlos-reading-aid-manifest".equals(PortalMyCarlosDeliveryCodec.text(m, "typ"))
+        if (aid == null || m.get("pair") == null || PortalMyCarlosDeliveryCodec.epoch(m, "v") != 1
+                || !"mycarlos-reading-aid-manifest".equals(PortalMyCarlosDeliveryCodec.text(m, "typ"))
                 || !deliveryId.equals(PortalMyCarlosDeliveryCodec.text(m, "delivery_id"))
                 || !recipientId.equals(PortalMyCarlosDeliveryCodec.text(m, "recipient_id"))
                 || !acceptedDevice.kid().equals(PortalMyCarlosDeliveryCodec.text(m, "device_key_id"))
