@@ -359,12 +359,12 @@ class DocumentSummaryReviewBindingUnitTest {
         // Spoken language gives Spanish, Polish and Portuguese, by exact token.
         for (String value : new String[]{"Spanish", "spanish; castilian", "Spanish; Castilian", " SPA ", "es", "es-MX", "es_ES", "Español", "espanol", "Castellano"})
             assertThat(DocumentSummaryReviewBinding.noticeLanguage("English", value)).as(value).isEqualTo("es");
-        for (String value : new String[]{"Polish", "POLISH", "pl", "pol", "pl-PL", "Polski", "^Polish"})
+        for (String value : new String[]{"Polish", "POLISH", "pl", "pol", "Pol", "pl-PL", "Polski", "^Polish"})
             assertThat(DocumentSummaryReviewBinding.noticeLanguage("English", value)).as(value).isEqualTo("pl");
         for (String value : new String[]{"Portuguese", "por", "pt", "pt-BR", "pt_PT", "Português", "portugues", "Brazilian Portuguese"})
             assertThat(DocumentSummaryReviewBinding.noticeLanguage(null, value)).as(value).isEqualTo("pt-BR");
         // An unknown, empty or merely similar spoken language is English: never a prefix match.
-        for (String value : new String[]{"Cree", "Mandarin", "English", "French", "Spanglish", "Polynesian", "Portuguese Creole", "polish-ish", "spa-x", "es-", " ", "", "unknown", "Pol", null})
+        for (String value : new String[]{"Cree", "Mandarin", "English", "French", "Spanglish", "Polynesian", "Portuguese Creole", "polish-ish", "spa-x", "es-", " ", "", "unknown", "Polo", null})
             assertThat(DocumentSummaryReviewBinding.noticeLanguage("English", value)).as(String.valueOf(value)).isEqualTo("en");
         // The official language French wins over a spoken language of another notice language.
         assertThat(DocumentSummaryReviewBinding.noticeLanguage("French", "Spanish")).isEqualTo("fr");

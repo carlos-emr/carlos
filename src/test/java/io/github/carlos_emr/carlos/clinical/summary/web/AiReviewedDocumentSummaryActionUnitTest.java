@@ -414,6 +414,7 @@ class AiReviewedDocumentSummaryActionUnitTest {
         String[][] cases = {{"es", "Estado de la revisión"}, {"pl", "Status weryfikacji"}, {"pt-BR", "Situação da revisão"}};
         for (String[] c : cases) {
             clearInvocations(request);
+            when(request.getMethod()).thenReturn("GET");
             when(context.load(any(LoggedInInfo.class), eq(11)))
                     .thenReturn(new DocumentSummaryReviewContext.Snapshot(SCOPE, META, c[0]));
             assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
