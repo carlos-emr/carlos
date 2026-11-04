@@ -419,46 +419,61 @@ legacyHarness.runLegacyCheck('eform-rtl-print-pdf',async({cancellation})=>{
     await page.close();
     cancellation?.throwIfCancelled();
 
-    // ---------- 6. A clinic .rtl template loads unsandboxed and stays editable ----------
-    page = await openNewLetter(context, recorder, fid, 'rtl-template');
-    cancellation?.throwIfCancelled();
-    let templateName = config.templateName;
-    if (config.templateIsFixture && (await page.locator(`#template option[value="${templateName}"]`).count()) !== 1) {
-      // The operator named a template this install does not have: a missing fixture, not a defect.
-      // Waiting on selectOption() for it was the 30 s TimeoutError #4412 reported. The step still
-      // runs, against the seeded template, so the sandbox regression it guards stays covered.
-      missingTemplate = templateName;
-      templateName = SEEDED_TEMPLATE_NAME;
-      console.log(`[skip] RTL_TEMPLATE_NAME=${missingTemplate} is not in the template dropdown; `
-        + 'stage it in the eForm images directory (deb-install-validation.md fixture c). '
-        + `Testing the seeded ${SEEDED_TEMPLATE_NAME} instead.`);
+    // ---------- 6. Every shipped template fills without false AP lookup warnings (#5625) ----------
+    const templates = [...new Set(['clinic_letter.rtl', 'patient_letter.rtl', 'consultation_letter.rtl', config.templateName])];
+    for (const requestedTemplate of templates) {
+      page = await openNewLetter(context, recorder, fid, 'rtl-template-' + requestedTemplate);
+      cancellation?.throwIfCancelled();
+      let templateName = requestedTemplate;
+      if (config.templateIsFixture && requestedTemplate === config.templateName
+          && (await page.locator(`#template option[value="${templateName}"]`).count()) !== 1) {
+        missingTemplate = templateName;
+        templateName = SEEDED_TEMPLATE_NAME;
+        console.log(`[skip] RTL_TEMPLATE_NAME=${missingTemplate} is not in the template dropdown; `
+          + `testing the seeded ${SEEDED_TEMPLATE_NAME} instead.`);
+      }
+      const offered = (await page.locator(`#template option[value="${templateName}"]`).count()) === 1;
+      step(`template dropdown offers ${templateName}`, offered, '');
+      if (offered) {
+        const lookupKeys = [];
+        page.on('request', request => {
+          const query = new URL(request.url()).searchParams;
+          if (query.get('oscarAPCacheLookupType') === 'template') lookupKeys.push(...query.getAll('key'));
+        });
+        const templateResponse = page.waitForResponse(r => new URL(r.url()).searchParams.get('imagefile') === templateName, {timeout: 30000});
+        await page.locator('#template').selectOption(templateName);
+        const tr = await templateResponse;
+        const csp = tr.headers()['content-security-policy'] || '';
+        step(`${templateName} is served without the sandbox CSP`, tr.status() === 200 && !/sandbox/.test(csp), `${tr.status()} csp="${csp}"`);
+        await page.waitForFunction(() => {
+          const frame = document.getElementById('edit');
+          return !measureInitialTemplateLoading && measureTemplateLookupsPending === 0
+            && frame.contentDocument?.body && !frame.contentDocument.body.textContent.includes('##');
+        }, null, {timeout: 30000});
+        cancellation?.throwIfCancelled();
+        const expanded = await page.evaluate(name => {
+          const d = document.getElementById('edit').contentDocument;
+          const normalize = text => text.replace(/\s+/g, ' ').trim();
+          const fields = ['clinic_letter.rtl', 'patient_letter.rtl', 'consultation_letter.rtl'].includes(name)
+            ? ['letterhead', '_ClosingSalutation'] : [];
+          if (name === 'consultation_letter.rtl') fields.push('ageGender');
+          const filled = fields.every(key => {
+            if (!cache.contains(key) || !cache.get(key)) return false;
+            const field = document.createElement('div');
+            field.innerHTML = cache.get(key);
+            return normalize(d.body.textContent).includes(normalize(field.textContent));
+          });
+          return {designMode: d.designMode, filled};
+        }, templateName);
+        step(`${templateName} stays editable with its composed fields filled`, expanded.designMode === 'on' && expanded.filled, JSON.stringify(expanded));
+        step(`${templateName} shows no false autofill warning`, await page.locator('#carlos-apcache-lookup-failure').count() === 0, '');
+        const composites = ['letterhead', '_ClosingSalutation', '_age', 'gender', 'ageGender'];
+        const shipped = ['clinic_letter.rtl', 'patient_letter.rtl', 'consultation_letter.rtl'].includes(templateName);
+        step(`${templateName} requests server keys without composite names`, (!shipped || lookupKeys.length > 0) && !lookupKeys.some(key => composites.includes(key)), lookupKeys.join(', '));
+      }
+      await page.close();
+      cancellation?.throwIfCancelled();
     }
-    const offered = (await page.locator(`#template option[value="${templateName}"]`).count()) === 1;
-    cancellation?.throwIfCancelled();
-    // The seeded template missing is a defect: EFormAssetDeployer did not run, or the
-    // template catalog (efmformrtl_templates) stopped listing the directory.
-    step(`template dropdown offers ${templateName}`, offered, templateName === SEEDED_TEMPLATE_NAME ? 'seeded by EFormAssetDeployer on every install' : '');
-    if (offered) {
-      const templateResponse = page.waitForResponse((r) => r.url().includes(`imagefile=${encodeURIComponent(templateName)}`) || r.url().includes(`imagefile=${templateName}`), { timeout: 30000 });
-      await page.locator('#template').selectOption(templateName);
-    cancellation?.throwIfCancelled();
-      const tr = await templateResponse;
-    cancellation?.throwIfCancelled();
-      const csp = tr.headers()['content-security-policy'] || '';
-      step('clinic template is served without the sandbox CSP', tr.status() === 200 && !/sandbox/.test(csp), `${tr.status()} csp="${csp}"`);
-      await page.waitForTimeout(1500);
-    cancellation?.throwIfCancelled();
-      const editable = await page.evaluate(() => {
-        try {
-          const d = document.getElementById('edit').contentWindow.document;
-          return { ok: true, designMode: d.designMode, length: d.body.innerHTML.length };
-        } catch (e) { return { ok: false, error: String(e) }; }
-      });
-    cancellation?.throwIfCancelled();
-      step('editor can read the clinic template frame (same-origin) with designMode on', editable.ok && editable.designMode === 'on' && editable.length > 0, JSON.stringify(editable));
-    }
-    await page.close();
-    cancellation?.throwIfCancelled();
 
     // ---------- 7. No JS failures anywhere ----------
     assertNoPageErrors(recorder);
