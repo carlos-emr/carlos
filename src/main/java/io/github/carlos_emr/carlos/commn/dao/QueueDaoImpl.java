@@ -122,13 +122,23 @@ public class QueueDaoImpl extends AbstractDaoImpl<Queue> implements QueueDao {
     @Override
     public boolean addNewQueue(String qn) {
         try {
-            Queue q = new Queue();
-            q.setName(qn);
-            entityManager.persist(q);
+            addNewQueueAndGetId(qn);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
             return false;
         }
         return true;
+    }
+
+    @Override
+    public Integer addNewQueueAndGetId(String qn) {
+        Queue q = new Queue();
+        q.setName(qn);
+        entityManager.persist(q);
+        entityManager.flush();
+        if (q.getId() == null) {
+            throw new IllegalStateException("Queue persistence did not assign an ID");
+        }
+        return q.getId();
     }
 }

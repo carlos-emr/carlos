@@ -30,8 +30,8 @@ function assertNoGroupIssueQueryFailure(text) {
 }
 
 function groupIssueLogWindow({env = process.env, reader, notify = console.log} = {}) {
+  const source = reader || serverLogFromEnvironment(env);
   try {
-    const source = reader || serverLogFromEnvironment(env);
     if (!source.configured) {
       notify('    SKIP group-issue server-log assertion: no journal or console log configured; browser assertions continue');
       return null;

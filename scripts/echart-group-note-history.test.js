@@ -36,6 +36,12 @@ test('missing log configuration skips only the log assertion without throwing a 
   await verifyGroupIssueQueryLog(window);
   assert.match(notices.join('\n'), /SKIP.*browser assertions continue/);
 });
+test('malformed journal configuration fails instead of skipping log coverage', () => {
+  const notices = [];
+  assert.throws(() => groupIssueLogWindow({env: {LAB_UPLOAD_JOURNAL_UNIT: 'invalid unit'},
+    notify: message => notices.push(message)}), /LAB_UPLOAD_JOURNAL_UNIT must be a systemd unit name/);
+  assert.deepEqual(notices, []);
+});
 test('log prerequisites probe both the mark and the read before returning a usable window', () => {
   for (const failingMethod of ['mark', 'since']) {
     const notices = [];
