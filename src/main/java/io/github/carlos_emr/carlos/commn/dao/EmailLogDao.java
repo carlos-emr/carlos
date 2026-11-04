@@ -89,6 +89,16 @@ public interface EmailLogDao extends AbstractDao<EmailLog> {
      */
     public int updateEmailStatus(Integer id, EmailLog.EmailStatus status, String errorMessage, Date timestamp);
 
-    /** Returns the current stored log, bypassing a stale persistence-context snapshot; null if missing. */
+    /**
+     * Returns the current stored log, bypassing a stale persistence-context snapshot.
+     * <p>
+     * The implementation selects the row under a pessimistic read lock and refreshes it within
+     * the same DAO transaction, so the result reflects stored state rather than an earlier
+     * first-level cache snapshot. The DAO starts or joins the transaction for this read.
+     * </p>
+     *
+     * @param id Integer the unique identifier of the email log record to reload
+     * @return EmailLog the current stored log record, or {@code null} if no row exists for the ID
+     */
     EmailLog findFresh(Integer id);
 }
