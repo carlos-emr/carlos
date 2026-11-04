@@ -39,6 +39,7 @@ class AiReviewedDocumentSummaryActionUnitTest {
     private static final DocumentSummaryReviewBinding.Scope SCOPE = new DocumentSummaryReviewBinding.Scope("FAKE-clinic", 7, 11);
     private static final DocumentSummaryReviewBinding.Metadata META = new DocumentSummaryReviewBinding.Metadata("FAKE.txt", "text/plain", "FAKE document", 1234L);
     private static final String GENERATION_KEY = AiReviewedDocumentSummary2Action.class.getName() + ".generation";
+    private static final String AUDIT = AiReviewedDocumentSummary2Action.AUDIT_CONTENT;
     private final DocumentSummaryReviewContext context = mock(DocumentSummaryReviewContext.class);
     private final DocumentSummaryService generator = mock(DocumentSummaryService.class);
     private final HttpServletRequest request = mock(HttpServletRequest.class);
@@ -352,16 +353,64 @@ class AiReviewedDocumentSummaryActionUnitTest {
         assertThat(current()).isNull();
         assertThatThrownBy(() -> review.view(actor, SCOPE, source())).isInstanceOf(IllegalStateException.class);
         verify(generator, times(1)).summarize(TEXT);
-        audit.verify(() -> LogAction.addLogSynchronous(actor, "DocumentSummary.reviewDiscarded", "documentId=11"));
-        audit.verify(() -> LogAction.addLogSynchronous(any(), eq("DocumentSummary.reviewRevised"), anyString()), never());
+        audit.verify(() -> LogAction.addLogSynchronous(actor, "DocumentSummary.reviewDiscarded", AUDIT, "11", 7, "documentId=11"));
+        audit.verify(() -> LogAction.addLogSynchronous(any(), eq("DocumentSummary.reviewRevised"), anyString(), anyString(), any(), anyString()), never());
+    }
+    @Test void everyAuditRowNamesTheDocumentAndThePatientWithoutSummaryText() throws Exception {
+        var review = generate();
+        audit.verify(() -> LogAction.addLogSynchronous(actor, "DocumentSummary.reviewGenerate", AUDIT, "11", 7, "documentId=11"));
+        approve(review);
+        audit.verify(() -> LogAction.addLogSynchronous(actor, "DocumentSummary.reviewApproved", AUDIT, "11", 7, "documentId=11"));
+        correction(review, "FAKE blood work document.", "Blood work was planned.");
+        assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS);
+        audit.verify(() -> LogAction.addLogSynchronous(actor, "DocumentSummary.reviewRevised", AUDIT, "11", 7, "documentId=11"));
+        token(review);
+        assertThat(action.discard()).isEqualTo(ActionSupport.SUCCESS);
+        audit.verify(() -> LogAction.addLogSynchronous(actor, "DocumentSummary.reviewDiscarded", AUDIT, "11", 7, "documentId=11"));
+        // No row is left without its document and patient, and the note never carries summary text.
+        audit.verify(() -> LogAction.addLogSynchronous(any(), anyString(), anyString()), never());
+        audit.verify(() -> LogAction.addLogSynchronous(any(), anyString(), contains("blood"), anyString(), any(), anyString()), never());
+        assertThat(AUDIT).doesNotContain("FAKE").doesNotContain("blood");
+    }
+    @Test void originalFetchForADisposedDraftAnswers409NotAnUnresolvableSuccess() throws Exception {
+        var review = generate(); token(review);
+        when(request.getMethod()).thenReturn("POST");
+        assertThat(action.discard()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(current()).isNull();
+        // The page's download link still carries the disposed draft id; GET it.
+        when(request.getMethod()).thenReturn("GET");
+        clearInvocations(request, response);
+        assertThat(action.original()).isEqualTo(ActionSupport.NONE);
+        verify(response).sendError(409);
+        verify(response, never()).getOutputStream();
+        verify(request, never()).setAttribute(eq("documentSummaryError"), any());
+        // The same after removing every point, and with no review ever made.
+        review = generate(); correction(review, "FAKE document.", "Repeat blood work was planned.");
+        when(request.getParameterValues("removePoint")).thenReturn(new String[]{"0"});
+        assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(current()).isNull();
+        when(request.getMethod()).thenReturn("GET");
+        clearInvocations(request, response);
+        assertThat(action.original()).isEqualTo(ActionSupport.NONE);
+        verify(response).sendError(409);
+        verify(request, never()).setAttribute(eq("documentSummaryError"), any());
+    }
+    @Test void originalFetchFailingBeforeAnyByteIsWrittenAnswers409() throws Exception {
+        var review = generate(); token(review);
+        when(request.getMethod()).thenReturn("GET");
+        when(context.currentSource(any())).thenThrow(new IllegalStateException("FAKE source unreadable"));
+        clearInvocations(request, response);
+        assertThat(action.original()).isEqualTo(ActionSupport.NONE);
+        verify(response).sendError(409);
+        verify(request, never()).setAttribute(eq("documentSummaryError"), any());
     }
     @Test void discardWritesAnAuditEntryForTheDocument() throws Exception {
         var review = generate(); approve(review); token(review);
         when(request.getMethod()).thenReturn("POST");
-        audit.verify(() -> LogAction.addLogSynchronous(any(), eq("DocumentSummary.reviewDiscarded"), anyString()), never());
+        audit.verify(() -> LogAction.addLogSynchronous(any(), eq("DocumentSummary.reviewDiscarded"), anyString(), anyString(), any(), anyString()), never());
         assertThat(action.discard()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(current()).isNull();
-        audit.verify(() -> LogAction.addLogSynchronous(actor, "DocumentSummary.reviewDiscarded", "documentId=11"));
+        audit.verify(() -> LogAction.addLogSynchronous(actor, "DocumentSummary.reviewDiscarded", AUDIT, "11", 7, "documentId=11"));
     }
     @Test void staleDiscardWritesNoAuditEntry() throws Exception {
         var review = generate();
@@ -369,7 +418,7 @@ class AiReviewedDocumentSummaryActionUnitTest {
         when(request.getParameterValues("draftId")).thenReturn(new String[]{UUID.randomUUID().toString()});
         assertThat(action.discard()).isEqualTo(ActionSupport.NONE); verify(response).sendError(409);
         assertThat(current()).isSameAs(review);
-        audit.verify(() -> LogAction.addLogSynchronous(any(), eq("DocumentSummary.reviewDiscarded"), anyString()), never());
+        audit.verify(() -> LogAction.addLogSynchronous(any(), eq("DocumentSummary.reviewDiscarded"), anyString(), anyString(), any(), anyString()), never());
     }
     @Test void invalidHonestCorrectionKeepsTheSavedDraftAndExplainsTheRule() throws Exception {
         var review = generate(); approve(review);
@@ -400,8 +449,8 @@ class AiReviewedDocumentSummaryActionUnitTest {
             verify(request).setAttribute("documentSummaryReviewed", true);
             verifyNoInteractions(generator);
         }
-        audit.verify(() -> LogAction.addLogSynchronous(any(), eq("DocumentSummary.reviewRevised"), anyString()), never());
-        audit.verify(() -> LogAction.addLogSynchronous(any(), eq("DocumentSummary.reviewDiscarded"), anyString()), never());
+        audit.verify(() -> LogAction.addLogSynchronous(any(), eq("DocumentSummary.reviewRevised"), anyString(), anyString(), any(), anyString()), never());
+        audit.verify(() -> LogAction.addLogSynchronous(any(), eq("DocumentSummary.reviewDiscarded"), anyString(), anyString(), any(), anyString()), never());
         var duplicate = generateTwoPoints();
         correction(duplicate, "FAKE document.", "Blood work was planned.", "Blood work was planned.");
         clearInvocations(request);

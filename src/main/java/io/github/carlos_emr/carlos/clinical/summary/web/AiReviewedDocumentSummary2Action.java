@@ -24,6 +24,8 @@ import org.apache.struts2.ServletActionContext;
 /** Default-off Canadian synthetic review trial. Every mutation is a CSRFGuard-protected POST. */
 public final class AiReviewedDocumentSummary2Action extends ActionSupport {
     private static final String GENERATION_KEY = AiReviewedDocumentSummary2Action.class.getName() + ".generation";
+    /** oscarLog.content for every DocumentSummary.* row: the record type, never summary text. */
+    static final String AUDIT_CONTENT = "AI document summary";
     /** Shown when an honest correction fails provenance validation; the saved draft stays available. */
     static final String CORRECTION_NOT_SAVED_KEY = "documentSummary.review.correctionNotSaved";
     static final String REVIEW_UNAVAILABLE_KEY = "documentSummary.review.unavailable";
@@ -113,7 +115,7 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
                     generator = new DocumentSummaryService(agent);
                     model = agent.displayName();
                 }
-                LogAction.addLogSynchronous(actor, "DocumentSummary.reviewGenerate", "documentId=" + documentId);
+                audit(actor, "DocumentSummary.reviewGenerate", snapshot.scope());
                 pending = DocumentSummaryReviewSession.generate(snapshot.scope(), snapshot.metadata(),
                         () -> context.read(snapshot), generator, model, actor);
                 var freshActor = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -133,6 +135,11 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
             synchronized (session) {
                 var current = session.getAttribute(DocumentSummaryReviewSession.SESSION_KEY);
                 if (!(current instanceof DocumentSummaryReviewSession review)) {
+                    if ("original".equals(operation)) {
+                        // A download has no page to explain itself on: a disposed or never-made
+                        // review answers like a stale draft token does, never a view result.
+                        response.sendError(409); return NONE;
+                    }
                     if (!"view".equals(operation) && !"generate".equals(operation)) throw new IllegalStateException("No current document review is available.");
                     return SUCCESS;
                 }
@@ -178,12 +185,12 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
                         // Identical ownership/freshness guard as discard; never accept an empty summary.
                         removeReview(session);
                         session.removeAttribute(GENERATION_KEY);
-                        LogAction.addLogSynchronous(currentActor, "DocumentSummary.reviewDiscarded", "documentId=" + documentId);
+                        audit(currentActor, "DocumentSummary.reviewDiscarded", fresh.scope());
                         return SUCCESS;
                     }
                     try {
                         review.revise(currentActor, fresh.scope(), draftId, source, overview, corrected, removed);
-                        LogAction.addLogSynchronous(currentActor, "DocumentSummary.reviewRevised", "documentId=" + documentId);
+                        audit(currentActor, "DocumentSummary.reviewRevised", fresh.scope());
                     } catch (IllegalArgumentException unsupported) {
                         // Well-formed input that fails provenance validation keeps the saved draft; the
                         // review session rejects it atomically. Only shape-forged input above discards.
@@ -204,14 +211,14 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
                 if ("approve".equals(operation)) {
                     boolean affirmative = Arrays.equals(request.getParameterValues("affirmReview"), new String[]{"true"});
                     review.approve(currentActor, fresh.scope(), draftId, source, affirmative);
-                    LogAction.addLogSynchronous(currentActor, "DocumentSummary.reviewApproved", "documentId=" + documentId);
+                    audit(currentActor, "DocumentSummary.reviewApproved", fresh.scope());
                 }
                 var view = review.view(currentActor, fresh.scope(), source);
                 if ("discard".equals(operation)) {
                     if (!view.draftId().equals(draftId)) throw new IllegalStateException("The displayed review was replaced.");
                     removeReview(session);
                     session.removeAttribute(GENERATION_KEY);
-                    LogAction.addLogSynchronous(currentActor, "DocumentSummary.reviewDiscarded", "documentId=" + documentId);
+                    audit(currentActor, "DocumentSummary.reviewDiscarded", fresh.scope());
                     return SUCCESS;
                 }
                 if ("original".equals(operation)) {
@@ -239,7 +246,11 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
             return SUCCESS;
         } catch (ClinicalSummaryGenerationException | IOException | IllegalArgumentException | IllegalStateException unavailable) {
             clearOwned(session, ownedGeneration, observedReview);
-            if ("original".equals(operation) && response.isCommitted()) throw unavailable;
+            if ("original".equals(operation)) {
+                // The download mapping has no view result; an uncommitted failure is a plain 409.
+                if (response.isCommitted()) throw unavailable;
+                response.sendError(409); return NONE;
+            }
             // Never include model output, patient details, file paths or upstream diagnostics here.
             request.setAttribute("documentSummaryError", DocumentSummaryMessages.text(request, REVIEW_UNAVAILABLE_KEY));
             return SUCCESS;
@@ -249,6 +260,11 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
         } finally { if (pending != null) pending.close(); }
     }
 
+    /** The audit row names the document and the patient; the note carries no document text. */
+    private static void audit(LoggedInInfo actor, String action, io.github.carlos_emr.carlos.clinical.summary.DocumentSummaryReviewBinding.Scope scope) {
+        LogAction.addLogSynchronous(actor, action, AUDIT_CONTENT, Integer.toString(scope.documentId()),
+                scope.patientId(), "documentId=" + scope.documentId());
+    }
     private static void clearOwned(HttpSession session, UUID generation, DocumentSummaryReviewSession observed) {
         try {
             synchronized (session) {
