@@ -34,6 +34,7 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.springframework.dao.DataAccessException;
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -48,7 +49,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.persistence.PersistenceException;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 
@@ -68,6 +71,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
     private File clientImage;
     private String clientImageFileName;
+    private boolean frameworkUpload;
 
     private static Logger log = MiscUtils.getLogger();
 
@@ -122,12 +126,11 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
         File validatedImage;
         try {
             if (!PathValidationUtils.isInAllowedTempDirectory(clientImage)) {
-                return imageError("Invalid image upload.", HttpServletResponse.SC_BAD_REQUEST);
+                return uploadPathError();
             }
             validatedImage = PathValidationUtils.validateUpload(clientImage);
         } catch (SecurityException e) {
-            log.warn("client image upload rejected by path validation");
-            return imageError("Invalid image upload.", HttpServletResponse.SC_BAD_REQUEST);
+            return uploadPathError();
         }
 
         try {
@@ -140,7 +143,7 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
             clientImageManager.saveClientImage(clientImageObj);
 
-        } catch (Exception e) {
+        } catch (IOException | DataAccessException | PersistenceException e) {
             log.error("Error saving image", e);
             return imageError("Error saving image.", HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
@@ -168,12 +171,15 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
 
         try {
             clientImageManager.deleteClientImage(demographicNo);
-            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-            LogAction.addLogSynchronous(loggedInInfo, "ClientImage2Action.deleteImage", "clientId=" + demographicNo);
-        } catch (Exception e) {
+        } catch (DataAccessException | PersistenceException e) {
             log.error("Error deleting image", e);
             return imageError("Error deleting image.", HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
+
+        // An unexpected audit failure belongs on the standard incident page, rather than
+        // reporting that storage failed after the photo has already been deleted.
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LogAction.addLogSynchronous(loggedInInfo, "ClientImage2Action.deleteImage", "clientId=" + demographicNo);
 
         request.setAttribute("success", true);
         return SUCCESS;
@@ -184,6 +190,16 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
         addActionError(message);
         response.setStatus(status);
         return PHOTO_ERROR;
+    }
+
+    /** A framework-created upload outside the configured temp roots is a server failure. */
+    private String uploadPathError() {
+        if (frameworkUpload) {
+            log.error("framework client image upload failed temp-file validation; check upload temp configuration");
+            return imageError("Error saving image.", HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
+        log.warn("client image upload rejected by path validation");
+        return imageError("Invalid image upload.", HttpServletResponse.SC_BAD_REQUEST);
     }
 
     /** Refuses photo mutations from safe-method requests, including direct action entry points. */
@@ -264,12 +280,15 @@ public class ClientImage2Action extends ActionSupport implements UploadedFilesAw
             UploadedFile uploaded = uploadedFiles.get(0);
             this.clientImage = new File(uploaded.getAbsolutePath());
             this.clientImageFileName = uploaded.getOriginalName();
+            this.frameworkUpload = true;
         }
     }
 
     @StrutsParameter
     public void setClientImage(File clientImage) {
         this.clientImage = clientImage; 
+        // Parameter binding must not retain the provenance of a framework-created file.
+        this.frameworkUpload = false;
     }
 
     @StrutsParameter
