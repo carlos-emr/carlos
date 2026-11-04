@@ -79,6 +79,7 @@
 
 <%@page import="java.util.List" %>
 <%@page import="java.util.HashMap" %>
+<%@page import="java.util.Map" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.fax.provider.SRFaxProviderClient" %>
@@ -513,7 +514,7 @@
                 <legend class="fax-section-title"><i class="fas fa-satellite-dish"></i> <fmt:message key="admin.configureFax.gatewayConfiguration"/></legend>
 
                 <%
-                    var pollingFailures = SpringUtils.getBean(FaxImporter.class).getPollingFailures();
+                    Map<Integer, FaxImporter.PollingFailure> pollingFailures = SpringUtils.getBean(FaxImporter.class).getPollingFailures();
                     for (FaxConfig account : faxConfigList) {
                         FaxImporter.PollingFailure failure = pollingFailures.get(account.getId());
                         if (account.isActive() && account.isDownload() && failure != null) {
