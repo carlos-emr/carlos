@@ -80,6 +80,7 @@ async function workflow(s) {
   let roleDenied;
   let crossRoleReader;
   let chart;
+  let readerMaster;
   let readerSession;
   const recorder = h.createRecorder();
   await s.step('owned group facility and reciprocal chart permissions are isolated from other staff', async () => {
@@ -144,6 +145,7 @@ async function workflow(s) {
       'The recipient search must return exactly one patient');
     h.assert(new URL(masterPage.url()).searchParams.get('demographic_no') === String(patient),
       'The single search result must be the recipient');
+    readerMaster = masterPage;
     chart = await openChart(readerSession.context, masterPage, recorder, 30000);
     await waitForNavbars(chart, 30000);
     h.assert(JSON.stringify(readPatientState(sql, owner)) === ownerBeforeChart,
@@ -154,7 +156,10 @@ async function workflow(s) {
     links: sql.rows(`SELECT * FROM GroupNoteLink WHERE demographicNo IN (${patient},${owner}) ORDER BY id`)});
   await s.step('reopening Current Issues preserves both patient states and keeps group-owner issues out of recipient controls', async () => {
     const before = snapshot();
-    await chart.reload();
+    // Keep the first document alive: reloading it interrupts its lock-release beacon.
+    // Free the named popup target, then enter again through the patient's E-Chart control.
+    await chart.evaluate(name => { window.name = name; }, `${marker}-initial-group-chart`);
+    chart = await openChart(readerSession.context, readerMaster, recorder, 30000);
     await waitForNavbars(chart, 30000);
     await chart.locator('#notesFilterToggle').click();
     await chart.locator('#filter').waitFor({state: 'visible'});
