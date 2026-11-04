@@ -48,7 +48,6 @@ import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
-import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
@@ -281,29 +280,21 @@ public class PrivacyStatementAppendingFilter implements Filter {
     }
 
     private void resetConfidentialityNote(HttpServletRequest request) {
-        HttpSession session = request.getSession(false);
-        if (session != null && session.getAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED) != null)
-            session.removeAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED);
         request.removeAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED);
     }
 
 
+    /**
+     * Marks this request as the one that appends the notice and reports whether an outer pass
+     * already did. The flag only has to survive dispatches within one request, so it lives on the
+     * request: a session attribute, cleared in {@code doFilter}'s {@code finally}, added nothing
+     * but a race in which a second request on the same session, arriving while the first was
+     * still rendering, shipped its printable page without the notice.
+     */
     private boolean isConfidentialtyNotePrinted(HttpServletRequest request) {
-        boolean isConfidentialtyNotePrinted = false;
-
-        HttpSession session = request.getSession(false);
-        if (session == null) {
-            // fall back onto request
-            isConfidentialtyNotePrinted = request.getAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED) != null;
-            if (!isConfidentialtyNotePrinted)
-                request.setAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED, Boolean.TRUE);
-            return isConfidentialtyNotePrinted;
-        }
-
-        isConfidentialtyNotePrinted = session.getAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED) != null;
+        boolean isConfidentialtyNotePrinted = request.getAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED) != null;
         if (!isConfidentialtyNotePrinted)
-            // nosemgrep: tainted-session-from-http-request -- value is hardcoded Boolean.TRUE constant, not user input
-            session.setAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED, Boolean.TRUE);
+            request.setAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED, Boolean.TRUE);
         return isConfidentialtyNotePrinted;
     }
 

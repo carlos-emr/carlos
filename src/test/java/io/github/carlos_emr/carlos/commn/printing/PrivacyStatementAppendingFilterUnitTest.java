@@ -29,6 +29,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -181,6 +182,38 @@ class PrivacyStatementAppendingFilterUnitTest {
             });
             assertThat(response.getHeader("Content-Length")).as("fullReset=%s", fullReset).isNull();
             assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+        }
+    }
+
+    @Test
+    void shouldAppendNoticeToBothPages_whenTwoRequestsShareOneSessionConcurrently() throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic race notice.");
+        try {
+            MockHttpSession session = new MockHttpSession();
+            MockHttpServletRequest outer = new MockHttpServletRequest("GET", "/print-a");
+            MockHttpServletRequest inner = new MockHttpServletRequest("GET", "/print-b");
+            outer.setSession(session);
+            inner.setSession(session);
+            MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+            MockHttpServletResponse innerResponse = new MockHttpServletResponse();
+            filter.doFilter(outer, outerResponse, (req, res) -> {
+                res.setContentType("text/html;charset=UTF-8");
+                res.getWriter().write("<p>A</p>");
+                // A second request on the same session arrives while the first is still rendering.
+                filter.doFilter(inner, innerResponse, (req2, res2) -> {
+                    res2.setContentType("text/html;charset=UTF-8");
+                    res2.getWriter().write("<p>B</p>");
+                });
+            });
+            assertThat(outerResponse.getContentAsString()).contains("<p>A</p>", "Synthetic race notice.");
+            assertThat(innerResponse.getContentAsString()).contains("<p>B</p>", "Synthetic race notice.");
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.setProperty("confidentiality_statement.v1", (String) original);
+            }
         }
     }
 
