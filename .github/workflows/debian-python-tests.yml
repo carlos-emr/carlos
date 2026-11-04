@@ -67,7 +67,7 @@ permissions:
 jobs:
   tests:
     name: Debian Python regressions
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       CARLOS_CTL_SRC: ${{ github.workspace }}/.carlos-ctl

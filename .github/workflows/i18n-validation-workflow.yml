@@ -37,7 +37,7 @@ concurrency:
 jobs:
   i18n-key-parity:
     name: Properties Key Parity
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
@@ -69,7 +69,7 @@ jobs:
 
   i18n-new-key-parity:
     name: New Key Parity (PR diff only)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
@@ -131,7 +131,7 @@ jobs:
 
   i18n-encoding:
     name: UTF-8 Encoding Compliance
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:
@@ -159,7 +159,7 @@ jobs:
 
   i18n-jsp-bundle:
     name: JSP fmt:setBundle Check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
 
     steps:

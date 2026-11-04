@@ -87,7 +87,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -134,7 +134,7 @@ jobs:
     # No dependency on the build job: make install --run-tests compiles from
     # scratch itself, and the Maven cache it restores has a prefix fallback, so
     # waiting for build only added its ~4.5 min to the critical path.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     permissions:
       contents: read
@@ -245,7 +245,7 @@ jobs:
 
   mariadb-dao-tests:
     name: MariaDB DAO integration tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     permissions:
       contents: read
@@ -332,7 +332,7 @@ jobs:
     #   B) Direct <e:forXxx>, ${e:forXxx()}, or Encode.forXxx() usage where
     #      the null-safe CARLOS wrappers are available.
     # Does not need the docker image or Maven cache — runs in ~10 seconds.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -359,7 +359,7 @@ jobs:
         run: bash scripts/lint/check-struts-dtd.sh
   jspc:
     # No dependency on the build job, for the same reason as the tests job.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
