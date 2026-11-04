@@ -83,3 +83,4 @@ common/V1.0.78__add_sms_config.sql
 common/V1.0.79__add_email_log_footer.sql
 common/V1.0.80__email_front_desk_default.sql
 common/V1.0.83__reviewed_chart_update_receipts.sql
+common/V1.0.84__reading_aid_approval.sql

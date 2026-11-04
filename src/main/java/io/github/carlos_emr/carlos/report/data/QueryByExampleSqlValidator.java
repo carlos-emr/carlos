@@ -77,6 +77,7 @@ public final class QueryByExampleSqlValidator {
             "appuser",
             "casemgmt_note_lock",
             "clinical_chart_update_receipt",
+            "clinical_reading_aid_approval",
             "consent_migration_audit",
             "emailfooterlogo",
             "outboundemailarchive",

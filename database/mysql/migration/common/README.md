@@ -116,6 +116,13 @@ renumbered at the develop sync above `V1.0.80` and above the `V1.0.81`/`V1.0.82`
 #5292; the final number is set when it merges and must stay above the highest version on both
 develop and `release/2026.08`.
 
+`V1.0.84__reading_aid_approval.sql` adds `clinical_reading_aid_approval`: a clinician's recorded approval of one
+AI summary of one document (#5537), kept so a reading aid can be sent after the review session has ended. It holds
+an opaque approval id (never derived from the reviewer), the document and patient, the exact summary version and
+original SHA-256 approved, the notice version and language, and the reviewer's provider number; one row per
+document and summary version. The table is `restricted` for Query by Example. The final number is set when it
+merges and must stay above the highest version on both develop and `release/2026.08`.
+
 
 `V1.0.75__patient_portal_invite_delivery.sql` adds `patient_portal_invite_delivery`, one row per
 attempt to deliver a portal invitation, recording how far the prepare, store, commit and send
