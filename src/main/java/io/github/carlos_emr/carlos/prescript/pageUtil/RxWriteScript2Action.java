@@ -2133,8 +2133,8 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     private String persistStashLocked(LoggedInInfo loggedInInfo, RxSessionBean bean) {
-        // Consume every rendered card version before any database write. A duplicate submission
-        // or a retry after a partial failure must reload the draft rather than save it again.
+        // Consume every rendered card version before any database write. Committed or uncertain
+        // saves cannot be replayed; persistStashTransaction restores these only on confirmed rollback.
         for (RxPrescriptionData.Prescription card : bean.getStash()) {
             card.advanceDraftRevision();
         }
@@ -2381,13 +2381,12 @@ public final class RxWriteScript2Action extends ActionSupport {
      * the card can then be closed or never staged at all; archiving on the staged id alone
      * removed the patient's active medication with nothing written to replace it (#3869).</p>
      *
-     * <p>A rejected drug is skipped, not fatal: the new prescription is already persisted by this
-     * point and no transaction spans the loop, so aborting would leave a half-written script.
-     * That includes an unchecked exception from {@link RxManager#archiveDrug} (a demographic-scoped
-     * authorization failure, or a row with no demographic).</p>
+     * <p>Each source is checked independently, including unchecked failures from
+     * {@link RxManager#archiveDrug}. A malformed, refused or failed source makes this method
+     * return false, so the enclosing stash transaction rolls back the entire prescription.</p>
      *
-     * <p>A malformed, null, unsaved, or refused entry is skipped individually so one bad id cannot
-     * stop the remaining staged drugs from being archived.</p>
+     * <p>A source with no saved replacement is left active. One bad entry does not prevent
+     * checking the remaining staged sources before reporting the batch outcome.</p>
      *
      * <p>Package-private for the re-prescribe regression tests.</p>
      *
@@ -2494,8 +2493,8 @@ public final class RxWriteScript2Action extends ActionSupport {
      */
     private ArchiveOutcome archiveReRxSource(String item, LoggedInInfo loggedInInfo, RxSessionBean bean,
                                              Set<Integer> savedSourceIds, String ip, String auditStr) {
-        // The list permits nulls, and item.trim() would throw past the catch below, stranding
-        // every later entry after the new script is already persisted.
+        // The list permits nulls; classify them so every staged source is checked and the
+        // enclosing transaction receives the failed batch outcome.
         if (item == null) {
             return ArchiveOutcome.MALFORMED;
         }
