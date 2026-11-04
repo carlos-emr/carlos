@@ -49,6 +49,7 @@
 <fmt:message key="admin.jobTypes.cancel" var="jobTypesCancelLabel"/>
 <fmt:message key="admin.jobTypes.saveError" var="jobTypesSaveErrorLabel"/>
 <fmt:message key="admin.jobTypes.saveUnconfirmed" var="jobTypesSaveUnconfirmedLabel"/>
+<fmt:message key="admin.jobTypes.loadError" var="jobTypesLoadErrorLabel"/>
 
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -85,20 +86,30 @@
             const jobTypesCancelLabel = "${carlos:forJavaScript(jobTypesCancelLabel)}";
             const jobTypesSaveErrorLabel = "${carlos:forJavaScript(jobTypesSaveErrorLabel)}";
             const jobTypesSaveUnconfirmedLabel = "${carlos:forJavaScript(jobTypesSaveUnconfirmedLabel)}";
+            const jobTypesLoadErrorLabel = "${carlos:forJavaScript(jobTypesLoadErrorLabel)}";
             let jobTypeTable;
             let jobTypeRefreshGeneration = 0;
             let jobTypeSavePending = false;
             let jobTypeCreateUnconfirmed = false;
+            let jobTypeEditorLoading = false;
             let jobTypeEditorGeneration = 0;
 
             function updateJobTypeSaveButton() {
-                var blocked = jobTypeSavePending || (jobTypeCreateUnconfirmed && $('#jobTypeId').val() === '0');
+                var blocked = jobTypeSavePending || jobTypeEditorLoading
+                    || (jobTypeCreateUnconfirmed && $('#jobTypeId').val() === '0');
                 $('#new-jobtype').dialog('widget').find('.job-types-save').button(blocked ? 'disable' : 'enable');
             }
 
             function editJobType(jobTypeId) {
+                jobTypeEditorLoading = true;
+                $('#new-jobtype').dialog('open');
+                var editorGeneration = jobTypeEditorGeneration;
+                updateJobTypeSaveButton();
                 jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/jobType/" + jobTypeId, {},
                     function (xml) {
+                        if (editorGeneration !== jobTypeEditorGeneration || !$('#new-jobtype').dialog('isOpen')) {
+                            return;
+                        }
                         if (xml.types) {
                             var job;
                             if (xml.types instanceof Array) {
@@ -112,13 +123,18 @@
                             $('#jobTypeClassName').val(job.className);
                             $('#jobTypeEnabled').prop('checked', job.enabled);
                             $('#jobTypeId').val(job.id);
+                            jobTypeEditorLoading = false;
                             updateJobTypeSaveButton();
                         }
+                    }).fail(function () {
+                        if (editorGeneration === jobTypeEditorGeneration && $('#new-jobtype').dialog('isOpen')) {
+                            window.alert(jobTypesLoadErrorLabel);
+                        }
                     });
-                $('#new-jobtype').dialog('open');
             }
 
             function addNewJobType() {
+                jobTypeEditorLoading = false;
                 $('#jobTypeId').val('0');
                 $('#jobTypeName').val('');
                 $('#jobTypeDescription').val('');
@@ -201,7 +217,7 @@
                     buttons: {
                         saveJobType: {
                             class: "btn btn-primary job-types-save", text: jobTypesSaveLabel, click: function () {
-                                if (jobTypeSavePending) {
+                                if (jobTypeSavePending || jobTypeEditorLoading) {
                                     return;
                                 }
                                 if (jobTypeCreateUnconfirmed && $('#jobTypeId').val() === '0') {
