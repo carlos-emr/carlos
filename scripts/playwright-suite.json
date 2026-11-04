@@ -7924,6 +7924,18 @@
       "notes": "EditMeasurementGroup forward=add/delete and SelectMeasurementGroup forward=delete refuse GET/HEAD (#3335). The last step also reports the /styles.css MIME errors of finding L87 if the group pages still raise them."
     },
     {
+      "name": "document-queue-identity",
+      "script": "scripts/document-queue-identity-playwright-checks.js",
+      "tiers": ["core"],
+      "provinces": ["all"],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": ["TEST_PASSWORD", "TEST_PIN", "MYSQL_PASSWORD"],
+      "mutates": ["queue", "secObjectName", "property:doc_default_queue"],
+      "fixtures": "Disposable installed database only; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Creates two marker-named queues through the provider form and Administration. Restores the provider default and removes owned queues/security objects on completion or interruption.",
+      "notes": "#4054: generated queue IDs, exact security association, and duplicate-name creation failure with a later global MAX. Opens the registered legacy default-queue view route because no Preferences link currently exposes it."
+    },
+    {
       "name": "get-reject-inbox-queue",
       "script": "scripts/get-reject-inbox-queue-playwright-checks.js",
       "tiers": [

@@ -690,9 +690,10 @@ public class DmsInboxManage2Action extends ActionSupport {
         boolean success = false;
         try {
             QueueDao queueDao = (QueueDao) SpringUtils.getBean(QueueDao.class);
-            success = queueDao.addNewQueue(qn);
-            if (success) {
-                addQueueSecObjectName(qn, queueDao.getLastId());
+            Integer queueId = queueDao.addNewQueueAndGetId(qn);
+            if (queueId != null) {
+                addQueueSecObjectName(qn, queueId.toString());
+                success = true;
             }
         } catch (Exception e) {
             logger.error("Error", e);
