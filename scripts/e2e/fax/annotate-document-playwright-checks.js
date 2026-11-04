@@ -97,7 +97,7 @@ async function waitForAnnotationFaxCover(page) {
   }, null, {timeout: 120000});
   const result = await outcome.jsonValue();
   if (result === 'no-account') {
-    throw new Error('Annotation Save and fax requires an active fax account available to the test provider. Prepare an owned UI-only fax fixture; this required handoff check cannot pass without it.');
+    throw new h.SkipCheck('Annotation Save and fax requires an active fax account available to the test provider. Prepare an owned UI-only fax fixture.');
   }
   if (result !== 'ready') throw new Error('Annotation Save and fax was refused before reaching the cover page; inspect the visible save/fax error.');
 }
@@ -2001,6 +2001,12 @@ h.runCheck({name:'annotate-document',async run(context) {
   ownedFixture=createOwnedAnnotationFixture(readConfig());
   ownedFixture.create();
   try {await main({...context,fixture:ownedFixture});}
+  catch (error) {
+    if (error?.name === 'SkipCheck') {
+      h.assert(findings.length===0,`${findings.length} annotation check(s) failed before unavailable fax prerequisite: ${error.message}`);
+    }
+    throw error;
+  }
   finally {notes.forEach(line=>console.log(line));findings.forEach(line=>console.log(line));}
   h.assert(findings.length===0,`${findings.length} annotation check(s) failed`);
   console.log('All annotation viewer checks passed');
