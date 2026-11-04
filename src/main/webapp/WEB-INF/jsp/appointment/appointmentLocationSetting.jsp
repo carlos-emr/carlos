@@ -53,6 +53,9 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+<%-- One locale for the bundle and for <html lang>, as the booking screens resolve it. --%>
+<% pageContext.setAttribute("pageLocale", io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request)); %>
+<fmt:setLocale value="${pageLocale}"/>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="/struts-tags" prefix="s" %>
@@ -73,7 +76,6 @@
 <fmt:message key="admin.appt.location.msg.confirmLastDisable" var="confirmLastDisable"/>
 <fmt:message key="admin.appt.location.label.defaultStyle" var="defaultStyleLabel"/>
 <!DOCTYPE html>
-<% pageContext.setAttribute("pageLocale", io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request)); %>
 <html lang="${carlos:forHtmlAttribute(pageLocale.language)}">
 <head>
     <meta charset="UTF-8">

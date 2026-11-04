@@ -1131,7 +1131,8 @@ class MutatorActionGetRejectionContractUnitTest {
             return new AppointmentLocationSettings2Action(SpringUtils.getBean(SecurityInfoManager.class),
                     (AppointmentLocationService) autoMocks.computeIfAbsent(
                             AppointmentLocationService.class, Mockito::mock),
-                    mock(org.springframework.transaction.PlatformTransactionManager.class));
+                    (org.springframework.transaction.PlatformTransactionManager) autoMocks.computeIfAbsent(
+                            org.springframework.transaction.PlatformTransactionManager.class, Mockito::mock));
         }
         if (actionClass.equals(DelEForm2Action.class)) {
             return new DelEForm2Action(mock(SecurityInfoManager.class));

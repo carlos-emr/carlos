@@ -137,6 +137,7 @@ class AppointmentConverterUnitTest extends CarlosUnitTestBase {
         new AppointmentConverter().applyEditableProperties(to, existing);
 
         assertThat(existing.getLocationCode()).isEqualTo(11);
+        assertThat(existing.getLocation()).isEqualTo("Virtual");
         assertThat(existing.getReason()).isEqualTo("follow-up");
     }
 

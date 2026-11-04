@@ -34,8 +34,9 @@ set to a non-active value), because otherwise the schedule ignores the statuses 
 - Reset restores description, colour **and icon** of every seeded status by its exact status code,
   not row id (a custom `tx` never stands in for `t`), in one transaction.
 - Privileges: read to view and write for every change, on `_admin.schedule` or `_admin` (the same
-  rule as the Locations tab). Every change must be posted (GET/HEAD answer 405 first). Each saved
-  change writes a `LogAction` row naming the status id and the field, never patient data. The
+  rule as the Locations tab). Every change must be posted (GET/HEAD answer 405 first). Each change
+  to one status writes a `LogAction` row naming the status id and the field; Reset writes one row
+  saying the seeded statuses were restored. None carries patient data. The
   route is not in `HttpMethodGuardFilter.MUTATION_INTENT_PARAMS_BY_ROUTE`, because its menu link
   and old bookmarks open it with `dispatch=view|modify`; the action refuses GET by value.
 
@@ -132,7 +133,7 @@ every booking's text and out through SOAP, REST and HL7. A refused entry is offe
   disabling delete, on `_admin.schedule` or `_admin`.
 - Every change is POST-only. The page opens without a `dispatch`, so any `dispatch` is a change:
   GET/HEAD answer 405 before anything is read or written, and the route is listed in
-  `HttpMethodGuardFilter.MUTATION_INTENT_PARAMS_BY_ROUTE` by it.
+  `HttpMethodGuardFilter.MUTATION_INTENT_PARAMS_BY_ROUTE` under the `dispatch` parameter.
 - Every change runs in one READ COMMITTED transaction that first locks the list row
   (`LookupListDao.findForUpdate`), so two at once (a double click, two administrators) cannot both
   pass the name check. Under MariaDB's default REPEATABLE READ the reads after the lock would

@@ -90,7 +90,8 @@ async function workflow(s) {
       ORDER BY active DESC, id LIMIT 1`)[0];
     const answers = await postNoOpChanges(context, h.appUrl(s.config.baseUrl, '/appointment/apptLocationSetting'),
       target, statusChanged ? {id: statusId, description: statusDesc} : null);
-    h.assert(answers.every(code => code === 200), `Restoring through the app answered HTTP ${answers.join(', ')}`);
+    h.assert(answers.every(a => a.status === 200 && !a.refused),
+      `Restoring through the app was not saved: ${JSON.stringify(answers)}`);
   }
 
   await thenRestore(async () => {
@@ -228,6 +229,10 @@ async function workflow(s) {
       const desc = `PW ${marker.slice(-8)}`;
       await statusFrame.locator(`#desc-${statusId}`).fill(desc);
       await frameNavigation(admin, statusFrame, () => statusFrame.locator(`form:has(#desc-${statusId}) button[type="submit"]`).click());
+      await statusFrame.locator(`#colour-${statusId}`).fill('#123456');
+      await frameNavigation(admin, statusFrame, () => statusFrame.locator(`form:has(#colour-${statusId}) button[type="submit"]`).click());
+      h.assert(sql.value(`SELECT color FROM appointment_status WHERE id=${Number(statusId)}`) === '#123456',
+        'A core (editable=0) status could not be recoloured');
       await statusFrame.locator(`#icon-${statusId}`).selectOption('cancel.gif');
       await frameNavigation(admin, statusFrame, () => statusFrame.locator(`form:has(#icon-${statusId}) button[type="submit"]`).click());
       h.assert(JSON.stringify(sql.rows(`SELECT description,icon FROM appointment_status WHERE id=${Number(statusId)}`)) === JSON.stringify([[desc, 'cancel.gif']]),
@@ -347,7 +352,8 @@ async function postNoOpChanges(context, locationsUrl, target, status) {
       const token = document.querySelector('input[name="CSRF-TOKEN"]')?.value || '';
       const action = document.querySelector('form[action*="apptLocationSetting"]').action;
       const post = (url, fields) => fetch(url, {method: 'POST', credentials: 'same-origin',
-        body: new URLSearchParams({...fields, 'CSRF-TOKEN': token})}).then(response => response.status);
+        body: new URLSearchParams({...fields, 'CSRF-TOKEN': token})})
+        .then(async response => ({status: response.status, refused: (await response.text()).includes('alert-danger')}));
       const results = [];
       if (target) results.push(await post(action, {dispatch: 'updateColour', id: target[0], colour: target[1]}));
       if (status) {
