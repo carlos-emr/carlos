@@ -56,6 +56,10 @@ public class DashboardManager2Action extends ActionSupport {
             return NONE;
         }
         List<Dashboard> dashboards = dashboardManager.getDashboards(loggedInInfo);
+        if (dashboards == null) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return NONE;
+        }
         request.setAttribute("dashboards", dashboards);
         request.setAttribute("dashboardCanWrite", securityInfoManager.hasPrivilege(
                 loggedInInfo, "_dashboardManager", SecurityInfoManager.WRITE, null));
@@ -92,7 +96,10 @@ public class DashboardManager2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
             }
-            dashboardManager.toggleDashboardActive(loggedInInfo, selected.getId(), Boolean.valueOf(active));
+            if (!dashboardManager.toggleDashboardActive(loggedInInfo, selected.getId(), Boolean.valueOf(active))) {
+                response.sendError(HttpServletResponse.SC_CONFLICT);
+                return NONE;
+            }
         } else {
             String name = request.getParameter("name");
             String description = request.getParameter("description");
@@ -112,7 +119,8 @@ public class DashboardManager2Action extends ActionSupport {
             dashboard.setName(name);
             dashboard.setDescription(description);
             if (!dashboardManager.addDashboard(loggedInInfo, dashboard)) {
-                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                response.setStatus(selected == null ? HttpServletResponse.SC_INTERNAL_SERVER_ERROR
+                        : HttpServletResponse.SC_CONFLICT);
                 request.setAttribute("dashboardManagerError", "dashboard.dashboardmanager.saveFailed");
                 return SUCCESS;
             }

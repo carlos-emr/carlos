@@ -32,6 +32,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
+import java.util.Date;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.Dashboard;
@@ -68,6 +69,22 @@ public class DashboardDaoImpl extends AbstractDaoImpl<Dashboard> implements Dash
         Query query = entityManager.createQuery("SELECT x FROM Dashboard x");
         List<Dashboard> result = query.getResultList();
         return result;
+    }
+
+    @Override
+    public boolean updateMetadata(int id, String name, String description, Date edited) {
+        return entityManager.createQuery("UPDATE Dashboard x SET x.name=:name, x.description=:description, "
+                + "x.edited=:edited WHERE x.id=:id AND x.locked=false")
+                .setParameter("name", name).setParameter("description", description)
+                .setParameter("edited", edited).setParameter("id", id).executeUpdate() == 1;
+    }
+
+    @Override
+    public boolean updateActive(int id, boolean active, Date edited) {
+        return entityManager.createQuery("UPDATE Dashboard x SET x.active=:active, x.edited=:edited "
+                + "WHERE x.id=:id AND x.locked=false")
+                .setParameter("active", active).setParameter("edited", edited)
+                .setParameter("id", id).executeUpdate() == 1;
     }
 
 }

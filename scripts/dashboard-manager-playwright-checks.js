@@ -11,6 +11,7 @@ const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow } = require('./lib/workflow-session');
 const { throwawayLoginFixture } = require('./lib/throwaway-login-fixture');
 const { authenticatedProbe } = require('./lib/authenticated-probe');
+const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 
 async function workflow(s) {
   const { sql, marker, recorder } = s;
@@ -55,6 +56,15 @@ async function workflow(s) {
     h.assert(frame, 'Dashboard Manager iframe did not load');
     await form().waitFor();
   });
+  await s.step('an invalid save shows an alert and writes no dashboard', async () => {
+    await form().locator('input[name="CSRF-TOKEN"]').waitFor({ state: 'attached' });
+    const mark = failureMark(recorder);
+    await navigate(() => form().evaluate(element => element.submit()));
+    h.assert(await frame.getByRole('alert').isVisible(), 'The validation alert is hidden');
+    h.assert(sql.value(`SELECT COUNT(*) FROM dashboard WHERE creator=${h.sqlString(fixture.providerNo)}`) === '0',
+      'An invalid save created a dashboard');
+    consumeExpectedFailure(recorder, mark, { status: 400, method: 'POST', path: /\/web\/dashboard\/admin\/DashboardManager$/ });
+  });
   await s.step('a new dashboard saves active and survives reload', async () => {
     await form().getByLabel('Name', { exact: true }).fill(name);
     await form().getByLabel('Description', { exact: true }).fill(description);
@@ -84,6 +94,26 @@ async function workflow(s) {
         'Listed active state differs from the database');
     });
   }
+  await s.step('stored dashboard markup stays literal in the list and editor', async () => {
+    const literalName = renamed + ' <b>literal</b>';
+    const literalDescription = 'Text & </textarea><b>literal</b>';
+    sql.execute(`UPDATE dashboard SET name=${h.sqlString(literalName)}, description=${h.sqlString(literalDescription)} WHERE id=${id}`);
+    await frame.goto(frame.url());
+    h.assert(await row().locator('th').innerText() === literalName, 'Stored name was interpreted as markup');
+    h.assert(await row().locator('b').count() === 0, 'Stored text created HTML elements');
+    await navigate(() => row().getByRole('link', { name: 'Edit Dashboard', exact: true }).click());
+    h.assert(await form().getByLabel('Name', { exact: true }).inputValue() === literalName, 'Edit name did not round-trip');
+    h.assert(await form().getByLabel('Description', { exact: true }).inputValue() === literalDescription,
+      'Textarea content was not escaped correctly');
+    await h.screenshot(frame.page(), s.config.screenshotDir, 'dashboard-manager.png');
+  });
+  await s.step('a POST without the CSRF token is refused and changes nothing', async () => {
+    const where = `creator=${h.sqlString(fixture.providerNo)} AND name LIKE ${h.sqlString(marker + '%')}`;
+    const before = sql.value(`SELECT COUNT(*) FROM dashboard WHERE ${where}`);
+    const response = await context.request.post(h.appUrl(s.config.baseUrl, '/web/dashboard/admin/DashboardManager').href,
+      { form: { operation: 'save', name: marker + ' CSRF probe' }, maxRedirects: 0 });
+    await h.assertRefused(s, { response, table: 'dashboard', where, before, label: 'Dashboard save without CSRF token' });
+  });
   await s.step('a GET save is refused and changes nothing', async () => {
     const url = h.appUrl(s.config.baseUrl, '/web/dashboard/admin/DashboardManager');
     url.searchParams.set('operation', 'save');

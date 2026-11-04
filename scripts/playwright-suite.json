@@ -5987,7 +5987,8 @@
       "timeoutSec": 180,
       "env": [],
       "notes": "Administration > Reports > Dashboard Manager: create, edit, inactivate, reactivate, reload, GET refusal (#2244).",
-      "fixtures": "Owned dashboards and a throwaway login with dashboard administration grants; all removed."
+      "fixtures": "Owned dashboards and a throwaway login with dashboard administration grants; all removed. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": ["dashboard", "secObjPrivilege"]
     },
     {
       "name": "dashboard-display",

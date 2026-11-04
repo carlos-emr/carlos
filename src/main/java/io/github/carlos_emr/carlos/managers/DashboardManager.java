@@ -91,7 +91,7 @@ public interface DashboardManager {
      * Toggles the Dashboard active boolean switch. True for active, false for not
      * active.
      */
-    void toggleDashboardActive(LoggedInInfo loggedInInfo, int dashboardId, Boolean state);
+    boolean toggleDashboardActive(LoggedInInfo loggedInInfo, int dashboardId, Boolean state);
 
     /**
      * Retrieves an XML file from a servlet request object and then saves it to

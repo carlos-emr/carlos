@@ -32,9 +32,13 @@ class DashboardManagerAdministrationUnitTest {
     void shouldRefuseWrites_whenReadOnly() {
         try (var log = mockStatic(LogAction.class)) {
             assertThat(manager.addDashboard(info, new Dashboard())).isFalse();
-            manager.toggleDashboardActive(info, 17, false);
+            assertThat(manager.toggleDashboardActive(info, 17, false)).isFalse();
             verify(security, times(2)).hasPrivilege(info, "_dashboardManager", "w", null);
             verifyNoInteractions(dao);
+            log.verify(() -> LogAction.addLog(info, "DashboardManager.addDashboard", null, null, null,
+                    "User missing _dashboardManager role with write access"));
+            log.verify(() -> LogAction.addLog(info, "DashboardManager.toggleDashboardActive", null, null, null,
+                    "User missing _dashboardManager role with write access"));
         }
     }
 
@@ -42,11 +46,7 @@ class DashboardManagerAdministrationUnitTest {
     @DisplayName("should preserve creator, lock, and current active state when editing metadata")
     void shouldPreserveMetadata_whenEditing() {
         when(security.hasPrivilege(info, "_dashboardManager", "w", null)).thenReturn(true);
-        Dashboard stored = new Dashboard();
-        stored.setId(17);
-        stored.setActive(false);
-        stored.setCreator("999998");
-        when(dao.find(17)).thenReturn(stored);
+        when(dao.updateMetadata(eq(17), eq("Renamed"), eq("Updated description"), any())).thenReturn(true);
         Dashboard submitted = new Dashboard();
         submitted.setId(17);
         submitted.setName("Renamed");
@@ -56,27 +56,24 @@ class DashboardManagerAdministrationUnitTest {
         submitted.setLocked(true);
         try (var log = mockStatic(LogAction.class)) {
             assertThat(manager.addDashboard(info, submitted)).isTrue();
+            log.verify(() -> LogAction.addLog(info, "DashboardManager.addDashboard", "Dashboard", "17", null,
+                    "Dashboard updated"));
         }
-        verify(dao).merge(stored);
-        assertThat(stored.getName()).isEqualTo("Renamed");
-        assertThat(stored.getDescription()).isEqualTo("Updated description");
-        assertThat(stored.isActive()).isFalse();
-        assertThat(stored.getCreator()).isEqualTo("999998");
-        assertThat(stored.isLocked()).isFalse();
-        assertThat(stored.getEdited()).isNotNull();
+        verify(dao).updateMetadata(eq(17), eq("Renamed"), eq("Updated description"), any());
+        verifyNoMoreInteractions(dao);
     }
 
     @Test
-    @DisplayName("should refuse changes to a locked dashboard even when called outside the web action")
-    void shouldRefuseChanges_whenLocked() {
+    @DisplayName("should return failure and emit no success audit when the guarded database update refuses a change")
+    void shouldRefuseChanges_whenUpdateRefused() {
         when(security.hasPrivilege(info, "_dashboardManager", "w", null)).thenReturn(true);
         Dashboard stored = new Dashboard();
         stored.setId(17);
         stored.setLocked(true);
-        when(dao.find(17)).thenReturn(stored);
         try (var log = mockStatic(LogAction.class)) {
             assertThat(manager.addDashboard(info, stored)).isFalse();
-            manager.toggleDashboardActive(info, 17, false);
+            assertThat(manager.toggleDashboardActive(info, 17, false)).isFalse();
+            log.verifyNoInteractions();
         }
         verify(dao, never()).merge(any());
         verify(dao, never()).persist(any());
@@ -92,9 +89,25 @@ class DashboardManagerAdministrationUnitTest {
         doAnswer(invocation -> { dashboard.setId(18); return null; }).when(dao).persist(dashboard);
         try (var log = mockStatic(LogAction.class)) {
             assertThat(manager.addDashboard(info, dashboard)).isTrue();
+            log.verify(() -> LogAction.addLog(info, "DashboardManager.addDashboard", "Dashboard", "18", null,
+                    "Dashboard created"));
         }
         assertThat(dashboard.isActive()).isTrue();
         assertThat(dashboard.getCreator()).isEqualTo("999998");
         assertThat(dashboard.getEdited()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("should audit the dashboard identifier and accepted active state")
+    void shouldAuditStatus_whenUpdateAccepted() {
+        when(security.hasPrivilege(info, "_dashboardManager", "w", null)).thenReturn(true);
+        when(dao.updateActive(eq(17), eq(false), any())).thenReturn(true);
+        try (var log = mockStatic(LogAction.class)) {
+            assertThat(manager.toggleDashboardActive(info, 17, false)).isTrue();
+            log.verify(() -> LogAction.addLog(info, "DashboardManager.toggleDashboardActive", "Dashboard", "17", null,
+                    "Dashboard active state set to false"));
+        }
+        verify(dao).updateActive(eq(17), eq(false), any());
+        verifyNoMoreInteractions(dao);
     }
 }

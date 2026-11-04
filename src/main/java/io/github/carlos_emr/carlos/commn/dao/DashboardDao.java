@@ -32,6 +32,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
+import java.util.Date;
 
 import io.github.carlos_emr.carlos.commn.model.Dashboard;
 
@@ -41,4 +42,10 @@ public interface DashboardDao extends AbstractDao<Dashboard> {
     List<Dashboard> getDashboardsByStatus(boolean status);
 
     List<Dashboard> getDashboards();
+
+    /** Update only editable metadata on an unlocked dashboard, preserving concurrent status changes. */
+    boolean updateMetadata(int id, String name, String description, Date edited);
+
+    /** Update only status and edit time on an unlocked dashboard, preserving concurrent edits. */
+    boolean updateActive(int id, boolean active, Date edited);
 }

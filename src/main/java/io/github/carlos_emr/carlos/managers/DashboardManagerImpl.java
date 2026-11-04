@@ -235,17 +235,9 @@ public class DashboardManagerImpl implements DashboardManager {
             dashboard.setCreator(loggedInInfo.getLoggedInProviderNo());
             dashboard.setEdited(new Date());
             dashboardDao.persist(dashboard);
-        } else {
-            Dashboard existing = dashboardDao.find(dashboard.getId().intValue());
-            if (existing == null || existing.isLocked()) {
-                return false;
-            }
-            // An edit changes only the description and name. Preserve status, creator,
-            // lock and indicator membership rather than accepting them from the edit form.
-            existing.setName(dashboard.getName());
-            existing.setDescription(dashboard.getDescription());
-            existing.setEdited(new Date());
-            dashboardDao.merge(existing);
+        } else if (!dashboardDao.updateMetadata(dashboard.getId(), dashboard.getName(),
+                dashboard.getDescription(), new Date())) {
+            return false;
         }
 
         if (dashboard.getId() > 0) {
@@ -262,23 +254,20 @@ public class DashboardManagerImpl implements DashboardManager {
      * active.
      */
     @Override
-    public void toggleDashboardActive(LoggedInInfo loggedInInfo, int dashboardId, Boolean state) {
+    public boolean toggleDashboardActive(LoggedInInfo loggedInInfo, int dashboardId, Boolean state) {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardManager", SecurityInfoManager.WRITE, null)) {
             LogAction.addLog(loggedInInfo, "DashboardManager.toggleDashboardActive", null, null, null,
                     "User missing _dashboardManager role with write access");
-            return;
+            return false;
         }
 
-        Dashboard dashboard = dashboardDao.find(dashboardId);
-
-        if (dashboard != null && !dashboard.isLocked()) {
-            dashboard.setActive(state);
-            dashboard.setEdited(new Date());
+        if (dashboardDao.updateActive(dashboardId, state, new Date())) {
             LogAction.addLog(loggedInInfo, "DashboardManager.toggleDashboardActive", "Dashboard", dashboardId + "", null,
                     "Dashboard active state set to " + state);
-            dashboardDao.merge(dashboard);
+            return true;
         }
+        return false;
     }
 
     /**

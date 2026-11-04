@@ -13,12 +13,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><fmt:message key="dashboard.dashboardmanager.title"/></title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css">
+    <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/library/bootstrap/5.3.8/css/bootstrap.min.css">
 </head>
 <body class="p-3">
 <main>
     <h1><fmt:message key="dashboard.dashboardmanager.title"/></h1>
-    <c:if test="not empty dashboardManagerError">
+    <c:if test="${not empty dashboardManagerError}">
         <p role="alert" class="alert alert-danger"><fmt:message key="${dashboardManagerError}"/></p>
     </c:if>
     <table class="table" id="dashboards">
@@ -31,8 +31,8 @@
         <tbody>
         <c:forEach var="dashboard" items="${dashboards}">
             <tr data-dashboard-id="${dashboard.id}">
-                <th scope="row"><c:out value="${dashboard.name}"/></th>
-                <td><c:out value="${dashboard.description}"/></td>
+                <th scope="row">${carlos:forHtmlContent(dashboard.name)}</th>
+                <td>${carlos:forHtmlContent(dashboard.description)}</td>
                 <td>
                     <c:choose>
                         <c:when test="${dashboard.active}"><fmt:message key="dashboard.dashboardmanager.dashboard.active"/></c:when>
@@ -43,7 +43,7 @@
                     <c:if test="${dashboardCanWrite and not dashboard.locked}">
                         <c:url var="editUrl" value="/web/dashboard/admin/DashboardManager"><c:param name="dashboardId" value="${dashboard.id}"/></c:url>
                         <a href="${carlos:forHtmlAttribute(editUrl)}"><fmt:message key="dashboard.dashboardmanager.dashboard.edit"/></a>
-                        <form method="post" action="${managerUrl}" class="d-inline">
+                        <form method="post" action="${carlos:forHtmlAttribute(managerUrl)}" class="d-inline">
                             <input type="hidden" name="operation" value="status">
                             <input type="hidden" name="dashboardId" value="${dashboard.id}">
                             <input type="hidden" name="active" value="${not dashboard.active}">
@@ -67,7 +67,7 @@
                 <c:otherwise><fmt:message key="dashboard.dashboardmanager.dashboard.edit"/></c:otherwise>
             </c:choose>
         </h2>
-        <form method="post" action="${managerUrl}" id="dashboard-editor">
+        <form method="post" action="${carlos:forHtmlAttribute(managerUrl)}" id="dashboard-editor">
             <input type="hidden" name="operation" value="save">
             <c:if test="${not empty editedDashboard}"><input type="hidden" name="dashboardId" value="${editedDashboard.id}"></c:if>
             <div class="mb-3">
@@ -77,10 +77,10 @@
             </div>
             <div class="mb-3">
                 <label for="dashboard-description" class="form-label"><fmt:message key="dashboard.dashboardmanager.dashboard.description"/></label>
-                <textarea id="dashboard-description" name="description" class="form-control" maxlength="255"><c:out value="${dashboardDescription != null ? dashboardDescription : editedDashboard.description}"/></textarea>
+                <textarea id="dashboard-description" name="description" class="form-control" maxlength="255">${carlos:forHtmlContent(dashboardDescription != null ? dashboardDescription : editedDashboard.description)}</textarea>
             </div>
             <button type="submit" class="btn btn-primary"><fmt:message key="dashboard.dashboardmanager.dashboard.save"/></button>
-            <a href="${managerUrl}" class="btn btn-secondary"><fmt:message key="dashboard.dashboardmanager.dashboard.close"/></a>
+            <a href="${carlos:forHtmlAttribute(managerUrl)}" class="btn btn-secondary"><fmt:message key="dashboard.dashboardmanager.dashboard.close"/></a>
         </form>
     </c:if>
 </main>

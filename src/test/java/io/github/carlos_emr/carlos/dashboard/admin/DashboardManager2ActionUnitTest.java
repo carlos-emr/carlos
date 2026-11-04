@@ -73,6 +73,29 @@ class DashboardManager2ActionUnitTest {
         return new DashboardManager2Action(manager, security).execute();
     }
 
+    @Test
+    @DisplayName("should refuse access when the manager denies a read after the action permission check")
+    void shouldRefuseRead_whenManagerDeniesAccess() throws Exception {
+        when(manager.getDashboards(info)).thenReturn(null);
+        execute();
+        assertThat(response.getStatus()).isEqualTo(403);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"new", "existing"})
+    @DisplayName("should keep submitted fields visible when a save fails or conflicts")
+    void shouldPreserveForm_whenSaveRefused(String kind) throws Exception {
+        request.setMethod("POST");
+        request.setParameter("operation", "save");
+        request.setParameter("name", "Submitted");
+        if ("existing".equals(kind)) request.setParameter("dashboardId", "17");
+        assertThat(execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(response.getStatus()).isEqualTo("existing".equals(kind) ? 409 : 500);
+        assertThat(request.getAttribute("dashboardName")).isEqualTo("Submitted");
+        assertThat(request.getAttribute("dashboardManagerError")).isEqualTo("dashboard.dashboardmanager.saveFailed");
+        assertThat(response.getRedirectedUrl()).isNull();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"GET", "HEAD"})
     @DisplayName("should list active and inactive dashboards for a reader")
@@ -141,6 +164,7 @@ class DashboardManager2ActionUnitTest {
         request.setParameter("name", "Renamed");
         request.setParameter("active", "true");
         request.setParameter("creator", "attacker");
+        request.setParameter("locked", "true");
         when(manager.addDashboard(eq(info), any())).thenReturn(true);
         execute();
         ArgumentCaptor<Dashboard> captured = ArgumentCaptor.forClass(Dashboard.class);
@@ -148,6 +172,8 @@ class DashboardManager2ActionUnitTest {
         assertThat(captured.getValue()).isNotSameAs(existing);
         assertThat(captured.getValue().getId()).isEqualTo(17);
         assertThat(captured.getValue().getCreator()).isNull();
+        assertThat(captured.getValue().isActive()).isFalse();
+        assertThat(captured.getValue().isLocked()).isFalse();
         assertThat(existing.getName()).isEqualTo("Original");
         assertThat(existing.isActive()).isFalse();
     }
@@ -219,9 +245,22 @@ class DashboardManager2ActionUnitTest {
         request.setParameter("operation", "status");
         request.setParameter("dashboardId", "17");
         request.setParameter("active", active);
+        when(manager.toggleDashboardActive(info, 17, Boolean.valueOf(active))).thenReturn(true);
         execute();
         verify(manager).toggleDashboardActive(info, 17, Boolean.valueOf(active));
         assertThat(response.getStatus()).isEqualTo(302);
+    }
+
+    @Test
+    @DisplayName("should report a status conflict when the dashboard was locked or removed after loading")
+    void shouldReportConflict_whenStatusUpdateRefused() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("operation", "status");
+        request.setParameter("dashboardId", "17");
+        request.setParameter("active", "false");
+        execute();
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getRedirectedUrl()).isNull();
     }
 
     @Test
