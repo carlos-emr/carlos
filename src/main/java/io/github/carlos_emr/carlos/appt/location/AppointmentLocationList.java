@@ -194,6 +194,26 @@ public final class AppointmentLocationList {
     }
 
     /**
+     * The name a pasted appointment's location is kept under when the booking dropdown cannot
+     * select it. A paste (a cut is a move) keeps its location: an active item is selected by its
+     * code, so nothing is needed; an item disabled since keeps its name; a location typed before the
+     * list existed keeps its text. Either is offered as a legacy option, which saves the name
+     * without a code. The add and edit pages both paste through this.
+     *
+     * @param pastedCode String the pasted appointment's location code as stored, or null
+     * @param pastedLocation String the pasted appointment's location text, or null
+     * @return String the name to offer as a legacy option, or null when there is none to offer
+     */
+    public String pastedLegacyText(String pastedCode, String pastedLocation) {
+        LookupListItem item = find(parseCode(pastedCode));
+        if (item != null && item.isActive()) {
+            return null;
+        }
+        String text = item != null ? item.getLabel() : pastedLocation;
+        return StringUtils.isBlank(text) ? null : text;
+    }
+
+    /**
      * The item whose chip marks an appointment on the schedule. Site setups mark their own
      * location, so a code saved before a clinic switched to one draws no chip.
      *

@@ -180,6 +180,24 @@ class AppointmentLocationListUnitTest {
         assertThat(AppointmentLocationList.Choice.posted(null, null).value()).isEmpty();
     }
 
+    @ParameterizedTest
+    @CsvSource(nullValues = "NULL", value = {
+            // An active item is selected by its code: nothing to offer.
+            "12, Old room label, NULL",
+            // An item disabled since keeps its own name, not the stored snapshot.
+            "13, Old satellite label, Satellite office",
+            // A location typed before the list existed, or a code naming no item, keeps its text.
+            "NULL, Basement, Basement",
+            "99, Basement, Basement",
+            "legacy, Basement, Basement",
+            // No location at all: nothing to offer.
+            "NULL, NULL, NULL",
+            "NULL, '   ', NULL"
+    })
+    void shouldOfferPastedLocation_onlyWhenDropdownCannotSelectIt(String code, String location, String expected) {
+        assertThat(list(false).pastedLegacyText(code, location)).isEqualTo(expected);
+    }
+
     @Test
     void shouldParseNullCode_asNoCode() {
         assertThat(AppointmentLocationList.parseCode(null)).isNull();

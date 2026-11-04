@@ -663,13 +663,10 @@
                 <% if (locationMode) {
                     // As on the add page: a pasted location the dropdown cannot select (typed text,
                     // or an item disabled since) is offered as a legacy option, so it is kept.
-                    io.github.carlos_emr.carlos.commn.model.LookupListItem pastedItem =
-                            appointmentLocations.find(AppointmentLocationList.parseCode(apptObj.getLocationCode()));
-                    String pastedLegacy = pastedItem != null && pastedItem.isActive() ? null
-                            : pastedItem != null ? pastedItem.getLabel() : apptObj.getLocation();
+                    String pastedLegacy = appointmentLocations.pastedLegacyText(apptObj.getLocationCode(), apptObj.getLocation());
                 %>
                 selectAppointmentLocationCode(document.EDITAPPT.locationCode, "<carlos:encode value='<%= apptObj.getLocationCode() %>' context="javaScriptBlock"/>");
-                <% if (StringUtils.isNotBlank(pastedLegacy)) { %>
+                <% if (pastedLegacy != null) { %>
                 <fmt:message key="appointment.location.legacyOption" var="pastedLegacyLabel"><fmt:param value="<%= pastedLegacy.trim() %>"/></fmt:message>
                 offerLegacyAppointmentLocation(document.EDITAPPT.locationCode, document.EDITAPPT.location,
                     "<carlos:encode value='<%= pastedLegacy %>' context="javaScriptBlock"/>",

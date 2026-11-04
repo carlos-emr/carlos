@@ -549,13 +549,10 @@ Ontario, Canada
                     // A pasted appointment keeps its location (a cut is a move): its item when the
                     // dropdown offers it, otherwise its name as a legacy option (typed text, or an
                     // item disabled since), which saves the name without a code.
-                    io.github.carlos_emr.carlos.commn.model.LookupListItem pastedItem =
-                            appointmentLocations.find(AppointmentLocationList.parseCode(apptObj.getLocationCode()));
-                    String pastedLegacy = pastedItem != null && pastedItem.isActive() ? null
-                            : pastedItem != null ? pastedItem.getLabel() : apptObj.getLocation();
+                    String pastedLegacy = appointmentLocations.pastedLegacyText(apptObj.getLocationCode(), apptObj.getLocation());
                 %>
                 selectAppointmentLocationCode(document.forms[0].locationCode, "<carlos:encode value='<%= apptObj.getLocationCode() %>' context="javaScriptBlock"/>");
-                <% if (StringUtils.isNotBlank(pastedLegacy)) { %>
+                <% if (pastedLegacy != null) { %>
                 <fmt:message key="appointment.location.legacyOption" var="pastedLegacyLabel"><fmt:param value="<%= pastedLegacy.trim() %>"/></fmt:message>
                 offerLegacyAppointmentLocation(document.forms[0].locationCode, document.forms[0].location,
                     "<carlos:encode value='<%= pastedLegacy %>' context="javaScriptBlock"/>",
