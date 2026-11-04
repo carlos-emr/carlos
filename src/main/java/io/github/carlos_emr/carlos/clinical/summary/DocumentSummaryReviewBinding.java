@@ -410,7 +410,9 @@ public final class DocumentSummaryReviewBinding {
     private static boolean matches(String value, String tokens) {
         if (value == null) return false;
         // Tolerate the list's "^" mark for a preferred entry and surrounding space; nothing else.
-        return value.strip().replaceFirst("^\\^", "").toLowerCase(java.util.Locale.ROOT).matches(tokens);
+        // NFC first, so "Español" typed with a combining tilde matches the same as the precomposed form.
+        String composed = java.text.Normalizer.normalize(value.strip(), java.text.Normalizer.Form.NFC);
+        return composed.replaceFirst("^\\^", "").toLowerCase(java.util.Locale.ROOT).matches(tokens);
     }
 
     private static String known(String language) { return language != null && NOTICE_LANGUAGES.contains(language) ? language : "en"; }
