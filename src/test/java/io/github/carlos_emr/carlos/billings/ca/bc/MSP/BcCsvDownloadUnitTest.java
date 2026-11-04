@@ -5,6 +5,9 @@ import java.io.OutputStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -60,21 +63,23 @@ class BcCsvDownloadUnitTest extends CarlosWebTestBase {
         assertThat(getMockResponse().getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"REP_WO.csv\"");
     }
 
-    @Test
-    void shouldRejectUnageableClaim_withoutSendingAnAttachment() throws Exception {
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "00000000", "20260230", "not a date"})
+    void shouldDownloadUnagedClaim_whenServiceDateIsUnavailable(String serviceDate) throws Exception {
         var action = new CreateBillingReport2Action() {
             @Override protected void writeCsv(OutputStream output) throws Exception {
                 var bill = new io.github.carlos_emr.carlos.entities.MSPBill();
-                bill.setServiceDate("00000000");
+                bill.setServiceDate(serviceDate);
                 bill.setAmount("23.45");
                 io.github.carlos_emr.carlos.report.export.BcBillingCsv.write(output, "REP_ACCOUNT_REC", java.util.List.of(bill));
             }
         };
         action.setDocFormat("csv"); action.setRepType("REP_ACCOUNT_REC");
         assertThat(executeAction(action)).isEqualTo("none");
-        assertThat(getMockResponse().getStatus()).isEqualTo(500);
-        assertThat(getMockResponse().getContentAsByteArray()).isEmpty();
-        assertThat(getMockResponse().getHeader("Content-Disposition")).isNull();
+        assertThat(getMockResponse().getStatus()).isEqualTo(200);
+        assertThat(getMockResponse().getContentAsString()).contains("\"Unknown age\"", ",\"23.45\"\n");
+        assertThat(getMockResponse().getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"REP_ACCOUNT_REC.csv\"");
     }
 
     @Test
