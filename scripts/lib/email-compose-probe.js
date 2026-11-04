@@ -21,7 +21,7 @@ function encryptedBodyNotices(resourceDirectory = path.join(__dirname, '../../sr
     const prefix = `${ENCRYPTED_BODY_NOTICE_KEY}=`;
     // Resource bundles are ASCII/Java-properties escaped. This key occupies one
     // line; the final definition wins, matching Properties.load.
-    const line = fs.readFileSync(file, 'latin1').split(/\r?\n/).filter(value => value.startsWith(prefix)).at(-1);
+    const line = fs.readFileSync(file, 'utf8').split(/\r?\n/).filter(value => value.startsWith(prefix)).at(-1);
     return line?.slice(prefix.length).trim().replace(/\\u([\da-fA-F]{4})|\\(.)/g,
       (_, unicode, escaped) => unicode ? String.fromCharCode(parseInt(unicode, 16))
         : ({n: '\n', r: '\r', t: '\t', f: '\f'}[escaped] ?? escaped));
