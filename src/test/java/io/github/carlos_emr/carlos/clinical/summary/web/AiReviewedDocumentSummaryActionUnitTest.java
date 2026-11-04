@@ -410,6 +410,25 @@ class AiReviewedDocumentSummaryActionUnitTest {
         verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", view.notice());
     }
 
+    @Test void spanishPolishAndPortugueseRecordsGiveTheirOwnNoticeOnThePageAndInTheReview() throws Exception {
+        String[][] cases = {{"es", "Estado de la revisión"}, {"pl", "Status weryfikacji"}, {"pt-BR", "Situação da revisão"}};
+        for (String[] c : cases) {
+            clearInvocations(request);
+            when(context.load(any(LoggedInInfo.class), eq(11)))
+                    .thenReturn(new DocumentSummaryReviewContext.Snapshot(SCOPE, META, c[0]));
+            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+            verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", DocumentSummaryReviewBinding.unreviewedNotice(c[0]));
+            var review = generate();
+            try {
+                var view = review.view(actor, SCOPE, source());
+                assertThat(view.notice()).as(c[0]).contains(c[1]).doesNotContain("Review status", "Statut de la");
+                verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", view.notice());
+            } finally {
+                review.close();
+            }
+        }
+    }
+
     @Test void aCapRefusalWritesNoGenerateRowOnlyADistinctRefusedRowWithTheIds() throws Exception {
         int capacity = DocumentSummaryReviewSession.capacity();
         var held = new java.util.ArrayList<DocumentSummaryReviewSession>();
