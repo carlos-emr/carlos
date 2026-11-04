@@ -65,7 +65,10 @@ const contract = {message: 'Synthetic clinical text', clue: 'Fixture clue', unif
 const mimeText = (body, encoding = '7bit') => `Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: ${encoding}\r\n\r\n${body}`;
 for (const [encoding, encode] of [
   ['7bit', text => text], ['base64', text => Buffer.from(text).toString('base64')],
-  ['quoted-printable', text => text.replaceAll('=', '=3D').replaceAll(' ', '=20')],
+  ['quoted-printable', text => {
+    const encoded = text.replaceAll('=', '=3D').replaceAll(' ', '=20');
+    return encoded.match(/.{1,70}(?=(?:=[0-9A-F]{2}|<|$))/g)?.join('=\r\n') ?? encoded;
+  }],
 ]) {
   test(`HTML character references cannot hide a ${encoding} clinical-text leak`, () => {
     const htmlMime = html => mimeText(encode(html), encoding).replace('text/plain', 'text/html');
