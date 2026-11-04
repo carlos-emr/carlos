@@ -7,7 +7,7 @@
  * Asserts: names with an apostrophe, accents, CJK, an emoji, a literal "&amp;", quotes, backslash,
  * "%41", "+" and ";" are stored byte for byte (utf8mb4, no "?" substitution, no double encoding); the
  * Master Record and the Edit form redisplay them identically; an unchanged Update leaves every column
- * as it was; every text box carries a maxlength equal to its column; a surname of exactly the column
+ * as it was; every text box carries its column limit (Unicode code points for names); a surname of exactly the column
  * length is stored whole and one more character is visibly limited; and, last, a Name Used longer than
  * pref_name is stored whole in the alias (pref_name keeps its first 30 characters by design, #5128) and a
  * pronoun / gender past their columns are refused or stored whole, never silently cut. (Patient search
@@ -23,6 +23,26 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { removeMarkedPatients } = require('./lib/gap-records-fixtures');
 
 const TIMEOUT = 30000;
+
+// Name Used is stored whole in alias; pref_name holds its leading characters (#5128).
+const FIELD_COLUMNS = [['last_name', 'last_name'], ['first_name', 'first_name'], ['middleNames', 'middleNames'],
+  ['address', 'address'], ['city', 'city'], ['residentialAddress', 'residentialAddress'],
+  ['residentialCity', 'residentialCity'], ['postal', 'postal'], ['residentialPostal', 'residentialPostal'],
+  ['phone', 'phone'], ['phone2', 'phone2'], ['email', 'email'], ['hin', 'hin'], ['ver', 'ver'],
+  ['sin', 'sin'], ['chart_no', 'chart_no'], ['nameUsed', 'alias'], ['pronouns', 'pronoun'], ['gender', 'gender']];
+
+async function assertFormLimits(form, sql) {
+  for (const [input, column] of FIELD_COLUMNS) {
+    const box = form.locator(`[name="${input}"]`).first();
+    const declared = b.columnLength(sql, 'demographic', column);
+    const name = input === 'last_name' || input === 'first_name';
+    // HTML maxlength counts UTF-16 units; name validation counts the VARCHAR's Unicode code points.
+    h.assert(Number(await box.getAttribute('maxlength')) === declared * (name ? 2 : 1),
+      `${input} maxlength disagrees with column ${column} (${declared} characters)`);
+    if (name) h.assert(Number(await box.getAttribute('data-max-codepoints')) === declared,
+      `${input} Unicode character limit disagrees with column ${column}`);
+  }
+}
 
 async function openAddForm(s, term) {
   const search = await ui.clickOpensPopup(s.schedule, s.schedule.locator('#search a, a:has-text("Search")').first(),
@@ -48,6 +68,11 @@ async function fillBasics(add, last, first) {
 async function submitAdd(add) {
   await h.withExpectedDialogs(add, () => add.locator('input[type="submit"][value="Add Record"]').first().click(), { accept: true });
   await add.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
+}
+
+async function submitEdit(page) {
+  await h.withExpectedDialogs(page, () => page.locator('#updateButton input[type="submit"]').first().click(), { accept: true });
+  await page.waitForLoadState('networkidle', { timeout: TIMEOUT });
 }
 
 async function workflow(s) {
@@ -103,6 +128,7 @@ async function workflow(s) {
   await s.step('the Edit form redisplays every value identically and an unchanged Update changes no column', async () => {
     await add.locator('#editBtn').click();
     await add.locator('#editDemographic').waitFor({ state: 'visible', timeout: TIMEOUT });
+    await assertFormLimits(add.locator('#editDemographic'), sql);
     const shown = async (name) => add.locator(`#editDemographic [name="${name}"]`).first().inputValue();
     const wrong = [];
     for (const [input, value] of [['last_name', stored.last_name], ['first_name', stored.first_name], ['middleNames', stored.middleNames],
@@ -120,25 +146,10 @@ async function workflow(s) {
     await add.close();
   });
 
-  const limitMismatches = [];
-  await s.step('the add form limits each text box to its column length (client maxlength equals the database VARCHAR)', async () => {
+  await s.step('the add form limits each text box to its database column', async () => {
     add = await openAddForm(s, tag + 'M');
-    const mapping = [['last_name', 'last_name'], ['first_name', 'first_name'], ['middleNames', 'middleNames'], ['address', 'address'],
-      ['city', 'city'], ['residentialAddress', 'residentialAddress'], ['residentialCity', 'residentialCity'], ['postal', 'postal'],
-      ['phone', 'phone'], ['phone2', 'phone2'], ['email', 'email'], ['hin', 'hin'], ['sin', 'sin'], ['chart_no', 'chart_no'],
-      // Name Used is stored whole in the alias; pref_name keeps only what fits (#5128).
-      ['nameUsed', 'alias'], ['pronouns', 'pronoun'], ['gender', 'gender']];
-    const mismatched = [];
-    for (const [input, column] of mapping) {
-      const box = add.locator(`form[name="adddemographic"] [name="${input}"]`).first();
-      const limit = await box.getAttribute('maxlength');
-      const declared = b.columnLength(sql, 'demographic', column);
-      if (limit === null) mismatched.push(`${input} has no maxlength (column ${column} holds ${declared})`);
-      else if (Number(limit) !== declared) mismatched.push(`${input} maxlength=${limit} but column ${column} holds ${declared}`);
-    }
+    await assertFormLimits(add.locator('form[name="adddemographic"]'), sql);
     await add.close();
-    // Reported in the last step, so the storage checks below still run when the form limits are wrong.
-    limitMismatches.push(...mismatched);
   });
 
   await s.step('a surname of exactly the column length is stored whole and one more character is visibly limited', async () => {
@@ -152,10 +163,45 @@ async function workflow(s) {
     const over = b.exactly(max + 1, tag + 'V');
     add = await openAddForm(s, tag + 'V');
     const overForm = await fillBasics(add, over, 'Over');
-    const accepted = await overForm.locator('input[name="last_name"]').inputValue();
-    h.assert(b.cpLength(accepted) <= max, 'The surname box accepted more characters than the column holds');
+    const surname = overForm.locator('input[name="last_name"]');
+    h.assert(await surname.inputValue() === over, 'The over-length surname was silently changed');
+    h.assert(await surname.evaluate(box => !box.checkValidity() && box.validationMessage.length > 0),
+      'The over-length surname has no visible validation error');
     await submitAdd(add);
-    b.assertStored(sql, 'demographic', 'last_name', where('V'), accepted.toUpperCase(), 'Surname typed past the column');
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE ${where('V')}`) === '0',
+      'The invalid over-length surname was saved');
+    await add.close();
+  });
+
+  await s.step('Add and Edit preserve fifty Unicode characters and refuse fifty-one without truncation', async () => {
+    const max = b.columnLength(sql, 'demographic', 'last_name');
+    const unicode = tag + 'W' + '😀'.repeat(max - b.cpLength(tag + 'W'));
+    add = await openAddForm(s, tag + 'W');
+    await fillBasics(add, unicode, '😀'.repeat(max));
+    await submitAdd(add);
+    b.assertStored(sql, 'demographic', 'last_name', where('W'), unicode.toUpperCase(), 'Unicode surname at the column length');
+    b.assertStored(sql, 'demographic', 'first_name', where('W'), '😀'.repeat(max), 'Unicode first name at the column length');
+    await add.getByRole('link', { name: /Go to record/i }).first().click();
+    await add.locator('#editBtn').click();
+    const edit = add.locator('#editDemographic');
+    await edit.waitFor({ state: 'visible', timeout: TIMEOUT });
+    await assertFormLimits(edit, sql);
+    for (const input of ['last_name', 'first_name']) {
+      const box = edit.locator(`[name="${input}"]`).first();
+      const original = await box.inputValue();
+      const invalid = input === 'first_name' ? 'AA' + '😀'.repeat(max - 1) : original + '😀';
+      await box.fill(invalid);
+      h.assert(await box.evaluate(field => !field.checkValidity() && field.validationMessage.length > 0),
+        `The Edit form accepts fifty-one characters in ${input}`);
+      await submitEdit(add);
+      b.assertStored(sql, 'demographic', input, where('W'), original, `Rejected Edit form ${input}`);
+      h.assert(await box.inputValue() === invalid, 'The invalid edit was silently truncated');
+      await box.fill(original);
+    }
+    const changed = tag + 'W' + '𠮷'.repeat(max - b.cpLength(tag + 'W'));
+    await edit.locator('[name="last_name"]').fill(changed);
+    await ui.clickAndAwaitReload(add, add.locator('#updateButton input[type="submit"]').first(), { timeout: TIMEOUT, label: 'Update Unicode name' });
+    b.assertStored(sql, 'demographic', 'last_name', where('W'), changed.toUpperCase(), 'Updated Unicode surname');
     await add.close();
   });
 
@@ -185,19 +231,19 @@ async function workflow(s) {
     const form = await fillBasics(add, tag + 'Q', 'Wide');
     await form.locator('input[name="pronouns"]').fill(pronOver);
     await form.locator('input[name="gender"]').fill(genderOver);
+    const acceptedPronoun = await form.locator('input[name="pronouns"]').inputValue();
+    const acceptedGender = await form.locator('input[name="gender"]').inputValue();
+    h.assert(acceptedPronoun.length === pron && acceptedGender.length === gender, 'Pronoun or gender was not visibly limited');
     await submitAdd(add);
-    for (const [column, typedValue, uppercase] of [['pronoun', pronOver, false], ['gender', genderOver, false]]) {
+    for (const [column, typedValue] of [['pronoun', acceptedPronoun], ['gender', acceptedGender]]) {
       try {
-        b.assertNotSilentlyTruncated(sql, 'demographic', column, where('Q'), uppercase ? typedValue.toUpperCase() : typedValue, `Add form ${column}`);
+        b.assertNotSilentlyTruncated(sql, 'demographic', column, where('Q'), typedValue, `Add form ${column}`);
       } catch (error) { problems.push(error.message); }
     }
     await add.close();
     h.assert(problems.length === 0, problems.join(' || '));
   });
 
-  await s.step('the add form limits agree with the database columns', async () => {
-    h.assert(limitMismatches.length === 0, `Add form limits disagree with the database columns: ${limitMismatches.join('; ')}`);
-  });
 }
 
 if (require.main === module) runWorkflow('boundary-demographic-text', workflow, { openPatient: false });
