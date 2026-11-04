@@ -305,7 +305,8 @@ public class CarlosProperties extends Properties {
                         + "Set " + keyName + " in the loaded configuration, or supply a writable external properties "
                         + "file with -Dcarlos_override_properties=/path/to/carlos.properties before restarting. "
                         + "Restore the original key if encrypted data already exists. "
-                        + "See docs/startup-encryption-key.md for configuration and recovery instructions.");
+                        + "See https://github.com/carlos-emr/carlos/blob/release/2026.08/docs/startup-encryption-key.md "
+                        + "for configuration and recovery instructions.");
             }
             // Do not create a replacement/stub if the loaded file has since disappeared.
             // Keep one descriptor open for both reading and writing throughout the lock.

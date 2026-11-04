@@ -19,6 +19,11 @@ key would make encrypted data unreadable after restart.
 
 1. Supply an external `carlos.properties` containing the deployment's database
    and document settings. Keep the file outside the WAR and on persistent storage.
+   Migrate any legacy `<webapp-context>.properties` in the Tomcat account's
+   `user.home` (usually `carlos.properties`) into that file, preserving its original
+   key, then move the legacy file out of the startup search path. The startup
+   listener loads home-directory properties after the explicit override, so a
+   stale home file can replace the override's settings and key.
 2. Set `-Dcarlos_override_properties=/absolute/path/to/carlos.properties` in
    Tomcat's `CATALINA_OPTS`. The Tomcat service account must be able to read it;
    first startup with a blank key also needs permission to update the file.
@@ -39,7 +44,8 @@ into the configuration actually loaded by the application before restarting.
 Generating a replacement key does not recover existing encrypted data.
 
 The startup exception names the loaded source and the configuration setting.
-Correct that source or select the external file explicitly, then restart and
+Correct that source or select the external file explicitly after migrating any
+home-directory configuration, then restart and
 verify that existing encrypted credentials can still be read. Do not print keys
 or decrypted credentials while troubleshooting.
 

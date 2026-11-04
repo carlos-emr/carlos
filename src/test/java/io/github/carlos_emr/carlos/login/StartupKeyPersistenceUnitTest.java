@@ -225,6 +225,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
     @ValueSource(strings = {"   "})
     void shouldRequestExternalConfiguration_whenOnlyBundledConfigurationWasLoaded(String key) throws Exception {
         CarlosProperties properties = reloadProperties();
+        properties.setProperty("db_name", "startup_test");
         if (key == null) {
             properties.remove(KEY);
         } else {
@@ -236,7 +237,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
                 .hasMessageContaining(KEY)
                 .hasMessageContaining("-Dcarlos_override_properties=")
                 .hasMessageContaining("Restore the original key")
-                .hasMessageContaining("docs/startup-encryption-key.md");
+                .hasMessageContaining("https://github.com/carlos-emr/carlos/blob/release/2026.08/docs/startup-encryption-key.md");
         assertThat(userHome.resolve("carlos.properties")).doesNotExist();
         assertThat(properties.getProperty(KEY)).isEqualTo(key);
         assertThat(keySpecField.get(null)).isNull();
