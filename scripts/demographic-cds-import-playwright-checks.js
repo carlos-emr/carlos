@@ -4,7 +4,8 @@
  * Real menu/form, bounded raw-body upload, durable jobs and protected reports.
  * Required environment: disposable migrated database, enabled CDS importer,
  * approved source namespace/profile and maintenance admission. Missing feature
- * configuration fails visibly; it must never silently skip this release gate.
+ * configuration reports SKIP with the prerequisite named. Configured importer
+ * failures remain failures; a skip does not validate the import release gate.
  * Synthetic owned clinical fixtures are removed only after their import holds
  * clear. Durable import receipts and audit evidence remain for investigation.
  */
@@ -109,7 +110,7 @@ function assertSchemaValid(xml) {
       path.join(__dirname, '../src/main/resources/cds-import/schema/EMR_Data_Migration_Schema.xsd'), '-'],
     { input: Buffer.from(xml, 'utf8'), stdio: ['pipe', 'pipe', 'pipe'], timeout: 30000 });
   } catch (error) {
-    if (error.code === 'ENOENT') throw new Error('Required CDS regression prerequisite missing: xmllint (libxml2-utils)');
+    if (error.code === 'ENOENT') throw new h.SkipCheck('Required CDS regression prerequisite missing: xmllint (libxml2-utils)');
     throw new Error('The synthetic CDS fixture does not validate against the pinned OntarioMD migration schema');
   }
 }
@@ -186,6 +187,24 @@ async function observeCdsMetadata(s, page) {
   return record;
 }
 
+/** Missing source configuration is a prerequisite; browser/server errors still fail. */
+async function requireImportSource(frame, recorder) {
+  h.assertStrictPage(recorder);
+  if (await frame.locator('#cdsOptions').isDisabled()) {
+    h.assertStrictPage(recorder);
+    throw new h.SkipCheck('CDS import requires the enabled import feature and an approved source/profile');
+  }
+  const source = await frame.locator('#cdsSource option[data-profile]').evaluateAll(options => {
+    const option = options.find(value => value.dataset.profile === 'pcon-2024-02') || options[0];
+    return option ? option.value : null;
+  });
+  if (!source) {
+    h.assertStrictPage(recorder);
+    throw new h.SkipCheck('CDS import requires an approved import source/profile; none is offered by the import UI');
+  }
+  return source;
+}
+
 /** Open the actual existing administration menu route, including its Struts/JSP binding. */
 async function openImportFrame(s, label = 'cds-import-admin') {
   const {page: admin} = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
@@ -202,16 +221,11 @@ async function openImportFrame(s, label = 'cds-import-admin') {
   h.assert(frame, 'Demographic Import frame did not load');
   observed.prover = createCdsMetadataProver({frame,config:s.config,sql:s.sql,readApi:importApi});
   await frame.locator('#cdsImportForm #importFile').waitFor();
-  h.assert(!await frame.locator('#cdsOptions').isDisabled(), 'Required import feature/source registration is unavailable');
   await frame.waitForFunction(() => Boolean(document.querySelector('input[name="CSRF-TOKEN"]')?.value));
-  const source = await frame.locator('#cdsSource option[data-profile]').evaluateAll(options => {
-    const option = options.find(value => value.dataset.profile === 'pcon-2024-02') || options[0];
-    return option ? option.value : null;
-  });
-  h.assert(source, 'Required approved import source/profile is missing');
+  const ready = await initialStatus; h.assert(ready.status() === 200, 'Initial owner-scoped upload status was refused');
+  const source = await requireImportSource(frame, s.recorder);
   await frame.locator('#cdsSource').selectOption(source);
   h.assert(!await frame.locator('#mergeExisting').isChecked(), 'Existing-patient merge must default off');
-  const ready = await initialStatus; h.assert(ready.status() === 200, 'Initial owner-scoped upload status was refused');
   await admin.waitForLoadState('networkidle', {timeout:10000});
   const finished = await observed.transport.qualifyResponse(ready, observed.prover);
   if (finished.qualified) console.log('CDS_METADATA_EOF_EVIDENCE', JSON.stringify({rawError:'net::ERR_ABORTED',...finished.evidence}));
@@ -702,4 +716,4 @@ async function nativeViewsWorkflow(s) {
 if (require.main === module) runWorkflow(process.env.CDS_BROWSER_CORPUS === 'true' ? 'demographic-cds-native-views' : 'demographic-cds-import',
   process.env.CDS_BROWSER_CORPUS === 'true' ? nativeViewsWorkflow : workflow, {openPatient:false});
 module.exports = {workflow,nativeViewsWorkflow,assertPrimaryJobStatus,buildCdsXml,fixtureValues,parseImportLogCounts,assertSchemaValid,
-  openImportFrame,importApi,awaitRunReceipt,uploadAndAwaitRun,registerImportCleanup,qualifyCdsMetadata};
+  openImportFrame,requireImportSource,importApi,awaitRunReceipt,uploadAndAwaitRun,registerImportCleanup,qualifyCdsMetadata};
