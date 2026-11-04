@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 @Tag("integration")
 @Tag("dao")
 @Tag("flyway-schema")
+@EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_DAO", matches = "true")
 @EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_SCHEMA", matches = "flyway")
 class ConsultationArchiveDaoIntegrationTest extends CarlosTestBase {
     @Autowired
