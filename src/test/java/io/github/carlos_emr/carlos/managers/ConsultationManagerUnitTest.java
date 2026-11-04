@@ -737,9 +737,9 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
                 List<ConsultDocs> storedHrms = consultationManager.getAttachedDocumentsByType(
                         mockLoggedInInfo, TEST_REQUEST_ID, ConsultDocs.DOCTYPE_HRM);
                 List<EctFormData.PatientForm> forms = consultationManager.getAttachedForms(
-                        mockLoggedInInfo, TEST_DEMOGRAPHIC_NO, storedForms);
+                        mockLoggedInInfo, TEST_REQUEST_ID, TEST_DEMOGRAPHIC_NO, storedForms);
                 var hrms = consultationManager.getAttachedHRMDocuments(
-                        mockLoggedInInfo, TEST_DEMOGRAPHIC_NO.toString(), storedHrms);
+                        mockLoggedInInfo, TEST_DEMOGRAPHIC_NO.toString(), TEST_REQUEST_ID.toString(), storedHrms);
 
                 assertThat(forms).extracting(EctFormData.PatientForm::getFormId).containsExactly("120", "130");
                 assertThat(hrms).extracting(row -> (Integer) row.get("id")).containsExactly(128, 5);
@@ -758,8 +758,24 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
                     TEST_DEMOGRAPHIC_NO.toString())).thenReturn(false);
             List<ConsultDocs> stored = List.of(new ConsultDocs(TEST_REQUEST_ID, 120, ConsultDocs.DOCTYPE_FORM, TEST_PROVIDER_NO));
 
-            assertThat(consultationManager.getAttachedForms(mockLoggedInInfo, TEST_DEMOGRAPHIC_NO, stored)).isEmpty();
+            assertThat(consultationManager.getAttachedForms(mockLoggedInInfo, TEST_REQUEST_ID, TEST_DEMOGRAPHIC_NO, stored)).isEmpty();
             Mockito.verifyNoInteractions(mockFormsManager, mockConsultDocsDao);
+        }
+
+        @Test
+        void shouldUseExistingLoaders_whenAlternateManagersDoNotOverrideNewMethods() {
+            ConsultationManager alternateManager = Mockito.mock(ConsultationManager.class, Mockito.CALLS_REAL_METHODS);
+            List<EctFormData.PatientForm> forms = List.of(new EctFormData.PatientForm(
+                    "Form 120", 120, TEST_DEMOGRAPHIC_NO, new Date(), new Date()));
+            ArrayList<HashMap<String, ? extends Object>> hrms = new ArrayList<>(List.of(createHrmDocument(128)));
+            Mockito.doReturn(forms).when(alternateManager).getAttachedForms(mockLoggedInInfo, TEST_REQUEST_ID, TEST_DEMOGRAPHIC_NO);
+            Mockito.doReturn(hrms).when(alternateManager).getAttachedHRMDocuments(
+                    mockLoggedInInfo, TEST_DEMOGRAPHIC_NO.toString(), TEST_REQUEST_ID.toString());
+
+            assertThat(alternateManager.getAttachedForms(mockLoggedInInfo, TEST_REQUEST_ID, TEST_DEMOGRAPHIC_NO, List.of()))
+                    .isEqualTo(forms);
+            assertThat(alternateManager.getAttachedHRMDocuments(mockLoggedInInfo, TEST_DEMOGRAPHIC_NO.toString(),
+                    TEST_REQUEST_ID.toString(), List.of())).isEqualTo(hrms);
         }
 
         /**

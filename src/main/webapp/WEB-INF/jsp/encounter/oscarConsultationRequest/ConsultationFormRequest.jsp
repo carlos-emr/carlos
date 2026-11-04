@@ -303,9 +303,9 @@
             // Share the stored relationships between the visible panels and the omission notice.
             List<ConsultDocs> storedForms = consultationManager.getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_FORM);
             List<ConsultDocs> storedHRMDocuments = consultationManager.getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_HRM);
-            List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(demo), storedForms);
+            List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demo), storedForms);
             List<EFormData> attachedEForms = consultationManager.getAttachedEForms(requestId);
-            ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments = consultationManager.getAttachedHRMDocuments(loggedInInfo, demo, storedHRMDocuments);
+            ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments = consultationManager.getAttachedHRMDocuments(loggedInInfo, demo, requestId, storedHRMDocuments);
 
             Collections.sort(attachedLabs);
             List<LabResultData> attachedLabsSortedByVersions = new ArrayList<>();
