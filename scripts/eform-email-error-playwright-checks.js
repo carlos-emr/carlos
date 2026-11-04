@@ -30,9 +30,15 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM eform WHERE fid=${fid} AND form_name=${q(name)}`) === '1',
       'Owned eForm template changed');
     const owned = `SELECT fdid FROM eform_data WHERE fid=${fid} AND demographic_no=${patient}`;
-    sql.execute(`DELETE FROM eform_values WHERE fdid IN (${owned});
+    const ids = sql.rows(owned).map(row => row[0]);
+    h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Invalid owned eForm id');
+    sql.execute(`DELETE FROM EFormDocs WHERE fdid IN (${owned});
+      DELETE FROM eform_values WHERE fdid IN (${owned});
       DELETE FROM eform_data WHERE fid=${fid} AND demographic_no=${patient};
       DELETE FROM eform WHERE fid=${fid} AND form_name=${q(name)}`);
+    if (ids.length) h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM EFormDocs WHERE fdid IN (${ids.join(',')}))
+      + (SELECT COUNT(*) FROM eform_values WHERE fdid IN (${ids.join(',')}))`) === '0',
+    'Owned attachment relations or values remain');
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM eform WHERE fid=${fid})
       + (SELECT COUNT(*) FROM eform_data WHERE fid=${fid})`) === '0', 'Owned eForm rows remain');
   });
@@ -44,7 +50,8 @@ async function workflow(s) {
   const seedAttachment = id => sql.value(`INSERT INTO eform_data(fdid,fid,form_name,subject,demographic_no,
     status,form_date,form_time,form_provider,form_data,showLatestFormOnly,patient_independent,roleType)
     VALUES(${id || 'NULL'},${fid},${q(name)},'Attachment',${patient},1,CURDATE(),CURTIME(),
-      ${q(provider)},${q(HTML)},0,0,''); SELECT LAST_INSERT_ID()`);
+      ${q(provider)},${q(HTML)},0,0,'');
+    SELECT fdid FROM eform_data WHERE fid=${fid} AND demographic_no=${patient} AND subject='Attachment'`);
   attachment = seedAttachment();
   h.assert(/^[1-9]\d*$/.test(attachment), 'Owned attachment was not created');
 
@@ -88,6 +95,7 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT var_value FROM eform_values WHERE fdid=${fdid} AND var_name='note'`) === note,
       'The saved letter lost its typed value');
     h.assert(sql.value(`SELECT COUNT(*) FROM emailLog WHERE demographicNo=${patient}`) === '0', 'An email was sent');
+    await h.screenshot(form, s.config.screenshotDir, 'eform-email-error');
   });
 
   await s.step('Retry keeps the same draft while the attachment remains unavailable', async () => {

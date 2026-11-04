@@ -34,14 +34,16 @@ class EmailComposeErrorPageRegressionTest {
                 Pattern.DOTALL));
 
         String page = Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/email/emailComposeError.jsp"));
-        assertThat(page).contains("<c:out value=\"${requestScope.errorMessage}\"/>",
+        assertThat(page).contains("${carlos:forHtmlContent(requestScope.errorMessage)}",
                         "onclick=\"window.location.reload()\"",
-                        "${pageContext.request.contextPath}/library/bootstrap/")
+                        "${carlos:forHtmlAttribute(pageContext.request.contextPath)}/library/bootstrap/",
+                        "LocaleUtils.resolveBundleLocale(request)", "<fmt:setLocale value=\"${composeLocale}\"/>",
+                        "${carlos:forHtmlAttribute(composeLocale.toLanguageTag())}")
                 .doesNotContain("efmshowform_data", "efmformrtl_templates", "param.fid", "param.fdid");
     }
 
     @Test
-    void shouldTranslateRecoveryInstructions_inEveryShippedLocale() throws IOException {
+    void shouldProvideRecoveryInstructions_inEveryShippedLocale() throws IOException {
         for (String locale : List.of("en", "fr", "es", "pl", "pt_BR")) {
             Properties bundle = new Properties();
             try (var reader = Files.newBufferedReader(

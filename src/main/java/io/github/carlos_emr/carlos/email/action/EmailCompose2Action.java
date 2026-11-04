@@ -66,8 +66,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  *
  * Security Considerations:
  * <ul>
- *   <li>Validates fid parameter to ensure numeric format (prevents injection)</li>
- *   <li>Uses log-safe sanitization for invalid fid values in logs</li>
+ *   <li>Validates the staged draft's fid to ensure numeric format (prevents injection)</li>
+ *   <li>Uses log-safe sanitization for invalid staged fid values in logs</li>
  *   <li>Generates patient-specific PDF passwords based on demographic information</li>
  *   <li>Sanitizes attachment filenames through EmailComposeManager</li>
  *   <li>Session cleanup prevents information leakage across requests</li>
@@ -192,8 +192,8 @@ public class EmailCompose2Action extends ActionSupport {
      *
      * Security Features:
      * <ul>
-     *   <li>Validates fid parameter with regex pattern to ensure numeric format only</li>
-     *   <li>Logs warnings for invalid fid values using OWASP-encoded output</li>
+     *   <li>Validates the staged draft's fid with a regex to ensure numeric format only</li>
+     *   <li>Logs warnings for invalid staged fid values using log-safe sanitization</li>
      *   <li>Generates patient-specific PDF passwords: YYYYMMDD (DOB) + 10-digit HIN</li>
      *   <li>Sanitizes all attachment filenames to prevent path traversal attacks</li>
      *   <li>Verifies patient email consent before allowing composition</li>

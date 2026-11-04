@@ -9,15 +9,18 @@
     Reached only through EmailCompose2Action's _email write privilege check.
 --%>
 <%@ page contentType="text/html; charset=UTF-8" %>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<% pageContext.setAttribute("composeLocale", LocaleUtils.resolveBundleLocale(request)); %>
+<fmt:setLocale value="${composeLocale}"/>
 <fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
-<html lang="${pageContext.request.locale.language}">
+<html lang="${carlos:forHtmlAttribute(composeLocale.toLanguageTag())}">
 <head>
     <meta charset="UTF-8">
     <title><fmt:message key="email.compose.error.title"/></title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/library/bootstrap/5.3.8/css/bootstrap.min.css">
+    <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/library/bootstrap/5.3.8/css/bootstrap.min.css">
     <style>
         body { padding: 2rem; }
         .email-error-card { max-width: 640px; margin: 0 auto; }
@@ -29,7 +32,7 @@
         <h1 class="h5 mb-0"><fmt:message key="email.compose.error.title"/></h1>
     </div>
     <div class="card-body">
-        <p id="emailComposeErrorMessage" role="alert"><c:out value="${requestScope.errorMessage}"/></p>
+        <p id="emailComposeErrorMessage" role="alert">${carlos:forHtmlContent(requestScope.errorMessage)}</p>
         <p><fmt:message key="email.compose.error.saved"/></p>
         <button id="retryEmailCompose" type="button" class="btn btn-primary" onclick="window.location.reload()">
             <fmt:message key="email.compose.error.retry"/>
