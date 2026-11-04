@@ -281,6 +281,9 @@
              because the JDK caches its fontconfig resolution there (issue #5046). -->
         <test.jvmArgs/>
         <test.forkCount>4</test.forkCount>
+        <!-- Each evidence lane supplies a fresh directory; ordinary Maven runs retain their path. -->
+        <test.reportsDirectory>${project.build.directory}/surefire-reports</test.reportsDirectory>
+        <test.coverageDirectory>${project.reporting.outputDirectory}/jacoco</test.coverageDirectory>
         <!-- Log4j Version -->
         <log4j2.version>2.25.5</log4j2.version>
         <!-- Slf4j Version -->
@@ -1714,6 +1717,7 @@
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.16</version>
                 <configuration>
+                    <outputDirectory>${test.coverageDirectory}</outputDirectory>
                     <!-- JSqlParser's generated token-manager method exceeds the JVM method
                          size after instrumentation; dependency code is outside our coverage scope. -->
                     <excludes>
@@ -1998,6 +2002,7 @@
                     <!-- Each fork is a separate JVM with its own H2 mem:testdb instance,
                          so forks are completely isolated and safe to run in parallel. -->
                     <forkCount>${test.forkCount}</forkCount>
+                    <reportsDirectory>${test.reportsDirectory}</reportsDirectory>
                     <reuseForks>true</reuseForks>
                     <!-- Keep test classes sequential within each fork. Several Spring integration
                          tests share application-context caches or fixed seed data; fork-level

@@ -107,6 +107,18 @@ jobs:
         run: npx --no-install playwright install --with-deps chromium
       - name: Check measurement calculation DOM events in Chromium
         run: node scripts/measurement-whtr-browser-check.js
+      - name: Check clinical risk refusals and executed production JavaScript in Chromium
+        env:
+          RELEASE_JS_COVERAGE: target/clinical-risk-javascript-coverage.json
+        run: node scripts/clinical-risk-browser-check.js
+      - name: Preserve production JavaScript execution metadata
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: clinical-risk-javascript-coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/clinical-risk-javascript-coverage.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Check RTL measurement loading in Chromium
         run: node scripts/rtl-measurement-browser-check.js
       - name: Check eForm toolbar and fax compatibility in Chromium
