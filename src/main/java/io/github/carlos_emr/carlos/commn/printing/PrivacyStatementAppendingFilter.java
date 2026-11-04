@@ -347,6 +347,15 @@ public class PrivacyStatementAppendingFilter implements Filter {
             return writer;
         }
 
+        /** Clears channel selection only after a full reset succeeds on the delegate. */
+        @Override
+        public void reset() {
+            super.reset();
+            responseWriterObtained = false;
+            responseOutputStreamObtained = false;
+            writer = null;
+        }
+
         public boolean isResponseWriterObtained() {
             return responseWriterObtained;
         }

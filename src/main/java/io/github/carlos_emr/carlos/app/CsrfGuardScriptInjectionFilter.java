@@ -460,6 +460,20 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return writer;
         }
 
+        /** Drops the abandoned capture and channel selection after a successful full reset. */
+        @Override
+        public void reset() {
+            super.reset();
+            captureWriter = null;
+            writer = null;
+            usingOutputStream = false;
+            usingWriter = false;
+            writerPassthrough = false;
+            committed = false;
+            deferredContentLength = null;
+            deferredContentLengthLong = null;
+        }
+
         @Override
         public void setContentLength(int len) {
             if (usingOutputStream) {
