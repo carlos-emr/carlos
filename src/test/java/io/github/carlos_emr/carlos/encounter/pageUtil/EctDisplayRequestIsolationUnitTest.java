@@ -13,6 +13,7 @@ import io.github.carlos_emr.carlos.managers.MessagingManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import io.github.carlos_emr.carlos.services.security.SecurityManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +24,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.logging.log4j.Level;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -457,12 +459,14 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
             });
         }
         MockHttpServletResponse response = new MockHttpServletResponse();
-        try (var moduleSecurity = mockConstruction(SecurityManager.class,
+        try (var logs = LogCapture.forLogger(EctDisplayAction.class);
+             var moduleSecurity = mockConstruction(SecurityManager.class,
                 (mock, context) -> when(mock.hasReadAccess(anyString(), anyString())).thenReturn(true))) {
             RecordingDisplay action = execute(request, response);
 
             assertThat(action.result).isEqualTo("success");
             assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(logs.events()).filteredOn(event -> event.getLevel().isMoreSpecificThan(Level.ERROR)).isEmpty();
             assertThat(action.loaded.curProviderNo).isEqualTo("999998");
             assertThat(action.loaded.providerNo).isEqualTo("999998");
             assertThat(action.loaded.userName).isEqualTo("Synthetic Provider");
