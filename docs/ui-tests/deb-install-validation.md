@@ -35,14 +35,15 @@ final six-mode run reports **4 passes, 0 failures, 0 skips and 2 known failures*
 no residue and no application restart (`NRestarts` 0 → 0). Finding 333 is fixed
 and its four expected-failure pins are removed.
 
-The Ubuntu build passed 2,443 Rx tests; the later review-specific run passed 139
+After merging the current release branch, the Ubuntu build passed 2,445 Rx
+tests; the review-specific run passed 139
 focused cases, including audit-after-commit ordering and real-H2 partial-date
 rollback/retry. The H2 check observes a first-card partial-date row before a real
 second-drug INSERT fails, verifies that all three tables roll back, and checks
 exactly one partial-date row after retry. Both Save And Print modes also pass
 again after bounding the best-effort network-settling wait, with no residue or
 service restart. Pinned DrugRef passed 74
-tests. Locked Node regressions passed 7,056 tests with one existing TODO; the
+tests. Locked Node regressions passed 7,082 tests with one existing TODO; the
 updated manifest/Rx harness checks passed 71 tests. The CDS crosswalk check and
 its 25 Python tests pass with the reviewed reader bytes preserved. Source lints
 and `lintian --fail-on error` on the complete debs pass.
