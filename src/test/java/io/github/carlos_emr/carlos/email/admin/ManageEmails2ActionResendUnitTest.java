@@ -220,7 +220,7 @@ class ManageEmails2ActionResendUnitTest extends CarlosUnitTestBase {
         String result = resend(new ArrayList<>(), new boolean[1]);
 
         assertThat(result).isNull();
-        assertThat(response.getStatus()).isGreaterThanOrEqualTo(400);
+        assertThat(response.getStatus()).isEqualTo(400);
         assertThat(response.getContentAsString()).contains("Invalid email log id");
         verify(emailComposeManager, never()).prepareEmailForResend(any(), anyInt());
     }

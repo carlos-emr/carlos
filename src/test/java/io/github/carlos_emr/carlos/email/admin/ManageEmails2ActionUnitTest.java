@@ -203,7 +203,7 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
         MockHttpServletResponse response = resolve(logId, new LoggedInInfo());
 
         verifyNoInteractions(emailManager);
-        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getStatus()).isEqualTo(400);
         assertThat(response.getContentAsString()).contains("Invalid email log id");
     }
 

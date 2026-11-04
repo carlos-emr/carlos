@@ -200,7 +200,7 @@ public class ManageEmails2Action extends ActionSupport {
      * Missing logs return HTTP 404; any refreshed status other than RESOLVED returns HTTP 409.
      * Repeated resolution of a RESOLVED log succeeds without another update.
      *
-     * Invalid log IDs return a JSON error without modifying data. Eligible rows are updated
+     * Invalid log IDs return JSON HTTP 400 without modifying data. Eligible rows are updated
      * via {@link EmailManager#updateEmailStatus}; the refreshed stored state determines the response.
      * Later transport outcomes can supersede a resolution.
      * Only POST is accepted so the mutation is covered by CSRFGuard.
@@ -221,7 +221,8 @@ public class ManageEmails2Action extends ActionSupport {
         }
         String emailLogId = request.getParameter("logId");
         if (!StringUtils.isInteger(emailLogId)) {
-            JSONUtil.errorResponse(response, ERROR_MESSAGE_KEY, INVALID_EMAIL_LOG_ID_MESSAGE);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, INVALID_EMAIL_LOG_ID_MESSAGE);
             return;
         }
         EmailLog emailLog = emailManager.updateEmailStatus(loggedInInfo, Integer.parseInt(emailLogId), EmailStatus.RESOLVED, null);
@@ -255,7 +256,7 @@ public class ManageEmails2Action extends ActionSupport {
      *
      * If PDF regeneration fails for any attachment, an error message is set and the user
      * is advised to create a new email instead of resending. The method returns null in
-     * case of an invalid log ID or a missing email log; missing logs return HTTP 404.
+     * case of an invalid log ID (HTTP 400) or a missing email log (HTTP 404).
      *
      * All email data including encryption settings, password protection, chart display options,
      * and additional parameters are preserved from the original email for potential modification
@@ -272,7 +273,8 @@ public class ManageEmails2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String emailLogId = request.getParameter("logId");
         if (!StringUtils.isInteger(emailLogId)) {
-            JSONUtil.errorResponse(response, ERROR_MESSAGE_KEY, INVALID_EMAIL_LOG_ID_MESSAGE);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, INVALID_EMAIL_LOG_ID_MESSAGE);
             return null;
         }
 
