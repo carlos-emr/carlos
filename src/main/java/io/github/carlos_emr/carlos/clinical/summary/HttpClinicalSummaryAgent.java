@@ -52,6 +52,8 @@ public final class HttpClinicalSummaryAgent implements ClinicalSummaryAgent {
 
     @Override
     public JsonNode generate(JsonNode request) throws IOException {
+        // The agent API carries the canonical schema. Any provider grammar projection belongs
+        // to the configured backend; the host still validates its returned output locally.
         JsonNode response = post(port, path, JSON.writeValueAsBytes(request), timeoutMs);
         exactFields(response, Set.of("contract_version", "request_id", "status", "output"));
         if (!response.path("contract_version").isIntegralNumber()
