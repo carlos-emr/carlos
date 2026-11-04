@@ -1362,6 +1362,11 @@
 
 
 function updateCPPNote() {
+    if (noteSwitchSavePending) {
+        alert(noteSavingMessage);
+        return false;
+    }
+    var complete;
     try {
     sanitizeElementByPattern(document.forms["frmIssueNotes"].elements["noteEditTxt"], CONTROL_CHAR_PATTERN_2);
    var url = $("frmIssueNotes").action;
@@ -1387,6 +1392,9 @@ function updateCPPNote() {
 
         var params = $("frmIssueNotes").serialize();
         var sigId = "sig" + caseNote.substr(13);
+        // Own one barrier slot from the CPP POST through both issue refreshes.
+        // An encounter save requested before this response must wait too.
+        complete = beginIssueUpdate();
         CarlosAjax.request(
             url,
             {
@@ -1394,18 +1402,25 @@ function updateCPPNote() {
                 evalScripts: true,
                 postBody: params,
                 onSuccess: function (request) {
-                    if (request.responseText.length > 0) {
-                        $(div).update(request.responseText);
-                    }
-                    // A CPP save can create a patient issue even when every checkbox
-                    // stays checked. Refresh the note fields and Unresolved Issues
-                    // after every successful save, independently of issueChange.
-                    ajaxUpdateIssues("edit", sigId, true);
-                    $("issueChange").value = false;
+                    try {
+                        if (request.responseText.length > 0) {
+                            $(div).update(request.responseText);
+                        }
+                        // A CPP save can create a patient issue even when every checkbox
+                        // stays checked. Refresh the note fields and Unresolved Issues
+                        // after every successful save, independently of issueChange.
+                        ajaxUpdateIssues("edit", sigId, true, complete);
+                        $("issueChange").value = false;
 
-                    if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
+                        if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
+                    } catch (e) {
+                        complete(false);
+                        alert(updateIssueError);
+                        console.error("CPP refresh error:", e);
+                    }
                 },
                 onFailure: function (request) {
+                    complete(false);
                     $('showEditNote').style.display = 'block';
                     if ($('channel')) $('channel').style.visibility = 'hidden';
                     alert(savingNoteError + " " + request.status);
@@ -1413,6 +1428,10 @@ function updateCPPNote() {
             }
         );
     } catch (e) {
+        if (complete) complete(false);
+        $('showEditNote').style.display = 'block';
+        if ($('channel')) $('channel').style.visibility = 'hidden';
+        alert(savingNoteError);
         console.error("updateCPPNote error:", e);
     }
     return false;
@@ -1427,6 +1446,7 @@ function updateCPPNote() {
     }
 
     function loadDiv(div, url, limit, complete) {
+        var refreshed = false;
 
         CarlosAjax.request(
             url,
@@ -1441,12 +1461,13 @@ function updateCPPNote() {
                 onSuccess: function (request) {
                     $(div).update(request.responseText);
                     if (typeof notifyDivLoaded === 'function') notifyDivLoaded($(div).id);
+                    refreshed = true;
                 },
                 onFailure: function (request) {
                     $(div).update("<h3>" + div + "<\/h3>Error: " + request.status + "<br>" + request.responseText);
                 },
                 onComplete: function (request) {
-                    if (complete) complete(request.status >= 200 && request.status < 300);
+                    if (complete) complete(refreshed && request.status >= 200 && request.status < 300);
                 }
             }
         );
@@ -3307,6 +3328,8 @@ function updateCPPNote() {
     var updateIssueError;
     var issueUpdatesPending = 0;
     var issueUpdateFailed = false;
+    var issueRefreshQueue = [];
+    var issueRefreshPending = false;
     var queuedNoteSave = null;
     var noteSwitchSavePending = false;
     var noteSavingMessage = "${carlos:forJavaScriptBlock(noteSavingLabel)}";
@@ -3367,49 +3390,98 @@ function updateCPPNote() {
         }
     }
 
-    function ajaxUpdateIssues(method, div, preserveSelections) {
-        if (noteSwitchSavePending) {
-            alert(noteSavingMessage);
-            return false;
-        }
-        var frm = document.forms["caseManagementEntryForm"];
-        frm.method.value = method;
-        frm.ajax.value = true;
-
-        var url = chartActionUrl("/CaseManagementEntry");
-        var p = Form.serialize(frm);
+    function beginIssueUpdate() {
         if (issueUpdatesPending === 0) issueUpdateFailed = false;
         issueUpdatesPending += 1;
         setNoteIssueControlsBusy(true);
-        var selectedIssues;
-        ajaxRequest = CarlosAjax.updater({success: div}, url, {
-            evalScripts: true, postBody: p,
-            // The updater calls onSuccess before replacing the fragment. Capture
-            // the latest unsaved choices by patient-issue id, since edit rebuilds
-            // the checklist from the persisted note and may reorder its indexes.
-            onSuccess: function () {
-                if (!preserveSelections) return;
-                selectedIssues = new Map();
-                frm.querySelectorAll('input[type="checkbox"][data-issue-id]').forEach(function (checkbox) {
-                    selectedIssues.set(checkbox.getAttribute('data-issue-id'), checkbox.checked);
-                });
-            },
-            // onComplete runs after the updater installs the new issue fields.
-            onComplete: function (response) {
-                if (response.status >= 200 && response.status < 300) {
-                    if (selectedIssues) {
-                        frm.querySelectorAll('input[type="checkbox"][data-issue-id]').forEach(function (checkbox) {
-                            var id = checkbox.getAttribute('data-issue-id');
-                            if (selectedIssues.has(id)) checkbox.checked = selectedIssues.get(id);
-                        });
+        var finished = false;
+        return function (succeeded) {
+            if (finished) return;
+            finished = true;
+            finishIssueUpdate(succeeded);
+        };
+    }
+
+    function runNextIssueRefresh() {
+        if (issueRefreshPending || issueRefreshQueue.length === 0) return;
+        issueRefreshPending = true;
+        issueRefreshQueue.shift()();
+    }
+
+    function ajaxUpdateIssues(method, div, preserveSelections, complete) {
+        if (noteSwitchSavePending) {
+            if (complete) complete(false);
+            alert(noteSavingMessage);
+            return false;
+        }
+        complete = complete || beginIssueUpdate();
+        // Serialize whole refresh pairs. An older editor-load response must not
+        // replace the CPP-created issue fields after this refresh has installed them.
+        issueRefreshQueue.push(function () {
+            var finished = false;
+            function refreshed(succeeded) {
+                if (finished) return;
+                finished = true;
+                issueRefreshPending = false;
+                try { complete(succeeded); }
+                finally { runNextIssueRefresh(); }
+            }
+            try {
+                var frm = document.forms["caseManagementEntryForm"];
+                frm.method.value = method;
+                frm.ajax.value = true;
+
+                var url = chartActionUrl("/CaseManagementEntry");
+                var p = Form.serialize(frm);
+                var selectedIssues;
+                var captured = true;
+                ajaxRequest = CarlosAjax.updater({success: div}, url, {
+                    evalScripts: true, postBody: p,
+                    // The updater calls onSuccess before replacing the fragment. Capture
+                    // the latest unsaved choices by patient-issue id, since edit rebuilds
+                    // the checklist from the persisted note and may reorder its indexes.
+                    onSuccess: function () {
+                        if (!preserveSelections) return;
+                        try {
+                            selectedIssues = new Map();
+                            frm.querySelectorAll('input[type="checkbox"][data-issue-id]').forEach(function (checkbox) {
+                                selectedIssues.set(checkbox.getAttribute('data-issue-id'), checkbox.checked);
+                            });
+                        } catch (e) {
+                            captured = false;
+                            alert(updateIssueError);
+                        }
+                    },
+                    // onComplete runs after the updater installs the new issue fields.
+                    onComplete: function (response) {
+                        try {
+                            if (captured && response.updateSucceeded === true && response.status >= 200 && response.status < 300) {
+                                if (selectedIssues) {
+                                    frm.querySelectorAll('input[type="checkbox"][data-issue-id]').forEach(function (checkbox) {
+                                        var id = checkbox.getAttribute('data-issue-id');
+                                        if (selectedIssues.has(id)) checkbox.checked = selectedIssues.get(id);
+                                    });
+                                }
+                                onIssueUpdate(refreshed);
+                            } else {
+                                if (captured && response.status >= 200 && response.status < 300) alert(updateIssueError);
+                                refreshed(false);
+                            }
+                        } catch (e) {
+                            refreshed(false);
+                            alert(updateIssueError);
+                        }
+                    },
+                    onFailure: function (response) {
+                        alert(response.status + " " + updateIssueError);
                     }
-                    onIssueUpdate(finishIssueUpdate);
-                } else finishIssueUpdate(false);
-            },
-            onFailure: function (response) {
-                alert(response.status + " " + updateIssueError);
+                });
+            } catch (e) {
+                refreshed(false);
+                alert(updateIssueError);
             }
         });
+        runNextIssueRefresh();
 
         return false;
     }

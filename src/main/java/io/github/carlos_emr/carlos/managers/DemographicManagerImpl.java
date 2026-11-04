@@ -471,8 +471,8 @@ public class DemographicManagerImpl implements DemographicManager {
         try {
             demographic.getBirthDay();
         } catch (Exception e) {
-            throw new IllegalArgumentException("Birth date was specified for " + demographic.getFullName() + ": "
-                    + demographic.getBirthDayAsString());
+            // Callers may log this exception: neither the message nor a cause may contain patient data.
+            throw new IllegalArgumentException("Invalid birth date.");
         }
 
         demographic.setPatientStatus(PatientStatus.AC.name());
@@ -511,8 +511,7 @@ public class DemographicManagerImpl implements DemographicManager {
         try {
             demographic.getBirthDay();
         } catch (Exception e) {
-            throw new IllegalArgumentException("Birth date was specified for " + demographic.getFullName() + ": "
-                    + demographic.getBirthDayAsString());
+            throw new IllegalArgumentException("Invalid birth date.");
         }
 
         // Archive previous demo
@@ -594,8 +593,7 @@ public class DemographicManagerImpl implements DemographicManager {
         try {
             demographic.getBirthDay();
         } catch (Exception e) {
-            throw new IllegalArgumentException("Birth date was specified for " + demographic.getFullName() + ": "
-                    + demographic.getBirthDayAsString());
+            throw new IllegalArgumentException("Invalid birth date.");
         }
 
         // save current demo

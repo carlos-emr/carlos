@@ -39,7 +39,7 @@
             <exception-mapping exception="java.lang.Exception" result="error"/>
         </global-exception-mappings>
 
-        <action name="admin/MergeRecords" class="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action">
+        <action name="admin/MergeRecords" class="demographicMergeMutation2Action">
             <result name="success" type="redirectAction">
                 <param name="actionName">admin/DemographicMergeRecord</param>
                 <param name="outcome">success</param>

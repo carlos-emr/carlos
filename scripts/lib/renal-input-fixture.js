@@ -7,18 +7,18 @@ const CASES = {
   'older-low-weight': {age: 80, sex: 'F', weight: '40', cr: '100', clearance: 26},
   'younger-high-weight': {age: 40, sex: 'M', weight: '100', cr: '100', clearance: 125},
   'missing-weight': {weight: null, cr: '100'}, 'missing-cr': {weight: '80', cr: null},
-  'missing-both': {weight: null, cr: null}, 'future-age': {age: -1, weight: '80', cr: '100'},
+  'missing-both': {weight: null, cr: null}, 'future-age': {age: -1, weight: '80', cr: '100', status: 400},
   'lab-only': {weight: '80', cr: null, lab: '100', labDate: '03-Jan-25', clearance: 80, source: '2025-Jan-03'},
   'lab-newer': {weight: '80', cr: '200', crDate: '2025-01-02', lab: '100', labDate: '03-Jan-25', clearance: 80, source: '2025-Jan-03'},
   'measurement-newer': {weight: '80', cr: '200', crDate: '2025-01-04', lab: '100', labDate: '03-Jan-25', clearance: 40, source: '2025-Jan-04'},
   // A tie deliberately prefers the lab: the production contract changes to a
   // measurement only when its observation date is strictly newer.
   'equal-date-lab': {weight: '80', cr: '200', crDate: '2025-01-03', lab: '100', labDate: '03-Jan-25', clearance: 80, source: '2025-Jan-03'},
-  'newer-unusable-source': {weight: '80', cr: 'not-a-number', crDate: '2025-01-04', lab: '100', labDate: '03-Jan-25'},
+  'newer-unusable-source': {weight: '80', cr: 'not-a-number', crDate: '2025-01-04', lab: '100', labDate: '03-Jan-25', status: 400},
 };
 for (const [name, value] of Object.entries({blank: '', text: 'not-a-number', zero: '0', negative: '-1', nan: 'NaN', infinity: 'Infinity'})) {
-  CASES['weight-'+name] = {weight: value, cr: '100'};
-  CASES['cr-'+name] = {weight: '80', cr: value};
+  CASES['weight-'+name] = {weight: value, cr: '100', status: 400};
+  CASES['cr-'+name] = {weight: '80', cr: value, status: 400};
 }
 for (const [clearance, cr] of [[4,'2000'],[5,'1600'],[6,'1333.333333'],[29,'275.862069'],[30,'266.666667'],[31,'258.064516']]) {
   CASES['boundary-'+clearance] = {weight: '80', cr, clearance};
@@ -48,13 +48,13 @@ function renalInputFixture(s) {
   function measure(type, value, date, instruction) {
     if (value === null || value === undefined) return;
     sql.execute(`INSERT INTO measurements(type,demographicNo,providerNo,dataField,measuringInstruction,comments,dateObserved,dateEntered)
-      VALUES (${h.sqlString(type)},${patient},${h.sqlString(provider)},${h.sqlString(value)},${h.sqlString(instruction)},${h.sqlString(marker)},${h.sqlString(date)},NOW())`);
+      VALUES (?,?,?,?,?,?,?,NOW())`,[type,patient,provider,value,instruction,marker,date]);
   }
   return {clear, apply(testCase) {
     clear();
     const age = testCase.age ?? 60;
     sql.execute(`UPDATE demographic SET sex=${h.sqlString(testCase.sex || 'M')},year_of_birth=YEAR(CURDATE())-(${age}),month_of_birth='01',date_of_birth='01' WHERE demographic_no=${patient}`);
-    measure('WT',testCase.weight,'2025-01-01','in kg'); measure('SCR',testCase.cr,testCase.crDate || '2025-01-02','umol/L');
+    measure('WT',testCase.weight,'2025-01-01','in kg'); measure('SCR',testCase.cr,testCase.crDate===undefined?'2025-01-02':testCase.crDate,'umol/L');
     if (testCase.lab !== undefined) {
       const report=h.insertId(sql,`INSERT INTO labReportInformation(location_id,print_date,print_time,total_BType,total_CType,total_DType)
         VALUES (${h.sqlString(marker)},'20250103','00:00','1','1','0')`,'owned renal CML report');reports.push(report);
