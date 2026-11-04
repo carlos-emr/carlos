@@ -1,12 +1,10 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.prescript.util;
 
-import java.util.regex.Pattern;
+import java.math.BigDecimal;
 
 /** Validation of stored observations before calculating a renal dose. */
 public final class RenalDosingInput {
-    private static final Pattern DECIMAL = Pattern.compile("[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?");
-
     private RenalDosingInput() {
     }
 
@@ -20,12 +18,10 @@ public final class RenalDosingInput {
         if (observation == null) {
             return Double.NaN;
         }
-        String normalized = observation.trim();
-        if (!DECIMAL.matcher(normalized).matches()) {
-            return Double.NaN;
-        }
         try {
-            double value = Double.parseDouble(normalized);
+            // BigDecimal enforces decimal syntax without regex backtracking or Java's
+            // hexadecimal literals and float/double suffixes.
+            double value = new BigDecimal(observation.trim()).doubleValue();
             return Double.isFinite(value) && value > 0 ? value : Double.NaN;
         } catch (NumberFormatException e) {
             return Double.NaN;
