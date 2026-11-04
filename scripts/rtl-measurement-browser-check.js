@@ -63,7 +63,9 @@ async function run() {
     await page.waitForFunction(()=>!measurementHistoryStillLoading());
     assert.deepEqual(await page.evaluate(()=>[
       measurementMonth(Date.parse('2026-09-30T23:30:00-07:00')),
-      measurementMonth(Date.parse('2026-12-31T23:30:00-08:00')),
+      // BC keeps daylight time after 2026: stay before midnight under both
+      // the old UTC-8 winter rule and the current UTC-7 Vancouver rule.
+      measurementMonth(Date.parse('2026-12-31T22:30:00-08:00')),
       measurementMonth('2026-09-30'),
       measurementMonth('2026-10-01T01:30:00Z'),
       measurementMonth('2027-01-01T01:30:00Z'),
