@@ -332,6 +332,17 @@ async function workflow(s) {
     await expectValue(sql, `SELECT status FROM emailLog WHERE id=${failedLog}`, 'RESOLVED',
       'Resolve showed RESOLVED but the log row is still FAILED');
   });
+
+  await s.step('Resolved email stays RESOLVED after reloading Manage Emails', async () => {
+    await manager.goto(manager.url(), {waitUntil: 'domcontentloaded'});
+    await fetchEmails('RESOLVED');
+    h.assert(await cards().count() === 1 && await manager.locator(`#emailStatus${failedLog}`).count() === 1,
+      'The RESOLVED filter did not isolate the resolved row after reload');
+    h.assert((await manager.locator(`#emailStatus${failedLog}`).innerText()).trim() === 'RESOLVED',
+      'The reloaded card does not show the stored RESOLVED status');
+    h.assert(await manager.locator(`#btnResolve${failedLog}`).count() === 0,
+      'The reloaded resolved row still offers Resolve');
+  });
 }
 
 if (require.main === module) runWorkflow('admin-email-config', workflow, {openPatient: true});

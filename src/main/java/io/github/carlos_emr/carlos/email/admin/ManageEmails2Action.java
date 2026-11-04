@@ -81,8 +81,8 @@ public class ManageEmails2Action extends ActionSupport {
      *
      * This method examines the "method" parameter from the HTTP request and delegates to
      * the corresponding method handler. Supported methods include "fetchEmails" for retrieving
-     * email logs based on search criteria, and "resendEmail" for preparing a previously sent
-     * email for resending.
+     * email logs based on search criteria, "setResolved" for resolving a failed email, and
+     * "resendEmail" for preparing a previously sent email for resending.
      *
      * If no method parameter is provided or the method is not recognized, defaults to displaying
      * the email management interface via {@link #showEmailManager()}.
@@ -98,6 +98,9 @@ public class ManageEmails2Action extends ActionSupport {
             return fetchEmails();
         } else if ("resendEmail".equals(mtd)) {
             return resendEmail();
+        } else if ("setResolved".equals(mtd)) {
+            setResolved();
+            return null;
         }
 
         return showEmailManager();
@@ -187,11 +190,17 @@ public class ManageEmails2Action extends ActionSupport {
      * If the log ID is invalid (not an integer), the method returns a JSON error response
      * to the client and does not modify any data. Upon successful validation, the email
      * status is updated via {@link EmailManager#updateEmailStatus}.
+     * Only POST is accepted so the mutation is covered by CSRFGuard.
      *
      * @see EmailManager#updateEmailStatus
      * @see EmailStatus#RESOLVED
      */
     public void setResolved() {
+        if (!"POST".equals(request.getMethod())) {
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            response.setHeader("Allow", "POST");
+            return;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String emailLogId = request.getParameter("logId");
         if (!StringUtils.isInteger(emailLogId)) {
