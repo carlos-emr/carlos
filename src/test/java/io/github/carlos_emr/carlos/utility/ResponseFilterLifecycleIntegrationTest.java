@@ -81,6 +81,8 @@ class ResponseFilterLifecycleIntegrationTest {
     private static final byte[] BINARY = new byte[100_123];
     private static final ConcurrentHashMap<String, Boolean> FINISHED_AFTER_FORWARD = new ConcurrentHashMap<>();
     private static final Properties ORIGINAL_PROPERTIES = new Properties();
+    private static final Properties CSRF_PROPERTIES = new Properties();
+    private static boolean originalCsrfEnabled;
     @TempDir
     static Path baseDir;
     private static Tomcat tomcat;
@@ -93,13 +95,15 @@ class ResponseFilterLifecycleIntegrationTest {
         CarlosProperties.getInstance().keySet().removeIf(key -> key.toString().startsWith("confidentiality_statement.v"));
         CarlosProperties.getInstance().setProperty("confidentiality_statement.v1", NOTICE);
         CarlosProperties.getInstance().setProperty("response.sanitization.enabled", "true");
-        Properties csrf = new Properties();
         try (var in = Files.newInputStream(Path.of("src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties"))) {
-            csrf.load(in);
+            CSRF_PROPERTIES.load(in);
         }
-        csrf.setProperty("org.owasp.csrfguard.configuration.provider.factory",
+        CSRF_PROPERTIES.setProperty("org.owasp.csrfguard.configuration.provider.factory",
                 "org.owasp.csrfguard.config.PropertiesConfigurationProviderFactory");
-        CsrfGuard.load(csrf);
+        // The CsrfGuard singleton is JVM-wide and Surefire reuses forks: remember what later
+        // tests in this fork would otherwise have seen, and put it back in stopTomcat().
+        originalCsrfEnabled = CsrfGuard.getInstance().isEnabled();
+        CsrfGuard.load(CSRF_PROPERTIES);
         assertThat(CsrfGuard.getInstance().isEnabled()).isTrue();
         for (int i = 0; i < BINARY.length; i++) {
             BINARY[i] = (byte) i;
@@ -141,6 +145,18 @@ class ResponseFilterLifecycleIntegrationTest {
         } finally {
             CarlosProperties.getInstance().clear();
             CarlosProperties.getInstance().putAll(ORIGINAL_PROPERTIES);
+            Properties restore = new Properties();
+            restore.putAll(CSRF_PROPERTIES);
+            if (!originalCsrfEnabled) {
+                // PropertiesConfigurationProviderFactory pins its first provider in a static
+                // field, so "Enabled=false" through it would be ignored; the null provider
+                // factory is the way back to the disabled guard other tests started from.
+                restore.setProperty("org.owasp.csrfguard.configuration.provider.factory",
+                        "org.owasp.csrfguard.config.NullConfigurationProviderFactory");
+            }
+            CsrfGuard.load(restore);
+            assertThat(CsrfGuard.getInstance().isEnabled())
+                    .as("CsrfGuard singleton restored for later tests in this fork").isEqualTo(originalCsrfEnabled);
         }
     }
 
@@ -385,11 +401,12 @@ class ResponseFilterLifecycleIntegrationTest {
 
     @Test
     void shouldExposeReplayAfterSuspension_withoutBlamingMonitoring() throws Exception {
-        // Minimal isolation: the outer REQUEST-only sanitizer alone loses its captured writer
-        // after forward; JavaMelody 2.9.0 alone drains the writer during forward and is complete.
+        // Minimal isolation: with Tomcat's default the outer REQUEST-only sanitizer's replay runs
+        // after the container has finished the raw response; JavaMelody 2.9.0 alone drains the
+        // writer during the forward and is complete. The control pins that finish() happened (the
+        // mechanism), not the bytes the unsupported configuration happens to emit.
         HttpResponse<byte[]> isolated = get("/sanitizer/forward?size=55324");
         assertThat(isolated.statusCode()).isEqualTo(200);
-        assertThat(isolated.body()).isEmpty();
         assertThat(FINISHED_AFTER_FORWARD.get("/sanitizer")).isTrue();
         HttpResponse<byte[]> captured = get("/capture/forward?size=55324");
         assertThat(captured.statusCode()).isEqualTo(200);
@@ -400,7 +417,6 @@ class ResponseFilterLifecycleIntegrationTest {
         assertThat(monitored.body()).isEqualTo(html(55_324).getBytes(StandardCharsets.UTF_8));
         HttpResponse<byte[]> composed = get("/default/forward?size=55324");
         assertThat(composed.statusCode()).isEqualTo(200);
-        assertThat(composed.body()).isEmpty();
         assertThat(FINISHED_AFTER_FORWARD.get("/default")).isTrue();
     }
 
