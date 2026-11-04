@@ -22,6 +22,9 @@
 package io.github.carlos_emr.carlos.utility;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.app.CsrfGuardScriptInjectionFilter;
+import io.github.carlos_emr.carlos.app.LogoutBroadcastFilter;
+import io.github.carlos_emr.carlos.commn.printing.PrivacyStatementAppendingFilter;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
 import org.apache.logging.log4j.Level;
@@ -33,6 +36,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.owasp.csrfguard.CsrfGuard;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
@@ -40,6 +45,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.Filter;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletOutputStream;
@@ -50,6 +57,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -1041,6 +1049,256 @@ class ResponseSanitizationFilterUnitTest {
     // these pin the filter-side behaviors that keep any such premature commit
     // from manufacturing a 500 or replaying stale content.
     // -------------------------------------------------------------------------
+
+    /** Pins the distinct channel contracts of full and buffer-only resets. */
+    @Nested
+    @DisplayName("response reset channel selection")
+    class ResponseResetChannelSelection {
+
+        @ParameterizedTest
+        @CsvSource({
+            "true,true,false,false", "true,false,false,false",
+            "false,true,false,false", "false,false,false,false",
+            "true,true,true,false", "true,false,true,false",
+            "false,true,true,false", "false,false,true,false",
+            "true,true,false,true", "true,false,false,true",
+            "false,true,false,true", "false,false,false,true",
+            "true,true,true,true", "true,false,true,true",
+            "false,true,true,true", "false,false,true,true"
+        })
+        @DisplayName("should deliver replacement output through the decorating filter chain after full reset")
+        void shouldDeliverReplacement_whenDecoratingChainReset(boolean oldWriter, boolean newWriter,
+                boolean includeCsrf, boolean html) throws Exception {
+            MockHttpServletRequest request = resetChainRequest();
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String replacement = html
+                    ? "<html><head></head><body>replacement é 漢 🙂</body></html>"
+                    : "replacement é 漢 🙂";
+
+            throughDecoratingChain(request, response, includeCsrf, (req, res) -> {
+                res.setCharacterEncoding("UTF-8");
+                res.setContentType(html ? "text/html" : "text/plain");
+                ((HttpServletResponse) res).setStatus(400);
+                if (oldWriter) {
+                    res.getWriter().write("STALE");
+                } else {
+                    res.getOutputStream().write("STALE".getBytes(StandardCharsets.UTF_8));
+                }
+                res.reset();
+                res.setCharacterEncoding("UTF-8");
+                res.setContentType(html ? "text/html" : "text/plain");
+                if (newWriter) {
+                    res.getWriter().write(replacement);
+                } else {
+                    res.getOutputStream().write(replacement.getBytes(StandardCharsets.UTF_8));
+                }
+            });
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            String body = response.getContentAsString();
+            assertThat(body).contains("replacement é 漢 🙂").doesNotContain("STALE");
+            if (html && newWriter) {
+                assertThat(body.split("BroadcastChannel\\('carlos_logout'\\)", -1)).hasSize(2);
+                assertThat(body.split("src=\"/carlos/csrfguard\"", -1)).hasSize(includeCsrf ? 2 : 1);
+            } else {
+                assertThat(body).isEqualTo(replacement);
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        @DisplayName("should preserve cached writers when the decorating chain rejects a full reset")
+        void shouldPreserveWriter_whenDecoratingChainResetRejected(boolean includeCsrf) throws Exception {
+            MockHttpServletRequest request = resetChainRequest();
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            throughDecoratingChain(request, response, includeCsrf, (req, res) -> {
+                res.setContentType("text/plain");
+                var writer = res.getWriter();
+                writer.write("preserved");
+                response.setCommitted(true);
+                assertThatThrownBy(res::reset).isInstanceOf(IllegalStateException.class);
+                assertThat(res.getWriter()).isSameAs(writer);
+            });
+
+            assertThat(response.getContentAsString()).isEqualTo("preserved");
+        }
+
+        private MockHttpServletRequest resetChainRequest() {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/reset.jsp");
+            request.setContextPath("/carlos");
+            request.setServletPath("/reset.jsp");
+            request.setDispatcherType(DispatcherType.FORWARD);
+            request.getSession().setAttribute("user", "999998");
+            return request;
+        }
+
+        private void throughDecoratingChain(MockHttpServletRequest request, MockHttpServletResponse response,
+                boolean includeCsrf, FilterChain terminal) throws Exception {
+            Filter[] decorators = includeCsrf
+                    ? new Filter[] {new LogoutBroadcastFilter(), new PrivacyStatementAppendingFilter(),
+                        new CsrfGuardScriptInjectionFilter()}
+                    : new Filter[] {new LogoutBroadcastFilter(), new PrivacyStatementAppendingFilter()};
+            FilterChain chain = terminal;
+            for (int i = decorators.length - 1; i >= 0; i--) {
+                Filter decorator = decorators[i];
+                decorator.init(mock(FilterConfig.class));
+                FilterChain next = chain;
+                chain = (req, res) -> decorator.doFilter(req, res, next);
+            }
+            CsrfGuard guard = mock(CsrfGuard.class);
+            when(guard.isEnabled()).thenReturn(true);
+            try (MockedStatic<CsrfGuard> csrf = mockStatic(CsrfGuard.class)) {
+                csrf.when(CsrfGuard::getInstance).thenReturn(guard);
+                filter.doFilter(request, response, chain);
+            }
+        }
+
+        @ParameterizedTest
+        @ValueSource(ints = {200, 400})
+        @DisplayName("should deliver a replacement stream after resetting writer mode")
+        void shouldDeliverStream_whenWriterModeReset(int status) throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/reset");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            byte[] replacement = "replacement stream".getBytes(StandardCharsets.UTF_8);
+
+            filter.doFilter(request, response, (req, res) -> {
+                res.getWriter().write("discarded writer");
+                res.reset();
+                ((HttpServletResponse) res).setStatus(status);
+                res.setContentType("text/plain");
+                res.getOutputStream().write(replacement);
+            });
+
+            assertThat(response.getStatus()).isEqualTo(status);
+            assertThat(response.getContentAsByteArray()).isEqualTo(replacement);
+        }
+
+        @ParameterizedTest
+        @ValueSource(ints = {200, 400})
+        @DisplayName("should deliver a replacement writer after resetting stream mode")
+        void shouldDeliverWriter_whenStreamModeReset(int status) throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/reset");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, (req, res) -> {
+                ((HttpServletResponse) res).setStatus(status);
+                res.getOutputStream().write("discarded stream".getBytes(StandardCharsets.UTF_8));
+                res.reset();
+                res.setContentType("text/plain");
+                res.getWriter().write("replacement writer");
+            });
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentAsString()).isEqualTo("replacement writer");
+        }
+
+        @Test
+        @DisplayName("should deliver both writes when an error stream is reset and reacquired twice")
+        void shouldDeliverBothWrites_whenErrorStreamResetToSuccess() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/reset");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, (req, res) -> {
+                ((HttpServletResponse) res).setStatus(400);
+                res.getOutputStream().write("discarded error".getBytes(StandardCharsets.UTF_8));
+                res.reset();
+                res.getOutputStream().write("first ".getBytes(StandardCharsets.UTF_8));
+                res.getOutputStream().write("second".getBytes(StandardCharsets.UTF_8));
+            });
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentAsString()).isEqualTo("first second");
+        }
+
+        @Test
+        @DisplayName("should rebuild a closed writer after a full reset")
+        void shouldRebuildWriter_whenClosedWriterReset() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/reset");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, (req, res) -> {
+                var oldWriter = res.getWriter();
+                oldWriter.write("discarded writer");
+                oldWriter.close();
+                res.reset();
+                assertThat(res.getWriter()).isNotSameAs(oldWriter);
+                res.getWriter().write("replacement writer");
+            });
+
+            assertThat(response.getContentAsString()).isEqualTo("replacement writer");
+        }
+
+        @Test
+        @DisplayName("should capture a new error stream after resetting passthrough mode")
+        void shouldSanitizeError_whenPassthroughStreamReset() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/reset");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, (req, res) -> {
+                var oldStream = res.getOutputStream();
+                oldStream.write("discarded success".getBytes(StandardCharsets.UTF_8));
+                res.reset();
+                ((HttpServletResponse) res).setStatus(400);
+                res.setContentType("text/plain");
+                assertThat(res.getOutputStream()).isNotSameAs(oldStream);
+                res.getOutputStream().write(("java.lang.IllegalStateException: private detail\n"
+                        + "\tat example.Secret.run(Secret.java:42)\n").getBytes(StandardCharsets.UTF_8));
+            });
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentAsString()).doesNotContain("private detail", "Secret.java", "discarded");
+            assertThat(response.getContentAsString()).isNotEmpty();
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {true, false})
+        @DisplayName("should retain the selected channel after a buffer-only reset")
+        void shouldRetainChannel_whenOnlyBufferReset(boolean writerMode) throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/reset");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, (req, res) -> {
+                ((HttpServletResponse) res).setStatus(400);
+                if (writerMode) {
+                    var writer = res.getWriter();
+                    writer.write("discarded");
+                    res.resetBuffer();
+                    assertThatThrownBy(res::getOutputStream).isInstanceOf(IllegalStateException.class);
+                    assertThat(res.getWriter()).isSameAs(writer);
+                    writer.write("replacement");
+                } else {
+                    var stream = res.getOutputStream();
+                    stream.write("discarded".getBytes(StandardCharsets.UTF_8));
+                    res.resetBuffer();
+                    assertThatThrownBy(res::getWriter).isInstanceOf(IllegalStateException.class);
+                    assertThat(res.getOutputStream()).isSameAs(stream);
+                    stream.write("replacement".getBytes(StandardCharsets.UTF_8));
+                }
+            });
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentAsString()).isEqualTo("replacement");
+        }
+
+        @Test
+        @DisplayName("should preserve writer capture when the underlying response rejects a full reset")
+        void shouldPreserveCapture_whenFullResetRejected() throws Exception {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/reset");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, (req, res) -> {
+                var writer = res.getWriter();
+                writer.write("preserved");
+                response.setCommitted(true);
+                assertThatThrownBy(res::reset).isInstanceOf(IllegalStateException.class);
+                assertThatThrownBy(res::getOutputStream).isInstanceOf(IllegalStateException.class);
+                assertThat(res.getWriter()).isSameAs(writer);
+            });
+
+            assertThat(response.getContentAsString()).isEqualTo("preserved");
+        }
+    }
 
     @Nested
     @DisplayName("forward and replay resilience")
