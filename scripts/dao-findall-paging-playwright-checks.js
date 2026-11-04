@@ -124,7 +124,9 @@ async function workflow(s) {
   });
 
   for (const [resource, maximum] of [['pharmacies/', MAX_SELECT], ['demographics', 500]]) {
-    for (const params of [{ offset: 0, limit: maximum + 1 }, { offset: 0, limit: 2147483647 },
+    // Integer.MAX_VALUE is covered by the CXF endpoint tests: CRS 942220 rejects
+    // that literal with 403 before REST on the packaged front door.
+    for (const params of [{ offset: 0, limit: maximum + 1 }, { offset: 0, limit: maximum * 2 },
       { offset: 0, limit: -1 }, { offset: -1, limit: 10 }]) {
       await s.step(`${resource} rejects offset=${params.offset}, limit=${params.limit} with HTTP 400`, async () => {
         const response = await s.context.request.get(h.appUrl(s.config.baseUrl, `/ws/rs/${resource}`), {
