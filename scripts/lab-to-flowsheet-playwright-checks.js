@@ -92,6 +92,7 @@ const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { createNativeQuickListPreferenceFixture } = require('./lib/quick-list-preference-fixture');
 const { submitCreateLab } = require('./lab-manual-entry-cumulative-playwright-checks');
 const { removeOwnedHl7Labs, removeArchiveFiles, archivesNamed, uploadFromInbox } = require('./lab-forwarding-rules-playwright-checks');
 
@@ -203,6 +204,8 @@ function cmlUploadHl7({ accession, last, test, observed }) {
 async function workflow(s) {
   validatePin();
   const { sql, patient, provider, context } = s;
+  // Diagnostic Registry code search records the provider's last-used quick list, even on a read.
+  createNativeQuickListPreferenceFixture(s);
   const needsFraction = PIN === 'fraction';
   const labs = {}; // key -> { accession, labNo, date, tests }
   const claimed = [];
@@ -557,7 +560,10 @@ async function workflow(s) {
       const text = await report.locator('body').innerText();
       h.assert(text.includes(lab.accession) && text.includes(A1C.name), `${label} did not display the source report`);
       if (lab.key === 'above') {
-        h.assert(text.includes(UNMAPPED.name), `${label} omitted the other results on the source report`);
+        const otherResult = report.getByRole('link', { name: UNMAPPED.name, exact: true });
+        h.assert(await otherResult.count() === 1, `${label} omitted the other result on the source report`);
+        h.assert((await otherResult.locator('xpath=ancestor::tr[1]').innerText()).includes(UNMAPPED.value),
+          `${label} did not show the other result's value`);
       }
       await report.close();
     }
