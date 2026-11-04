@@ -47,7 +47,8 @@ jobs:
   semgrep:
     name: Semgrep SAST Analysis
     runs-on: ubuntu-24.04
-    timeout-minutes: ${{ github.event_name == 'pull_request' && 20 || 90 }}
+    # Full Cloud scans can take 89 minutes; leave time for custom rules and SARIF uploads.
+    timeout-minutes: ${{ github.event_name == 'pull_request' && 20 || 120 }}
     container:
       image: semgrep/semgrep@sha256:7810f1d7884974ab6dda7bef8f4a2c8e165ea2142fd8260515d380e4f1407263
     env:
@@ -124,13 +125,13 @@ jobs:
           echo "Configure repository secret SEMGREP_APP_TOKEN to enable this check."
 
       - name: Upload SARIF to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
           sarif_file: semgrep.sarif
         if: always() && steps.run_semgrep.outcome != 'skipped' && hashFiles('semgrep.sarif') != ''
 
       - name: Upload CARLOS Semgrep SARIF to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         with:
           sarif_file: semgrep-carlos.sarif
           category: semgrep-carlos

@@ -26,6 +26,14 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- SonarCloud -->
         <sonar.organization>carlos-emr</sonar.organization>
+        <!--
+            The scanner engine runs in its own provisioned JVM, which ignores MAVEN_OPTS and by default
+            gets a quarter of the runner's memory. The full-branch Java bug detection pass (sensor
+            javabugs [dbd], 55k+ functions since the 2026.08 CDS import) exhausted that heap on every
+            push analysis of main, develop and release/2026.08. PR analyses are incremental and fit.
+            The plugin passes this POM property to the engine launch, so it covers push and PR runs.
+        -->
+        <sonar.scanner.javaOpts>-Xmx8g</sonar.scanner.javaOpts>
         <!-- Include webapp (JSP/JS/HTML) and resources in SonarCloud analysis alongside Java sources -->
         <sonar.sources>src/main/java,src/main/resources,src/main/webapp</sonar.sources>
         <!-- Exclude vendored/minified third-party assets to avoid inflating LOC count and generating noise -->
