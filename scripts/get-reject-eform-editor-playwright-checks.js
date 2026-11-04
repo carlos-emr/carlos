@@ -7,10 +7,9 @@
  *
  * HtmlEdit2Action (eform/editForm) binds fid/formName/formSubject/formHtml through Struts
  * setters, which the params interceptor fills from a query string as readily as from a
- * multipart body, and has no POST check; "editForm" has no mutator prefix, the action is
- * outside the GET-rejection contract, and finding L99 lists other eForm mutators but not
- * this one. A GET therefore replaces any eForm template's HTML (or, with an empty fid,
- * creates a new template) -- markup every clinician then renders. The check saves through
+ * multipart body. Before #5637, it had no POST check or filter/contract entry, so a GET
+ * replaced any eForm template's HTML (or, with an empty fid, created a new template) --
+ * markup every clinician then renders. The check saves through
  * the page, asserts eform.form_html, then replays the captured fields as GET/HEAD with a
  * different (tag-free, so the WAF's XSS rules do not mask the application) text, and
  * asserts 405 and an unchanged template in the LAST step.
@@ -68,7 +67,22 @@ async function workflow(s) {
 
   await s.step('the editor save replayed as GET/HEAD with a different template text is recorded', async () => {
     await ledger.probe(s, { label: 'eform/editForm (HtmlEdit2Action)', path: saved.path,
-      params: replayParams(saved.params, { formHtml: `${marker} template text replaced by GET` }), snapshot: savedHtml });
+      params: replayParams(saved.params, { formHtml: `${marker} template text replaced by GET` }),
+      snapshot: savedHtml, expect405: true });
+  });
+
+  await s.step('a multipart POST without its CSRF token is refused without changing the template', async () => {
+    const before = savedHtml();
+    const params = replayParams(saved.params, { formHtml: `${marker} tokenless replacement` }, { keepEmpty: true });
+    const response = await s.context.request.post(new URL(saved.path, s.config.baseUrl.origin).href, {
+      multipart: Object.fromEntries(params), maxRedirects: 0,
+    });
+    try {
+      h.assert(response.status() === 403, `Tokenless editor POST answered ${response.status()}, expected 403`);
+      h.assert(Object.hasOwn(response.headers(), h.APPLICATION_HEADER), 'Tokenless POST refusal did not come from CARLOS');
+      h.assert(!h.isWafPage(response.status(), await response.text()), 'Tokenless POST was blocked by the WAF');
+      h.assert(savedHtml() === before, 'Tokenless POST changed the owned template');
+    } finally { await response.dispose(); }
   });
 
   await s.step('the eForm editor refused GET/HEAD and the owned template is unchanged', async () => {
