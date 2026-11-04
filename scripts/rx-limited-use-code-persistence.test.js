@@ -18,6 +18,12 @@ for (const page of ['LimitedUseCode.jsp', 'WriteScript.jsp']) {
   test(`${page}: offered LU links cancel navigation and append repeated codes to only their directions`, () => {
     const source = fs.readFileSync(path.join(rxDirectory, page), 'utf8');
     const rawAnchor = source.match(/<a\s+onclick="[^]*?addLuCode\([^]*?<\/a>/)[0];
+    assert.match(rawAnchor,
+      /<carlos:encode\s+value='<%=\s*limitedUseCode\.getUseId\(\)\s*%>'\s+context="javaScriptAttribute"\s*\/>/,
+      'LU code must use javaScriptAttribute encoding');
+    assert.match(rawAnchor,
+      /<carlos:encode\s+value='<%=\s*limitedUseCode\.getUseId\(\)\s*%>'\s+context="html"\s*\/>/,
+      'Visible LU code must use html encoding');
     const anchor = rawAnchor
       .replace(/<carlos:encode[^]*?\/>/g, tag => tag.includes('randomId') ? 'selected' : '123')
       .replace(/<%=\s*limitedUseCode\.getUseId\(\)\s*%>/g, '123');
