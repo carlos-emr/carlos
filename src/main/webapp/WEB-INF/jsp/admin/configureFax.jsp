@@ -80,6 +80,7 @@
 <%@page import="java.util.List" %>
 <%@page import="java.util.HashMap" %>
 <%@page import="java.util.Map" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.fax.provider.SRFaxProviderClient" %>
@@ -518,10 +519,12 @@
                     for (FaxConfig account : faxConfigList) {
                         FaxImporter.PollingFailure failure = pollingFailures.get(account.getId());
                         if (account.isActive() && account.isDownload() && failure != null) {
+                            String pollingAccountLabel = StringUtils.defaultIfBlank(account.getAccountName(), account.getFaxUser());
+                            pollingAccountLabel = StringUtils.defaultIfBlank(pollingAccountLabel, String.valueOf(account.getId()));
                 %>
                 <div class="alert alert-warning fax-poll-failure" role="status" data-account-id="<%= account.getId() %>">
                     <fmt:message key="admin.configureFax.pollingFailed" var="pollingFailureMessage">
-                        <fmt:param value="<%= account.getAccountName() %>"/>
+                        <fmt:param value="<%= pollingAccountLabel %>"/>
                     </fmt:message>
                     <strong><carlos:encode value="${pollingFailureMessage}"/></strong>
                     <p class="mb-1"><fmt:message key="admin.configureFax.pollingFailureHelp"/></p>

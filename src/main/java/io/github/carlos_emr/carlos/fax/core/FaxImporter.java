@@ -445,12 +445,22 @@ public class FaxImporter {
         }
     }
 
-    /** Returns failing inbound accounts for the privileged fax administration view. Resets on application restart. */
+    /**
+     * Returns failing inbound accounts for the privileged fax administration view. Resets on application restart.
+     *
+     * @return immutable {@code Map<Integer, PollingFailure>} keyed by persisted fax account ID
+     */
     public Map<Integer, PollingFailure> getPollingFailures() {
         return pollBackoff.snapshot();
     }
 
-    /** Safe operational metadata; never contains credentials or provider response text. */
+    /**
+     * Safe operational metadata; never contains credentials or provider response text.
+     *
+     * @param attempts int number of consecutive failed polls
+     * @param firstFailure Instant when the current failure streak began
+     * @param nextRetry Instant at or after which the next poll may be attempted
+     */
     public record PollingFailure(int attempts, java.time.Instant firstFailure, java.time.Instant nextRetry) { }
 
     /**
