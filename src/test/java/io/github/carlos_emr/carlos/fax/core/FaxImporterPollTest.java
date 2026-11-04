@@ -383,6 +383,28 @@ class FaxImporterPollTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldKeepAccountPollingAndReportRecovery_whenOneDocumentHasALocalFailure() throws Exception {
+        FaxConfig config = createFaxConfig(1, true, true);
+        FaxJob document = new FaxJob();
+        document.setJobId(123L);
+        when(faxConfigDao.findAll(null, null)).thenReturn(List.of(config));
+        when(faxProviderClientFactory.getClient(config)).thenReturn(faxProviderClient);
+        when(faxProviderClient.listInboundFaxes(config)).thenThrow(new FaxProviderException("unavailable"));
+        faxImporter.poll();
+        now.set(faxImporter.getPollingFailures().get(1).nextRetry());
+        org.mockito.Mockito.doReturn(List.of(document)).when(faxProviderClient).listInboundFaxes(config);
+        when(faxJobDao.findByProviderJobId(123L)).thenThrow(new IllegalStateException("PRIVATE_DATABASE_FAILURE"));
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(FaxImporter.class)) {
+            faxImporter.poll();
+            assertThat(faxImporter.getPollingFailures()).isEmpty();
+            faxImporter.poll();
+            verify(faxProviderClient, times(3)).listInboundFaxes(config);
+            assertThat(logs.messages().stream().filter(m -> m.contains("Inbound fax polling recovered"))).hasSize(1);
+            assertThat(logs.messages().toString()).doesNotContain("PRIVATE_DATABASE_FAILURE");
+        }
+    }
+
     // -- helper methods --
 
     /**

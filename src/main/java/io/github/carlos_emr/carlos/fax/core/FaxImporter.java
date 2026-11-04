@@ -277,10 +277,22 @@ public class FaxImporter {
                 continue;
             }
 
+            FaxProviderClient providerClient;
+            List<FaxJob> faxList;
             try {
-                FaxProviderClient providerClient = faxProviderClientFactory.getClient(faxConfig);
-                List<FaxJob> faxList = providerClient.listInboundFaxes(faxConfig);
+                providerClient = faxProviderClientFactory.getClient(faxConfig);
+                faxList = providerClient.listInboundFaxes(faxConfig);
+            } catch (FaxProviderException | RuntimeException e) {
+                recordPollFailure(faxConfig, e);
+                continue;
+            }
+            if (pollBackoff.recovered(faxConfig.getId())) {
+                log.warn("Inbound fax polling recovered for account {} ({})", faxConfig.getId(), faxConfig.getProviderType());
+            }
 
+            // Only account setup/listing failures back off the account. A local document failure
+            // must not delay the next provider poll or turn a healthy connection into an outage.
+            try {
                 for (FaxJob receivedFax : faxList) {
 
                     receivedFax.setDirection(FaxJob.Direction.IN);
@@ -415,27 +427,21 @@ public class FaxImporter {
                     saveFaxJob(new FaxJob(receivedFax));
                 }
 
-                if (pollBackoff.recovered(faxConfig.getId())) {
-                    log.warn("Inbound fax polling recovered for account {} ({})", faxConfig.getId(), faxConfig.getProviderType());
-                }
-            } catch (FaxProviderException e) {
-                if (pollBackoff.failed(faxConfig.getId())) {
-                    log.warn("Inbound fax polling failed for account {} ({}, HTTP {}, type={}); "
-                                    + "retries will back off up to one hour. Check Administration > Faxes > Configure Fax.",
-                            faxConfig.getId(), faxConfig.getProviderType(), e.getHttpStatus(), e.getClass().getSimpleName());
-                }
             } catch (RuntimeException e) {
-                recordPollFailure(faxConfig, e);
+                log.error("Unexpected error processing faxes for account {} ({}) - continuing with next account ({})",
+                        faxConfig.getId(), faxConfig.getProviderType(), e.getClass().getSimpleName());
             }
         }
 
     }
 
-    private void recordPollFailure(FaxConfig faxConfig, RuntimeException failure) {
+    private void recordPollFailure(FaxConfig faxConfig, Exception failure) {
         if (pollBackoff.failed(faxConfig.getId())) {
-            log.warn("Inbound fax polling failed for account {} ({}, type={}); retries will back off up to one hour. "
+            log.warn("Inbound fax polling failed for account {} ({}, HTTP {}, type={}); retries will back off up to one hour. "
                             + "Check credentials and configuration in Administration > Faxes > Configure Fax.",
-                    faxConfig.getId(), faxConfig.getProviderType(), failure.getClass().getSimpleName());
+                    faxConfig.getId(), faxConfig.getProviderType(),
+                    failure instanceof FaxProviderException providerFailure ? providerFailure.getHttpStatus() : 0,
+                    failure.getClass().getSimpleName());
         }
     }
 

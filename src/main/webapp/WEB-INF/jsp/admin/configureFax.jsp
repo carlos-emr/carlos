@@ -519,8 +519,10 @@
                         if (account.isActive() && account.isDownload() && failure != null) {
                 %>
                 <div class="alert alert-warning fax-poll-failure" role="status" data-account-id="<%= account.getId() %>">
-                    <strong><fmt:message key="admin.configureFax.pollingFailed"/></strong>
-                    <carlos:encode value="<%= account.getAccountName() %>"/>
+                    <fmt:message key="admin.configureFax.pollingFailed" var="pollingFailureMessage">
+                        <fmt:param value="<%= account.getAccountName() %>"/>
+                    </fmt:message>
+                    <strong><carlos:encode value="${pollingFailureMessage}"/></strong>
                     <p class="mb-1"><fmt:message key="admin.configureFax.pollingFailureHelp"/></p>
                     <dl class="mb-0">
                         <dt><fmt:message key="admin.configureFax.pollingFailureAttempts"/></dt>
