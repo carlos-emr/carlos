@@ -565,22 +565,39 @@ def is_message_literal(statement: str, start: int) -> bool:
     """
     prefix = _ONLY_STRING_LITERAL.sub('""', statement[:start])
     calls = []
+    logger_ends = set()
+    log_methods = {
+        'trace', 'debug', 'info', 'warn', 'error', 'fatal',
+        'log', 'logp', 'logrb', 'severe', 'warning', 'config', 'fine', 'finer', 'finest',
+        'entering', 'exiting', 'throwing',
+    }
     for match in re.finditer(r'[()]', prefix):
         if match.group() == ')':
             if calls:
-                calls.pop()
+                if calls.pop() == 'logger_factory':
+                    logger_ends.add(match.start())
             continue
         before = prefix[:match.start()]
+        method = re.search(r'([\w$]+)\s*$', before)
+        name = method.group(1).lower() if method else ''
+        receiver = before[:method.start()].rstrip() if method else ''
+        receiver = receiver[:-1].rstrip() if receiver.endswith('.') else ''
+        # Track the factory's matching ')' so nested factory arguments work,
+        # without mistaking wrap(getLogger(...)).query(...) for a logger call.
+        logger_call = name in log_methods and (
+            re.search(r'\b(?:log|logger)$', receiver, re.IGNORECASE)
+            or len(receiver) - 1 in logger_ends
+        )
         if re.search(
-            r'\bnew\s+(?:[\w$]+\.)*[\w$]*(?:Exception|Error)\s*$|'
-            r'\b(?:log|logger)\s*\.\s*(?:trace|debug|info|warn|error|fatal)\s*$|'
-            r'\bgetLogger\s*\([^)]*\)\s*\.\s*(?:trace|debug|info|warn|error|fatal)\s*$',
+            r'\bnew\s+(?:[\w$]+\.)*[\w$]*(?:Exception|Error)\s*$',
             before, re.IGNORECASE
-        ):
+        ) or logger_call:
             calls.append('message')
         elif re.search(r'\bString\s*\.\s*format\s*$', before):
             calls.append('format')
-        elif re.search(r'[\w$]\s*$', before):
+        elif name == 'getlogger':
+            calls.append('logger_factory')
+        elif method:
             calls.append('other')
         else:
             calls.append('group')

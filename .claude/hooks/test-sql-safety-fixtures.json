@@ -1077,5 +1077,101 @@
         "content": "throw new IllegalStateException((\"Cannot delete from cache \" + cacheName));"
       }
     }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "JUL factory log prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "Logger.getLogger(\"hook\").log(Level.WARNING, \"Cannot delete from cache \" + cacheName);"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "JUL factory warning prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "Logger.getLogger(\"hook\").warning(\"Cannot delete from cache \" + cacheName);"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "JUL instance log prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.log(Level.WARNING, \"Cannot delete from cache \" + cacheName);"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "JUL instance warning prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.warning(\"Cannot delete from cache \" + cacheName);"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "JUL factory nested query still blocks",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "Logger.getLogger(\"hook\").log(Level.WARNING, jdbc.query(\"SELECT * FROM patient WHERE id = '\" + rawId + \"'\"));"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "JUL instance nested query still blocks",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.warning(jdbc.query(\"SELECT * FROM patient WHERE id = '\" + rawId + \"'\"));"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "logger factory with nested arguments",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "Logger.getLogger(Hook.class.getName()).warning(\"Cannot delete from cache \" + cacheName);"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "nested logger factory cannot exempt an unknown receiver",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "wrap(Logger.getLogger(\"hook\")).warning(\"SELECT * FROM patient WHERE id = '\" + rawId + \"'\");"
+      }
+    }
   }
 ]
