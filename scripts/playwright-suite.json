@@ -10159,11 +10159,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Creates four throwaway logins (own provider rows 800000-899999, copy of the test login's credential, one seeded role each: er_clerk, receptionist, nurse, doctor) and one owned patient; reads only; cleanup deletes the owned login/provider/audit rows and asserts they are gone. The full-access control can initialize/update the operator quick-list selection; its exact baseline is guarded and restored. It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Expected to FAIL only at the last step 'a refusal is a 403, never an HTTP 500 \"unexpected error\" page' until the SecurityException exception-mapping is added to struts-billing.xml, struts-eform.xml and struts-messenger.xml (70 routes answer a login with no sec object with HTTP 500). Every earlier step (307 pinned refusals, GET and HEAD) passes.",
-      "expectedFailure": {
-        "finding": 345,
-        "step": "a refusal is a 403, never an HTTP 500 \"unexpected error\" page (lists the packages whose gates fail that way)"
-      },
+      "notes": "Four single-role logins verify application refusals for GET and HEAD outside their security objects, with a positive control per role. Error-page refusal routes must return HTTP 403 rather than HTTP 500, including quick-list loading without _dxresearch read access (#5527).",
       "mutates": [
         "quickListUser"
       ]
