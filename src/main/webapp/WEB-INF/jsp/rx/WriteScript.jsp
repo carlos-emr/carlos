@@ -1412,8 +1412,8 @@
                                                             <%for (LimitedUseCode limitedUseCode : luList) {%>
                                                             <tr>
                                                                 <td valign="top"><a
-                                                                        onclick="addLuCode('<%=limitedUseCode.getUseId()%>')"
-                                                                        href="javascript: return void(0);"><%=limitedUseCode.getUseId()%>
+                                                                        onclick="event.preventDefault();addLuCode('<carlos:encode value='<%=limitedUseCode.getUseId()%>' context="javaScriptAttribute"/>')"
+                                                                        href="#"><carlos:encode value='<%=limitedUseCode.getUseId()%>' context="html"/>
                                                                 </a>&nbsp;
                                                                 </td>
                                                                 <td><%=limitedUseCode.getTxt()%>

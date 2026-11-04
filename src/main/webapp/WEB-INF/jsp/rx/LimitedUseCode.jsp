@@ -63,8 +63,8 @@
         <%for (LimitedUseCode limitedUseCode : luList) {%>
         <tr>
             <td valign="top">
-                <a onclick="javascript:addLuCode('instructions_<carlos:encode value='<%= randomId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= limitedUseCode.getUseId() %>' context="javaScriptAttribute"/>')"
-                   href="javascript: return void();"><carlos:encode value='<%= limitedUseCode.getUseId() %>' context="html"/>
+                <a onclick="event.preventDefault();addLuCode('instructions_<carlos:encode value='<%= randomId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= limitedUseCode.getUseId() %>' context="javaScriptAttribute"/>')"
+                   href="#"><carlos:encode value='<%= limitedUseCode.getUseId() %>' context="html"/>
                 </a>&nbsp;
             </td>
             <td><carlos:encode value='<%= limitedUseCode.getTxt() %>' context="html"/>
