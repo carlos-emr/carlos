@@ -68,6 +68,7 @@ public class ManageEmails2Action extends ActionSupport {
             "missing required sec object (" + EMAIL_SECURITY_OBJECT + ")";
     private static final String ERROR_MESSAGE_KEY = "errorMessage";
     private static final String INVALID_EMAIL_LOG_ID_MESSAGE = "Invalid email log id";
+    private static final String EMAIL_LOG_NOT_FOUND_MESSAGE = "Email log not found";
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -93,7 +94,9 @@ public class ManageEmails2Action extends ActionSupport {
      * If no method parameter is provided or the method is not recognized, defaults to displaying
      * the email management interface via {@link #showEmailManager()}.
      *
-     * @return String Struts2 result name ("show", "emailstatus", "compose", or null for errors)
+     * @return String Struts2 result name ("show", "emailstatus", "compose", or null for errors);
+     *         {@code NONE} ("none") for a direct Resolve response
+     * @throws SecurityException if the user lacks {@code _email} READ privilege
      * @see #fetchEmails()
      * @see #resendEmail()
      * @see #showEmailManager()
@@ -120,7 +123,7 @@ public class ManageEmails2Action extends ActionSupport {
      * Displays the email management interface with available email statuses and sender accounts.
      *
      * This method prepares the initial view for the email management page by populating
-     * request attributes with all possible email statuses (SENT, FAILED, PENDING, RESOLVED)
+     * request attributes with all possible email statuses (SUCCESS, FAILED, RESOLVED)
      * and the list of configured sender email accounts. This data is used to populate
      * the filter dropdowns on the email management interface.
      *
@@ -193,15 +196,16 @@ public class ManageEmails2Action extends ActionSupport {
     /**
      * Marks a specific email log entry as resolved.
      *
-     * This method updates the status of an email log to RESOLVED, typically used when
-     * an administrator has addressed a failed or problematic email. The method validates
-     * the provided log ID to ensure it is a valid integer before processing.
+     * Only FAILED rows transition to RESOLVED, clearing the error and preserving the stored send time.
+     * Missing logs return HTTP 404; any refreshed status other than RESOLVED returns HTTP 409.
+     * Repeated resolution of a RESOLVED log succeeds without another update.
      *
-     * If the log ID is invalid (not an integer), the method returns a JSON error response
-     * to the client and does not modify any data. Upon successful validation, the email
-     * status is updated via {@link EmailManager#updateEmailStatus}.
+     * Invalid log IDs return a JSON error without modifying data. Eligible rows are updated
+     * via {@link EmailManager#updateEmailStatus}; the refreshed stored state determines the response.
+     * Later transport outcomes can supersede a resolution.
      * Only POST is accepted so the mutation is covered by CSRFGuard.
      *
+     * @throws SecurityException if the user lacks {@code _email} WRITE privilege
      * @see EmailManager#updateEmailStatus
      * @see EmailStatus#RESOLVED
      */
@@ -223,7 +227,7 @@ public class ManageEmails2Action extends ActionSupport {
         EmailLog emailLog = emailManager.updateEmailStatus(loggedInInfo, Integer.parseInt(emailLogId), EmailStatus.RESOLVED, null);
         if (emailLog == null) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, "Email log not found");
+            JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, EMAIL_LOG_NOT_FOUND_MESSAGE);
         } else if (emailLog.getStatus() != EmailStatus.RESOLVED) {
             response.setStatus(HttpServletResponse.SC_CONFLICT);
             JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, "Only failed emails can be resolved");
@@ -251,13 +255,14 @@ public class ManageEmails2Action extends ActionSupport {
      *
      * If PDF regeneration fails for any attachment, an error message is set and the user
      * is advised to create a new email instead of resending. The method returns null in
-     * case of validation errors (invalid log ID).
+     * case of an invalid log ID or a missing email log; missing logs return HTTP 404.
      *
      * All email data including encryption settings, password protection, chart display options,
      * and additional parameters are preserved from the original email for potential modification
      * before resending.
      *
-     * @return String Struts2 result name "compose" to display the email composition page, or null if validation fails
+     * @return String Struts2 result name "compose" to display the email composition page, or null for invalid/missing logs
+     * @throws SecurityException if the user lacks {@code _email} READ privilege
      * @see EmailComposeManager#prepareEmailForResend
      * @see #refreshEmailAttachments
      * @see EmailLog
@@ -276,7 +281,8 @@ public class ManageEmails2Action extends ActionSupport {
          */
         EmailLog emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
         if (emailLog == null) {
-            JSONUtil.errorResponse(response, ERROR_MESSAGE_KEY, INVALID_EMAIL_LOG_ID_MESSAGE);
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, EMAIL_LOG_NOT_FOUND_MESSAGE);
             return null;
         }
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
