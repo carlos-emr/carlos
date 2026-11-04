@@ -38,6 +38,15 @@ function checkFields() {
         }
     })
 
+    $("#ticklerAddForm .date-picker, #ticklerAddForm .time-picker").each(function () {
+        var format = this.name === 'serviceDate' ? 'Y-m-d' : 'h:i K';
+        if (!parseTicklerValue(this.value, format)) {
+            this.setCustomValidity(ticklerFormatMessage(format));
+            this.reportValidity();
+            paintErrorField($(this));
+            verified = false;
+        }
+    });
     return verified;
 }
 
@@ -46,10 +55,77 @@ function checkFields() {
  * inserted: AssignTickler.jsp cannot carry its own script because DOMPurify strips it. The formats are
  * accepted by TicklerRequest (yyyy-MM-dd; hh:mm AM/PM).
  */
+function ticklerFormatMessage(format) {
+    return format === 'Y-m-d'
+        ? 'Invalid service date. Use yyyy-MM-dd (for example 2030-12-31).'
+        : 'Invalid service time. Use hh:mm AM/PM (for example 10:30 AM).';
+}
+
+// Flatpickr's default parser accepts partial matches and rolls impossible dates/times forward.
+// Only exact, real dates and times may reach its formatter or the save request.
+function parseTicklerValue(value, format) {
+    var match;
+    var date = new Date(2000, 0, 1);
+    if (format === 'Y-m-d') {
+        match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+        if (!match || +match[1] === 0) return undefined;
+        date.setHours(0, 0, 0, 0);
+        date.setFullYear(+match[1], +match[2] - 1, +match[3]);
+        if (date.getFullYear() !== +match[1] || date.getMonth() !== +match[2] - 1
+                || date.getDate() !== +match[3]) return undefined;
+    } else if (format === 'h:i K') {
+        match = /^(0?[1-9]|1[0-2]):([0-5]\d) (AM|PM)$/.exec(value);
+        if (!match) return undefined;
+        date.setHours(+match[1] % 12 + (match[3] === 'PM' ? 12 : 0), +match[2], 0, 0);
+    } else {
+        return undefined;
+    }
+    return date;
+}
+
 function initTicklerPickers() {
     if (typeof flatpickr === 'undefined') return;
-    flatpickr('#ticklerAddForm .date-picker', {dateFormat: 'Y-m-d', allowInput: true});
-    flatpickr('#ticklerAddForm .time-picker', {enableTime: true, noCalendar: true, dateFormat: 'h:i K', allowInput: true});
+    $('#ticklerAddForm .date-picker, #ticklerAddForm .time-picker').each(function () {
+        var input = this;
+        var isTime = input.name === 'serviceTime';
+        var format = isTime ? 'h:i K' : 'Y-m-d';
+        var message = ticklerFormatMessage(format);
+        var feedback = document.createElement('div');
+        feedback.className = 'text-danger';
+        feedback.id = input.id + 'Error';
+        feedback.hidden = true;
+        feedback.textContent = message;
+        input.parentNode.parentNode.appendChild(feedback);
+        input.setAttribute('aria-describedby', feedback.id);
+        function clearError() {
+            input.setCustomValidity('');
+            input.removeAttribute('aria-invalid');
+            input.style.border = '';
+            feedback.hidden = true;
+        }
+        input.addEventListener('input', function () {
+            if (parseTicklerValue(input.value, format)) clearError();
+        });
+        flatpickr(input, {
+            dateFormat: format,
+            enableTime: isTime,
+            noCalendar: isTime,
+            monthSelectorType: isTime ? 'static' : 'dropdown',
+            allowInput: true,
+            disableMobile: true,
+            parseDate: parseTicklerValue,
+            // Invalid text is cleared by flatpickr, but an explanation remains until corrected.
+            // Do not log flatpickr's error: it includes the user's input.
+            errorHandler: function () {
+                input.setCustomValidity(message);
+                input.setAttribute('aria-invalid', 'true');
+                feedback.hidden = false;
+            },
+            onChange: function (dates) {
+                if (dates.length) clearError();
+            }
+        });
+    });
 }
 
 //paint a red border around missing fields
