@@ -27,6 +27,14 @@ public class BCAR2020FormSaveService {
     private final FormBCAR2020TextDao bcar2020TextDao;
     private final SecurityInfoManager securityInfoManager;
 
+    /**
+     * Creates the save boundary with Spring-managed DAOs that participate in its transaction.
+     *
+     * @param bcar2020Dao FormBCAR2020Dao form header DAO
+     * @param bcar2020DataDao FormBCAR2020DataDao ordinary field DAO
+     * @param bcar2020TextDao FormBCAR2020TextDao large text field DAO
+     * @param securityInfoManager SecurityInfoManager patient and form privilege checker
+     */
     public BCAR2020FormSaveService(FormBCAR2020Dao bcar2020Dao, FormBCAR2020DataDao bcar2020DataDao,
             FormBCAR2020TextDao bcar2020TextDao, SecurityInfoManager securityInfoManager) {
         this.bcar2020Dao = bcar2020Dao;
@@ -40,8 +48,14 @@ public class BCAR2020FormSaveService {
      * survives a failed save, even when a batch has flushed and cleared the persistence context.
      * The caller may navigate only after this Spring-proxied method returns and commits.
      *
-     * @param formId source version, or zero for a new form
-     * @return the new version; its provider is always the signed-in actor
+     * @param info LoggedInInfo signed-in actor whose provider owns the new version
+     * @param formId int source version, or zero for a new form
+     * @param demographicNo int patient who must own both the source and new version
+     * @param page int page number of the submitted fields
+     * @param values Map&lt;String, String&gt; submitted field names and their first request parameter values
+     * @return FormBCAR2020 the new version; its provider is always the signed-in actor
+     * @throws SecurityException if write rights are missing or a requested source version is
+     *         missing or belongs to another patient
      */
     @Transactional(rollbackFor = Exception.class)
     public FormBCAR2020 saveVersion(LoggedInInfo info, int formId, int demographicNo, int page,
@@ -97,7 +111,7 @@ public class BCAR2020FormSaveService {
                 Integer setPage = FrmBCAR2020Record.isGlobalFieldName(key) ? 0 : page;
 
                 if (currentValues.get(setPage + "_" + key) != null) {
-                    FormBCAR2020Text record = getTextRecordByKey(addTextRecords, key);
+                    FormBCAR2020Text record = getTextRecordByKey(addTextRecords, key, setPage);
 
                     if (record != null) {
                         if (value != null && !value.equals(currentValues.get(setPage + "_" + key))) {
@@ -116,7 +130,7 @@ public class BCAR2020FormSaveService {
                 Integer setPage = FrmBCAR2020Record.isGlobalFieldName(key) ? 0 : page;
 
                 if (currentValues.get(setPage + "_" + key) != null) {
-                    FormBCAR2020Data record = getRecordByKey(addRecords, key);
+                    FormBCAR2020Data record = getRecordByKey(addRecords, key, setPage);
 
                     if (record != null) {
                         if (value != null && !value.equals(currentValues.get(setPage + "_" + key))) {
@@ -140,16 +154,13 @@ public class BCAR2020FormSaveService {
         return formBCAR2020;
     }
 
-    private FormBCAR2020Data getRecordByKey(List<FormBCAR2020Data> records, String key) {
-        FormBCAR2020Data record = null;
-
+    private FormBCAR2020Data getRecordByKey(List<FormBCAR2020Data> records, String key, Integer pageNo) {
         for (FormBCAR2020Data rec : records) {
-            if (rec.getField().equals(key)) {
-                record = rec;
+            if (pageNo.equals(rec.getPageNo()) && rec.getField().equals(key)) {
+                return rec;
             }
         }
-
-        return record;
+        return null;
     }
 
     private Map<String, String> getMappedRecords(List<FormBCAR2020Data> records) {
@@ -164,16 +175,13 @@ public class BCAR2020FormSaveService {
         return recordMap;
     }
 
-    private FormBCAR2020Text getTextRecordByKey(List<FormBCAR2020Text> records, String key) {
-        FormBCAR2020Text record = null;
-
+    private FormBCAR2020Text getTextRecordByKey(List<FormBCAR2020Text> records, String key, Integer pageNo) {
         for (FormBCAR2020Text rec : records) {
-            if (rec.getField().equals(key)) {
-                record = rec;
+            if (pageNo.equals(rec.getPageNo()) && rec.getField().equals(key)) {
+                return rec;
             }
         }
-
-        return record;
+        return null;
     }
 
     private Map<String, String> getMappedTextRecords(List<FormBCAR2020Text> records) {

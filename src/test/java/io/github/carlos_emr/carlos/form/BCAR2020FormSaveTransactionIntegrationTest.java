@@ -134,11 +134,16 @@ class BCAR2020FormSaveTransactionIntegrationTest extends CarlosTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"header", "ordinary", "text", "commit"})
+    @ValueSource(strings = {"header", "ordinary", "afterOrdinary", "text", "commit"})
     void shouldRollBackTheEntireVersion_whenFailureOccursAtEachStage(String stage) throws Exception {
         FormBCAR2020DataDao failingData = mock(FormBCAR2020DataDao.class, delegatesTo(data));
         doAnswer(call -> {
             if (stage.equals("header")) throw new IllegalStateException("injected after header");
+            if (stage.equals("ordinary")) {
+                List<FormBCAR2020Data> rows = call.getArgument(0);
+                data.batchPersistAtomically(rows.subList(0, 51), 50);
+                throw new IllegalStateException("injected during ordinary persistence");
+            }
             data.batchPersistAtomically(call.getArgument(0), 50);
             return null;
         }).when(failingData).batchPersistAtomically(anyList(), eq(50));
