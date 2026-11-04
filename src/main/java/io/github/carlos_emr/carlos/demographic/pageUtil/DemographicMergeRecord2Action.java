@@ -46,14 +46,12 @@ import java.util.List;
 import java.util.Set;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 
@@ -62,27 +60,37 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+@Component(DemographicMergeRecord2Action.SPRING_BEAN_NAME)
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class DemographicMergeRecord2Action extends ActionSupport {
+    public static final String SPRING_BEAN_NAME = "demographicMergeMutation2Action";
     private static final String FAILURE = "failure";
 
-    HttpServletRequest request = ServletActionContext.getRequest();
-    HttpServletResponse response = ServletActionContext.getResponse();
-
-
     Logger logger = MiscUtils.getLogger();
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient DemographicDao demographicDao;
+    private final transient TransactionTemplate transactions;
 
-    public DemographicMergeRecord2Action() {
-
+    /** Creates the merge action with an explicit transaction boundary. */
+    public DemographicMergeRecord2Action(SecurityInfoManager securityInfoManager, DemographicDao demographicDao,
+                                         PlatformTransactionManager transactionManager) {
+        this.securityInfoManager = securityInfoManager;
+        this.demographicDao = demographicDao;
+        this.transactions = new TransactionTemplate(transactionManager);
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() {
 
+        HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
@@ -100,7 +108,7 @@ public class DemographicMergeRecord2Action extends ActionSupport {
         DemographicMerged dmDAO = new DemographicMerged();
 
         if ("merge".equals(action)) {
-            if (!mergeRecords(dmDAO, loggedInInfo, records, head)) {
+            if (!Boolean.TRUE.equals(transactions.execute(status -> mergeRecords(dmDAO, loggedInInfo, records, head)))) {
                 logger.warn("Rejected demographic merge: a selected record is not an existing mergeable head record");
                 outcome = FAILURE;
             }
@@ -131,7 +139,8 @@ public class DemographicMergeRecord2Action extends ActionSupport {
      * write. The target must be selected alongside at least one other record, and none may already be a
      * merged source. Every selected ID must name an existing patient before the first write, so a missing
      * source or target cannot leave orphan merge/privilege rows or a partially merged selection.
-     * Canonical IDs are also used for the merge's privilege and audit records.
+     * Patient locks are acquired in numeric order before reading merge state, and retained through every
+     * merge, privilege and audit write. Canonical IDs are also used for the privilege and audit records.
      */
     private boolean mergeRecords(DemographicMerged dmDAO, LoggedInInfo loggedInInfo,
                                         List<String> records, String head) {
@@ -141,9 +150,16 @@ public class DemographicMergeRecord2Action extends ActionSupport {
             for (String recordId : records) {
                 recordIds.add(Integer.valueOf(recordId));
             }
-            if (recordIds.size() < 2 || !recordIds.contains(headId)
-                    || recordIds.stream().anyMatch(id -> id <= 0
-                            || demographicDao.getDemographicById(id) == null || dmDAO.isMergedSource(id))) {
+            if (recordIds.size() < 2 || !recordIds.contains(headId) || recordIds.stream().anyMatch(id -> id <= 0)) {
+                return false;
+            }
+            // Lock the whole selection before any non-locking read establishes a repeatable-read snapshot.
+            for (Integer id : recordIds.stream().sorted().toList()) {
+                if (demographicDao.findForUpdate(id) == null) {
+                    return false;
+                }
+            }
+            if (recordIds.stream().anyMatch(dmDAO::isMergedSource)) {
                 return false;
             }
             for (Integer recordId : recordIds) {
