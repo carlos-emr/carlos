@@ -432,6 +432,52 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldKeepAuthorizedProvider_whenLogoutInvalidatesSessionDuringPreparation(boolean duringAppointmentLookup) throws Exception {
+        MockHttpServletRequest request = request("101", "9002");
+        request.removeParameter("curProviderNo");
+        when(security.hasPrivilege(login, "_eChart", "r", "101")).thenReturn(true);
+        if (duringAppointmentLookup) {
+            when(appointments.find(Integer.valueOf(9002))).thenAnswer(invocation -> {
+                session.invalidate();
+                return appointment(202, "B22222");
+            });
+        } else {
+            when(security.isAllowedAccessToPatientRecord(login, 101)).thenAnswer(invocation -> {
+                session.invalidate();
+                return true;
+            });
+        }
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        try (var moduleSecurity = mockConstruction(SecurityManager.class,
+                (mock, context) -> when(mock.hasReadAccess(anyString(), anyString())).thenReturn(true))) {
+            RecordingDisplay action = execute(request, response);
+
+            assertThat(action.result).isEqualTo("success");
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(action.loaded.curProviderNo).isEqualTo("999998");
+            assertThat(action.loaded.appointmentNo).isEqualTo("0");
+            assertThat(LoggedInInfo.getLoggedInInfoFromSession(request)).isNull();
+            assertThat(request.getSession()).isNotSameAs(session);
+            verify(security).hasPrivilege(login, "_eChart", "r", "101");
+            verify(security).isAllowedAccessToPatientRecord(login, 101);
+            verifyNoInteractions(demographics, templates, groups, charts, messages);
+        }
+    }
+
+    @Test
+    void shouldRefuseMissingLogin_beforeConstructingOrLoadingNavbarData() {
+        MockHttpServletRequest request = request("101", "9001");
+        session.invalidate();
+        try (var beans = mockConstruction(EctSessionBean.class)) {
+            assertThatThrownBy(() -> execute(request, new MockHttpServletResponse()))
+                    .isInstanceOf(SecurityException.class);
+            assertThat(beans.constructed()).isEmpty();
+            verifyNoInteractions(security, demographics, templates, groups, charts, appointments, messages);
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"missing", "conflictingAliases", "conflictingDuplicates", "overflow", "zero"})
     void shouldReturn400BeforeConstructingOrLoadingChartData(String invalid) throws Exception {
         MockHttpServletRequest request = request(null, "9001");

@@ -178,16 +178,18 @@ public class EctDisplayAction extends ActionSupport {
 
     private EctSessionBean prepareEncounterSessionBean() {
         String demographicNo = EncounterPatientContext.requireDemographicNo(request);
-        ensureChartReadPrivilege(demographicNo);
-        return rebuildEncounterSessionBean(demographicNo);
+        // A concurrent logout can invalidate the session after the privilege check. Keep the
+        // authorized login for this request instead of dereferencing a second session lookup.
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        ensureChartReadPrivilege(demographicNo, login);
+        return rebuildEncounterSessionBean(demographicNo, login);
     }
 
-    private void ensureChartReadPrivilege(String demographicNo) {
-        PatientRecordAccess.require(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
-                demographicNo, "_eChart", "r");
+    private void ensureChartReadPrivilege(String demographicNo, LoggedInInfo login) {
+        PatientRecordAccess.require(securityInfoManager, login, demographicNo, "_eChart", "r");
     }
 
-    private EctSessionBean rebuildEncounterSessionBean(String demographicNo) {
+    private EctSessionBean rebuildEncounterSessionBean(String demographicNo, LoggedInInfo login) {
         EctSessionBean bean = new EctSessionBean();
         bean.currentDate = resolveCurrentDate();
         bean.providerNo = resolveProviderNo();
@@ -203,7 +205,7 @@ public class EctDisplayAction extends ActionSupport {
             appointmentNo = "0";
         }
         bean.appointmentNo = appointmentNo;
-        bean.curProviderNo = resolveCurrentProviderNo(demographicNo, appointmentNo, appointment);
+        bean.curProviderNo = resolveCurrentProviderNo(demographicNo, appointmentNo, appointment, login);
         populateEncounterRequestFields(bean);
         exposeEncounterRequestBean(bean);
         return bean;
@@ -241,7 +243,8 @@ public class EctDisplayAction extends ActionSupport {
                 ? appointment : null;
     }
 
-    private String resolveCurrentProviderNo(String demographicNo, String appointmentNo, Appointment ownedAppointment) {
+    private String resolveCurrentProviderNo(String demographicNo, String appointmentNo, Appointment ownedAppointment,
+                                           LoggedInInfo login) {
         // Only an appointment the requested patient owns may supply the provider; an entry snapshot
         // or explicit provider must not legitimize a foreign appointment (it was dropped above).
         if (ownedAppointment != null && ownedAppointment.getProviderNo() != null
@@ -259,7 +262,7 @@ public class EctDisplayAction extends ActionSupport {
                     && saved.curProviderNo != null && saved.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
                 return saved.curProviderNo;
             }
-            currentProviderNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProvider().getProviderNo();
+            currentProviderNo = login.getLoggedInProvider().getProviderNo();
         }
         return currentProviderNo;
     }
