@@ -5509,6 +5509,17 @@
       "fixtures": "Owned patient Y, owned LOCAL emailConfig pointing at an in-process 127.0.0.1 SMTP sink and an owned eForm template; nothing leaves the host. The sender is offered clinic-wide, so it must not run concurrently with other checks."
     },
     {
+      "name": "eform-email-error",
+      "script": "scripts/eform-email-error-playwright-checks.js",
+      "tiers": ["core"],
+      "assertsDatabase": true,
+      "provinces": ["all"],
+      "timeoutSec": 300,
+      "env": ["EXCLUSIVE"],
+      "notes": "Issue #4477: an unavailable selected attachment must show the dedicated preparation error, preserve the saved letter and retry the same draft after the attachment is restored. No email is sent.",
+      "fixtures": "Owned patient, eForm template, saved attachment and LOCAL sender pointing at a loopback SMTP sink. The owned attachment is removed just before compose and restored before Retry; cleanup verifies the owned eForm and sender rows are gone. The sender is offered clinic-wide, so this check requires a loopback BASE_URL and an exclusive run (live wrapper: EXCLUSIVE=1)."
+    },
+    {
       "name": "admin-role-management",
       "script": "scripts/admin-role-management-playwright-checks.js",
       "tiers": [

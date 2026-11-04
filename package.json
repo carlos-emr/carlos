@@ -355,6 +355,7 @@
     "test:billing-bc-receipt-print-notes-playwright": "node scripts/billing-bc-receipt-print-notes-playwright-checks.js",
     "test:billing-bc-receive-payment-playwright": "node scripts/billing-bc-receive-payment-playwright-checks.js",
     "test:eform-email-two-windows-playwright": "node scripts/eform-email-two-windows-playwright-checks.js",
+    "test:eform-email-error-playwright": "node scripts/eform-email-error-playwright-checks.js",
     "test:billing-payment-types-playwright": "node scripts/billing-payment-types-playwright-checks.js",
     "test:ocean-display-settings-playwright": "node scripts/ocean-display-settings-playwright-checks.js",
     "test:hrm-retired-statement-playwright": "node scripts/hrm-retired-statement-playwright-checks.js",
