@@ -62,15 +62,19 @@ The archive cleanup validates the fixture patient, log and archive identities,
 archive document metadata, file references and paths before mutating anything.
 It preserves older dangling DOC routes using marks taken before sending and
 requires `DOCUMENT_DIR` and `CARLOS_DISPOSABLE_VM=true`. Failed child cleanup
-retains the secondary patient for recovery.
+retains the secondary patient for recovery. All three checks preflight these
+requirements before SQL setup or patient creation. A private fsynced receipt
+preserves file identities and original routing marks if deletion fails after the
+metadata transaction, allowing a new helper instance to finish cleanup safely.
 
 Additional verification: the source WAR build and pinned DrugRef build passed;
 72 focused Java email tests passed with no failures or skips. The `carlos-ctl`
-package's build gate ran 1,808 tests, with 173 skips and no failures. Eleven
+package's build gate ran 1,808 tests, with 173 skips and no failures. Eighteen
 archive-cleanup regression tests cover ownership changes, shared references,
-unsafe filenames, symbolic links, SQL failure and the disposable-install guard.
+SQL selection/deletion scopes, unsafe filenames, symbolic links, prerequisites,
+SQL failure and recovery from partial file deletion or replacement.
 The full Node regression suite also ran as an unprivileged user inside Ubuntu
-26.04 with Node 22: **6,527 passed, zero failed, one skipped and one TODO**.
+26.04 with Node 22: **6,534 passed, zero failed, one skipped and one TODO**.
 All 68 manifest regression tests passed after the validation notes were updated.
 
 CI and PR review results are tracked on

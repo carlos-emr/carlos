@@ -22,7 +22,7 @@ function fixture(t, overrides = {}) {
     value(query) {
       queries.push(query.replace(/\s+/g, ' ').trim());
       if (query.startsWith('SELECT (SELECT')) return removed ? (overrides.remaining ?? '0') : '2';
-      if (query.includes('MAX(id)')) return '90';
+      if (query.includes('MAX(id)')) return overrides.floor ?? '90';
       if (query.includes('FROM demographic')) return overrides.owner ?? '1';
       if (query.includes('FROM emailLog')) return overrides.logs ?? '1';
       if (query.includes('FROM document WHERE docfilename')) {
@@ -62,6 +62,7 @@ test('owned archive cleanup removes only its file and bounds new DOC routes by t
   assert.match(f.mutations[0], /demographic_no=31 AND id>90/);
   assert.doesNotMatch(f.mutations[0], /FOREIGN_KEY_CHECKS/);
   const select = f.queries.find(query => query.startsWith('SELECT a.id,'));
+  assert.doesNotMatch(select, /\bOR\b/i);
   for (const scope of [/a\.emailLogId IN \(11\)/, /a\.demographicNo=31/, /l\.demographicNo=31/,
     /c\.module='demographic' AND c\.module_id=31/, /d\.doctype='email'/, /d\.docClass='EMAIL'/,
     /d\.docSubClass='OUTBOUND'/, /d\.source='Outbound Email Archive'/,
@@ -81,6 +82,7 @@ test('owned archive cleanup removes only its file and bounds new DOC routes by t
   for (const query of deletes) {
     const table = query.match(/^DELETE FROM (\w+) WHERE /)?.[1];
     assert(scopes[table], 'Unscoped or unreviewed deletion');
+    assert.doesNotMatch(query, /\bOR\b/i);
     for (const scope of scopes[table]) assert.match(query, scope);
   }
   assert(!fs.existsSync(path.dirname(f.receipt)));
@@ -159,8 +161,10 @@ test('a failed SQL transaction can retry from its receipt while preserving the o
   const faults = {sqlFailure: true};
   const f = fixture(t, faults);
   assert.throws(f.run, /simulated SQL failure/);
-  faults.sqlFailure = false; f.restart(); f.run();
+  faults.sqlFailure = false; faults.floor = '190'; f.restart(); f.run();
   assert.equal(f.mutations.length, 1);
+  assert.match(f.mutations[0], /id>90/);
+  assert.doesNotMatch(f.mutations[0], /id>190/);
   assert(!fs.existsSync(f.owned) && !fs.existsSync(f.receipt));
 });
 

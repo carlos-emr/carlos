@@ -945,17 +945,17 @@ in another. Install all three matching package versions together; upgrading only
 the main package can remove older DrugRef and renderer packages because their
 dependencies require an exact version match.
 
-> **A runner now exists, and is not yet the documented procedure.**
-> `scripts/run-playwright-suite.js` reads `scripts/playwright-suite.json` and does
-> what the loop at the end of this section does, plus tier selection, a JUnit
-> report, exit code 2 for a check that skipped for a missing fixture rather than
-> failed, and a refusal to run the database-mutating checks against a non-local
-> target. It has unit tests but has **not yet been run against a deployment**, so
-> the loop below is still the authoritative procedure. The first validation run
-> should compare the two and then replace the loop here:
+> **Use the manifest runner for validation.**
+> `scripts/run-playwright-suite.js` reads `scripts/playwright-suite.json`, selects
+> checks by tier or name, writes a JUnit report and distinguishes an individual
+> check's missing-fixture SKIP (exit 2) from a failure. It also guards the target
+> of database-mutating checks. Packaged deployment runs, including the three email
+> workflows in [PR #5598](pr5598-validation.md), validate this procedure through
+> the nginx/ModSecurity front door. Load the environment contract below first;
+> select the installed province and record the exact checks and any skips:
 >
 > ```bash
-> node scripts/run-playwright-suite.js --tier core --tier front-door --junit /tmp/playwright.xml
+> node scripts/run-playwright-suite.js --tier core --tier front-door --province ON --residue-audit --junit /tmp/playwright.xml
 > ```
 >
 > See [playwright-coverage-plan-2026.08.md §0](playwright-coverage-plan-2026.08.md).
@@ -986,6 +986,8 @@ Environment contract (one block, exported before every script):
 ```bash
 cd /root/carlos
 export BASE_URL=https://127.0.0.1/carlos
+export DOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/document
+export CARLOS_DISPOSABLE_VM=true EXCLUSIVE=1
 # Confirm section 4 enabled the application property and restarted CARLOS.
 export CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true
 export CHROME_PATH=/usr/lib/carlos-emr/chromium/chrome
@@ -1219,33 +1221,20 @@ suite_failed=0
 #                                appointment column. ONE PREREQUISITE the dataset does not provide --
 #                                the field is rendered only when workflow_enhance is true, which the
 #                                package ships false, so set it in /etc/carlos-emr/carlos.properties
-#                                and `carlos-ctl restart` before the loop; the check reports SKIP (exit 2)
-#                                with that instruction when it is off. The legacy loop below treats every
-#                                nonzero exit as FAIL, so enabling the property is required for this loop.
-#                                The separate run-playwright-suite.js runner records SKIP as non-failing;
+#                                and `carlos-ctl restart` before the suite; the check reports SKIP (exit 2)
+#                                with that instruction when it is off. The manifest runner records SKIP as non-failing;
 #                                require PASS for this check to confirm the column was exercised. It seeds one
 #                                appointment for tomorrow and deletes it in a finally.)
-for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
-  case "$s" in
-    *eform-corpus-soak*) continue ;;   # needs a corpus dir; see below
-    *login-playwright-checks*) continue ;; # run its deliberate failed-login probes last
-  esac
-  # The record-binding check waits up to RX_FAX_ROUND_TRIP_TIMEOUT_MS twice on a cold server and
-  # must still reach its fixture cleanup; a SIGTERM from the wrapper would skip that.
-  t=300; case "$s" in
-    *rx-fax-record-binding*) t=$((2 * ${RX_FAX_ROUND_TRIP_TIMEOUT_MS:-45000} / 1000 + 300)) ;;
-    # Three preview waits, three fax writes and one retry, plus bounded UI/login/cleanup waits.
-    *rx-fax-pharmacy-phone*) t=$((7 * ${RX_FAX_ROUND_TRIP_TIMEOUT_MS:-45000} / 1000 + 900)) ;;
-  esac
-  # Signal the Node runner so its cleanup can keep using the browser.
-  if timeout --foreground "$t" node "$s"; then
-    echo "PASS $s"
-  else
-    rc=$?
-    echo "FAIL ($rc) $s"
-    suite_failed=1
-  fi
-done
+installed_province="$(sed -n 's/^CARLOS_PROVINCE=//p' /etc/carlos-emr/carlos-emr.env | tr -d '\"')"
+case "$installed_province" in
+  bc|BC) suite_province=BC ;;
+  on|ON|other|OTHER) suite_province=ON ;;
+  *) echo "FAIL installed province is unavailable"; exit 1 ;;
+esac
+if ! node scripts/run-playwright-suite.js --tier core --tier front-door \
+    --province "$suite_province" --residue-audit --junit /tmp/playwright.xml; then
+  suite_failed=1
+fi
 service_restarts_after="$(systemctl show carlos-emr -p NRestarts --value)"
 if [ "$service_restarts_after" != "$service_restarts_before" ]; then
   echo "FAIL carlos-emr restarted during suite ($service_restarts_before -> $service_restarts_after)"
