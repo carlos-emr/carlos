@@ -167,6 +167,12 @@ class AiDocumentSummaryJspRegressionTest {
             }
             assertThat(placeholderKeys).as("documentSummary keys with {0} in %s", locale)
                     .containsExactlyInAnyOrderElementsOf(parameterised);
+            // A parameterised value goes through MessageFormat, where a lone apostrophe swallows text
+            // up to the next one; it must be doubled ('') or absent.
+            for (String key : parameterised) {
+                assertThat(bundle.getProperty(key)).as("%s in %s must not hold a lone apostrophe", key, locale)
+                        .doesNotMatch("(?s).*(?<!')'(?!').*");
+            }
         }
     }
 

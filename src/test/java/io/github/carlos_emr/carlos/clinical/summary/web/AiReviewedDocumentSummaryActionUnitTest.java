@@ -516,6 +516,20 @@ class AiReviewedDocumentSummaryActionUnitTest {
                     .as("%s", locale).isInstanceOf(MissingResourceException.class);
         }
     }
+    @Test void clinicianMessagesWalkTheBrowsersPreferencesLikeFmtMessage() {
+        // "de, fr": no German bundle, so French, as JSTL's fmt:message resolves it for the page.
+        when(request.getLocales()).thenReturn(java.util.Collections.enumeration(List.of(Locale.GERMAN, Locale.CANADA_FRENCH)));
+        assertThat(DocumentSummaryMessages.bundleLocale(request)).isEqualTo(Locale.CANADA_FRENCH);
+        when(request.getLocales()).thenReturn(java.util.Collections.enumeration(List.of(Locale.GERMAN, Locale.CANADA_FRENCH)));
+        assertThat(DocumentSummaryMessages.text(request, AiReviewedDocumentSummary2Action.CORRECTION_NOT_SAVED_KEY))
+                .isEqualTo(ResourceBundle.getBundle("oscarResources", Locale.CANADA_FRENCH)
+                        .getString(AiReviewedDocumentSummary2Action.CORRECTION_NOT_SAVED_KEY));
+        // "de, zh": nothing resolves, so English; and an empty preference list is English too.
+        when(request.getLocales()).thenReturn(java.util.Collections.enumeration(List.of(Locale.GERMAN, Locale.CHINESE)));
+        assertThat(DocumentSummaryMessages.bundleLocale(request)).isEqualTo(Locale.ENGLISH);
+        when(request.getLocales()).thenReturn(java.util.Collections.emptyEnumeration());
+        assertThat(DocumentSummaryMessages.bundleLocale(request)).isEqualTo(Locale.ENGLISH);
+    }
     private DocumentSummaryReviewSession generateTwoPoints() throws Exception {
         var two = mock(DocumentSummary.class);
         when(two.overview()).thenReturn("FAKE document.");
