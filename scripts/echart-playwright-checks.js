@@ -574,8 +574,9 @@ async function workflow(s) {
     const matcher = url => /\/(CaseManagementEntry|encounter\/displayIssues)$/.test(url.pathname);
     const handler = async route => {
       const request = route.request();
+      const requestUrl = new URL(request.url());
       const method = new URLSearchParams(request.postData() || '').get('method')
-        || new URL(request.url()).searchParams.get('cmd');
+        || requestUrl.searchParams.get('method') || requestUrl.searchParams.get('cmd');
       const gate = gates.find(g => g.method === method && !g.used);
       if (!gate) return route.continue();
       gate.used = true;

@@ -47,9 +47,13 @@ test('all outstanding issue updates complete before a save resumes', () => {
   const h = harness(); let saves = 0;
   h.context.ajaxUpdateIssues('edit', 'sig1'); h.context.ajaxUpdateIssues('edit', 'sig1');
   h.context.deferNoteSaveUntilIssues(() => saves++);
-  h.updates[1].onComplete({ status: 200 }); h.panels[0](true);
+  assert.equal(h.updates.length, 1, 'the second refresh must wait for the first pair');
+  h.updates[0].onComplete({ status: 200 });
+  assert.equal(h.updates.length, 1, 'wait for the sidebar too');
+  h.panels[0](true);
   assert.equal(saves, 0);
-  h.updates[0].onComplete({ status: 200 }); h.panels[1](true);
+  assert.equal(h.updates.length, 2);
+  h.updates[1].onComplete({ status: 200 }); h.panels[1](true);
   assert.equal(saves, 1);
 });
 

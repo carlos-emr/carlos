@@ -234,3 +234,33 @@ test('a CPP save cannot start while an encounter save owns the editor', () => {
   assert.equal(h.context.issueUpdatesPending, 0);
   assert.equal(h.alerts.length, 1);
 });
+
+test('a CPP refresh waits behind an older editor refresh so its new issues cannot be overwritten', () => {
+  const h = harness();
+  const checkbox = (id, checked) => ({ checked, getAttribute: () => id });
+  let boxes = [checkbox('41', true), checkbox('42', false)];
+  h.context.document.forms.caseManagementEntryForm.querySelectorAll = () => boxes;
+  h.context.ajaxUpdateIssues('edit', 'sig01');
+  h.context.updateCPPNote();
+  let saved;
+  h.context.deferNoteSaveUntilIssues(() => { saved = boxes.map(box => [box.getAttribute(), box.checked]); });
+  h.requests[0].options.onSuccess({ status: 200, responseText: '' });
+  assert.equal(h.updates.length, 1, 'do not send the CPP refresh while the old editor request is pending');
+  h.updates[0].options.onSuccess({ status: 200 });
+  h.updates[0].options.onComplete({ status: 200 });
+  assert.equal(h.updates.length, 1, 'also wait for the old Unresolved Issues request');
+  h.requests[1].options.onSuccess({ status: 200, responseText: 'old issues' });
+  h.requests[1].options.onComplete({ status: 200 });
+  assert.equal(h.updates.length, 2);
+  assert.equal(saved, undefined);
+  h.updates[1].options.onSuccess({ status: 200 });
+  boxes = [checkbox('43', false), checkbox('42', true), checkbox('41', false)];
+  h.updates[1].options.onComplete({ status: 200 });
+  assert.equal(saved, undefined);
+  h.requests[2].options.onSuccess({ status: 200, responseText: 'CPP-created issues' });
+  h.requests[2].options.onComplete({ status: 200 });
+  assert.equal(h.fields.issuesText, 'CPP-created issues');
+  assert.deepEqual(saved, [['43', false], ['42', false], ['41', true]]);
+  assert.equal(h.context.issueUpdatesPending, 0);
+  assert.equal(h.context.issueRefreshPending, false);
+});
