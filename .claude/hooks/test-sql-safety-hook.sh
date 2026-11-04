@@ -120,7 +120,7 @@ from pathlib import Path
 for tool in ("Edit", "MultiEdit"):
     for file, expected_exit, replacement in (
         ("EmailManager.java", 0, "int retries = 2;"),
-        ("EmailManager.java", 2, 'String sql = "SELECT * FROM users WHERE id = " + userId;'),
+        ("EmailManager.java", 2, 'String sql = "SELECT * FROM users WHERE id = " + userId;'),  # nosemgrep: skills.code-injection.skill-sql-string-formatting.skill-sql-string-formatting -- Intentionally unsafe Java fixture sent only to the hook; never executed as SQL.
         ("UnsafeQuery.java", 2, "int retries = 2;"),
     ):
         edit = {"old_string": "int retries = 1;", "new_string": replacement}
