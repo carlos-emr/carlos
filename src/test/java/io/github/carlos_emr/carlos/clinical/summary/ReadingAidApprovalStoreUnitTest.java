@@ -45,6 +45,15 @@ class ReadingAidApprovalStoreUnitTest {
     }
 
     @Test
+    void recordingRunsInATransactionBecauseNoCallerOpensOne() throws Exception {
+        var method = ReadingAidApprovalStore.class.getMethod("record", int.class, int.class,
+                DocumentSummaryReviewBinding.Approval.class);
+        var transactional = method.getAnnotation(org.springframework.transaction.annotation.Transactional.class);
+        assertThat(transactional).as("record() must be @Transactional").isNotNull();
+        assertThat(transactional.readOnly()).isFalse();
+    }
+
+    @Test
     void recordsOneRowWithAnOpaqueIdNotDerivedFromTheReviewerAndNoReviewerName() {
         var approval = approval();
         var row = store.record(PATIENT, DOCUMENT, approval);

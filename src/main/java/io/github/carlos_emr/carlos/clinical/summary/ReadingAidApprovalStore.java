@@ -7,6 +7,8 @@ import jakarta.persistence.PersistenceContext;
 import java.security.SecureRandom;
 import java.util.Objects;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Persists the clinician approvals a reading aid is later built from. No sending happens here:
@@ -24,8 +26,13 @@ public class ReadingAidApprovalStore {
     /**
      * Records {@code approval} for the document and patient it was reviewed under. One row per
      * document and summary version: recording the same approval again returns the stored row,
-     * and a different original under the same version is refused.
+     * and a different original under the same version is refused. When a draft is approved a
+     * second time, the first reviewer stays on record: the stored row is returned unchanged.
+     *
+     * <p>Runs in its own transaction (like {@code ReviewedChartUpdateService}) so the persist and
+     * flush commit or roll back together; a caller that already has one joins it.
      */
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public ReadingAidApproval record(int demographicNo, int documentNo, DocumentSummaryReviewBinding.Approval approval) {
         Objects.requireNonNull(approval);
         if (demographicNo <= 0 || documentNo <= 0) throw new IllegalArgumentException("Patient and document are required.");
