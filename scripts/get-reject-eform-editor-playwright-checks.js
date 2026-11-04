@@ -68,7 +68,7 @@ async function workflow(s) {
   await s.step('the editor save replayed as GET/HEAD with a different template text is recorded', async () => {
     await ledger.probe(s, { label: 'eform/editForm (HtmlEdit2Action)', path: saved.path,
       params: replayParams(saved.params, { formHtml: `${marker} template text replaced by GET` }),
-      snapshot: savedHtml, expect405: true });
+      snapshot: savedHtml, expect405: true, expectAllow: 'POST' });
   });
 
   await s.step('a multipart POST without its CSRF token is refused without changing the template', async () => {
