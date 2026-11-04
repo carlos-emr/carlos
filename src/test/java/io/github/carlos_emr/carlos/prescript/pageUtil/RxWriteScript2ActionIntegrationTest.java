@@ -873,7 +873,8 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
                      org.mockito.Mockito.mockConstruction(io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.class,
                              (mock, context) -> when(mock.saveScript(any(), any())).thenReturn("77"))) {
             scriptId = action.persistStash(mockLoggedInInfo, bean);
-            commitAuditTransaction(logAction);
+            // Every stash save now commits its own REQUIRES_NEW transaction before returning.
+            // Its audit must already be queued, independently of the enclosing test transaction.
             verifyAudited(logAction, 3003);
         }
 
