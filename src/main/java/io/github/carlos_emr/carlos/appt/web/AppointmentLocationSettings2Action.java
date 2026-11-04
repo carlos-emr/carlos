@@ -30,6 +30,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionOperations;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -87,7 +88,11 @@ public class AppointmentLocationSettings2Action extends ActionSupport {
                                               PlatformTransactionManager transactionManager) {
         this.securityInfoManager = securityInfoManager;
         this.locationService = locationService;
-        this.transactions = new TransactionTemplate(transactionManager);
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        // The service's own READ COMMITTED is ignored once it joins this transaction (see
+        // AppointmentLocationService.lockList), so the add starts at that level here.
+        template.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        this.transactions = template;
     }
 
     /**
@@ -135,9 +140,12 @@ public class AppointmentLocationSettings2Action extends ActionSupport {
                 SecurityInfoManager.WRITE);
         request.setAttribute("canChange", canChange);
         if (canChange) {
-            // One token per rendering, shared by the add and paste forms: only one of them is sent.
+            // One token per form, bound to its dispatch: a paste sent from a rendering whose add
+            // already saved is refused, rather than answered with the add's result.
             request.setAttribute("locationAddToken", FormSubmissionGuard.issue(request.getSession(),
-                    FormSubmissionGuard.Scope.APPOINTMENT_LOCATION_ADD, null));
+                    FormSubmissionGuard.Scope.APPOINTMENT_LOCATION_ADD, "add"));
+            request.setAttribute("locationPasteToken", FormSubmissionGuard.issue(request.getSession(),
+                    FormSubmissionGuard.Scope.APPOINTMENT_LOCATION_ADD, "addMany"));
         }
         request.setAttribute("canDeactivate",
                 AppointmentLocationService.hasLocationPrivilege(securityInfoManager, loggedInInfo, SecurityInfoManager.DELETE));
@@ -203,7 +211,7 @@ public class AppointmentLocationSettings2Action extends ActionSupport {
                        boolean many) {
         FormSubmissionGuard.Attempt attempt = FormSubmissionGuard.attempt(request.getSession(),
                 request.getParameter(FormSubmissionGuard.PARAMETER), FormSubmissionGuard.Scope.APPOINTMENT_LOCATION_ADD,
-                null, FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
+                many ? "addMany" : "add", FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
         switch (attempt.verdict()) {
             case ABSENT, PROCEED -> { }
             case ALREADY_SAVED -> {

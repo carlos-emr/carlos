@@ -244,13 +244,15 @@ class AppointmentLocationSettings2ActionUnitTest extends CarlosWebTestBase {
         assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
 
         assertThat((String) mockRequest.getAttribute("locationAddToken")).isNotBlank();
+        assertThat((String) mockRequest.getAttribute("locationPasteToken")).isNotBlank()
+                .isNotEqualTo(mockRequest.getAttribute("locationAddToken"));
         assertThat(mockRequest.getAttribute("defaultLocationIcon")).isEqualTo(AppointmentLocationStyle.DEFAULT_ICON);
     }
 
     @Test
     void shouldAddOnce_whenSameRenderingIsPostedTwice() throws Exception {
         assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
-        String token = (String) mockRequest.getAttribute("locationAddToken");
+        String token = (String) mockRequest.getAttribute("locationPasteToken");
         when(locationService.addLocations(mockLoggedInInfo, "A\nB"))
                 .thenReturn(new AppointmentLocationService.AddResult(2, 0));
         mockRequest.setMethod("POST");
@@ -267,6 +269,43 @@ class AppointmentLocationSettings2ActionUnitTest extends CarlosWebTestBase {
         // The repeat ends as the first did, rather than reporting the names as already taken.
         assertThat(repeat.getActionMessages()).containsExactly("admin.appt.location.msg.addedMany[2, 0]");
         assertThat(repeat.getActionErrors()).isEmpty();
+    }
+
+    @Test
+    void shouldRefusePaste_whenSentWithTheAddFormsToken() throws Exception {
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        String addToken = (String) mockRequest.getAttribute("locationAddToken");
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "addMany");
+        addRequestParameter(FormSubmissionGuard.PARAMETER, addToken);
+        TestAction paste = new TestAction(mockSecurityInfoManager, locationService);
+        paste.setNames("A\nB");
+
+        assertThat(executeAction(paste)).isEqualTo(FormSubmissionGuard.REFUSED_RESULT);
+        verify(locationService, never()).addLocations(any(), any());
+    }
+
+    @Test
+    void shouldStartAdd_atReadCommitted() throws Exception {
+        // The list lock only helps if the reads after it see the change before it (MariaDB).
+        PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
+        AppointmentLocationSettings2Action plain = new AppointmentLocationSettings2Action(mockSecurityInfoManager,
+                locationService, transactionManager) {
+            @Override
+            public String getText(String key) {
+                return key;
+            }
+        };
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "add");
+        plain.setName("Room 5");
+
+        assertThat(executeAction(plain)).isEqualTo(ActionSupport.SUCCESS);
+        org.mockito.ArgumentCaptor<org.springframework.transaction.TransactionDefinition> definition =
+                org.mockito.ArgumentCaptor.forClass(org.springframework.transaction.TransactionDefinition.class);
+        verify(transactionManager).getTransaction(definition.capture());
+        assertThat(definition.getValue().getIsolationLevel())
+                .isEqualTo(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
     }
 
     @Test

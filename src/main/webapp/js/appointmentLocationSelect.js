@@ -72,6 +72,40 @@ function selectAppointmentLocationCode(select, code) {
     select.value = offered ? wanted : '';
 }
 
+/**
+ * Offers a pasted appointment's location as the dropdown's legacy option and selects it, for a
+ * location the dropdown cannot select: typed text, or an item disabled since. A cut is a move, so
+ * the booking keeps the name, saved as text without a code. The hidden location field carries it.
+ *
+ * @param {HTMLSelectElement} select the locationCode dropdown, or null
+ * @param {HTMLInputElement} hidden the hidden location field posted with it, or null
+ * @param {string} text the location's name
+ * @param {string} label the option's text ("Legacy: <name>"), or blank to show the name
+ * @returns {boolean} true if the name is now selected
+ */
+function offerLegacyAppointmentLocation(select, hidden, text, label) {
+    const name = String(text || '').trim();
+    if (!select || !name) {
+        return false;
+    }
+    let option = Array.from(select.options).find(function (each) {
+        return each.hasAttribute('data-legacy');
+    });
+    if (!option) {
+        option = select.ownerDocument.createElement('option');
+        option.value = 'legacy';
+        option.setAttribute('data-legacy', '');
+        // After "Not specified", where the tag renders a legacy option.
+        select.insertBefore(option, select.options.length > 1 ? select.options[1] : null);
+    }
+    option.text = String(label || '').trim() || name;
+    select.value = 'legacy';
+    if (hidden) {
+        hidden.value = name;
+    }
+    return true;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {selectAppointmentLocationByName, selectAppointmentLocationCode};
+    module.exports = {selectAppointmentLocationByName, selectAppointmentLocationCode, offerLegacyAppointmentLocation};
 }

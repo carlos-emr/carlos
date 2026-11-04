@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const {
     selectAppointmentLocationByName,
     selectAppointmentLocationCode,
+    offerLegacyAppointmentLocation,
 } = require('../src/main/webapp/js/appointmentLocationSelect');
 
 /** A minimal stand-in for an HTMLSelectElement with the dropdown the tag renders. */
@@ -55,4 +56,50 @@ test('falls back to not specified for a code the dropdown does not offer or a le
 test('tolerates a page without the dropdown', () => {
     assert.equal(selectAppointmentLocationByName(null, 'Virtual'), false);
     assert.doesNotThrow(() => selectAppointmentLocationCode(undefined, '11'));
+});
+
+/** The add screen's dropdown: no legacy option and no disabled items, with DOM insertion. */
+function addScreenDropdown() {
+    const make = (value, text, attrs = []) => ({
+        value, text, attrs,
+        hasAttribute(name) { return this.attrs.includes(name); },
+        setAttribute(name) { this.attrs.push(name); },
+    });
+    const select = {
+        options: [make('', 'Not specified'), make('11', 'Virtual')],
+        value: '',
+        ownerDocument: {createElement: () => make('', '')},
+        insertBefore(option, before) {
+            this.options.splice(before ? this.options.indexOf(before) : this.options.length, 0, option);
+        },
+    };
+    return select;
+}
+
+test('offers a pasted location the add screen cannot select as a legacy option, after not specified', () => {
+    const select = addScreenDropdown();
+    const hidden = {value: ''};
+    assert.equal(offerLegacyAppointmentLocation(select, hidden, ' Satellite office ', 'Legacy: Satellite office'), true);
+    assert.deepEqual(select.options.map((o) => [o.value, o.text]),
+        [['', 'Not specified'], ['legacy', 'Legacy: Satellite office'], ['11', 'Virtual']]);
+    assert.equal(select.value, 'legacy');
+    assert.equal(hidden.value, 'Satellite office');
+});
+
+test('reuses the legacy option the edit screen already rendered', () => {
+    const select = dropdown();
+    select.value = '';
+    assert.equal(offerLegacyAppointmentLocation(select, null, 'Annex', ''), true);
+    assert.equal(select.options.filter((o) => o.value === 'legacy').length, 1);
+    assert.equal(select.options[1].text, 'Annex');
+    assert.equal(select.value, 'legacy');
+});
+
+test('offers nothing for a paste without a location name', () => {
+    const select = addScreenDropdown();
+    for (const text of ['', '  ', null, undefined]) {
+        assert.equal(offerLegacyAppointmentLocation(select, {value: ''}, text, 'Legacy: '), false);
+    }
+    assert.equal(select.options.length, 2);
+    assert.equal(offerLegacyAppointmentLocation(null, null, 'Annex', ''), false);
 });

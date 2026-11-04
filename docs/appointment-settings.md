@@ -104,8 +104,10 @@ order, on edit the appointment's own item even if deactivated since (marked), an
 "Legacy: <text>" option for location text that names no item. An edit screen links typed text to
 the active item with the same name (ignoring case and spaces) so it is coded on the next save.
 `js/appointmentLocationSelect.js` picks the option an appointment type names and the one a
-pasted appointment carries (`ApptData.locationCode`). The choice survives a patient search and the
-add-patient detour (`demographicsearch2apptresults.jsp`, `add-form-personal.jsp`,
+pasted appointment carries (`ApptData.locationCode`). A pasted location the add screen cannot
+select (typed text, or an item disabled since) is offered as a legacy option with its name, so a
+cut and paste keeps it (`offerLegacyAppointmentLocation`). The choice survives a patient search and
+the add-patient detour (`demographicsearch2apptresults.jsp`, `add-form-personal.jsp`,
 `demographicaddarecord.jsp`). `AppointmentEditVersion` includes the code.
 
 ### Day schedule
@@ -131,13 +133,14 @@ every booking's text and out through SOAP, REST and HL7. A refused entry is offe
 - Every change is POST-only. The page opens without a `dispatch`, so any `dispatch` is a change:
   GET/HEAD answer 405 before anything is read or written, and the route is listed in
   `HttpMethodGuardFilter.MUTATION_INTENT_PARAMS_BY_ROUTE` by it.
-- Every change runs in one transaction that first locks the list row
+- Every change runs in one READ COMMITTED transaction that first locks the list row
   (`LookupListDao.findForUpdate`), so two at once (a double click, two administrators) cannot both
-  pass the name check; it evicts the lookup-list cache after commit and writes a `LogAction` row with
+  pass the name check. Under MariaDB's default REPEATABLE READ the reads after the lock would
+  still see the snapshot the privilege check took before it; it evicts the lookup-list cache after commit and writes a `LogAction` row with
   the item id and the field only.
-- Repeats: the add and paste forms carry a `FormSubmissionGuard` token
-  (`Scope.APPOINTMENT_LOCATION_ADD`, one per rendering), so a double click or a reload shows what the
-  first submission added instead of adding again. Move up/down posts the place the page showed
+- Repeats: the add and paste forms each carry a `FormSubmissionGuard` token
+  (`Scope.APPOINTMENT_LOCATION_ADD`, bound to the form's dispatch), so a double click or a reload
+  shows what the first submission added instead of adding again. Move up/down posts the place the page showed
   (`position`); a repeat finds the location gone from there and is refused with "The list changed".
 - Locations are never deleted, so a code on a past appointment always names an item. The list is
   also an ordinary Look-Up List in the generic Look-Up List manager, which applies none of these

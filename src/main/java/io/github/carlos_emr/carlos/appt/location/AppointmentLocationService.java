@@ -31,6 +31,7 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.commn.dao.LookupListDao;
@@ -135,7 +136,7 @@ public class AppointmentLocationService {
      * @throws AppointmentLocationChangeRefusedException if the name is blank, too long, or already
      *         an active location's
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
     public LookupListItem addLocation(LoggedInInfo loggedInInfo, String name) {
         requirePrivilege(loggedInInfo, SecurityInfoManager.WRITE);
@@ -160,7 +161,7 @@ public class AppointmentLocationService {
      * @throws AppointmentLocationChangeRefusedException if the paste holds no name, more than
      *         {@link #PASTE_MAX_LINES} names, or a name that is too long
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
     public AddResult addLocations(LoggedInInfo loggedInInfo, String pasted) {
         requirePrivilege(loggedInInfo, SecurityInfoManager.WRITE);
@@ -211,7 +212,7 @@ public class AppointmentLocationService {
      * @throws AppointmentLocationChangeRefusedException if there is no such location, or the name
      *         is blank, too long, or another active location's
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
     public void rename(LoggedInInfo loggedInInfo, int id, String name) {
         requirePrivilege(loggedInInfo, SecurityInfoManager.WRITE);
@@ -236,7 +237,7 @@ public class AppointmentLocationService {
      * @throws AppointmentLocationChangeRefusedException if there is no such location or the colour
      *         is neither blank nor {@code #rrggbb}
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
     public void updateColour(LoggedInInfo loggedInInfo, int id, String colour) {
         requirePrivilege(loggedInInfo, SecurityInfoManager.WRITE);
@@ -262,7 +263,7 @@ public class AppointmentLocationService {
      * @throws AppointmentLocationChangeRefusedException if there is no such location or the icon is
      *         neither blank nor whitelisted
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
     public void updateIcon(LoggedInInfo loggedInInfo, int id, String icon) {
         requirePrivilege(loggedInInfo, SecurityInfoManager.WRITE);
@@ -293,7 +294,7 @@ public class AppointmentLocationService {
      *         is no longer at {@code shownPosition} (a repeated click, or another change since the
      *         page was opened), so one click never moves it twice
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
     public boolean move(LoggedInInfo loggedInInfo, int id, boolean up, Integer shownPosition) {
         requirePrivilege(loggedInInfo, SecurityInfoManager.WRITE);
@@ -338,7 +339,7 @@ public class AppointmentLocationService {
      * @throws SecurityException if the user lacks delete
      * @throws AppointmentLocationChangeRefusedException if there is no such location
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
     public void deactivate(LoggedInInfo loggedInInfo, int id) {
         requirePrivilege(loggedInInfo, SecurityInfoManager.DELETE);
@@ -359,7 +360,7 @@ public class AppointmentLocationService {
      * @throws AppointmentLocationChangeRefusedException if there is no such location or an active
      *         location already has its name
      */
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
     public void restore(LoggedInInfo loggedInInfo, int id) {
         requirePrivilege(loggedInInfo, SecurityInfoManager.WRITE);
@@ -437,8 +438,10 @@ public class AppointmentLocationService {
 
     /*
      * Every change locks the list row first, so two at once (a double click, two administrators)
-     * run one after the other: the second sees the first's items before it checks a name or
-     * renumbers the order.
+     * run one after the other. The changes run at READ COMMITTED: under MariaDB's default
+     * REPEATABLE READ the reads after the lock would still see the snapshot taken by the privilege
+     * check before it, and the second change would check a name or renumber the order without
+     * the first change's items.
      */
     private void lockList(LookupList list) {
         lookupListDao.findForUpdate(list.getId());

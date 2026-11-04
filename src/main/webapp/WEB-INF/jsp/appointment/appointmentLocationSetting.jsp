@@ -125,7 +125,7 @@
                 <summary class="small"><fmt:message key="admin.appt.location.label.paste"/></summary>
                 <form action="${carlos:forHtmlAttribute(locationAction)}" method="post" class="mt-2" id="pasteLocationsForm">
                     <input type="hidden" name="dispatch" value="addMany"/>
-                    <input type="hidden" name="carlosFormSubmission" value="${carlos:forHtmlAttribute(locationAddToken)}"/>
+                    <input type="hidden" name="carlosFormSubmission" value="${carlos:forHtmlAttribute(locationPasteToken)}"/>
                     <label class="form-label small" for="pastedLocationNames">
                         <fmt:message key="admin.appt.location.msg.pasteHelp"><fmt:param value="${pasteMaxLines}"/></fmt:message>
                     </label>
