@@ -114,11 +114,11 @@ public class DemographicMerged {
             secObjPrivilegeDao.persist(sop);
         }
 
-        // Log for the source demographic being merged
-        LogAction.addLog(loggedInInfo, "DemographicMerged.Merge", "demographic", demographic_no, demographic_no, "merged_from=" + demographic_no + " merged_to=" + head);
+        // Join the caller's transaction: a failed batch must not leave audit rows for rolled-back merges.
+        LogAction.addLogStrict(loggedInInfo, "DemographicMerged.Merge", "demographic", demographic_no, demographic_no, "merged_from=" + demographic_no + " merged_to=" + head);
 
         // Log for the target demographic receiving the merge
-        LogAction.addLog(loggedInInfo, "DemographicMerged.Merge", "demographic", head, head, "merged_from=" + demographic_no + " merged_to=" + head);
+        LogAction.addLogStrict(loggedInInfo, "DemographicMerged.Merge", "demographic", head, head, "merged_from=" + demographic_no + " merged_to=" + head);
 
 
     }
