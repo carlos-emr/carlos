@@ -10,10 +10,10 @@
  * lastUpdateUser) and the _eChart$<id> secObjPrivilege row; the merge search and
  * the head's Master Record showing the duplicate as a tail; the schedule search
  * returning only the head; the unmerge marking the row deleted and parking the
- * privilege in the recycle bin; a self-merge, a forged head outside the selection
- * and a GET refused with no row, and forged requests that would create a merge cycle (#3880)
- * refused with no row. Fixtures: two owned FAKE- patients seeded by SQL (and a
- * third, never selected, as the forged head);
+ * privilege in the recycle bin; missing source/target IDs, a self-merge, a forged
+ * head outside the selection, a GET and cycle-forming requests (#3880) refused
+ * with no row. Fixtures: owned FAKE- patients seeded by SQL and a reserved,
+ * deleted patient ID for the missing-record probes;
  * cleanup removes their merge, privilege, recycle-bin and demographic rows and
  * asserts they are gone. Implements coverage plan §2.4 demographic-merge.
  */
@@ -43,6 +43,7 @@ function assertMergeDialogs(dialogs, outcomeText, label) {
 async function workflow(s) {
   const {sql, marker, provider, context, recorder} = s;
   const ids = [];
+  const missingIds = [];
   s.cleanup(() => {
     // A committed insert whose LAST_INSERT_ID() reply was lost still carries the per-run
     // marker as its last name, so recover owned patients by marker as well as by id.
@@ -50,20 +51,25 @@ async function workflow(s) {
       if (/^[1-9]\d*$/.test(id) && !ids.includes(id)) ids.push(id);
     }
     if (!ids.length) return;
-    const list = ids.join(',');
-    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no IN (${list})
+    const allIds = [...ids, ...missingIds];
+    const list = allIds.join(',');
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no IN (${ids.join(',')})
       AND last_name=${h.sqlString(marker)}`) === String(ids.length), 'Merge patient fixture ownership changed');
+    if (missingIds.length) {
+      h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no IN (${missingIds.join(',')})`) === '0',
+        'A missing merge fixture ID was reused');
+    }
     // Children first: demographic_merged.merged_to is a foreign key to demographic.
     sql.execute(`DELETE FROM demographic_merged WHERE demographic_no IN (${list}) OR merged_to IN (${list})`);
-    for (const id of ids) {
+    for (const id of allIds) {
       sql.execute(`DELETE FROM secObjPrivilege WHERE roleUserGroup='_all' AND objectName=${h.sqlString(`_eChart$${id}`)}`);
       sql.execute(`DELETE FROM recyclebin WHERE table_name='secObjPrivilege' AND keyword=${h.sqlString(`_all|_eChart$${id}`)}`);
     }
     sql.execute(`DELETE FROM demographic WHERE demographic_no IN (${list}) AND last_name=${h.sqlString(marker)}`);
     const remaining = [
       `(SELECT COUNT(*) FROM demographic_merged WHERE demographic_no IN (${list}) OR merged_to IN (${list}))`,
-      `(SELECT COUNT(*) FROM secObjPrivilege WHERE objectName IN (${ids.map(id => h.sqlString(`_eChart$${id}`)).join(',')}))`,
-      `(SELECT COUNT(*) FROM recyclebin WHERE keyword IN (${ids.map(id => h.sqlString(`_all|_eChart$${id}`)).join(',')}))`,
+      `(SELECT COUNT(*) FROM secObjPrivilege WHERE objectName IN (${allIds.map(id => h.sqlString(`_eChart$${id}`)).join(',')}))`,
+      `(SELECT COUNT(*) FROM recyclebin WHERE keyword IN (${allIds.map(id => h.sqlString(`_all|_eChart$${id}`)).join(',')}))`,
       `(SELECT COUNT(*) FROM demographic WHERE demographic_no IN (${list}))`,
     ];
     h.assert(sql.value(`SELECT ${remaining.join('+')}`) === '0', 'Owned merge fixtures were not removed');
@@ -133,6 +139,39 @@ async function workflow(s) {
         && await rowFor(name).locator('input[name="head"]').count() === 1, `${name} record is not offered as a mergeable head record`);
     }
     h.assert(mergeRows() === '0', 'Owned records already carry merge history');
+  });
+
+  await s.step('missing source and target records reject the complete selection without merge or privilege writes', async () => {
+    // Reserve an auto-increment ID, then remove only our marked fixture: the probe
+    // cannot accidentally name another patient's chart or depend on a magic ID.
+    const missing = seed('Missing');
+    h.assert(/^[1-9]\d*$/.test(missing), 'The missing patient fixture was not created');
+    ids.push(missing);
+    sql.execute(`DELETE FROM demographic WHERE demographic_no=${missing} AND last_name=${h.sqlString(marker)}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${missing}`) === '0',
+      'The missing patient fixture still exists');
+    ids.splice(ids.indexOf(missing), 1);
+    missingIds.push(missing);
+    const token = await csrfTokenPresent(merge);
+    const endpoint = h.appUrl(s.config.baseUrl, '/admin/MergeRecords');
+    for (const [target, selected] of [
+      [head, [head, missing, dup]],
+      [head, [head, dup, missing]],
+      [missing, [missing, head, dup]],
+    ]) {
+      const body = new URLSearchParams({'CSRF-TOKEN': token, mergeAction: 'merge', provider_no: provider, head: target});
+      for (const record of selected) body.append('records', record);
+      const result = await context.request.post(endpoint, {data: body.toString(), maxRedirects: 0,
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'CSRF-TOKEN': token}});
+      h.assert(result.status() === 302 && /outcome=failure/.test(result.headers().location || ''),
+        `A merge selecting a missing patient returned HTTP ${result.status()} instead of the failure outcome`);
+      h.assert(mergeRows() === '0'
+        && sql.value(`SELECT COUNT(*) FROM demographic_merged WHERE demographic_no=${missing} OR merged_to=${missing}`) === '0',
+      'A merge selecting a missing patient wrote a merge row');
+      h.assert(sql.value(`SELECT COUNT(*) FROM secObjPrivilege WHERE objectName IN
+        (${[head, dup, missing].map(id => h.sqlString(`_eChart$${id}`)).join(',')})`) === '0',
+      'A merge selecting a missing patient granted a chart privilege');
+    }
   });
 
   await s.step('merging the duplicate into the head writes one live demographic_merged row and the chart privilege', async () => {

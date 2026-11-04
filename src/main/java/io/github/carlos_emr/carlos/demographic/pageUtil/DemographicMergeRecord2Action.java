@@ -48,6 +48,7 @@ import java.util.Set;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -72,6 +73,7 @@ public class DemographicMergeRecord2Action extends ActionSupport {
 
     Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
 
     public DemographicMergeRecord2Action() {
 
@@ -99,7 +101,7 @@ public class DemographicMergeRecord2Action extends ActionSupport {
 
         if ("merge".equals(action)) {
             if (!mergeRecords(dmDAO, loggedInInfo, records, head)) {
-                logger.warn("Rejected demographic merge: a selected record is not a mergeable head record");
+                logger.warn("Rejected demographic merge: a selected record is not an existing mergeable head record");
                 outcome = FAILURE;
             }
 
@@ -127,9 +129,11 @@ public class DemographicMergeRecord2Action extends ActionSupport {
      * Validates the complete selection before merging any records. IDs are deduplicated and compared by
      * numeric identity, so alternate spellings cannot cause a self-merge or a repeated merge after an earlier
      * write. The target must be selected alongside at least one other record, and none may already be a
-     * merged source. Canonical IDs are also used for the merge's privilege and audit records.
+     * merged source. Every selected ID must name an existing patient before the first write, so a missing
+     * source or target cannot leave orphan merge/privilege rows or a partially merged selection.
+     * Canonical IDs are also used for the merge's privilege and audit records.
      */
-    private static boolean mergeRecords(DemographicMerged dmDAO, LoggedInInfo loggedInInfo,
+    private boolean mergeRecords(DemographicMerged dmDAO, LoggedInInfo loggedInInfo,
                                         List<String> records, String head) {
         try {
             Integer headId = Integer.valueOf(head);
@@ -138,7 +142,8 @@ public class DemographicMergeRecord2Action extends ActionSupport {
                 recordIds.add(Integer.valueOf(recordId));
             }
             if (recordIds.size() < 2 || !recordIds.contains(headId)
-                    || recordIds.stream().anyMatch(dmDAO::isMergedSource)) {
+                    || recordIds.stream().anyMatch(id -> id <= 0
+                            || demographicDao.getDemographicById(id) == null || dmDAO.isMergedSource(id))) {
                 return false;
             }
             for (Integer recordId : recordIds) {

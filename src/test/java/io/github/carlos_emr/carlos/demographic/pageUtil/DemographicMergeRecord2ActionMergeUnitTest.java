@@ -21,9 +21,11 @@
  */
 package io.github.carlos_emr.carlos.demographic.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicMergedDao;
 import io.github.carlos_emr.carlos.commn.dao.RecycleBinDao;
 import io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDao;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -49,6 +51,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -64,6 +67,9 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
     private final MockHttpServletResponse response = new MockHttpServletResponse();
     private final SecurityInfoManager security = mock(SecurityInfoManager.class);
     private final DemographicMergedDao dao = mock(DemographicMergedDao.class);
+    private final DemographicDao demographicDao = mock(DemographicDao.class);
+    private final SecObjPrivilegeDao privilegeDao = mock(SecObjPrivilegeDao.class);
+    private final RecycleBinDao recycleBinDao = mock(RecycleBinDao.class);
     private final LoggedInInfo info = mock(LoggedInInfo.class);
     private final Map<Integer, DemographicMerged> mergeRows = new HashMap<>();
 
@@ -71,8 +77,12 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
     void setUp() {
         registerMock(SecurityInfoManager.class, security);
         registerMock(DemographicMergedDao.class, dao);
-        registerMock(SecObjPrivilegeDao.class, mock(SecObjPrivilegeDao.class));
-        registerMock(RecycleBinDao.class, mock(RecycleBinDao.class));
+        registerMock(DemographicDao.class, demographicDao);
+        registerMock(SecObjPrivilegeDao.class, privilegeDao);
+        registerMock(RecycleBinDao.class, recycleBinDao);
+        for (int id : List.of(10, 11, 12)) {
+            when(demographicDao.getDemographicById(id)).thenReturn(new Demographic());
+        }
         when(info.getLoggedInProviderNo()).thenReturn("999998");
         when(security.hasPrivilege(info, "_demographic", "w", null)).thenReturn(true);
         request.setMethod("POST");
@@ -114,6 +124,37 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
         verify(dao, times(2)).persist(any());
     }
 
+    @ParameterizedTest
+    @CsvSource({"10, 99, 11", "10, 11, 99", "99, 10, 11"})
+    void shouldRejectWithoutWrites_whenAnySelectedPatientDoesNotExist(String head, String first, String last) {
+        assertThat(merge(head, head, first, last)).isEqualTo("failure");
+        assertThat(request.getAttribute("mergeoutcome")).isEqualTo("failure");
+
+        verify(dao, never()).persist(any());
+        verifyNoInteractions(privilegeDao, recycleBinDao);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"10, 0", "10, -1", "0, 11", "-1, 11"})
+    void shouldRejectWithoutWrites_whenAnySelectedIdIsNotPositive(String head, String source) {
+        assertThat(merge(head, head, source)).isEqualTo("failure");
+
+        verify(dao, never()).persist(any());
+        verifyNoInteractions(privilegeDao, recycleBinDao);
+    }
+
+    @Test
+    void shouldKeepTheCaisiFailureOutcome_whenASelectedPatientDoesNotExist() {
+        request.setParameter("caisiSearch", "yes");
+
+        assertThat(merge("10", "10", "11", "99")).isEqualTo("caisiSearch");
+        assertThat(request.getAttribute("mergeoutcome")).isEqualTo("failure");
+
+        verify(dao, never()).persist(any());
+        verifyNoInteractions(privilegeDao, recycleBinDao);
+    }
+
     @Test
     void shouldRejectMerge_whenASelectedRecordIsAlreadyMerged() {
         alreadyMerged(11, 20);
@@ -133,7 +174,7 @@ class DemographicMergeRecord2ActionMergeUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRejectWholeRequest_beforeWritingAnything_whenLaterRecordIsMerged() {
+    void shouldRejectWholeRequest_whenALaterRecordIsAlreadyMerged() {
         alreadyMerged(12, 20);
 
         assertThat(merge("10", "10", "11", "12")).isEqualTo("failure");
