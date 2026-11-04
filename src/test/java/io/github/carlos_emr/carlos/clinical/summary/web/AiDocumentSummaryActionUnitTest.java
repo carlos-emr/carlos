@@ -46,6 +46,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import io.github.carlos_emr.carlos.log.LogAction;
 import org.mockito.MockedStatic;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -125,6 +126,10 @@ class AiDocumentSummaryActionUnitTest extends CarlosUnitTestBase {
         verify(request).setAttribute("documentSummaryGenerated", true);
         verify(response).setHeader("Cache-Control", "no-store");
         verify(response).setHeader("Referrer-Policy", "no-referrer");
+        // The audit row names the document and its patient; the note carries no document text.
+        logActionMock.verify(() -> LogAction.addLogSynchronous(user, "DocumentSummary.generate",
+                AiReviewedDocumentSummary2Action.AUDIT_CONTENT, "42", 3001, "documentId=42"));
+        logActionMock.verify(() -> LogAction.addLogSynchronous(any(), anyString(), anyString()), never());
     }
 
     @ParameterizedTest
@@ -368,6 +373,8 @@ class AiDocumentSummaryActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.generate()).isEqualTo(ActionSupport.SUCCESS);
         verify(request).setAttribute(eq("documentSummaryError"), contains("changed during generation"));
         verify(request, never()).setAttribute(eq("documentSummaryGenerated"), any());
+        logActionMock.verify(() -> LogAction.addLogSynchronous(user, "DocumentSummary.generateRejected",
+                AiReviewedDocumentSummary2Action.AUDIT_CONTENT, "42", 3001, "documentId=42"));
     }
 
     @Test
