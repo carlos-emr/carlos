@@ -21,8 +21,10 @@ reads those mappings, including their dispatchers; it does not invent a new orde
 | PrivacyStatementAppendingFilter | Shields writer flush/close, appends the print notice, then flushes its delegate | REQUEST; binary and AJAX bypass decoration |
 
 A forward first calls `resetBuffer()`. Every capture owner must discard only
-uncommitted output, preserving headers/status as the Servlet contract requires.
-Nested forwards repeat that operation; discarded pre-forward content must never
+uncommitted output, preserving status and headers as the Servlet contract
+requires, with one deliberate exception: a Content-Length the decorator itself
+holds or published, which described the discarded body (see "Proven
+corrections"). Nested forwards repeat that operation; discarded pre-forward content must never
 be replayed later. `reset()` additionally resets response state. Do not discard a
 capture before a delegated reset succeeds. A rejected reset must preserve the body.
 
@@ -127,8 +129,9 @@ order. It reads each shipped descriptor's setting independently. The matrix cove
 - A non-HTML length declared before a forward with no channel open never frames
   the forwarded body.
 - A durable negative control with Tomcat's default, minimal sanitizer isolation,
-  and a JavaMelody-only passing control. These expected empty responses characterize
-  the unsupported default; they do not make that default a supported deployment.
+  and a JavaMelody-only passing control. The control pins that Tomcat finished the
+  raw response after the forward (the mechanism), not the bytes the unsupported
+  default happens to emit; it does not make that default a supported deployment.
 
 The fixture's fixed synthetic authenticated session bypasses login. It does not
 load Spring, Struts, WAF, JDBC or the entire application. Validate those gates with
