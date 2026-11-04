@@ -885,7 +885,7 @@ function renderRxStage() {
 
                                                 <div id="prescriptionStageSet" style="display:none">
 
-                                                    <div id="interactingDrugErrorMsg" role="status" style="display:none;color:#856404;font-weight:bold;"></div>
+                                                    <output id="interactingDrugErrorMsg" style="display:none;color:#856404;font-weight:bold;"></output>
 
                                                     <div id="rxText"></div>
                                                         <%-- Prescriptions are staged here via the prescribe.jsp widget --%>
@@ -2857,10 +2857,9 @@ function updateQty(element){
                            panel.innerHTML = transport.responseText;
                        } else {
                            // Clear stale guidance, including on an initial failure, and keep a retry.
-                           panel.innerHTML = '<div data-renal-dosing-unavailable role="status"><h3>Dosing Information <small><a href="#">Refresh</a></small></h3><span>N/A</span></div>';
-                           panel.querySelector('a').onclick = function() {
+                           panel.innerHTML = '<div data-renal-dosing-unavailable><h3>Dosing Information <small><button type="button" class="btn btn-link">Refresh</button></small></h3><output>N/A</output></div>';
+                           panel.querySelector('button').onclick = function() {
                                getRenalDosingInformation(divId, atcCode);
-                               return false;
                            };
                        }
                    }
