@@ -399,6 +399,16 @@ class AiReviewedDocumentSummaryActionUnitTest {
         verify(response).sendError(409);
         verify(request, never()).setAttribute(eq("documentSummaryError"), any());
     }
+    @Test void frenchPatientRecordGivesTheFrenchNoticeOnThePageAndInTheReview() throws Exception {
+        when(context.load(any(LoggedInInfo.class), eq(11)))
+                .thenReturn(new DocumentSummaryReviewContext.Snapshot(SCOPE, META, "fr"));
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", DocumentSummaryReviewBinding.unreviewedNotice("fr"));
+        var review = generate();
+        var view = review.view(actor, SCOPE, source());
+        assertThat(view.notice()).contains("Statut de la révision").doesNotContain("Review status");
+        verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", view.notice());
+    }
     @Test void discardWritesAnAuditEntryForTheDocument() throws Exception {
         var review = generate(); approve(review); token(review);
         when(request.getMethod()).thenReturn("POST");
