@@ -107,8 +107,16 @@ case "$1" in
             # the socket but never answers cannot hold configure past the
             # "60 seconds" the warning below reports.
             deadline=$(( $(uptime_s) + 60 ))
-            while [ "$(uptime_s)" -lt "${deadline}" ] \
-                && ! timeout 10 mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' >/dev/null 2>&1; do
+            # A refusal (a root password from an earlier setup, a locked
+            # account) will not clear by waiting: stop at it, as carlos-emr's
+            # configure does, and name it below.
+            while [ "$(uptime_s)" -lt "${deadline}" ]; do
+                mariadb_probe_rc=0
+                mariadb_probe_err="$(timeout 10 mariadb --protocol=socket --user=root --connect-timeout=5 -e 'SELECT 1' 2>&1 >/dev/null)" || mariadb_probe_rc=$?
+                [ "${mariadb_probe_rc}" != 0 ] || break
+                case "${mariadb_probe_err}" in
+                    *"ERROR 1045"* | *"ERROR 1698"* | *"ERROR 4151"*) break ;;
+                esac
                 sleep 2
             done
         fi
@@ -219,10 +227,21 @@ case "$1" in
                 echo "carlos-emr-drugref: WARNING:   sudo mariadb -e 'DROP DATABASE drugref2' && sudo dpkg-reconfigure carlos-emr-drugref" >&2
             fi
         else
-            echo "carlos-emr-drugref: WARNING: MariaDB did not answer within 60 seconds, so the" >&2
-            echo "carlos-emr-drugref: WARNING: DrugRef database was NOT provisioned or loaded and" >&2
-            echo "carlos-emr-drugref: WARNING: prescribing lookups will return nothing. Once MariaDB" >&2
-            echo "carlos-emr-drugref: WARNING: is running (systemctl status mariadb), finish with the" >&2
+            # Say WHY, from carlos-emr's shipped helper (this package depends on
+            # the matching carlos-emr): "did not answer within 60 seconds" was
+            # printed for a root that answered at once with Access denied.
+            DB_CAUSE=""
+            if [ -x /usr/lib/carlos-emr/carlos-emr-host-conflicts ]; then
+                DB_CAUSE="$(/usr/lib/carlos-emr/carlos-emr-host-conflicts mariadb 2>/dev/null | sed -n 's/^cause: //p' | head -n 1)" || DB_CAUSE=""
+            fi
+            if [ -n "${DB_CAUSE}" ]; then
+                printf 'carlos-emr-drugref: WARNING: root could not use MariaDB: %s\n' "${DB_CAUSE}" >&2
+            else
+                echo "carlos-emr-drugref: WARNING: MariaDB did not answer within 60 seconds." >&2
+            fi
+            echo "carlos-emr-drugref: WARNING: The DrugRef database was NOT provisioned or loaded, so" >&2
+            echo "carlos-emr-drugref: WARNING: prescribing lookups will return nothing. Once" >&2
+            echo "carlos-emr-drugref: WARNING: 'sudo mariadb -e \"SELECT 1\"' answers, finish with the" >&2
             echo "carlos-emr-drugref: WARNING: command below, which also restarts the EMR to load DrugRef:" >&2
             echo "carlos-emr-drugref: WARNING:   sudo dpkg-reconfigure carlos-emr-drugref" >&2
         fi
