@@ -1248,7 +1248,8 @@ async function run(s) {
       // #4793 forces the modern path even with an old false override. These unsupported
       // routes remain until #5599: keep their patient-scope/refusal coverage, and require
       // every legacy clinical field to stay empty rather than claiming a working print.
-      const own = text => d.ownName(text) && !d.otherName(text) && !text.includes(marker)
+      const own = text => d.ownName(text) && !d.otherName(text)
+        && !text.includes(`${marker}-${d.label}-`) && !text.includes(`${marker}-${other}-`)
         && ['sh', 'fh', 'mh', 'oc', 're', 'en'].every(name => {
           const field = text.match(new RegExp(`<pre\\b[^>]*\\bname=['"]${name}Textarea['"][^>]*>([\\s\\S]*?)</pre>`, 'i'));
           return field && field[1].replace(/&nbsp;|\s/g, '') === '';
