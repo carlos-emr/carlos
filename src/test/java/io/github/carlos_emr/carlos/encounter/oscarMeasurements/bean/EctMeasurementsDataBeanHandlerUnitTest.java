@@ -38,6 +38,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
 import java.util.Date;
@@ -182,7 +183,7 @@ class EctMeasurementsDataBeanHandlerUnitTest extends CarlosUnitTestBase {
     private static Object[] reading(int id) {
         Object[] r = row("reviewed", new Date(0));
         Measurement measurement = (Measurement) r[0];
-        measurement.setId(id);
+        ReflectionTestUtils.setField(measurement, "id", id);
         measurement.setDemographicId(3);
         measurement.setType("A1C");
         return r;
