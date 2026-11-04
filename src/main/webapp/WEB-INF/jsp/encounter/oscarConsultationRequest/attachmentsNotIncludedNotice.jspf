@@ -24,6 +24,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <c:if test="${not empty consultAttachmentsNotIncluded}">
     <div id="consultAttachmentsNotIncluded" class="alert alert-warning" role="alert">
         <strong><fmt:message key="encounter.oscarConsultationRequest.attachmentsNotIncluded.title"/></strong>
