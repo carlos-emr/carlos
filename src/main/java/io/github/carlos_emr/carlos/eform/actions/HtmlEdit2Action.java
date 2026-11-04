@@ -54,6 +54,14 @@ public class HtmlEdit2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /**
+     * Saves or updates an eForm template from a POST with {@code _eform} write privilege.
+     * Other methods receive HTTP 405 before form processing, with {@code Allow: POST}.
+     *
+     * @return String result: {@code NONE} for a rejected method, otherwise {@code SUCCESS}
+     * @throws IOException if the method-rejection response cannot be sent
+     * @throws SecurityException if a POST lacks the required write privilege
+     */
     @Override
     public String execute() throws IOException {
         // This route only saves; the editor view has a separate GET route. CSRFGuard
