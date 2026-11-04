@@ -46,8 +46,9 @@ const { openSavedNoteEditor } = require('./boundary-chart-note-text-playwright-c
       /Missing stored note: locator\.waitFor:/);
     console.log('PASS echart-note-lifecycle: stable note identity across Edit and named missing-control failures');
 
-    // Exercise the boundary workflow's actual locator with the editor transition
-    // used by newCaseManagementView.js.jsp. Include a real break-out attempt.
+    // Exercise the boundary helper's locator against a simulated DOM .value
+    // transition. Markup-shaped text is a locator fixture here; the packaged
+    // boundary workflow checks the application's rendering and save round trip.
     for (const body of ['FAKE plain note', 'FAKE café 漢字 🩺 &amp;\n</textarea><img src=x onerror="window.boundaryXss=true">']) {
       await page.setContent('<!doctype html><div id="encMainDiv"><div id="nc1"><div id="n42">'
         + '<a id="edit42" href="#">Edit</a><div id="txt42"></div></div></div>'
@@ -67,7 +68,7 @@ const { openSavedNoteEditor } = require('./boundary-chart-note-text-playwright-c
       const editor = await openSavedNoteEditor(page, '42');
       assert.equal(await editor.inputValue(), body);
       assert.equal(await former.count(), 0, 'The original text locator fails for plain and markup notes alike');
-      assert.equal(await page.locator('#encMainDiv img').count(), 0, 'Note markup must remain text');
+      assert.equal(await page.locator('#encMainDiv img').count(), 0, 'The locator fixture must keep markup-shaped text out of DOM elements');
       assert.equal(await page.evaluate(() => window.boundaryXss), undefined);
       assert.equal(await noteContents(page, '99').innerText(), 'FAKE unrelated note');
     }
