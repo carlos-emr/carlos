@@ -81,7 +81,13 @@ class AiDocumentSummaryJspRegressionTest {
                 "name=\"removePoint\"", "maxlength=\"4000\"", "maxlength=\"2000\"");
         assertThat(form).contains(
                 "required><carlos:encode value=\"${documentSummaryOverview}\"/></textarea>",
-                "required><carlos:encode value=\"${point.text}\"/></textarea>");
+                "class=\"form-control\"><carlos:encode value=\"${point.text}\"/></textarea>");
+        // A removed point's text may be cleared; the server validates kept points instead.
+        assertThat(form).doesNotContain("name=\"pointText\" maxlength=\"2000\" rows=\"3\" class=\"form-control\" required");
+        String notSaved = "<carlos:encode value=\"${documentSummaryCorrectionError}\"/>";
+        assertThat(source.indexOf(notSaved)).isPositive().isLessThan(route);
+        assertThat(source).contains("<c:if test=\"${not empty documentSummaryCorrectionError}\">",
+                "<p class=\"alert alert-warning\" role=\"alert\">" + notSaved + "</p>");
         assertThat(form).doesNotContain("name=\"affirmReview\"", "name=\"evidence\"", "contenteditable", "checked");
         assertThat(source).contains("<p class=\"document-summary-text\"><carlos:encode value=\"${documentSummaryOverview}\"/></p>",
                 "name=\"affirmReview\" value=\"true\" required aria-describedby=\"summary-confirm-saved\"",

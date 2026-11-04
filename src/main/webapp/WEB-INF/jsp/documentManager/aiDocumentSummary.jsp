@@ -65,9 +65,12 @@
             </c:forEach>
         </section>
         <c:if test="${documentSummaryReviewWorkflow}">
-            <details class="my-3">
+            <c:if test="${not empty documentSummaryCorrectionError}">
+                <p class="alert alert-warning" role="alert"><carlos:encode value="${documentSummaryCorrectionError}"/></p>
+            </c:if>
+            <details class="my-3"<c:if test="${not empty documentSummaryCorrectionError}"> open</c:if>>
                 <summary>Correct summary text or remove points</summary>
-                <p>Save corrections to display a new draft before confirming your review. Supporting excerpts stay unchanged. Removing every point discards this draft.</p>
+                <p>Save corrections to display a new draft before confirming your review. Supporting excerpts stay unchanged. Removing every point discards this draft. Leave the text of a removed point as it is or clear it.</p>
                 <form method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ReviseReviewedAiDocumentSummary">
                     <input type="hidden" name="documentId" value="${carlos:forHtmlAttribute(documentSummaryId)}">
                     <input type="hidden" name="draftId" value="${carlos:forHtmlAttribute(documentSummaryDraftId)}">
@@ -76,7 +79,7 @@
                     <textarea id="summary-correction-overview" name="overview" maxlength="4000" rows="4" class="form-control mb-3" required><carlos:encode value="${documentSummaryOverview}"/></textarea>
                     <c:forEach items="${documentSummaryPoints}" var="point" varStatus="position">
                         <label for="summary-correction-point-${position.index}">Point ${position.count}</label>
-                        <textarea id="summary-correction-point-${position.index}" name="pointText" maxlength="2000" rows="3" class="form-control" required><carlos:encode value="${point.text}"/></textarea>
+                        <textarea id="summary-correction-point-${position.index}" name="pointText" maxlength="2000" rows="3" class="form-control"><carlos:encode value="${point.text}"/></textarea>
                         <label class="d-block mb-3"><input type="checkbox" name="removePoint" value="${position.index}"> Remove point ${position.count}</label>
                     </c:forEach>
                     <button type="submit" class="btn btn-outline-primary">Save corrections and clear this review</button>

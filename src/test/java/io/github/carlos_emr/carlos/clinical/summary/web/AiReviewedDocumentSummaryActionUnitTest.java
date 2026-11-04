@@ -347,6 +347,80 @@ class AiReviewedDocumentSummaryActionUnitTest {
         assertThat(current()).isNull();
         assertThatThrownBy(() -> review.view(actor, SCOPE, source())).isInstanceOf(IllegalStateException.class);
         verify(generator, times(1)).summarize(TEXT);
+        audit.verify(() -> LogAction.addLogSynchronous(actor, "DocumentSummary.reviewDiscarded", "documentId=11"));
+        audit.verify(() -> LogAction.addLogSynchronous(any(), eq("DocumentSummary.reviewRevised"), anyString()), never());
+    }
+    @Test void discardWritesAnAuditEntryForTheDocument() throws Exception {
+        var review = generate(); approve(review); token(review);
+        when(request.getMethod()).thenReturn("POST");
+        audit.verify(() -> LogAction.addLogSynchronous(any(), eq("DocumentSummary.reviewDiscarded"), anyString()), never());
+        assertThat(action.discard()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(current()).isNull();
+        audit.verify(() -> LogAction.addLogSynchronous(actor, "DocumentSummary.reviewDiscarded", "documentId=11"));
+    }
+    @Test void staleDiscardWritesNoAuditEntry() throws Exception {
+        var review = generate();
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameterValues("draftId")).thenReturn(new String[]{UUID.randomUUID().toString()});
+        assertThat(action.discard()).isEqualTo(ActionSupport.NONE); verify(response).sendError(409);
+        assertThat(current()).isSameAs(review);
+        audit.verify(() -> LogAction.addLogSynchronous(any(), eq("DocumentSummary.reviewDiscarded"), anyString()), never());
+    }
+    @Test void invalidHonestCorrectionKeepsTheSavedDraftAndExplainsTheRule() throws Exception {
+        var review = generate(); approve(review);
+        var before = review.view(actor, SCOPE, source());
+        for (String[] attempt : List.of(
+                new String[]{"FAKE document.", "Totally unrelated zebra."},
+                new String[]{"Unrelated zebra overview.", "Blood work was planned."},
+                new String[]{"FAKE document.", "   "},
+                new String[]{"FAKE document.", "Blood\rwork was planned."})) {
+            correction(review, attempt[0], attempt[1]);
+            clearInvocations(request, generator);
+            assertThat(action.revise()).as(attempt[1]).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(current()).as(attempt[1]).isSameAs(review);
+            var after = review.view(actor, SCOPE, source());
+            assertThat(after.version()).isEqualTo(before.version());
+            assertThat(after.draftId()).isEqualTo(before.draftId());
+            assertThat(after.approved()).isTrue();
+            assertThat(after.revisedAt()).isNull();
+            verify(request).setAttribute("documentSummaryCorrectionError", AiReviewedDocumentSummary2Action.CORRECTION_NOT_SAVED);
+            verify(request, never()).setAttribute(eq("documentSummaryError"), any());
+            verify(request).setAttribute("documentSummaryGenerated", true);
+            verify(request).setAttribute("documentSummaryDraftId", before.draftId().toString());
+            verify(request).setAttribute("documentSummaryOverview", before.summary().overview());
+            verify(request).setAttribute("documentSummaryReviewed", true);
+            verifyNoInteractions(generator);
+        }
+        audit.verify(() -> LogAction.addLogSynchronous(any(), eq("DocumentSummary.reviewRevised"), anyString()), never());
+        audit.verify(() -> LogAction.addLogSynchronous(any(), eq("DocumentSummary.reviewDiscarded"), anyString()), never());
+        var duplicate = generateTwoPoints();
+        correction(duplicate, "FAKE document.", "Blood work was planned.", "Blood work was planned.");
+        clearInvocations(request);
+        assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(current()).isSameAs(duplicate);
+        verify(request).setAttribute("documentSummaryCorrectionError", AiReviewedDocumentSummary2Action.CORRECTION_NOT_SAVED);
+    }
+    private DocumentSummaryReviewSession generateTwoPoints() throws Exception {
+        var two = mock(DocumentSummary.class);
+        when(two.overview()).thenReturn("FAKE document.");
+        when(two.points()).thenReturn(List.of(
+                Map.of("text", "Repeat blood work was planned.", "evidence", List.of("Repeat blood work was planned.")),
+                Map.of("text", "Blood work planned.", "evidence", List.of("Repeat blood work was planned."))));
+        when(generator.summarize(TEXT)).thenReturn(two);
+        return generate();
+    }
+    @Test void correctionTrimsSurroundingWhitespaceSoStoredTextAndVersionAreCanonical() throws Exception {
+        var review = generate();
+        correction(review, "  FAKE document.\r\n", "\r\nBlood work was planned. \t");
+        assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS);
+        var first = review.view(actor, SCOPE, source());
+        assertThat(first.summary().overview()).isEqualTo("FAKE document.");
+        assertThat(first.summary().points().get(0).get("text")).isEqualTo("Blood work was planned.");
+        correction(review, "FAKE document.", "Blood work was planned.");
+        assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS);
+        var second = review.view(actor, SCOPE, source());
+        assertThat(second.summary().overview()).isEqualTo(first.summary().overview());
+        assertThat(second.summary().points()).isEqualTo(first.summary().points());
     }
     @Test void correctionRejectsExtraPointOrDuplicateRemovalRatherThanAddingContent() throws Exception {
         var review = generate(); correction(review, "FAKE document.", "Blood work planned.", "Injected extra point.");

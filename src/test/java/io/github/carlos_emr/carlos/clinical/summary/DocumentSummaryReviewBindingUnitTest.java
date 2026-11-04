@@ -190,6 +190,22 @@ class DocumentSummaryReviewBindingUnitTest {
     }
 
     @Test
+    void correctionRejectsCarriageReturnsAndBlankText() {
+        var original = draft(source());
+        var service = service(REVIEWED);
+        for (var text : List.of("Blood work\rplanned.", "Blood work planned.\r\n", "", " ", "\n\t")) {
+            assertThatThrownBy(() -> service.revise(original, "FAKE document.", List.of(text), Set.of()))
+                    .as("point text %s", text).isInstanceOf(IllegalArgumentException.class);
+        }
+        for (var overview : List.of("FAKE\rdocument.", "", "   ")) {
+            assertThatThrownBy(() -> service.revise(original, overview, List.of("Blood work planned."), Set.of()))
+                    .as("overview %s", overview).isInstanceOf(IllegalArgumentException.class);
+        }
+        assertThat(service.revise(original, "FAKE document.", List.of("Blood work\nplanned."), Set.of())
+                .summary().points().get(0).get("text")).isEqualTo("Blood work\nplanned.");
+    }
+
+    @Test
     void repeatedCorrectionKeepsOriginalGenerationAndRejectsBackwardsRevisionClock() {
         var original = draft(source());
         var revised = service(REVIEWED).revise(original, "FAKE document.", List.of("Blood work planned."), Set.of());
