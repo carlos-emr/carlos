@@ -214,7 +214,12 @@
                                     </td>
 
                                     <!-- Data Field -->
-                                    <td title="data">${carlos:forHtmlContent(data.dataField)}</td>
+                                    <td title="data">${carlos:forHtmlContent(data.dataField)}
+                                        <c:if test="${data.sourceLabNo != null}">
+                                            <a class="source-lab" href="${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=${data.sourceLabNo}"
+                                               target="_blank" rel="noopener"><fmt:message key="encounter.oscarMeasurements.sourceLab"/></a>
+                                        </c:if>
+                                    </td>
 
                                     <!-- Comments -->
                                     <td title="comments">${carlos:forHtmlContent(data.comments)}</td>

@@ -303,6 +303,7 @@
             padding: 4px 8px;
         }
 
+        .history-entry { flex: 0 0 auto; text-align: center; }
         .history-value {
             flex: 0 0 auto;
             min-width: 92px;
@@ -836,6 +837,7 @@
                                 point.put("v", String.valueOf(mdb.getDataField()));
                                 plotPoints.add(point);
                         %>
+                            <div class="history-entry">
                             <%-- Opens the value's detail/delete modal, so it carries the same
                                  button semantics and keyboard handler as the prevention tiles. --%>
                             <div class="history-value" role="button" tabindex="0"
@@ -861,6 +863,11 @@
                                 <span class="indicator-label" style="color:<%= indicatorColour %>"><carlos:encode
                                         value='<%= indicatorLabel(mdb.getIndicationColour()) %>' context="html"/></span>
                                 <% } %>
+                            </div>
+                            <% if (mdb.getSourceLabNo() != null) { %>
+                            <a class="source-lab" href="<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay?segmentID=<%= mdb.getSourceLabNo() %>"
+                               target="_blank" rel="noopener"><fmt:message key="encounter.oscarMeasurements.sourceLab"/></a>
+                            <% } %>
                             </div>
                         <%  } %>
                         </div>

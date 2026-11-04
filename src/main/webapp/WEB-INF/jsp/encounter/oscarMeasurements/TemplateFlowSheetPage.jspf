@@ -867,6 +867,12 @@ value="<%= h.get("name")%>"/>
 
 
         </p>
+        <% if (mdb.getSourceLabNo() != null) { %>
+        <a class="source-lab" href="<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay?segmentID=<%= mdb.getSourceLabNo() %>"
+           target="_blank" rel="noopener" onclick="event.stopPropagation();">
+            <fmt:message key="encounter.oscarMeasurements.sourceLab"/>
+        </a>
+        <% } %>
     </div>
     <%}%>
 </div><!-- preventionSection -->

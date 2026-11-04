@@ -35,16 +35,21 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Vector;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
+import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.lab.service.LabPatientAccess;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementTypes;
@@ -132,6 +137,7 @@ public class EctMeasurementsDataBeanHandler {
                 measurementsDataVector.add(data);
 
             }
+            populateSourceLabs(measurementsDataVector);
         }
         return true;
     }
@@ -176,7 +182,27 @@ public class EctMeasurementsDataBeanHandler {
             measurements.add(measurement);
         }
 
+        populateSourceLabs(measurements);
         return measurements;
+    }
+
+    /** Load provenance once per history, rather than querying extensions for each rendered reading. */
+    private static void populateSourceLabs(Collection<EctMeasurementsDataBean> measurements) {
+        if (measurements.isEmpty()) {
+            return;
+        }
+        Map<Integer, EctMeasurementsDataBean> byId = new HashMap<>();
+        for (EctMeasurementsDataBean measurement : measurements) {
+            byId.put(measurement.getId(), measurement);
+        }
+        MeasurementsExtDao extensions = SpringUtils.getBean(MeasurementsExtDao.class);
+        for (MeasurementsExt extension : extensions.getMeasurementsExtListByMeasurementIdList(new ArrayList<>(byId.keySet()))) {
+            EctMeasurementsDataBean measurement = byId.get(extension.getMeasurementId());
+            if (measurement != null && "lab_no".equals(extension.getKeyVal())) {
+                // Never put an unchecked extension string into a URL or JavaScript context.
+                measurement.setSourceLabNo(LabPatientAccess.positiveIdentity(extension.getVal()));
+            }
+        }
     }
 
     public static Hashtable<String, Object> getLast(String demo, String type) {
