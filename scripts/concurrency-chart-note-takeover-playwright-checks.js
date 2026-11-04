@@ -30,6 +30,11 @@ const isEntry = method => response => response.request().method() === 'POST'
 
 async function workflow(s) {
   const { sql, patient, marker } = s;
+  const entryUrl = new URL(h.appUrl(s.config.baseUrl, '/CaseManagementEntry'));
+  const isAppEntry = url => {
+    const actual = new URL(url);
+    return actual.origin === entryUrl.origin && actual.pathname === entryUrl.pathname;
+  };
   s.cleanup(() => {
     const notes = sql.rows(`SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`).map(row => row[0]);
     h.assert(notes.every(id => /^[1-9]\d*$/.test(id)), 'Owned note id is invalid');
@@ -53,7 +58,7 @@ async function workflow(s) {
   // as well, so even an extra revision which preserves B's text cannot pass the stale-save assertion.
   const noteSnapshot = () => JSON.stringify(sql.rows(`SELECT n.note_id, n.uuid, n.note,
     (SELECT COUNT(*) FROM casemgmt_note r WHERE r.uuid=n.uuid) AS revision
-    FROM casemgmt_note n WHERE n.demographic_no=${patient} ORDER BY n.note_id`));
+    FROM casemgmt_note n WHERE n.demographic_no=? ORDER BY n.note_id`, [patient]));
 
   const aChart = await s.chart();
   await editorOf(aChart).waitFor({ state: 'visible', timeout: 20000 });
@@ -77,6 +82,7 @@ async function workflow(s) {
     await editor.click();
     await editor.fill(textB);
     const [saved] = await Promise.all([bChart.waitForResponse(isEntry('save'), { timeout: 30000 }), bChart.locator('#saveImg').first().click()]);
+    h.assert(isAppEntry(saved.url()), 'Session B\'s save left the configured application endpoint');
     h.assert(saved.status() === 200, `Session B's save answered HTTP ${saved.status()}`);
     await expectValue(sql, notesWith(textB), '1', 'Session B\'s note did not reach casemgmt_note');
     savedNotes = noteSnapshot();
@@ -87,12 +93,21 @@ async function workflow(s) {
     await editor.click();
     await editor.fill(textA);
     const mark = failureMark(s.recorder);
+    let refusedUrl;
     // Whatever the page does about it (an alert, or none) is asserted by the next step; accept it here.
     alerts = await h.withExpectedDialogs(aChart, async () => {
       const [response] = await Promise.all([aChart.waitForResponse(isEntry('save'), { timeout: 30000 }), aChart.locator('#saveImg').first().click()]);
+      h.assert(isAppEntry(response.url()), 'The stale save left the configured application endpoint');
       h.assert(response.status() === 409, `The stale window's save answered HTTP ${response.status()}, expected 409`);
+      refusedUrl = h.withoutQueryStrings(response.url());
       await aChart.waitForTimeout(1500); // the page applies the response (and any alert) after it arrives
     });
+    h.assert(s.recorder.badResponses.slice(mark.responses).every(entry => isAppEntry(entry.url)),
+      'The stale save recorded an HTTP failure outside the configured application endpoint');
+    const resourceErrors = s.recorder.consoleIssues.slice(mark.console).filter(entry => entry.location
+      && h.withoutQueryStrings(entry.location.url) === refusedUrl
+      && entry.text.startsWith('Failed to load resource:') && entry.text.includes('status of 409 ('));
+    h.assert(resourceErrors.length <= 1, 'The stale save reported more than one matching resource-console error');
     consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/CaseManagementEntry$/ });
     h.assert(sql.value(notesWith(textA)) === '0', 'The stale window\'s text was written to the chart');
     h.assert(sql.value(notesWith(textB)) === '1', 'Session B\'s note is no longer the stored note');

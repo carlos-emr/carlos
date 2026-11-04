@@ -9,14 +9,16 @@ const support = require('./lib/concurrency-support');
 // Exercise the workflow's real assertions and diagnostics consumption with deterministic browser
 // and database doubles. Negative cases must fail even when B's original text is still present.
 async function run({ status = 409, extraResponse, extraConsole, revision = false,
-  changedText = false, persistedStale = false, kept = true,
+  changedText = false, changedIdentity = false, missingB = false, persistedStale = false, kept = true,
+  responseUrl,
   alerts = [{ type: 'alert', text: 'Failed to save note! 409' }] } = {}) {
   const recorder = h.createRecorder();
   const marker = 'FAKE-PW-takeover';
   const textB = `${marker} note typed in the window that took the lock`;
   let staleSaved = false;
+  let bSaved = false;
   const url = 'http://127.0.0.1:8080/carlos/CaseManagementEntry';
-  const response = code => ({ status: () => code, url: () => url,
+  const response = (code, destination = url) => ({ status: () => code, url: () => destination,
     request: () => ({ method: () => 'POST', postData: () => 'method=save' }) });
   const bad = { status: 409, method: 'POST', url, resourceType: 'xhr' };
   const resourceError = { text: 'Failed to load resource: the server responded with a status of 409 ()', location: { url } };
@@ -24,7 +26,7 @@ async function run({ status = 409, extraResponse, extraConsole, revision = false
     let text = '';
     return {
       async waitForResponse(predicate) {
-        const result = response(stale ? status : 200);
+        const result = response(stale ? status : 200, stale ? responseUrl : undefined);
         assert.equal(predicate(result), true);
         return result;
       },
@@ -32,7 +34,7 @@ async function run({ status = 409, extraResponse, extraConsole, revision = false
       locator(selector) {
         if (selector === 'body') return { async innerText() { return 'E-Chart'; } };
         if (selector === '#saveImg') return { first() { return this; }, async click() {
-          if (!stale) return;
+          if (!stale) { bSaved = !missingB; return; }
           staleSaved = true;
           if (status >= 400) recorder.badResponses.push({ ...bad, status });
           if (status === 409) recorder.consoleIssues.push(resourceError);
@@ -45,12 +47,12 @@ async function run({ status = 409, extraResponse, extraConsole, revision = false
     };
   };
   const aChart = chart(true), bChart = chart(false);
-  const sandbox = { module: { exports: {} }, URLSearchParams,
+  const sandbox = { module: { exports: {} }, URLSearchParams, URL,
     require(id) {
       if (id === './lib/playwright-harness') return { ...h,
         async withExpectedDialogs(page, body) { await body(); return alerts; } };
-      if (id === './lib/workflow-session') return { async expectValue(sql, query, expected) {
-        assert.equal(sql.value(query), expected);
+      if (id === './lib/workflow-session') return { async expectValue(sql, query, expected, message) {
+        assert.equal(sql.value(query), expected, message);
       } };
       if (id === './lib/concurrency-support') return { ...support, async openSecondSession(s, options) {
         await options.dialogHandler({ type: () => 'confirm',
@@ -67,10 +69,20 @@ async function run({ status = 409, extraResponse, extraConsole, revision = false
   vm.runInNewContext(fs.readFileSync(require.resolve('./concurrency-chart-note-takeover-playwright-checks'), 'utf8'), sandbox);
   const steps = [];
   await sandbox.module.exports.workflow({ patient: '42', marker, recorder,
+    config: { baseUrl: new URL('http://127.0.0.1:8080/carlos') },
     sql: {
-      value(query) { return query.includes('stale window') ? (staleSaved && persistedStale ? '1' : '0') : '1'; },
-      rows() {
-        const rows = [['101', 'note-uuid', staleSaved && changedText ? 'changed' : textB, staleSaved && revision ? '2' : '1']];
+      value(query) {
+        if (query.includes('casemgmt_note_lock')) return '1';
+        if (query.includes(h.sqlString(`${marker} note typed in the stale window`))) return staleSaved && persistedStale ? '1' : '0';
+        if (query.includes(h.sqlString(textB))) return bSaved ? '1' : '0';
+        throw new Error(`Unexpected SQL count: ${query}`);
+      },
+      rows(query, parameters) {
+        assert.match(query, /SELECT n\.note_id, n\.uuid, n\.note,/);
+        assert.match(query, /WHERE n\.demographic_no=\? ORDER BY n\.note_id/);
+        assert.deepEqual(Array.from(parameters), ['42']);
+        if (!bSaved) return [];
+        const rows = [[staleSaved && changedIdentity ? '103' : '101', 'note-uuid', staleSaved && changedText ? 'changed' : textB, staleSaved && revision ? '2' : '1']];
         if (staleSaved && revision) rows.push(['102', 'note-uuid', textB, '2']);
         return rows;
       },
@@ -97,11 +109,24 @@ for (const status of [200, 403, 500]) {
 }
 
 test('a second 409 is not consumed', async () => {
-  await assert.rejects(run({ extraResponse: { status: 409, method: 'POST', url: 'http://127.0.0.1/carlos/CaseManagementEntry' } }), /exactly one/);
+  await assert.rejects(run({ extraResponse: { status: 409, method: 'POST', url: 'http://127.0.0.1:8080/carlos/CaseManagementEntry' } }), /exactly one/);
 });
 
 test('an unrelated HTTP failure is not consumed', async () => {
-  await assert.rejects(run({ extraResponse: { status: 404, method: 'GET', url: 'http://127.0.0.1/missing' } }), /exactly one/);
+  await assert.rejects(run({ extraResponse: { status: 404, method: 'GET', url: 'http://127.0.0.1/missing' } }), /outside the configured application endpoint/);
+});
+
+test('a save response from another origin is rejected', async () => {
+  await assert.rejects(run({ responseUrl: 'https://other.invalid/carlos/CaseManagementEntry' }), /left the configured application endpoint/);
+});
+
+test('an extra failure from another origin is not consumed', async () => {
+  await assert.rejects(run({ extraResponse: { status: 409, method: 'POST', url: 'https://other.invalid/carlos/CaseManagementEntry' } }), /outside the configured application endpoint/);
+});
+
+test('an extra matching resource console error is still fatal', async () => {
+  await assert.rejects(run({ extraConsole: { text: 'Failed to load resource: the server responded with a status of 409 ()',
+    location: { url: 'http://127.0.0.1:8080/carlos/CaseManagementEntry' } } }), /more than one matching resource-console error/);
 });
 
 test('an unrelated resource console error is still fatal', async () => {
@@ -115,6 +140,14 @@ test('an extra revision preserving B\'s text fails the persistence assertion', a
 
 test('a changed saved note fails the persistence assertion', async () => {
   await assert.rejects(run({ changedText: true }), /note text or revision/);
+});
+
+test('a changed note identity fails even with unchanged text', async () => {
+  await assert.rejects(run({ changedIdentity: true }), /note text or revision/);
+});
+
+test('session B must actually persist its note before the stale save', async () => {
+  await assert.rejects(run({ missingB: true }), /note did not reach casemgmt_note/);
 });
 
 test('persisting the stale editor text fails even if B\'s note is unchanged', async () => {
