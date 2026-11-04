@@ -162,6 +162,10 @@ async function saveNote(chart, sql, patient, text) {
   return noteId;
 }
 
+/**
+ * Drive two native attachment popups and verify copy identity, program policy and refusals.
+ * @param s owned workflow session; its cleanup restores facilities and removes all fixture rows
+ */
 async function workflow(s) {
   const { sql, marker, provider, config, patient: A } = s;
   const B = ownedPatient(s, 'PatientBravo');
@@ -353,8 +357,11 @@ async function workflow(s) {
     const grants = { _demographic: 'r', _appointment: 'r', _eChart: 'r' };
     const reader = fixture.addLogin(fixture.addRole({ ...grants, '_casemgmt.notes': 'r' }));
     const writer = fixture.addLogin(fixture.addRole({ ...grants, _eChart: 'w', '_casemgmt.notes': 'w' }));
-    fixture.joinTestLoginPrograms(reader);
-    fixture.joinTestLoginPrograms(writer);
+    // The source notes use the test provider's default program. Memberships alone
+    // select the first program, whose different reporter role can hide B's note.
+    // Keep that program policy fixed while varying only module/patient rights.
+    fixture.joinTestLoginPrograms(reader, { copyDefaults: true });
+    fixture.joinTestLoginPrograms(writer, { copyDefaults: true });
     fixture.lockPatient(writer, A, ['_casemgmt.notes']);
     const readState = () => JSON.stringify([
       sql.rows(`SELECT * FROM casemgmt_note WHERE demographic_no IN (${A},${B},${C}) ORDER BY note_id`),
@@ -393,10 +400,21 @@ async function workflow(s) {
     // attach B's readable note to writable C, proving the refusal was a patient boundary.
     const copies = sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${C}`);
     const allowed = await attach(authenticated[1], state.notes.B);
+    let destination;
     try {
       h.assert(allowed.status() === 302 && /\/encounter\/IncomingEncounter\?demographicNo=/.test(allowed.headers().location || ''),
         `Allowed attachment returned HTTP ${allowed.status()} instead of reopening its target`);
+      destination = new URL(allowed.headers().location, config.baseUrl).href;
     } finally { await allowed.dispose(); }
+    const reopened = await authenticated[1].session.request.get(destination, { failOnStatusCode: false });
+    try {
+      const returned = new URL(reopened.url());
+      const body = await reopened.text();
+      h.assert(reopened.status() === 200 && returned.searchParams.get('demographicNo') === C
+        && returned.searchParams.has('chartContext') && !h.isSecurityErrorBody(body)
+        && !h.isApplicationErrorPage(body),
+      `The authorized attachment did not reopen C's signed chart (HTTP ${reopened.status()})`);
+    } finally { await reopened.dispose(); }
     h.assert(Number(sql.value(`SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${C}`)) === Number(copies) + 1,
       'The authorized attachment did not copy exactly one readable source note');
     for (const actor of authenticated) await actor.session.close();

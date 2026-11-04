@@ -9,6 +9,49 @@ const q = h.sqlString;
 const TIMEOUT = 30000;
 const NOTE = '#caseManagementEntryForm textarea[name="caseNote_note"]';
 
+/**
+ * Reuse the read-only definition, or own a missing definition until its policy links are removed.
+ * Register recovery before insertion; cleanup retains renamed, retyped or externally linked rows.
+ * @param s workflow session supplying SQL, a run marker and cleanup registration
+ * @returns {string} the existing or newly owned access_type identifier
+ */
+function ensureReadOnlyType(s) {
+    const { sql, marker } = s;
+    const existing = sql.rows("SELECT access_id FROM access_type WHERE name='note-read-only' AND type='access'");
+    h.assert(existing.length <= 1 && existing.every(([id]) => /^[1-9]\d*$/.test(id)),
+        'The note-read-only access type is ambiguous');
+    if (existing.length) return existing[0][0];
+    const ownedName = `${marker}-pmm-read-only`;
+    h.assert(sql.value('SELECT COUNT(*) FROM access_type WHERE name=?', [ownedName]) === '0',
+        'The owned PMM access type already exists');
+    let ownedId;
+    s.cleanup(() => {
+        const rows = ownedId
+            ? sql.rows('SELECT access_id,name,type FROM access_type WHERE access_id=?', [ownedId])
+            : sql.rows('SELECT access_id,name,type FROM access_type WHERE name=?', [ownedName]);
+        h.assert(rows.length <= 1 && rows.every(row => row[2] === 'access'
+            && (row[1] === ownedName || (ownedId && row[1] === 'note-read-only'))),
+        'The owned PMM access type changed; retaining it');
+        if (!rows.length) return;
+        const [id, name] = rows[0];
+        h.assert(/^[1-9]\d*$/.test(id) && sql.value(`SELECT
+            (SELECT COUNT(*) FROM program_access WHERE access_type_id=?)
+            + (SELECT COUNT(*) FROM default_role_access WHERE access_id=?)`, [id, id]) === '0',
+        'The owned PMM access type acquired policy links; retaining it');
+        sql.execute("DELETE FROM access_type WHERE access_id=? AND name=? AND type='access'", [id, name]);
+        h.assert(sql.value('SELECT COUNT(*) FROM access_type WHERE access_id=?', [id]) === '0',
+            'The owned PMM access type was not removed');
+    });
+    // A marker name recovers an INSERT whose acknowledgement was lost. Once its id
+    // is known, publish the semantic name that the application's real policy reads.
+    ownedId = h.insertId(sql, "INSERT INTO access_type (name,type) VALUES (?,'access')",
+        'PMM read-only access type', [ownedName]);
+    h.assert(/^[1-9]\d*$/.test(ownedId), 'The owned PMM access type key is invalid');
+    sql.execute(`UPDATE access_type SET name='note-read-only' WHERE access_id=?
+        AND name=? AND type='access'`, [ownedId, ownedName]);
+    return ownedId;
+}
+
 /** Refuse a parent deletion if any of the fixture's relationships acquired another owner. */
 function assertOwnedPrograms(sql, programs, { provider, facility, patients, accessId, accessProgram, accessType }) {
     for (const { id, name } of programs) {
@@ -86,8 +129,7 @@ async function checkPmmAttachSourceContext(s, { context, login, target, ownedPat
         ORDER BY r.role_no,h.role_no LIMIT 1`)[0];
     h.assert(pair && pair.every(id => /^[1-9]\d*$/.test(id)),
         'No preexisting cached role pair can prove the PMM source-program refusal');
-    const readOnlyType = sql.rows("SELECT access_id FROM access_type WHERE name='note-read-only' AND type='access'")[0]?.[0];
-    h.assert(/^[1-9]\d*$/.test(readOnlyType || ''), 'The install has no note-read-only access type');
+    const readOnlyType = ensureReadOnlyType(s);
     const facilities = sql.rows(`SELECT f.id FROM Facility f JOIN provider_facility p ON p.facility_id=f.id
         WHERE p.provider_no=${q(login.providerNo)} AND f.disabled=0 ORDER BY f.id`);
     h.assert(facilities.length === 1 && /^[1-9]\d*$/.test(facilities[0][0]),
@@ -347,4 +389,4 @@ async function checkPmmAttachSourceContext(s, { context, login, target, ownedPat
 }
 
 module.exports = { checkPmmAttachSourceContext, assertOwnedPrograms, assertOnlyCopiedNote,
-    assertStagedDefaults, assertCopyLocks, assertCopiedProvenance };
+    assertStagedDefaults, assertCopyLocks, assertCopiedProvenance, ensureReadOnlyType };
