@@ -322,12 +322,12 @@ public interface ConsultationManager {
     public Path renderConsultationForm(HttpServletRequest request) throws PDFGenerationException;
 
     /**
-     * Retrieves patient forms attached to a consultation request.
+     * Retrieves patient forms attached to a consultation request and available to the current user.
      *
      * @param loggedInInfo LoggedInInfo the current user's session info
      * @param consultRequestId int the consultation request ID
      * @param demographicNo int the patient demographic number
-     * @return List of PatientForm attached forms
+     * @return List of PatientForm attached forms, empty when clinical-form read access is denied
      */
     public List<EctFormData.PatientForm> getAttachedForms(LoggedInInfo loggedInInfo, int consultRequestId, int demographicNo);
 

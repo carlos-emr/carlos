@@ -860,6 +860,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             documents.addAll(coverAttachments.documents());
             // Issue #4693: the attached labs the faxed PDF cannot draw, named apart on the cover page.
             request.setAttribute(ConsultationLabsNotIncluded.REQUEST_ATTRIBUTE, coverAttachments.labsNotIncluded());
+            request.setAttribute(ConsultationAttachmentsNotIncluded.REQUEST_ATTRIBUTE, coverAttachments.attachmentsNotIncluded());
 
 			List<FaxConfig>	accounts = faxManager.getFaxGatewayAccounts(loggedInInfo);
 
@@ -948,7 +949,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
      * @param documents names of what the faxed packet contains
      * @param labsNotIncluded names of the attached labs the faxed PDF cannot draw (issue #4693)
      */
-    record FaxCoverAttachments(List<String> documents, List<String> labsNotIncluded) {
+    record FaxCoverAttachments(List<String> documents, List<String> labsNotIncluded, List<String> attachmentsNotIncluded) {
     }
 
     /**
@@ -1024,7 +1025,9 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 documents.add(attachedHRMDocument.get("name") + "");
             }
         }
-        return new FaxCoverAttachments(documents, labsNotIncluded);
+        return new FaxCoverAttachments(documents, labsNotIncluded,
+                ConsultationAttachmentsNotIncluded.describe(consultationManager, loggedInInfo,
+                        Integer.parseInt(requestId), attachedFormsList, attachedHRMDocumentsList, locale));
     }
 
     private boolean persistManualSignatureForRendering(LoggedInInfo loggedInInfo, String requestId, String demographicNo,
@@ -1204,6 +1207,10 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 labNames.add(String.valueOf(name));
             }
             warnings.add(ConsultationLabsNotIncluded.previewWarning(labNames, LocaleUtils.resolveBundleLocale(request)));
+        }
+        if (request.getAttribute(ConsultationAttachmentsNotIncluded.REQUEST_ATTRIBUTE) instanceof List<?> names && !names.isEmpty()) {
+            warnings.add(ConsultationAttachmentsNotIncluded.previewWarning(
+                    names.stream().map(String::valueOf).toList(), LocaleUtils.resolveBundleLocale(request)));
         }
         return warnings.isEmpty() ? null : String.join("\n\n", warnings);
     }

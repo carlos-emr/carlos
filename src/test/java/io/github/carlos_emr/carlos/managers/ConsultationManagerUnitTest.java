@@ -643,6 +643,20 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
     class AttachedDocuments {
 
         @Test
+        @DisplayName("should omit attached forms without loading them when patient-scoped read is denied")
+        void shouldOmitAttachedForms_whenFormReadIsDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_form", SecurityInfoManager.READ,
+                    TEST_DEMOGRAPHIC_NO.toString())).thenReturn(false);
+
+            assertThat(consultationManager.getAttachedForms(mockLoggedInInfo, TEST_REQUEST_ID,
+                    TEST_DEMOGRAPHIC_NO)).isEmpty();
+
+            verify(mockFormsManager, never()).getEncounterFormsbyDemographicNumber(
+                    mockLoggedInInfo, TEST_DEMOGRAPHIC_NO, true, true);
+            verify(mockConsultDocsDao, never()).findByRequestIdDocType(TEST_REQUEST_ID, ConsultDocs.DOCTYPE_FORM);
+        }
+
+        @Test
         @DisplayName("should return only attached forms in attachment order")
         void shouldReturnOnlyAttachedForms_whenFilteringForms() {
             // Given

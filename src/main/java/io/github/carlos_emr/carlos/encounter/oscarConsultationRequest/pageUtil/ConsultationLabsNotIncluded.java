@@ -175,10 +175,16 @@ public final class ConsultationLabsNotIncluded {
         if (names == null || names.isEmpty()) {
             throw new IllegalArgumentException("A notice page needs at least one lab attachment to name");
         }
+        return noticePage(names, locale, PRINT_KEYS + "titleLabsNotIncluded", PRINT_KEYS + "msgLabsNotIncluded");
+    }
+
+    /** Shared Unicode notice layout for other consultation attachment omissions. */
+    static byte[] noticePage(List<String> names, Locale locale, String titleKey, String explanationKey)
+            throws DocumentException {
         ResourceBundle bundle = bundle(locale == null ? Locale.ENGLISH : locale);
         Font heading = PdfFonts.getFont(BaseFont.HELVETICA_BOLD, 14, Font.NORMAL, Color.BLACK);
         Font body = PdfFonts.getFont(BaseFont.HELVETICA, 11, Font.NORMAL, Color.BLACK);
-        String title = bundle.getString(PRINT_KEYS + "titleLabsNotIncluded");
+        String title = bundle.getString(titleKey);
 
         ByteArrayOutputStream pdf = new ByteArrayOutputStream();
         Document document = new Document(PageSize.LETTER, 54, 54, 54, 54);
@@ -193,7 +199,7 @@ public final class ConsultationLabsNotIncluded {
             document.add(titleLine);
 
             Paragraph explanation = new Paragraph();
-            PdfFonts.addText(explanation, bundle.getString(PRINT_KEYS + "msgLabsNotIncluded"), body);
+            PdfFonts.addText(explanation, bundle.getString(explanationKey), body);
             explanation.setSpacingAfter(10f);
             document.add(explanation);
 
@@ -236,7 +242,7 @@ public final class ConsultationLabsNotIncluded {
      * The message bundle for the locale. Callers pass a negotiated locale, which always has a bundle;
      * any other locale falls back to English rather than to the server's default locale.
      */
-    private static ResourceBundle bundle(Locale locale) {
+    static ResourceBundle bundle(Locale locale) {
         try {
             return ResourceBundle.getBundle(BUNDLE, locale,
                     ResourceBundle.Control.getNoFallbackControl(ResourceBundle.Control.FORMAT_PROPERTIES));

@@ -111,6 +111,7 @@
 
             <%-- Issue #4693: the attached labs the print or fax could not include. --%>
             <%@ include file="/WEB-INF/jsp/encounter/oscarConsultationRequest/labsNotIncludedNotice.jspf" %>
+            <%@ include file="/WEB-INF/jsp/encounter/oscarConsultationRequest/attachmentsNotIncludedNotice.jspf" %>
 
             <% if ("true".equals(isPreview)) { %>
                 <p class="text-muted mb-2" style="font-size:0.9rem;">Printing Consultation form...</p>
@@ -118,7 +119,7 @@
 
             <%-- A page naming labs that were left out waits for the user instead of closing itself. --%>
             <% if (!"true".equals(isPreview)) { %>
-                <c:if test="${empty consultLabsNotIncluded}">
+                <c:if test="${empty consultLabsNotIncluded and empty consultAttachmentsNotIncluded}">
                 <p class="text-muted mb-3" style="font-size:0.85rem;">
                     <fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgClose5Sec"/>
                     <br>
@@ -168,7 +169,7 @@
                 return;
             }
             // Issue #4693: the user has to read which attached labs the fax could not include.
-            if (document.getElementById('consultLabsNotIncluded')) {
+            if (document.getElementById('consultLabsNotIncluded') || document.getElementById('consultAttachmentsNotIncluded')) {
                 return;
             }
 
