@@ -32,7 +32,6 @@ package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
@@ -50,9 +49,9 @@ public class EctDisplayEForm2Action extends EctDisplayAction {
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
         try {
-            String roleName = (String) request.getSession().getAttribute("userrole") + "," + (String) request.getSession().getAttribute("user");
+            String roleName = getRoleNames(request);
 
-            if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "r", null)) {
+            if (!securityInfoManager.hasPrivilege(getLoggedInInfo(request), "_eform", "r", null)) {
                 return true; //eforms link won't show up on new CME screen.
             } else {
 

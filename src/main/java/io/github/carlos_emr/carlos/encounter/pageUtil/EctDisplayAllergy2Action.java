@@ -53,7 +53,7 @@ public class EctDisplayAllergy2Action extends EctDisplayAction {
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_allergy", "r", null)) {
             return true; // Allergies link won't show up on new CME screen.

@@ -98,7 +98,7 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", "r", null)) {
             return true; //Prevention link won't show up on new CME screen.

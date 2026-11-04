@@ -46,7 +46,7 @@ public class EctDisplayPregnancy2Action extends EctDisplayAction {
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO dao) {
         SecurityInfoManager security = SpringUtils.getBean(SecurityInfoManager.class);
-        LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo info = getLoggedInInfo(request);
         int patient = Integer.parseInt(EncounterPatientContext.requireDemographicNo(request));
         if (!security.isAllowedAccessToPatientRecord(info, patient)
                 || !security.hasPrivilege(info, "_pregnancy", "r", patient)

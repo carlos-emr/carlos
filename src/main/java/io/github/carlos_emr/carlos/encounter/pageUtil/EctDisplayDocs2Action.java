@@ -58,7 +58,7 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", "r", null)) {
             return true; // documents link won't show up on new CME screen.
@@ -147,7 +147,7 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
                 date = observationDate(curDoc.getObservationDate());
                 serviceDateStr = date == null ? "" : DateUtils.formatDate(date, request.getLocale());
 
-                String user = (String) request.getSession().getAttribute("user");
+                String user = getProviderNo(request);
                 item.setDate(date);
                 hash = Math.abs(winName.hashCode());
 

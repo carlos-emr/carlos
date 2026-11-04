@@ -54,7 +54,7 @@ public class EctDisplayRx2Action extends EctDisplayAction {
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
             return true; //Prescription link won't show up on new CME screen.

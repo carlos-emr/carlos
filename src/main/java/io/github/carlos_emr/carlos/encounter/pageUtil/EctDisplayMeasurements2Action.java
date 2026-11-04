@@ -62,14 +62,14 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", null)) {
             return true; //Messurement link won't show up on new CME screen.
         } else {
 
             String menuId = "3"; //div id for popup menu
-            String roleName$ = request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user");
+            String roleName$ = getRoleNames(request);
 
             //set text for lefthand module title
             Dao.setLeftHeading(getText("encounter.Index.measurements"));
