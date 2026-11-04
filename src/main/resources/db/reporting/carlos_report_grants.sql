@@ -136,6 +136,7 @@ INSERT INTO carlos_report_tables (table_name, access, excluded_columns, reason) 
 ('clinic', 'reportable', NULL, NULL),
 ('clinic_location', 'reportable', NULL, NULL),
 ('clinic_nbr', 'reportable', NULL, NULL),
+('clinical_chart_update_receipt', 'restricted', NULL, 'Clinician review receipts of AI chart-update proposals: reviewer identity and evidence text; managed through the review workflow'),
 ('config_Immunization', 'reportable', NULL, NULL),
 ('Consent', 'reportable', NULL, NULL),
 ('Consent_migration_audit', 'restricted', NULL, 'Private messaging, consent or integration state; managed through application workflows'),

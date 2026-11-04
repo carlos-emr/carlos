@@ -125,8 +125,8 @@ renumbered or not merged. Apply the present migrations in version order;
 do not enable `outOfOrder` to fill gaps. The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
-run — `common/V1.0.80` on both provinces. A hypothetical new `bc/V1.0.11` would
-apply fine on a fresh install (version order places it before `common/V1.0.80`) but would silently
+run — `common/V1.0.83` on both provinces. A hypothetical new `bc/V1.0.11` would
+apply fine on a fresh install (version order places it before `common/V1.0.83`) but would silently
 never run on existing BC databases and would fail `flyway validate` there — so never number a new
 migration at or below the global high-water mark, even if that number was only ever used under the
 other province. Check every active branch inventory (release and develop) before allocating a
