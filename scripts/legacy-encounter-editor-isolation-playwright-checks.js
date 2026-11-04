@@ -19,9 +19,10 @@
  * The save action itself is reachable in every configuration; echart-two-patient-isolation drives
  * it directly. This check drives the editor a clinician actually sees.
  *
- * OPERATOR PREREQUISITE: caisi=on in /etc/carlos-emr/carlos.properties, then `carlos-ctl restart`
- * (restore the property and restart afterwards). Without it the editor does not render and the
- * check reports SKIP. The CAISI module changes clinic-wide behaviour, so this is a manual check.
+ * CURRENT ENTRYPOINT: reports SKIP before database/browser setup because the mandatory modern
+ * policy cannot qualify the historical assertions. The body and shared Exit observer remain
+ * until #5599. Its historical prerequisite was caisi=on followed by a restart; enabling CAISI
+ * cannot restore the retired legacy-content contract on this release.
  *
  * User path: two windows of one login, each opened from the day sheet with
  * IncomingEncounter?demographicNo=...&providerNo=...&casetoEncounter=true; A's window also names A's
@@ -651,5 +652,11 @@ async function run(s) {
   await checkLegacyMessageHandoff(s, { patient: A, otherPatient: B, trackEditorModules });
 }
 
-if (require.main === module) runWorkflow('legacy-encounter-editor-isolation', run, { openPatient: true, openMaster: false });
+if (require.main === module) runWorkflow('legacy-encounter-editor-isolation', run, {
+  openPatient: true,
+  openMaster: false,
+  preflightConfig() {
+    throw new h.SkipCheck('mandatory modern-chart policy (#4793) retires this legacy editor check; removal is tracked in #5599');
+  },
+});
 module.exports = { run, observeLegacyExit };

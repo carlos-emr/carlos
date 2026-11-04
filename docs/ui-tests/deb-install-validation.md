@@ -1052,7 +1052,8 @@ its print beans do not load legacy clinical text, and changing this property can
 restore it. Use the modern chart and its print workflow. Permanent removal of the
 legacy routes and a retrieval plan for historical-only records are tracked in #5599.
 The manual `legacy-encounter-editor-isolation` check's legacy-content expectations
-are historical and cannot be qualified on this forced-modern release.
+are historical and cannot be qualified on this forced-modern release. Its entrypoint
+reports SKIP before database/browser setup, including on CAISI-enabled deployments.
 
 The CAISI-only `encounter-legacy-note-soft-wrap` check was removed from the suite,
 npm commands and its wrapper at the maintainer's request (#5368). Its prerequisite
