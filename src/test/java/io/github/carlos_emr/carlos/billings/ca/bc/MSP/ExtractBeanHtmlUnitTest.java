@@ -26,13 +26,33 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.model.Billing;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Regression coverage for issue #3950: the BC billing simulation / Teleplan report HTML built by
@@ -46,13 +66,62 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
 
     private static final String SCRIPT_NAME = "<script>alert('xss')</script>";
+    private BillingDao billingDao;
+    @TempDir private Path outputDirectory;
 
     @BeforeEach
     void registerExtractDaos() {
         // ExtractBean resolves these in field initializers; the HTML builders never touch them.
         createAndRegisterMock(LogTeleplanTxDao.class);
-        createAndRegisterMock(BillingDao.class);
+        billingDao = createAndRegisterMock(BillingDao.class);
         createAndRegisterMock(BillingmasterDAO.class);
+    }
+
+    @Test
+    void shouldWriteReportOnce_afterCallerAssignsHtmlFilename() throws Exception {
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.getProperty("HOME_DIR")).thenReturn(outputDirectory.toString());
+        when(billingDao.getMyMagicBillings()).thenReturn(List.of(new Billing()));
+        try (MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class)) {
+            configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+            ExtractBean bean = spy(new ExtractBean());
+            bean.seteFlag("1");
+            bean.setVSFlag(1);
+            bean.setProviderNo("91234");
+
+            bean.dbQuery();
+
+            verify(bean, never()).writeHtml(any());
+            String html = bean.getHtmlCode();
+            assertThat(html).contains("Billing Invoice for Billing No.91234");
+            bean.setHtmlFilename("H191234_001.htm");
+            bean.writeHtml(html);
+            verify(bean, times(1)).writeHtml(html);
+            assertThat(Files.readString(outputDirectory.resolve("H191234_001.htm")))
+                    .isEqualTo(html + System.lineSeparator());
+        }
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t\r\n"})
+    void shouldRejectMissingHtmlFilename_whenPublishingAnExport(String filename) {
+        ExtractBean bean = new ExtractBean();
+        bean.seteFlag("1");
+        bean.setHtmlFilename(filename);
+        assertThatThrownBy(() -> bean.writeHtml("<html/>"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("HTML filename must be set before writing a Teleplan report");
+    }
+
+    @Test
+    void shouldKeepPreviewInMemory_withoutAnHtmlFilename() {
+        ExtractBean bean = spy(new ExtractBean());
+        bean.seteFlag("0");
+        when(billingDao.getMyMagicBillings()).thenReturn(List.of(new Billing()));
+        bean.dbQuery();
+        verify(bean, never()).writeHtml(any());
+        bean.writeHtml(bean.getHtmlCode());
     }
 
     @Test
