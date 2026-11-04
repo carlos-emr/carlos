@@ -73,7 +73,8 @@
 <fmt:message key="admin.appt.location.msg.confirmLastDisable" var="confirmLastDisable"/>
 <fmt:message key="admin.appt.location.label.defaultStyle" var="defaultStyleLabel"/>
 <!DOCTYPE html>
-<html>
+<% pageContext.setAttribute("pageLocale", io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request)); %>
+<html lang="${carlos:forHtmlAttribute(pageLocale.language)}">
 <head>
     <meta charset="UTF-8">
     <link rel="icon" href="${carlos:forHtmlAttribute(ctx)}/images/favicon.ico"/>

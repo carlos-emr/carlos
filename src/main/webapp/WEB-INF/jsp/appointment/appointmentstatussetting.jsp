@@ -69,7 +69,8 @@
 <fmt:message key="admin.appt.status.mgr.msg.confirmReset" var="confirmReset"/>
 <fmt:message key="admin.appt.status.mgr.label.lockedTitle" var="lockedTitle"/>
 <!DOCTYPE html>
-<html>
+<% pageContext.setAttribute("pageLocale", io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request)); %>
+<html lang="${carlos:forHtmlAttribute(pageLocale.language)}">
 <head>
     <meta charset="UTF-8">
     <link rel="icon" href="${carlos:forHtmlAttribute(ctx)}/images/favicon.ico"/>

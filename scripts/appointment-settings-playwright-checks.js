@@ -76,7 +76,6 @@ async function workflow(s) {
   const annex = `${marker} Annex`;
 
   let statusChanged = false;
-  let failure = null;
   // Before the browser closes: put the clinic's list and the status back, then make one change
   // that alters nothing through each page, so the server's 30-minute lookup-list and status caches
   // drop what the SQL changed behind them. Cleanup then deletes the marker rows.
@@ -89,33 +88,12 @@ async function workflow(s) {
       WHERE id=${Number(statusId)}`);
     const target = sql.rows(`SELECT id,IFNULL(colour,'') FROM LookupListItem WHERE lookupListId=${Number(listId)}
       ORDER BY active DESC, id LIMIT 1`)[0];
-    // A page of its own: the booking steps may have navigated the admin page away.
-    const page = await context.newPage();
-    let answers;
-    try {
-      await page.goto(h.appUrl(s.config.baseUrl, '/appointment/apptLocationSetting'), {waitUntil: 'domcontentloaded'});
-      await page.locator('form[action*="apptLocationSetting"] input[name="CSRF-TOKEN"]').first()
-        .waitFor({state: 'attached', timeout: 20000});
-      answers = await page.evaluate(async ({target, status}) => {
-        const token = document.querySelector('input[name="CSRF-TOKEN"]')?.value || '';
-        const action = document.querySelector('form[action*="apptLocationSetting"]').action;
-        const post = (url, fields) => fetch(url, {method: 'POST', credentials: 'same-origin',
-          body: new URLSearchParams({...fields, 'CSRF-TOKEN': token})}).then(response => response.status);
-        const results = [];
-        if (target) results.push(await post(action, {dispatch: 'updateColour', id: target[0], colour: target[1]}));
-        if (status) {
-          results.push(await post(action.replace('apptLocationSetting', 'apptStatusSetting'),
-            {dispatch: 'updateDescription', id: status.id, apptDesc: status.description}));
-        }
-        return results;
-      }, {target, status: statusChanged ? {id: statusId, description: statusDesc} : null});
-    } finally {
-      await page.close().catch(() => {});
-    }
+    const answers = await postNoOpChanges(context, h.appUrl(s.config.baseUrl, '/appointment/apptLocationSetting'),
+      target, statusChanged ? {id: statusId, description: statusDesc} : null);
     h.assert(answers.every(code => code === 200), `Restoring through the app answered HTTP ${answers.join(', ')}`);
   }
 
-  try {
+  await thenRestore(async () => {
     await s.step('the Locations tab adds one location and pastes a list, skipping a name already enabled', async () => {
       await reopen();
       h.assert(await frame.locator('ul.nav-tabs a[href$="/appointment/apptLocationSetting"].active').count() === 1,
@@ -338,17 +316,54 @@ async function workflow(s) {
       h.assert(JSON.stringify(kept) === JSON.stringify([[`${marker} Basement`, '']]), `Saving the legacy location stored ${JSON.stringify(kept)}`);
       await popup.close().catch(() => {});
     });
+  }, restoreThroughApp);
+}
+
+/** Runs the steps, then the restore, and never lets a failed restore hide the step that failed. */
+async function thenRestore(steps, restore) {
+  let failed = false;
+  try {
+    await steps();
   } catch (error) {
-    failure = error;
+    failed = true;
     throw error;
   } finally {
     try {
-      await restoreThroughApp();
+      await restore();
     } catch (restoreError) {
-      // Never hide the step that failed behind a failed restore; cleanup still runs the SQL.
-      if (!failure) throw restoreError;
+      // Cleanup still runs the SQL; the step's own error is the one to report.
+      if (!failed) throw restoreError;
       console.error(`  (restoring through the app also failed: ${restoreError.message})`);
     }
+  }
+}
+
+/**
+ * From a page of its own (the booking steps navigate the admin page away), posts a colour save that
+ * keeps the colour and, when the status was changed, a description save that keeps the description.
+ * Each commits through its service and evicts that service's cache. Returns the HTTP statuses.
+ */
+async function postNoOpChanges(context, locationsUrl, target, status) {
+  const page = await context.newPage();
+  try {
+    await page.goto(locationsUrl, {waitUntil: 'domcontentloaded'});
+    await page.locator('form[action*="apptLocationSetting"] input[name="CSRF-TOKEN"]').first()
+      .waitFor({state: 'attached', timeout: 20000});
+    return await page.evaluate(async ({target, status}) => {
+      const token = document.querySelector('input[name="CSRF-TOKEN"]')?.value || '';
+      const action = document.querySelector('form[action*="apptLocationSetting"]').action;
+      const post = (url, fields) => fetch(url, {method: 'POST', credentials: 'same-origin',
+        body: new URLSearchParams({...fields, 'CSRF-TOKEN': token})}).then(response => response.status);
+      const results = [];
+      if (target) results.push(await post(action, {dispatch: 'updateColour', id: target[0], colour: target[1]}));
+      if (status) {
+        results.push(await post(action.replace('apptLocationSetting', 'apptStatusSetting'),
+          {dispatch: 'updateDescription', id: status.id, apptDesc: status.description}));
+      }
+      return results;
+    }, {target, status});
+  } finally {
+    await page.close().catch(() => {});
   }
 }
 

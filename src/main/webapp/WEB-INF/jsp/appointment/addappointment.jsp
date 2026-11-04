@@ -1367,7 +1367,7 @@ Ontario, Canada
                                     java.util.regex.Pattern cssColorPattern = java.util.regex.Pattern.compile("^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$|^[a-zA-Z]+$");
                                     String safeColoAttr = (colo != null && cssColorPattern.matcher(colo).matches()) ? SafeEncode.forHtmlAttribute(colo) : "";
                                 %>
-                                <select id="location" class="form-select form-select-sm" name="location"
+                                <select id="location" class="form-select form-select-sm" name="location" aria-labelledby="apptLocationLabel"
                                         style="background-color: <%=safeColoAttr%>"
                                         onchange='locale()'>
                                     <% for (Site s : sites) {
