@@ -26,11 +26,16 @@ import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.utility.DemographicContactCreator;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchRequest;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -977,6 +982,40 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
 
             assertThatThrownBy(() -> manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID))
                 .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"create", "update", "add"})
+        void shouldOmitPatientData_fromInvalidBirthDateExceptions(String operation) {
+            Demographic demographic = createTestDemographic();
+            demographic.setFirstName("SYNTHETIC5322FIRST");
+            demographic.setLastName("SYNTHETIC5322LAST");
+            demographic.setYearOfBirth("SYNTHETIC5322DOB");
+            String callerLogger = getClass().getName() + ".validationCaller";
+            try (LogCapture managerLogs = LogCapture.forLogger(DemographicManagerImpl.class);
+                 LogCapture callerLogs = LogCapture.forLogger(callerLogger)) {
+                Throwable failure = catchThrowable(() -> {
+                    switch (operation) {
+                        case "create" -> manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
+                        case "update" -> manager.updateDemographic(mockLoggedInInfo, demographic);
+                        case "add" -> manager.addDemographic(mockLoggedInInfo, demographic);
+                        default -> throw new AssertionError(operation);
+                    }
+                });
+                assertThat(failure).isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Invalid birth date.").hasNoCause();
+                // Model a caller logging the propagated exception, including its full stack trace.
+                LogManager.getLogger(callerLogger).error("Demographic validation rejected", failure);
+                PatternLayout layout = PatternLayout.newBuilder().withPattern("%m%n%ex").build();
+                String output = managerLogs.events().stream().map(layout::toSerializable)
+                        .collect(java.util.stream.Collectors.joining())
+                        + callerLogs.events().stream().map(layout::toSerializable)
+                        .collect(java.util.stream.Collectors.joining());
+                assertThat(output).contains("Invalid birth date.")
+                        .doesNotContain("SYNTHETIC5322FIRST", "SYNTHETIC5322LAST", "SYNTHETIC5322DOB");
+                verifyNoInteractions(mockDemographicDao, mockDemographicArchiveDao, mockAdmissionDao,
+                        mockDemographicExtDao);
+            }
         }
 
         @Test

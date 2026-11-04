@@ -47,6 +47,7 @@ import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.QrCodeUtils;
 import io.github.carlos_emr.carlos.utility.QrCodeUtils.QrCodesOrientation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -73,7 +74,8 @@ public final class PrescriptionQrCodeUIBean {
 
     public static byte[] getPrescriptionHl7QrCodeImage(int prescriptionId) {
 
-        logger.debug("Display QR Code for prescriptionId=" + prescriptionId);
+        String diagnosticPrescriptionId = LogSafe.sanitize(Integer.toString(prescriptionId));
+        logger.debug("Display QR Code for prescriptionId={}", diagnosticPrescriptionId);
 
         try {
             Clinic clinic = clinicDAO.getClinic();
@@ -84,7 +86,9 @@ public final class PrescriptionQrCodeUIBean {
 
             OMP_O09 hl7PrescriptionMessage = OmpO09Builder.makeOmpO09(clinic, provider, demographic, prescription, drugs);
             String hl7PrescriptionString = Hl7ParserUtils.pipeParser.encode(hl7PrescriptionMessage);
-            logger.debug(hl7PrescriptionString);
+            // The HL7 message contains patient and medication data; only log operational metadata.
+            logger.debug("Encoded prescription QR code: prescriptionId={}, drugCount={}, payloadLength={}",
+                    diagnosticPrescriptionId, drugs.size(), hl7PrescriptionString.length());
 
             int qrCodeScale = Integer.valueOf(CarlosProperties.getInstance().getProperty("QR_CODE_IMAGE_SCALE_FACTOR"));
 
@@ -92,7 +96,9 @@ public final class PrescriptionQrCodeUIBean {
 
             return (image);
         } catch (Exception e) {
-            logger.error("Unexpected error.", e);
+            // Parser and renderer exceptions can repeat clinical values in messages and causes.
+            logger.error("Prescription QR code generation failed: prescriptionId={}, errorType={}, diagnostic={}",
+                    diagnosticPrescriptionId, e.getClass().getName(), LogSafe.exceptionTrace(e));
         }
 
         return (null);
