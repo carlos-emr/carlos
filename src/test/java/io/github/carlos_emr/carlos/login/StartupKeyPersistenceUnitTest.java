@@ -377,6 +377,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
                     && System.nanoTime() < deadline && workers.stream().allMatch(Process::isAlive)) {
                 var change = readiness.poll(10, TimeUnit.MILLISECONDS);
                 if (change != null) {
+                    change.pollEvents();
                     change.reset();
                 }
             }
