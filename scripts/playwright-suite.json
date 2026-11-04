@@ -4500,8 +4500,8 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Regression coverage for #4425: an email's prepared attachments are staged under its own window's one-time key, bound to that window's patient. A composer whose patient number is changed before Send, and a replay of a sent composer's POST, are refused with nothing delivered or logged; a Manage Emails resend window keeps its own patient's eForm while another patient's eForm email is composed, and each window sends its own patient's eForm. Skips unless BASE_URL is loopback (the SMTP sink binds the runner's loopback).",
-      "fixtures": "The workflow's FAKE patient X, a second owned FAKE patient Y, an owned eForm template and an owned LOCAL emailConfig pointing at an in-process 127.0.0.1 SMTP sink; nothing leaves the host. Cleanup removes the owned email logs, attachments, chart notes, eForm instances, template, sender and patient Y and asserts each is gone. The sender is offered clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+      "notes": "Regression coverage for #4425 and #5166 on develop: a server-owned one-time compose token binds the patient and attachments. A changed submitted patient number cannot redirect the email or eForm; replay of a consumed token is refused without another send or log. The Manage Emails Copy as new email control uses its protected POST, and separate X/Y windows each send their own eForm. Passed against develop-based snapshot27 packages on Ubuntu 26.04 through nginx/ModSecurity on 2026-11-03, with no residue. Skips unless BASE_URL is loopback.",
+      "fixtures": "Owned FAKE patients X/Y, eForm template and LOCAL loopback SMTP sender; nothing leaves the host. Cleanup removes owned email archives and document files before their log rows, then chart notes, eForm instances, template, sender and patient Y. Requires DOCUMENT_DIR and CARLOS_DISPOSABLE_VM=true for archive cleanup. The sender is offered clinic-wide; run exclusively (EXCLUSIVE=1)."
     },
     {
       "name": "eform-groups",
@@ -4617,8 +4617,8 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Manage Emails Resolve shows RESOLVED but never updates the log row (setResolved is not dispatched).",
-      "fixtures": "Owned LOCAL emailConfig pointing at an in-process 127.0.0.1 SMTP sink, owned eForm template and owned patient email (one valid example.com, one .invalid); nothing leaves the host; emailConfig snapshot asserted unchanged. The sender is offered clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+      "notes": "Develop regression coverage for #5166: unified message field, generated display-only passphrase, explicit consent confirmation, secure notice/PDF without cleartext clinical content or credentials, successful/failed SMTP logging, accepted-by-mail-server labels, filtering, and Resolve's 204 response with persisted RESOLVED status. Passed against develop-based snapshot27 packages on Ubuntu 26.04 through nginx/ModSecurity on 2026-11-03, with no residue.",
+      "fixtures": "Owned LOCAL loopback SMTP sender, eForm template and patient email (one valid example.com, one .invalid); nothing leaves the host. Cleanup removes owned outbound archives, document rows/files and logs; emailConfig snapshot must remain unchanged. Requires DOCUMENT_DIR and CARLOS_DISPOSABLE_VM=true. The sender is offered clinic-wide; run exclusively (EXCLUSIVE=1)."
     },
     {
       "name": "email-footer-settings",
@@ -4661,8 +4661,8 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Two eForm email composers for two patients: each Send must carry only its own patient's eForm (app-findings-log.md finding 140; fails while the session-wide attachment list stands). Finding 140 is fixed on release/2026.08 by #4444 and the step that was pinned to it passed live on 2026.09.0~snapshot26, so it is now this fix's regression test and the entry carries no expectedFailure.",
-      "fixtures": "Owned patient Y, owned LOCAL emailConfig pointing at an in-process 127.0.0.1 SMTP sink and an owned eForm template; nothing leaves the host. The sender is offered clinic-wide, so it must not run concurrently with other checks."
+      "notes": "Two eForm email composers for two patients: each Send must carry only its own patient's eForm (finding 140, #4444). Uses develop's unified message field, generated passphrase and explicit consent confirmation. Passed against develop-based 2026.09.0~snapshot27 packages installed on Ubuntu 26.04 through nginx/ModSecurity on 2026-11-03, with no residue; no expectedFailure.",
+      "fixtures": "Owned patient Y, LOCAL loopback SMTP sender and eForm template; nothing leaves the host. Cleanup removes owned outbound archives and document rows/files before logs and patient fixtures. Requires DOCUMENT_DIR and CARLOS_DISPOSABLE_VM=true. The sender is offered clinic-wide; run exclusively (EXCLUSIVE=1)."
     },
     {
       "name": "admin-role-management",
