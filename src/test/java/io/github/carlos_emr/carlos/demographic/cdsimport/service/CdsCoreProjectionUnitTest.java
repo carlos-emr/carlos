@@ -732,6 +732,31 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         assertThat(captor.getValue().getProviderNo()).isEqualTo("77");
         assertThat(captor.getValue().getImportedStatus()).isEqualTo(dto.status());
         assertThat(captor.getValue().getName()).isEqualTo("Fixture,Import");
+
+        // Consecutive appointments reuse the bounded patient-name lookup.
+        appointments.write("run", 1, "unit", 42, record, command, n -> {});
+        verify(demographicDao, times(1)).getDemographicById(42);
+
+        // A retry epoch and another import must observe the current demographic.
+        patient.setFirstName("Updated");
+        when(preparation.load("run", 2, "unit", record.sha256(), command, CdsAppointmentNativeDto.class))
+                .thenReturn(dto);
+        appointments.write("run", 2, "unit", 42, record, command, n -> {});
+        when(preparation.load("other", 2, "unit", record.sha256(), command, CdsAppointmentNativeDto.class))
+                .thenReturn(dto);
+        appointments.write("other", 2, "unit", 42, record, command, n -> {});
+        verify(demographicDao, times(3)).getDemographicById(42);
+
+        // Another patient cannot inherit the cached name, including a missing patient.
+        appointments.write("other", 2, "unit", 43, record, command, n -> {});
+        appointments.write("other", 2, "unit", 43, record, command, n -> {});
+        verify(demographicDao, times(1)).getDemographicById(43);
+        appointments.write("other", 2, "unit", 42, record, command, n -> {});
+        verify(demographicDao, times(3)).getDemographicById(42);
+        var all = ArgumentCaptor.forClass(Appointment.class);
+        verify(appointmentsDao, times(7)).persist(all.capture());
+        assertThat(all.getAllValues()).extracting(Appointment::getName)
+                .containsExactly("Fixture,Import", "Fixture,Import", "Fixture,Updated", "Fixture,Updated", "", "", "Fixture,Updated");
     }
 
     @Test

@@ -648,14 +648,15 @@ class Schema:
                 continue
             # Keep the final declaration as well as the names. Ignoring
             # MODIFY hid capacity changes in later OSCAR/CARLOS updates.
-            m = re.match(r"modify\s+(?:column\s+)?`?(\w+)`?\s+(.+)",
+            m = re.match(r"modify\s+(?:column\s+)?(?:`((?:[^`]|``)+)`|(\w+))\s+(.+)",
                          clause, re.I | re.S)
             if m:
+                identifier = m.group(1).replace("``", "`") if m.group(1) is not None else m.group(2)
                 column = next((c for c in cols
-                               if c.lower() == m.group(1).lower()), None)
+                               if c.lower() == identifier.lower()), None)
                 if column is not None:
                     ctype, position = split_column_position(
-                        re.sub(r"\s+", " ", m.group(2)).strip())
+                        re.sub(r"\s+", " ", m.group(3)).strip())
                     cols = place_column(cols, column, ctype, position)
                     self.tables[name] = cols
                 continue

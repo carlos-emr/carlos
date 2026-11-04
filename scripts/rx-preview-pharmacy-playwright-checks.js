@@ -385,7 +385,10 @@ const signalHandlers = installCleanupSignalHandlers(cleanupRun);
     // patient's window above can still own the active-session fallback.
     const nullPage = await context.newPage();
     wirePage(nullPage, 'rx-null-literal', recorder);
-    await gotoApp(nullPage, config.baseUrl, `/rx/viewScript?demographicNo=${demographicNo}&scriptId=${scriptId}&pharmacyId=null`);
+    const nullResponse = await gotoApp(nullPage, config.baseUrl,
+      `/rx/viewScript?demographicNo=${demographicNo}&scriptId=${scriptId}&pharmacyId=null`);
+    assert(nullResponse && nullResponse.status() === 200,
+      `reprint view (pharmacyId=null literal) expected HTTP 200, got ${nullResponse ? nullResponse.status() : 'no response'}`);
     await nullPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(nullPage, 'reprint view (pharmacyId=null literal)');
     const nullPreviewUrl = await assertPreviewRenders(nullPage.mainFrame(), 'reprint preview (pharmacyId=null literal)');

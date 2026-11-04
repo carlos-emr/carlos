@@ -290,7 +290,7 @@ jobs:
           docker exec -e CARLOS_TEST_MARIADB_DAO=true -e CARLOS_TEST_MARIADB_SCHEMA=flyway \
             -e CARLOS_TEST_MARIADB_URL=jdbc:mysql://host.docker.internal:3306/ \
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress surefire:test \
-            -Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest \
+            -Dtest=ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest \
             -Dgroups=spring-context -Dtest.forkCount=1 -Dcarlos.test.schema.expected=flyway \
             -Dsurefire.reportNameSuffix=flyway
 
@@ -301,7 +301,7 @@ jobs:
             -e CARLOS_TEST_MARIADB_PROVINCE=bc \
             -e CARLOS_TEST_MARIADB_URL=jdbc:mysql://host.docker.internal:3306/ \
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress surefire:test \
-            -Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest \
+            -Dtest=ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest \
             '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=1 \
             -Dsurefire.reportNameSuffix=bc-flyway
 

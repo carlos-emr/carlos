@@ -765,9 +765,39 @@ test('configure removes only the stock nginx symlink before its first configurat
       assert.equal(result.stdout.includes('init-config'), locked);
       assert.equal(result.status, 0, result.stderr);
       assert.equal(result.stdout.includes('incomplete'), incomplete, JSON.stringify({kind, locked, initStatus, result}));
-      assert.equal(fs.existsSync(defaultSite), kind === 'file');
+      assert.equal(fs.existsSync(defaultSite), kind === 'file' || (kind === 'symlink' && !locked));
       assert.equal(fs.readFileSync(target, 'utf8'), 'listen [::]:80 default_server;\n');
       if (kind === 'file') assert.equal(fs.readFileSync(defaultSite, 'utf8'), 'administrator site\n');
     }
   } finally { fs.rmSync(root, {recursive: true, force: true}); }
+});
+
+test('port conflict recovery requires an explicit true debconf answer', () => {
+  assert.match(read('debian', 'carlos-emr.templates'),
+    /Template: carlos-emr\/stop-port-conflicts\nType: boolean\nDefault: false\n/);
+  const fn = postinst.match(/free_front_door\(\) \{[\s\S]*?\n\}/)[0]
+    .replaceAll('/run/systemd/system', '/tmp');
+  for (const answer of ['false', 'true', '', 'unexpected', 'unavailable']) {
+    const get = answer === 'unavailable' ? 'return 1' : `RET='${answer}'`;
+    const result = spawnSync('sh', ['-c', `set -eu
+systemctl() { echo failed; }
+configured_bind_ip() { echo 127.0.0.1; }
+host_conflicts() {
+  if [ "$2" = --plan ]; then echo 'will-stop: apache2.service';
+  else echo 'stopped: apache2.service'; fi
+}
+db_subst() { :; }
+db_fset() { :; }
+db_input() { :; }
+db_go() { :; }
+db_get() { ${get}; }
+join_lines() { cat; }
+log_action() { :; }
+${fn}
+free_front_door ''
+printf '%s' "$FRONT_DOOR_FREED"
+`], {encoding: 'utf8'});
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.includes('apache2.service'), answer === 'true', answer);
+  }
 });

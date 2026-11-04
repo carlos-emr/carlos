@@ -170,7 +170,7 @@ Description: CARLOS EMR is installed but is NOT ready to use
 
 Template: carlos-emr/stop-port-conflicts
 Type: boolean
-Default: true
+Default: false
 Description: Stop the other services using ports 80 and 443?
  CARLOS EMR serves clinicians through nginx on ports 80 and 443. These
  services on this host already use them, so nginx cannot start:

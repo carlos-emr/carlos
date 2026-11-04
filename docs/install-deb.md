@@ -252,13 +252,14 @@ no way to remove it short of destroying the database. See
 
 **9. Stop the other services using ports 80 and 443** — asked only when
 another service already listens on the front-door ports, and it lists exactly
-which ones. Accept (the default) to stop each one and, where possible, keep it
+which ones. The default is **no**. Accept to stop each one and, where possible, keep it
 from starting at boot (disabled, or masked when it cannot be disabled); a
 following note shows what was done to each and the command that brings it back
 once it has been moved to other ports.
 Decline and nothing is changed, but CARLOS is not reachable until you free the
 ports yourself and run `sudo carlos-ctl finish-install`. A non-interactive
-install takes the default and goes ahead. Every service stopped (or a refusal)
+install leaves other services running unless you explicitly opt in by preseeding
+`echo 'carlos-emr carlos-emr/stop-port-conflicts boolean true' | sudo debconf-set-selections`. Every service stopped (or a refusal)
 is printed in the install output, kept in `/var/log/apt/term.log`, and logged
 to the journal: `journalctl -t carlos-emr`. To keep the installer hands-off on
 every run, preseed

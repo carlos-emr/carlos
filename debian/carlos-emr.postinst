@@ -235,11 +235,11 @@ log_action() {
 # (apache2, a Nextcloud snap, an administrator's own unit, ...) keeps the
 # front door down, so it is stopped and kept off -- after asking, when debconf
 # can ask. carlos-emr/stop-port-conflicts lists exactly what would be stopped;
-# a non-interactive install (or a priority above high) takes the default,
-# true, and goes ahead. Either way every action, and a refusal, goes to stderr
+# a non-interactive install (or a priority above high) leaves services running
+# unless the operator explicitly preseeded true. Every action and refusal goes to stderr
 # and the journal. Declining changes nothing: the nginx step then records
-# what holds the ports, and the install finishes NOT ready. A preseeded false
-# keeps every run hands-off. Sets FRONT_DOOR_FREED to the "stopped:" lines for
+# what holds the ports, and the install finishes NOT ready. Sets
+# FRONT_DOOR_FREED to the "stopped:" lines for
 # the closing note.
 #
 # $1 is the version being upgraded from (empty on a first install). An nginx
@@ -264,9 +264,9 @@ free_front_door() {
     db_fset carlos-emr/stop-port-conflicts seen false || true
     db_input high carlos-emr/stop-port-conflicts || true
     db_go || true
-    RET=true
+    RET=false
     db_get carlos-emr/stop-port-conflicts || true
-    if [ "${RET}" = false ]; then
+    if [ "${RET}" != true ]; then
         printf '%s\n' "${front_door_plan}" | while IFS= read -r planned_line; do
             echo "carlos-emr: NOT stopping (declined): ${planned_line}" >&2
             log_action "front door: declined to stop ${planned_line}"
@@ -1600,15 +1600,6 @@ OAUTH_ACCESS_DEFAULTS
         # front door it is not about to configure would be all cost.
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
             free_front_door "${2:-}"
-        fi
-        # Disable the distribution's default site before init-config tests
-        # or reloads nginx. Its IPv6 listeners can fail on an IPv4-only host,
-        # recording an incomplete install that the later CARLOS site setup
-        # would otherwise repair in this same configure. Keep the conffile
-        # and any administrator-created real file. As in the later nginx
-        # setup, clean up the stock symlink even when provisioning is deferred.
-        if [ -L /etc/nginx/sites-enabled/default ]; then
-            rm -f /etc/nginx/sites-enabled/default
         fi
         [ -e /etc/nginx/sites-enabled/carlos-emr ] || export CARLOS_CONFIGURE_FIRST_RUN=1
         if [ "${PROVISION_LOCK_HELD}" = 1 ]; then

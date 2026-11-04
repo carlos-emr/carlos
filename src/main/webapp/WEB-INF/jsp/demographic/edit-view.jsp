@@ -239,7 +239,7 @@
                                                             <div class="demographicSection" id="demographic">
                                                                 <h3>&nbsp;<fmt:message key="demographic.demographiceditdemographic.msgDemographic"/></h3>
                                                                 <% if (StringUtils.isNotBlank(demographic.getSourceOfIncome())) { %>
-                                                                <div class="demographicSection" id="legacyDemographicText">
+                                                                <div id="legacyDemographicText" style="margin-top: 6px;">
                                                                     <span class="label"><fmt:message key="demographic.legacySourceOfIncome"/></span>
                                                                     <div style="white-space: pre-wrap"><%= SafeEncode.forHtmlContent(demographic.getSourceOfIncome()) %></div>
                                                                 </div>
