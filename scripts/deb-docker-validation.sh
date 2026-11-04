@@ -83,6 +83,7 @@
 #   BASE_IMAGE          default ubuntu:26.04
 #   PLAYWRIGHT_VERSION  default 1.60.0 (runbook section 5; do not run
 #                       `playwright install`: the package ships Chromium)
+#   AXE_CORE_VERSION    default 4.14.0 (accessibility-smoke prerequisite)
 #   BUILD_PROXY         optional http(s) proxy URL for apt and npm while
 #                       building the image and installing packages
 #   BUILD_CA_BUNDLE     optional PEM bundle to trust for that proxy

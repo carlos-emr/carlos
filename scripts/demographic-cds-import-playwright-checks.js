@@ -188,6 +188,24 @@ async function observeCdsMetadata(s, page) {
   return record;
 }
 
+/** Missing source configuration is a prerequisite; browser/server errors still fail. */
+async function requireImportSource(frame, recorder) {
+  h.assertStrictPage(recorder);
+  if (await frame.locator('#cdsOptions').isDisabled()) {
+    h.assertStrictPage(recorder);
+    throw new h.SkipCheck('CDS import requires the enabled import feature and an approved source/profile');
+  }
+  const source = await frame.locator('#cdsSource option[data-profile]').evaluateAll(options => {
+    const option = options.find(value => value.dataset.profile === 'pcon-2024-02') || options[0];
+    return option ? option.value : null;
+  });
+  if (!source) {
+    h.assertStrictPage(recorder);
+    throw new h.SkipCheck('CDS import requires an approved import source/profile; none is offered by the import UI');
+  }
+  return source;
+}
+
 /** Open the actual existing administration menu route, including its Struts/JSP binding. */
 async function openImportFrame(s, label = 'cds-import-admin') {
   const {page: admin} = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
@@ -210,19 +228,8 @@ async function openImportFrame(s, label = 'cds-import-admin') {
   // or authorization failures that occurred while opening the page.
   const ready = await initialStatus;
   h.assert(ready.status() === 200, 'Initial owner-scoped upload status was refused');
-  if (await frame.locator('#cdsOptions').isDisabled()) {
-    h.assertStrictPage(s.recorder);
-    throw new h.SkipCheck('Required import feature/source registration is unavailable');
-  }
+  const source = await requireImportSource(frame, s.recorder);
   await frame.waitForFunction(() => Boolean(document.querySelector('input[name="CSRF-TOKEN"]')?.value));
-  const source = await frame.locator('#cdsSource option[data-profile]').evaluateAll(options => {
-    const option = options.find(value => value.dataset.profile === 'pcon-2024-02') || options[0];
-    return option ? option.value : null;
-  });
-  if (!source) {
-    h.assertStrictPage(s.recorder);
-    throw new h.SkipCheck('Required approved import source/profile is missing');
-  }
   await frame.locator('#cdsSource').selectOption(source);
   h.assert(!await frame.locator('#mergeExisting').isChecked(), 'Existing-patient merge must default off');
   await admin.waitForLoadState('networkidle', {timeout:10000});
@@ -715,4 +722,4 @@ async function nativeViewsWorkflow(s) {
 if (require.main === module) runWorkflow(process.env.CDS_BROWSER_CORPUS === 'true' ? 'demographic-cds-native-views' : 'demographic-cds-import',
   process.env.CDS_BROWSER_CORPUS === 'true' ? nativeViewsWorkflow : workflow, {openPatient:false});
 module.exports = {workflow,nativeViewsWorkflow,assertPrimaryJobStatus,buildCdsXml,fixtureValues,parseImportLogCounts,assertSchemaValid,
-  openImportFrame,importApi,awaitRunReceipt,uploadAndAwaitRun,registerImportCleanup,qualifyCdsMetadata};
+  openImportFrame,requireImportSource,importApi,awaitRunReceipt,uploadAndAwaitRun,registerImportCleanup,qualifyCdsMetadata};

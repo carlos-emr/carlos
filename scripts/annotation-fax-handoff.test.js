@@ -53,3 +53,25 @@ test('other server refusals and a failed save remain failures without logging cl
     });
   }
 });
+
+test('a missing fax account cannot hide findings, and original runtime errors are preserved', async () => {
+  const h = require('./lib/playwright-harness');
+  for (const findings of [[], ['FAIL an earlier annotation assertion']]) {
+    for (const failure of [new h.SkipCheck('active fax account required'), new Error('browser failed'),
+      Object.assign(new Error('interrupted'), {name:'CheckCancelled'})]) {
+    let check;
+    const context = vm.createContext({
+      h: {...h, runCheck: options => {check=options;}},
+      legacyHarness: {armInterruption() {}},
+      createOwnedAnnotationFixture: () => ({create() {}, cleanup() {}}), readConfig: () => ({}),
+      main: async () => {throw failure;},
+      notes: [], findings, console: {log() {}},
+    });
+    vm.runInContext(source.slice(source.indexOf('let ownedFixture;')), context);
+    await assert.rejects(check.run({}), error => failure.name !== 'SkipCheck' ? error === failure : findings.length
+      ? error.name !== 'SkipCheck' && /1 annotation check/.test(error.message)
+      : error instanceof h.SkipCheck);
+    await check.cleanup();
+    }
+  }
+});

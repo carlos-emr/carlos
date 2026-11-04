@@ -2921,7 +2921,7 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 600,
       "env": [
         "TEST_SCHEDULE_PROVIDER",
         "MYSQL_HOST",
@@ -7931,6 +7931,18 @@
       "notes": "EditMeasurementGroup forward=add/delete and SelectMeasurementGroup forward=delete refuse GET/HEAD (#3335). The last step also reports the /styles.css MIME errors of finding L87 if the group pages still raise them."
     },
     {
+      "name": "document-queue-identity",
+      "script": "scripts/document-queue-identity-playwright-checks.js",
+      "tiers": ["core"],
+      "provinces": ["all"],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": ["TEST_PASSWORD", "TEST_PIN", "MYSQL_PASSWORD"],
+      "mutates": ["queue", "secObjectName", "property:doc_default_queue"],
+      "fixtures": "Disposable installed database only; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Requires CREATE/DROP TRIGGER permission for a marker-scoped security-write fault. Creates three marker-named queues through the provider form and Administration. Restores the provider default and removes owned queues/security objects and trigger on completion or interruption.",
+      "notes": "#4054: generated queue IDs, exact security association, duplicate-name creation failure with a later global MAX, and rollback/retry after a security-object failure. Opens the registered legacy default-queue view route because no Preferences link currently exposes it."
+    },
+    {
       "name": "get-reject-inbox-queue",
       "script": "scripts/get-reject-inbox-queue-playwright-checks.js",
       "tiers": [
@@ -8895,7 +8907,7 @@
       "timeoutSec": 480,
       "env": [],
       "fixtures": "Owns the synthetic patient and one marker eForm template, and for finding 168 one owned role (_eform w, _demographic r, _eChart r; no _edoc) with a login holding it; cleanup deletes the instances (eform_values + eform_data), the template, the login and the role and asserts them gone. At the start it may insert one owned eform_data row at an explicit id above the demo database's stale EFormDocs ids and delete it again, which moves the table's id counter past them (the counter is not restored; it only ever rises).",
-      "notes": "Verifies one saved eForm and its clinical fields across rapid activation, slow re-click and POST reload; bypasses JavaScript to assert server replay rejection, then checks independent windows and a reopened saved-form revision. Last, pinned to app-findings-log.md finding 168: a login that may save eForms but holds no _edoc x presses Add to Documents; the eForm is stored once and no document is filed (control step), and the answer must not be the replay refusal (AddEForm2Action used to answer every post-commit RuntimeException with eform.submitUnavailable; since #4424 it answers HTTP 409 eform.submitSavedStepIncomplete, naming the step). Runs about 65 s. The demo database carries EFormDocs rows (attached documents, labs, forms, HRM reports and eForms) for ids 247-1063 that no eform_data row owns, so a new instance whose id falls there inherits them and a login without read access to those object types is refused 403 before the eForm is stored (\"no permission to use one or more selected attachments\"); the workflow therefore moves the id counter past them first, or the control step would fail depending on the id it happened to get. The POST-replay step failed once in an earlier run of this plan with its message lost and did not fail in 22 later runs (16 through the runner, 6 replay-only under four busy CPU cores): see the Task 15 report. Its failure messages now carry the AddEForm statuses and the owned-row count. The finding-168 step needs the eForm PDF renderer: before passing it, the check downloads one of the run's saved eForms (eform/downloadEFormPdf); when no PDF comes back, Add to Documents never reached the document step, and the check SKIPs there rather than passing the pinned step."
+      "notes": "Verifies one saved eForm and its clinical fields across rapid activation, slow re-click and POST reload; bypasses JavaScript to assert server replay rejection, then checks independent windows and a reopened saved-form revision. Last, pinned to app-findings-log.md finding 168: a login that may save eForms but holds no _edoc x presses Add to Documents; the eForm is stored once and no document is filed (control step), and the answer must not be the replay refusal (AddEForm2Action used to answer every post-commit RuntimeException with eform.submitUnavailable; since #4424 it answers HTTP 409 eform.submitSavedStepIncomplete, naming the step). Replays that failed POST as the same restricted login and requires the actual replay refusal, exactly one stored eForm and clinical field, no document, and no-store/nosniff UTF-8 plain text for both responses. Runs about 65 s. The demo database carries EFormDocs rows (attached documents, labs, forms, HRM reports and eForms) for ids 247-1063 that no eform_data row owns, so a new instance whose id falls there inherits them and a login without read access to those object types is refused 403 before the eForm is stored (\"no permission to use one or more selected attachments\"); the workflow therefore moves the id counter past them first, or the control step would fail depending on the id it happened to get. The POST-replay step failed once in an earlier run of this plan with its message lost and did not fail in 22 later runs (16 through the runner, 6 replay-only under four busy CPU cores): see the Task 15 report. Its failure messages now carry the AddEForm statuses and the owned-row count. The finding-168 step needs the eForm PDF renderer: before passing it, the check downloads one of the run's saved eForms (eform/downloadEFormPdf); when no PDF comes back, Add to Documents never reached the document step, and the check SKIPs there rather than passing the pinned step."
     },
     {
       "name": "eform-pdf-template-path",
@@ -10166,11 +10178,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Creates four throwaway logins (own provider rows 800000-899999, copy of the test login's credential, one seeded role each: er_clerk, receptionist, nurse, doctor) and one owned patient; reads only; cleanup deletes the owned login/provider/audit rows and asserts they are gone. The full-access control can initialize/update the operator quick-list selection; its exact baseline is guarded and restored. It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Expected to FAIL only at the last step 'a refusal is a 403, never an HTTP 500 \"unexpected error\" page' until the SecurityException exception-mapping is added to struts-billing.xml, struts-eform.xml and struts-messenger.xml (70 routes answer a login with no sec object with HTTP 500). Every earlier step (307 pinned refusals, GET and HEAD) passes.",
-      "expectedFailure": {
-        "finding": 345,
-        "step": "a refusal is a 403, never an HTTP 500 \"unexpected error\" page (lists the packages whose gates fail that way)"
-      },
+      "notes": "Four single-role logins verify application refusals for GET and HEAD outside their security objects, with a positive control per role. Error-page refusal routes must return HTTP 403 rather than HTTP 500, including quick-list loading without _dxresearch read access (#5527).",
       "mutates": [
         "quickListUser"
       ]
@@ -12081,8 +12089,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Issue #4673: the chart note editor's Attach (PMM 'attach note to client') popup in two chart windows of one login. A's and B's charts each save a note and open their Attach popup, B's last; each popup's client search for C links to and attaches its own chart's note, so C receives one copy of A's note and one of B's. Each source chart is entered for a visit of its own, so its note carries that visit; each copy is a new note of C's own, with a new uuid and no appointment. The popup used to read the note from the session, where the popup opened last replaced it. Also pins the popup's search form: its criteria were checkboxes, the page had no head (so CSRFGuard gave its form no token and every search answered 403) and its stylesheets loaded from outside the application. The search ticks 'Search all clients' because C initially has no program admission; PMMFilter initializes the authenticated program domain before the action. The PMM client view (PMmodule/ClientManager) is not driven: its result names a Tiles page that does not exist. Additional source-read and target-write refusals preserve complete owned clinical rows, with an authorized copy positive control. Native nondefault-source and genuinely tokenless-source popup searches/copies preserve separate signed source and target contexts. Forged, other-patient and reporter-hidden source contexts and a native server-issued read-only target context are refused by the application, preserving full source/target clinical snapshots, drafts, editor text and locks.",
-      "fixtures": "Owned FAKE patients A/B/C plus a PMM source patient (the run marker as last name) with one visit each for A and B, owned source notes and the copies attached to C; a throwaway login (lib/throwaway-login-fixture.js) with the test login's roles plus an owned role FAKEPW<hex>pmm whose only secObjPrivilege row grants _pmm_management, and the test provider's program memberships. The source-context fixture uses three owned programs, existing cached reporter roles with a real denial, one owned read-only program policy, owned admissions and a temporary default on the throwaway login only. Shared roles/grants remain exact and the owned login default is restored. Facility.enablePhoneEncounter (which shows the editor's Attach button) is set for the run and restored to its value, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup verifies program/provider/patient/policy ownership before deleting owned rows, removes every owned clinical row by key and asserts it gone.",
+      "notes": "Issue #4673: the chart note editor's Attach (PMM 'attach note to client') popup in two chart windows of one login. A's and B's charts each save a note and open their Attach popup, B's last; each popup's client search for C links to and attaches its own chart's note, so C receives one copy of A's note and one of B's. Each source chart is entered for a visit of its own, so its note carries that visit; each copy is a new note of C's own, with a new uuid and no appointment. The popup used to read the note from the session, where the popup opened last replaced it. Also pins the popup's search form: its criteria were checkboxes, the page had no head (so CSRFGuard gave its form no token and every search answered 403) and its stylesheets loaded from outside the application. The search ticks 'Search all clients' because C initially has no program admission; PMMFilter initializes the authenticated program domain before the action. The PMM client view (PMmodule/ClientManager) is not driven: its result names a Tiles page that does not exist. Additional source-read and target-write refusals preserve complete owned clinical rows. The restricted logins inherit the source provider's default program and signing setting as well as memberships, so the authorized copy control reads the same reporter-role policy; it follows the redirect to the target's signed chart and verifies exactly one copy (#5355). Native nondefault-source and genuinely tokenless-source popup searches/copies preserve separate signed source and target contexts. Forged, other-patient and reporter-hidden source contexts and a native server-issued read-only target context are refused by the application, preserving full source/target clinical snapshots, drafts, editor text and locks.",
+      "fixtures": "Owned FAKE patients A/B/C plus a PMM source patient (the run marker as last name) with one visit each for A and B, owned source notes and the copies attached to C; a throwaway login (lib/throwaway-login-fixture.js) with the test login's roles plus an owned role FAKEPW<hex>pmm whose only secObjPrivilege row grants _pmm_management, and the test provider's program memberships. The source-context fixture uses three owned programs, existing cached reporter roles with a real denial, one owned read-only program policy (with an owned access_type definition created and removed if the fresh install lacks it), owned admissions and a temporary default on the throwaway login only. The restricted copy-control logins inherit default programs and their provider_default_program rows are removed and verified. Shared roles/grants remain exact and the owned login default is restored. Facility.enablePhoneEncounter (which shows the editor's Attach button) is set for the run and restored to its value, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup verifies program/provider/patient/policy ownership before deleting owned rows, removes every owned clinical row by key and asserts it gone.",
       "mutates": [
         "Facility",
         "secObjPrivilege"
@@ -13206,12 +13214,8 @@
         "LAB_UPLOAD_DOCUMENT_STORE",
         "LAB_FLOWSHEET_PIN"
       ],
-      "notes": "A lab created in CARLOS flows into the patient's measurements, the Diabetes Flowsheet and the Health Tracker (coverage plan: lab-to-flowsheet). Steps: the Diabetes Flowsheet's own A1C target is read before any lab exists (Target <= 7.0%) and the lab values are derived from it (above, within); Inbox \u25b8 Create Lab files an A1C within the target (dated 2026-06-15, observed at 12:15) and an A1C above it with an unmapped test, CML 2010 HEMOGLOBIN (2026-09-30); each A1C result is a measurement of type A1C carrying measurementsExt lab_no, identifier 3767, unit, date, the observation time the lab gave and the typed value; the unmapped result is filed with an EMPTY type (a lab-only record the Lab Result views read; that is by design, so 'does not appear' means no flowsheet type, no Measurements line, no flowsheet row and no tracker card) and the patient has no typed measurement but A1C (the run proves from measurementMap that the code shares no LOINC with a FLOWSHEET row); Diagnostic Registry \u25b8 Dx 250 makes the Measurements module list the Diabetes Flowsheet; the module's A1C line shows the newest result and no line exists for the unmapped test; the flowsheet lists each result under its date, shows nothing else and nothing for the unmapped test; it flags the result above its target and not the one within it; the Health Tracker (given the A1C item) lists each result under its date and nothing for the unmapped test. LAST AND PINNED to finding 258: the flowsheet's A1C row links to the lab it came from; measurementsExt.lab_no is stored but no flowsheet, tracker or A1C history page reads it, and the row only opens the Add Measurement form for the value (and 'Entered By: Automatic', provider 0). Expected: every step above passes and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, the A1C row links to its lab), lab-to-flowsheet-long-value (256, fixed in #4613: a result whose first five characters are all digits or one of + , - . / : ; < = > ? was cut to four), lab-to-flowsheet-observed-time (259, fixed in #4631: a result observed in the noon hour was filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two CML labs under unique accessions created through Inbox \u25b8 Create Lab (the second also holds the unmapped test CML 2010), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed.",
-      "expectedFailure": {
-        "finding": 258,
-        "step": "the Diabetes Flowsheet A1C row links to the lab it came from"
-      }
+      "notes": "A lab created in CARLOS flows into the patient's measurements, the Diabetes Flowsheet and the Health Tracker (coverage plan: lab-to-flowsheet). Steps: the Diabetes Flowsheet's own A1C target is read before any lab exists (Target <= 7.0%) and the lab values are derived from it (above, within); Inbox \u25b8 Create Lab files an A1C within the target (dated 2026-06-15, observed at 12:15) and an A1C above it with an unmapped test, CML 2010 HEMOGLOBIN (2026-09-30); each A1C result is a measurement of type A1C carrying measurementsExt lab_no, identifier 3767, unit, date, the observation time the lab gave and the typed value; the unmapped result is filed with an EMPTY type (a lab-only record the Lab Result views read; that is by design, so 'does not appear' means no flowsheet type, no Measurements line, no flowsheet row and no tracker card) and the patient has no typed measurement but A1C (the run proves from measurementMap that the code shares no LOINC with a FLOWSHEET row); Diagnostic Registry \u25b8 Dx 250 makes the Measurements module list the Diabetes Flowsheet; the module's A1C line shows the newest result and no line exists for the unmapped test; the flowsheet lists each result under its date, shows nothing else and nothing for the unmapped test; it flags the result above its target and not the one within it; the Health Tracker (given the A1C item) lists each result under its date and nothing for the unmapped test. The flowsheet and A1C history source links open each lab report, including its accession and other results; the Health Tracker links also open by keyboard without triggering the measurement delete dialog (finding 258, fixed in #4615). Expected: every step passes. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, fixed in #4615: the A1C row links to its lab), lab-to-flowsheet-long-value (256, fixed in #4613: a result whose first five characters are all digits or one of + , - . / : ; < = > ? was cut to four), lab-to-flowsheet-observed-time (259, fixed in #4631: a result observed in the noon hour was filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two CML labs under unique accessions created through Inbox \u25b8 Create Lab (the second also holds the unmapped test CML 2010), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed. Native quick-list last-used preferences are snapshotted and restored exactly after browser closure."
     },
     {
       "name": "lab-to-flowsheet-long-value",
@@ -13232,7 +13236,7 @@
         "LAB_FLOWSHEET_PIN"
       ],
       "notes": "A result whose first five characters are all digits or one of + , - . / : ; < = > ? is filed as a measurement with the value the lab sent; finding 256, FIXED (#4613). The same labs as lab-to-flowsheet are created first (the within-target and above-target A1C labs) and every step of that path passes; then, LAST, a third lab of its own is created through Inbox \u25b8 Create Lab with CML 3180 Creatinine 112.5 umol/L, a code the flowsheets map (the FLOWSHEET type SCR) and not the A1C, so a fix of finding 257 that normalises A1C fractions at import cannot decide this step, and a typed measurement of another type is never seen by the A1C steps that count rows; the same lab carries three more results of five characters or more, CML 3120 CHOLESTEROL 10.55, 3360 ALK PHOS 1,250 and 4025 TSH <0.05. A control step asserts that the lab is stored, matched to the patient and routed to the submitting provider, that its creatinine is a measurement of type SCR with lab_no, identifier 3180, name, unit and date, and that each other result is a measurement carrying its lab number, name and unit. Then: the creatinine measurement holds 112.5, and each other result holds the value the lab sent. Before #4613 the creatinine held 112. (and the others 10.5, 1,25 and <0.0), because the shipped HL7_LAB_MEASUREMENT_FILTER had the alternative ^([+-\\\\?]{1,4}), and in a character class +-\\? is a range (0x2B-0x3F, the digits and '.'), so Matcher.find()/group() kept the first four characters of any result whose first five characters are digits or those symbols. The fix replaces that alternative with one that takes the whole leading run, and the carlos-emr postinst rewrites the old stock line in /etc/carlos-emr/carlos.properties once, so on a packaged install the check also proves an upgraded install no longer cuts the value. Expected: every step passes. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, the A1C row links to its lab), lab-to-flowsheet-long-value (256, fixed in #4613: a result whose first five characters are all digits or one of + , - . / : ; < = > ? was cut to four), lab-to-flowsheet-observed-time (259, fixed in #4631: a result observed in the noon hour was filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), three CML labs under unique accessions created through Inbox \u25b8 Create Lab (the second also holds the unmapped test CML 2010; the third is the creatinine, with the cholesterol, ALP and TSH results), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed."
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), three CML labs under unique accessions created through Inbox \u25b8 Create Lab (the second also holds the unmapped test CML 2010; the third is the creatinine, with the cholesterol, ALP and TSH results), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed. Native quick-list last-used preferences are snapshotted and restored exactly after browser closure."
     },
     {
       "name": "lab-to-flowsheet-observed-time",
@@ -13253,7 +13257,7 @@
         "LAB_FLOWSHEET_PIN"
       ],
       "notes": "A result observed in the noon hour is filed as a measurement with the time of day the lab gave (finding 259, fixed by #4631). Two labs are created (the within-target A1C observed at 12:15 and the above-target A1C with the unmapped test, as in lab-to-flowsheet). The control steps assert the labs' routing, that every A1C result is a measurement of type A1C with lab_no, identifier, unit, date, value and the observation time the lab gave (measurementsExt datetime, 2026-06-15 12:15:00), and that the unmapped test carries no flowsheet type. Right after them, finding 259's step: the measurement's dateObserved is the time the lab gave. Before #4631 it was 2026-06-15 00:15:00, because Hl7textResultsData parsed the 24-hour observation time with the 12-hour pattern yyyy-MM-dd hh:mm:ss, which reads 12 as hour 0 (every other hour survived and the date was right, but the order of same-day results was not: two A1C labs on one day, 6.1 at 08:00 and 7.9 at 12:30, left the Measurements module showing 6.1). Expected: every step passes. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, the A1C row links to its lab), lab-to-flowsheet-long-value (256, fixed in #4613: a result whose first five characters are all digits or one of + , - . / : ; < = > ? was cut to four), lab-to-flowsheet-observed-time (259, fixed in #4631: a result observed in the noon hour was filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two CML labs under unique accessions created through Inbox \u25b8 Create Lab (the second also holds the unmapped test CML 2010), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed."
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two CML labs under unique accessions created through Inbox \u25b8 Create Lab (the second also holds the unmapped test CML 2010), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed. Native quick-list last-used preferences are snapshotted and restored exactly after browser closure."
     },
     {
       "name": "lab-to-flowsheet-fraction",
@@ -13274,7 +13278,7 @@
         "LAB_FLOWSHEET_PIN"
       ],
       "notes": "The Diabetes Flowsheet flags an A1C reported as a fraction above its target, pinned to finding 257. Three labs are created (the within-target and above-target A1C labs of lab-to-flowsheet, and one that reports the A1C as a fraction, 0.095 = 9.5%). Steps: the Diabetes Flowsheet's own A1C target is read before any lab exists (Target <= 7.0%) and the lab values are derived from it (above, within); Inbox \u25b8 Create Lab files an A1C within the target (dated 2026-06-15, observed at 12:15) and an A1C above it with an unmapped test, CML 2010 HEMOGLOBIN (2026-09-30); each A1C result is a measurement of type A1C carrying measurementsExt lab_no, identifier 3767, unit, date, the observation time the lab gave and the typed value; the unmapped result is filed with an EMPTY type (a lab-only record the Lab Result views read; that is by design, so 'does not appear' means no flowsheet type, no Measurements line, no flowsheet row and no tracker card) and the patient has no typed measurement but A1C (the run proves from measurementMap that the code shares no LOINC with a FLOWSHEET row); Diagnostic Registry \u25b8 Dx 250 makes the Measurements module list the Diabetes Flowsheet; the module's A1C line shows the newest result and no line exists for the unmapped test; the flowsheet lists each result under its date, shows nothing else and nothing for the unmapped test; it flags the result above its target and not the one within it; the Health Tracker (given the A1C item) lists each result under its date and nothing for the unmapped test. The control steps are the flowsheet row listed under the fraction lab's date and the percentage above the target flagged while the one within it is not. Then, right after them: the 0.095 row is flagged. Finding 257 is fixed: MeasurementDSHelper.getDataAsDouble() reads an A1C below 1 as percent (x100), so the flowsheet's single 'above 7' rule flags 0.095 as 9.5%. Expected: every step passes. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, the A1C row links to its lab), lab-to-flowsheet-long-value (256, fixed in #4613: a result whose first five characters are all digits or one of + , - . / : ; < = > ? was cut to four), lab-to-flowsheet-observed-time (259, fixed in #4631: a result observed in the noon hour was filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), three CML labs under unique accessions created through Inbox \u25b8 Create Lab (the second also holds the unmapped test CML 2010; the third reports the A1C as a fraction), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed."
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), three CML labs under unique accessions created through Inbox \u25b8 Create Lab (the second also holds the unmapped test CML 2010; the third reports the A1C as a fraction), one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed. Native quick-list last-used preferences are snapshotted and restored exactly after browser closure."
     },
     {
       "name": "lab-to-flowsheet-upload-time",
@@ -13295,7 +13299,7 @@
         "LAB_FLOWSHEET_PIN"
       ],
       "notes": "A lab uploaded with an observation time that has no seconds is filed as a measurement observed at that time, pinned to finding 262. The same two labs as lab-to-flowsheet are created first and every step of that path passes; then, LAST, a CML HL7 file is uploaded through Inbox \u25b8 HL7 Lab Upload (type CML) for the owned patient: one A1C result with OBR-7 of 12 digits (202608200945, 2026-08-20 09:45, a morning hour so the 12-hour pattern of finding 259 cannot touch it). Create Lab always writes seconds (CMLLabHL7Generator, 14 digits), so only a file reaches this path. A control step asserts the upload reports 'Uploaded successfully', the lab is stored under its accession and matched to the patient, and its result is a measurement of type A1C with lab_no, identifier 3767 and unit, whose measurementsExt datetime is the time the file gave ('2026-08-20 09:45'). PINNED, right after it: the measurement's dateObserved is the time the file gave; today it is the upload time, because CMLHandler.formatDateTime returns 'yyyy-MM-dd HH:mm' for a 12-digit time (and 'yyyy-MM-dd' for 8 digits), Hl7textResultsData parses with 'yyyy-MM-dd hh:mm:ss', the parse throws and the catch files new Date(). The chart's Measurements module then titles that A1C with today's date. Expected: the controls pass and the pin fails. The defects each have their own entry (one script stops at its first failing step, so no pin hides another): lab-to-flowsheet (258, the A1C row links to its lab), lab-to-flowsheet-long-value (256, fixed in #4613: a result whose first five characters are all digits or one of + , - . / : ; < = > ? was cut to four), lab-to-flowsheet-observed-time (259, fixed in #4631: a result observed in the noon hour was filed twelve hours early), lab-to-flowsheet-fraction (257, a fraction A1C is never flagged) and lab-to-flowsheet-upload-time (262, an uploaded lab whose observation time has no seconds is filed as observed at the upload time), selected by LAB_FLOWSHEET_PIN.",
-      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two CML labs under unique accessions created through Inbox \u25b8 Create Lab (the second also holds the unmapped test CML 2010), one uploaded CML HL7 file (a unique accession and file name, written to a temporary directory the run removes) with the lab it stores, one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). The upload archives its file under LAB_UPLOAD_DOCUMENT_STORE (LabUpload.<file name>.<millis>) and writes a fileUploadCheck row. Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), the upload's checksum row and archive by its unique file name, then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed."
+      "fixtures": "Owned FAKE patient (the run's FAKE-PW marker as last name), two CML labs under unique accessions created through Inbox \u25b8 Create Lab (the second also holds the unmapped test CML 2010), one uploaded CML HL7 file (a unique accession and file name, written to a temporary directory the run removes) with the lab it stores, one dxresearch row (icd9 250, through the Diagnostic Registry) and one flowsheet_customization row (the tracker's A1C item, written with SQL as health-tracker does). The upload archives its file under LAB_UPLOAD_DOCUMENT_STORE (LabUpload.<file name>.<millis>) and writes a fileUploadCheck row. Cleanup removes each lab with removeOwnedHl7Labs (routing, routing lock, info, message, checksum, archived file, measurements), the upload's checksum row and archive by its unique file name, then deletes by the patient key every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row and asserts them all gone. No clinic-wide state is changed. Native quick-list last-used preferences are snapshotted and restored exactly after browser closure."
     },
     {
       "name": "login-facility-chooser",
@@ -17153,11 +17157,7 @@
       "envSet": {
         "RX_RENAL_CASE": "male-valid"
       },
-      "notes": "Independent renal input/source/threshold matrix case male-valid (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case male-valid (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-female-valid",
@@ -17174,11 +17174,7 @@
       "envSet": {
         "RX_RENAL_CASE": "female-valid"
       },
-      "notes": "Independent renal input/source/threshold matrix case female-valid (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case female-valid (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-older-low-weight",
@@ -17195,11 +17191,7 @@
       "envSet": {
         "RX_RENAL_CASE": "older-low-weight"
       },
-      "notes": "Independent renal input/source/threshold matrix case older-low-weight (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case older-low-weight (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-younger-high-weight",
@@ -17216,11 +17208,7 @@
       "envSet": {
         "RX_RENAL_CASE": "younger-high-weight"
       },
-      "notes": "Independent renal input/source/threshold matrix case younger-high-weight (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case younger-high-weight (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-missing-weight",
@@ -17237,11 +17225,7 @@
       "envSet": {
         "RX_RENAL_CASE": "missing-weight"
       },
-      "notes": "Independent renal input/source/threshold matrix case missing-weight (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case missing-weight (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-missing-cr",
@@ -17258,11 +17242,7 @@
       "envSet": {
         "RX_RENAL_CASE": "missing-cr"
       },
-      "notes": "Independent renal input/source/threshold matrix case missing-cr (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case missing-cr (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-missing-both",
@@ -17279,11 +17259,7 @@
       "envSet": {
         "RX_RENAL_CASE": "missing-both"
       },
-      "notes": "Independent renal input/source/threshold matrix case missing-both (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case missing-both (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-future-age",
@@ -17300,11 +17276,7 @@
       "envSet": {
         "RX_RENAL_CASE": "future-age"
       },
-      "notes": "Independent renal input/source/threshold matrix case future-age (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case future-age (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-lab-only",
@@ -17321,11 +17293,7 @@
       "envSet": {
         "RX_RENAL_CASE": "lab-only"
       },
-      "notes": "Independent renal input/source/threshold matrix case lab-only (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case lab-only (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-lab-newer",
@@ -17342,11 +17310,7 @@
       "envSet": {
         "RX_RENAL_CASE": "lab-newer"
       },
-      "notes": "Independent renal input/source/threshold matrix case lab-newer (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case lab-newer (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-measurement-newer",
@@ -17363,11 +17327,7 @@
       "envSet": {
         "RX_RENAL_CASE": "measurement-newer"
       },
-      "notes": "Independent renal input/source/threshold matrix case measurement-newer (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case measurement-newer (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-equal-date-lab",
@@ -17384,11 +17344,7 @@
       "envSet": {
         "RX_RENAL_CASE": "equal-date-lab"
       },
-      "notes": "Independent renal input/source/threshold matrix case equal-date-lab (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case equal-date-lab (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-newer-unusable-source",
@@ -17405,11 +17361,7 @@
       "envSet": {
         "RX_RENAL_CASE": "newer-unusable-source"
       },
-      "notes": "Independent renal input/source/threshold matrix case newer-unusable-source (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 339,
-        "step": "renal inputs render through the native drug card without a server error"
-      }
+      "notes": "Independent renal input/source/threshold matrix case newer-unusable-source (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-weight-blank",
@@ -17426,11 +17378,7 @@
       "envSet": {
         "RX_RENAL_CASE": "weight-blank"
       },
-      "notes": "Independent renal input/source/threshold matrix case weight-blank (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case weight-blank (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-cr-blank",
@@ -17447,11 +17395,7 @@
       "envSet": {
         "RX_RENAL_CASE": "cr-blank"
       },
-      "notes": "Independent renal input/source/threshold matrix case cr-blank (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 339,
-        "step": "renal inputs render through the native drug card without a server error"
-      }
+      "notes": "Independent renal input/source/threshold matrix case cr-blank (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-weight-text",
@@ -17468,11 +17412,7 @@
       "envSet": {
         "RX_RENAL_CASE": "weight-text"
       },
-      "notes": "Independent renal input/source/threshold matrix case weight-text (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case weight-text (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-cr-text",
@@ -17489,11 +17429,7 @@
       "envSet": {
         "RX_RENAL_CASE": "cr-text"
       },
-      "notes": "Independent renal input/source/threshold matrix case cr-text (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 339,
-        "step": "renal inputs render through the native drug card without a server error"
-      }
+      "notes": "Independent renal input/source/threshold matrix case cr-text (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-weight-zero",
@@ -17510,11 +17446,7 @@
       "envSet": {
         "RX_RENAL_CASE": "weight-zero"
       },
-      "notes": "Independent renal input/source/threshold matrix case weight-zero (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case weight-zero (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-cr-zero",
@@ -17531,11 +17463,7 @@
       "envSet": {
         "RX_RENAL_CASE": "cr-zero"
       },
-      "notes": "Independent renal input/source/threshold matrix case cr-zero (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case cr-zero (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-weight-negative",
@@ -17552,11 +17480,7 @@
       "envSet": {
         "RX_RENAL_CASE": "weight-negative"
       },
-      "notes": "Independent renal input/source/threshold matrix case weight-negative (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case weight-negative (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-cr-negative",
@@ -17573,11 +17497,7 @@
       "envSet": {
         "RX_RENAL_CASE": "cr-negative"
       },
-      "notes": "Independent renal input/source/threshold matrix case cr-negative (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case cr-negative (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-weight-nan",
@@ -17594,11 +17514,7 @@
       "envSet": {
         "RX_RENAL_CASE": "weight-nan"
       },
-      "notes": "Independent renal input/source/threshold matrix case weight-nan (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case weight-nan (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-cr-nan",
@@ -17615,11 +17531,7 @@
       "envSet": {
         "RX_RENAL_CASE": "cr-nan"
       },
-      "notes": "Independent renal input/source/threshold matrix case cr-nan (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case cr-nan (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-weight-infinity",
@@ -17636,11 +17548,7 @@
       "envSet": {
         "RX_RENAL_CASE": "weight-infinity"
       },
-      "notes": "Independent renal input/source/threshold matrix case weight-infinity (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case weight-infinity (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-cr-infinity",
@@ -17657,11 +17565,7 @@
       "envSet": {
         "RX_RENAL_CASE": "cr-infinity"
       },
-      "notes": "Independent renal input/source/threshold matrix case cr-infinity (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 340,
-        "step": "render independent clinical inputs and exact inclusive recommendation boundaries"
-      }
+      "notes": "Independent renal input/source/threshold matrix case cr-infinity (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-boundary-4",
@@ -17678,11 +17582,7 @@
       "envSet": {
         "RX_RENAL_CASE": "boundary-4"
       },
-      "notes": "Independent renal input/source/threshold matrix case boundary-4 (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case boundary-4 (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-boundary-5",
@@ -17699,11 +17599,7 @@
       "envSet": {
         "RX_RENAL_CASE": "boundary-5"
       },
-      "notes": "Independent renal input/source/threshold matrix case boundary-5 (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case boundary-5 (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-boundary-6",
@@ -17720,11 +17616,7 @@
       "envSet": {
         "RX_RENAL_CASE": "boundary-6"
       },
-      "notes": "Independent renal input/source/threshold matrix case boundary-6 (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case boundary-6 (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-boundary-29",
@@ -17741,11 +17633,7 @@
       "envSet": {
         "RX_RENAL_CASE": "boundary-29"
       },
-      "notes": "Independent renal input/source/threshold matrix case boundary-29 (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case boundary-29 (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-boundary-30",
@@ -17762,11 +17650,7 @@
       "envSet": {
         "RX_RENAL_CASE": "boundary-30"
       },
-      "notes": "Independent renal input/source/threshold matrix case boundary-30 (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case boundary-30 (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-renal-input-boundary-31",
@@ -17783,11 +17667,7 @@
       "envSet": {
         "RX_RENAL_CASE": "boundary-31"
       },
-      "notes": "Independent renal input/source/threshold matrix case boundary-31 (#5263); isolated outcome and owned cleanup.",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "restoring valid observations refreshes the same panel without retaining stale input"
-      }
+      "notes": "Independent renal input/source/threshold matrix case boundary-31 (#5263); isolated outcome and owned cleanup."
     },
     {
       "name": "rx-limited-use-code-persistence",
@@ -17803,11 +17683,7 @@
       "env": [
         "RX_ODB_FILE"
       ],
-      "notes": "Real formulary code clicks, append/repeat behavior, same/other-patient controls, saved medication and reprint preview, unsaved cancellation and cleanup (#5270).",
-      "expectedFailure": {
-        "finding": 341,
-        "step": "offered LU links complete without uncaught JavaScript errors"
-      }
+      "notes": "Real formulary code clicks, append/repeat behavior, same/other-patient controls, saved medication and reprint preview, unsaved cancellation and cleanup (#5270). Regression coverage for issue #5571, fixed by PR #5589."
     },
     {
       "name": "rx-renal-correction",
@@ -17827,11 +17703,7 @@
         "measurementType",
         "measurementGroupStyle"
       ],
-      "fixtures": "Owned patients and observations; supplies an owned Renal Dosing measurement group only when absent and removes its exact rows. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "expectedFailure": {
-        "finding": 338,
-        "step": "Refresh replaces the equation and crosses into the inclusive reduced-dose recommendation"
-      }
+      "fixtures": "Owned patients and observations; supplies an owned Renal Dosing measurement group only when absent and removes its exact rows. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "rx-minor-interaction-levels",
@@ -18343,11 +18215,7 @@
       "envSet": {
         "DIALOG_CONFIRMATION_TARGET": "document"
       },
-      "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently.",
-      "expectedFailure": {
-        "finding": 336,
-        "step": "dismissing document Delete confirms once and leaves both document rows unchanged"
-      }
+      "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently. Fixed by #5572."
     },
     {
       "script": "scripts/tickler-demo-main-status-playwright-checks.js",

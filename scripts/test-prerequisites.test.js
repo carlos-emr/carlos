@@ -53,7 +53,8 @@ test('CDS import missing source or disabled feature skips before upload; transpo
       elementHandle:async()=>({contentFrame:async()=>frame})};},
     waitForResponse:async()=>{if(state.responseError)throw new Error('response transport failed');return {status:()=>state.statusCode||200};},
     waitForLoadState:async()=>{}};
-    const context={h,clickOpensPopupOrNavigates:async()=>({page:admin}),
+    const context={h,requireImportSource:require('./demographic-cds-import-playwright-checks').requireImportSource,
+      clickOpensPopupOrNavigates:async()=>({page:admin}),
       observeCdsMetadata:async()=>({transport:{qualifyResponse:async()=>({qualified:false})}}),
       revealAuditLink:async()=>{},createCdsMetadataProver:()=>({}),importApi(){},qualifyCdsMetadata:async()=>{}};
     vm.createContext(context);vm.runInContext(helper,context);
@@ -64,7 +65,7 @@ test('CDS import missing source or disabled feature skips before upload; transpo
     else if(state.responseError)await assert.rejects(operation,/response transport failed/);
     else if(state.statusCode)await assert.rejects(operation,/Initial owner-scoped upload status was refused/);
     else if(state.diagnostic)await assert.rejects(operation,error=>error.name!=='SkipCheck'&&/JavaScript-layer/.test(error.message));
-    else if(state.disabled||!state.source)await assert.rejects(operation,error=>error.name==='SkipCheck'&&/Required/.test(error.message));
+    else if(state.disabled||!state.source)await assert.rejects(operation,error=>error.name==='SkipCheck'&&/requires/.test(error.message));
     else await assert.doesNotReject(operation);
     assert.equal(selected,Boolean(state.source)&&!state.responseError&&!state.statusCode);
   }
