@@ -1605,7 +1605,17 @@
             },
             {
               "name": "shouldCommitOnlyOneAcyclicMerge_whenRequestsContend(boolean)",
-              "container": ""
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldCommitOnlyOneAcyclicMerge_whenRequestsContend(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldCommitOnlyOneAcyclicMerge_whenRequestsContend(boolean)[2]",
+                  "container": ""
+                }
+              ]
             },
             {
               "name": "shouldPersistMergeAndUnmergeAudits_whenObservedAfterCommit",

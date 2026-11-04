@@ -143,6 +143,9 @@ class ScopeInventoryTest(unittest.TestCase):
         for path in ("database/mysql/migration/common/V1.sql", "debian/carlos-emr.postrm", "debian/assets/bin/carlos-emr-backup",
                      "src/main/webapp/WEB-INF/jsp/fragment.jspf", "src/main/resources/messages_fr.properties", "package-lock.json"):
             self.assertTrue(scope.runtime_path(path), path)
+        for path in ("debian/assets/tests/test_backup_restic.py", "debian/tests/control",
+                     "src/test/java/ExampleUnitTest.java"):
+            self.assertFalse(scope.runtime_path(path), path)
 
 
 if __name__ == "__main__":

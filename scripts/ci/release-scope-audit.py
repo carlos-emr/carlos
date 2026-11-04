@@ -30,7 +30,7 @@ def comparison(root, base, head):
 
 
 def runtime_path(path):
-    return (path.startswith(("src/main/", "database/", "debian/assets/", ".devcontainer/"))
+    return (path.startswith(("src/main/", "database/", ".devcontainer/"))
             or path.startswith("debian/") and not path.startswith(("debian/assets/tests/", "debian/tests/"))
             or path in ("pom.xml", "package.json", "package-lock.json"))
 

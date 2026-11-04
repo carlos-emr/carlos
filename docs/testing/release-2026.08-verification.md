@@ -28,7 +28,8 @@ deleted, binary and renamed-as-delete/add paths and has a regression above the
 GitHub compare API's 300-file limit. Candidate test names are labelled as
 discovery aids. An explicit path binding must name real sources/tests, checks,
 workstreams and a rationale. Unowned production paths block scope acceptance;
-`--inventory-only` generates review material without claiming coverage.
+`--inventory-only` generates review material without claiming coverage. Test-only
+packaging paths remain in the inventory with `production: false`.
 
 The six main-only migrations are individually listed with content hashes. They
 are not automatically backported or treated as verified exclusions. Published
@@ -173,7 +174,9 @@ Java cases that are inapplicable in H2 have exact container/name routes to a
 required native, browser-PDF, legacy-compatibility or CLI lane. The H2 receipt
 retains them as routed skips. Global verification requires the exact passing
 case in that destination; a routing declaration alone supplies no coverage.
-New or unmatched skips remain failures.
+New or unmatched skips remain failures. A disabled parameterized template names
+every required native invocation explicitly; each destination must pass, and
+empty or duplicate destination lists are refused.
 
 ```sh
 "$python" scripts/ci/verify-release-evidence.py verify \

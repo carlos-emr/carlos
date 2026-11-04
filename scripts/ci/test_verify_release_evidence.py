@@ -232,6 +232,51 @@ if '--nonzero' in sys.argv: sys.exit(7)
         with self.assertRaisesRegex(EvidenceError, "escapes"):
             self.verify()
 
+    def configure_parameterized_route(self, native_count):
+        writer = self.root / "invocations.py"
+        writer.write_text('''import pathlib,sys
+directory=pathlib.Path(sys.argv[1]); (directory/'reports').mkdir()
+names=['shouldWrite_atomically[1]','shouldWrite_atomically[2]'][:int(sys.argv[2])]
+body=''.join('<testcase classname="example.RequiredTest" name="'+name+'"/>' for name in names)
+(directory/'reports/TEST-example.RequiredTest.xml').write_text('<testsuite name="example.RequiredTest" tests="'+str(len(names))+'" failures="0" errors="0" skipped="0">'+body+'</testsuite>')
+''')
+        physical = dict(self.plan["checks"][1], id="java-physical",
+                        command=[sys.executable, str(writer), "{run}", str(native_count)])
+        self.plan["checks"].append(physical)
+        self.plan["checks"][1].update(
+            command=[*self.plan["checks"][1]["command"], "<skipped/>"],
+            routedSkips={"example.RequiredTest": {"check": "java-physical", "cases": [
+                {"name": "shouldWrite_atomically", "destinations": [
+                    {"name": "shouldWrite_atomically[1]"}, {"name": "shouldWrite_atomically[2]"}]}]}})
+        for row in self.plan["workstreams"]:
+            row["requiredChecks"].append("java-physical")
+        self.save_plan(); self.commit()
+
+    def test_parameterized_route_accepts_all_exact_native_invocations(self):
+        self.configure_parameterized_route(2)
+        self.seed()
+        self.assertEqual(self.run_check("java-physical")["outcome"], "PASS")
+        self.assertTrue(self.verify()["releaseReady"])
+
+    def test_parameterized_route_cannot_pass_with_only_one_native_invocation(self):
+        self.configure_parameterized_route(1)
+        self.seed()
+        self.assertEqual(self.run_check("java-physical")["outcome"], "PASS")
+        missing = self.verify()["incomplete"]
+        self.assertEqual(missing, [{"checkId": "java-physical",
+                                   "case": "example.RequiredTest::shouldWrite_atomically[2]",
+                                   "outcome": "ROUTED_CASE_NOT_EXECUTED"}])
+
+    def test_parameterized_routes_refuse_empty_or_duplicate_destinations(self):
+        self.configure_parameterized_route(2)
+        case = self.plan["checks"][1]["routedSkips"]["example.RequiredTest"]["cases"][0]
+        for targets in ([], [{"name": "same"}, {"name": "same"}], [{"name": ""}]):
+            with self.subTest(destinations=targets):
+                case["destinations"] = targets
+                self.save_plan()
+                with self.assertRaisesRegex(EvidenceError, "destinations"):
+                    gate.load_plan(self.plan_path, self.root)
+
     def test_symlink_and_missing_evidence_are_refused(self):
         self.seed()
         path = self.evidence / self.result["runId"] / "reports/TEST-example.RequiredTest.xml"

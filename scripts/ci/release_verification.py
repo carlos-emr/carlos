@@ -126,6 +126,22 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
         for route in check.get("routedSkips", {}).values():
             if route.get("check") not in names or route["check"] == check["id"] or not route.get("cases"):
                 raise EvidenceError("A non-applicable Java case must route to a different required check")
+            for case in route["cases"]:
+                if isinstance(case, str):
+                    if not case:
+                        raise EvidenceError("Empty Java route case")
+                    continue
+                if not isinstance(case, dict) or not isinstance(case.get("name"), str) or not case["name"] or not isinstance(case.get("container", ""), str):
+                    raise EvidenceError("Invalid Java route case")
+                if "destinations" in case:
+                    targets = case["destinations"]
+                    if not isinstance(targets, list) or not targets or any(
+                            not isinstance(target, dict) or not isinstance(target.get("name"), str)
+                            or not target["name"] or not isinstance(target.get("container", ""), str)
+                            for target in targets):
+                        raise EvidenceError("Parameterized Java route has invalid destinations")
+                    if len({(target.get("container", ""), target["name"]) for target in targets}) != len(targets):
+                        raise EvidenceError("Parameterized Java route has duplicate destinations")
     for row in work:
         if not row.get("cases") or not row.get("acceptance") or not row.get("requiredChecks"):
             raise EvidenceError("Workstream lacks cases, acceptance or evidence requirements")
@@ -181,12 +197,16 @@ def junit_results(directory: Path, check):
             counts["failed"] += case.outcome == "failure"
             counts["skipped"] += case.outcome == "skipped"
             route = check.get("routedSkips", {}).get(case.classname)
-            if case.outcome == "skipped" and route and any(
-                    item == case.name and not case.container if isinstance(item, str)
-                    else item.get("name") == case.name and item.get("container", "") == case.container
-                    for item in route["cases"]):
-                routed.append({"classname": case.classname, "container": case.container,
-                               "name": case.name, "check": route["check"]})
+            if case.outcome == "skipped" and route:
+                for item in route["cases"]:
+                    expected = {"name": item} if isinstance(item, str) else item
+                    if expected["name"] == case.name and expected.get("container", "") == case.container:
+                        routed_case = {"classname": case.classname, "container": case.container,
+                                       "name": case.name, "check": route["check"]}
+                        if "destinations" in expected:
+                            routed_case["destinations"] = expected["destinations"]
+                        routed.append(routed_case)
+                        break
     missing = [name for name, minimum in check.get("requiredFamilies", {}).items()
                if families.get(name, 0) < minimum]
     return {**counts, "missingFamilies": missing, "families": families, "routedSkips": routed, "counterCollisions": collisions,
@@ -474,9 +494,10 @@ def verify(plan_path, evidence: Path, artifact: Path, root=ROOT):
     if not build_bound:
         incomplete.append({"checkId": "build", "outcome": "MISSING_SOURCE_BOUND_BUILD"})
     for route in routed_cases:
-        if (route["check"], route["classname"], route.get("container", ""), route["name"]) not in executed_cases:
-            incomplete.append({"checkId": route["check"], "case": route["classname"] + "::" + route["name"],
-                               "outcome": "ROUTED_CASE_NOT_EXECUTED"})
+        for target in route.get("destinations", [route]):
+            if (route["check"], route["classname"], target.get("container", ""), target["name"]) not in executed_cases:
+                incomplete.append({"checkId": route["check"], "case": route["classname"] + "::" + target["name"],
+                                   "outcome": "ROUTED_CASE_NOT_EXECUTED"})
     if plan.get("requireJavaDiscovery"):
         for family in sorted(expected_families(root / "src/test/java").keys() - executed_families):
             incomplete.append({"checkId": "java-discovery", "class": family, "outcome": "NO_PASSING_EXECUTION"})
