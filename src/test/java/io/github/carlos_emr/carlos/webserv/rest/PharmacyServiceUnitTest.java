@@ -143,6 +143,17 @@ class PharmacyServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should check read privilege before rejecting invalid pagination")
+        void shouldThrowAccessDenied_whenInvalidPaginationIsRequestedWithoutReadPrivilege() {
+            grantOnly("w");
+
+            assertThatThrownBy(() -> service.getPharmacies(-1, 5001))
+                    .isInstanceOf(AccessDeniedException.class);
+
+            verifyNoInteractions(mockPharmacyInfoDao);
+        }
+
+        @Test
         @DisplayName("should throw AccessDeniedException for getPharmacy when only write is granted")
         void shouldThrowAccessDenied_forGetPharmacyWhenOnlyWriteGranted() {
             grantOnly("w");
