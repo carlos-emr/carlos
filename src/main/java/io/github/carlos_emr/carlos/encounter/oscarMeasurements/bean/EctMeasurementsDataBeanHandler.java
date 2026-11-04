@@ -35,16 +35,21 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Vector;
 
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
 import io.github.carlos_emr.carlos.commn.model.Measurement;
+import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.lab.service.LabPatientAccess;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.MeasurementTypes;
@@ -63,6 +68,11 @@ public class EctMeasurementsDataBeanHandler {
         init(demo, type);
     }
 
+    /** A flowsheet defers provenance loading until it has collected readings from all its types. */
+    public EctMeasurementsDataBeanHandler(Integer demo, String type, boolean loadSourceLabs) {
+        init(demo, type, loadSourceLabs);
+    }
+
     public boolean init(Integer demo) {
         MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
         for (MeasurementType mt : dao.findMeasurementsTypes(demo)) {
@@ -78,9 +88,13 @@ public class EctMeasurementsDataBeanHandler {
         return true;
     }
 
+    public boolean init(Integer demo, String type) {
+        return init(demo, type, true);
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public boolean init(Integer demo, String type) {
+    private boolean init(Integer demo, String type, boolean loadSourceLabs) {
         MeasurementTypes mt = MeasurementTypes.getInstance();
         EctMeasurementTypesBean mBean = mt.getByType(type);
         if (mBean != null) {
@@ -132,6 +146,9 @@ public class EctMeasurementsDataBeanHandler {
                 measurementsDataVector.add(data);
 
             }
+            if (loadSourceLabs) {
+                populateSourceLabs(measurementsDataVector);
+            }
         }
         return true;
     }
@@ -176,7 +193,29 @@ public class EctMeasurementsDataBeanHandler {
             measurements.add(measurement);
         }
 
+        populateSourceLabs(measurements);
         return measurements;
+    }
+
+    /** Load provenance once per history, rather than querying extensions for each rendered reading. */
+    public static void populateSourceLabs(Collection<EctMeasurementsDataBean> measurements) {
+        if (measurements.isEmpty()) {
+            return;
+        }
+        Map<Integer, Integer> sourceLabs = new HashMap<>();
+        for (EctMeasurementsDataBean measurement : measurements) {
+            sourceLabs.put(measurement.getId(), null);
+        }
+        MeasurementsExtDao extensions = SpringUtils.getBean(MeasurementsExtDao.class);
+        for (MeasurementsExt extension : extensions.findByMeasurementIdsAndKey(new ArrayList<>(sourceLabs.keySet()), "lab_no")) {
+            if (sourceLabs.containsKey(extension.getMeasurementId()) && "lab_no".equals(extension.getKeyVal())) {
+                // Never put an unchecked extension string into a URL or JavaScript context.
+                sourceLabs.put(extension.getMeasurementId(), LabPatientAccess.positiveIdentity(extension.getVal()));
+            }
+        }
+        for (EctMeasurementsDataBean measurement : measurements) {
+            measurement.setSourceLabNo(sourceLabs.get(measurement.getId()));
+        }
     }
 
     public static Hashtable<String, Object> getLast(String demo, String type) {

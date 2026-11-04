@@ -43,6 +43,8 @@ public interface MeasurementsExtDao extends AbstractDao<MeasurementsExt> {
 
     List<MeasurementsExt> getMeasurementsExtListByMeasurementIdList(List<Integer> measurementIdList);
 
+    List<MeasurementsExt> findByMeasurementIdsAndKey(List<Integer> measurementIds, String key);
+
     MeasurementsExt getMeasurementsExtByMeasurementIdAndKeyVal(Integer measurementId, String keyVal);
 
     Integer getMeasurementIdByKeyValue(String key, String value);
