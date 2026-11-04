@@ -90,12 +90,19 @@
             let jobTypeTable;
             let jobTypeRefreshGeneration = 0;
             let jobTypeSavePending = false;
+            let jobTypeSaveEditorGeneration = 0;
             let jobTypeCreateUnconfirmed = false;
             let jobTypeEditorLoading = false;
+            let jobTypeEditorLoadFailed = false;
             let jobTypeEditorGeneration = 0;
 
-            function updateJobTypeSaveButton() {
+            function updateJobTypeEditorState() {
+                // A save from a previous dialog must not lock a newly opened editor.
+                var formBlocked = jobTypeEditorLoading || (jobTypeSavePending
+                    && jobTypeSaveEditorGeneration === jobTypeEditorGeneration);
+                $('#jobTypeForm :input').prop('disabled', formBlocked);
                 var blocked = jobTypeSavePending || jobTypeEditorLoading
+                    || jobTypeEditorLoadFailed
                     || (jobTypeCreateUnconfirmed && $('#jobTypeId').val() === '0');
                 $('#new-jobtype').dialog('widget').find('.job-types-save').button(blocked ? 'disable' : 'enable');
             }
@@ -103,9 +110,10 @@
             function editJobType(jobTypeId) {
                 clearJobTypeEditor();
                 jobTypeEditorLoading = true;
+                jobTypeEditorLoadFailed = false;
                 $('#new-jobtype').dialog('open');
                 var editorGeneration = jobTypeEditorGeneration;
-                updateJobTypeSaveButton();
+                updateJobTypeEditorState();
                 jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/jobType/" + jobTypeId, {},
                     function (xml) {
                         if (editorGeneration !== jobTypeEditorGeneration || !$('#new-jobtype').dialog('isOpen')) {
@@ -125,10 +133,13 @@
                             $('#jobTypeEnabled').prop('checked', job.enabled);
                             $('#jobTypeId').val(job.id);
                             jobTypeEditorLoading = false;
-                            updateJobTypeSaveButton();
+                            updateJobTypeEditorState();
                         }
                     }).fail(function () {
                         if (editorGeneration === jobTypeEditorGeneration && $('#new-jobtype').dialog('isOpen')) {
+                            jobTypeEditorLoading = false;
+                            jobTypeEditorLoadFailed = true;
+                            updateJobTypeEditorState();
                             window.alert(jobTypesLoadErrorLabel);
                         }
                     });
@@ -144,6 +155,7 @@
 
             function addNewJobType() {
                 jobTypeEditorLoading = false;
+                jobTypeEditorLoadFailed = false;
                 clearJobTypeEditor();
                 $('#jobTypeEnabled').prop('checked', true);
                 $('#new-jobtype').dialog('open');
@@ -218,13 +230,12 @@
                     modal: true,
                     open: function () {
                         jobTypeEditorGeneration++;
-                        $('#jobTypeForm :input').prop('disabled', false);
-                        updateJobTypeSaveButton();
+                        updateJobTypeEditorState();
                     },
                     buttons: {
                         saveJobType: {
                             class: "btn btn-primary job-types-save", text: jobTypesSaveLabel, click: function () {
-                                if (jobTypeSavePending || jobTypeEditorLoading) {
+                                if (jobTypeSavePending || jobTypeEditorLoading || jobTypeEditorLoadFailed) {
                                     return;
                                 }
                                 if (jobTypeCreateUnconfirmed && $('#jobTypeId').val() === '0') {
@@ -237,14 +248,11 @@
                                 var formData = $('#jobTypeForm').serialize();
                                 function restoreSaveButton() {
                                     jobTypeSavePending = false;
-                                    if (editorGeneration === jobTypeEditorGeneration) {
-                                        $('#jobTypeForm :input').prop('disabled', false);
-                                    }
-                                    updateJobTypeSaveButton();
+                                    updateJobTypeEditorState();
                                 }
+                                jobTypeSaveEditorGeneration = editorGeneration;
                                 jobTypeSavePending = true;
-                                $('#jobTypeForm :input').prop('disabled', true);
-                                updateJobTypeSaveButton();
+                                updateJobTypeEditorState();
                                 var saveRequest;
                                 try {
                                     saveRequest = $.post('${pageContext.request.contextPath}/ws/rs/jobs/saveJobType', formData);
@@ -265,7 +273,7 @@
                                             // A failed response cannot prove the insert rolled back.
                                             // Never infer ownership from a matching name or retry id=0 here.
                                             jobTypeCreateUnconfirmed = true;
-                                            updateJobTypeSaveButton();
+                                            updateJobTypeEditorState();
                                             listJobs();
                                             window.alert(jobTypesSaveUnconfirmedLabel);
                                         } else {

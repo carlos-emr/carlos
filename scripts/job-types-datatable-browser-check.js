@@ -293,9 +293,29 @@ const CASES = [
     }
     assert.equal(await page.locator('#jobTypeId').inputValue(), '0');
     assert.equal(await page.getByRole('button', {name: 'Save', exact: true}).isDisabled(), true);
+    assert.equal(await page.locator('#jobTypeName').isDisabled(), false);
     assert.equal(state.saves.length, 0);
     await page.getByRole('button', {name: 'Cancel', exact: true}).click();
     await openNew(page);
+    assert.equal(await page.getByRole('button', {name: 'Save', exact: true}).isDisabled(), false);
+  }],
+  ['an earlier save completion cannot unlock a newer editor while it loads', async (page, state) => {
+    await openNew(page);
+    await page.getByRole('button', {name: 'Save', exact: true}).click();
+    await waitForSave(page, state, 1);
+    await page.getByRole('button', {name: 'Cancel', exact: true}).click();
+    state.deferEdits = true;
+    await page.getByRole('link', {name: 'FAKE job 01', exact: true}).click();
+    await waitForRequests(page, state.edits, 1);
+    assert.equal(await page.locator('#jobTypeName').isDisabled(), true);
+    completeSave(state.saves[0], 200);
+    await page.waitForFunction(() => jQuery.active === 1);
+    assert.equal(await page.locator('#jobTypeName').isDisabled(), true);
+    assert.equal(await page.getByRole('button', {name: 'Save', exact: true}).isDisabled(), true);
+    state.edits[0].response.end(state.edits[0].body);
+    await page.waitForFunction(() => jQuery.active === 0);
+    assert.equal(await page.locator('#jobTypeId').inputValue(), '1');
+    assert.equal(await page.locator('#jobTypeName').isDisabled(), false);
     assert.equal(await page.getByRole('button', {name: 'Save', exact: true}).isDisabled(), false);
   }],
   ['an unconfirmed create stays blocked when its reconciliation read fails', async (page, state) => {
