@@ -5490,7 +5490,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Fails at its last step on 2026.08: Manage Emails Resolve shows RESOLVED but never updates the log row (setResolved is not dispatched).",
+      "notes": "Issue #5641: Resolve must dispatch to the status update, store RESOLVED, and retain the resolved card and filter result after reloading Manage Emails.",
       "fixtures": "Owned LOCAL emailConfig pointing at an in-process 127.0.0.1 SMTP sink, owned eForm template and owned patient email (one valid example.com, one .invalid); nothing leaves the host; emailConfig snapshot asserted unchanged. The sender is offered clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
