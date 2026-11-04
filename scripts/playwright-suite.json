@@ -2914,7 +2914,7 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 600,
       "env": [
         "TEST_SCHEDULE_PROVIDER",
         "MYSQL_HOST",

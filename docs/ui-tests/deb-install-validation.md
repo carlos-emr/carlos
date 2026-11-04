@@ -924,11 +924,32 @@ by #4407.
 
 ## 5. Install the Playwright harness in the VM
 
+The Docker wrapper installs these same pinned dependencies. `accessibility-smoke`
+requires axe-core; if it is absent, the check reports SKIP before creating fixtures.
+On a fresh install, `annotate-document` reports SKIP when the Save and fax handoff
+finds no active fax account available to the test provider, provided no earlier
+annotation findings were collected and fixture cleanup succeeds. Earlier findings,
+browser/server errors and cleanup failures still report FAIL. Supply an owned UI-only
+fax account to exercise that handoff. `demographic-cds-import` and
+`audit-log-demographic-import` report SKIP when the import feature or approved
+source/profile is unavailable; see [CDS import configuration](../cds-import-configuration.md)
+to configure an approved synthetic source. These skips leave those paths unvalidated.
+
+The wrapper already exports `EXCLUSIVE=1` and `CARLOS_DISPOSABLE_VM=true` for its
+single-session disposable install. Outside the wrapper, `session-heartbeat-timeout`
+reports SKIP unless both are set. Schedule Setting owns and removes a throwaway
+provider and its schedule rows; leave `TEST_SCHEDULE_PROVIDER` unset.
+Its picker can wait up to five and a half minutes for the active-provider cache
+to expire after SQL creates the fixture. It fails if the owned provider never
+appears, and never falls back to editing a shared provider's schedule.
+Use a schedule administrator allowed to select other providers; a login restricted
+by `_admin.schedule.curprovider_only` cannot operate on this owned fixture.
+
 ```bash
 lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
   apt-get install -y nodejs npm poppler-utils fonts-liberation
-  cd /root && npm init -y && npm install --save-exact playwright@1.60.0
+  cd /root && npm init -y && npm install --save-exact playwright@1.60.0 axe-core@4.14.0
   /usr/lib/carlos-emr/chromium/chrome --version'
 ```
 
