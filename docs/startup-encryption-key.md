@@ -53,7 +53,35 @@ or decrypted credentials while troubleshooting.
 
 - The devcontainer selects `/root/carlos.properties` through `CATALINA_OPTS` in
   `.devcontainer/development/Dockerfile`; its setup copies the development
-  properties into that external file. Preserve it across restarts.
+  properties into that external file. The file survives a restart of the same
+  container, but **does not survive container recreation**. The database can
+  survive through its volume, so preserve the key before rebuilding:
+
+  1. Stop Tomcat in the existing container with
+     `docker exec carlos-tomcat-dev server stop` to stop application writes.
+  2. Export the complete configuration to a private directory outside the
+     repository and keep it with the database backup. For example, after
+     creating `/absolute/private/carlos-config` with mode `0700`, run:
+
+     ```bash
+     umask 077
+     docker cp carlos-tomcat-dev:/root/carlos.properties /absolute/private/carlos-config/carlos.properties
+     chmod 0600 /absolute/private/carlos-config/carlos.properties
+     ```
+
+  3. Before recreating the container, add the following bind mount to the
+     `carlos` service's `volumes` in `.devcontainer/docker-compose.yml` (or a
+     local Compose override). The host file must already exist and contain
+     the original key:
+
+     ```yaml
+     - /absolute/private/carlos-config/carlos.properties:/root/carlos.properties
+     ```
+
+  4. Rebuild/recreate only after the mount is configured. The first startup
+     must see the preserved key; verify that existing encrypted data can still
+     be read. Do not copy the key into the tracked development configuration
+     or bake it into an image.
 - The Debian installation provisions `/etc/carlos-emr/carlos.properties`;
   `debian/assets/bin/carlos-emr-tomcat` selects it with
   `-Dcarlos_override_properties`. The installer and CLI manage this external
