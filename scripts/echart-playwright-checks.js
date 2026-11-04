@@ -571,8 +571,9 @@ async function workflow(s) {
         })]);
       } finally { clearTimeout(timer); }
     };
+    const pendingRoutes = new Set();
     const matcher = url => /\/(CaseManagementEntry|encounter\/displayIssues)$/.test(url.pathname);
-    const handler = async route => {
+    const handleResponse = async route => {
       const request = route.request();
       const requestUrl = new URL(request.url());
       const method = new URLSearchParams(request.postData() || '').get('method')
@@ -584,6 +585,12 @@ async function workflow(s) {
       gate.arrive();
       await gate.released;
       await route.fulfill({ response });
+    };
+    const handler = route => {
+      const pending = handleResponse(route);
+      pendingRoutes.add(pending);
+      pending.then(() => pendingRoutes.delete(pending), () => pendingRoutes.delete(pending));
+      return pending;
     };
     let encounterSaves = 0;
     const observe = request => {
@@ -615,9 +622,10 @@ async function workflow(s) {
           AND link.id=${pendingIssueId}`, '1', 'the queued Save lost the pending encounter assignment');
     } finally {
       gates.forEach(gate => gate.release());
-      // Finish released response handlers before workflow cleanup closes the page,
-      // so a negative-control assertion is not masked by a late route.fulfill error.
-      await echart.unrouteAll({ behavior: 'wait' });
+      // Keep interception registered until every released handler has finished.
+      // Unregistering first can cause Playwright to drop other in-flight routes.
+      while (pendingRoutes.size) await Promise.allSettled(Array.from(pendingRoutes));
+      await echart.unroute(matcher, handler);
       echart.off('request', observe);
     }
   });
