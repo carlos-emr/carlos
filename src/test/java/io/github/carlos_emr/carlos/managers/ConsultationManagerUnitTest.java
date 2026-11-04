@@ -65,6 +65,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationRequestSearchResult;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationResponseSearchResult;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachmentsNotIncluded;
+import java.util.Locale;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -703,6 +705,58 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
                 // Then
                 assertThat(result).extracting(map -> (Integer) map.get("id")).containsExactly(128, 5);
             }
+        }
+
+        @Test
+        void shouldReuseStoredRelationships_whenRenderingPanelsAndWarnings() {
+            when(mockConsultDocsDao.findByRequestIdDocType(TEST_REQUEST_ID, ConsultDocs.DOCTYPE_FORM))
+                    .thenReturn(List.of(
+                            new ConsultDocs(TEST_REQUEST_ID, 120, ConsultDocs.DOCTYPE_FORM, TEST_PROVIDER_NO),
+                            new ConsultDocs(TEST_REQUEST_ID, 130, ConsultDocs.DOCTYPE_FORM, TEST_PROVIDER_NO),
+                            new ConsultDocs(TEST_REQUEST_ID, 140, ConsultDocs.DOCTYPE_FORM, TEST_PROVIDER_NO)));
+            when(mockConsultDocsDao.findByRequestIdDocType(TEST_REQUEST_ID, ConsultDocs.DOCTYPE_HRM))
+                    .thenReturn(List.of(
+                            new ConsultDocs(TEST_REQUEST_ID, 128, ConsultDocs.DOCTYPE_HRM, TEST_PROVIDER_NO),
+                            new ConsultDocs(TEST_REQUEST_ID, 5, ConsultDocs.DOCTYPE_HRM, TEST_PROVIDER_NO),
+                            new ConsultDocs(TEST_REQUEST_ID, 6, ConsultDocs.DOCTYPE_HRM, TEST_PROVIDER_NO)));
+            when(mockFormsManager.getEncounterFormsbyDemographicNumber(mockLoggedInInfo, TEST_DEMOGRAPHIC_NO, true, true))
+                    .thenReturn(List.of(
+                            new EctFormData.PatientForm("Form 130", 130, TEST_DEMOGRAPHIC_NO, new Date(), new Date()),
+                            new EctFormData.PatientForm("Form 999", 999, TEST_DEMOGRAPHIC_NO, new Date(), new Date()),
+                            new EctFormData.PatientForm("Form 120", 120, TEST_DEMOGRAPHIC_NO, new Date(), new Date())));
+            try (MockedStatic<HRMUtil> hrmUtilMock = Mockito.mockStatic(HRMUtil.class)) {
+                hrmUtilMock.when(() -> HRMUtil.listHRMDocuments(mockLoggedInInfo, "report_date", false,
+                        TEST_DEMOGRAPHIC_NO.toString(), false))
+                        .thenReturn(new ArrayList<>(List.of(createHrmDocument(5), createHrmDocument(999), createHrmDocument(128))));
+
+                List<ConsultDocs> storedForms = consultationManager.getAttachedDocumentsByType(
+                        mockLoggedInInfo, TEST_REQUEST_ID, ConsultDocs.DOCTYPE_FORM);
+                List<ConsultDocs> storedHrms = consultationManager.getAttachedDocumentsByType(
+                        mockLoggedInInfo, TEST_REQUEST_ID, ConsultDocs.DOCTYPE_HRM);
+                List<EctFormData.PatientForm> forms = consultationManager.getAttachedForms(
+                        mockLoggedInInfo, TEST_DEMOGRAPHIC_NO, storedForms);
+                var hrms = consultationManager.getAttachedHRMDocuments(
+                        mockLoggedInInfo, TEST_DEMOGRAPHIC_NO.toString(), storedHrms);
+
+                assertThat(forms).extracting(EctFormData.PatientForm::getFormId).containsExactly("120", "130");
+                assertThat(hrms).extracting(row -> (Integer) row.get("id")).containsExactly(128, 5);
+                assertThat(ConsultationAttachmentsNotIncluded.describe(storedForms, storedHrms, forms, hrms, Locale.ENGLISH))
+                        .containsExactly("An attached clinical form is unavailable and has not been included.",
+                                "An attachment is unavailable and has not been included.");
+                verify(mockConsultDocsDao).findByRequestIdDocType(TEST_REQUEST_ID, ConsultDocs.DOCTYPE_FORM);
+                verify(mockConsultDocsDao).findByRequestIdDocType(TEST_REQUEST_ID, ConsultDocs.DOCTYPE_HRM);
+                Mockito.verifyNoMoreInteractions(mockConsultDocsDao);
+            }
+        }
+
+        @Test
+        void shouldOmitPreloadedForms_whenFormReadIsDenied() {
+            when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_form", SecurityInfoManager.READ,
+                    TEST_DEMOGRAPHIC_NO.toString())).thenReturn(false);
+            List<ConsultDocs> stored = List.of(new ConsultDocs(TEST_REQUEST_ID, 120, ConsultDocs.DOCTYPE_FORM, TEST_PROVIDER_NO));
+
+            assertThat(consultationManager.getAttachedForms(mockLoggedInInfo, TEST_DEMOGRAPHIC_NO, stored)).isEmpty();
+            Mockito.verifyNoInteractions(mockFormsManager, mockConsultDocsDao);
         }
 
         /**

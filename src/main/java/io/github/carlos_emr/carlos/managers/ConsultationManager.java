@@ -332,6 +332,18 @@ public interface ConsultationManager {
     public List<EctFormData.PatientForm> getAttachedForms(LoggedInInfo loggedInInfo, int consultRequestId, int demographicNo);
 
     /**
+     * Filters already-fetched clinical-form relationships through the patient's readable forms.
+     * Callers must authorize the consultation and its stored patient before fetching relationships.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session info
+     * @param demographicNo int the verified consultation's patient demographic number
+     * @param attachedForms List of stored clinical-form relationships for that consultation
+     * @return List of PatientForm attached forms, empty when clinical-form read access is denied
+     */
+    public List<EctFormData.PatientForm> getAttachedForms(LoggedInInfo loggedInInfo, int demographicNo,
+            List<ConsultDocs> attachedForms);
+
+    /**
      * Retrieves eForms currently attached to a consultation request.
      *
      * @param requestId String the consultation request ID
@@ -348,6 +360,18 @@ public interface ConsultationManager {
      * @return ArrayList of HashMap containing HRM document metadata
      */
     public ArrayList<HashMap<String, ? extends Object>> getAttachedHRMDocuments(LoggedInInfo loggedInInfo, String demographicNo, String requestId);
+
+    /**
+     * Filters already-fetched HRM relationships through the patient's visible HRM documents.
+     * Callers must authorize the consultation and its stored patient before fetching relationships.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session info
+     * @param demographicNo String the verified consultation's patient demographic number
+     * @param attachedHRMDocuments List of stored HRM relationships for that consultation
+     * @return ArrayList of HashMap containing visible attached HRM document metadata
+     */
+    public ArrayList<HashMap<String, ? extends Object>> getAttachedHRMDocuments(LoggedInInfo loggedInInfo,
+            String demographicNo, List<ConsultDocs> attachedHRMDocuments);
 
     /**
      * Archives a consultation request by copying it and its extensions to archive tables.

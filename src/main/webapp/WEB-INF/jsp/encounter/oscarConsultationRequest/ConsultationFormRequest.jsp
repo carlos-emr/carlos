@@ -300,9 +300,12 @@
             CommonLabResultData commonLabResultData = new CommonLabResultData();
             List<LabResultData> attachedLabs = commonLabResultData.populateLabResultsData(loggedInInfo, demo, requestId, CommonLabResultData.ATTACHED);
             ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
-            List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demo));
+            // Share the stored relationships between the visible panels and the omission notice.
+            List<ConsultDocs> storedForms = consultationManager.getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_FORM);
+            List<ConsultDocs> storedHRMDocuments = consultationManager.getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_HRM);
+            List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(demo), storedForms);
             List<EFormData> attachedEForms = consultationManager.getAttachedEForms(requestId);
-            ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments = consultationManager.getAttachedHRMDocuments(loggedInInfo, demo, requestId);
+            ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments = consultationManager.getAttachedHRMDocuments(loggedInInfo, demo, storedHRMDocuments);
 
             Collections.sort(attachedLabs);
             List<LabResultData> attachedLabsSortedByVersions = new ArrayList<>();
@@ -343,7 +346,7 @@
             pageContext.setAttribute("attachedHRMDocuments", attachedHRMDocuments);
             request.setAttribute(io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachmentsNotIncluded.REQUEST_ATTRIBUTE,
                 io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachmentsNotIncluded.describe(
-                    consultationManager, loggedInInfo, Integer.parseInt(requestId), attachedForms, attachedHRMDocuments,
+                    storedForms, storedHRMDocuments, attachedForms, attachedHRMDocuments,
                     io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request)));
 
         }
