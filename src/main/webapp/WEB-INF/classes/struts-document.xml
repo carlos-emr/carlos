@@ -72,6 +72,10 @@
             <result name="success">/WEB-INF/jsp/documentManager/aiDocumentSummary.jsp</result>
             <allowed-methods>generate</allowed-methods>
         </action>
+        <action name="documentManager/ReviseReviewedAiDocumentSummary" class="io.github.carlos_emr.carlos.clinical.summary.web.AiReviewedDocumentSummary2Action" method="revise">
+            <result name="success">/WEB-INF/jsp/documentManager/aiDocumentSummary.jsp</result>
+            <allowed-methods>revise</allowed-methods>
+        </action>
         <action name="documentManager/ApproveReviewedAiDocumentSummary" class="io.github.carlos_emr.carlos.clinical.summary.web.AiReviewedDocumentSummary2Action" method="approve">
             <result name="success">/WEB-INF/jsp/documentManager/aiDocumentSummary.jsp</result>
             <allowed-methods>approve</allowed-methods>

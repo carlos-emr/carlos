@@ -12,8 +12,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -21,6 +24,13 @@ import org.apache.struts2.ServletActionContext;
 /** Default-off Canadian synthetic review trial. Every mutation is a CSRFGuard-protected POST. */
 public final class AiReviewedDocumentSummary2Action extends ActionSupport {
     private static final String GENERATION_KEY = AiReviewedDocumentSummary2Action.class.getName() + ".generation";
+    /** oscarLog.content for every DocumentSummary.* row: the record type, never summary text. */
+    static final String AUDIT_CONTENT = "AI document summary";
+    /** Shown when an honest correction fails provenance validation; the saved draft stays available. */
+    static final String CORRECTION_NOT_SAVED = "Your corrections were not saved and the saved draft above is unchanged."
+            + " Your edits are shown in the form below so you can correct them. Edited point text must keep words from its"
+            + " supporting excerpts, the overview must keep words from the document, text cannot be blank, and two points"
+            + " cannot say the same thing.";
     private final DocumentSummaryReviewContext context;
     private final DocumentSummaryService suppliedGenerator;
     private final String suppliedModelIdentity;
@@ -36,6 +46,7 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
     @Override public String execute() throws Exception { return handle("view"); }
     public String generate() throws Exception { return handle("generate"); }
     public String approve() throws Exception { return handle("approve"); }
+    public String revise() throws Exception { return handle("revise"); }
     public String discard() throws Exception { return handle("discard"); }
     public String original() throws Exception { return handle("original"); }
 
@@ -57,7 +68,7 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
             String value = single(request, "documentId");
             if (!value.matches("[1-9][0-9]{0,8}")) throw new IllegalArgumentException();
             documentId = Integer.parseInt(value);
-            if (List.of("approve", "original", "discard").contains(operation)) {
+            if (List.of("approve", "original", "discard", "revise").contains(operation)) {
                 String token = single(request, "draftId");
                 draftId = UUID.fromString(token);
                 if (!draftId.toString().equals(token)) throw new IllegalArgumentException();
@@ -106,9 +117,19 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
                     generator = new DocumentSummaryService(agent);
                     model = agent.displayName();
                 }
-                LogAction.addLogSynchronous(actor, "DocumentSummary.reviewGenerate", "documentId=" + documentId);
-                pending = DocumentSummaryReviewSession.generate(snapshot.scope(), snapshot.metadata(),
-                        () -> context.read(snapshot), generator, model, actor);
+                final var auditActor = actor;
+                try {
+                    pending = DocumentSummaryReviewSession.generate(snapshot.scope(), snapshot.metadata(),
+                            () -> {
+                                // Called only once the cap has admitted this request, before any model call.
+                                audit(auditActor, "DocumentSummary.reviewGenerate", snapshot.scope());
+                                return context.read(snapshot);
+                            }, generator, model, actor);
+                } catch (DocumentSummaryReviewSession.CapacityFullException refused) {
+                    // A refusal is its own audit row, never a generation that did not happen.
+                    audit(auditActor, "DocumentSummary.reviewGenerateRefused", snapshot.scope());
+                    throw refused;
+                }
                 var freshActor = LoggedInInfo.getLoggedInInfoFromSession(request);
                 var fresh = context.load(freshActor, documentId);
                 var source = context.currentSource(fresh);
@@ -126,6 +147,11 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
             synchronized (session) {
                 var current = session.getAttribute(DocumentSummaryReviewSession.SESSION_KEY);
                 if (!(current instanceof DocumentSummaryReviewSession review)) {
+                    if ("original".equals(operation)) {
+                        // A download has no page to explain itself on: a disposed or never-made
+                        // review answers like a stale draft token does, never a view result.
+                        response.sendError(409); return NONE;
+                    }
                     if (!"view".equals(operation) && !"generate".equals(operation)) throw new IllegalStateException("No current document review is available.");
                     return SUCCESS;
                 }
@@ -150,16 +176,61 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
                 if (draftId != null && !before.draftId().equals(draftId)) {
                     response.sendError(409); return NONE;
                 }
+                if ("revise".equals(operation)) {
+                    int count = before.summary().points().size();
+                    var texts = request.getParameterValues("pointText");
+                    if (texts == null || texts.length != count) throw new IllegalArgumentException();
+                    var corrected = new ArrayList<String>(count);
+                    for (String text : texts) corrected.add(correctionText(text, 2000));
+                    String overview = correctionText(single(request, "overview"), 4000);
+                    Set<Integer> removed = new HashSet<>();
+                    var selections = request.getParameterValues("removePoint");
+                    if (selections != null) {
+                        if (selections.length > count) throw new IllegalArgumentException();
+                        for (String selection : selections) {
+                            if (selection == null || !selection.matches("0|[1-9][0-9]?")) throw new IllegalArgumentException();
+                            int index = Integer.parseInt(selection);
+                            if (index >= count || !removed.add(index)) throw new IllegalArgumentException();
+                        }
+                    }
+                    if (removed.size() == count) {
+                        // Identical ownership/freshness guard as discard; never accept an empty summary.
+                        removeReview(session);
+                        session.removeAttribute(GENERATION_KEY);
+                        audit(currentActor, "DocumentSummary.reviewDiscarded", fresh.scope());
+                        return SUCCESS;
+                    }
+                    try {
+                        review.revise(currentActor, fresh.scope(), draftId, source, overview, corrected, removed);
+                        audit(currentActor, "DocumentSummary.reviewRevised", fresh.scope());
+                    } catch (IllegalArgumentException unsupported) {
+                        // Well-formed input that fails provenance validation keeps the saved draft; the
+                        // review session rejects it atomically. Only shape-forged input above discards.
+                        // This catch would also absorb the binding's own shape rejections (pointTexts size,
+                        // removedPoints range); they are unreachable here only because the checks above
+                        // pre-validate against the same draft under the same session lock.
+                        // The posted edits go back into the form (encoded by the page) so no typing is lost.
+                        request.setAttribute("documentSummaryCorrectionError", CORRECTION_NOT_SAVED);
+                        request.setAttribute("documentSummaryCorrectionPending", true);
+                        request.setAttribute("documentSummaryCorrectionOverview", overview);
+                        request.setAttribute("documentSummaryCorrectionPoints", List.copyOf(corrected));
+                        var ticks = new ArrayList<Boolean>(count);
+                        for (int index = 0; index < count; index++) ticks.add(removed.contains(index));
+                        request.setAttribute("documentSummaryCorrectionRemoved", List.copyOf(ticks));
+                    }
+                    // Ignore any submitted affirmation: only the separately rendered existing form may approve.
+                }
                 if ("approve".equals(operation)) {
                     boolean affirmative = Arrays.equals(request.getParameterValues("affirmReview"), new String[]{"true"});
                     review.approve(currentActor, fresh.scope(), draftId, source, affirmative);
-                    LogAction.addLogSynchronous(currentActor, "DocumentSummary.reviewApproved", "documentId=" + documentId);
+                    audit(currentActor, "DocumentSummary.reviewApproved", fresh.scope());
                 }
                 var view = review.view(currentActor, fresh.scope(), source);
                 if ("discard".equals(operation)) {
                     if (!view.draftId().equals(draftId)) throw new IllegalStateException("The displayed review was replaced.");
                     removeReview(session);
                     session.removeAttribute(GENERATION_KEY);
+                    audit(currentActor, "DocumentSummary.reviewDiscarded", fresh.scope());
                     return SUCCESS;
                 }
                 if ("original".equals(operation)) {
@@ -181,12 +252,17 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
                 request.setAttribute("documentSummaryNotice", view.notice());
                 request.setAttribute("documentSummaryReviewed", view.approved());
                 request.setAttribute("documentSummaryGeneratedAt", view.generatedAt().toString());
+                request.setAttribute("documentSummaryRevisedAt", view.revisedAt() == null ? null : view.revisedAt().toString());
                 request.setAttribute("documentSummaryExtraction", view.extractionDisclosure());
             }
             return SUCCESS;
         } catch (ClinicalSummaryGenerationException | IOException | IllegalArgumentException | IllegalStateException unavailable) {
             clearOwned(session, ownedGeneration, observedReview);
-            if ("original".equals(operation) && response.isCommitted()) throw unavailable;
+            if ("original".equals(operation)) {
+                // The download mapping has no view result; an uncommitted failure is a plain 409.
+                if (response.isCommitted()) throw unavailable;
+                response.sendError(409); return NONE;
+            }
             // Never include model output, patient details, file paths or upstream diagnostics here.
             request.setAttribute("documentSummaryError", "The current review is unavailable. Reopen the original and generate a fresh draft. Original-only delivery remains available through the usual document workflow.");
             return SUCCESS;
@@ -196,6 +272,11 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
         } finally { if (pending != null) pending.close(); }
     }
 
+    /** The audit row names the document and the patient; the note carries no document text. */
+    private static void audit(LoggedInInfo actor, String action, io.github.carlos_emr.carlos.clinical.summary.DocumentSummaryReviewBinding.Scope scope) {
+        LogAction.addLogSynchronous(actor, action, AUDIT_CONTENT, Integer.toString(scope.documentId()),
+                scope.patientId(), "documentId=" + scope.documentId());
+    }
     private static void clearOwned(HttpSession session, UUID generation, DocumentSummaryReviewSession observed) {
         try {
             synchronized (session) {
@@ -212,6 +293,14 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
         var current = session.getAttribute(DocumentSummaryReviewSession.SESSION_KEY);
         if (current instanceof DocumentSummaryReviewSession review) review.close();
         session.removeAttribute(DocumentSummaryReviewSession.SESSION_KEY);
+    }
+    private static String correctionText(String value, int maximum) {
+        // Browser textarea form encoding uses CRLF. Canonicalize those transport line endings and the
+        // surrounding whitespace so stored text and the draft version fingerprint stay canonical.
+        if (value == null || value.length() > maximum * 2) throw new IllegalArgumentException();
+        String text = value.replace("\r\n", "\n").strip();
+        if (text.length() > maximum) throw new IllegalArgumentException();
+        return text;
     }
     private static String single(HttpServletRequest request, String name) {
         var values = request.getParameterValues(name);

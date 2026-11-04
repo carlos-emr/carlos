@@ -13,6 +13,8 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -125,6 +127,96 @@ class DocumentSummaryReviewBindingUnitTest {
         assertThatThrownBy(() -> approved.requireCurrent(source, regenerated)).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> service(REVIEWED).approve(old, UUID.randomUUID(), source, actor(), true))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void correctionKeepsModelGenerationAndEvidenceButInvalidatesPriorApproval() {
+        var source = source();
+        var original = draft(source);
+        var approval = service(REVIEWED).approve(original, original.id(), source, actor(), true);
+        var revised = service(REVIEWED.plusSeconds(30)).revise(original, "FAKE blood work document.",
+                List.of("Blood work was planned."), Set.of());
+        assertThat(revised.id()).isNotEqualTo(original.id());
+        assertThat(revised.version()).isNotEqualTo(original.version());
+        assertThat(revised.generatedAt()).isEqualTo(GENERATED);
+        assertThat(revised.revisedAt()).isEqualTo(REVIEWED.plusSeconds(30));
+        assertThat(revised.modelIdentity()).isEqualTo(original.modelIdentity());
+        assertThat(revised.language()).isEqualTo(original.language());
+        assertThat(revised.summary().points().get(0).get("evidence"))
+                .isEqualTo(original.summary().points().get(0).get("evidence"));
+        revised.requireCurrent(source);
+        assertThatThrownBy(() -> approval.requireCurrent(source, revised)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> service(REVIEWED).approve(revised, original.id(), source, actor(), true))
+                .isInstanceOf(IllegalStateException.class);
+        var newApproval = service(REVIEWED.plusSeconds(60)).approve(revised, revised.id(), source, actor(), true);
+        assertThat(newApproval.sourceSha256()).isEqualTo(approval.sourceSha256());
+        assertThat(newApproval.generatedAt()).isEqualTo(GENERATED);
+        assertThat(newApproval.revisedAt()).isEqualTo(revised.revisedAt());
+        assertThat(newApproval.summaryVersion()).isEqualTo(revised.version());
+        assertThat(original.summary().points().get(0).get("text")).isEqualTo("Repeat blood work was planned.");
+    }
+
+    @Test
+    void correctionRemovesOnlySelectedPointAndKeepsRemainingEvidenceInOrder() {
+        var value = ClinicalSummaryAgentProtocol.JSON.createObjectNode().put("overview", "FAKE blood work document.");
+        var points = value.putArray("points");
+        points.addObject().put("text", "Hb was 92 g/L on 4 May.").putArray("evidence").add("Hb was 92 g/L on 4 May.");
+        points.addObject().put("text", "Repeat blood work was planned.").putArray("evidence").add("Repeat blood work was planned.");
+        var original = service(GENERATED).prepare(source(), new DocumentSummary(value), "FAKE-model", "en");
+        var revised = service(REVIEWED).revise(original, "FAKE document.",
+                List.of("Hb was 92 g/L on 4 May.", "Blood work was planned."), Set.of(0));
+        assertThat(revised.summary().points()).hasSize(1);
+        assertThat(revised.summary().points().get(0).get("text")).isEqualTo("Blood work was planned.");
+        assertThat(revised.summary().points().get(0).get("evidence"))
+                .isEqualTo(original.summary().points().get(1).get("evidence"));
+    }
+
+    @Test
+    void correctionRejectsAddedPointsOutOfRangeRemovalEmptyResultsAndUnboundedText() {
+        var original = draft(source());
+        var service = service(REVIEWED);
+        assertThatThrownBy(() -> service.revise(original, "FAKE document.",
+                List.of("Blood work planned.", "New point."), Set.of())).isInstanceOf(IllegalArgumentException.class);
+        for (var removal : List.of(Set.of(-1), Set.of(1), Set.of(0))) {
+            assertThatThrownBy(() -> service.revise(original, "FAKE document.",
+                    List.of("Blood work planned."), removal)).isInstanceOf(IllegalArgumentException.class);
+        }
+        assertThatThrownBy(() -> service.revise(original, "x".repeat(4001),
+                List.of("Blood work planned."), Set.of())).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.revise(original, "FAKE document.",
+                List.of("x".repeat(2001)), Set.of())).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.revise(original, "FAKE document.",
+                List.of("Totally unrelated zebra."), Set.of())).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void correctionRejectsCarriageReturnsAndBlankText() {
+        var original = draft(source());
+        var service = service(REVIEWED);
+        for (var text : List.of("Blood work\rplanned.", "Blood work planned.\r\n", "", " ", "\n\t")) {
+            assertThatThrownBy(() -> service.revise(original, "FAKE document.", List.of(text), Set.of()))
+                    .as("point text %s", text).isInstanceOf(IllegalArgumentException.class);
+        }
+        for (var overview : List.of("FAKE\rdocument.", "", "   ")) {
+            assertThatThrownBy(() -> service.revise(original, overview, List.of("Blood work planned."), Set.of()))
+                    .as("overview %s", overview).isInstanceOf(IllegalArgumentException.class);
+        }
+        assertThat(service.revise(original, "FAKE document.", List.of("Blood work\nplanned."), Set.of())
+                .summary().points().get(0).get("text")).isEqualTo("Blood work\nplanned.");
+    }
+
+    @Test
+    void repeatedCorrectionKeepsOriginalGenerationAndRejectsBackwardsRevisionClock() {
+        var original = draft(source());
+        var revised = service(REVIEWED).revise(original, "FAKE document.", List.of("Blood work planned."), Set.of());
+        var again = service(REVIEWED.plusSeconds(10)).revise(revised, "FAKE blood document.", List.of("Blood work planned."), Set.of());
+        assertThat(again.generatedAt()).isEqualTo(GENERATED);
+        assertThat(again.modelIdentity()).isEqualTo(original.modelIdentity());
+        assertThat(again.id()).isNotEqualTo(revised.id());
+        assertThatThrownBy(() -> service(REVIEWED).approve(again, again.id(), source(), actor(), true))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> service(REVIEWED.minusSeconds(1)).revise(again,
+                "FAKE document.", List.of("Blood work planned."), Set.of())).isInstanceOf(IllegalStateException.class);
     }
 
     @Test

@@ -16,6 +16,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
@@ -128,11 +129,13 @@ class DocumentSummaryReviewSessionUnitTest {
         assertThatThrownBy(() -> view(review)).isInstanceOf(IllegalStateException.class);
     }
     @Test void processCapacityRejectsBeforeLoadingAndClosingReleasesSlot() throws Exception {
-        for (int i = 0; i < 4; i++) generate();
+        int capacity = DocumentSummaryReviewSession.capacity();
+        assertThat(capacity).isEqualTo(4); // the default, with no clinical.ai_document_summary.review.max_active set
+        for (int i = 0; i < capacity; i++) generate();
         var loads = new AtomicInteger();
         var service = mock(DocumentSummaryService.class);
         when(service.summarize(TEXT)).thenReturn(summary());
-        assertThatThrownBy(() -> generate(() -> { loads.incrementAndGet(); return bytes(); }, service)).isInstanceOf(IllegalStateException.class).hasMessageContaining("capacity");
+        assertThatThrownBy(() -> generate(() -> { loads.incrementAndGet(); return bytes(); }, service)).isInstanceOf(IllegalStateException.class).hasMessageContaining("capacity (" + capacity + ")");
         assertThat(loads).hasValue(0);
         reviews.get(0).close();
         assertThat(generate(() -> { loads.incrementAndGet(); return bytes(); }, service)).isNotNull();
@@ -144,7 +147,26 @@ class DocumentSummaryReviewSessionUnitTest {
         when(service.summarize(TEXT)).thenThrow(new ClinicalSummaryGenerationException("FAKE model unavailable"));
         assertThatThrownBy(() -> generate(() -> loaded, service)).isInstanceOf(ClinicalSummaryGenerationException.class);
         assertThat(loaded).containsOnly((byte) 0);
-        for (int i = 0; i < 4; i++) generate();
+        for (int i = 0; i < DocumentSummaryReviewSession.capacity(); i++) generate();
+    }
+    @Test void abandonedDraftsPastExpiryDoNotBlockTheNextClinician() throws Exception {
+        for (int i = 0; i < DocumentSummaryReviewSession.capacity(); i++) generate();
+        var abandoned = List.copyOf(reviews);
+        clock.now = clock.now.plusSeconds(900);
+        // The sweep runs on the generate attempt itself: no timer, no logout needed.
+        var fresh = generate();
+        assertThat(fresh).isNotNull();
+        for (var review : abandoned) assertThatThrownBy(() -> view(review)).isInstanceOf(IllegalStateException.class);
+        // One slot is taken by the fresh review, so capacity minus one more fit.
+        for (int i = 1; i < DocumentSummaryReviewSession.capacity(); i++) generate();
+        assertThatThrownBy(this::generate).isInstanceOf(IllegalStateException.class).hasMessageContaining("capacity");
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(value = {
+            "null,4", "'',4", "' ',4", "abc,4", "0,4", "-3,4", "33,4", "4.5,4",
+            "1,1", "4,4", "' 8 ',8", "32,32"}, nullValues = "null")
+    void capacityPropertyAcceptsOneToThirtyTwoAndDefaultsOtherwise(String raw, int expected) {
+        assertThat(DocumentSummaryReviewSession.configuredCapacity(raw)).isEqualTo(expected);
     }
     @Test void failedLoaderReleasesReservationBeforeAnyModelCall() throws Exception {
         var service = mock(DocumentSummaryService.class);
@@ -201,6 +223,70 @@ class DocumentSummaryReviewSessionUnitTest {
         var review = generate(DocumentSummaryReviewSessionUnitTest::bytes, service);
         assertThatThrownBy(() -> view(review)).isInstanceOf(SecurityException.class);
     }
+    @Test void correctionClearsApprovalAndRequiresConfirmationOfNewExactVersion() throws Exception {
+        var review = generate(); approve(review);
+        var old = view(review);
+        clock.now = clock.now.plusSeconds(90);
+        review.revise(actor, SCOPE, old.draftId(), source(), "FAKE blood work document.", List.of("Blood work was planned."), Set.of());
+        var revised = view(review);
+        assertThat(revised.approved()).isFalse();
+        assertThat(revised.notice()).contains("Review not confirmed");
+        assertThat(revised.draftId()).isNotEqualTo(old.draftId());
+        assertThat(revised.version()).isNotEqualTo(old.version());
+        assertThat(revised.originalSha256()).isEqualTo(old.originalSha256());
+        assertThat(revised.generatedAt()).isEqualTo(old.generatedAt());
+        assertThat(revised.revisedAt()).isEqualTo(clock.now);
+        assertThat(review.copyOriginalForReview(actor, SCOPE, revised.draftId(), source())).isEqualTo(bytes());
+        assertThatThrownBy(() -> review.forDelivery(actor, SCOPE, old.draftId(), source(), true)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> review.forDelivery(actor, SCOPE, revised.draftId(), source(), true)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> review.approve(actor, SCOPE, old.draftId(), source(), true)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> review.approve(actor, SCOPE, revised.draftId(), source(), false)).isInstanceOf(IllegalStateException.class);
+        approve(review);
+        try (var copy = review.forDelivery(actor, SCOPE, revised.draftId(), source(), true)) {
+            assertThat(copy.approval().summaryVersion()).isEqualTo(revised.version());
+            assertThat(copy.approval().summary().overview()).isEqualTo("FAKE blood work document.");
+            assertThat(copy.approval().generatedAt()).isEqualTo(old.generatedAt());
+            assertThat(copy.approval().revisedAt()).isEqualTo(revised.revisedAt());
+        }
+    }
+    @Test void staleOrForeignCorrectionCannotChangeCurrentApprovedDraft() throws Exception {
+        var review = generate(); approve(review);
+        var before = view(review);
+        assertThatThrownBy(() -> review.revise(actor, SCOPE, UUID.randomUUID(), source(),
+                "FAKE document.", List.of("Blood work planned."), Set.of())).isInstanceOf(IllegalStateException.class);
+        for (var other : List.of(actor("FAKE-provider", 72), actor("other-provider", 71))) {
+            assertThatThrownBy(() -> review.revise(other, SCOPE, before.draftId(), source(),
+                    "FAKE document.", List.of("Blood work planned."), Set.of())).isInstanceOf(SecurityException.class);
+        }
+        var otherScope = new DocumentSummaryReviewBinding.Scope("FAKE-clinic", 8, 12);
+        assertThatThrownBy(() -> review.revise(actor, otherScope, before.draftId(), source(),
+                "FAKE document.", List.of("Blood work planned."), Set.of())).isInstanceOf(SecurityException.class);
+        assertThat(view(review).version()).isEqualTo(before.version());
+        assertThat(view(review).approved()).isTrue();
+    }
+    @Test void sourceChangeDuringCorrectionDisposesOldCustody() throws Exception {
+        var review = generate(); approve(review); var before = view(review);
+        var changed = DocumentSummaryReviewBinding.capture(SCOPE, META, (TEXT + " Changed.").getBytes(StandardCharsets.UTF_8));
+        assertThatThrownBy(() -> review.revise(actor, SCOPE, before.draftId(), changed,
+                "FAKE document.", List.of("Blood work planned."), Set.of())).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> view(review)).isInstanceOf(IllegalStateException.class);
+    }
+    @Test void correctionDoesNotRenewOriginalFifteenMinuteExpiry() throws Exception {
+        var review = generate(); var before = view(review);
+        clock.now = clock.now.plusSeconds(899);
+        review.revise(actor, SCOPE, before.draftId(), source(), "FAKE document.", List.of("Blood work planned."), Set.of());
+        clock.now = clock.now.plusSeconds(1);
+        assertThatThrownBy(() -> view(review)).isInstanceOf(IllegalStateException.class);
+    }
+    @Test void invalidCorrectionCannotPartlyReplaceSummaryOrCarryApprovalToNewText() throws Exception {
+        var review = generate(); approve(review); var before = view(review);
+        assertThatThrownBy(() -> review.revise(actor, SCOPE, before.draftId(), source(),
+                "FAKE document.", List.of("No lexical overlap."), Set.of())).isInstanceOf(IllegalArgumentException.class);
+        assertThat(view(review).version()).isEqualTo(before.version());
+        assertThat(view(review).approved()).isTrue();
+        assertThat(view(review).revisedAt()).isNull();
+    }
+
     private static final class MutableClock extends Clock {
         private Instant now = Instant.parse("2026-11-03T12:00:00Z");
         public ZoneId getZone() { return ZoneOffset.UTC; }
