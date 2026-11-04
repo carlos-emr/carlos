@@ -107,6 +107,7 @@ public class HttpMethodGuardFilter implements Filter {
      * mapped to non-matching URL action names.</p>
      */
     private static final Set<String> MUTATOR_ACTION_NAMES = Set.of(
+            "editform",               // HtmlEdit2Action saves eForm templates; its view is efmformmanageredit.
             "billingaddcode",         // BillingAddCode2Action (starts with "billing", not "add")
             // reprocessBill (BC) is dual-purpose too: GET opens Bill Status or a bill's adjust page,
             // which is how every menu, list and Edit link reaches them. BillingReProcessBill2Action

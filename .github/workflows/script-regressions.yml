@@ -127,3 +127,5 @@ jobs:
         run: node scripts/search-sort-messenger-inbox-browser-check.js
       - name: Check tickler CRUD synchronization in Chromium
         run: node scripts/tickler-crud-browser-check.js
+      - name: Check job type table refresh and save lifecycle in Chromium
+        run: node scripts/job-types-datatable-browser-check.js
