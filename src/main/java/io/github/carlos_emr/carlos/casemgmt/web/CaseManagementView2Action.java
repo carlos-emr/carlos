@@ -597,7 +597,6 @@ public class CaseManagementView2Action extends ActionSupport {
 
         ArrayList<CheckBoxBean> checkBoxBeanList = new ArrayList<CheckBoxBean>();
         addLocalIssues(providerNo, checkBoxBeanList, demographicNo, hideInactiveIssues, Integer.valueOf(programId));
-        addGroupIssues(loggedInInfo, checkBoxBeanList, demographicNo, hideInactiveIssues);
 
         sortIssues(checkBoxBeanList);
         request.setAttribute("Issues", checkBoxBeanList);
@@ -868,7 +867,6 @@ public class CaseManagementView2Action extends ActionSupport {
 
         ArrayList<CheckBoxBean> checkBoxBeanList = new ArrayList<CheckBoxBean>();
         addLocalIssues(providerNo, checkBoxBeanList, demographicId, false, Integer.valueOf(programId));
-        addGroupIssues(loggedInInfo, checkBoxBeanList, demographicId, false);
         sortIssues(checkBoxBeanList);
         request.setAttribute("cme_issues", checkBoxBeanList);
 
@@ -1015,26 +1013,6 @@ public class CaseManagementView2Action extends ActionSupport {
 
     }
 
-
-    /*
-     * This does absolutely nothing
-     */
-    protected void addGroupIssues(LoggedInInfo loggedInInfo, ArrayList<CheckBoxBean> checkBoxBeanList, int demographicNo, boolean hideInactiveIssues) {
-
-        if (!loggedInInfo.getCurrentFacility().isEnableGroupNotes()) return;
-
-        try {
-            // get all the issues for which we have group notes for
-            List<GroupNoteLink> links = this.groupNoteDao.findLinksByDemographic(demographicNo);
-            for (GroupNoteLink link : links) {
-                int noteId = link.getNoteId();
-                List<CaseManagementIssue> issues = this.caseManagementMgr.getIssuesByNote(noteId);
-                logger.warn("we are doing nothing with this: {}", LogSafe.sanitize(String.valueOf(issues)));
-            }
-        } catch (Exception e) {
-            logger.error("Unexpected error.", e);
-        }
-    }
 
     protected void addLocalIssues(String providerNo, ArrayList<CheckBoxBean> checkBoxBeanList, Integer demographicNo, boolean hideInactiveIssues, Integer programId) {
         List<CaseManagementIssue> localIssues = caseManagementManager.getIssues(demographicNo, hideInactiveIssues ? false : null);

@@ -32,6 +32,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
@@ -485,22 +488,15 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
         }
     }
 
-    /**
-     * Tests for getIssuesByNote(Integer noteId, Boolean resolved).
-     *
-     * <p>This method navigates the CaseManagementIssue → notes collection
-     * (via casemgmt_issue_notes join table) to find issues linked to a given note.
-     * Executes the production JpqlQueryHelper path against Hibernate and H2, guarding
-     * against illegal collection dereferences and implicit multi-entity projections.</p>
-     */
+    /** Real Hibernate queries through both sides of the note/issue many-to-many mapping. */
     @Nested
-    @DisplayName("getIssuesByNote (2 params: noteId, resolved)")
+    @DisplayName("getIssuesByNote (noteId, resolved)")
     class GetIssuesByNote {
 
         private CaseManagementNote createAndLinkNote(String demoNo, CaseManagementIssue... cmis) {
             CaseManagementNote note = new CaseManagementNote();
             note.setDemographic_no(demoNo);
-            note.setNote("Test note for issue link");
+            note.setNote("Synthetic note for issue lookup");
             note.setProviderNo("999998");
             note.setSigning_provider_no("");
             note.setProgram_no("");
@@ -513,63 +509,77 @@ public class CaseManagementIssueDAOIntegrationTest extends CarlosTestBase {
             note.setSigned(false);
             note.setArchived(false);
             note.setLocked(false);
+            note.getIssues().addAll(List.of(cmis));
             caseManagementNoteDAO.saveNote(note);
-
-            for (CaseManagementIssue cmi : cmis) {
-                note.getIssues().add(cmi);
-            }
-            caseManagementNoteDAO.updateNote(note);
+            entityManager.flush();
             hibernateTemplate.flush();
             return note;
         }
 
-        @Test
-        @Tag("query")
-        @DisplayName("should return only linked issues, unresolved first, without duplicates")
-        void shouldReturnLinkedIssues_whenResolvedFilterIsAbsent() {
-            CaseManagementIssue unresolved = createCaseManagementIssue("20200", testIssue1);
-            CaseManagementIssue resolved = createResolvedIssue("20200", testIssue2);
-            CaseManagementIssue unrelated = createCaseManagementIssue("20200", testIssue2);
-            CaseManagementNote note = createAndLinkNote("20200", unresolved, resolved);
-            createAndLinkNote("20200", unresolved, unrelated);
-            entityManager.clear();
-
-            assertThat(caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), null))
-                    .extracting(CaseManagementIssue::getId)
-                    .containsExactly(unresolved.getId(), resolved.getId());
-        }
-
-        @Test
-        @Tag("filter")
-        @DisplayName("should return only linked issues matching either resolved state")
-        void shouldReturnLinkedIssues_whenFilteringByResolved() {
-            CaseManagementIssue unresolvedCmi = createCaseManagementIssue("20300", testIssue1);
-            CaseManagementIssue resolvedCmi = createResolvedIssue("20300", testIssue2);
+        @ParameterizedTest
+        @NullSource
+        @ValueSource(booleans = {false, true})
+        void shouldReturnExactIssuesOnce_whenNoteHasMultipleAssociations(Boolean resolved) {
+            CaseManagementIssue active = createCaseManagementIssue("20200", testIssue1);
+            CaseManagementIssue secondActive = createCaseManagementIssue("20200", testIssue2);
+            CaseManagementIssue inactive = createResolvedIssue("20200", testIssue2);
+            CaseManagementNote target = createAndLinkNote("20200", active, secondActive, inactive);
+            // One issue belongs to multiple notes; other issues belong only to another
+            // note on the same patient, another patient, or no note at all.
+            CaseManagementIssue otherNoteIssue = createCaseManagementIssue("20200", testIssue1);
+            createAndLinkNote("20200", active, otherNoteIssue);
+            createAndLinkNote("20300", createCaseManagementIssue("20300", testIssue1),
+                    createResolvedIssue("20300", testIssue2));
+            createCaseManagementIssue("20200", testIssue1);
+            entityManager.flush();
             hibernateTemplate.flush();
-            CaseManagementNote note = createAndLinkNote("20300", unresolvedCmi, resolvedCmi);
-
-            createAndLinkNote("20300", createCaseManagementIssue("20300", testIssue2),
-                    createResolvedIssue("20300", testIssue1));
             entityManager.clear();
 
-            assertThat(caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), false))
-                    .extracting(CaseManagementIssue::getId).containsExactly(unresolvedCmi.getId());
-            assertThat(caseManagementIssueDAO.getIssuesByNote(note.getId().intValue(), true))
-                    .extracting(CaseManagementIssue::getId).containsExactly(resolvedCmi.getId());
+            List<Long> expected = resolved == null
+                    ? List.of(active.getId(), secondActive.getId(), inactive.getId())
+                    : resolved ? List.of(inactive.getId()) : List.of(active.getId(), secondActive.getId());
+            List<CaseManagementIssue> found = caseManagementIssueDAO.getIssuesByNote(
+                    Math.toIntExact(target.getId()), resolved);
+            assertThat(found).extracting(CaseManagementIssue::getId)
+                    .containsExactlyInAnyOrderElementsOf(expected);
+            assertThat(found).extracting(CaseManagementIssue::isResolved).isSorted();
         }
 
-        @Test
-        @DisplayName("should return no issues for an unlinked or missing note with any filter")
-        void shouldReturnEmpty_whenNoteHasNoLinkedIssues() {
-            CaseManagementIssue unrelated = createCaseManagementIssue("20400", testIssue1);
-            createAndLinkNote("20400", unrelated);
-            CaseManagementNote emptyNote = createAndLinkNote("20400");
+        @ParameterizedTest
+        @NullSource
+        @ValueSource(booleans = {false, true})
+        void shouldReturnEmpty_whenNoteHasNoIssues(Boolean resolved) {
+            createAndLinkNote("20200", createCaseManagementIssue("20200", testIssue1),
+                    createResolvedIssue("20200", testIssue2));
+            CaseManagementNote empty = createAndLinkNote("20200");
             entityManager.clear();
 
-            for (Boolean resolved : new Boolean[]{null, false, true}) {
-                assertThat(caseManagementIssueDAO.getIssuesByNote(emptyNote.getId().intValue(), resolved)).isEmpty();
-                assertThat(caseManagementIssueDAO.getIssuesByNote(Integer.MAX_VALUE, resolved)).isEmpty();
-            }
+            assertThat(caseManagementIssueDAO.getIssuesByNote(Math.toIntExact(empty.getId()), resolved)).isEmpty();
+        }
+
+        @ParameterizedTest
+        @NullSource
+        @ValueSource(booleans = {false, true})
+        void shouldReturnEmpty_whenNoteDoesNotExist(Boolean resolved) {
+            CaseManagementNote existing = createAndLinkNote("20200",
+                    createCaseManagementIssue("20200", testIssue1), createResolvedIssue("20200", testIssue2));
+            int missingId = Math.toIntExact(existing.getId()) + 1;
+            assertThat(entityManager.find(CaseManagementNote.class, (long) missingId)).isNull();
+            entityManager.clear();
+
+            assertThat(caseManagementIssueDAO.getIssuesByNote(missingId, resolved)).isEmpty();
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        void shouldReturnEmpty_whenNoIssueMatchesResolvedFilter(boolean resolved) {
+            CaseManagementIssue issue = resolved
+                    ? createCaseManagementIssue("20200", testIssue1)
+                    : createResolvedIssue("20200", testIssue1);
+            CaseManagementNote note = createAndLinkNote("20200", issue);
+            entityManager.clear();
+
+            assertThat(caseManagementIssueDAO.getIssuesByNote(Math.toIntExact(note.getId()), resolved)).isEmpty();
         }
 
         @Test
