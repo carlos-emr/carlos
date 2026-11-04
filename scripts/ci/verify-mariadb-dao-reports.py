@@ -18,10 +18,13 @@ critical = {
 }
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
+# CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
 required = {"generated": {**critical, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
-                          "AbstractDaoFindAllOrderingIntegrationTest": 6},
-            "flyway": {**critical, "CaseManagementNoteLockMariaDbIntegrationTest": 15},
+                          "AbstractDaoFindAllOrderingIntegrationTest": 6,
+                          "CaseManagementIssueDAOIntegrationTest": 21},
+            "flyway": {**critical, "CaseManagementIssueDAOIntegrationTest": 22,
+                       "CaseManagementNoteLockMariaDbIntegrationTest": 15},
             "bc-flyway": {"BcBillingNativeMariaDbIntegrationTest": 8,
                            "BcBillingDaoTransactionIntegrationTest": 4,
                            "CaseManagementNoteLockMariaDbIntegrationTest": 15}}

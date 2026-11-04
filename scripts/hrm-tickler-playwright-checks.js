@@ -15,6 +15,7 @@
 // their links and files, and asserts none remain. No clinic-wide state is changed.
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { hrmReportLink } = require('./lib/hrm-report-list');
 const { createOwnedHrmReport } = require('./lib/gap-records-hrm-fixture');
 
 const q = h.sqlString;
@@ -63,7 +64,7 @@ async function workflow(s) {
   await s.step('E-Chart ▸ HRM Documents ▸ the report ▸ Tickler: Save stores the tickler with the report attached', async () => {
     const chart = await s.chart();
     const list = await s.popup(chart, chart.locator('#leftNavBar a[onclick*="/hospitalReportManager/ViewDocList"]').first(), 'hrm-list');
-    viewer = await s.popup(list, list.locator(`#tblHRM a[onclick*="Display?id=${reportId}'"]`), 'hrm-viewer');
+    viewer = await s.popup(list, hrmReportLink(list, reportId), 'hrm-viewer');
     await viewer.locator(`#hrmdoc_${reportId}`).waitFor({ state: 'attached' });
     const button = viewer.locator(`#mainTickler_${reportId}`);
     h.assert(await button.isEnabled(), 'The linked report\'s Tickler button is disabled');
