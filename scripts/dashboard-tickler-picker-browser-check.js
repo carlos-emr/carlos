@@ -16,9 +16,9 @@ const web = path.join(__dirname, '../src/main/webapp');
       const page = await context.newPage();
       const errors = [];
       page.on('pageerror', error => errors.push(error.stack));
-      await page.setContent('<form id="ticklerAddForm"><div><div>'
+      await page.setContent('<div id="assignTickler"><div class="modal-body"><form id="ticklerAddForm"><div><div>'
         + '<input id="day" class="date-picker required" name="serviceDate"></div></div><div><div>'
-        + '<input id="time" class="time-picker required" name="serviceTime"></div></div></form>'
+        + '<input id="time" class="time-picker required" name="serviceTime"></div></div></form></div></div>'
         + '<button id="outside" style="margin-top:400px">Outside</button><button id="saveTicklerBtn">Save</button>');
       await page.addStyleTag({path: path.join(web, 'library/flatpickr/flatpickr.min.css')});
       await page.addScriptTag({path: path.join(web, 'library/jquery/jquery-3.7.1.min.js')});
@@ -81,9 +81,15 @@ const web = path.join(__dirname, '../src/main/webapp');
       await page.locator('#outside').click();
       assert.match(await time.inputValue(), /^2:30 PM$/);
       assert.equal(await time.evaluate(input => input.validationMessage), '');
-      await page.evaluate(() => {
-        destroyTicklerPickers();
+      const destroyed = await page.evaluate(() => {
+        const inputs = [document.getElementById('day'), document.getElementById('time')];
+        window.bootstrap = {Modal: {getOrCreateInstance: () => ({show() {}})}};
+        $.ajax = request => request.error({status: 500}, 'error', 'fixture refusal');
+        sendData('/web/dashboard/display/AssignTickler', '', 'modal');
+        return inputs.every(input => input._flatpickr === undefined);
       });
+      assert.equal(destroyed, true, 'Failed modal replacement must destroy both pickers');
+      assert.match(await page.locator('#assignTickler .modal-body').innerText(), /Request failed/);
       await page.locator('#outside').click();
       assert.equal(await page.locator('#dayError, #timeError').count(), 0);
       assert.deepEqual(errors, []);

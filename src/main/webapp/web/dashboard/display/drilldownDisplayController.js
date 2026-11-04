@@ -215,6 +215,7 @@ function sendData(path, param, target, button) {
                     console.error('Drilldown request failed:', status, error);
                 }
                 if (target == "modal") {
+                    destroyTicklerPickers();
                     $('#assignTickler').find('.modal-body').html(
                         '<p style="color:red">Request failed. Please reload the page.</p>');
                     bootstrap.Modal.getOrCreateInstance(document.getElementById('assignTickler')).show();
