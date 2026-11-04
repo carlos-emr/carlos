@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. Licensed under GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.clinical.summary;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpSessionBindingEvent;
 import jakarta.servlet.http.HttpSessionBindingListener;
@@ -25,8 +26,12 @@ public final class DocumentSummaryReviewSession implements HttpSessionBindingLis
     public static final String SESSION_KEY = DocumentSummaryReviewSession.class.getName();
     public static final String ENABLED = "clinical.ai_document_summary.review.enabled";
     public static final String REGION = "clinical.ai_document_summary.review.region";
+    /** How many reviews one CARLOS process may hold at once (each keeps its original, up to 20 MiB). */
+    public static final String MAX_ACTIVE = "clinical.ai_document_summary.review.max_active";
+    private static final int DEFAULT_MAX_REVIEWS = 4;
+    private static final int MAX_CONFIGURABLE_REVIEWS = 32;
     private static final Object LOCK = new Object();
-    private static final int MAX_REVIEWS = 4;
+    private static final int MAX_REVIEWS = configuredCapacity(configuredValue());
     private static final Set<DocumentSummaryReviewSession> ACTIVE = new HashSet<>();
     private static int reserved;
     private final Clock clock;
@@ -88,12 +93,25 @@ public final class DocumentSummaryReviewSession implements HttpSessionBindingLis
     public static DocumentSummaryReviewSession generate(DocumentSummaryReviewBinding.Scope scope,
             DocumentSummaryReviewBinding.Metadata metadata, SourceLoader loader, DocumentSummaryService generator,
             String modelIdentity, LoggedInInfo actor) throws IOException, ClinicalSummaryGenerationException {
-        return generate(scope, metadata, loader, generator, modelIdentity, actor, Clock.systemUTC());
+        return generate(scope, metadata, loader, generator, modelIdentity, actor, "en", Clock.systemUTC());
+    }
+
+    /** As above, with the patient notice in {@code noticeLanguage} ("en" or "fr", from the patient's record). */
+    public static DocumentSummaryReviewSession generate(DocumentSummaryReviewBinding.Scope scope,
+            DocumentSummaryReviewBinding.Metadata metadata, SourceLoader loader, DocumentSummaryService generator,
+            String modelIdentity, LoggedInInfo actor, String noticeLanguage) throws IOException, ClinicalSummaryGenerationException {
+        return generate(scope, metadata, loader, generator, modelIdentity, actor, noticeLanguage, Clock.systemUTC());
     }
 
     static DocumentSummaryReviewSession generate(DocumentSummaryReviewBinding.Scope scope,
             DocumentSummaryReviewBinding.Metadata metadata, SourceLoader loader, DocumentSummaryService generator,
             String modelIdentity, LoggedInInfo actor, Clock clock) throws IOException, ClinicalSummaryGenerationException {
+        return generate(scope, metadata, loader, generator, modelIdentity, actor, "en", clock);
+    }
+
+    static DocumentSummaryReviewSession generate(DocumentSummaryReviewBinding.Scope scope,
+            DocumentSummaryReviewBinding.Metadata metadata, SourceLoader loader, DocumentSummaryService generator,
+            String modelIdentity, LoggedInInfo actor, String noticeLanguage, Clock clock) throws IOException, ClinicalSummaryGenerationException {
         requireActor(actor);
         String provider = actor.getLoggedInProvider().getProviderNo();
         int securityId = actor.getLoggedInSecurity().getSecurityNo();
@@ -102,7 +120,7 @@ public final class DocumentSummaryReviewSession implements HttpSessionBindingLis
         synchronized (LOCK) {
             // No background thread: a new generation also disposes expired reviews in other sessions.
             for (var previous : Set.copyOf(ACTIVE)) if (previous.expired()) previous.close();
-            if (reserved >= MAX_REVIEWS) throw new IllegalStateException("Summary review capacity is full. Close an existing review and try again.");
+            if (reserved >= MAX_REVIEWS) throw new IllegalStateException("Summary review capacity (" + MAX_REVIEWS + ") is full. Close an existing review and try again.");
             reserved++;
         }
         DocumentSummaryReviewBinding.CapturedSource capture = null;
@@ -116,7 +134,7 @@ public final class DocumentSummaryReviewSession implements HttpSessionBindingLis
             String text = capture.source().extraction().text();
             if (text.isBlank()) throw new IllegalStateException("Readable source text is required for review.");
             var summary = generator.summarize(text);
-            var draft = binding.prepare(capture.source(), summary, modelIdentity, "en");
+            var draft = binding.prepare(capture.source(), summary, modelIdentity, noticeLanguage);
             var review = new DocumentSummaryReviewSession(scope, provider, securityId, capture, draft, binding, clock);
             synchronized (LOCK) { ACTIVE.add(review); }
             retained = true;
@@ -128,6 +146,27 @@ public final class DocumentSummaryReviewSession implements HttpSessionBindingLis
                 synchronized (LOCK) { reserved--; }
             }
         }
+    }
+
+    /** The cap in force, read once at class load from {@link #MAX_ACTIVE}. */
+    public static int capacity() { return MAX_REVIEWS; }
+
+    /** A whole number from 1 to 32; anything else (missing, blank, text, out of range) means the default of 4. */
+    static int configuredCapacity(String raw) {
+        if (raw == null) return DEFAULT_MAX_REVIEWS;
+        try {
+            int value = Integer.parseInt(raw.strip());
+            return value >= 1 && value <= MAX_CONFIGURABLE_REVIEWS ? value : DEFAULT_MAX_REVIEWS;
+        } catch (NumberFormatException invalid) { return DEFAULT_MAX_REVIEWS; }
+    }
+    private static String configuredValue() {
+        // Read once; an unreadable configuration keeps the default rather than failing class loading.
+        // hasProperty first: getProperty warns once per JVM about an unset key, and the default
+        // path (no key) must start quietly.
+        try {
+            var properties = CarlosProperties.getInstance();
+            return properties.hasProperty(MAX_ACTIVE) ? properties.getProperty(MAX_ACTIVE, "") : "";
+        } catch (RuntimeException unavailable) { return ""; }
     }
 
     /** Exact source bytes for the authenticated clinician's original-document download. */
