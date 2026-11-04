@@ -410,23 +410,24 @@ class AiReviewedDocumentSummaryActionUnitTest {
         verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", view.notice());
     }
 
-    @Test void spanishPolishAndPortugueseRecordsGiveTheirOwnNoticeOnThePageAndInTheReview() throws Exception {
-        String[][] cases = {{"es", "Estado de la revisión"}, {"pl", "Status weryfikacji"}, {"pt-BR", "Situação da revisão"}};
-        for (String[] c : cases) {
-            clearInvocations(request);
-            when(context.load(any(LoggedInInfo.class), eq(11)))
-                    .thenReturn(new DocumentSummaryReviewContext.Snapshot(SCOPE, META, c[0]));
-            assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
-            verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", DocumentSummaryReviewBinding.unreviewedNotice(c[0]));
-            var review = generate();
-            try {
-                var view = review.view(actor, SCOPE, source());
-                assertThat(view.notice()).as(c[0]).contains(c[1]).doesNotContain("Review status", "Statut de la");
-                verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", view.notice());
-            } finally {
-                review.close();
-            }
-        }
+    private void noticeFollowsTheRecord(String language, String statusLabel) throws Exception {
+        when(context.load(any(LoggedInInfo.class), eq(11)))
+                .thenReturn(new DocumentSummaryReviewContext.Snapshot(SCOPE, META, language));
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", DocumentSummaryReviewBinding.unreviewedNotice(language));
+        var review = generate();
+        var view = review.view(actor, SCOPE, source());
+        assertThat(view.notice()).as(language).contains(statusLabel).doesNotContain("Review status", "Statut de la");
+        verify(request, atLeastOnce()).setAttribute("documentSummaryNotice", view.notice());
+    }
+    @Test void aSpanishRecordGivesTheSpanishNoticeOnThePageAndInTheReview() throws Exception {
+        noticeFollowsTheRecord("es", "Estado de la revisión");
+    }
+    @Test void aPolishRecordGivesThePolishNoticeOnThePageAndInTheReview() throws Exception {
+        noticeFollowsTheRecord("pl", "Status weryfikacji");
+    }
+    @Test void aPortugueseRecordGivesTheBrazilianPortugueseNoticeOnThePageAndInTheReview() throws Exception {
+        noticeFollowsTheRecord("pt-BR", "Situação da revisão");
     }
 
     @Test void aCapRefusalWritesNoGenerateRowOnlyADistinctRefusedRowWithTheIds() throws Exception {
