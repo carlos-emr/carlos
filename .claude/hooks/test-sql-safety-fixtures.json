@@ -1173,5 +1173,149 @@
         "content": "wrap(Logger.getLogger(\"hook\")).warning(\"SELECT * FROM patient WHERE id = '\" + rawId + \"'\");"
       }
     }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "SQL brace cannot truncate quote-sandwich context",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String sql = \"SELECT /* { */ * FROM patient WHERE name = '\" + userName + \"'\";"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "SQL semicolon cannot truncate quote-sandwich context",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String sql = \"SELECT * FROM patient WHERE note = ';' AND name = '\" + userName + \"'\";"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "message literal punctuation stays prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.warning(\"Cannot delete from cache {entry}; \" + cacheName);"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "literal SQL punctuation cannot taint a later message",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String sql = \"SELECT ';' FROM patient WHERE id = ?\"; logger.warning(\"from \" + source);"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "query builder AND quote sandwich",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "sql.append(\" and demographic_no = '\" + demoNo + \"'\");"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "OR filter quote sandwich",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String filter = \" OR name = '\" + userName + \"'\";"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "AND NOT grouped predicate",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String filter = \" AND NOT (name = '\" + userName + \"')\";"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "OR grouped NOT predicate",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String filter = \" OR (NOT name = '\" + userName + \"')\";"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "generic builder AND quote sandwich",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "sb.append(\" AND id = '\" + rawId + \"'\");"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "query named builder CALL fragment",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "sql.append(\"call get_patient('\" + rawId + \"')\");"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "generic prose builder quote sandwich",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "sb.append(\"Invalid values from '\" + source + \"'\");"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "predicate text logged as a message",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.warning(\"AND status = '\" + userStatus + \"'\");"
+      }
+    }
   }
 ]

@@ -140,21 +140,32 @@ def strip_line_comment(line: str) -> str:
 
 
 
-def get_statement_containing(content: str, start: int, end: int) -> str:
+def mask_literal_statement_delimiters(content: str) -> str:
+    """Hide Java delimiters inside string/char literals without moving offsets."""
+    return _ONLY_STRING_LITERAL.sub(
+        lambda literal: re.sub(r'[;{}]', ' ', literal.group(0)), content
+    )
+
+
+def get_statement_containing(
+    content: str, start: int, end: int, boundaries: str | None = None
+) -> str:
     """Extract the full Java statement containing the given match span.
 
-    Expands backward to the previous statement boundary (';', '{' or '}')
-    and forward to the next ';'. This is the correct scope for safety
-    evidence: placeholders or class metadata in a *different* statement on
-    the same line must never allowlist this one, while evidence in the same
-    statement that a truncated regex match missed still counts.
+    Expands backward to the previous Java statement boundary (';', '{' or '}')
+    and forward to the next ';', ignoring delimiters inside literals.
+    Placeholders or class metadata in a *different* statement on the same line
+    must never allowlist this one, while evidence in the same statement that a
+    truncated regex match missed still counts.
     """
+    if boundaries is None:
+        boundaries = mask_literal_statement_delimiters(content)
     begin = max(
-        content.rfind(';', 0, start),
-        content.rfind('{', 0, start),
-        content.rfind('}', 0, start),
+        boundaries.rfind(';', 0, start),
+        boundaries.rfind('{', 0, start),
+        boundaries.rfind('}', 0, start),
     ) + 1
-    term = content.find(';', end)
+    term = boundaries.find(';', end)
     if term == -1:
         term = len(content)
     return content[begin:term + 1]
@@ -573,9 +584,8 @@ def is_message_literal(statement: str, start: int) -> bool:
     }
     for match in re.finditer(r'[()]', prefix):
         if match.group() == ')':
-            if calls:
-                if calls.pop() == 'logger_factory':
-                    logger_ends.add(match.start())
+            if calls and calls.pop() == 'logger_factory':
+                logger_ends.add(match.start())
             continue
         before = prefix[:match.start()]
         method = re.search(r'([\w$]+)\s*$', before)
@@ -624,18 +634,19 @@ def has_sql_context(statement: str) -> bool:
         return True
 
     literals = re.finditer(r'"((?:[^"\\]|\\.)*)"', statement)
-    # Query-named assignments also cover incomplete fragments, e.g.
+    # Query-named assignments/appends also cover incomplete fragments, e.g.
     # sql = "UPDATE " + table. Names supply context, never safety evidence.
-    assignments = re.findall(r'\b([A-Za-z_$][\w$]*)\s*\+?=(?!=)', code)
+    query_names = re.findall(r'\b([A-Za-z_$][\w$]*)\s*\+?=(?!=)', code)
+    query_names.extend(re.findall(r'\b([A-Za-z_$][\w$]*)\s*\.\s*append\s*\(', code))
     # Generic builder names (sb/buf/conditions) are equally common for prose.
     if any(
         QUERY_BUILDER_VARS.fullmatch(name)
         and name.lower() not in {'sb', 'buf', 'conditions', 'servicecodevalues'}
-        for name in assignments
+        for name in query_names
     ):
         return True
 
-    sql_structure = (
+    sql_structure = re.compile(
         # A literal containing only a clause starter is a query fragment, not
         # a keyword embedded in a sentence ("Error reading XML from ...").
         r'^\s*(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN)\s*$|'
@@ -647,10 +658,13 @@ def has_sql_context(statement: str) -> bool:
         r'\bVALUES\s*\(|\b(?:ORDER|GROUP)\s+BY\b|'
         # Predicates are often assembled before WHERE is added. In particular,
         # id = '\" + raw + "' must remain an always-unsafe quote sandwich.
-        r'^\s*\(*\s*[\w.$`]+\s*(?:[=<>!]|LIKE\b|IN\s*\(|IS\b|BETWEEN\b)'
+        r'^\s*,?\s*(?:(?:WHERE|AND|OR|SET|ON)\b\s*)?'
+        r'(?:\(\s*)*(?:NOT\b\s*(?:\(\s*)*)*[\w.$`]+\s*'
+        r'(?:[=<>!]|LIKE\b|IN\s*\(|IS\b|BETWEEN\b)',
+        re.IGNORECASE
     )
     return any(
-        re.search(sql_structure, literal.group(1), re.IGNORECASE)
+        sql_structure.search(literal.group(1))
         and not is_message_literal(statement, literal.start())
         for literal in literals
     )
@@ -676,6 +690,9 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     # (b) comment text can never provide allowlisting evidence. Offsets are
     # preserved, so reported positions remain valid.
     content = mask_java_comments(content)
+    # Compute this once per file: SQL punctuation is literal data, not a Java
+    # boundary, and rescanning literals for every candidate is needlessly costly.
+    boundaries = mask_literal_statement_delimiters(content)
 
     # Broad candidates are confirmed against statement-local SQL context below.
     sql_keywords = r'\b(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN|ORDER\s+BY|GROUP\s+BY)\b'
@@ -738,7 +755,7 @@ def check_sql_injection_patterns(content: str) -> list[str]:
             match_text = match.group(0)
 
             # Get the full statement containing this match
-            statement = get_statement_containing(content, match.start(), match.end())
+            statement = get_statement_containing(content, match.start(), match.end(), boundaries)
 
             if not has_sql_context(statement):
                 continue
@@ -776,7 +793,7 @@ def check_sql_injection_patterns(content: str) -> list[str]:
         matches = re.finditer(pattern, content, re.IGNORECASE)
         for match in matches:
             match_text = match.group(0)
-            statement = get_statement_containing(content, match.start(), match.end())
+            statement = get_statement_containing(content, match.start(), match.end(), boundaries)
 
             if not has_sql_context(statement):
                 continue
