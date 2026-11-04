@@ -343,10 +343,10 @@ async function workflow(s) {
       } finally {
         dashboard.off('request', trackSave);
       }
-      // Correct the refused fields by typing; assert their submitted AND stored values below.
-      await dateInput.fill('');
-      await dateInput.pressSequentially('2030-12-31');
-      await dateInput.press('Tab');
+      // Correct the date through the actual picker and the time by typing; assert
+      // their submitted AND stored values below. Keep the calendar walk bounded.
+      await ui.pickDate(dashboard, dateInput, '2030-12-31',
+        { timeout: TIMEOUT, maxMonthSteps: 120 });
       await timeInput.fill('');
       await timeInput.pressSequentially('10:30 AM');
       await timeInput.press('Tab');
@@ -374,7 +374,7 @@ async function workflow(s) {
       h.assert((await response.json()).success === 'true', 'Assign Tickler did not acknowledge the save');
       const submitted = new URLSearchParams(request.postData() || '');
       h.assert(submitted.get('serviceDate') === '2030-12-31' && submitted.get('serviceTime') === '10:30 AM',
-        'The valid typed date/time changed before submission');
+        'The selected date/typed time changed before submission');
       h.assert(Boolean(submitted.get('ticklerSubmission')), 'The save has no server-issued operation key');
       const replay = async (body) => ctx.request.post(request.url(), {
         data: body.toString(), headers: {'Content-Type': 'application/x-www-form-urlencoded',
