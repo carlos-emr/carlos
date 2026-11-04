@@ -18399,11 +18399,7 @@
       "envSet": {
         "RX_SAVE_FAILURE_MODE": "only-new"
       },
-      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive.",
-      "expectedFailure": {
-        "finding": 333,
-        "step": "a real second medication INSERT fails and the complete clinical batch rolls back with its draft retained"
-      }
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
     },
     {
       "name": "rx-save-failure-retry-print-new",
@@ -18422,11 +18418,7 @@
       "envSet": {
         "RX_SAVE_FAILURE_MODE": "print-new"
       },
-      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive.",
-      "expectedFailure": {
-        "finding": 333,
-        "step": "a real second medication INSERT fails and the complete clinical batch rolls back with its draft retained"
-      }
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
     },
     {
       "name": "rx-save-failure-retry-only-mixed",
@@ -18445,11 +18437,7 @@
       "envSet": {
         "RX_SAVE_FAILURE_MODE": "only-mixed"
       },
-      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive.",
-      "expectedFailure": {
-        "finding": 333,
-        "step": "a real second medication INSERT fails and the complete clinical batch rolls back with its draft retained"
-      }
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
     },
     {
       "name": "rx-save-failure-retry-print-mixed",
@@ -18468,11 +18456,7 @@
       "envSet": {
         "RX_SAVE_FAILURE_MODE": "print-mixed"
       },
-      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive.",
-      "expectedFailure": {
-        "finding": 333,
-        "step": "a real second medication INSERT fails and the complete clinical batch rolls back with its draft retained"
-      }
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
     },
     {
       "name": "rx-save-failure-retry-only-lost",

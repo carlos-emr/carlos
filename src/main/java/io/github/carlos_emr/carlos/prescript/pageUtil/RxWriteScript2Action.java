@@ -115,7 +115,7 @@ public final class RxWriteScript2Action extends ActionSupport {
     private static final String UP_TO_NINE_DIGITS = "\\d{1,9}";
     /** Medication audit-log content prefix, followed by the drug id. */
     private static final String AUDIT_DRUG_ID = "drugid=";
-    private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
+    private final PartialDateDao partialDateDao = SpringUtils.getBean(PartialDateDao.class);
 
     /** The only {@code action} values {@link #updateReRxDrug()} will act on. */
     private static final Set<String> RE_RX_ACTIONS =
@@ -2063,10 +2063,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 return null;
             }
             try {
-                if (Arrays.stream(bean.getStash()).anyMatch(card -> card.getDrugId() > 0)) {
-                    return persistCorrection(loggedInInfo, bean);
-                }
-                return persistStashLocked(loggedInInfo, bean);
+                return persistStashTransaction(loggedInInfo, bean);
             } catch (RuntimeException e) {
                 logger.error("Prescription save did not complete ({})", e.getClass().getSimpleName());
                 throw new PrescriptionSaveException(e);
@@ -2074,8 +2071,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
     }
 
-    /** A corrected save and the rows it replaces must commit together, including the staged identities. */
-    private String persistCorrection(LoggedInInfo loggedInInfo, RxSessionBean bean) {
+    /** Every save, its reasons/dates and archival must commit together, including the staged identities. */
+    private String persistStashTransaction(LoggedInInfo loggedInInfo, RxSessionBean bean) {
         record PreviousIdentity(RxPrescriptionData.Prescription card, int drugId, String scriptNo, String revision) {
             void restore() {
                 card.restoreSavedIdentity(drugId, scriptNo, revision);
@@ -2115,7 +2112,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
     }
 
-    /** An audit of a successful save must not survive rollback of the correction it describes. */
+    /** An audit of a successful save must not survive rollback of the prescription it describes. */
     private static void afterSaveCommit(Runnable audit) {
         if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
             org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
@@ -2192,8 +2189,8 @@ public final class RxWriteScript2Action extends ActionSupport {
                 if (StringUtils.filled(rx.getRxDateFormat()))
                     partialDateDao.setPartialDate(PartialDate.DRUGS, rx.getDrugId(), PartialDate.DRUGS_STARTDATE, rx.getRxDateFormat());
             } catch (Exception e) {
-                // Initial legacy saves have no encompassing transaction; corrections roll back.
-                // Stop immediately either way, and never print or clear an unsuccessful prescription.
+                // Abort the entire batch, including its header and any earlier medications.
+                // Never print or clear an unsuccessful prescription.
                 throw new PrescriptionSaveException(e);
             }
 

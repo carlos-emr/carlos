@@ -438,15 +438,16 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
     }
 
     @Nested
-    @DisplayName("saving an acknowledged card again (#5005)")
+    @DisplayName("atomic stash saves and acknowledged-card corrections (#5627, #5005)")
     class CorrectedSave {
 
-        private final Deque<Integer> nextDrugIds = new ArrayDeque<>(List.of(501, 502, 503));
+        private final Deque<Integer> nextDrugIds = new ArrayDeque<>(List.of(501, 502, 503, 504, 505));
 
         @BeforeEach
         void persistAssignsIds() {
             registerMock(org.springframework.transaction.PlatformTransactionManager.class, new NoDatabaseTransactions());
             doAnswer(invocation -> {
+                assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
                 Drug saved = invocation.getArgument(0);
                 saved.setId(nextDrugIds.removeFirst());
                 return null;
@@ -455,7 +456,10 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
 
         private String save() {
             try (MockedConstruction<RxPrescriptionData> _ = mockConstruction(RxPrescriptionData.class,
-                    (mock, context) -> when(mock.saveScript(any(), any())).thenReturn("77"))) {
+                    (mock, context) -> when(mock.saveScript(any(), any())).thenAnswer(invocation -> {
+                        assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+                        return "77";
+                    }))) {
                 return action.persistStash(mockLoggedInInfo, bean);
             }
         }
@@ -466,6 +470,102 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             drug.setDemographicId(DEMOGRAPHIC_NO);
             drug.setArchived(archived);
             return drug;
+        }
+
+        @ParameterizedTest
+        @CsvSource({"drug,false", "drug,true", "date,false", "date,true", "reason,false", "reason,true", "archive,true"})
+        @DisplayName("should restore every new card and renewal source after a confirmed rollback")
+        void shouldRestoreUnsavedBatch_whenLaterWriteFails(String failure, boolean renewal) {
+            RxPrescriptionData.Prescription second = new RxPrescriptionData.Prescription(0, "999998", DEMOGRAPHIC_NO);
+            second.setRandomId(2);
+            second.setBrandName("SECOND SYNTHETIC DRUG");
+            second.setSpecial("1 tab PO OD");
+            bean.getStashList().add(second);
+            if (renewal) {
+                card.setDrugReferenceId(55);
+                bean.addReRxDrugIdList("55");
+                when(mockRxManager.archiveDrug(mockLoggedInInfo, 55, DEMOGRAPHIC_NO, Drug.REPRESCRIBED)).thenReturn(true);
+            }
+            bean.addRandomIdDrugIdPair(99, 999);
+            String firstRevision = card.getDraftRevision();
+            String secondRevision = second.getDraftRevision();
+            if ("drug".equals(failure)) {
+                doAnswer(invocation -> {
+                    Drug saved = invocation.getArgument(0);
+                    if ("SECOND SYNTHETIC DRUG".equals(saved.getBrandName())) {
+                        throw new IllegalStateException("Synthetic second medication failure");
+                    }
+                    saved.setId(nextDrugIds.removeFirst());
+                    return null;
+                }).when(mockDrugDao).persist(any(Drug.class));
+            } else if ("date".equals(failure)) {
+                second.setWrittenDateFormat("yyyy");
+                org.mockito.Mockito.doThrow(new IllegalStateException("Synthetic date failure"))
+                        .when(mockPartialDateDao).setPartialDate(anyInt(), anyInt(), anyInt(), anyString());
+            } else if ("reason".equals(failure)) {
+                second.setDrugReasonCodeSystem("icd9");
+                second.setDrugReasonCode("401");
+                registerMock(io.github.carlos_emr.carlos.commn.dao.DrugReasonDao.class,
+                        org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DrugReasonDao.class));
+            } else {
+                when(mockRxManager.archiveDrug(mockLoggedInInfo, 55, DEMOGRAPHIC_NO, Drug.REPRESCRIBED)).thenReturn(false);
+            }
+
+            try (var codes = mockConstruction(io.github.carlos_emr.carlos.managers.CodingSystemManager.class,
+                    (mock, context) -> when(mock.isCodeAvailable(anyString(), anyString())).thenReturn(true))) {
+                assertThatThrownBy(this::save).isInstanceOf(RxWriteScript2Action.PrescriptionSaveException.class);
+            }
+
+            assertThat(card.getDrugId()).isZero();
+            assertThat(second.getDrugId()).isZero();
+            assertThat(card.getScript_no()).isNull();
+            assertThat(second.getScript_no()).isNull();
+            assertThat(card.getDraftRevision()).isEqualTo(firstRevision);
+            assertThat(second.getDraftRevision()).isEqualTo(secondRevision);
+            assertThat(bean.getRandomIdDrugIdPair()).containsOnly(org.assertj.core.api.Assertions.entry(99L, 999));
+            assertThat(bean.getReRxDrugIdList()).containsExactlyElementsOf(renewal ? List.of("55") : List.of());
+            assertThat(request.getAttribute("scriptId")).isNull();
+            logActionMock.verifyNoInteractions();
+
+            // Once the fault is removed, these same unsaved cards can commit once.
+            org.mockito.Mockito.reset(mockDrugDao, mockPartialDateDao);
+            persistAssignsIds();
+            if (renewal) {
+                when(mockRxManager.archiveDrug(mockLoggedInInfo, 55, DEMOGRAPHIC_NO, Drug.REPRESCRIBED)).thenReturn(true);
+            }
+            if ("reason".equals(failure)) {
+                var reasons = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DrugReasonDao.class);
+                when(reasons.addNewDrugReason(any())).thenReturn(true);
+                registerMock(io.github.carlos_emr.carlos.commn.dao.DrugReasonDao.class, reasons);
+            }
+            try (var codes = mockConstruction(io.github.carlos_emr.carlos.managers.CodingSystemManager.class,
+                    (mock, context) -> when(mock.isCodeAvailable(anyString(), anyString())).thenReturn(true))) {
+                assertThat(save()).isEqualTo("77");
+            }
+            assertThat(card.getDrugId()).isPositive();
+            assertThat(second.getDrugId()).isPositive().isNotEqualTo(card.getDrugId());
+            assertThat(bean.getReRxDrugIdList()).isEmpty();
+            assertThat(card.getDraftRevision()).isNotEqualTo(firstRevision);
+            assertThat(second.getDraftRevision()).isNotEqualTo(secondRevision);
+        }
+
+        @Test
+        void shouldKeepNewBatchConsumed_whenCommitOutcomeIsUnknown() {
+            String revision = card.getDraftRevision();
+            registerMock(org.springframework.transaction.PlatformTransactionManager.class, new NoDatabaseTransactions() {
+                @Override
+                protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {
+                    throw new org.springframework.transaction.TransactionSystemException("Synthetic uncertain commit");
+                }
+            });
+
+            assertThatThrownBy(this::save).isInstanceOf(RxWriteScript2Action.PrescriptionSaveException.class);
+
+            assertThat(card.getDrugId()).isEqualTo(501);
+            assertThat(card.getDraftRevision()).isNotEqualTo(revision);
+            assertThat(bean.getRandomIdDrugIdPair().get(card.getRandomId())).isEqualTo(501);
+            assertThat(request.getAttribute("scriptId")).isNull();
+            logActionMock.verifyNoInteractions();
         }
 
         @Test
