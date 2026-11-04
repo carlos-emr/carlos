@@ -4,10 +4,11 @@
 
 Existing schedule integrations can continue updating appointments without sending
 `editVersion`; omitted, null or blank tokens retain last-writer-wins behavior.
-No client changes are required. Clients that echo the token returned by
-`/schedule/getAppointment` receive HTTP 409 if another writer has changed the
-appointment. Both paths preserve transactional archiving and server-managed
-audit fields. This applies to full appointment updates and the status, type and
+No client changes are required. Clients can opt into conflict detection by echoing
+`editVersion` from the `AppointmentTo1` response to `POST /schedule/getAppointment`;
+the day and `fetchDays` summaries do not include it. A supplied stale token returns
+HTTP 409 if another writer has changed the appointment. Both paths preserve
+transactional archiving and server-managed audit fields. This applies to full appointment updates and the status, type and
 urgency update routes. See the [REST appointment contract](api-collections-index.md#rest-appointment-edit-compatibility-and-conflict-detection)
 and [#5663](https://github.com/carlos-emr/carlos/issues/5663).
 

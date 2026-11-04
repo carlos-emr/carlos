@@ -132,6 +132,13 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
         current.setUrgency("old-urgency");
         current.setReason("FAKE-original");
         when(appointments.findForUpdate(42)).thenReturn(current);
+        var archivedState = new java.util.concurrent.atomic.AtomicReference<List<String>>();
+        org.mockito.Mockito.doAnswer(call -> {
+            io.github.carlos_emr.carlos.commn.model.Appointment archived = call.getArgument(0);
+            archivedState.set(List.of(archived.getStatus(), archived.getType(), archived.getUrgency(),
+                    archived.getReason(), archived.getCreator(), archived.getEditVersion()));
+            return null;
+        }).when(archives).archiveAppointment(any(io.github.carlos_emr.carlos.commn.model.Appointment.class));
         org.mockito.Mockito.doAnswer(call -> {
             current.setUpdateDateTime(new Date(2000));
             return null;
@@ -150,6 +157,8 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
         assertThat(current.getUrgency()).isEqualTo(fullEdit || path.endsWith("updateUrgency") ? "new" : "old-urgency");
         assertThat(current.getReason()).isEqualTo(fullEdit ? "FAKE-edit" : "FAKE-original");
         assertThat(current.getCreator()).isEqualTo("FAKE-creator");
+        assertThat(archivedState.get()).containsExactly("old-status", "old-type", "old-urgency",
+                "FAKE-original", "FAKE-creator", "1000");
         var order = org.mockito.Mockito.inOrder(appointments, archives);
         order.verify(appointments).findForUpdate(42);
         order.verify(archives).archiveAppointment(current);
