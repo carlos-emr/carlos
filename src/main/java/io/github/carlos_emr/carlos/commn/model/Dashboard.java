@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.commn.model;
 
@@ -54,8 +55,9 @@ public class Dashboard extends AbstractModel<Integer> {
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date edited;
-    private boolean active;
-    private boolean locked;
+    // Legacy OSCAR schemas permit NULL flags; expose those as false without failing hydration.
+    private Boolean active = Boolean.FALSE;
+    private Boolean locked = Boolean.FALSE;
 
     @Transient
     private List<IndicatorTemplate> indicators;
@@ -102,7 +104,7 @@ public class Dashboard extends AbstractModel<Integer> {
     }
 
     public boolean isActive() {
-        return active;
+        return Boolean.TRUE.equals(active);
     }
 
     public void setActive(boolean active) {
@@ -110,7 +112,7 @@ public class Dashboard extends AbstractModel<Integer> {
     }
 
     public boolean isLocked() {
-        return locked;
+        return Boolean.TRUE.equals(locked);
     }
 
     public void setLocked(boolean locked) {

@@ -28,10 +28,12 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
+import java.util.Date;
 
 import io.github.carlos_emr.carlos.commn.model.Dashboard;
 
@@ -41,4 +43,25 @@ public interface DashboardDao extends AbstractDao<Dashboard> {
     List<Dashboard> getDashboardsByStatus(boolean status);
 
     List<Dashboard> getDashboards();
+
+    /**
+     * Update only editable metadata on an unlocked dashboard, preserving concurrent status changes.
+     *
+     * @param id int identifier of the dashboard to update
+     * @param name String dashboard display name
+     * @param description String dashboard description
+     * @param edited Date timestamp of the metadata edit
+     * @return boolean true when exactly one unlocked row was updated; false when locked or missing
+     */
+    boolean updateMetadata(int id, String name, String description, Date edited);
+
+    /**
+     * Update only status and edit time on an unlocked dashboard, preserving concurrent edits.
+     *
+     * @param id int identifier of the dashboard to update
+     * @param active boolean desired active state
+     * @param edited Date timestamp of the status change
+     * @return boolean true when exactly one unlocked row was updated; false when locked or missing
+     */
+    boolean updateActive(int id, boolean active, Date edited);
 }

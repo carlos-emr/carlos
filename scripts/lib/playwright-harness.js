@@ -1532,7 +1532,8 @@ function judgeRefusal({ status, headers, body }, alsoRefusedBy = []) {
  *
  * `response` is a Playwright APIResponse or Response, or a pre-read { status, body, headers }.
  * `table` must be a plain table name and `where` a fragment that selects only rows the calling
- * check owns; both come from the check's source, never from request data. `label` (optional) names
+ * check owns; both come from the check's source, never from request data. `parameters` (optional)
+ * binds values in `where` through the SQL runner's parameter array. `label` (optional) names
  * the request in the message. `alsoRefusedBy` (optional, default none) names further HTTP statuses
  * that are THIS request's deliberate refusal, such as 415 from a JAX-RS resource that @Consumes JSON
  * when the probe sends another content type; one of them counts only when it carries the
@@ -1541,7 +1542,7 @@ function judgeRefusal({ status, headers, body }, alsoRefusedBy = []) {
  * { status, evidence, rows }.
  */
 async function assertRefused(s, {
-  response, table, where, before, label = 'the request', alsoRefusedBy = [],
+  response, table, where, parameters, before, label = 'the request', alsoRefusedBy = [],
 } = {}) {
   assert(Array.isArray(alsoRefusedBy) && alsoRefusedBy.every(status => ALSO_REFUSED_STATUSES.includes(status)),
     `assertRefused: alsoRefusedBy names only ${ALSO_REFUSED_STATUSES.join(', ')}`);
@@ -1554,7 +1555,7 @@ async function assertRefused(s, {
     'assertRefused needs a where clause that selects only the rows the check owns');
   const evidence = await readRefusalEvidence(response);
   const verdict = judgeRefusal(evidence, alsoRefusedBy);
-  const rows = String(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE ${where}`));
+  const rows = String(s.sql.value(`SELECT COUNT(*) FROM ${table} WHERE ${where}`, parameters));
   const problems = [];
   if (!verdict.refused) problems.push(verdict.problem);
   if (rows !== String(before)) {
