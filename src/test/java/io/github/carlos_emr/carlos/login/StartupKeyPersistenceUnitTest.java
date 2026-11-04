@@ -220,18 +220,54 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         assertThat(EncryptionUtils.decrypt(ciphertext)).isEqualTo("home-configuration");
     }
 
-    @Test
-    void shouldRequestExternalConfiguration_whenOnlyBundledConfigurationWasLoaded() throws Exception {
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   "})
+    void shouldRequestExternalConfiguration_whenOnlyBundledConfigurationWasLoaded(String key) throws Exception {
         CarlosProperties properties = reloadProperties();
-        properties.setProperty(KEY, "");
+        if (key == null) {
+            properties.remove(KEY);
+        } else {
+            properties.setProperty(KEY, key);
+        }
 
         assertThatThrownBy(this::startApplication)
                 .hasMessageContaining("/carlos.properties")
                 .hasMessageContaining(KEY)
-                .hasMessageContaining("-Dcarlos_override_properties=");
+                .hasMessageContaining("-Dcarlos_override_properties=")
+                .hasMessageContaining("Restore the original key")
+                .hasMessageContaining("docs/startup-encryption-key.md");
         assertThat(userHome.resolve("carlos.properties")).doesNotExist();
-        assertThat(properties.getProperty(KEY)).isEmpty();
+        assertThat(properties.getProperty(KEY)).isEqualTo(key);
         assertThat(keySpecField.get(null)).isNull();
+    }
+
+    @Test
+    void shouldReuseConfiguredKey_whenOnlyClasspathConfigurationWasLoaded() throws Exception {
+        String resource = "/WEB-INF/startup-configured-encryption-key.properties";
+        byte[] originalResource;
+        try (var input = getClass().getResourceAsStream(resource)) {
+            originalResource = input.readAllBytes();
+        }
+        CarlosProperties properties = reloadProperties();
+        properties.clear();
+        properties.readFromFile(resource);
+        String configuredKey = properties.getProperty(KEY);
+
+        startApplication();
+        String ciphertext = EncryptionUtils.encrypt("classpath-configuration");
+
+        CarlosProperties secondBoot = reloadProperties();
+        secondBoot.clear();
+        secondBoot.readFromFile(resource);
+        startApplication();
+
+        assertThat(secondBoot.getProperty(KEY)).isEqualTo(configuredKey);
+        assertThat(EncryptionUtils.decrypt(ciphertext)).isEqualTo("classpath-configuration");
+        assertThat(userHome.resolve("carlos.properties")).doesNotExist();
+        try (var input = getClass().getResourceAsStream(resource)) {
+            assertThat(input.readAllBytes()).isEqualTo(originalResource);
+        }
     }
 
     @Test

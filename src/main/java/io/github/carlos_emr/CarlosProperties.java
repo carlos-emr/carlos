@@ -301,9 +301,11 @@ public class CarlosProperties extends Properties {
             String keyName = EncryptionUtils.SECRET_KEY_ENV_VAR;
             if (loadedPropertiesFile == null) {
                 throw new IOException("Configuration source " + loadedPropertiesLocation
-                        + " is not an external properties file. Set " + keyName
-                        + " in an operator-managed properties file and load it with "
-                        + "-Dcarlos_override_properties=/path/to/carlos.properties before restarting.");
+                        + " is not an external properties file; refusing to generate an unpersisted encryption key. "
+                        + "Set " + keyName + " in the loaded configuration, or supply a writable external properties "
+                        + "file with -Dcarlos_override_properties=/path/to/carlos.properties before restarting. "
+                        + "Restore the original key if encrypted data already exists. "
+                        + "See docs/startup-encryption-key.md for configuration and recovery instructions.");
             }
             // Do not create a replacement/stub if the loaded file has since disappeared.
             // Keep one descriptor open for both reading and writing throughout the lock.

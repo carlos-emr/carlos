@@ -18,6 +18,10 @@ an administration tool — a working, secured EMR from `apt install`.
 
 ## Requirements
 
+For encryption key configuration and recovery, see the
+[startup encryption key guide](startup-encryption-key.md). The installer selects
+an external properties file; preserve its original key when restoring an install.
+
 - Ubuntu 26.04 LTS (the packages target its Tomcat 11 / OpenJDK 25 / MariaDB
   11.8 / nginx stack) on **x86-64 (amd64)**. `carlos-emr` carries the pinned
   Chromium that renders eForms to PDF, which exists only for amd64.
