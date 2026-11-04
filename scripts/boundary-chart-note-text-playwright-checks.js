@@ -53,15 +53,16 @@ async function workflow(s) {
         DELETE FROM casemgmt_note_link WHERE note_id IN (${list});
         DELETE FROM casemgmt_note WHERE note_id IN (${list}) AND demographic_no=${patient}`);
     }
-    sql.execute(`DELETE FROM casemgmt_tmpsave WHERE demographic_no=${patient}; DELETE FROM casemgmt_note_lock WHERE demographic_no=${patient};
-      DELETE FROM eChart WHERE demographicNo=${patient}`);
+    sql.execute('DELETE FROM casemgmt_tmpsave WHERE demographic_no=?', [patient]);
+    sql.execute('DELETE FROM casemgmt_note_lock WHERE demographic_no=?', [patient]);
+    sql.execute('DELETE FROM eChart WHERE demographicNo=?', [patient]);
   };
   s.cleanup(() => {
     wipe();
     h.assert(noteIds().length === 0, 'Owned chart notes were not removed');
-    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=${patient})
-      + (SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=${patient})
-      + (SELECT COUNT(*) FROM eChart WHERE demographicNo=${patient})`) === '0', 'Owned chart support rows were not removed');
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM casemgmt_tmpsave WHERE demographic_no=?)
+      + (SELECT COUNT(*) FROM casemgmt_note_lock WHERE demographic_no=?)
+      + (SELECT COUNT(*) FROM eChart WHERE demographicNo=?)`, [patient, patient, patient]) === '0', 'Owned chart support rows were not removed');
   });
   wipe();
 
@@ -88,7 +89,8 @@ async function workflow(s) {
     while (noteIds().length === 0 && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 300));
     h.assert(noteIds().length === 1, 'Sign & Save did not store exactly one note');
     firstId = noteIds()[0];
-    firstUuid = sql.value(`SELECT uuid FROM casemgmt_note WHERE note_id=${firstId} AND demographic_no=${patient}`);
+    firstUuid = sql.value("SELECT COALESCE(uuid, '') FROM casemgmt_note WHERE note_id=? AND demographic_no=?", [firstId, patient]);
+    h.assert(firstUuid.trim().length > 0, 'The first saved note has no UUID to compare revisions against');
     const stored = b.readStored(sql, 'casemgmt_note', 'note', `demographic_no=${patient} AND note LIKE ${like}`);
     const storedText = Buffer.from(stored.hex, 'hex').toString('utf8');
     firstHex = stored.hex;
@@ -158,12 +160,12 @@ async function workflow(s) {
     h.assert(ids.length === 2, 'The edit did not store exactly one new revision');
     editedId = ids.find(id => id !== firstId);
     const [uuid, hex, signed] = sql.rows(`SELECT uuid, HEX(note), signed FROM casemgmt_note
-      WHERE note_id=${editedId} AND demographic_no=${patient}`)[0];
+      WHERE note_id=? AND demographic_no=?`, [editedId, patient])[0];
     const saved = Buffer.from(hex, 'hex').toString('utf8').replace(/\r\n/g, '\n');
     h.assert(uuid === firstUuid && signed === '1', 'The edit did not retain the signed note identity');
     h.assert(saved.startsWith(edited) && /^\s*(\[Signed on [^\]]*\])?\s*$/.test(saved.slice(edited.length)),
       'Sign & Save changed the edited boundary note text');
-    h.assert(sql.value(`SELECT HEX(note) FROM casemgmt_note WHERE note_id=${firstId} AND demographic_no=${patient}`).toUpperCase()
+    h.assert(sql.value('SELECT HEX(note) FROM casemgmt_note WHERE note_id=? AND demographic_no=?', [firstId, patient]).toUpperCase()
       === firstHex.toUpperCase(), 'Editing changed the original stored revision');
   });
 
