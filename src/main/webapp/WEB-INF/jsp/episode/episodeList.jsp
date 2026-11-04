@@ -118,7 +118,7 @@
             %>
             <tr class="gradeB">
                 <td>
-                    <a href="<%=request.getContextPath()%>/Episode?method=edit&episode.id=<%=episode.getId()%>"><%=episode.getDescription() %>
+                    <a href="<%=request.getContextPath()%>/Episode?method=edit&episode.id=<%=episode.getId()%>"><%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtml(episode.getDescription())%>
                     </a>
                 </td>
                 <td style="text-align:center"><%=startDateStr %>

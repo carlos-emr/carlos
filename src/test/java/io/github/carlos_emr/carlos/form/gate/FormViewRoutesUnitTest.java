@@ -24,6 +24,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 class FormViewRoutesUnitTest {
 
     @Test
+    void shouldResolveRegisteredLegacySetupFormWithoutChangingItsPatientQuery() {
+        assertThat(FormViewRoutes.resolveActionPath("../form/SetupForm.do?formName=VTForm&demographic_no="))
+                .isEqualTo("/form/SetupForm?formName=VTForm&demographic_no=");
+        assertThat(FormViewRoutes.resolveActionPath("/form/SetupForm?formName=VTForm&demographic_no=101"))
+                .isEqualTo("/form/SetupForm?formName=VTForm&demographic_no=101");
+        assertThat(FormViewRoutes.resolveActionPath("/form/ArbitraryAction.do?demographic_no=101")).isNull();
+    }
+
+    @Test
     void shouldResolveActionRoutes_forEncounterFormDbValues() {
         // Regression: these strings are stored in the encounterForm.form_value column
         // (seeded in the Flyway baseline, database/mysql/migration/**).
@@ -60,6 +69,15 @@ class FormViewRoutesUnitTest {
         assertThat(FormViewRoutes.resolveActionPath("../form/forwardshortcutname.jsp?formname=Rourke"))
                 .isEqualTo("/form/forwardshortcutname?formname=Rourke");
         assertThat(FormViewRoutes.resolveActionPath("/form/pharmaForms/formBPMH.jsp"))
+                .isEqualTo("/formBPMH");
+    }
+
+    @Test
+    void shouldResolveBcSeededBpmhLink_toExtensionlessRoute() {
+        // The BC seed's encounterForm row for BPMH (#4732).
+        assertThat(FormViewRoutes.resolveActionPath("../formBPMH.do?demographic_no="))
+                .isEqualTo("/formBPMH?demographic_no=");
+        assertThat(FormViewRoutes.resolveActionPath("/formBPMH.do"))
                 .isEqualTo("/formBPMH");
     }
 

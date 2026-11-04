@@ -1,0 +1,11 @@
+WenQuanYi Micro Hei 0.2.0-beta (wqy-microhei.ttc), unmodified.
+Source: Ubuntu fonts-wqy-microhei 0.2.0-beta-4 (upstream https://sourceforge.net/projects/wqy/).
+Package SHA-256: 608b93d1acca135f422dca8efed4960a381de0142fd6b81f8a33aa37180e59f1
+Font SHA-256: 2420e8078af796b19a3f6ef13de527a1a91c1e7171eea115926c614ced1009b3
+Copyright (C) 2008-2009 The WenQuanYi Project Board of Trustees, Qianqian Fang and mozbug;
+based on the Droid fonts, Copyright (C) 2006-2008 Google Corporation and Steve Matteson,
+Ascender Corp.; some CJK punctuation from Ume-Font, Copyright (C) 2003-2004 Electronic Font
+Open Laboratory and 1990-2003 Wada Laboratory, the University of Tokyo.
+License: Apache License 2.0 (LICENSE.txt), or GPL-3+ with the font exception, at your option.
+PdfFonts falls back to this face for Chinese, Japanese and Korean characters, which the
+bundled DejaVu faces do not contain. Only the glyphs a PDF uses are embedded in it.

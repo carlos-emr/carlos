@@ -32,10 +32,22 @@ test('loading OHIP simulation initializes its own form without hijacking shell n
 });
 
 
+test('the encounter header offers exactly one link to the clinical calculators', () => {
+  // phc007 reported two calculator links in the chart header: this page carried a second
+  // anchor to the same route, labelled identically, differing only in passing sex/age in the
+  // query string. One entry point, and it is the demo= form (see the URL assertions below).
+  const source = fs.readFileSync(path.join(__dirname,
+    '../src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp'), 'utf8');
+  const withoutComments = source.replace(/<%--[\s\S]*?--%>/g, '');
+  const calculatorAnchors = withoutComments.match(/<a\b[^>]*\/encounter\/ViewCalculators/g) || [];
+  assert.equal(calculatorAnchors.length, 1,
+    `Expected one calculators anchor in the encounter header, found ${calculatorAnchors.length}`);
+});
+
 test('calculator header navigation keeps patient attributes out of both popup and fallback URLs', () => {
   const source = fs.readFileSync(path.join(__dirname,
     '../src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp'), 'utf8');
-  const anchor = source.match(/<a href="([^"]*\/encounter\/ViewCalculators[^"]*)"\s+onclick="([^"]*)"/);
+  const anchor = source.match(/<a href="([^"]*\/encounter\/ViewCalculators[^"]*)"[\s\S]*?onclick="([^"]*)"/);
   assert.ok(anchor, 'The calculator header link was not found');
   const fixture = {ctx: '/carlos', popupDemographicNo: '12345', popupPatientSex: 'F', popupPatientAge: '55'};
   const render = value => value.replace(/\$\{carlos:for\w+\((\w+)\)\}/g, (_, name) => {
@@ -63,9 +75,14 @@ test('calculator header navigation keeps patient attributes out of both popup an
 test('encounter copy controls use native non-submitting buttons for keyboard activation', () => {
   const source = fs.readFileSync(path.join(__dirname,
     '../src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp'), 'utf8');
-  for (const id of ['patient-hin', 'patient-phone', 'patient-cell-phone', 'patient-email']) {
+  // Phones share one copy button whose id comes from the phone's kind (patient-phone, patient-cell-phone,
+  // patient-work-phone); unless the provider turned on click-to-dial links, that button is what renders.
+  const phoneIds = [...source.matchAll(/<c:set var="phoneId" value="([^"]+)"\/>/g)].map((match) => match[1]);
+  assert.deepEqual(phoneIds.sort(), ['patient-cell-phone', 'patient-phone', 'patient-work-phone']);
+  const ids = { 'patient-hin': 'patient-hin', 'patient-email': 'patient-email', phone: '\\$\\{carlos:forHtmlAttribute\\(phoneId\\)\\}' };
+  for (const [label, id] of Object.entries(ids)) {
     const tag = source.match(new RegExp('<button[^>]*id="' + id + '"[^>]*>'));
-    assert.ok(tag, `Missing native copy button: ${id}`);
+    assert.ok(tag, `Missing native copy button: ${label}`);
     assert.match(tag[0], /type="button"/, 'Copy must never submit the surrounding form');
     assert.match(tag[0], /onclick="copyToClip\(/, 'Native keyboard activation must invoke the copy handler');
     assert.doesNotMatch(tag[0], /onkey(?:down|up)=/, 'Use native Enter/Space behavior without duplicate activation');

@@ -90,6 +90,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
     private JavaMailSender javaMailSender;
     private LoggedInInfo loggedInInfo;
     private EmailManager emailManager;
+    private io.github.carlos_emr.carlos.email.core.EmailDocumentManifestComposer documentManifestComposer;
 
     @BeforeEach
     void setUp() {
@@ -114,6 +115,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
                 outboundEmailArchiveService);
         injectDependency(emailManager, "oscarLogDao", mock(io.github.carlos_emr.carlos.commn.dao.OscarLogDao.class));
         when(emailLogDao.transitionEmailStatus(any(), any(), any(), any(), any())).thenReturn(1);
+        injectDependency(emailManager, "clinicFooterService", io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         injectDependency(emailManager, "emailConfigDao", emailConfigDao);
         injectDependency(emailManager, "emailLogDao", emailLogDao);
         injectDependency(emailManager, "caseManagementManager", mock(CaseManagementManager.class));
@@ -122,6 +124,11 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
         injectDependency(emailManager, "programManager", mock(ProgramManager.class));
         injectDependency(emailManager, "providerManager", mockProviderManager());
         injectDependency(emailManager, "securityInfoManager", securityInfoManager);
+        // Only the tests that turn PDF signing on reach it; their PDFs carry no manifest.
+        documentManifestComposer = mock(io.github.carlos_emr.carlos.email.core.EmailDocumentManifestComposer.class);
+        when(documentManifestComposer.forSend(any(), any()))
+                .thenReturn(io.github.carlos_emr.carlos.email.core.EmailDocumentManifestComposer.AttachmentManifests.NONE);
+        injectDependency(emailManager, "documentManifestComposer", documentManifestComposer);
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -177,6 +184,107 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM archive_capture", Integer.class)).isEqualTo(1);
         } finally {
             jdbc.execute("SHUTDOWN");
+        }
+    }
+
+    @Test
+    void shouldFreezeClinicAcrossPreparedArchiveGateAndActualMimeTransport() throws Exception {
+        var clinic = mock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class);
+        var oldLogo = new io.github.carlos_emr.carlos.email.core.EmailInlineImage(
+                "old-clinic@carlos", "image/png", new byte[]{1, 2, 3});
+        var original = new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("<b>Old Clinic</b>", oldLogo);
+        var current = new java.util.concurrent.atomic.AtomicReference<>(original);
+        when(clinic.snapshot()).thenAnswer(invocation -> current.get());
+        injectDependency(emailManager, "clinicFooterService", clinic);
+        when(emailConfigDao.findActiveEmailConfigById(12)).thenReturn(smtpEmailConfig());
+        doAnswer(invocation -> { injectDependency(invocation.getArgument(0), "id", 88);
+            return null;
+        })
+                .when(emailLogDao).persist(any(EmailLog.class));
+        var capturedMime = new java.util.concurrent.atomic.AtomicReference<byte[]>();
+        var mail = new org.springframework.mail.javamail.JavaMailSenderImpl() {
+            @Override
+            public void send(jakarta.mail.internet.MimeMessage message) {
+                try {
+                    var out = new java.io.ByteArrayOutputStream();
+                    // Match the real SMTP transport's newline framing in this sender double.
+                    message.writeTo(new org.eclipse.angus.mail.util.CRLFOutputStream(out));
+                    capturedMime.set(out.toByteArray());
+                } catch (Exception failure) { throw new AssertionError(failure); }
+            }
+        };
+        var factory = new io.github.carlos_emr.carlos.email.core.EmailSenderFactory() {
+            @Override
+            public EmailSender create(LoggedInInfo user, EmailConfig config, EmailData data) {
+                var transport = new SMTPEmailSender(user, config, data.getRecipients(), data.getSubject(),
+                        data.getTransmittedBody(), List.of()) {
+                    @Override
+                    protected JavaMailSender createTLSMailSender(EmailConfig ignored) { return mail; }
+                };
+                transport.setFormattedVersion(data.getTransmittedHtml(), data.getFooterLogo());
+                return new EmailSender(user, config, data) {
+                    @Override
+                    public OutboundEmailArchiveDto prepareOutboundArchive(EmailLog log)
+                            throws EmailSendingException {
+                        var dto = new OutboundEmailArchiveDto();
+                        dto.setEmailLog(log);
+                        dto.setArtifactBytes(transport.prepareArtifactBytes());
+                        dto.setArtifactType(transport.getArchiveArtifactType());
+                        dto.setFileName(transport.getArchiveFileName(log));
+                        dto.setContentType(transport.getArchiveContentType());
+                        dto.setAttachments(List.of());
+                        return dto;
+                    }
+                    @Override public void sendPrepared() throws EmailSendingException { transport.sendPrepared(); }
+                    @Override public void discardPrepared() { transport.discardPrepared(); }
+                };
+            }
+        };
+        injectDependency(emailManager, "emailSenderFactory", factory);
+        EmailData data = emailData();
+        data.setFooter("<i>Personal</i>");
+        data.setClinicFooterSnapshot(original);
+        var result = emailManager.sendEmailWithResult(loggedInInfo, data, log -> {
+            var archive = ArgumentCaptor.forClass(OutboundEmailArchiveDto.class);
+            try {
+                verify(outboundEmailArchiveService).archive(eq(loggedInInfo), archive.capture());
+            } catch (IOException impossible) {
+                throw new AssertionError(impossible);
+            }
+            assertThat(archive.getValue().getArtifactBytes()).isNotEmpty();
+            assertThat(capturedMime.get()).isNull();
+            current.set(new io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot("New Clinic", null));
+            oldLogo.bytes()[0] = 99;
+        });
+        assertThat(result.isTransportAccepted()).isTrue();
+        assertThat(result.getEmailLog().getFooter()).contains("Personal", "Old Clinic").doesNotContain("New Clinic");
+        var archive = ArgumentCaptor.forClass(OutboundEmailArchiveDto.class);
+        verify(outboundEmailArchiveService).archive(eq(loggedInInfo), archive.capture());
+        assertThat(capturedMime.get()).isEqualTo(archive.getValue().getArtifactBytes());
+        var mime = new jakarta.mail.internet.MimeMessage(jakarta.mail.Session.getInstance(new java.util.Properties()),
+                new java.io.ByteArrayInputStream(capturedMime.get()));
+        var parts = new ArrayList<String>();
+        var logos = new ArrayList<byte[]>();
+        collectMimeParts(mime, parts, logos);
+        assertThat(parts).hasSize(2).allSatisfy(text -> {
+            assertThat(text).contains("Personal", "Old Clinic").doesNotContain("New Clinic");
+            assertThat(text.indexOf("Personal")).isLessThan(text.indexOf("Old Clinic"));
+        });
+        assertThat(logos).hasSize(1);
+        assertThat(logos.get(0)).containsExactly((byte) 1, (byte) 2, (byte) 3);
+        verify(clinic, org.mockito.Mockito.times(1)).snapshot();
+    }
+
+    private static void collectMimeParts(jakarta.mail.Part part, List<String> text, List<byte[]> logos)
+            throws Exception {
+        if (part.isMimeType("multipart/*")) {
+            var multi = (jakarta.mail.Multipart) part.getContent();
+            for (int i = 0; i < multi.getCount(); i++) collectMimeParts(multi.getBodyPart(i), text, logos);
+        } else if (part.isMimeType("text/plain") || part.isMimeType("text/html")) {
+            text.add((String) part.getContent());
+        } else if (part.isMimeType("image/png")) {
+            assertThat(part.getHeader("Content-ID")).containsExactly("<old-clinic@carlos>");
+            logos.add(part.getInputStream().readAllBytes());
         }
     }
 
@@ -511,7 +619,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
                             .thenReturn("prepared message".getBytes(StandardCharsets.UTF_8));
                 })) {
             config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
-            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any()))
+            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any(), any()))
                     .thenReturn(signed);
 
             EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailData);
@@ -522,7 +630,9 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
             assertThat(pathSeenBySender).hasSize(1);
             assertThat(pathSeenBySender.get(0)).isNotEqualTo(source.toString());
             signer.verify(() -> PDFSigningUtil.signPDF(
-                    eq(source.toRealPath()), any(PDFSigningConfig.class), any()));
+                    eq(source.toRealPath()), any(PDFSigningConfig.class), any(), any()));
+            // The send hands its session and email log to the manifest composer.
+            verify(documentManifestComposer).forSend(eq(loggedInInfo), any(EmailLog.class));
             assertThat(source).exists();
         } finally {
             Files.deleteIfExists(source);
@@ -545,7 +655,7 @@ class EmailManagerOutboundArchiveUnitTest extends CarlosUnitTestBase {
                 MockedStatic<PDFSigningUtil> signer = mockStatic(PDFSigningUtil.class);
                 MockedConstruction<SMTPEmailSender> smtpSenders = mockSmtpSenders((smtpSender, context) -> { })) {
             config.when(PDFSigningConfig::fromCarlosProperties).thenReturn(PdfSigningTestSupport.stubbedEnabledConfig());
-            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any()))
+            signer.when(() -> PDFSigningUtil.signPDF(any(Path.class), any(PDFSigningConfig.class), any(), any()))
                     .thenThrow(new IOException("Failed to load PDF signing key material"));
 
             EmailLog emailLog = emailManager.sendEmail(loggedInInfo, emailDataWithAttachment(source));

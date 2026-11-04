@@ -36,9 +36,11 @@ import io.github.carlos_emr.carlos.commn.dao.DocumentDao.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
+import io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
@@ -53,6 +55,17 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
     private static Logger logger = MiscUtils.getLogger();
 
     private static final String cmd = "docs";
+
+    private final EchartDisplayPreferenceResolver echartDisplayPreferenceResolver;
+
+    /** Struts-created router: resolves collaborators from the Spring context. */
+    public EctDisplayDocs2Action() {
+        this(SpringUtils.getBean(EchartDisplayPreferenceResolver.class));
+    }
+
+    EctDisplayDocs2Action(EchartDisplayPreferenceResolver echartDisplayPreferenceResolver) {
+        this.echartDisplayPreferenceResolver = echartDisplayPreferenceResolver;
+    }
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
 
@@ -98,6 +111,12 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
             Dao.setRightHeadingID(cmd); // no menu so set div id to unique id for this action
 
             ArrayList<EDoc> docList = EDocUtil.listDocs(loggedInInfo, "demographic", bean.demographicNo, null, EDocUtil.PRIVATE, EDocSort.OBSERVATIONDATE, "active");
+            // "File Documents in Folders by Document Type" (the provider's eChart preferences):
+            // LeftNavBarDisplay.jsp then files each row under its type instead of listing by date.
+            boolean fileByType = echartDisplayPreferenceResolver
+                    .resolve(loggedInInfo.getLoggedInProviderNo()).groupDocumentsByType();
+            Dao.setFiledInFolders(fileByType);
+            String untypedFolder = fileByType ? getText("encounter.LeftNavBar.docs.otherFolder") : "";
             String dbFormat = "yyyy-MM-dd";
             String serviceDateStr = "";
             String key;
@@ -176,12 +195,24 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
                 if ("true".equals(curDoc.getAbnormal())) {
                     item.setColour("red");
                 }
+                if (fileByType) {
+                    item.setFolder(folderFor(curDoc.getType(), untypedFolder));
+                }
 
                 Dao.addItem(item);
 
             }
             return true;
         }
+    }
+
+    /**
+     * The folder a document is filed under: its document type as entered, or the shared folder for
+     * documents with no type. Package-private for unit tests.
+     */
+    static String folderFor(String documentType, String untypedFolder) {
+        String type = org.apache.commons.lang3.StringUtils.trimToEmpty(documentType);
+        return type.isEmpty() ? untypedFolder : type;
     }
 
     private static final void sortByDate(List<EDoc> list) {

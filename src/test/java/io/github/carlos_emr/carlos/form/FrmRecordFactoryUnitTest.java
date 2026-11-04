@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -60,7 +61,7 @@ class FrmRecordFactoryUnitTest {
         void shouldContainAllExpectedFormClassSuffixes() {
             assertThat(FrmRecordFactory.ALLOWED_FORM_CLASSES)
                     .contains(
-                            "2MinWalk", "AdfV2", "Annual", "AnnualV2",
+                            "2MinWalk", "AdfV2", "Alpha", "Annual", "AnnualV2",
                             "BCAR", "BCAR2007", "BCAR2012", "BCAR2020",
                             "BCBirthSumMo2008", "BCBrithSumMo", "BCClientChartChecklist",
                             "BCHP", "BCINR", "BCNewBorn", "BCNewBorn2008",
@@ -79,6 +80,28 @@ class FrmRecordFactoryUnitTest {
                             "SelfAdministered", "SelfAssessment", "SelfEfficacy",
                             "SelfManagement", "TreatmentPref", "chf"
                     );
+        }
+
+        @Test
+        @DisplayName("should name a record class that exists for every allowed form")
+        void shouldNameExistingRecordClass_forEveryAllowedForm() {
+            // ALPHA was offered by the Forms menu with no FrmAlphaRecord behind it, so its page threw for
+            // every patient (issue #4590). An allowed name with no class is the same defect.
+            for (String allowed : FrmRecordFactory.ALLOWED_FORM_CLASSES) {
+                String className = "io.github.carlos_emr.carlos.form.Frm" + allowed + "Record";
+                assertThatCode(() -> Class.forName(className, false, getClass().getClassLoader()))
+                        .as(className)
+                        .doesNotThrowAnyException();
+            }
+        }
+
+        @Test
+        @DisplayName("should resolve ALPHA to its form record")
+        void shouldResolveAlphaToFormRecord_forAlphaFormClass() throws ClassNotFoundException {
+            // Checked by class rather than through factory(): building a record needs the Spring context.
+            assertThat(FrmRecordFactory.ALLOWED_FORM_CLASSES).contains("Alpha");
+            assertThat(FrmRecord.class.isAssignableFrom(
+                    Class.forName("io.github.carlos_emr.carlos.form.FrmAlphaRecord"))).isTrue();
         }
 
         @Test

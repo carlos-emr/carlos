@@ -206,15 +206,24 @@
 </form>
 <%
     if (request.getParameter("reportBy") != null) {
-        int startYear = Integer.parseInt(request.getParameter("startYear"));
-        int startMonth = Integer.parseInt(request.getParameter("startMonth"));
-        int endYear = Integer.parseInt(request.getParameter("endYear"));
-        int endMonth = Integer.parseInt(request.getParameter("endMonth"));
-
-        GregorianCalendar startDate = new GregorianCalendar(startYear, startMonth, 1);
-        GregorianCalendar endDate = new GregorianCalendar(endYear, endMonth, 1);
-        GregorianCalendar actualEndDate = (GregorianCalendar) endDate.clone();
-        actualEndDate.add(GregorianCalendar.MONTH, 1); // this is to set it inclusive of the 30/31 days of the month
+        // The month lists number months 1 to 12; ReportPeriod converts them (issue #4846). Only a
+        // crafted request has a missing, non-numeric or out-of-range value (NumberFormatException
+        // is an IllegalArgumentException); it gets the message below instead of an error page.
+        MisReportUIBean.ReportPeriod period = null;
+        try {
+            period = MisReportUIBean.ReportPeriod.ofMonths(
+                    Integer.parseInt(request.getParameter("startYear")), Integer.parseInt(request.getParameter("startMonth")),
+                    Integer.parseInt(request.getParameter("endYear")), Integer.parseInt(request.getParameter("endMonth")));
+        } catch (IllegalArgumentException e) {
+            period = null;
+        }
+        if (period == null) {
+%>
+<div class="alert alert-warning col-md-6"><fmt:message key="oscarReport.misReport.msgInvalidPeriod"/></div>
+<%
+        } else {
+        GregorianCalendar startDate = period.start();
+        GregorianCalendar actualEndDate = period.endExclusive(); // the first day of the month after the end month
 
         MisReportUIBean misReportUIBean = null;
         String reportBy = request.getParameter("reportBy");
@@ -236,6 +245,10 @@
         }
 %>
 
+<p id="misReportPeriod"><fmt:message key="oscarReport.misReport.msgDatesCovered">
+    <fmt:param><carlos:encode value='<%= period.firstDay() %>'/></fmt:param>
+    <fmt:param><carlos:encode value='<%= period.lastDay() %>'/></fmt:param>
+</fmt:message></p>
 <table class="table table-bordered table-striped table-sm table-hover">
     <thead>
     <tr>
@@ -274,6 +287,7 @@
 </table>
 
 <%
+        }
     }
 %>
 

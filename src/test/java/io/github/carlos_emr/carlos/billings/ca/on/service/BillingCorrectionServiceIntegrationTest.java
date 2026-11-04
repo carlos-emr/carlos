@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
@@ -35,6 +36,8 @@ import io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONPayment;
+import io.github.carlos_emr.carlos.commn.model.BillingONItem;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -46,6 +49,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -68,7 +73,7 @@ import static org.mockito.Mockito.when;
  * BillingCorrectionService" that was carved out when the round originally
  * shipped.</p>
  *
- * <p>The service itself isn't a Spring bean — it's instantiated directly
+ * <p>The production service is transactional; this test instantiates it directly
  * with autowired DAO collaborators — but the surrounding test context
  * provides JPA + standalone Hibernate session + transactional rollback,
  * which is what makes the "transactional" qualifier in the original plan
@@ -338,6 +343,108 @@ public class BillingCorrectionServiceIntegrationTest extends CarlosTestBase {
 
         BillingONCHeader1 reloaded = bCh1Dao.find(persistedHeader.getId());
         assertThat(reloaded.getPaid()).isEqualByComparingTo("25.00");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"HCP", "RMB", "WCB"})
+    void shouldPersistSettlementAndPaidBalance_whenMinistryInvoiceIsSettled(String payProgram) {
+        persistedHeader.setPayProgram(payProgram);
+        persistedHeader.setPaid(new BigDecimal("12.50"));
+        prepareCorrection(payProgram);
+        Date before = new Date();
+
+        assertThat(service.updateInvoice(loggedInInfo, request)).isEqualTo("submitClose");
+        entityManager.flush();
+        entityManager.clear();
+
+        BillingONCHeader1 reloaded = bCh1Dao.find(persistedHeader.getId());
+        List<BillingONPayment> payments = bPaymentDao.listPaymentsByBillingNo(reloaded.getId());
+        assertThat(payments).hasSize(1);
+        BillingONPayment payment = payments.getFirst();
+        assertThat(payment.getBillingNo()).isEqualTo(reloaded.getId());
+        assertThat(payment.getBillingONCheader1().getId()).isEqualTo(reloaded.getId());
+        assertThat(payment.getTotal_payment()).isEqualByComparingTo("37.50");
+        assertThat(payment.getCreator()).isEqualTo("999998");
+        assertThat(payment.getPaymentTypeId()).isZero();
+        assertThat(payment.getPaymentDate()).isAfterOrEqualTo(before).isBeforeOrEqualTo(new Date());
+        assertThat(reloaded.getPaid()).isEqualByComparingTo("50.00");
+        assertThat(reloaded.getStatus()).isEqualTo("S");
+        assertThat(billExtDao.getAccountVal(reloaded.getId(), BillingONExtDao.KEY_PAYMENT))
+                .isEqualByComparingTo("50.00");
+    }
+
+    @Test
+    void shouldNotDuplicateSettlement_whenSavedAgainOrReopenedAndResettled() {
+        prepareCorrection("HCP");
+        service.updateInvoice(loggedInInfo, request);
+        service.updateInvoice(loggedInInfo, request);
+        // Reopening an already paid invoice must not collect its amount again.
+        request.setParameter("status", "O");
+        service.updateInvoice(loggedInInfo, request);
+        request.setParameter("status", "S");
+        service.updateInvoice(loggedInInfo, request);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(bPaymentDao.listPaymentsByBillingNo(persistedHeader.getId())).hasSize(1);
+        BillingONCHeader1 reloaded = bCh1Dao.find(persistedHeader.getId());
+        assertThat(reloaded.getPaid()).isEqualByComparingTo("50.00");
+        assertThat(reloaded.getStatus()).isEqualTo("S");
+    }
+
+    @Test
+    void shouldUseCorrectedItemTotal_whenSettlingDuringFeeEdit() {
+        BillingONItem item = new BillingONItem();
+        item.setCh1Id(persistedHeader.getId());
+        item.setServiceCode("A007A");
+        item.setServiceCount("1");
+        item.setFee("50.00");
+        item.setDx("250");
+        item.setServiceDate(java.sql.Date.valueOf("2026-03-04"));
+        item.setStatus("O");
+        persistedHeader.addBillingItem(item);
+        entityManager.flush();
+        entityManager.clear();
+        prepareCorrection("HCP");
+        request.setParameter("xml_diagnostic_detail", "250");
+        request.setParameter("servicecode0", "A007A");
+        request.setParameter("billingunit0", "1");
+        request.setParameter("billingamount0", "75.00");
+        request.setParameter("itemStatus0", "S");
+
+        service.updateInvoice(loggedInInfo, request);
+        entityManager.flush();
+        entityManager.clear();
+
+        BillingONCHeader1 reloaded = bCh1Dao.find(persistedHeader.getId());
+        assertThat(reloaded.getTotal()).isEqualByComparingTo("75.00");
+        assertThat(reloaded.getPaid()).isEqualByComparingTo("75.00");
+        assertThat(bPaymentDao.listPaymentsByBillingNo(reloaded.getId())).singleElement()
+                .satisfies(payment -> assertThat(payment.getTotal_payment()).isEqualByComparingTo("75.00"));
+    }
+
+    private void prepareCorrection(String payProgram) {
+        Provider provider = new Provider();
+        provider.setProviderNo("999998");
+        provider.setOhipNo("123456");
+        provider.setRmaNo("0001");
+        when(providerDao.getProvider("999998")).thenReturn(provider);
+        request.setPreferredLocales(List.of(Locale.CANADA));
+        request.setParameter("xml_billing_no", String.valueOf(persistedHeader.getId()));
+        request.setParameter("status", "S");
+        request.setParameter("oldStatus", "O");
+        request.setParameter("payProgram", payProgram);
+        request.setParameter("xml_appointment_date", "2026-03-04");
+        request.setParameter("xml_vdate", "");
+        request.setParameter("rdohip", "");
+        request.setParameter("visittype", "00");
+        request.setParameter("clinic_ref_code", "0001");
+        request.setParameter("provider_no", "999998");
+        request.setParameter("comment", "");
+        request.setParameter("site", "");
+        request.setParameter("hc_type", "ON");
+        request.setParameter("xml_slicode", "P1");
+        request.setParameter("submit", "Save");
     }
 
     private void assertNoPaymentRowsForHeader() {

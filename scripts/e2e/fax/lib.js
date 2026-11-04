@@ -25,7 +25,11 @@ function validateBaseUrl(raw) {
   }
   const host = u.hostname.toLowerCase();
   const local = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'carlos', 'carlos-ubuntu26']);
-  const privateIp = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIp = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!local.has(host) && !privateIp && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional target`);
   }
@@ -130,7 +134,7 @@ async function csrfToken(p) {
 // POST a form-encoded request from WITHIN the page context so it carries the
 // session cookies and same-origin credentials, with the scraped CSRF token
 // appended. url must be absolute (c.base + path) — a relative path would drop
-// the /carlos context. Returns { status, url }.
+// the /carlos context. Returns { status, url, contentType, body }.
 async function postForm(p, url, params) {
   const token = await csrfToken(p);
   // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection -- url is the validated base + a constant path and params are test-controlled; no untrusted input reaches evaluate
@@ -142,7 +146,8 @@ async function postForm(p, url, params) {
       body,
       credentials: 'same-origin',
     });
-    return { status: res.status, url: res.url };
+    return { status: res.status, url: res.url,
+      contentType: res.headers.get('content-type') || '', body: await res.text() };
   }, { url, params, token });
 }
 

@@ -34,10 +34,15 @@
 	<% 
  String dateBegin = request.getParameter("xml_vdate");
    String dateEnd = request.getParameter("xml_appointment_date");
-   if (dateEnd.compareTo("") == 0) dateEnd = MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay);
-   if (dateBegin.compareTo("") == 0) dateBegin="1950-01-01"; // set to any early time to start search from beginning
+   if (dateEnd == null || dateEnd.isEmpty()) dateEnd = MyDateFormat.getMysqlStandardDate(curYear, curMonth, curDay);
+   if (dateBegin == null || dateBegin.isEmpty()) dateBegin="1950-01-01"; // set to any early time to start search from beginning
 
-   	List<Appointment> bs = appointmentDao.search_unbill_history_daterange(request.getParameter("providerview"),ConversionUtils.fromDateString(dateBegin),ConversionUtils.fromDateString(dateEnd));
+   	// No-Show / Cancelled visits are excluded unless opted in via the checkboxes
+   	// on billingReportControl.jsp (issue #3960; open-osp/Open-O PR #134/#186).
+    List<Appointment> bs = appointmentDao.findUnbilledAppointments(request.getParameter("providerview"),
+   			ConversionUtils.fromDateString(dateBegin), ConversionUtils.fromDateString(dateEnd),
+   			UnbilledReportStatusParameters.includeNoShow(request),
+   			UnbilledReportStatusParameters.includeCancelled(request));
 
   boolean bodd=false;
   nItems=0;
@@ -66,31 +71,25 @@
 		apptNo = a.getId().toString();
 		demoNo = String.valueOf(a.getDemographicNo());
 		demoName = a.getName();
-		String encodedDemoNameForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
-				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(demoName));
 		userno=a.getProviderNo();
 		apptDate = ConversionUtils.toDateString(a.getAppointmentDate());
-		apptTime =  ConversionUtils.toDateString(a.getStartTime());
+		apptTime =  ConversionUtils.toTimeString(a.getStartTime());
 		reason = a.getReason();
      	apptStatus = a.getStatus();
-		String encodedBillRegionForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
-				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(oscarVariables.getProperty("billregion")));
-		String encodedBillFormForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
-				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(oscarVariables.getProperty("default_view")));
-		String encodedAppointmentNoForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
-				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptNo));
-		String encodedStatusForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
-				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptStatus));
-		String encodedDemographicNoForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
-				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(demoNo));
-		String encodedUserNoForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
-				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(userno));
-		String encodedProviderViewForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
-				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(providerview));
-		String encodedAppointmentDateForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
-				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptDate));
-		String encodedStartTimeForBillingUrl = io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(
-				io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptTime == null ? "00:00:00" : apptTime));
+        // Encode each query value for the URL, then encode the complete URL once more for the
+        // onClick JavaScript attribute (SafeEncode.forJavaScriptAttribute below). billRegion is
+        // fixed to BC because this fragment only renders on the BC report.
+        String billingUrl = request.getContextPath() + "/billing?billRegion=BC&billForm="
+            + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(oscarVariables.getProperty("default_view", ""))
+            + "&hotclick=&appointment_no=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptNo)
+            + "&demographic_name=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(demoName)
+            + "&status=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptStatus)
+            + "&demographic_no=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(demoNo)
+            + "&user_no=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(userno)
+            + "&apptProvider_no=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(providerview)
+            + "&appointment_date=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptDate)
+            + "&start_time=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptTime == null ? "00:00:00" : apptTime)
+            + "&bNewForm=1";
 %>
 	<tr bgcolor="<%=bodd?"#EEEEFF":"white"%>">
 		<TD align="center" width="20%"><b><font size="2"
@@ -103,7 +102,7 @@
 			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= reason %>' context="html"/> </font></b></TD>
 		<TD align="center" width="10%"><b> <font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
-			onClick='popupPage(700,1000, "<%= request.getContextPath() %>/billing?billRegion=<%= encodedBillRegionForBillingUrl %>&billForm=<%= encodedBillFormForBillingUrl %>&hotclick=&appointment_no=<%= encodedAppointmentNoForBillingUrl %>&demographic_name=<%= encodedDemoNameForBillingUrl %>&status=<%= encodedStatusForBillingUrl %>&demographic_no=<%= encodedDemographicNoForBillingUrl %>&user_no=<%= encodedUserNoForBillingUrl %>&apptProvider_no=<%= encodedProviderViewForBillingUrl %>&appointment_date=<%= encodedAppointmentDateForBillingUrl %>&start_time=<%= encodedStartTimeForBillingUrl %>&bNewForm=1")'
+			onClick='popupPage(700,1000, "<%= io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(billingUrl) %>"); return false;'
 			title="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>">Bill |$|</a></font></b></TD>
 	</tr>
 	<%  rowCount = rowCount + 1;

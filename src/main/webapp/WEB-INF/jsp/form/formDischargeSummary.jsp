@@ -115,7 +115,7 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title><fmt:message key="form.dischargeSummary.title"/></title>
-        <link rel="stylesheet" type="text/css" href="arStyle.css">
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/arStyle.css">
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
     </head>
 
@@ -316,19 +316,9 @@
         }
 
         function checkAllDates() {
-            var b = true;
-            if (valDate(document.forms[0].dischargeDate) == false) {
-                b = false;
-            }
-
-            if (valDate(document.forms[0].pg1_eddByDate) == false) {
-                b = false;
-            } else if (valDate(document.forms[0].pg1_eddByUs) == false) {
-                b = false;
-            }
-
-            return b;
+            return valDate(document.forms[0].dischargeDate);
         }
+
     </script>
 
     <body bgproperties="fixed" topmargin="0" leftmargin="1" rightmargin="1">

@@ -119,6 +119,7 @@ public class Admission extends AbstractModel<Long> implements Serializable {
     private String admissionStatus;
 
     @Column(name = "automatic_discharge")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyFalseFlagConverter.class)
     private boolean automaticDischarge;
 
     @Column(name = "client_id")
@@ -157,6 +158,7 @@ public class Admission extends AbstractModel<Long> implements Serializable {
     private String tempAdmitDischarge;
 
     @Column(name = "temporary_admission_flag")
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyFalseFlagConverter.class)
     private boolean temporaryAdmissionFlag;
 
     @Temporal(TemporalType.TIMESTAMP)

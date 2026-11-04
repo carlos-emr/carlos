@@ -25,7 +25,9 @@ import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
+import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponseWrapper;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
@@ -57,6 +59,10 @@ import static org.mockito.Mockito.when;
 @Tag("security")
 @DisplayName("CsrfGuardScriptInjectionFilter")
 class CsrfGuardScriptInjectionFilterUnitTest {
+
+    private static final String PROVIDER_PAGE = "<html><head><title>Provider</title></head><body></body></html>";
+    private static final String PROVIDER_PAGE_WITH_SCRIPT = "<html><head><title>Provider</title>"
+            + "<script src=\"/carlos/csrfguard\"></script>\n</head><body></body></html>";
 
     private CsrfGuardScriptInjectionFilter filter;
 
@@ -204,8 +210,7 @@ class CsrfGuardScriptInjectionFilterUnitTest {
 
         FilterChain chain = (servletRequest, servletResponse) -> {
             servletResponse.setContentType("text/html;charset=UTF-8");
-            servletResponse.getWriter()
-                    .write("<html><head><title>Provider</title></head><body></body></html>");
+            servletResponse.getWriter().write(PROVIDER_PAGE);
         };
 
         try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
@@ -426,9 +431,46 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         assertThat(response.getContentAsString()).isEqualTo(body);
     }
 
+    // These tests use a response double that accepts writes after commit. A suspended Tomcat
+    // response discards them, so they prove what the filter attempts and logs, not what reaches
+    // the browser. The Playwright login check against Tomcat covers only the normal, uncommitted
+    // path; neither committed branch has been exercised on Tomcat.
     @Test
-    @DisplayName("should replay captured HTML when reset buffer fails after commit")
-    void shouldReplayCapturedHtml_whenResetBufferFailsAfterCommit() throws Exception {
+    @DisplayName("should replay captured HTML without reset when response is committed")
+    void shouldReplayCapturedHtml_withoutResetWhenResponseIsCommitted() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        request.setRequestURI("/carlos/provider/providercontrol;jsessionid=secret-session");
+        CommittedResetTrackingResponse response = new CommittedResetTrackingResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write(PROVIDER_PAGE);
+        };
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+            assertThat(response.getContentAsString()).isEqualTo(PROVIDER_PAGE_WITH_SCRIPT);
+            assertThat(response.getResetBufferCalls()).isZero();
+            assertThat(capture.events()).anySatisfy(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getThrown()).isNull();
+                assertThat(event.getMessage().getFormattedMessage())
+                        .contains("response already committed before CSRF-adjusted replay")
+                        .contains("writing captured content without buffer reset")
+                        .contains("may discard it")
+                        .contains("status=200")
+                        .contains("uri=/carlos/provider/providercontrol")
+                        .doesNotContain("jsessionid")
+                        .doesNotContain("secret-session");
+            });
+        }
+    }
+
+    @Test
+    @DisplayName("should replay captured HTML without stack trace when an uncommitted response rejects the reset")
+    void shouldReplayCapturedHtml_withoutStackTraceWhenUncommittedResponseRejectsReset() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
         request.setContextPath("/carlos");
         request.setRequestURI("/carlos/provider/providercontrol;jsessionid=secret-session");
@@ -436,22 +478,156 @@ class CsrfGuardScriptInjectionFilterUnitTest {
 
         FilterChain chain = (servletRequest, servletResponse) -> {
             servletResponse.setContentType("text/html;charset=UTF-8");
-            servletResponse.getWriter()
-                    .write("<html><head><title>Provider</title></head><body></body></html>");
+            servletResponse.getWriter().write(PROVIDER_PAGE);
         };
 
         try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
             withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
 
-            assertThat(response.getContentAsString()).contains("/carlos/csrfguard");
+            assertThat(response.getContentAsString()).isEqualTo(PROVIDER_PAGE_WITH_SCRIPT);
             assertThat(capture.events()).anySatisfy(event -> {
                 assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                assertThat(event.getThrown()).isNull();
                 assertThat(event.getMessage().getFormattedMessage())
-                        .contains("writing captured content without reset")
+                        .contains("resetBuffer() rejected although the response and the innermost response "
+                                + "reported uncommitted")
+                        .contains("writing captured content without buffer reset")
+                        .contains("innermostCommitted=false")
+                        .contains("reason=reset rejected")
                         .contains("uri=/carlos/provider/providercontrol")
                         .doesNotContain("jsessionid")
                         .doesNotContain("secret-session");
             });
+        }
+    }
+
+    @Test
+    @DisplayName("should skip the reset when a capture wrapper hides a committed response")
+    void shouldSkipReset_whenCaptureWrapperHidesCommittedResponse() throws Exception {
+        // ResponseSanitizationFilter's CapturingResponseWrapper reports uncommitted in writer-capture
+        // mode and delegates resetBuffer() to the response beneath it, which rejects it once
+        // committed. The filter must see the innermost commit and not attempt the reset.
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/WEB-INF/jsp/provider/providercontrol.jsp");
+        request.setContextPath("/carlos");
+        request.setRequestURI("/carlos/WEB-INF/jsp/provider/providercontrol.jsp;jsessionid=secret-session");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        CommittedResetTrackingResponse committedResponse = new CommittedResetTrackingResponse();
+        CommitHidingCaptureWrapper response = new CommitHidingCaptureWrapper(committedResponse);
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.setContentType("text/html;charset=UTF-8");
+            servletResponse.getWriter().write(PROVIDER_PAGE);
+        };
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+            assertThat(committedResponse.getContentAsString()).isEqualTo(PROVIDER_PAGE_WITH_SCRIPT);
+            assertThat(response.getResetBufferCalls()).isZero();
+            assertThat(committedResponse.getResetBufferCalls()).isZero();
+            assertThat(capture.events())
+                    .filteredOn(event -> event.getLevel() == Level.WARN)
+                    .singleElement()
+                    .satisfies(event -> {
+                        assertThat(event.getThrown()).isNull();
+                        assertThat(event.getMessage().getFormattedMessage())
+                                .contains("innermost response already committed beneath a wrapper")
+                                .contains("writing captured content without buffer reset")
+                                .contains("committed=false")
+                                .contains("innermostCommitted=true")
+                                .contains("uri=/carlos/WEB-INF/jsp/provider/providercontrol.jsp")
+                                .doesNotContain("jsessionid")
+                                .doesNotContain("secret-session");
+                    });
+        }
+    }
+
+    @Test
+    @DisplayName("should find the commit beneath every wrapper layer")
+    void shouldReportInnermostCommit_throughNestedWrappers() {
+        MockHttpServletResponse committed = new MockHttpServletResponse();
+        committed.setCommitted(true);
+        MockHttpServletResponse uncommitted = new MockHttpServletResponse();
+
+        assertThat(CsrfGuardScriptInjectionFilter.isInnermostResponseCommitted(new CommitHidingCaptureWrapper(
+                new HttpServletResponseWrapper(new CommitHidingCaptureWrapper(committed))))).isTrue();
+        assertThat(CsrfGuardScriptInjectionFilter.isInnermostResponseCommitted(new CommitHidingCaptureWrapper(
+                new HttpServletResponseWrapper(uncommitted)))).isFalse();
+        assertThat(CsrfGuardScriptInjectionFilter.isInnermostResponseCommitted(committed)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should stop unwrapping at the depth bound when a wrapper returns itself")
+    void shouldStopUnwrapping_whenWrapperReturnsItself() {
+        HttpServletResponseWrapper selfReferencing = new HttpServletResponseWrapper(new MockHttpServletResponse()) {
+            @Override
+            public ServletResponse getResponse() {
+                return this;
+            }
+
+            @Override
+            public boolean isCommitted() {
+                return true;
+            }
+        };
+
+        assertThat(CsrfGuardScriptInjectionFilter.isInnermostResponseCommitted(selfReferencing)).isTrue();
+    }
+
+    @Test
+    @DisplayName("should inject once when nested forwards meet a committed response")
+    void shouldInjectOnceWithoutStackTraces_whenNestedForwardMeetsCommittedResponse() throws Exception {
+        // The #3434 shape through the real wrapper, a forward inside a forward: the container has
+        // committed the response and the outer CaptureResponseWrapper still reports uncommitted in
+        // writer-capture mode. The inner replay must see the innermost commit and skip the reset.
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/provider/providercontrol");
+        request.setContextPath("/carlos");
+        request.setRequestURI("/carlos/provider/providercontrol");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        CommittedResetTrackingResponse response = new CommittedResetTrackingResponse();
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            servletResponse.getWriter();
+            MockHttpServletRequest forwardRequest = new MockHttpServletRequest("GET",
+                    "/WEB-INF/jsp/provider/providercontrol.jsp");
+            forwardRequest.setContextPath("/carlos");
+            forwardRequest.setDispatcherType(DispatcherType.FORWARD);
+
+            filter.doFilter(forwardRequest, servletResponse, (forwardServletRequest, forwardServletResponse) -> {
+                forwardServletResponse.setContentType("text/html;charset=UTF-8");
+                forwardServletResponse.getWriter().write(PROVIDER_PAGE);
+            });
+        };
+
+        try (LogCapture capture = LogCapture.forLogger(CsrfGuardScriptInjectionFilter.class)) {
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, chain));
+
+            String content = response.getContentAsString();
+            assertThat(content).isEqualTo(PROVIDER_PAGE_WITH_SCRIPT);
+            assertThat(countOccurrences(content, "/csrfguard")).isEqualTo(1);
+            assertThat(response.getResetBufferCalls()).isZero();
+
+            assertThat(capture.events())
+                    .filteredOn(event -> event.getLevel() == Level.WARN)
+                    .allSatisfy(event -> assertThat(event.getThrown()).isNull());
+            assertThat(capture.events())
+                    .filteredOn(event -> event.getMessage().getFormattedMessage()
+                            .contains("innermost response already committed beneath a wrapper"))
+                    .singleElement()
+                    .satisfies(event -> {
+                        assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                        assertThat(event.getMessage().getFormattedMessage())
+                                .contains("uri=/WEB-INF/jsp/provider/providercontrol.jsp");
+                    });
+            assertThat(capture.events())
+                    .filteredOn(event -> event.getMessage().getFormattedMessage()
+                            .contains("response already committed before CSRF-adjusted replay"))
+                    .singleElement()
+                    .satisfies(event -> {
+                        assertThat(event.getLevel()).isEqualTo(Level.WARN);
+                        assertThat(event.getMessage().getFormattedMessage())
+                                .contains("uri=/carlos/provider/providercontrol,");
+                    });
         }
     }
 
@@ -497,10 +673,57 @@ class CsrfGuardScriptInjectionFilterUnitTest {
         return count;
     }
 
+    /**
+     * Stands in for ResponseSanitizationFilter's CapturingResponseWrapper in writer-capture mode:
+     * reports uncommitted whatever the response beneath it says, and delegates resetBuffer().
+     */
+    private static class CommitHidingCaptureWrapper extends HttpServletResponseWrapper {
+
+        private int resetBufferCalls;
+
+        CommitHidingCaptureWrapper(HttpServletResponse response) {
+            super(response);
+        }
+
+        @Override
+        public boolean isCommitted() {
+            return false;
+        }
+
+        @Override
+        public void resetBuffer() {
+            resetBufferCalls++;
+            super.resetBuffer();
+        }
+
+        int getResetBufferCalls() {
+            return resetBufferCalls;
+        }
+    }
+
     private static class ResetBufferFailingResponse extends MockHttpServletResponse {
         @Override
         public void resetBuffer() {
-            throw new IllegalStateException("already committed");
+            throw new IllegalStateException("reset rejected");
+        }
+    }
+
+    private static class CommittedResetTrackingResponse extends MockHttpServletResponse {
+
+        private int resetBufferCalls;
+
+        CommittedResetTrackingResponse() {
+            setCommitted(true);
+        }
+
+        @Override
+        public void resetBuffer() {
+            resetBufferCalls++;
+            super.resetBuffer();
+        }
+
+        int getResetBufferCalls() {
+            return resetBufferCalls;
         }
     }
 

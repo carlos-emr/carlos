@@ -76,6 +76,25 @@ class ViewAdministrationIndex2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD"})
+    void shouldOpenAdminShell_whenOnlyFlowsheetReadIsGranted(String method) throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.flowsheet"), eq("r"), isNull()))
+                .thenReturn(true);
+        mockRequest.setMethod(method);
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(mockResponse.getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    void shouldRefusePost_whenOnlyFlowsheetReadIsGranted() throws Exception {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_admin.flowsheet"), eq("r"), isNull()))
+                .thenReturn(true);
+        mockRequest.setMethod("POST");
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(405);
+    }
+
     @Test
     @DisplayName("should throw when caller holds no admin privileges at all")
     void shouldThrow_whenNoAdminPrivs() {

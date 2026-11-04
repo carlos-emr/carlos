@@ -267,12 +267,13 @@ class LoginJspMigrationRegressionTest {
                 .contains("document.createElement(\"div\")")
                 .contains("provider.changePassword.msgAccountExpiringWithDays")
                 .contains("changePasswordLink.href")
-                .contains("/provider/ViewChangePassword")
+                .contains("/provider/ViewProviderChangePassword")
                 .contains("showPasswordExpiryWarning();")
                 .doesNotContain("\" day\"");
         assertThat(passwordExpiryWarningFunction)
+                .doesNotContain("/provider/ViewChangePassword")
                 .contains("changePasswordLink.href")
-                .contains("/provider/ViewChangePassword")
+                .contains("/provider/ViewProviderChangePassword")
                 .doesNotContain("window.location.href")
                 .doesNotContain("window.open(");
     }

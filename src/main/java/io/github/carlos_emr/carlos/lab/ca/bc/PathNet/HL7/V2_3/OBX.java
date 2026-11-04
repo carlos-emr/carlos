@@ -80,6 +80,7 @@ public class OBX extends Node {
         }
 
         for (Hl7Obx h : results) {
+            h.setObrId(parent);
             h.setSetId(get("set_id", ""));
             h.setValueType(get("value_type", ""));
             h.setObservationIdentifier(get("observation_identifier", ""));

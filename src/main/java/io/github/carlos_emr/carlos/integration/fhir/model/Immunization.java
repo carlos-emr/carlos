@@ -496,7 +496,8 @@ public class Immunization<T extends AbstractModel<Integer> & ImmunizationInterfa
      * information from the person who administered the vaccine.
      */
     private void setReportOrigin(org.hl7.fhir.dstu3.model.Immunization immunization) {
-        String provider = "providers";
+        // HL7 immunization-origin code: an external contract, not a CARLOS namespace.
+        String provider = "provider";
         String display = "other";
 
         if (include(OptionalFHIRAttribute.dateIsEstimated)) {
@@ -505,7 +506,7 @@ public class Immunization<T extends AbstractModel<Integer> & ImmunizationInterfa
             }
         }
 
-        if ("providers".equals(provider) && !StringUtils.isEmpty(getOscarResource().getProviderName())) {
+        if ("provider".equals(provider) && !StringUtils.isEmpty(getOscarResource().getProviderName())) {
             display = getOscarResource().getProviderName();
         }
 

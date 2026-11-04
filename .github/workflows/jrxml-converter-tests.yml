@@ -1,0 +1,25 @@
+name: JRXML Converter Tests
+on:
+  pull_request:
+    paths:
+      - 'scripts/convert_jrxml_v6_to_v7.py'
+      - 'scripts/test_convert_jrxml_v6_to_v7.py'
+      - '.github/workflows/jrxml-converter-tests.yml'
+  push:
+    branches: [develop, 'release/**']
+    paths:
+      - 'scripts/convert_jrxml_v6_to_v7.py'
+      - 'scripts/test_convert_jrxml_v6_to_v7.py'
+      - '.github/workflows/jrxml-converter-tests.yml'
+permissions:
+  contents: read
+jobs:
+  tests:
+    name: JRXML converter regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - run: python3 scripts/test_convert_jrxml_v6_to_v7.py

@@ -27,6 +27,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -46,6 +47,16 @@ public final class ViewDocumentWrite2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || !sim.hasPrivilege(loggedInInfo, "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc w)");
+        }
+        // Match editDocument.jsp: a server forward's attribute takes precedence,
+        // including an empty attribute that deliberately renders no existing row.
+        Object forwardedDocument = request.getAttribute("editDocumentNo");
+        if (forwardedDocument != null && !(forwardedDocument instanceof String)) {
+            throw new SecurityException("Invalid document selection");
+        }
+        String document = forwardedDocument != null ? (String) forwardedDocument : request.getParameter("editDocumentNo");
+        if (document != null && !document.isEmpty()) {
+            IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(sim, loggedInInfo, document);
         }
         return SUCCESS;
     }

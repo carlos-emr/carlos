@@ -80,6 +80,14 @@
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%--
+    Every patient field below goes through <carlos:encode> in its output context (HTML body,
+    the record title attribute, and the referral-doctor JavaScript strings). The page is also
+    the source the Messenger "Demographic information" PDF is rendered from, so an unencoded
+    field (an address typed as "O'Neil & <Fixture> Lane", say) was lost from the PDF or, worse,
+    interpreted as markup (stored HTML injection, finding L61 / #4133). <carlos:encode> renders
+    null as empty rather than the literal "null" a bare expression printed.
+--%>
 <%
     ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
     DemographicCustDao demographicCustDao = (DemographicCustDao) SpringUtils.getBean(DemographicCustDao.class);

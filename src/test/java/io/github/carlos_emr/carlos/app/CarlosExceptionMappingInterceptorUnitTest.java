@@ -117,6 +117,7 @@ class CarlosExceptionMappingInterceptorUnitTest {
 
         assertThat(result).isEqualTo("error");
         assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(request.getAttribute("exception")).isNull();
         Object incidentId = request.getAttribute(CarlosExceptionMappingInterceptor.INCIDENT_ID_ATTRIBUTE);
         assertThat(incidentId).isInstanceOf(String.class);
         assertThat((String) incidentId).matches("[0-9a-f-]{36}");
@@ -169,6 +170,7 @@ class CarlosExceptionMappingInterceptorUnitTest {
             assertThat(event.getThrown()).isNull();
         }
         assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(request.getAttribute("exception")).isNull();
         assertThat(failure.getCause()).isSameAs(cause);
         assertThat(cause.getCause()).isSameAs(failure);
         assertThat(failure.getMessage()).isEqualTo("FAKE-Patient top");
@@ -188,6 +190,7 @@ class CarlosExceptionMappingInterceptorUnitTest {
 
         assertThat(result).isEqualTo("securityError");
         assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(request.getAttribute("exception")).isNull();
         assertThat(request.getAttribute(CarlosExceptionMappingInterceptor.INCIDENT_ID_ATTRIBUTE)).isNotNull();
         assertThat(messages).hasSize(1);
         assertThat(messages.get(0))
@@ -222,6 +225,7 @@ class CarlosExceptionMappingInterceptorUnitTest {
 
         assertThat(result).isEqualTo("securityError");
         assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(request.getAttribute("exception")).isNull();
         assertThat(messages).hasSize(1);
         assertThat(messages.get(0))
                 .startsWith("Authorization refused")
@@ -229,18 +233,12 @@ class CarlosExceptionMappingInterceptorUnitTest {
                 .contains("refusal message withheld");
     }
 
-    /**
-     * struts-billing.xml maps BillingValidationException (and two siblings) to result pages that read
-     * the caught exception off the value stack to show its server-composed message. That is the
-     * package handling an expected condition, so the hardened treatment must not apply: the
-     * exception is published as struts-default did, the status stays what the action set, and the
-     * log gets a WARN line without the message.
-     */
+    /** Both Struts publication paths must receive a safe copy while preserving the typed result. */
     @Test
-    @DisplayName("leaves a package's own typed mapping to the package: exception published, status kept, WARN without the message")
+    @DisplayName("preserves a typed result and status while withholding original diagnostics from both publication paths")
     void shouldPreserveTypedMapping_forPackageHandledException() throws Exception {
         ActionConfig config = new ActionConfig.Builder("billing", "billing/CreateBill", "Some2Action")
-                .addExceptionMapping(new ExceptionMappingConfig.Builder("validation", IllegalStateException.class.getName(), "billingValidationError").build())
+                .addExceptionMapping(new ExceptionMappingConfig.Builder("validation", io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException.class.getName(), "billingValidationError").build())
                 .addExceptionMapping(new ExceptionMappingConfig.Builder("any", Exception.class.getName(), "error").build())
                 .build();
         ActionProxy proxy = mock(ActionProxy.class);
@@ -249,7 +247,11 @@ class CarlosExceptionMappingInterceptorUnitTest {
         ValueStack stack = mock(ValueStack.class);
         when(invocation.getProxy()).thenReturn(proxy);
         when(invocation.getStack()).thenReturn(stack);
-        when(invocation.invoke()).thenThrow(new IllegalStateException("Service code A007 is not billable on this date"));
+        var failure = new io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException(
+                "Cannot create batch bill: demographicNo=PRIVATE_PATIENT",
+                new IllegalStateException("PRIVATE_CAUSE"));
+        failure.addSuppressed(new IllegalArgumentException("PRIVATE_SUPPRESSED"));
+        when(invocation.invoke()).thenThrow(failure);
 
         String result;
         List<String> messages;
@@ -261,13 +263,21 @@ class CarlosExceptionMappingInterceptorUnitTest {
         assertThat(result).isEqualTo("billingValidationError");
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(request.getAttribute(CarlosExceptionMappingInterceptor.INCIDENT_ID_ATTRIBUTE)).isNotNull();
-        verify(stack).push(any(ExceptionHolder.class));
+        var holder = org.mockito.ArgumentCaptor.forClass(ExceptionHolder.class);
+        verify(stack).push(holder.capture());
+        Throwable visible = (Throwable) request.getAttribute("exception");
+        assertThat(visible).isNotSameAs(failure).isSameAs(holder.getValue().getException());
+        assertThat(visible.getMessage()).isEqualTo(
+                "Billing information could not be validated. Reload the chart and review the selected records, form values and existing entries before retrying.");
+        assertThat(visible.getCause()).isNull();
+        assertThat(visible.getSuppressed()).isEmpty();
+        assertThat(visible.getStackTrace()).isEmpty();
         assertThat(messages).hasSize(1);
         assertThat(messages.get(0))
                 .startsWith("Handled")
-                .contains("IllegalStateException")
+                .contains("BillingValidationException")
                 .contains("billing/CreateBill")
-                .doesNotContain("A007");
+                .doesNotContain("PRIVATE_");
     }
 
     /**

@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.eform.actions;
 
+import org.springframework.http.ContentDisposition;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.action.UploadedFilesAware;
@@ -49,6 +50,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -76,7 +78,9 @@ public class ManageEForm2Action extends ActionSupport implements UploadedFilesAw
         MiscUtils.getLogger().debug("fid: " + fid);
         response.setContentType("application/zip");  //octet-stream
         EForm eForm = new EForm(fid, "1");
-        response.setHeader("Content-Disposition", "attachment; filename=\"" + eForm.getFormName().replaceAll("\\s", fid) + ".zip\"");
+        response.setHeader("Content-Disposition", ContentDisposition.attachment()
+                .filename(EFormExportZip.exportNameComponent(eForm.getFormName()) + ".zip", StandardCharsets.UTF_8)
+                .build().toString());
         EFormExportZip eFormExportZip = new EFormExportZip();
         List<EForm> eForms = new ArrayList<EForm>();
         eForms.add(eForm);

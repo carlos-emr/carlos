@@ -108,8 +108,10 @@
             <input type="submit" name="submitButton" value="Save Association"
                    onclick="setMode('edit');"/> <input type="reset" value="Clear"/></fieldset>
     </form>
-    <p/><display:table class="displayGrid" name="list" pagesize="50"
-                       defaultsort="1" defaultorder="descending"
+    <%-- This page is reached by a forward, so the paging links need the action's address (without it they name the
+         WEB-INF page, 404); excludedParams keeps a refused save's fields out of those GET links. --%>
+    <p/><display:table class="displayGrid" name="list" pagesize="50" requestURI="/billing/CA/BC/supServiceCodeAssocAction"
+                       excludedParams="*" defaultsort="1" defaultorder="descending"
                        decorator="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillCodesTableWrapper">
         <display:column property="billingServiceNo" title="Procedure Fee Code"/>
         <display:column property="billingServiceTrayNo" title="Tray Fee Code"/>

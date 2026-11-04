@@ -32,6 +32,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.eform.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.util.LegacyMeasurementHistory" %>
+<%@ page import="io.github.carlos_emr.carlos.eform.EFormSubmissionGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.data.EctFormData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType" %>
@@ -84,6 +85,7 @@
     String fid = request.getParameter("fid");
     String fdid = StringUtils.isNullOrEmpty(request.getParameter("fdid")) ? ((String) request.getAttribute("fdid")) : request.getParameter("fdid");
     String messageOnFailure = "No eform or appointment is available";
+    String signedInProvider = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo();
     EForm eForm = null;
     if (fid == null) {  // form exists in patient
         String appointmentNo = request.getParameter("appointment");
@@ -92,7 +94,7 @@
 
         eForm = new EForm(fdid);
         eForm.setContextPath(request.getContextPath());
-        eForm.setOscarOPEN(request.getRequestURI());
+        eForm.setOscarOPEN(request.getContextPath() + "/eform/efmshowform_data", session, signedInProvider);
         eForm.setImagePath(request.getContextPath());
 
         if (fdid != null) {
@@ -112,7 +114,7 @@
     } else {  //if form is viewed from admin screen
         eForm = new EForm(fid, "-1"); //form cannot be submitted, demographic_no "-1" indicate this specialty
         eForm.setContextPath(request.getContextPath());
-        eForm.setOscarOPEN(request.getRequestURI());
+        eForm.setOscarOPEN(request.getContextPath() + "/eform/efmshowform_data", session, signedInProvider);
         eForm.setImagePath(request.getContextPath());
         eForm.setFdid("");
     }
@@ -137,13 +139,17 @@
     eForm.setFormHtml(LegacyMeasurementHistory.embed(
             eForm.getFormHtml(), eForm, measurementsPermitted));
 
+    // A rendering is a new editing opportunity; a replay of its POST keeps the original identity.
+    if (!"-1".equals(eForm.getDemographicNo())) {
+        eForm.setSubmissionToken(EFormSubmissionGuard.issue(session, eForm.getFid(), eForm.getDemographicNo()));
+    }
+
     /*
      * Modifying EForm by directly incorporating libraries and adding hidden fields.
      * Ordering is very important.
      * For Javascript: First is last.
      */
 
-    eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
     eForm.addHeadJavascript(request.getContextPath()+"/js/jquery.are-you-sure.js");
     eForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-ui-1.14.2.min.js");
     eForm.addHeadJavascript(request.getContextPath()+"/library/jquery/jquery-3.7.1.min.js");
@@ -153,9 +159,21 @@
     // "First is last": this must be added AFTER jQuery so it lands BEFORE it in the document.
     eForm.addHeadJavascript(request.getContextPath()+"/library/dompurify/purify.min.js");
 
-    eForm.addCSS(request.getContextPath()+"/library/bootstrap/5.3.8/css/bootstrap.min.css", "all");
+    // Bootstrap for the CARLOS chrome only (toolbar, save alert, attachment picker): every rule in
+    // this copy is confined to .carlos-eform-ui. The plain bootstrap.min.css must not be added here;
+    // its reboot (body margin and font, box-sizing on every element, table and heading margins)
+    // moves the fields of legacy, absolutely positioned eForms on screen and in print (#3944).
+    // Regenerate the copy with scripts/build-eform-scoped-bootstrap.js.
+    eForm.addCSS(request.getContextPath()+"/eform/eformFloatingToolbar/bootstrap-eform-scoped.min.css", "all");
+    // Once only: a second copy registers Bootstrap's data-api handlers twice, so a data-bs-toggle
+    // collapse or dropdown in the form opens and immediately closes again.
     eForm.addHeadJavascript(request.getContextPath()+"/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js");
     eForm.addHeadJavascript(request.getContextPath()+"/eform/eform-runtime-compat.js");
+
+    // Load fax compatibility before template ready/onload handlers and before the asynchronous toolbar.
+    eForm.addHeadJavascript(request.getContextPath()+"/library/eforms/faxControl.js");
+    eForm.addHeadJavascript(request.getContextPath()+"/js/faxRecipientAutocomplete.js");
+    eForm.addCSS(request.getContextPath()+"/eform/eformFloatingToolbar/eform_floating_toolbar_custom.css", "all");
 
     eForm.addCSS(request.getContextPath()+"/css/oscar_alert.css", "all");
     eForm.addBodyJavascript(request.getContextPath()+"/js/oscar-alert.js");
@@ -167,6 +185,9 @@
     eForm.addHiddenInputElement("demographicNo", eForm.getDemographicNo());
     eForm.addHiddenInputElement("fdid", fdid);
     eForm.addHiddenInputElement("fid", eForm.getFid());
+    // Saved instance: supply its persisted subject. Admin preview (fid branch): the form was loaded
+    // from the catalog, whose subject is the template's description rather than a letter subject.
+    eForm.ensureSubjectInput(fid == null ? eForm.getFormSubject() : "");
 
     // Add EForm error message
     eForm.addHiddenInputElement("error", request.getParameter("error") != null ? request.getParameter("error") : (String) request.getAttribute("error"));

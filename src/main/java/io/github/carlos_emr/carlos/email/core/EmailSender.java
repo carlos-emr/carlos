@@ -53,6 +53,8 @@ public class EmailSender {
     private String[] recipients = new String[0];
     private String subject;
     private String body;
+    private String htmlBody;
+    private EmailInlineImage footerLogo;
     private String additionalParams;
     private List<EmailAttachment> attachments;
     private OutboundEmailTransport preparedTransport;
@@ -82,7 +84,12 @@ public class EmailSender {
         this.emailConfig = emailConfig;
         this.recipients = emailData.getRecipients();
         this.subject = emailData.getSubject();
-        this.body = emailData.getBody();
+        // Body plus footer (issue #3981). The archive artifact is prepared from this same text,
+        // so the archived copy carries the footer too; the chart note does not.
+        this.body = emailData.getTransmittedBody();
+        // With a footer, the formatted version goes alongside (null without one: plain text only).
+        this.htmlBody = emailData.getTransmittedHtml();
+        this.footerLogo = emailData.getFooterLogo();
         this.attachments = emailData.getAttachments();
         this.additionalParams = emailData.getAdditionalParams();
     }
@@ -287,17 +294,21 @@ public class EmailSender {
         }
         switch (emailConfig.getEmailProvider()) {
             case SENDGRID:
-                return new APISendGridEmailSender(loggedInInfo, emailConfig, recipients, subject, body, additionalParams, attachments);
+                APISendGridEmailSender sendGrid = new APISendGridEmailSender(loggedInInfo, emailConfig, recipients,
+                        subject, body, additionalParams, attachments);
+                sendGrid.setFormattedVersion(htmlBody, footerLogo);
+                return sendGrid;
             default:
                 throw new EmailSendingException("Invalid email configuration");
         }
     }
 
     private SMTPEmailSender createSmtpSender() {
-        if (emailConfig.getEmailProvider() == EmailConfig.EmailProvider.LOCAL) {
-            return new LocalSMTPEmailSender(loggedInInfo, emailConfig, recipients, subject, body, attachments);
-        }
-        return new SMTPEmailSender(loggedInInfo, emailConfig, recipients, subject, body, attachments);
+        SMTPEmailSender smtp = emailConfig.getEmailProvider() == EmailConfig.EmailProvider.LOCAL
+                ? new LocalSMTPEmailSender(loggedInInfo, emailConfig, recipients, subject, body, attachments)
+                : new SMTPEmailSender(loggedInInfo, emailConfig, recipients, subject, body, attachments);
+        smtp.setFormattedVersion(htmlBody, footerLogo);
+        return smtp;
     }
 
     private void assertEmailWritePrivilege() {

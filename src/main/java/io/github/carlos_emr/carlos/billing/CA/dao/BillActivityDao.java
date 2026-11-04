@@ -43,4 +43,12 @@ public interface BillActivityDao extends AbstractDao<BillActivity> {
     public List<BillActivity> findCurrentByMonthCodeAndGroupNo(String monthCode, String groupNo, Date updateDateTime);
 
     public List<BillActivity> findCurrentByDateRange(Date startDate, Date endDate);
+
+    /**
+     * The batches, other than deleted ones, whose claim file or HTML report has this exact name.
+     *
+     * @param filename a file name as the batch stored it (no path)
+     * @return the matching batches; empty when none names the file
+     */
+    public List<BillActivity> findCurrentByFilename(String filename);
 }

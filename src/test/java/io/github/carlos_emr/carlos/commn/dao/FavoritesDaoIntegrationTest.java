@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Favorites;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -59,15 +58,10 @@ public class FavoritesDaoIntegrationTest extends CarlosTestBase {
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
-    /**
-     * Sets default for dispenseInternal column which is NOT NULL due to
-     * Favorite entity (singular) mapping to the same 'favorites' table.
-     */
-    @BeforeEach
-    void setColumnDefault() {
-        entityManager.createNativeQuery("ALTER TABLE favorites ALTER COLUMN dispenseInternal SET DEFAULT FALSE")
-                .executeUpdate();
-    }
+    // This class used to ALTER favorites.dispenseInternal to DEFAULT FALSE before every test, because the
+    // Favorites entity did not map the NOT NULL column that the Favorite entity (same table) does. That hid a
+    // production defect: a strict sql_mode refuses the same insert (issue #3151). Favorites now maps the column,
+    // so no schema workaround belongs here; the first test below fails again if the mapping is removed.
 
     @Nested
     @DisplayName("CRUD operations")
@@ -81,6 +75,20 @@ public class FavoritesDaoIntegrationTest extends CarlosTestBase {
             EntityDataGenerator.generateTestDataForModelClass(entity);
             favoritesDao.persist(entity);
             assertThat(entity.getId()).isPositive();
+        }
+
+        @Test
+        @Tag("create")
+        @DisplayName("should store the dispensing flag rather than leaving it to a database default")
+        void shouldRoundTripDispensingFlag_whenFavoriteIsPersisted() throws Exception {
+            Favorites entity = new Favorites();
+            EntityDataGenerator.generateTestDataForModelClass(entity);
+            entity.setDispenseInternal(true);
+            favoritesDao.persist(entity);
+            entityManager.flush();
+            entityManager.clear();
+
+            assertThat(favoritesDao.find(entity.getId()).isDispenseInternal()).isTrue();
         }
 
         @Test

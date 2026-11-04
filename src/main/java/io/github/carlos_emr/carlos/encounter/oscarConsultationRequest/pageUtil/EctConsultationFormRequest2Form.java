@@ -30,6 +30,9 @@
 
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.commons.lang3.StringUtils;
 
 public final class EctConsultationFormRequest2Form {
@@ -447,6 +450,30 @@ public final class EctConsultationFormRequest2Form {
 
     public void setPatientHealthCardType(String patientHealthCardType) {
         this.patientHealthCardType = patientHealthCardType;
+    }
+
+    /**
+     * Formats the health card for display as "number version (card type)", dropping any part
+     * that is not on file. The version code and card type are both short alphabetic codes, so
+     * the parentheses keep a version code such as {@code AB} from reading as a province.
+     * <p>
+     * Returns raw text; callers encode at the output boundary.
+     *
+     * @return String the formatted health card, or an empty string when nothing is on file
+     * @since 2026-09-24
+     */
+    public String getFormattedHealthCard() {
+        List<String> parts = new ArrayList<>();
+        if (!getPatientHealthNum().isEmpty()) {
+            parts.add(getPatientHealthNum());
+        }
+        if (!getPatientHealthCardVersionCode().isEmpty()) {
+            parts.add(getPatientHealthCardVersionCode());
+        }
+        if (!getPatientHealthCardType().isEmpty()) {
+            parts.add("(" + getPatientHealthCardType() + ")");
+        }
+        return String.join(" ", parts);
     }
 
     public Integer getHl7TextMessageId() {

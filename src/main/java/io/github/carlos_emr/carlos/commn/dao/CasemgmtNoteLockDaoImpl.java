@@ -70,6 +70,34 @@ public class CasemgmtNoteLockDaoImpl extends AbstractDaoImpl<CasemgmtNoteLock> i
     }
 
     @Override
+    public int removeForSession(String providerNo, Integer demographicNo, Long noteId, String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return 0;
+        }
+        // Checking ownership and then deleting by provider/note races with a
+        // same-provider takeover from another session. Keep the ownership check
+        // in the DELETE itself, including for a delayed pagehide beacon.
+        Query query = entityManager.createQuery("delete from CasemgmtNoteLock lock"
+                + " where lock.providerNo = :providerNo and lock.demographicNo = :demo"
+                + " and lock.noteId = :noteId and lock.sessionId = :sessionId");
+        query.setParameter("providerNo", providerNo);
+        query.setParameter("demo", demographicNo);
+        query.setParameter("noteId", noteId);
+        query.setParameter("sessionId", sessionId);
+        return query.executeUpdate();
+    }
+
+    @Override
+    public int removeAllForSession(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return 0;
+        }
+        Query query = entityManager.createQuery("delete from CasemgmtNoteLock lock where lock.sessionId = :sessionId");
+        query.setParameter("sessionId", sessionId);
+        return query.executeUpdate();
+    }
+
+    @Override
     public List<CasemgmtNoteLock> findBySession(String sessionId) {
         Query query = entityManager.createQuery("select lock from CasemgmtNoteLock lock where lock.sessionId = :sessionId");
 

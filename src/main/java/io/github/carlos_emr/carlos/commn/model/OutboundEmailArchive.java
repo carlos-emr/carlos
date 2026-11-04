@@ -56,6 +56,11 @@ public class OutboundEmailArchive extends OutboundEmailArchiveArtifact {
 
     public static final String ARTIFACT_TYPE_SMTP_RFC822 = "SMTP_RFC822";
     public static final String ARTIFACT_TYPE_API_PAYLOAD = "API_PAYLOAD";
+    /**
+     * Appended to the artifact type when the sender had a value removed from the archived copy (see
+     * {@code EmailData.setArchiveRedactions}), so the artifact is never mistaken for the exact bytes sent.
+     */
+    public static final String REDACTED_SUFFIX = "_REDACTED";
     public static final String STORAGE_TYPE_EDOC = "EDOC";
     public static final String RETENTION_POLICY_PERMANENT = "PERMANENT";
     /**

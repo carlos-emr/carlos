@@ -1,0 +1,6 @@
+Liberation Mono 2.1.5, unmodified regular, bold, italic and bold-italic faces.
+Source: Ubuntu fonts-liberation 1:2.1.5-3build1 (upstream https://github.com/liberationfonts/liberation-fonts).
+Package SHA-256: 47f156bc945cfc69cf2f2a0c19b8c82b67a685738d3846673462de6a73266e1b
+License and copyright notices: LICENSE.txt (SIL Open Font License 1.1).
+These faces preserve monospaced HRM layouts and Vietnamese compound accents
+that the bundled DejaVu Sans Mono faces do not contain. Fonts are embedded in PDFs.

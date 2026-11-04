@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jasperReport name="bcar2020" pageWidth="612" pageHeight="792" columnWidth="555" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="b9997476-3eb5-48e8-b3a7-28b4b42bd333">
 	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record" />
-	<import value="org.apache.commons.lang3.StringUtils" />
+	<import>org.apache.commons.lang3.StringUtils</import>
 	<parameter name="background_image" class="java.lang.String">
-		<parameterDescription><![CDATA[The background image of the current page]]></parameterDescription>
+		<description><![CDATA[The background image of the current page]]></description>
 	</parameter>
 	<parameter name="t_patientSurname" class="java.lang.String">
-		<parameterDescription><![CDATA[Last name of the patient]]></parameterDescription>
+		<description><![CDATA[Last name of the patient]]></description>
 	</parameter>
 	<parameter name="t_patientGivenName" class="java.lang.String">
-		<parameterDescription><![CDATA[First name of the patient]]></parameterDescription>
+		<description><![CDATA[First name of the patient]]></description>
 	</parameter>
 	<parameter name="t_patientAddress" class="java.lang.String" />
 	<parameter name="t_patientCity" class="java.lang.String" />
@@ -25,11 +25,11 @@
 	<parameter name="mt_attAllergies" class="java.lang.String" />
 	<parameter name="c_attAdditionalInfo" class="java.lang.String" />
 	<parameter name="mt_attAdditionalInfo" class="java.lang.String" />
-	<queryString>
+	<query>
 		<![CDATA[]]>
-	</queryString>
+	</query>
 	<background height="792" splitType="Stretch">
-		<element kind="image" uuid="7a3c6eed-42d8-4cac-9b37-0b3ad6239468" mode="Transparent" x="0" y="0" width="612" height="792" backcolor="#000000" isRemoveLineWhenBlank="true">
+		<element kind="image" uuid="7a3c6eed-42d8-4cac-9b37-0b3ad6239468" mode="Transparent" x="0" y="0" width="612" height="792" backcolor="#000000" removeLineWhenBlank="true">
 			<expression><![CDATA[$P{background_image}]]></expression>
 		</element>
 	</background>
@@ -63,9 +63,9 @@
 		<element kind="line" uuid="6dcb6b5e-8745-4e01-bdf3-20fc1951784c" x="20" y="146" width="571" height="1">
 			<property name="com.jaspersoft.studio.unit.height" value="px" />
 			<property name="com.jaspersoft.studio.unit.y" value="px" />
-			<graphicElement>
+
 				<pen lineStyle="Solid" />
-			</graphicElement>
+
 		</element>
 		<element kind="staticText" uuid="05435277-7045-4c4e-b2d8-8a612f97e68f" x="20" y="37" width="330" height="105" hTextAlign="Justified" fontSize="10.0" bold="false">
 			<property name="com.jaspersoft.studio.unit.height" value="px" />
@@ -77,7 +77,7 @@ The Privacy Statement is a requirement by PHSA, it cannot be modified or removed
 	<detail>
 		<band height="105" splitType="Stretch">
 			<printWhenExpression><![CDATA[$P{c_attMedications}.equals("X")]]></printWhenExpression>
-			<element kind="textField" uuid="b3250ef5-ee95-4db2-b3fb-4b0935b85874" positionType="Float" stretchType="RelativeToTallestObject" x="20" y="25" width="570" height="70" vTextAlign="Top" fontSize="10.0" textAdjust="StretchHeight" blankWhenNull="true" isPrintWhenDetailOverflows="true">
+			<element kind="textField" uuid="b3250ef5-ee95-4db2-b3fb-4b0935b85874" positionType="Float" stretchType="ElementGroupHeight" x="20" y="25" width="570" height="70" vTextAlign="Top" fontSize="10.0" textAdjust="StretchHeight" blankWhenNull="true" printWhenDetailOverflows="true">
 				<property name="com.jaspersoft.studio.unit.y" value="px" />
 				<property name="com.jaspersoft.studio.unit.height" value="px" />
 				<expression><![CDATA[$P{mt_attMedications}]]></expression>
@@ -87,9 +87,9 @@ The Privacy Statement is a requirement by PHSA, it cannot be modified or removed
 			</element>
 			<element kind="line" uuid="f3f0829e-8543-4430-93bc-e08dc1a15b90" positionType="Float" x="20" y="100" width="571" height="1">
 				<property name="com.jaspersoft.studio.unit.height" value="px" />
-				<graphicElement>
+
 					<pen lineStyle="Solid" />
-				</graphicElement>
+
 			</element>
 		</band>
 		<band height="105" splitType="Stretch">
@@ -105,9 +105,9 @@ The Privacy Statement is a requirement by PHSA, it cannot be modified or removed
 			</element>
 			<element kind="line" uuid="7c5e4b9f-569c-4e80-80b8-96df04176941" positionType="Float" x="20" y="100" width="571" height="1">
 				<property name="com.jaspersoft.studio.unit.height" value="px" />
-				<graphicElement>
+
 					<pen lineStyle="Solid" />
-				</graphicElement>
+
 			</element>
 		</band>
 		<band height="105" splitType="Stretch">
@@ -123,9 +123,9 @@ The Privacy Statement is a requirement by PHSA, it cannot be modified or removed
 			</element>
 			<element kind="line" uuid="6e44c33d-4eb3-4b34-9df2-3ad9b9db3897" positionType="Float" x="20" y="100" width="571" height="1">
 				<property name="com.jaspersoft.studio.unit.height" value="px" />
-				<graphicElement>
+
 					<pen lineStyle="Solid" />
-				</graphicElement>
+
 			</element>
 		</band>
 		<band height="145">

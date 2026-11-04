@@ -13,7 +13,7 @@
 
 /*
  * Browser regression check for the Master Record's Print / Labels menu: does
- * each item actually produce a PDF?
+ * each item open its page or produce a complete PDF?
  *
  * WHY THIS ONE EXISTS. CLAUDE.md devotes a whole section to direct-response
  * actions, and it was written from real incidents: an action that streams bytes
@@ -68,17 +68,18 @@ const {
   SkipCheck, assert, assertStrictPage, createRecorder, launchBrowser, login, newContext,
   readConfig, runCheck,
 } = require('./lib/playwright-harness');
-const { clickDownloadsOrOpens } = require('./lib/playwright-ui');
+const { clickLabelOutput } = require('./lib/label-file-output');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
 /*
  * The Print / Labels menu, as edit-form-clinical.jsp renders it.
  *
- * `pdf: false` marks the one item that is a settings page rather than a
- * generated file -- it must still open, but asserting %PDF on it would be wrong.
+ * `pdf: false` marks HTML pages rather than generated files. They must still
+ * open correctly, but asserting %PDF on them would be wrong.
  * `optional` marks items a deployment may legitimately not render.
  */
 const MENU_ITEMS = [
+  { label: 'Generate Letters', pdf: false, optional: 'rendered only with _report read permission' },
   { label: 'PDF Envelope', pdf: true },
   { label: 'PDF Label', pdf: true },
   { label: 'PDF Address Label', pdf: true },
@@ -169,24 +170,25 @@ async function checkItem(context, masterPage, menu, item, recorder, timeout) {
   // had nothing of this popup to find. The check validated bytes and text while
   // the strict browser contract it claims to enforce was not being applied to
   // the one page it opens.
-  const produced = await clickDownloadsOrOpens(masterPage, entry, {
+  const produced = await clickLabelOutput(masterPage, entry, {
     context, label: `label:${item.label}`, recorder, timeout,
   });
+  let primaryFailure;
   try {
     assert(produced.url && !/^about:blank$/i.test(produced.url),
       `${item.label} opened, but to nothing: the control produced no address`);
 
     if (!item.pdf) {
-      // A settings page, not a file. It only has to be a real page.
+      // Settings and letters selection open HTML pages, not generated files.
       assert(produced.kind === 'popup',
-        `${item.label} is the label-layout settings page and should open as a page, not download`);
+        `${item.label} should open as an HTML page, not download`);
       const text = await produced.page.locator('body').innerText({ timeout }).catch(() => '');
       assert(text.trim().length > 0, `${item.label} opened a blank page`);
       // Rendered TEXT, so the <html> half of HTML_ERROR would match every
       // correct page; only the error markers mean anything here.
       assert(!/CARLOS has encountered an unexpected error|CARLOS Error|Exception Report|HTTP Status \d/i.test(text),
         `${item.label} rendered an error page`);
-      return { item: item.label, kind: produced.kind, bytes: 0 };
+      return { item: item.label, kind: produced.kind, bytes: 0, capture: produced.evidence };
     }
 
     // The same session, by cookie, fetching the address the application built.
@@ -203,10 +205,14 @@ async function checkItem(context, masterPage, menu, item, recorder, timeout) {
     }
     const body = await response.body();
     assertIsPdf(item, response.status(), response.headers()['content-type'] || '', body);
-    return { item: item.label, kind: produced.kind, bytes: body.length };
+    return { item: item.label, kind: produced.kind, bytes: body.length, capture: produced.evidence };
+  } catch (error) {
+    primaryFailure = error;
+    throw error;
   } finally {
-    if (produced.page) {
-      await produced.page.close().catch(() => {});
+    try { await produced.dispose(); } catch (cleanup) {
+      if (primaryFailure) throw new AggregateError([primaryFailure, cleanup], 'Label validation and popup cleanup failed');
+      throw cleanup;
     }
   }
 }
@@ -240,7 +246,7 @@ async function main() {
           continue;
         }
         // Collected rather than thrown: one broken label should not hide the
-        // state of the other six, and a clinic needs to know which ones work.
+        // state of the other items, and a clinic needs to know which ones work.
         failures.push(String(error.message).split('\n')[0]);
       }
       // The dropdown closes when an item is chosen.

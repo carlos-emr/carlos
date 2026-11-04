@@ -33,6 +33,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.xml.bind.annotation.XmlElement;
 import jakarta.xml.bind.annotation.XmlRootElement;
 import jakarta.xml.bind.annotation.XmlSeeAlso;
@@ -54,6 +56,7 @@ public class OscarSearchResponse<T> implements Serializable {
 
     private int total;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date timestamp = new Date();
 
     private List<T> content = new ArrayList<T>();

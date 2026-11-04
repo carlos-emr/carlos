@@ -85,10 +85,11 @@
                     }
                 } else if (xml.method == "add") {
                     if (xml.success) {
-                        jQuery("#xml_p_nbr").append("<option value='" + xml.nbr + "'>" + xml.nbr + " | " + xml.nbrDesc + "</option>");
+                        // Like the options rendered below, the new option's value is the row id, which Remove Selected posts.
+                        jQuery("#xml_p_nbr").append(jQuery("<option>").val(xml.id).text(xml.nbr + " | " + xml.nbrDesc));
                         jQuery("#nbr_value").val("");
                         jQuery("#nbr_string").val("");
-                        jQuery("#xml_p_nbr").val(xml.nbr);
+                        jQuery("#xml_p_nbr").val(String(xml.id));
                     } else {
                         alert(xml.error);
                     }

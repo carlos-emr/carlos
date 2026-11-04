@@ -38,7 +38,7 @@ public final class BillingCodeUpdateViewModel {
     public enum Mode {
         /** Confirm-mode: emit {@code CodeAttach(p0, p1, p2)} or "No input selected" stub. */
         CONFIRM_SELECTION,
-        /** Update-mode: emit history.go(-1) + opener.refresh() to close the popup. */
+        /** Update-mode: return to the search with history.go(-1), preserving the unsaved opener. */
         UPDATE_DESCRIPTION
     }
 
@@ -67,15 +67,11 @@ public final class BillingCodeUpdateViewModel {
     public String getSelected2() { return selected2; }
 
     /**
-     * The {@code nameF} request parameter validated against
-     * {@code [a-zA-Z_][a-zA-Z0-9_.]*}. Empty string when the param is missing,
-     * malformed, or null. JSP uses this to decide between targeted
-     * {@code self.opener.<name>} assignment and the legacy three-field
-     * fallback. Because validation strictly limits the value to JS-identifier
-     * characters and dots, the JSP can splice it directly into a JS
-     * identifier path.
+     * A legacy identifier path or the exact indexed service-code field path
+     * emitted by billing forms. Empty when absent or unsupported. Validation
+     * permits this value to be used as the popup's assignment target.
      *
-     * @return validated identifier or empty string (never null)
+     * @return validated assignment target or empty string (never null)
      */
     public String getNameFSafe() { return nameFSafe; }
 
