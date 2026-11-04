@@ -80,7 +80,8 @@
     DemographicData demoData = new DemographicData();
     Demographic demographic = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
 
-    int age = demographic.getAgeInYears();
+    int age = RenalDosingInput.validBirthDate(demographic.getYearOfBirth(),
+            demographic.getMonthOfBirth(), demographic.getDateOfBirth()) ? demographic.getAgeInYears() : -1;
     boolean female = DemographicData.isFemale(demographic);
     double weight = -1;
     Hashtable measurementHash = EctMeasurementsDataBeanHandler.getLast(demographicNo, "WT");

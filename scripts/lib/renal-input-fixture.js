@@ -48,7 +48,7 @@ function renalInputFixture(s) {
   function measure(type, value, date, instruction) {
     if (value === null || value === undefined) return;
     sql.execute(`INSERT INTO measurements(type,demographicNo,providerNo,dataField,measuringInstruction,comments,dateObserved,dateEntered)
-      VALUES (${h.sqlString(type)},${patient},${h.sqlString(provider)},${h.sqlString(value)},${h.sqlString(instruction)},${h.sqlString(marker)},${date===null?'NULL':h.sqlString(date)},NOW())`);
+      VALUES (?,?,?,?,?,?,?,NOW())`,[type,patient,provider,value,instruction,marker,date]);
   }
   return {clear, apply(testCase) {
     clear();

@@ -82,6 +82,23 @@ async function workflow(s) {
     },{id:`#renalDosing_${card}`,weight:Number(infantInput.weight).toFixed(1),cr:`${Number(infantInput.cr).toFixed(1)} sCr`});
     h.assert(await panel.locator('tr.selected').count()===0,'An age below one year selected an adult dose');
   });
+  if(name==='male-valid')await s.step('incomplete and malformed birth dates refuse dosing without a server error',async()=>{
+    fixture.apply({weight:'40',cr:'200'});
+    const refresh=()=>Promise.all([rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
+      panel.getByRole('link',{name:'Refresh',exact:true}).click()]);
+    await refresh();
+    await panel.locator('tr.selected').waitFor({state:'visible'});
+    for(const birthDate of [['','01','01'],['1966','','01'],['1966','01',''],
+      ['text','01','01'],['1966','xx','01'],['1966','01','xx'],['2025','02','29']]) {
+      s.sql.execute('UPDATE demographic SET year_of_birth=?,month_of_birth=?,date_of_birth=? WHERE demographic_no=?',
+        [...birthDate,s.patient]);
+      const mark=failureMark(s.recorder),[response]=await refresh();
+      h.assert(response.status()===400,'An incomplete or malformed birth date did not answer HTTP 400');await response.finished();
+      await rx.waitForFunction(id=>document.querySelector(`${id} table.equation`)?.textContent.includes('N/A'),`#renalDosing_${card}`);
+      h.assert(await panel.locator('tr.selected').count()===0,'An unusable birth date retained a dose recommendation');
+      await consumeRenalRefusal(s,rx,response,mark);
+    }
+  });
   await s.step('restoring valid observations refreshes the same panel without retaining stale input',async()=>{
     fixture.apply({...testCase,weight:'80',cr:'100',crDate:'2025-01-02',lab:undefined});
     const mark=testCase.age<0?failureMark(s.recorder):null;
