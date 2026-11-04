@@ -20,6 +20,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
+import java.util.Locale;
+import java.util.ResourceBundle;
 import java.util.UUID;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -90,6 +92,7 @@ class AiReviewedDocumentSummaryActionUnitTest {
         return result;
     }
     private static byte[] bytes() { return TEXT.getBytes(StandardCharsets.UTF_8); }
+    private static String message(String key) { return ResourceBundle.getBundle("oscarResources", Locale.ENGLISH).getString(key); }
     private static DocumentSummaryReviewBinding.Source source() { return DocumentSummaryReviewBinding.capture(SCOPE, META, bytes()); }
     private DocumentSummaryReviewSession current() { return (DocumentSummaryReviewSession) state.get(DocumentSummaryReviewSession.SESSION_KEY); }
     private DocumentSummaryReviewSession generate() throws Exception {
@@ -169,6 +172,7 @@ class AiReviewedDocumentSummaryActionUnitTest {
         when(generator.summarize(TEXT)).thenThrow(new ClinicalSummaryGenerationException("FAKE outage"));
         assertThat(action.generate()).isEqualTo(ActionSupport.SUCCESS); assertThat(current()).isNull();
         verify(request).setAttribute(eq("documentSummaryError"), contains("Original-only delivery remains available"));
+        verify(request).setAttribute("documentSummaryError", message(AiReviewedDocumentSummary2Action.REVIEW_UNAVAILABLE_KEY));
     }
     @Test void staleGenerationFailureDoesNotRemoveNewerSessionsDraft() throws Exception {
         final DocumentSummaryReviewSession[] winner = new DocumentSummaryReviewSession[1];
@@ -383,7 +387,7 @@ class AiReviewedDocumentSummaryActionUnitTest {
             assertThat(after.draftId()).isEqualTo(before.draftId());
             assertThat(after.approved()).isTrue();
             assertThat(after.revisedAt()).isNull();
-            verify(request).setAttribute("documentSummaryCorrectionError", AiReviewedDocumentSummary2Action.CORRECTION_NOT_SAVED);
+            verify(request).setAttribute("documentSummaryCorrectionError", message(AiReviewedDocumentSummary2Action.CORRECTION_NOT_SAVED_KEY));
             verify(request).setAttribute("documentSummaryCorrectionPending", true);
             verify(request).setAttribute("documentSummaryCorrectionOverview", attempt[0].strip());
             verify(request).setAttribute("documentSummaryCorrectionPoints", List.of(attempt[1].strip()));
@@ -402,7 +406,7 @@ class AiReviewedDocumentSummaryActionUnitTest {
         clearInvocations(request);
         assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(current()).isSameAs(duplicate);
-        verify(request).setAttribute("documentSummaryCorrectionError", AiReviewedDocumentSummary2Action.CORRECTION_NOT_SAVED);
+        verify(request).setAttribute("documentSummaryCorrectionError", message(AiReviewedDocumentSummary2Action.CORRECTION_NOT_SAVED_KEY));
         verify(request).setAttribute("documentSummaryCorrectionRemoved", List.of(false, false));
     }
     @Test void rejectedCorrectionReturnsPostedEditsAndRemovalTicksWhileTheSessionDraftStays() throws Exception {
@@ -432,6 +436,23 @@ class AiReviewedDocumentSummaryActionUnitTest {
         assertThat(review.view(actor, SCOPE, source()).summary().points()).hasSize(1);
         verify(request, never()).setAttribute(eq("documentSummaryCorrectionPending"), any());
         verify(request, never()).setAttribute(eq("documentSummaryCorrectionError"), any());
+    }
+    @Test void clinicianMessagesFollowTheRequestLocale() throws Exception {
+        var review = generate(); approve(review);
+        when(request.getLocale()).thenReturn(Locale.CANADA_FRENCH);
+        correction(review, "FAKE document.", "Totally unrelated zebra.");
+        clearInvocations(request);
+        assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS);
+        String french = ResourceBundle.getBundle("oscarResources", Locale.CANADA_FRENCH)
+                .getString(AiReviewedDocumentSummary2Action.CORRECTION_NOT_SAVED_KEY);
+        assertThat(french).isNotEqualTo(message(AiReviewedDocumentSummary2Action.CORRECTION_NOT_SAVED_KEY)).contains("brouillon");
+        verify(request).setAttribute("documentSummaryCorrectionError", french);
+        when(context.load(any(LoggedInInfo.class), eq(11))).thenThrow(new IllegalStateException("FAKE unavailable"));
+        when(request.getMethod()).thenReturn("GET");
+        clearInvocations(request);
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(request).setAttribute("documentSummaryError", ResourceBundle.getBundle("oscarResources", Locale.CANADA_FRENCH)
+                .getString(AiReviewedDocumentSummary2Action.REVIEW_UNAVAILABLE_KEY));
     }
     private DocumentSummaryReviewSession generateTwoPoints() throws Exception {
         var two = mock(DocumentSummary.class);

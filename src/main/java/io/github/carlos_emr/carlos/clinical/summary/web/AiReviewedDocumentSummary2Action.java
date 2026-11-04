@@ -25,10 +25,8 @@ import org.apache.struts2.ServletActionContext;
 public final class AiReviewedDocumentSummary2Action extends ActionSupport {
     private static final String GENERATION_KEY = AiReviewedDocumentSummary2Action.class.getName() + ".generation";
     /** Shown when an honest correction fails provenance validation; the saved draft stays available. */
-    static final String CORRECTION_NOT_SAVED = "Your corrections were not saved and the saved draft above is unchanged."
-            + " Your edits are shown in the form below so you can correct them. Edited point text must keep words from its"
-            + " supporting excerpts, the overview must keep words from the document, text cannot be blank, and two points"
-            + " cannot say the same thing.";
+    static final String CORRECTION_NOT_SAVED_KEY = "documentSummary.review.correctionNotSaved";
+    static final String REVIEW_UNAVAILABLE_KEY = "documentSummary.review.unavailable";
     private final DocumentSummaryReviewContext context;
     private final DocumentSummaryService suppliedGenerator;
     private final String suppliedModelIdentity;
@@ -193,7 +191,7 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
                         // removedPoints range); they are unreachable here only because the checks above
                         // pre-validate against the same draft under the same session lock.
                         // The posted edits go back into the form (encoded by the page) so no typing is lost.
-                        request.setAttribute("documentSummaryCorrectionError", CORRECTION_NOT_SAVED);
+                        request.setAttribute("documentSummaryCorrectionError", DocumentSummaryMessages.text(request, CORRECTION_NOT_SAVED_KEY));
                         request.setAttribute("documentSummaryCorrectionPending", true);
                         request.setAttribute("documentSummaryCorrectionOverview", overview);
                         request.setAttribute("documentSummaryCorrectionPoints", List.copyOf(corrected));
@@ -243,7 +241,7 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
             clearOwned(session, ownedGeneration, observedReview);
             if ("original".equals(operation) && response.isCommitted()) throw unavailable;
             // Never include model output, patient details, file paths or upstream diagnostics here.
-            request.setAttribute("documentSummaryError", "The current review is unavailable. Reopen the original and generate a fresh draft. Original-only delivery remains available through the usual document workflow.");
+            request.setAttribute("documentSummaryError", DocumentSummaryMessages.text(request, REVIEW_UNAVAILABLE_KEY));
             return SUCCESS;
         } catch (SecurityException denied) {
             clearOwned(session, ownedGeneration, observedReview);
