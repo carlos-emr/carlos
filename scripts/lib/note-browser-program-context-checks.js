@@ -180,9 +180,21 @@ async function checkNoteBrowserProgramContext(s, { context, charts, tokens, prog
     const loaded = browser.waitForEvent('load');
     postWait.catch(() => {});
     loaded.catch(() => {});
-    await button.click();
+    let dialogs = [];
+    if (action === 'NoteBrowserDocumentDelete') {
+      dialogs = await h.withExpectedDialogs(browser, () => button.click(), { accept: true });
+    } else {
+      await button.click();
+    }
     const post = await postWait;
     await loaded;
+    // Drain the native mutation before validating its prompt so cleanup cannot
+    // race a submitted write when the confirmation wording regresses.
+    if (action === 'NoteBrowserDocumentDelete') {
+      h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm'
+        && dialogs[0].text === `Are you sure you want to delete ${deletedDoc.label}`,
+      'Delete did not confirm exactly the selected Browse Notes document');
+    }
     const body = new URLSearchParams(post.request().postData() || '');
     // Claim the refile only after the exact owned native operation acknowledged
     // it and the produced bytes match. A later token assertion can then fail
