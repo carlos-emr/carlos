@@ -6,6 +6,7 @@
 // restore that exact fixture before Retry. No email is sent and no shared clinical row is changed.
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
+const { captureMail } = require('./lib/loopback-mail-capture');
 
 const TIMEOUT = 60000;
 const HTML = '<html><head><title>Email error fixture</title></head><body>'
@@ -17,11 +18,33 @@ async function workflow(s) {
   const { sql, patient, provider, marker } = s;
   const name = `${marker} Email error`;
   const note = `${marker} Saved letter`;
+  const recipient = `${marker.toLowerCase()}@example.com`;
+  const sender = `${marker.toLowerCase()}-sender@example.com`;
+  const sink = await captureMail(recipient);
+  s.cleanup(() => sink.close());
+  let configId;
+  s.cleanup(() => {
+    if (!configId) return;
+    h.assert(sql.value('SELECT COUNT(*) FROM emailLog WHERE configId=?', [configId]) === '0',
+      'An unexpected email was logged; retain the sender for diagnosis');
+    sql.execute('DELETE FROM emailConfig WHERE id=? AND senderEmail=? AND senderFirstName=?', [configId, sender, marker]);
+    h.assert(sql.value('SELECT COUNT(*) FROM emailConfig WHERE id=?', [configId]) === '0', 'Owned sender remains');
+  });
+  // The toolbar requires an active sender even though this check never presses Send.
+  // Allocate above historical emailLog references so demo log rows cannot belong to this fixture.
+  sql.execute(`INSERT INTO emailConfig(id,emailType,emailProvider,active,senderFirstName,senderLastName,senderEmail,configDetails)
+    SELECT GREATEST((SELECT COALESCE(MAX(id),0) FROM emailConfig),(SELECT COALESCE(MAX(configId),0) FROM emailLog))+1,
+      'SMTP','LOCAL',1,?,'Sink',?,?`, [marker, sender, JSON.stringify({ host: '127.0.0.1', port: String(sink.port) })]);
+  configId = sql.value('SELECT id FROM emailConfig WHERE senderEmail=? AND senderFirstName=?', [sender, marker]);
+  h.assert(/^[1-9]\d*$/.test(configId), 'Owned loopback sender was not created');
+  sql.execute('UPDATE demographic SET email=? WHERE demographic_no=? AND last_name=?', [recipient, patient, marker]);
   let fid;
   let attachment;
   let form;
   let fdid;
   let composeUrl;
+  let saveIntercepted = false;
+  let attachmentPosted = false;
   const requests = [];
 
   s.cleanup(() => {
@@ -62,20 +85,28 @@ async function workflow(s) {
     form = await s.popup(list, list.locator('#efmTable').getByRole('link', { name, exact: true }), 'email-error-form');
     await form.locator('#note').fill(note);
     // Select only our own attachment. It becomes unavailable after save, before compose.
-    await form.locator('#FormName').evaluate((element, id) => {
+    await form.locator('form[action*="/eform/addEForm"]').evaluate((element, id) => {
       const input = document.createElement('input');
       input.type = 'hidden'; input.name = 'eFormNo'; input.value = id;
+      input.id = `delegate_eFormNo${id}`; input.className = 'delegateAttachment';
       element.appendChild(input);
     }, attachment);
     form.on('request', request => requests.push(request.url()));
-    await form.route('**/email/emailComposeAction?**', async route => {
+    // Hold the save's redirect until the owned attachment is unavailable. Routing the
+    // compose URL itself misses redirects, which Playwright only intercepts at their origin.
+    await form.route(url => url.pathname.endsWith('/eform/addEForm'), async route => {
+      attachmentPosted = new URLSearchParams(route.request().postData() || '').getAll('eFormNo').includes(attachment);
+      const response = await route.fetch({ maxRedirects: 0 });
+      saveIntercepted = [302, 303].includes(response.status());
       sql.execute('DELETE FROM eform_data WHERE fdid=? AND fid=? AND demographic_no=?', [attachment, fid, patient]);
-      await route.continue();
+      await route.fulfill({ response });
     }, { times: 1 });
     await h.withExpectedDialogs(form, async () => {
       await Promise.all([form.waitForURL(/\/email\/emailComposeAction/, { timeout: TIMEOUT }),
         form.locator('#remoteEmailButton').click()]);
     }, { promptText: 'Yes' });
+    h.assert(saveIntercepted, 'The saved form redirect was not intercepted');
+    h.assert(attachmentPosted, 'The selected attachment was not posted with the saved letter');
     await form.locator('#emailComposeErrorMessage').waitFor({ timeout: TIMEOUT });
     composeUrl = form.url();
     h.assert((await form.locator('#emailComposeErrorMessage').innerText()).includes('attachment could not be prepared'),
@@ -95,6 +126,7 @@ async function workflow(s) {
     h.assert(sql.value("SELECT var_value FROM eform_values WHERE fdid=? AND var_name='note'", [fdid]) === note,
       'The saved letter lost its typed value');
     h.assert(sql.value('SELECT COUNT(*) FROM emailLog WHERE demographicNo=?', [patient]) === '0', 'An email was sent');
+    h.assert(sink.messages.length === 0, 'Preparation failure sent a message to the SMTP sink');
     await h.screenshot(form, s.config.screenshotDir, 'eform-email-error');
   });
 
@@ -115,6 +147,7 @@ async function workflow(s) {
     h.assert(sql.value("SELECT var_value FROM eform_values WHERE fdid=? AND var_name='note'", [fdid]) === note,
       'Retry changed the saved letter');
     h.assert(sql.value('SELECT COUNT(*) FROM emailLog WHERE demographicNo=?', [patient]) === '0', 'Retry sent an email');
+    h.assert(sink.messages.length === 0, 'Retry sent a message to the SMTP sink');
   });
 }
 

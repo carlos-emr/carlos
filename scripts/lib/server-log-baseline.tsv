@@ -15,6 +15,7 @@
 # pass -- an unexplained ERROR is a finding first (report, don't encode).
 #
 # Provoked on purpose by checks that prove error handling or refusal:
+^ERROR action\.EmailCompose2Action \(EmailCompose2Action\.java:312\) @EmailComposeManager\.patientAttachmentIds :: io\.github\.carlos_emr\.carlos\.utility\.PDFGenerationException$	the owned eForm attachment made unavailable by scripts/eform-email-error-playwright-checks.js (#4477), which asserts the saved letter, same-draft retry and zero email delivery
 ^ERROR pageUtil\.EctConsultationFormFax2Action \(EctConsultationFormFax2Action\.java:235\)$	the no-active-sender refusal of scripts/consultation-submit-and-fax-playwright-checks.js, which asserts the configured-account error dialog and zero queued fax jobs
 ^ERROR utility\.ResponseSanitizationFilter \(ResponseSanitizationFilter\.java:[0-9]+\) uri=/carlos/ws/rs/schedule/fetchProvidersApptsCount/not-a-date/not-a-date$	the deliberate /ws 5xx body replacement of scripts/error-sanitization-playwright-checks.js
 ^ERROR rest\.ScheduleService \(ScheduleService\.java:[0-9]+\) @ScheduleManagerImpl\.listProviderAppointmentCounts :: jakarta\.ws\.rs\.WebApplicationException$	the not-a-date request of scripts/error-sanitization-playwright-checks.js, logged by the service before the filter replaces its body

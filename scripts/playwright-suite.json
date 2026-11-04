@@ -5496,7 +5496,7 @@
       "timeoutSec": 300,
       "env": [],
       "notes": "Issue #4477: an unavailable selected attachment must show the dedicated preparation error, preserve the saved letter and retry the same draft after the attachment is restored. No email is sent.",
-      "fixtures": "Owned patient, eForm template and saved attachment. The owned attachment is removed just before compose and restored before Retry; cleanup verifies the owned eForm rows are gone."
+      "fixtures": "Owned patient, eForm template, saved attachment and LOCAL sender pointing at a loopback SMTP sink. The owned attachment is removed just before compose and restored before Retry; cleanup verifies the owned eForm and sender rows are gone. The sender is offered clinic-wide, so this check must run exclusively."
     },
     {
       "name": "admin-role-management",
