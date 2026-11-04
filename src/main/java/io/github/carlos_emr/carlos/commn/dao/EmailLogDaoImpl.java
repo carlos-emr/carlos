@@ -152,6 +152,8 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      * <p><strong>Important:</strong> Setting errorMessage to {@code null} will explicitly clear
      * any existing error message in the database (setting the column to NULL). This is useful
      * when resolving previously failed emails.</p>
+     * <p>Resolution updates only rows still in FAILED status. Transport outcomes remain
+     * authoritative if an email is resolved while its send attempt is still running.</p>
      *
      * @param id Integer the unique identifier of the EmailLog record to update
      * @param status EmailLog.EmailStatus the new email status (SUCCESS, FAILED, or RESOLVED)

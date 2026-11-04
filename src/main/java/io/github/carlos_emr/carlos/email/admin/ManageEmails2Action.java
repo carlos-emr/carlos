@@ -93,6 +93,10 @@ public class ManageEmails2Action extends ActionSupport {
      * @see #showEmailManager()
      */
     public String execute() {
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
+            throw new SecurityException("missing required sec object (_email)");
+        }
         String mtd = request.getParameter("method");
         if ("fetchEmails".equals(mtd)) {
             return fetchEmails();
