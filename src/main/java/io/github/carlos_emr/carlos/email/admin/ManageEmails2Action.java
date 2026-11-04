@@ -96,7 +96,7 @@ public class ManageEmails2Action extends ActionSupport {
      *
      * @return String Struts2 result name ("show", "emailstatus", "compose", or null for errors);
      *         {@code NONE} ("none") for a direct Resolve response
-     * @throws SecurityException if the user lacks {@code _email} READ privilege
+     * @throws SecurityException if a required {@code _email} READ or WRITE privilege is missing
      * @see #fetchEmails()
      * @see #resendEmail()
      * @see #showEmailManager()
