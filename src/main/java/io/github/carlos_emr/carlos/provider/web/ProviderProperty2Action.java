@@ -525,18 +525,25 @@ public class ProviderProperty2Action extends ActionSupport {
         UserProperty newQ = this.getNewDefaultDocQueueProperty();
         String mode = request.getParameter("chooseMode");
         String defaultQ = "";
-        if (mode.equalsIgnoreCase("new") && newQ != null)
+        if ("new".equalsIgnoreCase(mode) && newQ != null)
             defaultQ = newQ.getValue();
-        else if (mode.equalsIgnoreCase("existing") && existingQ != null)
+        else if ("existing".equalsIgnoreCase(mode) && existingQ != null)
             defaultQ = existingQ.getValue();
         else {
-            request.setAttribute("status", "success");
-            request.setAttribute("providertitle", "provider.setDefaultDocumentQueue.title");
-            request.setAttribute("providermsgPrefs", "provider.setDefaultDocumentQueue.msgPrefs");
-            request.setAttribute("providermsgProvider", "provider.setDefaultDocumentQueue.msgProfileView");
-            request.setAttribute("providermsgSuccess", "provider.setDefaultDocumentQueue.msgNotSaved");
-            request.setAttribute("method", "saveDefaultDocQueue");
-            return "genDefaultDocQueue";
+            return defaultDocQueueNotSaved();
+        }
+        if ("new".equalsIgnoreCase(mode)) {
+            try {
+                QueueDao queueDao = SpringUtils.getBean(QueueDao.class);
+                Integer queueId = queueDao.addNewQueueAndGetId(defaultQ);
+                if (queueId == null) {
+                    return defaultDocQueueNotSaved();
+                }
+                defaultQ = queueId.toString();
+            } catch (RuntimeException e) {
+                logger.error("Unable to create default document queue", e);
+                return defaultDocQueueNotSaved();
+            }
         }
         UserProperty prop = this.userPropertyDAO.getProp(providerNo, UserProperty.DOC_DEFAULT_QUEUE);
         if (prop == null) {
@@ -544,22 +551,24 @@ public class ProviderProperty2Action extends ActionSupport {
             prop.setName(UserProperty.DOC_DEFAULT_QUEUE);
             prop.setProviderNo(providerNo);
         }
-        if (mode.equals("new")) {
-            QueueDao queueDao = (QueueDao) SpringUtils.getBean(QueueDao.class);
-            queueDao.addNewQueue(defaultQ);
-            String lastId = queueDao.getLastId();
-            prop.setValue(lastId);
-            this.userPropertyDAO.saveProp(prop);
-        } else {
-            prop.setValue(defaultQ);
-            this.userPropertyDAO.saveProp(prop);
-        }
+        prop.setValue(defaultQ);
+        this.userPropertyDAO.saveProp(prop);
         request.setAttribute("status", "success");
         request.setAttribute("defaultDocQueueProperty", prop);
         request.setAttribute("providertitle", "provider.setDefaultDocumentQueue.title");
         request.setAttribute("providermsgPrefs", "provider.setDefaultDocumentQueue.msgPrefs");
         request.setAttribute("providermsgProvider", "provider.setDefaultDocumentQueue.msgProfileView");
         request.setAttribute("providermsgSuccess", "provider.setDefaultDocumentQueue.msgSuccess");
+        request.setAttribute("method", "saveDefaultDocQueue");
+        return "genDefaultDocQueue";
+    }
+
+    private String defaultDocQueueNotSaved() {
+        request.setAttribute("status", "error");
+        request.setAttribute("providertitle", "provider.setDefaultDocumentQueue.title");
+        request.setAttribute("providermsgPrefs", "provider.setDefaultDocumentQueue.msgPrefs");
+        request.setAttribute("providermsgProvider", "provider.setDefaultDocumentQueue.msgProfileView");
+        request.setAttribute("providermsgSuccess", "provider.setDefaultDocumentQueue.msgNotSaved");
         request.setAttribute("method", "saveDefaultDocQueue");
         return "genDefaultDocQueue";
     }
@@ -583,7 +592,7 @@ public class ProviderProperty2Action extends ActionSupport {
         Collection<LabelValueBean> viewChoices = new ArrayList<LabelValueBean>();
         viewChoices.add(new LabelValueBean("None", "-1"));
         for (Hashtable ht : queues) {
-            viewChoices.add(new LabelValueBean((String) ht.get("queue"), (String) ht.get("id")));
+            viewChoices.add(new LabelValueBean((String) ht.get("queue"), ht.get("id").toString()));
         }
         request.setAttribute("viewChoices", viewChoices);
         request.setAttribute("providertitle", "provider.setDefaultDocumentQueue.title");

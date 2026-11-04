@@ -78,6 +78,19 @@ public class QueueDaoIntegrationTest extends CarlosTestBase {
     @Test
     void shouldReturnEmptyLastId_whenNoQueuesExist() {
         assertThat(dao.getLastId()).isEmpty();
+        assertThat(dao.getQueueid("missing")).isEmpty();
+        assertThat(dao.getQueueName(-1)).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEachInsertedId_whenAnotherInsertFollows() {
+        Integer firstId = dao.addNewQueueAndGetId("Doctor's queue");
+        Integer secondId = dao.addNewQueueAndGetId("Other queue");
+
+        assertThat(firstId).isNotNull().isNotEqualTo(secondId);
+        assertThat(dao.find(firstId).getName()).isEqualTo("Doctor's queue");
+        assertThat(dao.find(secondId).getName()).isEqualTo("Other queue");
+        assertThat(dao.getLastId()).isEqualTo(secondId.toString()).isNotEqualTo(firstId.toString());
     }
 
     @Nested

@@ -49,4 +49,11 @@ public interface QueueDao extends AbstractDao<Queue> {
     String getQueueid(String name);
 
     boolean addNewQueue(String qn);
+
+    /**
+     * Inserts and flushes a queue, returning the ID assigned to that specific row.
+     *
+     * @throws RuntimeException if the queue cannot be persisted
+     */
+    Integer addNewQueueAndGetId(String qn);
 }
