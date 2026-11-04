@@ -120,7 +120,7 @@ public final class DocumentSummaryReviewSession implements HttpSessionBindingLis
         synchronized (LOCK) {
             // No background thread: a new generation also disposes expired reviews in other sessions.
             for (var previous : Set.copyOf(ACTIVE)) if (previous.expired()) previous.close();
-            if (reserved >= MAX_REVIEWS) throw new IllegalStateException("Summary review capacity (" + MAX_REVIEWS + ") is full. Close an existing review and try again.");
+            if (reserved >= MAX_REVIEWS) throw new CapacityFullException("Summary review capacity (" + MAX_REVIEWS + ") is full. Close an existing review and try again.");
             reserved++;
         }
         DocumentSummaryReviewBinding.CapturedSource capture = null;
@@ -146,6 +146,11 @@ public final class DocumentSummaryReviewSession implements HttpSessionBindingLis
                 synchronized (LOCK) { reserved--; }
             }
         }
+    }
+
+    /** The process-wide cap refused a generation before any original was loaded or model called. */
+    public static final class CapacityFullException extends IllegalStateException {
+        CapacityFullException(String message) { super(message); }
     }
 
     /** The cap in force, read once at class load from {@link #MAX_ACTIVE}. */
