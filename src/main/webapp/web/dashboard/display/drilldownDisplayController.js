@@ -50,11 +50,7 @@ function checkFields() {
     return verified;
 }
 
-/**
- * Start the Service Date / Time pickers inside the Assign Tickler modal. Must run after the modal body is
- * inserted: AssignTickler.jsp cannot carry its own script because DOMPurify strips it. The formats are
- * accepted by TicklerRequest (yyyy-MM-dd; hh:mm AM/PM).
- */
+// Field-specific guidance shared by the picker and save-time validation.
 function ticklerFormatMessage(format) {
     return format === 'Y-m-d'
         ? 'Invalid service date. Use yyyy-MM-dd (for example 2030-12-31).'
@@ -83,6 +79,11 @@ function parseTicklerValue(value, format) {
     return date;
 }
 
+/**
+ * Start the Service Date / Time pickers inside the Assign Tickler modal. Must run after the modal body is
+ * inserted: AssignTickler.jsp cannot carry its own script because DOMPurify strips it. The formats are
+ * accepted by TicklerRequest (yyyy-MM-dd; hh:mm AM/PM).
+ */
 function initTicklerPickers() {
     if (typeof flatpickr === 'undefined') return;
     $('#ticklerAddForm .date-picker, #ticklerAddForm .time-picker').each(function () {
@@ -103,9 +104,34 @@ function initTicklerPickers() {
             input.style.border = '';
             feedback.hidden = true;
         }
-        input.addEventListener('input', function () {
+        function showError() {
+            input.setCustomValidity(message);
+            input.setAttribute('aria-invalid', 'true');
+            feedback.hidden = false;
+        }
+        // Flatpickr recognizes "today" before calling parseDate. Check raw text before any
+        // commit event, including outside pointer presses (which precede blur).
+        function rejectInvalidText() {
+            if (input.value && !parseTicklerValue(input.value, format)) {
+                input.value = '';
+                showError();
+            }
+        }
+        function rejectOnEnter(event) {
+            if (event.key === 'Enter') rejectInvalidText();
+        }
+        function rejectOnOutsidePress(event) {
+            if (event.target !== input && !input._flatpickr.calendarContainer.contains(event.target)) {
+                rejectInvalidText();
+            }
+        }
+        input.addEventListener('blur', rejectInvalidText, true);
+        input.addEventListener('keydown', rejectOnEnter, true);
+        document.addEventListener('pointerdown', rejectOnOutsidePress, true);
+        function clearIfValid() {
             if (parseTicklerValue(input.value, format)) clearError();
-        });
+        }
+        input.addEventListener('input', clearIfValid);
         flatpickr(input, {
             dateFormat: format,
             enableTime: isTime,
@@ -116,15 +142,24 @@ function initTicklerPickers() {
             parseDate: parseTicklerValue,
             // Invalid text is cleared by flatpickr, but an explanation remains until corrected.
             // Do not log flatpickr's error: it includes the user's input.
-            errorHandler: function () {
-                input.setCustomValidity(message);
-                input.setAttribute('aria-invalid', 'true');
-                feedback.hidden = false;
+            errorHandler: showError,
+            onDestroy: function () {
+                document.removeEventListener('pointerdown', rejectOnOutsidePress, true);
+                input.removeEventListener('input', clearIfValid);
+                input.removeEventListener('blur', rejectInvalidText, true);
+                input.removeEventListener('keydown', rejectOnEnter, true);
+                feedback.remove();
             },
             onChange: function (dates) {
                 if (dates.length) clearError();
             }
         });
+    });
+}
+
+function destroyTicklerPickers() {
+    $('#ticklerAddForm .date-picker, #ticklerAddForm .time-picker').each(function () {
+        if (this._flatpickr) this._flatpickr.destroy();
     });
 }
 
@@ -153,6 +188,7 @@ function sendData(path, param, target, button) {
                         alert('Ticklers could not all be saved. Some may already have been created; review the selected patients before trying again.');
                     }
                 } else if (target == "modal") {
+                    destroyTicklerPickers();
                     if (typeof DOMPurify !== 'undefined') {
                         // DOMPurify sanitization with defaults plus form elements. Event handlers are stripped by DOMPurify defaults.
                         try {

@@ -321,6 +321,7 @@ async function workflow(s) {
         for (const [field, value, commit] of [
           [dateInput, '31/12/2030', 'Tab'], [dateInput, '12/11/2030', 'Enter'],
           [dateInput, '2030-02-30', 'Tab'], [dateInput, '2030-12-31junk', 'Enter'],
+          [dateInput, 'today', 'Tab'], [timeInput, 'today', 'Enter'],
           [timeInput, '25:90', 'Tab'], [timeInput, '10:30garbage', 'Enter'],
         ]) {
           await dateInput.fill('2030-12-31');
@@ -330,11 +331,13 @@ async function workflow(s) {
           await field.press(commit);
           await form.locator('textarea[name="messageAppend"]').click();
           h.assert(await field.inputValue() === '', `Invalid typed value ${value} was reinterpreted`);
-          h.assert(await field.evaluate(input => input.validationMessage.length > 0),
+          h.assert((field === dateInput ? /Invalid service date/ : /Invalid service time/)
+            .test(await field.evaluate(input => input.validationMessage)),
             `Invalid typed value ${value} has no validation explanation`);
           await dashboard.locator('#saveTicklerBtn').click();
+          await dashboard.waitForTimeout(500);
           h.assert(saveRequests.length === 0, `Invalid typed value ${value} reached Save`);
-          h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no IN (${alpha},${bravo})`) === '0',
+          h.assert(sql.value('SELECT COUNT(*) FROM tickler WHERE demographic_no IN (?, ?)', [alpha, bravo]) === '0',
             'An invalid typed date/time wrote ticklers');
         }
       } finally {
