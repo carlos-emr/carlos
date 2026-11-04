@@ -570,6 +570,7 @@ async function workflow(s) {
         h.assert(!s.context.pages().some((page) => page.url().includes('/ViewAddMeasurementData')),
           'The source link also opened the measurement form');
       }
+      await h.screenshot(flowsheet, s.config.screenshotDir, 'lab-source-flowsheet');
     });
     await s.step('the A1C history links each lab-derived reading to its source report', async () => {
       const history = await s.popup(chart, chart.locator('#measurementslist a[onclick*="SetupDisplayHistory?type=A1C"]').first(), 'lab-measurement-history');
@@ -577,6 +578,7 @@ async function workflow(s) {
         const row = history.locator('#tblDiscs tbody tr').filter({ hasText: lab.date });
         await openSourceLab(history, row.locator('a.source-lab'), lab, `history-source-${lab.key}`);
       }
+      await h.screenshot(history, s.config.screenshotDir, 'lab-source-history');
       await history.close();
     });
     await s.step('the Health Tracker source links open lab reports without opening the delete dialog', async () => {
@@ -597,6 +599,7 @@ async function workflow(s) {
         await report.close();
         h.assert(!await tracker.locator('#deleteModal').isVisible(), 'The source link also opened the delete dialog');
       }
+      await h.screenshot(tracker, s.config.screenshotDir, 'lab-source-tracker');
     });
   }
   await tracker.close();

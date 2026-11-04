@@ -865,7 +865,7 @@
                                 <% } %>
                             </div>
                             <% if (mdb.getSourceLabNo() != null) { %>
-                            <a class="source-lab" href="<%= request.getContextPath() %>/lab/CA/ALL/ViewLabDisplay?segmentID=<%= mdb.getSourceLabNo() %>"
+                            <a class="source-lab" href="<%= SafeEncode.forHtmlAttribute(request.getContextPath()) %>/lab/CA/ALL/ViewLabDisplay?segmentID=<%= SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(String.valueOf(mdb.getSourceLabNo()))) %>"
                                target="_blank" rel="noopener"><fmt:message key="encounter.oscarMeasurements.sourceLab"/></a>
                             <% } %>
                             </div>

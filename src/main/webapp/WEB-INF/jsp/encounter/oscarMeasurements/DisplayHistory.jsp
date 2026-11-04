@@ -216,7 +216,7 @@
                                     <!-- Data Field -->
                                     <td title="data">${carlos:forHtmlContent(data.dataField)}
                                         <c:if test="${data.sourceLabNo != null}">
-                                            <a class="source-lab" href="${pageContext.request.contextPath}/lab/CA/ALL/ViewLabDisplay?segmentID=${data.sourceLabNo}"
+                                            <a class="source-lab" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/lab/CA/ALL/ViewLabDisplay?segmentID=${carlos:forHtmlAttribute(carlos:forUriComponent(data.sourceLabNo))}"
                                                target="_blank" rel="noopener"><fmt:message key="encounter.oscarMeasurements.sourceLab"/></a>
                                         </c:if>
                                     </td>
