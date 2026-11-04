@@ -7,7 +7,7 @@ const h = require('./playwright-harness');
 const ui = require('./playwright-ui');
 const { readPatientState, assertPatientStateUnchanged } = require('../echart-two-patient-isolation-playwright-checks');
 const { watchChartPrintDownload } = require('./chart-print-download');
-const { directory, requirePoppler, ownedPdfDocuments, textPdf,
+const { directory, requirePoppler, ownedPdfDocuments, seedOwnedPdfDocuments,
   removeOwnedPdfDocuments, assertOwnedPdfDocumentsRemoved, sha, pdfText } = require('./stored-pdf-documents');
 const q = h.sqlString;
 
@@ -104,23 +104,9 @@ async function checkNoteBrowserProgramContext(s, { context, charts, tokens, prog
   };
   s.cleanup(cleanup);
   const initial = snapshot();
-  const storeOwner = fs.statSync(store);
-  for (const doc of docs) {
-    const fd = fs.openSync(doc.file, 'wx', 0o640);
-    try {
-      claimFile(doc.file, fs.fstatSync(fd));
-      fs.writeFileSync(fd, textPdf(doc.label, doc.pages));
-      fs.fchownSync(fd, storeOwner.uid, storeOwner.gid);
-    } finally { fs.closeSync(fd); }
-    doc.id = h.insertId(sql, `INSERT INTO document
-      (doctype,docdesc,docfilename,doccreator,responsible,source,updatedatetime,status,contenttype,
-       contentdatetime,public1,observationdate,number_of_pages,restrictToProgram,abnormal)
-      VALUES ('others',${q(doc.label)},${q(doc.filename)},${q(provider)},${q(provider)},'',NOW(),'A',
-        'application/pdf',NOW(),0,'2026-01-02',${doc.pages},0,0)`, 'Browse Notes PDF');
-    h.assert(/^[1-9]\d*$/.test(doc.id), 'The owned Browse Notes document key is invalid');
-    sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status)
-      VALUES ('demographic',${patient},${doc.id},'A')`);
-  }
+  // Reserve identities above dangling document/routing references and retain
+  // the shared seeder's route proof, while claiming each new inode before SQL.
+  seedOwnedPdfDocuments({ sql, store, patient, provider, docs, onFileCreated: claimFile });
   noteId = h.insertId(sql, `INSERT INTO casemgmt_note
     (update_date,observation_date,demographic_no,provider_no,note,signed,signing_provider_no,
      include_issue_innote,encounter_type,program_no,reporter_caisi_role,reporter_program_team,
@@ -180,9 +166,21 @@ async function checkNoteBrowserProgramContext(s, { context, charts, tokens, prog
     const loaded = browser.waitForEvent('load');
     postWait.catch(() => {});
     loaded.catch(() => {});
-    await button.click();
+    let dialogs = [];
+    if (action === 'NoteBrowserDocumentDelete') {
+      dialogs = await h.withExpectedDialogs(browser, () => button.click(), { accept: true });
+    } else {
+      await button.click();
+    }
     const post = await postWait;
     await loaded;
+    // Drain the native mutation before validating its prompt so cleanup cannot
+    // race a submitted write when the confirmation wording regresses.
+    if (action === 'NoteBrowserDocumentDelete') {
+      h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm'
+        && dialogs[0].text === `Are you sure you want to delete ${deletedDoc.label}`,
+      'Delete did not confirm exactly the selected Browse Notes document');
+    }
     const body = new URLSearchParams(post.request().postData() || '');
     // Claim the refile only after the exact owned native operation acknowledged
     // it and the produced bytes match. A later token assertion can then fail

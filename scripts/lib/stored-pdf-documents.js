@@ -83,7 +83,7 @@ function ownedPdfDocuments(store, marker, specs) {
 }
 
 /** Write each file (owned like the store) and its document row linked to the patient; sets doc.id. */
-function seedOwnedPdfDocuments({ sql, store, patient, provider, docs }) {
+function seedOwnedPdfDocuments({ sql, store, patient, provider, docs, onFileCreated }) {
   const owner = fs.statSync(store);
   for (const doc of docs) {
     // Do not inherit a dangling DOC route or a type-less routing lock from an
@@ -91,8 +91,12 @@ function seedOwnedPdfDocuments({ sql, store, patient, provider, docs }) {
     const plannedId = planDocumentFixtureId(sql).sourceId;
     const { expectedSplitRecipients } = require('./stored-document-mutation-fixture');
     const routingProviders = expectedSplitRecipients(sql, plannedId, provider);
-    fs.writeFileSync(doc.file, textPdf(doc.label, doc.pages), { flag: 'wx', mode: 0o640 });
-    fs.chownSync(doc.file, owner.uid, owner.gid);
+    const fd = fs.openSync(doc.file, 'wx', 0o640);
+    try {
+      if (onFileCreated) onFileCreated(doc.file, fs.fstatSync(fd));
+      fs.writeFileSync(fd, textPdf(doc.label, doc.pages));
+      fs.fchownSync(fd, owner.uid, owner.gid);
+    } finally { fs.closeSync(fd); }
     doc.id = sql.value(`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;START TRANSACTION;
       SELECT lab_no FROM providerLabRouting WHERE lab_no=${plannedId} FOR UPDATE;
       SELECT lab_no FROM patientLabRouting WHERE lab_type='DOC' AND lab_no=${plannedId} FOR UPDATE;

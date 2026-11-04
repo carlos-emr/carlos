@@ -4,6 +4,7 @@
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 const { noteContents, waitVisible } = require('./echart-note-lifecycle-playwright-checks');
+const { openSavedNoteEditor } = require('./boundary-chart-note-text-playwright-checks');
 
 // ChartNotesAjax.jsp nests n<note_id> inside nc<position>. editNote() removes
 // txt<note_id> and creates a textarea, assigning its value as a DOM property.
@@ -44,6 +45,35 @@ const { noteContents, waitVisible } = require('./echart-note-lifecycle-playwrigh
     await assert.rejects(waitVisible(noteContents(page, '404'), 'Missing stored note', 100),
       /Missing stored note: locator\.waitFor:/);
     console.log('PASS echart-note-lifecycle: stable note identity across Edit and named missing-control failures');
+
+    // Exercise the boundary helper's locator against a simulated DOM .value
+    // transition. Markup-shaped text is a locator fixture here; the packaged
+    // boundary workflow checks the application's rendering and save round trip.
+    for (const body of ['FAKE plain note', 'FAKE café 漢字 🩺 &amp;\n</textarea><img src=x onerror="window.boundaryXss=true">']) {
+      await page.setContent('<!doctype html><div id="encMainDiv"><div id="nc1"><div id="n42">'
+        + '<a id="edit42" href="#">Edit</a><div id="txt42"></div></div></div>'
+        + '<div id="n99">FAKE unrelated note</div></div>');
+      await page.locator('#txt42').evaluate((text, value) => { text.textContent = value; }, body);
+      await page.locator('#edit42').evaluate(link => link.addEventListener('click', event => {
+        event.preventDefault();
+        const text = document.getElementById('txt42');
+        const editor = document.createElement('textarea');
+        editor.name = 'caseNote_note';
+        editor.value = text.textContent;
+        text.replaceWith(editor);
+        link.remove();
+      }));
+      const former = page.locator('#encMainDiv div[id^="n"]').filter({ hasText: 'FAKE' }).filter({ hasText: body }).last();
+      assert.equal(await former.count(), 1);
+      const editor = await openSavedNoteEditor(page, '42');
+      assert.equal(await editor.inputValue(), body);
+      assert.equal(await former.count(), 0, 'The original text locator fails for plain and markup notes alike');
+      assert.equal(await page.locator('#encMainDiv img').count(), 0, 'The locator fixture must keep markup-shaped text out of DOM elements');
+      assert.equal(await page.evaluate(() => window.boundaryXss), undefined);
+      assert.equal(await noteContents(page, '99').innerText(), 'FAKE unrelated note');
+    }
+    await assert.rejects(openSavedNoteEditor(page, '42, #n99'), /valid identity/);
+    console.log('PASS boundary-chart-note-text: plain and markup notes retain their editor identity');
   } finally {
     await browser.close();
   }
