@@ -7,9 +7,11 @@ const test = require('node:test');
 const editor = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/eform-assets/editControl2.js'), 'utf8');
 const apcache = fs.readFileSync(path.join(__dirname, '../src/main/webapp/library/eforms/APCache.js'), 'utf8');
 
-// Run the real parser and cache transport together; only the HTTP response and editor DOM are fixtures.
+// Run the real parser, cache transport and lookup completion logic together.
+// HTTP/jQuery parsing, editor DOM, simplified composites and notice rendering are fixtures;
+// the packaged Playwright check exercises the shipped forms and their actual mappings.
 function setup({flushCache = true, text = '##letterhead## / ##ageGender## / ##_ClosingSalutation##'} = {}) {
-  const requests = [], failures = [], finished = [], composed = [];
+  const requests = [], failures = [], statuses = [], composed = [];
   const frame = {contentDocument: {}};
   const jquery = response => {
     if (!Array.isArray(response)) return {attr: name => response[name], val: () => response.value};
@@ -27,8 +29,7 @@ function setup({flushCache = true, text = '##letterhead## / ##ageGender## / ##_C
     document: {getElementById: id => id === 'edit' ? frame : null},
     jQuery: jquery, cfg_editorname: 'edit', measureTemplateRevision: 0, measureTemplateLookupsPending: 0,
     editControlContents: () => text, seteditControlContents: (_name, value) => {text = value;},
-    showLetterStatus() {}, prompt: key => { throw new Error('Unexpected prompt: ' + key); },
-    finishTemplateLookup: (...args) => {finished.push(args);context.measureTemplateLookupsPending--;},
+    showLetterStatus: (...args) => statuses.push(args), finishPendingSourceView() {}, prompt: key => { throw new Error('Unexpected prompt: ' + key); },
   });
   vm.runInContext(apcache, context);
   context.showLookupFailureNotice = keys => failures.push(keys);
@@ -45,9 +46,10 @@ function setup({flushCache = true, text = '##letterhead## / ##ageGender## / ##_C
   mapping('gender', ['sex']);
   mapping('ageGender', ['_age', 'gender', 'age', 'sex', 'ageComplex'], () => get('_age') + ' ' + get('gender'));
   mapping('_ClosingSalutation', ['doctor'], () => 'Yours Sincerely ' + get('doctor'));
+  vm.runInContext(editor.slice(editor.indexOf('function finishTemplateLookup('), editor.indexOf('// add RTL specific key values')), context);
   vm.runInContext(editor.slice(editor.indexOf('function parseTemplate()'), editor.indexOf('function parseText(')), context);
   const values = {clinic_name: 'FAKE Clinic', doctor: 'FAKE Doctor', age: '46', ageComplex: '', sex: 'F'};
-  return {context, frame, requests, failures, composed, finished, text: () => text,
+  return {context, frame, requests, failures, composed, statuses, text: () => text,
     keys: () => new URLSearchParams(requests.at(-1).data).getAll('key'),
     respond(overrides = {}, missing = '') {
       Object.assign(values, overrides);
@@ -67,7 +69,8 @@ test('nested composites request only unique server keys and compose after all in
   assert.equal(f.text(), 'FAKE Clinic / FAKE Doctor / 46 year old female / Yours Sincerely FAKE Doctor');
   assert(f.composed.indexOf('_age') < f.composed.indexOf('ageGender'));
   assert.deepEqual(f.failures, []);
-  assert.deepEqual(f.finished, [[true]]);
+  assert(f.statuses.every(([, message]) => message === ''));
+  assert.equal(f.context.measureTemplateLookupsPending, 0);
 });
 
 test('shared and repeated placeholders do not duplicate requested keys or composition', () => {
@@ -109,11 +112,20 @@ test('genuinely unknown keys still reach the server and report lookup failures',
 test('a replaced template rejects a late response before caching or composing', () => {
   const f = setup();f.context.parseTemplate();f.frame.contentDocument = {};f.respond();
   assert.equal(f.context.cache.contains('clinic_name'), false);
-  assert.deepEqual(f.composed, []);assert.deepEqual(f.finished, [[true, true]]);
+  assert.deepEqual(f.composed, []);assert.deepEqual(f.statuses, []);
+  assert.equal(f.context.measureTemplateLookupsPending, 0);
 });
 
 test('a failed request leaves the template unexpanded and settles its pending count', () => {
   const f = setup();f.context.parseTemplate();f.requests[0].error(null, 'timeout');
   assert.match(f.text(), /##letterhead##/);assert.deepEqual(f.composed, []);
-  assert.deepEqual(f.finished, [[false, false]]);assert.equal(f.context.measureTemplateLookupsPending, 0);
+  assert.match(f.statuses.at(-1)[1], /Template fields could not be loaded/);assert.equal(f.context.measureTemplateLookupsPending, 0);
+});
+
+
+test('a replaced letter receives no status warning from a late lookup failure', () => {
+  const f = setup();f.context.parseTemplate();f.frame.contentDocument = {};
+  f.requests[0].error(null, 'timeout');
+  assert.deepEqual(f.statuses, []);assert.deepEqual(f.composed, []);
+  assert.equal(f.context.measureTemplateLookupsPending, 0);
 });

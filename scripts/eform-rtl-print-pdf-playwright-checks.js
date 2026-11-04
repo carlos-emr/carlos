@@ -442,34 +442,39 @@ legacyHarness.runLegacyCheck('eform-rtl-print-pdf',async({cancellation})=>{
         });
         const templateResponse = page.waitForResponse(r => new URL(r.url()).searchParams.get('imagefile') === templateName, {timeout: 30000});
         await page.locator('#template').selectOption(templateName);
+        cancellation?.throwIfCancelled();
         const tr = await templateResponse;
+        cancellation?.throwIfCancelled();
         const csp = tr.headers()['content-security-policy'] || '';
         step(`${templateName} is served without the sandbox CSP`, tr.status() === 200 && !/sandbox/.test(csp), `${tr.status()} csp="${csp}"`);
-        await page.waitForFunction(() => {
+        const ready = await page.waitForFunction(() => {
           const frame = document.getElementById('edit');
           return !measureInitialTemplateLoading && measureTemplateLookupsPending === 0
-            && frame.contentDocument?.body && !frame.contentDocument.body.textContent.includes('##');
-        }, null, {timeout: 30000});
+            && frame?.contentDocument?.body && !frame.contentDocument.body.textContent.includes('##');
+        }, null, {timeout: 30000}).then(() => true, () => false);
         cancellation?.throwIfCancelled();
         const expanded = await page.evaluate(name => {
-          const d = document.getElementById('edit').contentDocument;
-          const normalize = text => text.replace(/\s+/g, ' ').trim();
-          const fields = ['clinic_letter.rtl', 'patient_letter.rtl', 'consultation_letter.rtl'].includes(name)
-            ? ['letterhead', '_ClosingSalutation'] : [];
-          if (name === 'consultation_letter.rtl') fields.push('ageGender');
-          const filled = fields.every(key => {
-            if (!cache.contains(key) || !cache.get(key)) return false;
-            const field = document.createElement('div');
-            field.innerHTML = cache.get(key);
-            return normalize(d.body.textContent).includes(normalize(field.textContent));
-          });
-          return {designMode: d.designMode, filled};
+          try {
+            const d = document.getElementById('edit').contentDocument;
+            const normalize = text => text.replace(/\s+/g, ' ').trim();
+            const fields = ['clinic_letter.rtl', 'patient_letter.rtl', 'consultation_letter.rtl'].includes(name)
+              ? ['letterhead', '_ClosingSalutation'] : [];
+            if (name === 'consultation_letter.rtl') fields.push('ageGender');
+            const filled = d.body.innerHTML.length > 0 && fields.every(key => {
+              if (!cache.contains(key) || !cache.get(key)) return false;
+              const field = document.createElement('div');
+              field.innerHTML = cache.get(key);
+              return normalize(d.body.textContent).includes(normalize(field.textContent));
+            });
+            return {ok: true, designMode: d.designMode, filled};
+          } catch (error) { return {ok: false, error: String(error)}; }
         }, templateName);
-        step(`${templateName} stays editable with its composed fields filled`, expanded.designMode === 'on' && expanded.filled, JSON.stringify(expanded));
+        cancellation?.throwIfCancelled();
+        step(`${templateName} stays editable with its composed fields filled`, ready && expanded.ok && expanded.designMode === 'on' && expanded.filled, JSON.stringify({...expanded, ready}));
         step(`${templateName} shows no false autofill warning`, await page.locator('#carlos-apcache-lookup-failure').count() === 0, '');
         const composites = ['letterhead', '_ClosingSalutation', '_age', 'gender', 'ageGender'];
-        const shipped = ['clinic_letter.rtl', 'patient_letter.rtl', 'consultation_letter.rtl'].includes(templateName);
-        step(`${templateName} requests server keys without composite names`, (!shipped || lookupKeys.length > 0) && !lookupKeys.some(key => composites.includes(key)), lookupKeys.join(', '));
+        // A configured default may already have warmed every field in this template.
+        step(`${templateName} requests no composite names from the server`, !lookupKeys.some(key => composites.includes(key)), lookupKeys.join(', '));
       }
       await page.close();
       cancellation?.throwIfCancelled();
