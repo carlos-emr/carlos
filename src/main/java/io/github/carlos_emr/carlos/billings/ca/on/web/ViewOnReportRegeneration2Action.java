@@ -31,6 +31,10 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingDiskCreationService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnDiskService;
+import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -77,7 +81,18 @@ public class ViewOnReportRegeneration2Action extends ActionSupport {
             return NONE;
         }
 
-        onBillingDiskService.regenerateDisk(request);
+        try {
+            onBillingDiskService.regenerateDisk(request);
+        } catch (BillingValidationException rejected) {
+            // A disk with no billable member left, or a member whose claim file
+            // cannot be built, is explained on the MRI page instead of the fixed-text
+            // validation error page.
+            request.setAttribute("ohipGenerationError", rejected.getMessage());
+            return INPUT;
+        }
+        LogAction.addLog(loggedInInfo, LogConst.GENERATE, LogConst.CON_OHIP, null, null,
+                "regenerate diskId=" + LogSafe.sanitize(request.getParameter("diskId"))
+                        + "; billCenter=" + LogSafe.sanitize(request.getParameter("billcenter")));
         return SUCCESS;
     }
 }

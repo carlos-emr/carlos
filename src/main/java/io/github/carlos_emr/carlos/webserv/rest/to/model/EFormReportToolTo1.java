@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 //@XmlRootElement(name = "eformReportTool")
 public class EFormReportToolTo1 implements Serializable {
 
@@ -44,12 +46,14 @@ public class EFormReportToolTo1 implements Serializable {
 
     private Date expiryDate;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date dateCreated;
 
     private String providerNo;
 
     private String eformName;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date dateLastPopulated;
 
     private boolean latestMarked;

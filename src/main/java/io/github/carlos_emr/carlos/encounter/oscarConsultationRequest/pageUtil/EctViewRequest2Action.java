@@ -136,9 +136,9 @@ public class EctViewRequest2Action extends ActionSupport {
         thisForm.setClinicalInformation(consult.getClinicalInfo());
         thisForm.setCurrentMedications(consult.getCurrentMeds());
         Date date = consult.getReferralDate();
-        thisForm.setReferalDate(DateFormatUtils.ISO_DATE_FORMAT.format(date));
+        thisForm.setReferalDate(date == null ? "" : DateFormatUtils.ISO_DATE_FORMAT.format(date));
         thisForm.setSendTo(consult.getSendTo());
-        thisForm.setService(consult.getServiceId().toString());
+        thisForm.setService(consult.getServiceId() == null ? "" : consult.getServiceId().toString());
         thisForm.setStatus(consult.getStatus());
 
         setAppointmentDateTime(thisForm, consult);

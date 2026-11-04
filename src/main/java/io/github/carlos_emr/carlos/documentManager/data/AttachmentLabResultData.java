@@ -10,6 +10,8 @@ public class AttachmentLabResultData {
     private String segmentID;
     private String labName;
     private Date labDate;
+    /** Lab source ({@code HL7}, {@code MDS}, {@code CML}, {@code BCP}); segment ids are only unique within a source. */
+    private String labType;
     private Map<String, String> labVersionIds = new LinkedHashMap<>();
 
     public AttachmentLabResultData() {
@@ -19,6 +21,19 @@ public class AttachmentLabResultData {
         this.segmentID = segmentID;
         this.labName = labName;
         this.labDate = labDate;
+    }
+
+    public AttachmentLabResultData(String segmentID, String labName, Date labDate, String labType) {
+        this(segmentID, labName, labDate);
+        this.labType = labType;
+    }
+
+    public String getLabType() {
+        return labType;
+    }
+
+    public void setLabType(String labType) {
+        this.labType = labType;
     }
 
     public String getSegmentID() {

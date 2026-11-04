@@ -27,138 +27,63 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementEntryFormBean"%>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
+<%@ page import="java.util.List" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.GroupNoteSelect2Action.Member" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
-    String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
-    boolean authed = true;
+    List<Member> members = (List<Member>) request.getAttribute("groupNoteMembers");
+    List<Member> current = (List<Member>) request.getAttribute("groupNoteCurrentMembers");
+    String demographicNo = (String) request.getAttribute("groupNotePatient");
+    String programId = (String) request.getAttribute("groupNoteProgram");
+    String noteId = (String) request.getAttribute("groupNoteId");
+    String chartContext = (String) request.getAttribute("groupNoteContext");
 %>
-<security:oscarSec roleName="<%=roleName$%>" objectName="_casemgmt.notes" rights="w" reverse="<%=true%>">
-    <%authed = false; %>
-    <%response.sendRedirect(request.getContextPath() + "/securityError?type=_casemgmt.notes");%>
-</security:oscarSec>
-<%
-    if (!authed) {
-        return;
-    }
-%>
-
-<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Admission" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="java.util.List" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.service.AdmissionManager" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.GroupNoteDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.GroupNoteLink" %>
-<%
-	ProgramManager programManager = (ProgramManager)SpringUtils.getBean(ProgramManager.class);
-	AdmissionManager admissionManager = (AdmissionManager)SpringUtils.getBean(AdmissionManager.class);
-	GroupNoteDao groupNoteLinkDao = (GroupNoteDao)SpringUtils.getBean(GroupNoteDao.class); 
-	DemographicDao demographicDao = (DemographicDao)SpringUtils.getBean(DemographicDao.class);
-	List<Admission> admissions = admissionManager.getCurrentAdmissionsByProgramId(request.getParameter("programId"));
-	
-	String demographicNo = request.getParameter("demographicNo");
-	
-	String frmName = "caseManagementEntryForm" + demographicNo;
-	CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean)session.getAttribute(frmName);
-	String noteId = cform.getNoteId();
-	boolean isUpdate=false;
-%>
-<html>
-
+<!DOCTYPE html>
+<html lang="<%= SafeEncode.forHtmlAttribute(LocaleUtils.resolveBundleLocale(request).toLanguageTag()) %>">
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <title>Group Note - Select Clients</title>
 </head>
 <body>
-
-<%if (noteId == null) { %>
-<h4>In order to use this page, you must first save this note and then click on edit for this note then click on group
-    icon to select client members of this group. Please try again.</h4>
+<% if (Boolean.TRUE.equals(request.getAttribute("groupNoteUnsaved"))) { %>
+<h4>In order to use this page, you must first save this note and then click on edit for this note then click on group icon to select client members of this group. Please try again.</h4>
 <input type="button" onclick="window.close();" value="Close Window"/>
 <% } else { %>
-
-<%
-    if (noteId.length() > 0) {
-        List<GroupNoteLink> currentLinks = groupNoteLinkDao.findLinksByNoteId(Integer.parseInt(noteId));
-        if (currentLinks.size() > 0) {
-            isUpdate = true;
-%>
+<% if (!current.isEmpty()) { %>
 <h5>Current Group Links to this Note</h5>
-
 <table border="1" width="80%">
-    <tr>
-        <td>Name</td>
-        <td>Anonymous</td>
-    </tr>
-
-    <%
-        for (GroupNoteLink link : currentLinks) {
-            Demographic demographic = demographicDao.getDemographic(String.valueOf(link.getDemographicNo()));
-    %>
-    <!-- current links? -->
-
-    <tr>
-        <td><carlos:encode value='<%= demographic.getFormattedName() %>' context="html"/>
-        </td>
-        <td><carlos:encode value='<%= String.valueOf(link.isAnonymous()) %>' context="html"/>
-        </td>
-    </tr>
-
+    <tr><th>Name</th><th>Anonymous</th></tr>
+    <% for (Member member : current) { %>
+    <tr><td><%= SafeEncode.forHtml(member.name()) %></td><td><%= member.anonymous() %></td></tr>
     <% } %>
 </table>
-<br/><br/>
-<% }
-}%>
-
+<% } %>
 <h5>Select clients for group note</h5>
-<form action="<%= request.getContextPath() %>/casemgmt/ViewGroupNoteSelectAction" method="post">
-    <input type="hidden" name="demographicNo" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
+<form action="<%= request.getContextPath() %>/casemgmt/SaveGroupNoteSelection" method="post">
+    <% if (chartContext != null) { %>
+    <input type="hidden" name="chartContext" value="<%= SafeEncode.forHtmlAttribute(chartContext) %>"/>
+    <% } %>
+    <input type="hidden" name="demographicNo" value="<%= SafeEncode.forHtmlAttribute(demographicNo) %>"/>
+    <input type="hidden" name="programId" value="<%= SafeEncode.forHtmlAttribute(programId) %>"/>
+    <input type="hidden" name="noteId" value="<%= SafeEncode.forHtmlAttribute(noteId) %>"/>
     <table>
-
-        <%
-            for (Admission admission : admissions) {
-                Demographic demographic = admission.getClient();
-                if (demographic.getDemographicNo().intValue() == Integer.parseInt(demographicNo)) {
-                    continue;
-                }
-        %>
+        <% for (Member member : members) { %>
         <tr>
-            <td><input type="checkbox" name="group_client_id" value="<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="htmlAttribute"/>"/></td>
-            <td><carlos:encode value='<%= demographic.getFormattedName() %>' context="html"/>
-            </td>
+            <td><input type="checkbox" id="groupClient<%= SafeEncode.forHtmlAttribute(member.id()) %>" name="group_client_id" value="<%= SafeEncode.forHtmlAttribute(member.id()) %>"/></td>
+            <td><label for="groupClient<%= SafeEncode.forHtmlAttribute(member.id()) %>"><%= SafeEncode.forHtml(member.name()) %></label></td>
         </tr>
-        <%
-            }
-        %>
+        <% } %>
     </table>
-    <br/>
-    <input type="text" name="num_anonymous" value="0" size="3"/>&nbsp;
-    Anonymous Clients
-
-    <br/><br/>
-
+    <p><input type="number" id="anonymousClientCount" name="num_anonymous" value="0" min="0" max="999" size="3"/> <label for="anonymousClientCount">Anonymous Clients</label></p>
     <script>
         function confirmGroupNote() {
-            var update =<%=isUpdate%>;
-            if (update == true) {
-                return confirm('This will cause all previously associated clients to be disassociated with group note, and all previously associated anonymous clients to be set inactive');
-            }
-            return true;
+            return <%= current.isEmpty() %> || confirm('This will cause all previously associated clients to be disassociated with group note, and all previously associated anonymous clients to be set inactive');
         }
     </script>
-
-    <input type="button" value="cancel" onclick="window.close();"/> &nbsp;&nbsp; <input type="submit"
-                                                                                        value="Enter note into selected clients"
-                                                                                        onclick="return confirmGroupNote();"/>
-    <input type="hidden" name="programId" value="<carlos:encode value='<%= request.getParameter("programId") != null ? request.getParameter("programId") : "" %>' context="htmlAttribute"/>"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+    <input type="button" value="cancel" onclick="window.close();"/>
+    <input type="submit" value="Enter note into selected clients" onclick="return confirmGroupNote();"/>
 </form>
 <% } %>
 </body>
-
 </html>

@@ -66,8 +66,8 @@
 
         <title>INTAKE A. RECEPTION ASSESSMENT</title>
         <link rel="stylesheet" type="text/css"
-              href="formreceptionassessment.css">
-        <link rel="stylesheet" type="text/css" media="print" href="print.css">
+              href="${pageContext.request.contextPath}/form/formreceptionassessment.css">
+        <link rel="stylesheet" type="text/css" media="print" href="${pageContext.request.contextPath}/form/print.css">
         <style type="text/css" media="print">
             BODY {
                 font-size: 85%;

@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.commn.model.MdsZMN;
 import org.springframework.stereotype.Repository;
@@ -65,16 +66,23 @@ public class MdsZMNDaoImpl extends AbstractDaoImpl<MdsZMN> implements MdsZMNDao 
 
     @Override
     public List<String> findResultCodes(Integer id, String reportSequence) {
+        // A single-column select returns the column values themselves, not Object[] rows.
         String sql = "SELECT zmn.resultCode FROM MdsZMN zmn WHERE zmn.id = ?1 " +
-                "AND zmn.reportGroup = ?2 ";
-        Query query = entityManager.createQuery(sql);
+                "AND zmn.reportGroup = ?2 AND zmn.resultCode IS NOT NULL";
+        TypedQuery<String> query = entityManager.createQuery(sql, String.class);
         query.setParameter(1, id);
         query.setParameter(2, reportSequence);
-        List<Object[]> resultCodes = query.getResultList();
-        List<String> result = new ArrayList<String>(resultCodes.size());
-        for (Object[] o : resultCodes) {
-            result.add(String.valueOf(o[0]));
-        }
-        return result;
+        return new ArrayList<>(query.getResultList());
+    }
+
+    @Override
+    public List<Object[]> findMnemonicsBySegmentId(Integer id) {
+        // Scalar columns, not entities: every mnemonic row of a report shares the segmentID mapped as
+        // @Id, so an entity query would hand back the first row once per row.
+        String sql = "SELECT zmn.resultMnemonic, zmn.reportName, zmn.units, zmn.referenceRange " +
+                "FROM MdsZMN zmn WHERE zmn.id = ?1";
+        Query query = entityManager.createQuery(sql);
+        query.setParameter(1, id);
+        return query.getResultList();
     }
 }

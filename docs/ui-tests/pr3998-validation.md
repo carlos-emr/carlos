@@ -1,0 +1,95 @@
+# PR #3998 unbilled appointment reports
+
+Fixes #3960 and the pre-existing report defects tracked in #4031. The status filter design
+comes from Chitrank Davé's Open-O PRs #134/#186 (commits 62fc595f7 and baf8e88ad).
+
+## Review decisions
+
+- No-Show and Cancelled appointments remain excluded by default, with independent explicit
+  opt-ins; duplicated parameters keep the exclusion default. Billed and demographic-zero appointments remain excluded in all combinations.
+  Bound query parameters preserve the database's case-sensitive status behavior.
+- Preserve the existing three-argument DAO entry point; the new five-argument query uses
+  the conventional `findUnbilledAppointments` name. Controls use current markup and localized
+  labels in all five resource bundles.
+- Correct appointment times in both report rows and billing URLs. The initial focused
+  regression failed because `09:40:00` was rendered as a date; it passes with time formatting.
+- BC omitted dates use the existing blank-date defaults. Build the BC billing URL with
+  UTF-8 query encoding and JavaScript-attribute encoding, preserve nullable names/status,
+  tolerate an unset billing form and pin the link to the BC billing route. Cancel the anchor
+  default navigation: the BC base URL otherwise sends the report tab home when opening a bill
+  or another report popup. Billing and provider-management failures were reproduced by
+  installed browser checks; Begin/End calendar links share the same cause and are also fixed.
+  Calendar checks exercise the actual date picker and verify its date reaches the report.
+- Extend the installed browser matrix with combined `NV`/`CS` statuses, exact displayed and
+  linked times, province/name parameters, omitted dates and hostile display text. All fixtures
+  are owned and removed with the existing workflow cleanup.
+
+## Validation
+
+- Full Java suite: 13,363 tests, zero failures/errors, 51 existing skips; focused DAO,
+  filter, view-model and bundle tests passed. Changed executable Java coverage: 33/33 (100%).
+- Node suite: 1,034 tests passed. BDD naming, security-message, encoder, JSP taglib and
+  i18n checks passed. All 982 JSPs compiled; WAR and Javadoc builds passed.
+- Built all three DEBs as `2026.08.0~alpha16~pr3998.4`, installed on Ubuntu 26.04,
+  and matched 6,671 packaged/installed classes and web files to tested output.
+- Installed service health and all four selected Playwright checks passed: application health,
+  unbilled reports, flu billing and third-party billing. The unbilled check completed all twelve
+  steps: eight ON/BC status combinations, omitted BC dates, provider management, and both calendars.
+- The matrix checks `t`, lowercase `c`, `N`, `C`, `B`, `NV` and `CS`; exact displayed/link times;
+  province and patient-name URL parameters; names containing apostrophes, ampersands and markup;
+  literal reason text with an inert image/event payload; and preservation of the report tab.
+  Billing/provider popups use neutral intercepted responses to test real clicks and URLs without
+  invoking a different province's editor. Date pickers load the real endpoint and return a selected
+  date to the real report form.
+- Third-party billing passed 30 assertions; its optional new-report Bill-link assertion reported
+  no eligible row in this dataset. The changed ON/BC report links are explicitly exercised by the
+  owned-fixture matrix. Flu billing passed all listed provider/year/mapping assertions.
+- Installed testing caught and corrected the BC Bill and Manage Provider anchors navigating the
+  report tab home. The calendar links shared the cause; the final checks verify both picker flows.
+  The harness also now waits for the popup's destination URL before reading it.
+- Cleanup verified removal of owned appointments, the synthetic patient and any owned report
+  provider row. An additional final query found zero test-name appointments. Original VM schema
+  and configuration were unchanged, and the VM was stopped. Builds and VM checks ran serially.
+
+## Scanner review
+
+CodeRabbit reported no actionable inline comments. Its tool summary also flagged parameter
+pollution, which is covered by rejecting duplicate values. SQL interpolation in the browser
+fixture uses the harness SQL string encoder and validated positive integer IDs; the filesystem
+contract reads only four literal repository-relative paths, with no request input. These
+scanner warnings do not identify an injection or traversal path. New deprecated markup and
+the nonconventional new DAO method name were corrected rather than suppressed.
+
+## Follow-up review validation
+
+- Replaced the browser row's dynamic regular expression with an exact literal accessible
+  cell-name selector. Fixture names now include `.[]` as well as apostrophes, ampersands
+  and markup; the longest fixture remains within the appointment-name column limit.
+- Documented purpose, features and request parameters in all four report form headers,
+  including independent default-off status controls and duplicate-parameter behavior.
+  Replaced the changed BC provider-management `font` wrapper with a styled span.
+- Fixed pre-existing appointment lookup logging in #4047: routine absence no longer logs
+  a patient identifier, and multiple results retain a generic warning without an identifier
+  or persistence exception. Existing real DAO integration tests now capture messages,
+  parameters and exceptions while preserving the earliest-appointment selection assertions.
+- Final focused Java/integration run: **79 tests**, zero failures/errors/skips. Full Node
+  regressions: **1,034 passed**. BDD, encoder, security-message and JSP taglib checks passed.
+  **982 JSPs**, WAR and Javadocs built successfully; changed Java coverage **35/35**.
+- Built all three DEBs as **2026.08.0~alpha16~pr3998.5** with the VM stopped, installed on
+  Ubuntu 26.04, and verified **6,671** tested/packaged/installed files. Application health,
+  third-party billing, flu billing and all twelve unbilled report steps passed. The neighboring
+  third-party check still reports its optional new-report Bill-link assertion unavailable in
+  this dataset; the changed ON/BC report links pass the owned-fixture matrix in all combinations.
+- Exact fingerprints of every original appointment, report-provider and demographic row
+  were unchanged after cleanup. Final installed payload/health checks passed, NRestarts=0,
+  VM disk had 4.5 GiB free, and the VM was stopped. No schema/configuration changes were needed.
+
+## Second review: omitted-date row assertions
+
+Strengthened the BC omitted-date browser step to assert exactly the sorted fixture labels `custom3` and `todo`, rather than only HTTP 200 and absence of an error page. This protects both default dates and default-off no-show/cancelled controls.
+
+The change is confined to the browser assertion. The four existing unbilled-report Node tests passed. Reused all three previously built/tested `2026.08.0~alpha16~pr3998.5` DEBs after verifying each against its recorded SHA-256; all five PR web files still matched the retained package. No application source changed, so the prior Java/JSP/build validation remains applicable. Reinstalled those exact packages on Ubuntu 26.04 and verified 6,689 packaged class/web-file hashes, including the original tested payload.
+
+All four installed checks passed: health, third-party billing, unbilled reports and flu billing. All twelve target report steps passed, including the new exact-row assertion. The neighboring third-party workflow retains its documented optional new-report Bill-link skip for this dataset; the owned-fixture report matrix exercises the changed links.
+
+The three original appointment/report-provider/demographic table fingerprints were unchanged after fixture cleanup. Final health and package-file verification passed, automatic restarts remained zero, and the VM was stopped. Package setup reset the temporary CPU cap during installation; the intended validation limits were reapplied after setup, allowing startup to finish without a restart.

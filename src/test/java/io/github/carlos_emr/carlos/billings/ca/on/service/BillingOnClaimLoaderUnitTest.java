@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingPercLimitDao;
+import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimReportFilter;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingClaimReportRow;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
@@ -35,6 +36,7 @@ import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao;
 import io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
+import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.BillingService;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -42,7 +44,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
 
@@ -286,6 +290,40 @@ class BillingOnClaimLoaderUnitTest {
                             .containsEntry("startDate", "2026-04-01")
                             .containsEntry("endDate", "2026-04-30");
                 });
+    }
+
+    @Test
+    void shouldSortCompletedReportRows_whenServiceFilteredClaimsHaveMissingLocations() {
+        BillingONCHeader1 located = new BillingONCHeader1();
+        ReflectionTestUtils.setField(located, "id", 1);
+        located.setPayProgram("HCP");
+        located.setPaid(BigDecimal.ZERO);
+        located.setFaciltyNum("1234");
+        BillingONCHeader1 missing = new BillingONCHeader1();
+        ReflectionTestUtils.setField(missing, "id", 2);
+        missing.setPayProgram("HCP");
+        missing.setPaid(BigDecimal.ZERO);
+        BillingONItem item = new BillingONItem();
+        ReflectionTestUtils.setField(item, "id", 10);
+        item.setFee("12.34");
+        item.setServiceCount("1");
+        when(clinicLocationDao.searchVisitLocation("1234")).thenReturn("Owned clinic");
+        when(dao.findByMagic2(anyList(), any(), any(), any(), any(), any(), anyList(),
+                any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(new Object[]{located, item}, new Object[]{missing, item}));
+
+        for (String direction : List.of("asc", "desc")) {
+            List<BillingClaimHeaderDto> rows = loader.getBillWithSorting(
+                    new String[]{"HCP"}, "O", "999", "2026-04-01", "2026-04-30",
+                    "100", List.of("A007"), "", "", "", "VisitLocation", direction, "", "", "");
+            assertThat(rows).extracting(BillingClaimHeaderDto::id)
+                    .containsExactlyElementsOf(direction.equals("asc") ? List.of("2", "1") : List.of("1", "2"));
+            BillingClaimHeaderDto row = rows.stream().filter(r -> r.id().equals("1")).findFirst().orElseThrow();
+            assertThat(row.facilityNumber()).isEqualTo("Owned clinic");
+            assertThat(row.numItems()).isEqualTo(1);
+            assertThat(row.cashTotal()).isEqualByComparingTo(BigDecimal.ZERO);
+            assertThat(row.debitTotal()).isEqualByComparingTo(BigDecimal.ZERO);
+        }
     }
 
     @Test

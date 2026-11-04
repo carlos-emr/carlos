@@ -36,7 +36,7 @@
 ## Core Context
 
 **Domain**: Canadian healthcare EMR system with multi-jurisdictional compliance (BC, ON, generic)
-**Stack**: Java 21, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
+**Stack**: Java 25, Spring 7.0.6, Struts 7.1.1, Hibernate 7.2.7, Maven 3, Tomcat 11.0, MariaDB/MySQL
 **Regulatory**: HIPAA/PIPEDA compliance REQUIRED - PHI protection is CRITICAL
 
 
@@ -56,7 +56,6 @@ make clean                    # Clean project and remove deployed app
 make install                  # Build and deploy without tests
 make install --run-tests      # Build, test, and deploy (all tests)
 make install --run-modern-tests     # Build and run only modern tests (JUnit 5)
-make install --run-legacy-tests     # Build and run only legacy tests (JUnit 4)
 make install --run-unit-tests       # Build and run only modern unit tests
 make install --run-integration-tests # Build and run only modern integration tests
 server start/stop/restart     # Tomcat management
@@ -200,7 +199,7 @@ The deprecated `com.opensymphony.xwork2.*` packages from Struts 6.x were migrate
 **Migration History**:
 - Struts 2.5.33 → 6.8.0 (January 2026, PR #88) — security fix for CVE-2025-64775
 - Struts 6.8.0 → 7.1.1 (March 2026) — Jakarta EE namespace migration, `com.opensymphony.xwork2.*` → `org.apache.struts2.*`
-- Caffeine 3.2.3 cache dependency required by Struts for internal caching
+- Caffeine 3.2.4 cache dependency required by Struts for internal caching
 
 ## Healthcare Domain Context
 
@@ -225,8 +224,7 @@ The deprecated `com.opensymphony.xwork2.*` packages from Struts 6.x were migrate
 
 ## Modern Test Framework (JUnit 5)
 **Key Features**:
-- **Dual Structure**: `src/test-modern/` (primary for new tests) and `src/test/` (legacy + permitted for new unit tests using `CarlosUnitTestBase`)
-- **Zero Impact**: Legacy tests unchanged, both suites run automatically
+- **Single Structure**: All JUnit 5 unit and integration tests live under `src/test/java`, with resources under `src/test/resources`. Maven Surefire discovers `*Test` and `*Tests`; JUnit tags select test groups. The old separate test directory and JUnit 4 suite have been removed.
 - **Modern Stack**: JUnit 5, AssertJ, H2 in-memory database, BDD naming
 - **Spring Integration**: Full Spring context with transaction support
 - **Multi-File Architecture**: Component-first naming (`TicklerDao*Test`) for scalability
@@ -280,9 +278,10 @@ When asked to write tests, you MUST:
 3. **Never invent or assume method names** - verify they exist
 4. **Choose the right base class**:
    - `CarlosTestBase` - Integration tests with Spring context and database
+   - Isolated persistence integration tests without the application Spring context may manage a unique H2 database and real JDBC/JPA resources directly (see `FrmDataShortcutLatestIntegrationTest` and `PregnancyTransactionIntegrationTest`). Keep `@Tag("integration")`, exercise actual database behavior and real commits/rollbacks when testing mutations, and guarantee resource/schema cleanup; mocked database behavior is not integration coverage.
    - `CarlosUnitTestBase` - Unit tests with mocked SpringUtils (no database)
    - Domain-specific bases like `DemographicUnitTestBase` - Unit tests with test data builders
-5. **Use @PersistenceContext(unitName = "testPersistenceUnit")** for EntityManager (integration tests only)
+5. **Use @PersistenceContext(unitName = "testPersistenceUnit")** for Spring-injected EntityManagers in application-context integration tests
 6. **For Manager unit tests**: Register SpringUtils mocks BEFORE creating static mocks (LogAction, etc.)
 
 ### Integration Test Pitfalls (Hibernate/H2)
@@ -439,12 +438,12 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - `TargetColour` / `Recommendation` — generate DRL from flowsheet XML for color indicators and clinical reminders
 - `WorkFlowDS` — wraps `KieBase` for workflow rule execution (e.g., Rh pregnancy management)
 
-**Test Coverage**: Tests in `src/test-modern/` tagged `@Tag("drools")`. Run with `make install --run-unit-tests` or `mvn test -Dgroups="drools"`. See `docs/drools-decision-support-system.md#test-coverage` for details.
+**Test Coverage**: Tests in `src/test/` tagged `@Tag("drools")`. Run with `make install --run-unit-tests` or `mvn test -Dgroups="drools"`. See `docs/drools-decision-support-system.md#test-coverage` for details.
 
 ## Technology Stack Details
 
 ### Core Technologies
-- **Java 21** with modern language features and Jakarta XML Binding
+- **Java 25** with modern language features and Jakarta XML Binding
 - **Spring Framework 7.0.6**: IoC container, MVC, AOP, Security, transaction management (Jakarta EE 11)
 - **Spring Security 7.0.4**: Crypto module for password hashing
 - **Hibernate 7.2.7**: ORM framework with custom MySQL dialect (`OscarMySQL5Dialect`)
@@ -456,7 +455,7 @@ private SomeManager someManager = SpringUtils.getBean(SomeManager.class);
 - **Struts 7.1.1**: Modern actions (2Action pattern) using `org.apache.struts2.ActionSupport`
   - Upgraded from 6.8.0 (March 2026) - Jakarta EE namespace migration
   - All 458 *2Action files migrated from `com.opensymphony.xwork2.*` to `org.apache.struts2.*`
-  - Requires Caffeine 3.2.3 cache dependency for internal caching
+  - Requires Caffeine 3.2.4 cache dependency for internal caching
 - **Apache CXF 4.1.8**: Web services framework for healthcare integrations (Jakarta EE 10, upgrade to 4.2.x pending Jackson 3 migration)
 - **JSP/JSTL**: View layer with extensive medical form templates
 - **Bootstrap 5.3.0**: Modern UI framework loaded from CDN for responsive design
@@ -691,7 +690,7 @@ This migration pattern allows CARLOS EMR to modernize incrementally while mainta
 
 ### Docker Setup
 - Development environment runs in Docker containers
-- Tomcat container with Java 21 and debugging enabled
+- Tomcat container with Java 25 and debugging enabled
 - MariaDB database container
 - Maven repository caching for faster builds
 - Port 8080 for web application, 3306 for database
@@ -1067,15 +1066,13 @@ database/mysql/SnomedCore/snomedinit.sql         # Medical terminology integrati
 ### Testing Patterns
 ```bash
 # Modern Test Framework (JUnit 5) - ACTIVE AND RECOMMENDED
-src/test-modern/java/io/github/carlos_emr/carlos/            # Primary location for new JUnit 5 tests
-src/test-modern/java/io/github/carlos_emr/carlos/managers/   # Manager unit tests (DemographicManagerUnitTest)
-src/test-modern/java/io/github/carlos_emr/carlos/test/unit/  # Unit test base classes (CarlosUnitTestBase)
-src/test-modern/resources/                        # Modern test configurations
+src/test/java/io/github/carlos_emr/carlos/            # Unit and integration JUnit 5 tests
+src/test/java/io/github/carlos_emr/carlos/managers/   # Manager unit tests (DemographicManagerUnitTest)
+src/test/java/io/github/carlos_emr/carlos/test/unit/  # Unit test base classes (CarlosUnitTestBase)
+src/test/resources/                             # Test configurations
 docs/test/modern-test-framework-complete.md       # Complete test framework documentation
 docs/test/test-writing-guide.md                   # Test writing patterns and static mocking
 
-# src/test/ — acceptable for both legacy (JUnit 4) and new unit tests using CarlosUnitTestBase
-src/test/java/io/github/carlos_emr/carlos/                   # Legacy + permitted for new unit tests
 src/test/resources/over_ride_config.properties    # Test configuration template
 ```
 
@@ -1085,8 +1082,9 @@ src/test/resources/over_ride_config.properties    # Test configuration template
 2. **Test real methods only** - Never make up methods that don't exist in the codebase
 3. **Use actual method signatures** - Match the exact parameters and return types
 4. **Choose the right base class and directory**:
-   - Integration tests: Extend `CarlosTestBase` → place in `src/test-modern/`
-   - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database) → either `src/test-modern/` or `src/test/` is acceptable
+   - Spring integration tests: Extend `CarlosTestBase` (application Spring context + database); use `src/test/java`.
+   - Unit tests: Extend `CarlosUnitTestBase` (mocked SpringUtils, no database); use `src/test/java`.
+   - Isolated persistence integration tests without the application Spring context may manage a unique H2 database and real JDBC/JPA resources directly (see `FrmDataShortcutLatestIntegrationTest` and `PregnancyTransactionIntegrationTest`). Keep `@Tag("integration")`, exercise actual database behavior and real commits/rollbacks when testing mutations, and guarantee resource/schema cleanup; mocked database behavior is not integration coverage.
    - Domain unit tests: Extend domain-specific bases like `DemographicUnitTestBase`
 5. **Follow BDD naming strictly**: `should<Action>_<preposition><Condition>` (camelCase, ONE underscore, e.g. `_when`, `_by`, `_for`, `_with`)
 6. **Check DAO interfaces** - Look at `*Dao.java` files to see available methods before writing tests

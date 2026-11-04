@@ -47,6 +47,9 @@ public class CVCMedication extends AbstractModel<Integer> {
 
     private int versionId;
 
+    /** Health Canada Drug Identification Numbers are always 8 digits. */
+    private static final int DIN_LENGTH = 8;
+
     private String din;
     private String dinDisplayName;
 
@@ -77,7 +80,15 @@ public class CVCMedication extends AbstractModel<Integer> {
         this.versionId = versionId;
     }
 
+    /**
+     * @return the Health Canada DIN as its canonical 8-digit string. The legacy {@code din}
+     *         column is INT, so a DIN such as {@code 02541866} reads back as {@code 2541866};
+     *         the leading zeros are restored here. Non-numeric values are returned unchanged.
+     */
     public String getDin() {
+        if (din != null && !din.isEmpty() && din.length() < DIN_LENGTH && din.chars().allMatch(Character::isDigit)) {
+            return "0".repeat(DIN_LENGTH - din.length()) + din;
+        }
         return din;
     }
 

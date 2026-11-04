@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.managers.ProviderManager2;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -34,16 +36,21 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockitoAnnotations;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.lenient;
 
 /**
  * Unit tests for {@link MsgTransferPostItems2Action}.
  *
  * <p>Covers privilege enforcement, POST-only method check, xmlDoc null guard,
- * and the invalid-session-bean fallback path.
+ * and first-use transfer staging with authenticated sender identity.
  *
  * @since 2026-04-13
  */
@@ -63,6 +70,14 @@ class MsgTransferPostItems2ActionTest extends CarlosWebTestBase {
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
         String key = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(key, mockLoggedInInfo);
+
+        ProviderManager2 providerManager = mock(ProviderManager2.class);
+        Provider provider = new Provider();
+        provider.setProviderNo(TEST_PROVIDER);
+        provider.setFirstName("FAKE");
+        provider.setLastName("Sender");
+        lenient().when(providerManager.getProvider(mockLoggedInInfo, TEST_PROVIDER)).thenReturn(provider);
+        replaceSpringUtilsBean(ProviderManager2.class, providerManager);
 
         action = new MsgTransferPostItems2Action();
         java.lang.reflect.Field f = MsgTransferPostItems2Action.class.getDeclaredField("securityInfoManager");
@@ -94,16 +109,32 @@ class MsgTransferPostItems2ActionTest extends CarlosWebTestBase {
         assertThat(getMockResponse().getHeader("Allow")).isEqualTo("POST");
     }
 
-    @Test
-    @DisplayName("should redirect to DisplayMessages when session bean is missing or invalid")
-    void shouldRedirect_whenSessionBeanIsInvalid() throws Exception {
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = "different-provider")
+    @DisplayName("should stage first-use transfers using the authenticated sender")
+    void shouldStageAuthenticatedTransfer_whenMessagingSessionIsMissingOrStale(String existingProvider) throws Exception {
         allowPrivilege("_msg", "w");
         getMockRequest().setMethod("POST");
+        if (existingProvider != null) {
+            MsgSessionBean stale = new MsgSessionBean();
+            stale.setProviderNo(existingProvider);
+            getMockSession().setAttribute("msgSessionBean", stale);
+        }
+        addRequestParameter("xmlDoc", MsgCommxml.encode64(SAMPLE_XML));
+        addRequestParameter("item1", "on");
+        addRequestParameter("val1", "spoofed-provider");
 
-        String result = executeAction(action);
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.NONE);
 
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(getMockResponse().getRedirectedUrl()).contains("/messenger/DisplayMessages");
+        String redirect = getMockResponse().getRedirectedUrl();
+        assertThat(redirect).contains("/messenger/ViewCreateMessage?" + MsgAttachmentStaging.KEY_PARAMETER + "=");
+        String key = redirect.substring(redirect.indexOf('=') + 1);
+        assertThat(MsgAttachmentStaging.peek(getMockSession(), key).itemAttachment()).contains("itemId=\"1\"");
+        MsgSessionBean sender = (MsgSessionBean) getMockSession().getAttribute("msgSessionBean");
+        assertThat(sender.getProviderNo()).isEqualTo(TEST_PROVIDER);
+        assertThat(sender.getUserName()).isEqualTo("FAKE Sender");
+        assertThat(sender.getAttachment()).isNull();
     }
 
     @Test
@@ -122,23 +153,8 @@ class MsgTransferPostItems2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should redirect to DisplayMessages when bean provider number is blank")
-    void shouldRedirect_whenBeanIsInvalid() throws Exception {
-        allowPrivilege("_msg", "w");
-        getMockRequest().setMethod("POST");
-        MsgSessionBean bean = new MsgSessionBean();
-        // isValid() returns false when providerNo is null or empty
-        getMockSession().setAttribute("msgSessionBean", bean);
-
-        String result = executeAction(action);
-
-        assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(getMockResponse().getRedirectedUrl()).contains("/messenger/DisplayMessages");
-    }
-
-    @Test
-    @DisplayName("should mutate session bean and redirect to ViewCreateMessage on valid POST")
-    void shouldMutateBean_andRedirectToViewCreateMessage_whenPostIsValid() throws Exception {
+    @DisplayName("should stage the items for a new compose window and redirect it there on valid POST")
+    void shouldStageItemsForNewComposeWindow_whenPostIsValid() throws Exception {
         allowPrivilege("_msg", "w");
         getMockRequest().setMethod("POST");
         MsgSessionBean bean = new MsgSessionBean();
@@ -152,9 +168,14 @@ class MsgTransferPostItems2ActionTest extends CarlosWebTestBase {
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(getMockResponse().getRedirectedUrl())
-                .endsWith("/messenger/ViewCreateMessage");
-        assertThat(bean.getAttachment()).isNotNull();
+        String redirect = getMockResponse().getRedirectedUrl();
+        assertThat(redirect).contains("/messenger/ViewCreateMessage?" + MsgAttachmentStaging.KEY_PARAMETER + "=");
+        String key = redirect.substring(redirect.indexOf('=') + 1);
+        assertThat(MsgAttachmentStaging.isKey(key)).isTrue();
+        assertThat(MsgAttachmentStaging.peek(getMockSession(), key).itemAttachment()).contains("itemId=\"1\"");
+        // Issue #4673: the items used to go on the login-wide bean, where any compose window's
+        // next send took them.
+        assertThat(bean.getAttachment()).isNull();
     }
 
     @Test
@@ -173,6 +194,8 @@ class MsgTransferPostItems2ActionTest extends CarlosWebTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         assertThat(bean.getAttachment()).isNull();
+        assertThat(getMockSession().getAttributeNames().asIterator())
+                .toIterable().noneMatch(name -> name.startsWith(MsgAttachmentStaging.class.getName()));
     }
 
     private static final String SAMPLE_XML =

@@ -22,10 +22,17 @@
 package io.github.carlos_emr.carlos.tickler.dao;
 
 import io.github.carlos_emr.carlos.commn.model.Tickler;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import org.hibernate.Hibernate;
+import org.hibernate.Session;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.*;
 
@@ -69,6 +76,7 @@ public class TicklerDaoFindIntegrationTest extends TicklerDaoBaseIntegrationTest
             entityManager.persist(newTickler);
             entityManager.flush();
             Integer id = newTickler.getId();
+            entityManager.clear();
 
             // When
             Tickler found = ticklerDao.find(id);
@@ -78,6 +86,107 @@ public class TicklerDaoFindIntegrationTest extends TicklerDaoBaseIntegrationTest
             assertThat(found.getId()).isEqualTo(id);
             assertThat(found.getMessage()).isEqualTo("Find by ID test");
             assertThat(found.getDemographicNo()).isEqualTo(2001);
+            assertThat(Hibernate.isInitialized(found.getDemographic())).isTrue();
+            assertThat(found.getDemographic().getDemographicNo()).isEqualTo(2001);
+        }
+    }
+
+    @Nested
+    @DisplayName("Find patient reference without loading clinical entities")
+    class FindPatientReference {
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        void shouldPreserveRawDemographicFieldsAcrossAuditFlush_whenLookingUpOnlyThePatientReference(boolean nullable) {
+            Tickler tickler = createTickler(2001, "Scalar authorization reference", Tickler.STATUS.A);
+            entityManager.flush();
+            Integer ticklerId = tickler.getId();
+            entityManager.clear();
+            // Property-based Demographic getters normalize these legacy NULLs to empty
+            // strings. Materializing that entity before a refusal can dirty it at flush.
+            entityManager.createNativeQuery("UPDATE demographic SET phone = :value, phone2 = :value, "
+                            + "patient_status = :value, roster_status = :value, chart_no = :value, "
+                            + "alias = :value, gender = :value, pronoun = :value WHERE demographic_no = :patient")
+                    .setParameter("value", nullable ? null : " X")
+                    .setParameter("patient", 2001).executeUpdate();
+            entityManager.clear();
+            List<Object> before = rawDemographicFields(2001);
+            if (nullable) assertThat(before).allMatch(Objects::isNull);
+            else assertThat(before).containsOnly(" X");
+            assertThat(managedEntityCount()).isZero();
+
+            assertThat(ticklerDao.findDemographicNos(ticklerId)).containsExactly(2001);
+
+            assertThat(managedEntityCount()).as("authorization lookup must not hydrate the tickler or its patient").isZero();
+            // The real synchronous audit writer persists a log and flushes the same
+            // EntityManager even when subsequent chart authorization refuses access.
+            OscarLog audit = new OscarLog();
+            audit.setProviderNo("999998");
+            audit.setAction("read");
+            audit.setContent("tickler authorization reference");
+            audit.setContentId(ticklerId.toString());
+            audit.setDemographicId(2001);
+            entityManager.persist(audit);
+            entityManager.flush();
+
+            assertThat(rawDemographicFields(2001)).containsExactlyElementsOf(before);
+            assertThat(managedEntityCount()).as("only the audit row should be managed").isEqualTo(1);
+            assertThat(entityManager.createNativeQuery("SELECT COUNT(*) FROM log WHERE id = :id", Long.class)
+                    .setParameter("id", audit.getId()).getSingleResult()).isEqualTo(1L);
+        }
+
+        @ParameterizedTest
+        @NullSource
+        @ValueSource(ints = {0, -1, Integer.MAX_VALUE})
+        void shouldReturnNoPatientAndLoadNoEntities_whenTheTicklerIdDoesNotExist(Integer id) {
+            entityManager.flush();
+            entityManager.clear();
+
+            assertThat(ticklerDao.findDemographicNos(id)).isEmpty();
+
+            assertThat(managedEntityCount()).isZero();
+        }
+
+        @ParameterizedTest
+        @NullSource
+        @ValueSource(ints = {0})
+        void shouldDistinguishAnExistingUnassignedTicklerFromAMissingRow_withoutLoadingItsPatient(Integer patient) {
+            Tickler tickler = createTickler(2001, "Unassigned scalar authorization reference", Tickler.STATUS.A);
+            entityManager.flush();
+            Integer id = tickler.getId();
+            // A zero patient is an invalid historical sentinel, retained in the projection
+            // so the manager can audit the existing tickler before its caller refuses it.
+            if (patient != null) ensureDemographicExists(patient);
+            entityManager.createNativeQuery("UPDATE tickler SET demographic_no = :patient WHERE tickler_no = :id")
+                    .setParameter("patient", patient).setParameter("id", id).executeUpdate();
+            entityManager.clear();
+
+            assertThat(ticklerDao.findDemographicNos(id)).containsExactly(patient);
+
+            assertThat(managedEntityCount()).isZero();
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = Tickler.STATUS.class, names = {"C", "D"})
+        void shouldRetainReferenceLookupForCompletedAndDeletedTicklers_withoutLoadingTheirPatients(Tickler.STATUS status) {
+            Tickler tickler = createTickler(2001, "Historical scalar authorization reference", status);
+            entityManager.flush();
+            Integer id = tickler.getId();
+            entityManager.clear();
+
+            assertThat(ticklerDao.findDemographicNos(id)).containsExactly(2001);
+
+            assertThat(managedEntityCount()).isZero();
+        }
+
+        private List<Object> rawDemographicFields(int patient) {
+            Object[] values = (Object[]) entityManager.createNativeQuery("SELECT phone, phone2, patient_status, "
+                            + "roster_status, chart_no, alias, gender, pronoun FROM demographic WHERE demographic_no = :patient")
+                    .setParameter("patient", patient).getSingleResult();
+            return Arrays.asList(values);
+        }
+
+        private int managedEntityCount() {
+            return entityManager.unwrap(Session.class).getStatistics().getEntityCount();
         }
     }
 

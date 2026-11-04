@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
 import io.github.carlos_emr.carlos.sms.SmsDirection;
+import io.github.carlos_emr.carlos.sms.SmsProviderErrorCode;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
@@ -224,6 +225,39 @@ public class SmsTransaction extends AbstractModel<Long> {
         return transaction;
     }
 
+    /**
+     * A new queued row that sends this waiting text through {@code providerType}, for a retired provider's text
+     * moved to the provider the clinic selects now. It names the same patient, requester, appointment, recipient,
+     * text and purpose, and keeps the consent snapshot the text was queued on, as a freshly queued row carries
+     * the decision that admitted it; the worker checks consent again before sending, as for any row. It starts
+     * due now, with no attempts, no provider message id, and no client reference until it has an id of its own.
+     * This row is left as it is; the caller closes it.
+     *
+     * @param providerType the provider that sends the text now
+     * @return the unsaved new row
+     */
+    public SmsTransaction queuedCopyFor(SmsProviderType providerType) {
+        Objects.requireNonNull(providerType, "providerType is required");
+        SmsTransaction copy = new SmsTransaction();
+        copy.direction = SmsDirection.OUTBOUND;
+        copy.providerType = providerType;
+        copy.status = SmsStatus.QUEUED;
+        copy.messagePurpose = messagePurpose;
+        copy.demographicNo = demographicNo;
+        copy.requestedByHealthcareProviderNo = requestedByHealthcareProviderNo;
+        copy.requestedBySecurityNo = requestedBySecurityNo;
+        copy.appointmentNo = appointmentNo;
+        copy.toPhoneNumber = toPhoneNumber;
+        copy.recipientPhoneType = recipientPhoneType;
+        copy.messageBody = messageBody;
+        copy.consentStatus = consentStatus;
+        copy.consentId = consentId;
+        copy.consentLastUpdateDate = copyOf(consentLastUpdateDate);
+        copy.nextAttemptAt = new Date();
+        copy.refreshBodyAudit();
+        return copy;
+    }
+
     public static SmsTransaction inboundMessage(SmsInboundWebhookDto webhook) {
         Objects.requireNonNull(webhook, WEBHOOK_REQUIRED_MESSAGE);
         SmsTransaction transaction = new SmsTransaction();
@@ -327,6 +361,19 @@ public class SmsTransaction extends AbstractModel<Long> {
     }
 
     /**
+     * Restarts the stale-send clock of a claimed row just before its provider call, so stale recovery measures
+     * from the send rather than from the claim. The attempt count is unchanged: this is the same attempt.
+     */
+    public void renewSendingClaim(Date attemptAt) {
+        Date safeAttemptAt = copyOf(attemptAt);
+        if (safeAttemptAt == null) {
+            safeAttemptAt = new Date();
+        }
+        lastAttemptAt = safeAttemptAt;
+        touch();
+    }
+
+    /**
      * Tags the row with the worker-run claim token for traceability. Set after {@link #markSending}
      * or {@link #markStaleRecoveryStarted} when a worker claims the row.
      */
@@ -358,6 +405,18 @@ public class SmsTransaction extends AbstractModel<Long> {
         nextAttemptAt = safeDueAt;
         clearClaim();
         touch();
+    }
+
+    /**
+     * Reverts a claim that was taken but never sent, as {@link #markClaimReleased(Date)} does, and records why
+     * the text waits: {@code reason}'s CARLOS code and fixed message. Used when the SMS provider asked CARLOS to
+     * send more slowly, which uses none of the text's attempts, so staff can see why it is still queued.
+     */
+    public void markClaimReleased(Date dueAt, SmsProviderErrorCode reason) {
+        Objects.requireNonNull(reason, "reason is required");
+        errorCode = trimTo(reason.name(), MAX_REASON_CODE_LENGTH);
+        errorMessage = trimTo(reason.message(), MAX_ERROR_MESSAGE_LENGTH);
+        markClaimReleased(dueAt);
     }
 
     public void markStaleRecoveryStarted(Date recoveryAt) {
@@ -495,6 +554,12 @@ public class SmsTransaction extends AbstractModel<Long> {
         if (isBlockedByConsent()) {
             // The message was never sent, so no callback can be about it, and the record of the consent
             // block must stay as it is.
+            return true;
+        }
+        if (isWaitingInQueue() && attemptCount == 0
+                && (webhookStatus == SmsStatus.SENT || webhookStatus == SmsStatus.DELIVERED)) {
+            // Preserve the first queued send without adopting a callback's provider state.
+            // Real early callbacks follow markSending; attempted retries can still accept delivery.
             return true;
         }
         if (isWaitingInQueue() && webhookStatus == SmsStatus.FAILED) {
@@ -648,6 +713,15 @@ public class SmsTransaction extends AbstractModel<Long> {
 
     public String getMessageBodySha256() {
         return messageBodySha256;
+    }
+
+    /**
+     * Whether the full message text is still stored, without reading it. A consent-blocked row keeps
+     * only the body length and hash, so there is nothing to open, and asking the audited read path
+     * would record a read of nothing.
+     */
+    public boolean hasStoredMessageBody() {
+        return messageBody != null;
     }
 
     public int getMessageBodyLength() {

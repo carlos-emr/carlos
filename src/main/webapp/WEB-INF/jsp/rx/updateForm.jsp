@@ -29,9 +29,6 @@
 
 --%>
 <!DOCTYPE html>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Drug" %>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -67,22 +64,18 @@
         <title>Drug Reason</title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
+        <%-- ViewUpdateForm2Action loads the drug, authorises its patient (read, or write for a POSTed
+             update) and applies the change; this page only renders what it set (#3908). --%>
         <%
-            String id = request.getParameter("id");
-            DrugDao drugDao = SpringUtils.getBean(DrugDao.class);
-            Drug drug = drugDao.find(Integer.parseInt(id));
-            String drugForm = drug.getDrugForm();
-
-
-            if ("update".equals(request.getParameter("action"))) {
-                drug.setDrugForm(request.getParameter("drugForm"));
-                drugDao.merge(drug);
-            }
+            Object drugIdAttribute = request.getAttribute("drugId");
+            String id = drugIdAttribute == null ? "" : String.valueOf(drugIdAttribute);
+            String drugForm = (String) request.getAttribute("drugForm");
+            boolean updateRequested = Boolean.TRUE.equals(request.getAttribute("drugFormUpdated"));
         %>
 
         <script type="text/javascript">
             <%
-            if("update".equals(request.getParameter("action"))) {
+            if (updateRequested) {
             %>
             window.opener.refresh();
             window.close();
@@ -91,9 +84,11 @@
     </head>
     <body>
 
-    <form action="" method="post">
+    <%-- A real action URL: CSRFGuard only injects its token into forms with one, and the page's
+         <base href> made action="" post to the application root instead of this page. --%>
+    <form action="<%= request.getContextPath() %>/rx/ViewUpdateForm" method="post">
 
-        <h3>Current form is: <b><%=drugForm%>
+        <h3>Current form is: <b><carlos:encode value='<%= drugForm %>'/>
         </b></h3>
         <br/>
         <b>Select new drug form :</b>

@@ -81,6 +81,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <html>
 <head>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
 
     <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
@@ -131,7 +132,9 @@
                     });
                 }
                 document.body.appendChild(form);
-                form.submit();
+                // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
+                // into a runtime-built form in time (#4130).
+                carlosSubmitForm(form);
             } else {
                 alert("You have cancel the action!");
             }
@@ -193,10 +196,10 @@
         <td align="right"><carlos:encode value='<%= moneyFormat(chequeamt) %>' context="html"/></td>
         <td align="right"><carlos:encode value='<%= moneyFormat(newbalance) %>' context="html"/></td>
         <td >&nbsp;&nbsp;
-           Billed( <a href="createBillingReportAction?docFormat=pdf&repType=REP_MSPREM&rano=<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="uriComponent"/>&selPayee=<carlos:encode value='<%= StringUtils.noNull(payeeNo) %>' context="uriComponent"/>" target="_blank">PDF</a>|<a href="createBillingReportAction?docFormat=csv&repType=REP_MSPREM&rano=<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="uriComponent"/>&selPayee=<carlos:encode value='<%= StringUtils.noNull(payeeNo) %>' context="uriComponent"/>" target="_blank">CSV</a>) |
+           Billed( <a href="<%= request.getContextPath() %>/billing/CA/BC/createBillingReportAction?docFormat=pdf&repType=REP_MSPREM&rano=<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="uriComponent"/>&selPayee=<carlos:encode value='<%= StringUtils.noNull(payeeNo) %>' context="uriComponent"/>" target="_blank">PDF</a>|<a href="<%= request.getContextPath() %>/billing/CA/BC/createBillingReportAction?docFormat=csv&repType=REP_MSPREM&rano=<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="uriComponent"/>&selPayee=<carlos:encode value='<%= StringUtils.noNull(payeeNo) %>' context="uriComponent"/>" target="_blank">CSV</a>) |
            <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS00?rano=<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="uriComponent"/>&proNo=" target="_blank">Detail</a> |
            <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewGenTAS22?rano=<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="uriComponent"/>&proNo=" target="_blank">Summary</a>
-           ( <a href="createBillingReportAction?docFormat=pdf&repType=REP_MSPREMSUM&rano=<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="uriComponent"/>&proNo=" target="_blank">PDF</a>|<a href="createBillingReportAction?docFormat=csv&repType=REP_MSPREMSUM&rano=<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="uriComponent"/>&proNo=" target="_blank">CSV</a>)
+           ( <a href="<%= request.getContextPath() %>/billing/CA/BC/createBillingReportAction?docFormat=pdf&repType=REP_MSPREMSUM&rano=<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="uriComponent"/>&proNo=" target="_blank">PDF</a>|<a href="<%= request.getContextPath() %>/billing/CA/BC/createBillingReportAction?docFormat=csv&repType=REP_MSPREMSUM&rano=<carlos:encode value='<%= StringUtils.noNull(raNo) %>' context="uriComponent"/>&proNo=" target="_blank">CSV</a>)
         </td>
         <td ><carlos:encode value='<%= String.valueOf(result.getStatus()) %>' context="html"/></td>
      </tr>

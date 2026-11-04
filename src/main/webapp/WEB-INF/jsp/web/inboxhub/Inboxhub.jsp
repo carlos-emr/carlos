@@ -21,9 +21,10 @@
     https://github.com/carlos-emr/carlos
 --%>
 <%--
-  Page role: Renders `Inboxhub.jsp` for the CARLOS EMR workflow.
-  Keep request setup in the paired action and use CARLOS encoding helpers
-  for dynamic output rendered by the page.
+  Purpose: Render the provider Inbox Hub and its document/lab review controls.
+  Features: Search, paging, previews, and live patient-match refresh.
+  Parameters: scheduleNav optionally includes the schedule navigation.
+  @since 2026.08
 --%>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
@@ -61,13 +62,35 @@
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-3.7.1.min.js"></script>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-compat.js"></script>
     <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
+    <%-- The sanitized Forward dialog runs inline initialization but does not load its external scripts. --%>
+    <script src="${pageContext.request.contextPath}/js/demographicProviderAutocomplete.js"></script>
+    <script src="${pageContext.request.contextPath}/js/carlosAutocomplete.js"></script>
     <script type="text/javascript" charset="utf8" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js"></script>
     <script type="text/javascript" src="${pageContext.request.contextPath}/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
     <script src="${pageContext.request.contextPath}/library/dompurify/purify.min.js"></script>
+    <script src="${pageContext.request.contextPath}/js/documentImageLoader.js"></script>
+    <%@ include file="/WEB-INF/jsp/documentManager/documentMutationScripts.jspf" %>
+    <script>
+        var contextpath = "<carlos:encode value='${pageContext.request.contextPath}' context="javaScript"/>";
+        var providerNo = "<carlos:encode value='${sessionScope.user}' context="javaScript"/>";
+    </script>
     <script src="${pageContext.request.contextPath}/share/javascript/oscarMDSIndex.js"></script>
     <title><fmt:message key="inboxhub.title"/></title>
 </head>
 <body>
+<%-- The paging retry must remain visible while the search sidebar is collapsed. --%>
+<div aria-live="polite" aria-atomic="true" class="position-fixed bottom-0 end-0 p-3" style="z-index: 11; display: none;">
+    <div id="ajaxErrorToast" class="toast align-items-center text-white bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="false">
+        <div class="d-flex">
+            <div class="toast-body">
+                <fmt:message key="inboxhub.form.ajaxError"/>
+                <button id="retryInboxhubPage" type="button" class="btn btn-sm btn-outline-light ms-2"
+                        onclick="retryInboxhubPage();"><fmt:message key="inboxhub.form.retryLoad"/></button>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="<fmt:message key='global.btnClose'/>"></button>
+        </div>
+    </div>
+</div>
 <jsp:include page="/WEB-INF/jsp/includes/spinner.jspf" flush="true"/>
 <c:if test="${param.scheduleNav eq '1'}">
     <jsp:include page="/WEB-INF/jsp/provider/mainMenu.jsp"/>

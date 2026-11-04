@@ -38,40 +38,6 @@
     String submitAddRoles = bundle.getString("report.reportonbilledvisitprovider.btnAddRoles");
     String submitUpdateRole = bundle.getString("report.reportonbilledvisitprovider.btnUpdate");
 
-    // update the role list
-    if (request.getParameter("buttonUpdate") != null && request.getParameter("buttonUpdate").length() > 0) {
-        String number = request.getParameter("providerId");
-        String name = request.getParameter("name" + number);
-
-        List<Secuserrole> surs = secuserroleDao.findByProviderNo(number);
-        for (Secuserrole sur : surs) {
-            secuserroleDao.updateRoleName(sur.getId(), name);
-        }
-    }
-
-    // save the role list
-    if (request.getParameter("submit") != null && request.getParameter("submit").equals(submitAddRoles)) {
-        Properties prop = new Properties();
-
-        List<Secuserrole> surs = secuserroleDao.findAll();
-        for (Secuserrole sur : surs) {
-            prop.setProperty(sur.getProviderNo(), "");
-        }
-
-        for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
-            String temp = e.nextElement().toString();
-
-            if (!temp.startsWith("type") || prop.containsKey(temp.substring(4, temp.length()))) {
-                continue;
-            }
-
-            Secuserrole sur = new Secuserrole();
-            sur.setProviderNo(temp.substring(4, temp.length()));
-            sur.setRoleName(request.getParameter(temp));
-            secuserroleDao.save(sur);
-
-        }
-    }
 %>
 <%@page import="io.github.carlos_emr.carlos.db.DBPreparedHandlerParam" %>
 <%@page import="io.github.carlos_emr.carlos.db.LegacyJdbcQuery" %>
@@ -102,6 +68,7 @@
 </head>
 <body bgproperties="fixed" onLoad="setfocus()" topmargin="0"
       leftmargin="0" rightmargin="0">
+<fieldset style="border:0;padding:0" <%= Boolean.TRUE.equals(request.getAttribute("canManageProviderRoles")) ? "" : "disabled" %>>
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#486ebd">
         <th align="CENTER" width="90%"><font face="Helvetica"
@@ -317,5 +284,6 @@
         }
     %>
 </table>
+</fieldset>
 </body>
 </html>

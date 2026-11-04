@@ -32,6 +32,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -45,12 +46,20 @@
         return;
     }
 %>
+<%-- Declared before <head> so the document <title> can use the same message as the heading. --%>
+<fmt:setBundle basename="oscarResources"/>
 <!DOCTYPE html>
 <html>
 <head>
+    <%-- Defensive: this shell injects report pages into #dynamic-content with
+         .load(), and CSRFGuard does not tokenise a form nested inside an
+         inserted container. Loading the helper here covers any POST form such a
+         panel contains, now or later, without each panel having to (#4130). --%>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-    <title>Catchment Report</title>
+    <title><fmt:message key="admin.admin.pcnReport"/></title>
     <link rel="stylesheet" href="<%=request.getContextPath() %>/css/fontawesome-all.min.css">
+    <link rel="stylesheet" href="<%=request.getContextPath() %>/css/report-print.css">
 </head>
 <body>
 
@@ -106,9 +115,9 @@
 
 <div class="pb-2 mt-4 mb-3 border-bottom">
     <h4>
-        <fmt:message key="oscarReport.oscarReportCatchment.title"/>
+        <fmt:message key="admin.admin.pcnReport"/>
         <div class="float-end">
-            <button name='print' onClick='window.print()' class="btn btn-secondary">
+            <button name='print' onClick='window.print()' class="btn btn-secondary d-print-none report-print-hide">
                 <i class="fa-solid fa-print"></i>
                 <fmt:message key="global.btnPrint"/>
             </button>
@@ -116,7 +125,7 @@
     </h4>
 </div>
 
-<table class="table table-bordered table-striped table-sm table-hover">
+<table class="table table-bordered table-striped table-sm table-hover report-print-table" id="pcnReportTable">
     <thead>
     <tr>
         <th><fmt:message key="oscarReport.oscarReportCatchment.msgDemographic"/></th>
@@ -165,7 +174,7 @@
             - Integer.parseInt(strLimit2);
 %>
 
-<nav>
+<nav class="d-print-none report-print-hide" id="pcnPagination">
 <ul class="pagination justify-content-between">
     <li class="page-item <%=nLastPage >= 0 ? "" : "disabled"%>"><a
             href="${ctx}/oscarReport/ViewOscarReportCatchment?limit1=<%=nLastPage%>&limit2=<carlos:encode value='<%= strLimit2 %>' context="uriComponent"/>"

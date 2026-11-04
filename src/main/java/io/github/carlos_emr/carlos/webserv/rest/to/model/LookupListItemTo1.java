@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 
 public class LookupListItemTo1 implements Serializable {
 
@@ -50,6 +52,7 @@ public class LookupListItemTo1 implements Serializable {
 
     private String createdBy;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date dateCreated;
 
     public Integer getId() {

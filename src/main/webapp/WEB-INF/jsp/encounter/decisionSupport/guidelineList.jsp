@@ -52,7 +52,6 @@
     }
 %>
 
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -66,7 +65,6 @@
 <%
     pageContext.setAttribute("demographic_no", request.getParameter("demographic_no"));
     pageContext.setAttribute("provider_no", request.getParameter("provider_no"));
-    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 %>
 
 <html>
@@ -97,15 +95,15 @@
         <c:set var="cssClass" value="${index.index % 2 == 0 ? 'even' : 'odd'}"/>
         <tr class="${cssClass}">
             <td>${guideline.version}</td>
-            <td>${guideline.title}</td>
-            <td>${guideline.author}</td>
+            <td>${carlos:forHtml(guideline.title)}</td>
+            <td>${carlos:forHtml(guideline.author)}</td>
             <td><fmt:formatDate value="${guideline.dateStart}" pattern="MMM d, yyyy"/></td>
             <td>
                 <c:choose>
-                    <c:when test="${guideline.status == 'A'}">
+                    <c:when test="${guideline.status.toString() == 'A'}">
                         <span class="good"><fmt:message key="encounter.guidelinelist.active"/></span>
                     </c:when>
-                    <c:when test="${guideline.status == 'F'}">
+                    <c:when test="${guideline.status.toString() == 'F'}">
                     <span class="bad">
                         <fmt:message key="encounter.guidelinelist.failedon"/>
                         <fmt:formatDate value="${guideline.dateDecomissioned}" pattern="MMM d, yyyy"/>
@@ -116,8 +114,7 @@
             </td>
 
             <c:if test="${not empty param.demographic_no}">
-                <c:set var="dsGuideline" value="${guideline}"/>
-                <c:set var="passed" value="${dsGuideline.evaluate(loggedInInfo, param.demographic_no) != null}"/>
+                <c:set var="passed" value="${guidelineResults[guideline.id]}"/>
                 <td>
                     <c:choose>
                         <c:when test="${passed}">
@@ -127,7 +124,13 @@
                             <span class="bad"><fmt:message key="encounter.guidelinelist.failed"/></span>
                         </c:otherwise>
                     </c:choose>
-                    - <a href="${pageContext.request.contextPath}/encounter/decisionSupport/guidelineAction?method=detail&guidelineId=${guideline.id}&provider_no=${provider_no}&demographic_no=${demographic_no}">
+                    <c:url var="detailUrl" value="/encounter/decisionSupport/guidelineAction">
+                        <c:param name="method" value="detail"/>
+                        <c:param name="guidelineId" value="${guideline.id}"/>
+                        <c:param name="provider_no" value="${provider_no}"/>
+                        <c:param name="demographic_no" value="${demographic_no}"/>
+                    </c:url>
+                    - <a href="${carlos:forHtmlAttribute(detailUrl)}">
                     <fmt:message key="encounter.guidelinelist.moreinfo"/>
                 </a>
                 </td>

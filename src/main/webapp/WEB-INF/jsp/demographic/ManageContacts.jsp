@@ -237,7 +237,8 @@
             }
 
             function search_procontact(nameEl, valueEl) {
-                var url = '<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl;
+                var url = '<%= request.getContextPath() %>/demographic/ViewProContactSearch?form=contactForm&elementName=' + nameEl + '&elementId=' + valueEl
+                    + '&contactType=<%=DemographicContact.TYPE_CONTACT%>';
                 var popup = window.open(url, 'demographic_search');
                 demo_no_orig = document.contactForm.elements[valueEl].value;
                 //check_demo_no = setInterval("if (demo_no_orig != document.contactForm.elements[valueEl].value) updTklrList()",100);
@@ -362,8 +363,8 @@
                         <td><c:set var="__enc_1"><carlos:encode value='<%= demographic_no != null ? demographic_no : "" %>' context="htmlAttribute"/></c:set><oscar:nameage demographicNo="${__enc_1}"/></td>
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>

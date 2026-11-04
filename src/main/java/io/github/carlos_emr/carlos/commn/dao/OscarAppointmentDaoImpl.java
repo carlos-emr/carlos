@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO;
 import io.github.carlos_emr.carlos.appointment.dto.PatientAppointmentExportRow;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
+import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import io.github.carlos_emr.carlos.commn.model.Facility;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.BeanUtils;
@@ -47,6 +48,7 @@ import org.hibernate.ScrollMode;
 import org.hibernate.ScrollableResults;
 
 import jakarta.persistence.NoResultException;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.NonUniqueResultException;
 import jakarta.persistence.PersistenceException;
 import jakarta.persistence.Query;
@@ -65,13 +67,15 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Appointment> findRecurringSeries(Appointment anchor, Date endDate) {
+        // Pre-#5199 rows can contain CRLF while new copies store LF. Compare the
+        // canonical text without rewriting the original appointment or its archive.
         return entityManager.createQuery("SELECT a FROM Appointment a WHERE a.providerNo=:provider "
                 + "AND a.appointmentDate BETWEEN :start AND :end "
                 + "AND a.startTime=:startTime AND a.endTime=:endTime "
                 + "AND a.demographicNo=:demographic AND a.programId=:program "
                 + "AND COALESCE(a.name,'')=COALESCE(:name,'') "
-                + "AND COALESCE(a.notes,'')=COALESCE(:notes,'') "
-                + "AND COALESCE(a.reason,'')=COALESCE(:reason,'') "
+                + "AND REPLACE(REPLACE(COALESCE(a.notes,''),:crlf,:lf),:cr,:lf)=COALESCE(:notes,'') "
+                + "AND REPLACE(REPLACE(COALESCE(a.reason,''),:crlf,:lf),:cr,:lf)=COALESCE(:reason,'') "
                 + "AND COALESCE(a.creator,'')=COALESCE(:creator,'') "
                 + "AND (a.createDateTime=:created OR (a.createDateTime IS NULL AND :created IS NULL)) "
                 + "ORDER BY a.appointmentDate, a.id", Appointment.class)
@@ -79,8 +83,9 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
                 .setParameter("start", anchor.getAppointmentDate()).setParameter("end", endDate)
                 .setParameter("startTime", anchor.getStartTime()).setParameter("endTime", anchor.getEndTime())
                 .setParameter("demographic", anchor.getDemographicNo()).setParameter("program", anchor.getProgramId())
-                .setParameter("name", anchor.getName()).setParameter("notes", anchor.getNotes())
-                .setParameter("reason", anchor.getReason()).setParameter("creator", anchor.getCreator())
+                .setParameter("name", anchor.getName()).setParameter("notes", Appointment.normalizeLineEndings(anchor.getNotes()))
+                .setParameter("reason", Appointment.normalizeLineEndings(anchor.getReason())).setParameter("creator", anchor.getCreator())
+                .setParameter("crlf", "\r\n").setParameter("lf", "\n").setParameter("cr", "\r")
                 .setParameter("created", anchor.getCreateDateTime()).setMaxResults(367)
                 .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultList();
     }
@@ -95,7 +100,14 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
                 Appointment.class);
         query.setParameter(1, appointmentNo);
         List<Appointment> rows = query.getResultList();
-        return rows.isEmpty() ? null : rows.get(0);
+        if (rows.isEmpty()) {
+            return null;
+        }
+        Appointment appointment = rows.get(0);
+        // A native lock query may resolve to an entity already in the persistence context.
+        // Use a locking refresh so MariaDB REPEATABLE READ also returns the current row.
+        entityManager.refresh(appointment, LockModeType.PESSIMISTIC_WRITE);
+        return appointment;
     }
 
     @Override
@@ -265,6 +277,22 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         List<Appointment> rs = query.getResultList();
 
         return rs;
+    }
+
+    @Override
+    public List<Date> findDoNotBookDates(Appointment template, List<Date> dates) {
+        if (dates.isEmpty()) return java.util.Collections.emptyList();
+        return entityManager.createQuery("SELECT DISTINCT a.appointmentDate FROM Appointment a "
+                        + "WHERE a.providerNo = :provider AND a.programId = :program "
+                        + "AND a.appointmentDate IN :dates AND LOWER(a.name) = 'do_not_book' "
+                        + "AND (a.status IS NULL OR a.status NOT IN ('C', 'D')) "
+                        + "AND a.startTime <= :endTime AND a.endTime >= :startTime", Date.class)
+                .setParameter("provider", template.getProviderNo())
+                .setParameter("program", template.getProgramId())
+                .setParameter("dates", dates)
+                .setParameter("startTime", template.getStartTime())
+                .setParameter("endTime", template.getEndTime())
+                .getResultList();
     }
 
     @Override
@@ -456,12 +484,11 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
         try {
             return query.getSingleResult();
-        } catch (NoResultException e) {
-            MiscUtils.getLogger().info("Couldn't find appointment for demographic " + demographicNo + " today.");
+        } catch (NoResultException _) {
             return null;
-        } catch (NonUniqueResultException e) {
-            MiscUtils.getLogger().error(
-                    "Multiple appointments found for demographic {} today; returning earliest appointment", demographicNo, e);
+        } catch (NonUniqueResultException _) {
+            // Expected fallback: keep identifiers and persistence exception payloads out of logs.
+            MiscUtils.getLogger().warn("Multiple appointments found today; returning earliest appointment");
             TypedQuery<Appointment> fallbackQuery = entityManager.createQuery(orderedSql, Appointment.class);
             fallbackQuery.setParameter(1, demographicNo);
             fallbackQuery.setMaxResults(1);
@@ -564,16 +591,44 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
     }
 
     @Override
-    /**
-     * Searches for unbilled appointments within a specified date range for a given provider.
-     */
     public List<Appointment> search_unbill_history_daterange(String providerNo, Date startDate, Date endDate) {
-        String sql = "select a from Appointment a where a.providerNo=?1 and a.appointmentDate >=?2 and a.appointmentDate<=?3 and a.status NOT LIKE 'B%' and a.demographicNo <> 0 order by a.appointmentDate desc, a.startTime desc";
-        Query query = entityManager.createQuery(sql);
-        query.setParameter(1, providerNo);
-        query.setParameter(2, startDate);
-        query.setParameter(3, endDate);
+        return findUnbilledAppointments(providerNo, startDate, endDate, false, false);
+    }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Ported from open-osp/Open-O PR #134 / #186 (Chitrank Davé), which added
+     * the No-Show/Cancelled filter to the BC unbilled report. CARLOS inverts the
+     * flags to "include" so the default call excludes both statuses on every
+     * unbilled screen (issue #3960), and binds the status prefixes as
+     * parameters.</p>
+     */
+    @Override
+    public List<Appointment> findUnbilledAppointments(String providerNo, Date startDate, Date endDate,
+                                                             boolean includeNoShow, boolean includeCancelled) {
+        StringBuilder jpql = new StringBuilder("select a from Appointment a where a.providerNo = :providerNo"
+                + " and a.appointmentDate >= :startDate and a.appointmentDate <= :endDate"
+                + " and a.status not like :billedPrefix");
+        if (!includeCancelled) {
+            jpql.append(" and a.status not like :cancelledPrefix");
+        }
+        if (!includeNoShow) {
+            jpql.append(" and a.status not like :noShowPrefix");
+        }
+        jpql.append(" and a.demographicNo <> 0 order by a.appointmentDate desc, a.startTime desc");
+
+        Query query = entityManager.createQuery(jpql.toString());
+        query.setParameter("providerNo", providerNo);
+        query.setParameter("startDate", startDate);
+        query.setParameter("endDate", endDate);
+        query.setParameter("billedPrefix", AppointmentStatus.APPOINTMENT_STATUS_BILLED + "%");
+        if (!includeCancelled) {
+            query.setParameter("cancelledPrefix", AppointmentStatus.APPOINTMENT_STATUS_CANCELLED + "%");
+        }
+        if (!includeNoShow) {
+            query.setParameter("noShowPrefix", AppointmentStatus.APPOINTMENT_STATUS_NO_SHOW + "%");
+        }
         return query.getResultList();
     }
 

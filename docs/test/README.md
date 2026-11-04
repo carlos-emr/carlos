@@ -2,18 +2,19 @@
 
 ## Overview
 
-This directory contains comprehensive documentation for the CARLOS EMR modern test framework, which uses JUnit 5 (Jupiter) running alongside legacy JUnit 4 tests.
+This directory contains the documentation for the CARLOS EMR test framework: a single
+JUnit Jupiter suite under `src/test/`. The framework was introduced alongside the legacy
+JUnit 4 tests in a parallel `src/test-modern/` tree; that migration is finished — the
+JUnit 4 suite has been removed and `src/test-modern/` was collapsed into `src/test/`.
 
 ## Current Status
 
 - **Framework**: ✅ Production Ready
-- **Tests**: 129 unit tests passing, 12 integration tests (11 passing)
-  - Unit Tests: 129/129 passing ✅
-    - DemographicManagerUnitTest: 117 tests (18 @Nested classes)
-    - TicklerManagerUnitTest: 9 tests
-    - TicklerDaoUnitTest: 3 tests
-  - Integration Tests: 11/12 passing (1 fails due to lst_gender table dependency)
-- **Java 21 Support**: ✅ Fully compatible with ByteBuddy experimental flag
+- **Layout**: one Jupiter suite under `src/test/`; no legacy suite to keep in sync
+- **Java 25 Support**: ✅ Fully compatible with ByteBuddy experimental flag
+  (`-Dnet.bytebuddy.experimental=true`, set in the surefire `argLine`)
+
+Run `mvn test` for a current pass/fail count rather than trusting a number recorded here.
 
 ## Quick Start Guide
 
@@ -37,50 +38,50 @@ If you're new to the test framework, start here:
 | Document | Purpose | When to Read |
 |----------|---------|--------------|
 | [Framework Complete Documentation](modern-test-framework-complete.md) | Detailed technical implementation | Deep technical understanding needed |
-| [Legacy Test Reference](legacy-test-reference.md) | Documentation of existing JUnit 4 tests | Working with legacy tests |
+| [Legacy Test Reference](legacy-test-reference.md) | **Historical** — describes the removed JUnit 4 suite | Reading pre-migration history only |
 
 ## Test Framework Architecture
 
 ```
-src/test-modern/
+src/test/
 ├── java/io/github/carlos_emr/carlos/
 │   ├── test/
-│   │   ├── base/              # Base test classes
+│   │   ├── base/              # Base test classes (CarlosTestBase, ...)
 │   │   ├── unit/              # Unit test infrastructure (CarlosUnitTestBase)
-│   │   └── mocks/             # Mock implementations
+│   │   ├── builders/          # Test data builders
+│   │   ├── logging/           # LogCapture, for Log4j2 assertions
+│   │   ├── mocks/             # Mock implementations
+│   │   └── support/           # Shared test support
 │   ├── managers/              # Manager layer unit tests
 │   │   ├── DemographicUnitTestBase.java      # Base class with test data builders
 │   │   └── DemographicManagerUnitTest.java   # 117 tests in 18 @Nested classes
-│   └── tickler/               # Domain-specific tests
-│       ├── dao/               # DAO tests (integration + unit)
-│       │   └── archive/       # Original single-file tests (reference only)
-│       └── manager/           # Tickler Manager tests
-└── resources/                 # Test configurations
+│   └── <domain>/              # Per-domain tests, mirroring the main tree
+│       └── tickler/
+│           ├── dao/           # DAO tests (integration + unit)
+│           └── manager/       # Tickler Manager tests
+└── resources/                 # Spring contexts, test.properties, log4j2.xml
 ```
 
 ## Running Tests
 
 ### Using Make Script (Recommended)
 ```bash
-# Run all tests (modern + legacy)
+# Run all tests
 make install --run-tests
 
-# Run only modern tests (JUnit 5)
-make install --run-modern-tests
-
-# Run only legacy tests (JUnit 4)
-make install --run-legacy-tests
-
-# Run only modern unit tests
+# Run only unit tests (fast, no database)
 make install --run-unit-tests
 
-# Run only modern integration tests
+# Run only integration tests
 make install --run-integration-tests
 ```
 
+Those three are the only test modes the script accepts; see
+`.devcontainer/development/scripts/make`.
+
 ### Using Maven Directly
 ```bash
-# Run all tests (modern + legacy)
+# Run all tests
 mvn test
 
 # Run specific test types
@@ -91,11 +92,11 @@ mvn test -Dtest=TicklerDao*       # Specific test pattern
 
 ## Key Features
 
-### 1. Dual Framework Support
-- **JUnit 5 (modern)** tests in `src/test-modern/` - 23 tests implemented
-- **JUnit 4 (legacy)** tests in `src/test/` - ~374 test files remain active
-- Both run seamlessly together in CI/CD pipeline
-- See [Legacy Test Reference](legacy-test-reference.md) for existing test details
+### 1. Single Suite
+- All tests live in `src/test/java`, run by one surefire execution
+- Surefire's `<includes>` is an **allowlist**: a class whose name and package match
+  none of its patterns is silently never run. Name new tests `*UnitTest` /
+  `*IntegrationTest`, or put them under a `test/` package.
 
 ### 2. SpringUtils Anti-Pattern Handling
 - **Integration Tests**: Automatic SpringUtils configuration
@@ -206,14 +207,16 @@ public class MyManagerUnitTest extends CarlosUnitTestBase {
 ### Issue: SpringUtils.getBean() returns null
 **Solution**: Ensure test extends `CarlosTestBase` and Spring context is configured
 
-### Issue: ByteBuddy Java 21 compatibility error
+### Issue: ByteBuddy Java 25 compatibility error
 **Solution**: Verify `-Dnet.bytebuddy.experimental=true` is in Maven configuration
 
 ### Issue: Static initialization failures
 **Solution**: Mock dependencies before creating static mocks (see unit testing guide)
 
 ### Issue: Test not discovered by Maven
-**Solution**: Ensure test class is declared `public` and follows naming convention
+**Solution**: Check it matches a surefire `<include>` pattern in `pom.xml` — the list is an
+allowlist, so a non-matching class is skipped with no error. `*UnitTest` and
+`*IntegrationTest` always match.
 
 ## Contributing
 
@@ -227,11 +230,11 @@ When adding new test documentation:
 
 For questions or issues:
 1. Check the [Test Writing Best Practices](test-writing-best-practices.md)
-2. Review existing test implementations in `src/test-modern/`
+2. Review existing test implementations in `src/test/`
 3. Consult the main project documentation in `/workspace/CLAUDE.md`
 
 ---
 
-*Last Updated: January 2026*
-*Version: 1.1*
+*Last Updated: September 2026*
+*Version: 1.2*
 *Status: Production Ready*

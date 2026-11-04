@@ -58,6 +58,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.data.FrmData" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.form.graphic.FrmGraphicAR" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 
 <%
@@ -115,7 +116,7 @@
         <script src="<%= request.getContextPath() %>/library/jquery/jquery-compat.js"></script>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/jquery.are-you-sure.js"></script>
 
-        <link rel="stylesheet" type="text/css" href="<%=bView?"bcArStyleView.css" : "bcAr2007Style.css"%>">
+        <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/form/<%=bView?"bcArStyleView.css" : "bcAr2007Style.css"%>">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
 
@@ -350,16 +351,16 @@
         }
 
         function syncDemo() {
-            document.forms[0].c_surname.value = "<%=props.getProperty("c_surname_cur", "")%>";
-            document.forms[0].c_givenName.value = "<%=props.getProperty("c_givenName_cur", "")%>";
-            document.forms[0].c_address.value = "<%=props.getProperty("c_address_cur", "")%>";
-            document.forms[0].c_city.value = "<%=props.getProperty("c_city_cur", "")%>";
-            document.forms[0].c_province.value = "<%=props.getProperty("c_province_cur", "")%>";
-            document.forms[0].c_postal.value = "<%=props.getProperty("c_postal_cur", "")%>";
-            document.forms[0].c_phn.value = "<%=props.getProperty("c_phn_cur", "")%>";
-            document.forms[0].c_phone.value = "<%=props.getProperty("c_phone_cur", "")%>";
-            document.forms[0].c_phoneAlt1.value = "<%=props.getProperty("c_phoneAlt1_cur", "")%>";
-            document.forms[0].c_phoneAlt2.value = "<%=props.getProperty("c_phoneAlt2_cur", "")%>";
+            document.forms[0].c_surname.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_surname_cur", ""))%>";
+            document.forms[0].c_givenName.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_givenName_cur", ""))%>";
+            document.forms[0].c_address.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_address_cur", ""))%>";
+            document.forms[0].c_city.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_city_cur", ""))%>";
+            document.forms[0].c_province.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_province_cur", ""))%>";
+            document.forms[0].c_postal.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_postal_cur", ""))%>";
+            document.forms[0].c_phn.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_phn_cur", ""))%>";
+            document.forms[0].c_phone.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_phone_cur", ""))%>";
+            document.forms[0].c_phoneAlt1.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_phoneAlt1_cur", ""))%>";
+            document.forms[0].c_phoneAlt2.value = "<%=SafeEncode.forJavaScript(props.getProperty("c_phoneAlt2_cur", ""))%>";
 
         }
 
@@ -987,49 +988,49 @@ if (!fedb.equals("") && fedb.length()==10 ) {
 
         <input type="hidden" name="commonField" value="ar2_"/>
         <input type="hidden" name="c_lastVisited" value="pg3"/>
-        <input type="hidden" name="demographic_no" value="<%= props.getProperty("demographic_no", "0") %>"/>
-        <input type="hidden" name="formCreated" value="<%= props.getProperty("formCreated", "") %>"/>
+        <input type="hidden" name="demographic_no" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
+        <input type="hidden" name="formCreated" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
         <input type="hidden" name="form_class" value="<%=formClass%>"/>
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="formId" value="<%=formId%>"/>
-        <input type="hidden" name="ID" value="<%= props.getProperty("ID", "0") %>"/>
+        <input type="hidden" name="ID" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ID", "0")) %>"/>
         <input type="hidden" name="provider_no" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="provNo" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="submit" value="exit"/>
-        <input type="hidden" name="DOB" id="DOB" value="<%= props.getProperty("pg1_dateOfBirth", "") %>"/>
-        <input type="hidden" name="height" id="height" value="<%= props.getProperty("c_ppHt", "") %>"/>
-        <input type="hidden" name="pg2_date1" value="<%= props.getProperty("pg2_date1", "") %>"/>
-        <input type="hidden" name="pg2_date2" value="<%= props.getProperty("pg2_date2", "") %>"/>
-        <input type="hidden" name="pg2_date3" value="<%= props.getProperty("pg2_date3", "") %>"/>
-        <input type="hidden" name="pg2_date4" value="<%= props.getProperty("pg2_date4", "") %>"/>
-        <input type="hidden" name="pg2_date5" value="<%= props.getProperty("pg2_date5", "") %>"/>
-        <input type="hidden" name="pg2_date6" value="<%= props.getProperty("pg2_date6", "") %>"/>
-        <input type="hidden" name="pg2_date7" value="<%= props.getProperty("pg2_date7", "") %>"/>
-        <input type="hidden" name="pg2_date8" value="<%= props.getProperty("pg2_date8", "") %>"/>
-        <input type="hidden" name="pg2_date9" value="<%= props.getProperty("pg2_date9", "") %>"/>
-        <input type="hidden" name="pg2_date10" value="<%= props.getProperty("pg2_date10", "") %>"/>
-        <input type="hidden" name="pg2_date11" value="<%= props.getProperty("pg2_date11", "") %>"/>
-        <input type="hidden" name="pg2_date12" value="<%= props.getProperty("pg2_date12", "") %>"/>
-        <input type="hidden" name="pg2_date13" value="<%= props.getProperty("pg2_date13", "") %>"/>
-        <input type="hidden" name="pg2_date14" value="<%= props.getProperty("pg2_date14", "") %>"/>
-        <input type="hidden" name="pg2_date15" value="<%= props.getProperty("pg2_date15", "") %>"/>
-        <input type="hidden" name="pg2_date16" value="<%= props.getProperty("pg2_date16", "") %>"/>
-        <input type="hidden" name="pg2_ht1" value="<%= props.getProperty("pg2_ht1", "") %>"/>
-        <input type="hidden" name="pg2_ht2" value="<%= props.getProperty("pg2_ht2", "") %>"/>
-        <input type="hidden" name="pg2_ht3" value="<%= props.getProperty("pg2_ht3", "") %>"/>
-        <input type="hidden" name="pg2_ht4" value="<%= props.getProperty("pg2_ht4", "") %>"/>
-        <input type="hidden" name="pg2_ht5" value="<%= props.getProperty("pg2_ht5", "") %>"/>
-        <input type="hidden" name="pg2_ht6" value="<%= props.getProperty("pg2_ht6", "") %>"/>
-        <input type="hidden" name="pg2_ht7" value="<%= props.getProperty("pg2_ht7", "") %>"/>
-        <input type="hidden" name="pg2_ht8" value="<%= props.getProperty("pg2_ht8", "") %>"/>
-        <input type="hidden" name="pg2_ht9" value="<%= props.getProperty("pg2_ht9", "") %>"/>
-        <input type="hidden" name="pg2_ht10" value="<%= props.getProperty("pg2_ht10", "") %>"/>
-        <input type="hidden" name="pg2_ht11" value="<%= props.getProperty("pg2_ht11", "") %>"/>
-        <input type="hidden" name="pg2_ht12" value="<%= props.getProperty("pg2_ht12", "") %>"/>
-        <input type="hidden" name="pg2_ht13" value="<%= props.getProperty("pg2_ht13", "") %>"/>
-        <input type="hidden" name="pg2_ht14" value="<%= props.getProperty("pg2_ht14", "") %>"/>
-        <input type="hidden" name="pg2_ht15" value="<%= props.getProperty("pg2_ht15", "") %>"/>
-        <input type="hidden" name="pg2_ht16" value="<%= props.getProperty("pg2_ht16", "") %>"/>
+        <input type="hidden" name="DOB" id="DOB" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg1_dateOfBirth", "")) %>"/>
+        <input type="hidden" name="height" id="height" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_ppHt", "")) %>"/>
+        <input type="hidden" name="pg2_date1" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date1", "")) %>"/>
+        <input type="hidden" name="pg2_date2" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date2", "")) %>"/>
+        <input type="hidden" name="pg2_date3" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date3", "")) %>"/>
+        <input type="hidden" name="pg2_date4" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date4", "")) %>"/>
+        <input type="hidden" name="pg2_date5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date5", "")) %>"/>
+        <input type="hidden" name="pg2_date6" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date6", "")) %>"/>
+        <input type="hidden" name="pg2_date7" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date7", "")) %>"/>
+        <input type="hidden" name="pg2_date8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date8", "")) %>"/>
+        <input type="hidden" name="pg2_date9" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date9", "")) %>"/>
+        <input type="hidden" name="pg2_date10" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date10", "")) %>"/>
+        <input type="hidden" name="pg2_date11" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date11", "")) %>"/>
+        <input type="hidden" name="pg2_date12" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date12", "")) %>"/>
+        <input type="hidden" name="pg2_date13" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date13", "")) %>"/>
+        <input type="hidden" name="pg2_date14" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date14", "")) %>"/>
+        <input type="hidden" name="pg2_date15" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date15", "")) %>"/>
+        <input type="hidden" name="pg2_date16" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date16", "")) %>"/>
+        <input type="hidden" name="pg2_ht1" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_ht1", "")) %>"/>
+        <input type="hidden" name="pg2_ht2" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_ht2", "")) %>"/>
+        <input type="hidden" name="pg2_ht3" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_ht3", "")) %>"/>
+        <input type="hidden" name="pg2_ht4" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_ht4", "")) %>"/>
+        <input type="hidden" name="pg2_ht5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_ht5", "")) %>"/>
+        <input type="hidden" name="pg2_ht6" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_ht6", "")) %>"/>
+        <input type="hidden" name="pg2_ht7" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_ht7", "")) %>"/>
+        <input type="hidden" name="pg2_ht8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_ht8", "")) %>"/>
+        <input type="hidden" name="pg2_ht9" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_ht9", "")) %>"/>
+        <input type="hidden" name="pg2_ht10" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_ht10", "")) %>"/>
+        <input type="hidden" name="pg2_ht11" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_ht11", "")) %>"/>
+        <input type="hidden" name="pg2_ht12" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_ht12", "")) %>"/>
+        <input type="hidden" name="pg2_ht13" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_ht13", "")) %>"/>
+        <input type="hidden" name="pg2_ht14" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_ht14", "")) %>"/>
+        <input type="hidden" name="pg2_ht15" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_ht15", "")) %>"/>
+        <input type="hidden" name="pg2_ht16" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_ht16", "")) %>"/>
 
 
         <table class="Head" class="hidePrint">
@@ -1059,9 +1060,9 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
 
                 <td align="right"><b>Edit:</b>
-                    <a href="formbcar2012pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a>
+                    <a href="form/formbcar2012pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a>
                     |
-                    <a href="formbcar2012pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
+                    <a href="form/formbcar2012pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
                         <font size=-2>(pg.1)</font></a> |
                     AR2<font size=-2>(pg.2)</font> |
                     <!--a href="javascript: popupFixedPage(700,950,'<%= request.getContextPath() %>/decision/antenatal/antenatalplanner?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>');">AR Planner</a-->
@@ -1090,11 +1091,11 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                 <input type="text" name="ar2_inBirthPlace" class="spe"
                                        onDblClick="showPGBox('BirthPlacediv',1, this, event, 'ar2_inBirthPlace', 300, 80, 26);"
                                        style="width:100%" size="40" maxlength="60"
-                                       value="<%= props.getProperty("ar2_inBirthPlace", "") %>" @oscar.formDB/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_inBirthPlace", "")) %>" @oscar.formDB/>
                             </td>
                             <td width="50%">Alternate place of birth (Hospital)<br>
                                 <input type="text" name="ar2_inBirthPlaceAlt" style="width:100%" size="40"
-                                       maxlength="60" value="<%= props.getProperty("ar2_inBirthPlaceAlt", "") %>"
+                                       maxlength="60" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_inBirthPlaceAlt", "")) %>"
                                        @oscar.formDB/>
                             </td>
                         </tr>
@@ -1155,14 +1156,14 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                                     <td>
                                                         <input type="text" name="ar2_labRATDate1" id="ar2_labRATDate1"
                                                                size="8" maxlength="10"
-                                                               value="<%= props.getProperty("ar2_labRATDate1", "") %>"
+                                                               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labRATDate1", "")) %>"
                                                                @oscar.formDB dbType="date"/>
                                                         <img src="<%= request.getContextPath() %>/images/cal.gif" id="ar2_labRATDate1_cal">
                                                     </td>
                                                     <td>
                                                         <input type="text" name="ar2_labRATRes1" style="width:100%"
                                                                size="10" maxlength="10"
-                                                               value="<%= props.getProperty("ar2_labRATRes1", "") %>"
+                                                               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labRATRes1", "")) %>"
                                                                @oscar.formDB/>
                                                     </td>
                                                 </tr>
@@ -1171,14 +1172,14 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                                     <td>
                                                         <input type="text" name="ar2_labRATDate2" id="ar2_labRATDate2"
                                                                size="8" maxlength="10"
-                                                               value="<%= props.getProperty("ar2_labRATDate2", "") %>"
+                                                               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labRATDate2", "")) %>"
                                                                @oscar.formDB dbType="date"/>
                                                         <img src="<%= request.getContextPath() %>/images/cal.gif" id="ar2_labRATDate2_cal">
                                                     </td>
                                                     <td>
                                                         <input type="text" name="ar2_labRATRes2" style="width:100%"
                                                                size="10" maxlength="10"
-                                                               value="<%= props.getProperty("ar2_labRATRes2", "") %>"
+                                                               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labRATRes2", "")) %>"
                                                                @oscar.formDB/>
                                                     </td>
                                                 </tr>
@@ -1201,7 +1202,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                                     <td>
                                                         <input type="text" name="ar2_labRhIgG" id="ar2_labRhIgG"
                                                                style="width:80%" size="10" maxlength="10"
-                                                               value="<%= props.getProperty("ar2_labRhIgG", "") %>"
+                                                               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labRhIgG", "")) %>"
                                                                @oscar.formDB dbType="date"/>
                                                         <img src="<%= request.getContextPath() %>/images/cal.gif" id="ar2_labRhIgG_cal">
                                                     </td>
@@ -1211,7 +1212,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                                     <td>
                                                         <input type="text" name="ar2_labRhIgG2" id="ar2_labRhIgG2"
                                                                style="width:80%" size="10" maxlength="10"
-                                                               value="<%= props.getProperty("ar2_labRhIgG2", "") %>"
+                                                               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labRhIgG2", "")) %>"
                                                                @oscar.formDB dbType="date"/>
                                                         <img src="<%= request.getContextPath() %>/images/cal.gif" id="ar2_labRhIgG2_cal">
                                                     </td>
@@ -1230,13 +1231,13 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                                     <td><i><span class="small8">1st</span></i><br>
                                                         <input type="text" name="ar2_labHem1st" style="width:100%"
                                                                size="10" maxlength="12"
-                                                               value="<%= props.getProperty("ar2_labHem1st", "") %>"
+                                                               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labHem1st", "")) %>"
                                                                @oscar.formDB/>
                                                     </td>
                                                     <td><i><span class="small8">3rd</span></i><br>
                                                         <input type="text" name="ar2_labHem3rd" style="width:100%"
                                                                size="10" maxlength="12"
-                                                               value="<%= props.getProperty("ar2_labHem3rd", "") %>"
+                                                               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labHem3rd", "")) %>"
                                                                @oscar.formDB/>
                                                     </td>
                                                 </tr>
@@ -1259,7 +1260,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                                             </option>
                                                         </select>
                                                         <input type="text" name="ar2_urineCStxt"
-                                                               value="<%=props.getProperty("ar2_urineCStxt","")%>"
+                                                               value="<%=SafeEncode.forHtmlAttribute(props.getProperty("ar2_urineCStxt",""))%>"
                                                                maxlength="17"/>
                                                     </td>
                                         </td>
@@ -1288,7 +1289,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                     <tr>
                                         <td>
                                             <input type="text" name="ar2_labRubella" style="width:100%" size="10"
-                                                   maxlength="12" value="<%= props.getProperty("ar2_labRubella", "") %>"
+                                                   maxlength="12" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labRubella", "")) %>"
                                                    @oscar.formDB/>
                                         </td>
                                     </tr>
@@ -1383,7 +1384,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                         <td>
                                             <input type="text" name="ar2_labHBsAgDate" id="ar2_labHBsAgDate"
                                                    style="width:100%" size="10" maxlength="10"
-                                                   value="<%= props.getProperty("ar2_labHBsAgDate", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labHBsAgDate", "")) %>"
                                                    @oscar.formDB dbType="date"/>
                                         </td>
                                         <td>
@@ -1442,7 +1443,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                         <td>
                                             <input type="text" name="ar2_labOtherTSH" style="width:100%" size="10"
                                                    maxlength="255"
-                                                   value="<%= props.getProperty("ar2_labOtherTSH", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labOtherTSH", "")) %>"
                                                    @oscar.formDB/>
                                         </td>
                                     </tr>
@@ -1464,7 +1465,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                         <td colspan="2">
                                             <input type="text" name="ar2_labOtherTest" style="width:100%" size="10"
                                                    maxlength="255"
-                                                   value="<%= props.getProperty("ar2_labOtherTest", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labOtherTest", "")) %>"
                                                    @oscar.formDB/>
                                         </td>
                                     </tr>
@@ -1500,7 +1501,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                         <td>
                                             <input type="text" name="ar2_labScreenSpec" style="width:95%;float:right;"
                                                    size="10" maxlength="255"
-                                                   value="<%= props.getProperty("ar2_labScreenSpec", "") %>"
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labScreenSpec", "")) %>"
                                                    @oscar.formDB/>
                                         </td>
                                     </tr>
@@ -1527,19 +1528,19 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                                     <td>
                                                         <input type="text" name="ar2_labGWeek" style="width:100%"
                                                                size="3" maxlength="5"
-                                                               value="<%= props.getProperty("ar2_labGWeek", "") %>"
+                                                               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labGWeek", "")) %>"
                                                                @oscar.formDB/>
                                                     </td>
                                                     <td nowrap>
                                                         <input type="text" name="ar2_labDiabDate" id="ar2_labDiabDate"
                                                                size="8" maxlength="10"
-                                                               value="<%= props.getProperty("ar2_labDiabDate", "") %>"
+                                                               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labDiabDate", "")) %>"
                                                                @oscar.formDB dbType="date"/>
                                                     </td>
                                                     <td>
                                                         <input type="text" name="ar2_labDiabRes" style="width:100%"
                                                                size="10" maxlength="10"
-                                                               value="<%= props.getProperty("ar2_labDiabRes", "") %>"
+                                                               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labDiabRes", "")) %>"
                                                                @oscar.formDB/>
                                                     </td>
                                                 </tr>
@@ -1565,7 +1566,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                         <td width="55%">
                                             <input type="text" name="ar2_labGGTDate" id="ar2_labGGTDate"
                                                    style="width:100%" size="8" maxlength="10"
-                                                   value="<%= props.getProperty("ar2_labGGTDate", "") %>" @oscar.formDB
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labGGTDate", "")) %>" @oscar.formDB
                                                    dbType="date"/>
 
                                         </td>
@@ -1614,7 +1615,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                         <td width="55%">
                                             <input type="text" name="ar2_labGBSDate" id="ar2_labGBSDate"
                                                    style="width:100%" size="8" maxlength="10"
-                                                   value="<%= props.getProperty("ar2_labGBSDate", "") %>" @oscar.formDB
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labGBSDate", "")) %>" @oscar.formDB
                                                    dbType="date"/>
 
                                         </td>
@@ -1660,13 +1661,13 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                         <td>
                                             <span class="small9">Score </span><input type="text" name="ar2_labEdinScore"
                                                                                      size="4" maxlength="5"
-                                                                                     value="<%= props.getProperty("ar2_labEdinScore", "") %>"
+                                                                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labEdinScore", "")) %>"
                                                                                      @oscar.formDB/>
                                         </td>
                                         <td>
                                             <input type="text" name="ar2_labEdinDate" id="ar2_labEdinDate"
                                                    style="width:100%" size="8" maxlength="10"
-                                                   value="<%= props.getProperty("ar2_labEdinDate", "") %>" @oscar.formDB
+                                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_labEdinDate", "")) %>" @oscar.formDB
                                                    dbType="date"/>
                                         </td>
                                     </tr>
@@ -1705,25 +1706,25 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             <td>
                                 <input type="text" name="ar2_age" id="ar2_age" style="width:80%" class="spe"
                                        onDblClick="calcEDDAge();" size="3" maxlength="5"
-                                       value="<%= props.getProperty("ar2_age", "") %>" @oscar.formDB/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_age", "")) %>" @oscar.formDB/>
                             </td>
                             <td>
                                 <input type="text" name="c_ppWt" style="width:80%;" class="spe"
                                        onDblClick="wtEnglish2Metric(this);" size="5" maxlength="5"
-                                       value="<%= props.getProperty("c_ppWt", "") %>" @oscar.formDB/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_ppWt", "")) %>" @oscar.formDB/>
                             </td>
                             <td>
                                 <input type="text" name="c_ppHt" size="3" maxlength="5"
-                                       value="<%= props.getProperty("c_ppHt", "") %>" @oscar.formDB/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_ppHt", "")) %>" @oscar.formDB/>
                             </td>
                             <td>
                                 <input type="text" name="pg1_lmp" id="pg1_lmp" size="10" maxlength="10"
-                                       value="<%= props.getProperty("pg1_lmp", "") %>" @oscar.formDB dbType="date"/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg1_lmp", "")) %>" @oscar.formDB dbType="date"/>
                                 <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg1_lmp_cal">
                             </td>
                             <td>
                                 <input type="text" name="c_EDD" id="c_EDD" size="10" maxlength="10"
-                                       value="<%= props.getProperty("c_EDD", "") %>" @oscar.formDB dbType="date"/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_EDD", "")) %>" @oscar.formDB dbType="date"/>
                                 <img src="<%= request.getContextPath() %>/images/cal.gif" id="c_EDD_cal">
                             </td>
                         </tr>
@@ -1748,44 +1749,44 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             <tr>
                                 <td width="55%">Surname<br>
                                     <input type="text" name="c_surname" readonly style="width:100%" size="30"
-                                           maxlength="30" value="<%= props.getProperty("c_surname", "") %>"
+                                           maxlength="30" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_surname", "")) %>"
                                            @oscar.formDB/>
                                 </td>
                                 <td>Given Name<br>
                                     <input type="text" name="c_givenName" reasonly style="width:100%" size="30"
-                                           maxlength="30" value="<%= props.getProperty("c_givenName", "") %>"
+                                           maxlength="30" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_givenName", "")) %>"
                                            @oscar.formDB/>
                                 </td>
                             </tr>
                             <tr>
                                 <td colspan="2">Address<br>
                                     <input type="text" name="c_address" readonly style="width:100%" size="50"
-                                           maxlength="60" value="<%= props.getProperty("c_address", "") %>"
+                                           maxlength="60" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_address", "")) %>"
                                            @oscar.formDB/>
                                     <input type="text" name="c_city" readonly style="width:50%" size="50" maxlength="60"
-                                           value="<%= props.getProperty("c_city", "") %>" @oscar.formDB/>
+                                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_city", "")) %>" @oscar.formDB/>
                                     <input type="text" name="c_province" readonly size="10" maxlength="50"
-                                           value="<%= props.getProperty("c_province", "") %>" @oscar.formDB/>
+                                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_province", "")) %>" @oscar.formDB/>
                                     <input type="text" name="c_postal" readonly size="7" maxlength="8"
-                                           value="<%= props.getProperty("c_postal", "") %>" @oscar.formDB/>
+                                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_postal", "")) %>" @oscar.formDB/>
                                 </td>
                             </tr>
                             <tr>
                                 <td valign="top">Phone Number<br>
                                     <input type="text" name="c_phone" readonly style="width:100%" size="60"
-                                           maxlength="60" value="<%= props.getProperty("c_phone", "") %>"
+                                           maxlength="60" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_phone", "")) %>"
                                            @oscar.formDB/>
                                 </td>
                                 <td>Personal Health Number<br>
                                     <input type="text" name="c_phn" readonly style="width:100%" size="20" maxlength="20"
-                                           value="<%= props.getProperty("c_phn", "") %>" @oscar.formDB/>
+                                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_phn", "")) %>" @oscar.formDB/>
                                 </td>
                             </tr>
                             <tr>
                                 <td>
                                     Alternate Phone Number #1<br>
                                     <input type="text" name="c_phoneAlt1" readonly style="width:100%" size="60"
-                                           maxlength="60" value="<%= props.getProperty("c_phoneAlt1", "") %>"
+                                           maxlength="60" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_phoneAlt1", "")) %>"
                                            @oscar.formDB/>
                                 </td>
                                 <td></td>
@@ -1794,7 +1795,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                 <td>
                                     Alternate Phone Number #2<br>
                                     <input type="text" name="c_phoneAlt2" readonly style="width:100%" size="60"
-                                           maxlength="60" value="<%= props.getProperty("c_phoneAlt2", "") %>"
+                                           maxlength="60" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_phoneAlt2", "")) %>"
                                            @oscar.formDB/>
                                 </td>
                                 <td></td>
@@ -1815,13 +1816,13 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                 <td width="20%"><span class="small9">Lifestyle:</span></td>
                                 <td>
                                     <input type="text" name="ar2_proLife" style="width:100%" size="40" maxlength="50"
-                                           value="<%= props.getProperty("ar2_proLife", "") %>" @oscar.formDB/></td>
+                                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_proLife", "")) %>" @oscar.formDB/></td>
                             </tr>
                             <tr>
                                 <td width="20%"><span class="small9">Pregnancy:</span></td>
                                 <td>
                                     <input type="text" name="ar2_proPreg" style="width:100%" size="40" maxlength="50"
-                                           value="<%= props.getProperty("ar2_proPreg", "") %>" @oscar.formDB/></td>
+                                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_proPreg", "")) %>" @oscar.formDB/></td>
                             </tr>
 
                             <tr>
@@ -1831,7 +1832,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                            style="width:100%"
                                            size="40"
                                            maxlength="50"
-                                           value="<%= props.getProperty("ar2_proBreast", "") %>" @oscar.formDB/>
+                                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_proBreast", "")) %>" @oscar.formDB/>
 
                                 </td>
                             </tr>
@@ -1841,20 +1842,20 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                                 <td width="20%"><span class="small9">Labour:</span></td>
                                 <td>
                                     <input type="text" name="ar2_proLabour" style="width:100%" size="40" maxlength="50"
-                                           value="<%= props.getProperty("ar2_proLabour", "") %>" @oscar.formDB/></td>
+                                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_proLabour", "")) %>" @oscar.formDB/></td>
                             </tr>
                             <tr>
                                 <td width="20%"><span class="small9">Postpartum:</span></td>
                                 <td>
                                     <input type="text" name="ar2_proPostPartum" style="width:100%" size="40"
-                                           maxlength="50" value="<%= props.getProperty("ar2_proPostPartum", "") %>"
+                                           maxlength="50" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_proPostPartum", "")) %>"
                                            @oscar.formDB/></td>
                             </tr>
                             <tr>
                                 <td width="20%"><span class="small9">Newborn:</span></td>
                                 <td>
                                     <input type="text" name="ar2_proNewBorn" style="width:100%" size="40" maxlength="50"
-                                           value="<%= props.getProperty("ar2_proNewBorn", "") %>" @oscar.formDB/>
+                                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_proNewBorn", "")) %>" @oscar.formDB/>
                                 </td>
                             </tr>
                         </table>
@@ -1889,42 +1890,42 @@ if (!fedb.equals("") && fedb.length()==10 ) {
             <tr>
                 <td>
                     <input type="text" name="pg3_date1" class="spe" style="width:100%;" size="10" maxlength="10"
-                           onDblClick="calToday(this)" value="<%= props.getProperty("pg3_date1", "") %>" @oscar.formDB
+                           onDblClick="calToday(this)" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_date1", "")) %>" @oscar.formDB
                            dbType="date"/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bp1" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_bp1", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bp1", "")) %>" @oscar.formDB/>
                 </td>
                 <td nowrap>
                     <input type="text" name="pg3_urine1" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urine', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urine1", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urine1", "")) %>" @oscar.formDB/>
                     <input type="text" name="pg3_urineG1" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urineG', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urineG1", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urineG1", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_wt1" class="spe" onDblClick="wtEnglish2Metric(this);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_wt1", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_wt1", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bmi1" class="spe" onDblClick="calcBMI(this, pg3_wt1);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_bmi1", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bmi1", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_gest1" class="spe" style="width:100%;" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_gest1", "") %>" onDblClick="calcWeek(this)" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_gest1", "")) %>" onDblClick="calcWeek(this)" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_ht1" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_ht1", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_ht1", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_fhrAct1" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_fhrAct1", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_fhrAct1", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="checkbox" name="pg3_FM1" <%= props.getProperty("pg3_FM1", "")%> @oscar.formDB
@@ -1932,58 +1933,58 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
                 <td>
                     <input type="text" name="pg3_pos1" class="spe" onDblClick="showBox('Langdiv',1, this, event);"
-                           style="width:100%" size="8" maxlength="8" value="<%= props.getProperty("pg3_pos1", "") %>"
+                           style="width:100%" size="8" maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_pos1", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_comment1" onmouseover="showHideBox('comment1Div',1)"
                            onmouseout="showHideBox('comment1Div',0)" style="width:100%" size="50" maxlength="70"
-                           value="<%= props.getProperty("pg3_comment1", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_comment1", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_retIn1" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_retIn1", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_retIn1", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td>
                     <input type="text" name="pg3_date2" class="spe" style="width:100%;" size="10" maxlength="10"
-                           onDblClick="calToday(this)" value="<%= props.getProperty("pg3_date2", "") %>" @oscar.formDB
+                           onDblClick="calToday(this)" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_date2", "")) %>" @oscar.formDB
                            dbType="date"/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bp2" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_bp2", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bp2", "")) %>" @oscar.formDB/>
                 </td>
                 <td nowrap>
                     <input type="text" name="pg3_urine2" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urine', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urine2", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urine2", "")) %>" @oscar.formDB/>
                     <input type="text" name="pg3_urineG2" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urineG', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urineG2", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urineG2", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_wt2" class="spe" onDblClick="wtEnglish2Metric(this);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_wt2", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_wt2", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bmi2" class="spe" onDblClick="calcBMI(this, pg3_wt2);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_bmi2", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bmi2", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_gest2" class="spe" style="width:100%;" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_gest2", "") %>" onDblClick="calcWeek(this)" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_gest2", "")) %>" onDblClick="calcWeek(this)" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_ht2" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_ht2", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_ht2", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_fhrAct2" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_fhrAct2", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_fhrAct2", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="checkbox" name="pg3_FM2" <%= props.getProperty("pg3_FM2", "")%> @oscar.formDB
@@ -1992,57 +1993,57 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 <td>
                     <input type="text" name="pg3_pos2" class="spe" style="width:100%;"
                            onDblClick="showBox('Langdiv',1, this, event);" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_pos2", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_pos2", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_comment2" style="width:100%" size="50" maxlength="70"
                            onmouseover="showHideBox('comment2Div',1)" onmouseout="showHideBox('comment2Div',0)"
-                           value="<%= props.getProperty("pg3_comment2", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_comment2", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_retIn2" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_retIn2", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_retIn2", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td>
                     <input type="text" name="pg3_date3" class="spe" style="width:100%;" size="10" maxlength="10"
-                           onDblClick="calToday(this)" value="<%= props.getProperty("pg3_date3", "") %>" @oscar.formDB
+                           onDblClick="calToday(this)" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_date3", "")) %>" @oscar.formDB
                            dbType="date"/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bp3" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_bp3", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bp3", "")) %>" @oscar.formDB/>
                 </td>
                 <td nowrap>
                     <input type="text" name="pg3_urine3" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urine', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urine3", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urine3", "")) %>" @oscar.formDB/>
                     <input type="text" name="pg3_urineG3" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urineG', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urineG3", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urineG3", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_wt3" class="spe" onDblClick="wtEnglish2Metric(this);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_wt3", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_wt3", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bmi3" class="spe" onDblClick="calcBMI(this, pg3_wt3);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_bmi3", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bmi3", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_gest3" class="spe" style="width:100%;" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_gest3", "") %>" onDblClick="calcWeek(this)" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_gest3", "")) %>" onDblClick="calcWeek(this)" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_ht3" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_ht3", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_ht3", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_fhrAct3" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_fhrAct3", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_fhrAct3", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="checkbox" name="pg3_FM3" <%= props.getProperty("pg3_FM3", "")%> @oscar.formDB
@@ -2050,58 +2051,58 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
                 <td>
                     <input type="text" name="pg3_pos3" onDblClick="showBox('Langdiv',1, this, event);" class="spe"
-                           style="width:100%;" size="8" maxlength="8" value="<%= props.getProperty("pg3_pos3", "") %>"
+                           style="width:100%;" size="8" maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_pos3", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_comment3" style="width:100%" size="50" maxlength="70"
                            onmouseover="showHideBox('comment3Div',1)" onmouseout="showHideBox('comment3Div',0)"
-                           value="<%= props.getProperty("pg3_comment3", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_comment3", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_retIn3" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_retIn3", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_retIn3", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr valign="bottom">
                 <td>
                     <input type="text" name="pg3_date4" class="spe" style="width:100%;" size="10" maxlength="10"
-                           onDblClick="calToday(this)" value="<%= props.getProperty("pg3_date4", "") %>" @oscar.formDB
+                           onDblClick="calToday(this)" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_date4", "")) %>" @oscar.formDB
                            dbType="date"/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bp4" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_bp4", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bp4", "")) %>" @oscar.formDB/>
                 </td>
                 <td nowrap>
                     <input type="text" name="pg3_urine4" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urine', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urine4", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urine4", "")) %>" @oscar.formDB/>
                     <input type="text" name="pg3_urineG4" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urineG', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urineG4", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urineG4", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_wt4" class="spe" onDblClick="wtEnglish2Metric(this);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_wt4", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_wt4", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bmi4" class="spe" onDblClick="calcBMI(this, pg3_wt4);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_bmi4", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bmi4", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_gest4" class="spe" style="width:100%;" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_gest4", "") %>" onDblClick="calcWeek(this)" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_gest4", "")) %>" onDblClick="calcWeek(this)" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_ht4" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_ht4", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_ht4", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_fhrAct4" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_fhrAct4", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_fhrAct4", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="checkbox" name="pg3_FM4" <%= props.getProperty("pg3_FM4", "")%> @oscar.formDB
@@ -2109,57 +2110,57 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
                 <td>
                     <input type="text" name="pg3_pos4" onDblClick="showBox('Langdiv',1, this, event);" class="spe"
-                           style="width:100%;" size="8" maxlength="8" value="<%= props.getProperty("pg3_pos4", "") %>"
+                           style="width:100%;" size="8" maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_pos4", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_comment4" style="width:100%" size="50" maxlength="70"
-                           value="<%= props.getProperty("pg3_comment4", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_comment4", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_retIn4" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_retIn4", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_retIn4", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td>
                     <input type="text" name="pg3_date5" class="spe" style="width:100%;" size="10" maxlength="10"
-                           onDblClick="calToday(this)" value="<%= props.getProperty("pg3_date5", "") %>" @oscar.formDB
+                           onDblClick="calToday(this)" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_date5", "")) %>" @oscar.formDB
                            dbType="date"/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bp5" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_bp5", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bp5", "")) %>" @oscar.formDB/>
                 </td>
                 <td nowrap>
                     <input type="text" name="pg3_urine5" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urine', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urine5", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urine5", "")) %>" @oscar.formDB/>
                     <input type="text" name="pg3_urineG5" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urineG', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urineG5", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urineG5", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_wt5" class="spe" onDblClick="wtEnglish2Metric(this);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_wt5", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_wt5", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bmi5" class="spe" onDblClick="calcBMI(this, pg3_wt5);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_bmi5", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bmi5", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_gest5" class="spe" style="width:100%;" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_gest5", "") %>" onDblClick="calcWeek(this)" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_gest5", "")) %>" onDblClick="calcWeek(this)" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_ht5" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_ht5", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_ht5", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_fhrAct5" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_fhrAct5", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_fhrAct5", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="checkbox" name="pg3_FM5" <%= props.getProperty("pg3_FM5", "")%> @oscar.formDB
@@ -2167,58 +2168,58 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
                 <td>
                     <input type="text" name="pg3_pos5" onDblClick="showBox('Langdiv',1, this, event);" class="spe"
-                           style="width:100%;" size="8" maxlength="8" value="<%= props.getProperty("pg3_pos5", "") %>"
+                           style="width:100%;" size="8" maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_pos5", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_comment5" onmouseover="showHideBox('comment5Div',1)"
                            onmouseout="showHideBox('comment5Div',0)" style="width:100%" size="50" maxlength="70"
-                           value="<%= props.getProperty("pg3_comment5", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_comment5", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_retIn5" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_retIn5", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_retIn5", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td>
                     <input type="text" name="pg3_date6" class="spe" style="width:100%;" size="10" maxlength="10"
-                           onDblClick="calToday(this)" value="<%= props.getProperty("pg3_date6", "") %>" @oscar.formDB
+                           onDblClick="calToday(this)" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_date6", "")) %>" @oscar.formDB
                            dbType="date"/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bp6" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_bp6", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bp6", "")) %>" @oscar.formDB/>
                 </td>
                 <td nowrap>
                     <input type="text" name="pg3_urine6" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urine', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urine6", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urine6", "")) %>" @oscar.formDB/>
                     <input type="text" name="pg3_urineG6" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urineG', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urineG6", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urineG6", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_wt6" class="spe" onDblClick="wtEnglish2Metric(this);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_wt6", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_wt6", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bmi6" class="spe" onDblClick="calcBMI(this, pg3_wt6);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_bmi6", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bmi6", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_gest6" class="spe" style="width:100%;" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_gest6", "") %>" onDblClick="calcWeek(this)" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_gest6", "")) %>" onDblClick="calcWeek(this)" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_ht6" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_ht6", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_ht6", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_fhrAct6" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_fhrAct6", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_fhrAct6", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="checkbox" name="pg3_FM6" <%= props.getProperty("pg3_FM6", "")%> @oscar.formDB
@@ -2226,58 +2227,58 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
                 <td>
                     <input type="text" name="pg3_pos6" onDblClick="showBox('Langdiv',1, this, event);" class="spe"
-                           style="width:100%;" size="8" maxlength="8" value="<%= props.getProperty("pg3_pos6", "") %>"
+                           style="width:100%;" size="8" maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_pos6", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_comment6" style="width:100%" size="50" maxlength="70"
                            onmouseover="showHideBox('comment6Div',1)" onmouseout="showHideBox('comment6Div',0)"
-                           value="<%= props.getProperty("pg3_comment6", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_comment6", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_retIn6" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_retIn6", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_retIn6", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td>
                     <input type="text" name="pg3_date7" class="spe" style="width:100%;" size="10" maxlength="10"
-                           onDblClick="calToday(this)" value="<%= props.getProperty("pg3_date7", "") %>" @oscar.formDB
+                           onDblClick="calToday(this)" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_date7", "")) %>" @oscar.formDB
                            dbType="date"/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bp7" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_bp7", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bp7", "")) %>" @oscar.formDB/>
                 </td>
                 <td nowrap>
                     <input type="text" name="pg3_urine7" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urine', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urine7", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urine7", "")) %>" @oscar.formDB/>
                     <input type="text" name="pg3_urineG7" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urineG', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urineG7", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urineG7", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_wt7" class="spe" onDblClick="wtEnglish2Metric(this);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_wt7", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_wt7", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bmi7" class="spe" onDblClick="calcBMI(this, pg3_wt7);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_bmi7", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bmi7", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_gest7" class="spe" style="width:100%;" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_gest7", "") %>" onDblClick="calcWeek(this)" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_gest7", "")) %>" onDblClick="calcWeek(this)" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_ht7" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_ht7", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_ht7", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_fhrAct7" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_fhrAct7", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_fhrAct7", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="checkbox" name="pg3_FM7" <%= props.getProperty("pg3_FM7", "")%> @oscar.formDB
@@ -2285,58 +2286,58 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
                 <td>
                     <input type="text" name="pg3_pos7" onDblClick="showBox('Langdiv',1, this, event);" class="spe"
-                           style="width:100%;" size="8" maxlength="8" value="<%= props.getProperty("pg3_pos7", "") %>"
+                           style="width:100%;" size="8" maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_pos7", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_comment7" style="width:100%" size="50" maxlength="70"
                            onmouseover="showHideBox('comment7Div',1)" onmouseout="showHideBox('comment7Div',0)"
-                           value="<%= props.getProperty("pg3_comment7", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_comment7", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_retIn7" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_retIn7", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_retIn7", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td>
                     <input type="text" name="pg3_date8" class="spe" style="width:100%;" size="10" maxlength="10"
-                           onDblClick="calToday(this)" value="<%= props.getProperty("pg3_date8", "") %>" @oscar.formDB
+                           onDblClick="calToday(this)" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_date8", "")) %>" @oscar.formDB
                            dbType="date"/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bp8" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_bp8", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bp8", "")) %>" @oscar.formDB/>
                 </td>
                 <td nowrap>
                     <input type="text" name="pg3_urine8" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urine', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urine8", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urine8", "")) %>" @oscar.formDB/>
                     <input type="text" name="pg3_urineG8" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urineG', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urineG8", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urineG8", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_wt8" class="spe" onDblClick="wtEnglish2Metric(this);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_wt8", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_wt8", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bmi8" class="spe" onDblClick="calcBMI(this, pg3_wt8);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_bmi8", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bmi8", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_gest8" class="spe" style="width:100%;" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_gest8", "") %>" onDblClick="calcWeek(this)" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_gest8", "")) %>" onDblClick="calcWeek(this)" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_ht8" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_ht8", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_ht8", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_fhrAct8" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_fhrAct8", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_fhrAct8", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="checkbox" name="pg3_FM8" <%= props.getProperty("pg3_FM8", "")%> @oscar.formDB
@@ -2344,58 +2345,58 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
                 <td>
                     <input type="text" name="pg3_pos8" onDblClick="showBox('Langdiv',1, this, event);" class="spe"
-                           style="width:100%;" size="8" maxlength="8" value="<%= props.getProperty("pg3_pos8", "") %>"
+                           style="width:100%;" size="8" maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_pos8", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_comment8" style="width:100%" size="50" maxlength="70"
                            onmouseover="showHideBox('comment8Div',1)" onmouseout="showHideBox('comment8Div',0)"
-                           value="<%= props.getProperty("pg3_comment8", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_comment8", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_retIn8" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_retIn8", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_retIn8", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td>
                     <input type="text" name="pg3_date9" class="spe" style="width:100%;" size="10" maxlength="10"
-                           onDblClick="calToday(this)" value="<%= props.getProperty("pg3_date9", "") %>" @oscar.formDB
+                           onDblClick="calToday(this)" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_date9", "")) %>" @oscar.formDB
                            dbType="date"/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bp9" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_bp9", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bp9", "")) %>" @oscar.formDB/>
                 </td>
                 <td nowrap>
                     <input type="text" name="pg3_urine9" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urine', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urine9", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urine9", "")) %>" @oscar.formDB/>
                     <input type="text" name="pg3_urineG9" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urineG', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urineG9", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urineG9", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_wt9" class="spe" onDblClick="wtEnglish2Metric(this);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_wt9", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_wt9", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bmi9" class="spe" onDblClick="calcBMI(this, pg3_wt9);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_bmi9", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bmi9", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_gest9" class="spe" style="width:100%;" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_gest9", "") %>" onDblClick="calcWeek(this)" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_gest9", "")) %>" onDblClick="calcWeek(this)" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_ht9" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_ht9", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_ht9", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_fhrAct9" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_fhrAct9", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_fhrAct9", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="checkbox" name="pg3_FM9" <%= props.getProperty("pg3_FM9", "")%> @oscar.formDB
@@ -2403,59 +2404,59 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
                 <td>
                     <input type="text" name="pg3_pos9" onDblClick="showBox('Langdiv',1, this, event);" class="spe"
-                           style="width:100%;" size="8" maxlength="8" value="<%= props.getProperty("pg3_pos9", "") %>"
+                           style="width:100%;" size="8" maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_pos9", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_comment9" style="width:100%" size="50" maxlength="70"
                            onmouseover="showHideBox('comment9Div',1)" onmouseout="showHideBox('comment9Div',0)"
-                           value="<%= props.getProperty("pg3_comment9", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_comment9", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_retIn9" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_retIn9", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_retIn9", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td>
                     <input type="text" name="pg3_date10" class="spe" style="width:100%;" size="10" maxlength="10"
-                           onDblClick="calToday(this)" value="<%= props.getProperty("pg3_date10", "") %>" @oscar.formDB
+                           onDblClick="calToday(this)" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_date10", "")) %>" @oscar.formDB
                            dbType="date"/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bp10" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_bp10", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bp10", "")) %>" @oscar.formDB/>
                 </td>
                 <td nowrap>
                     <input type="text" name="pg3_urine10" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urine', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urine10", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urine10", "")) %>" @oscar.formDB/>
                     <input type="text" name="pg3_urineG10" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urineG', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urineG10", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urineG10", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_wt10" class="spe" onDblClick="wtEnglish2Metric(this);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_wt10", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_wt10", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bmi10" class="spe" onDblClick="calcBMI(this, pg3_wt10);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_bmi10", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bmi10", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_gest10" class="spe" style="width:100%;" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_gest10", "") %>" onDblClick="calcWeek(this)"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_gest10", "")) %>" onDblClick="calcWeek(this)"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_ht10" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_ht10", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_ht10", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_fhrAct10" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_fhrAct10", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_fhrAct10", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="checkbox" name="pg3_FM10" <%= props.getProperty("pg3_FM10", "")%> @oscar.formDB
@@ -2463,58 +2464,58 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
                 <td>
                     <input type="text" name="pg3_pos10" onDblClick="showBox('Langdiv',1, this, event);" class="spe"
-                           style="width:100%;" size="8" maxlength="8" value="<%= props.getProperty("pg3_pos10", "") %>"
+                           style="width:100%;" size="8" maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_pos10", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_comment10" style="width:100%" size="50" maxlength="70"
-                           value="<%= props.getProperty("pg3_comment10", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_comment10", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_retIn10" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_retIn10", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_retIn10", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td>
                     <input type="text" name="pg3_date11" class="spe" style="width:100%;" size="10" maxlength="10"
-                           onDblClick="calToday(this)" value="<%= props.getProperty("pg3_date11", "") %>" @oscar.formDB
+                           onDblClick="calToday(this)" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_date11", "")) %>" @oscar.formDB
                            dbType="date"/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bp11" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_bp11", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bp11", "")) %>" @oscar.formDB/>
                 </td>
                 <td nowrap>
                     <input type="text" name="pg3_urine11" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urine', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urine11", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urine11", "")) %>" @oscar.formDB/>
                     <input type="text" name="pg3_urineG11" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urineG', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urineG11", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urineG11", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_wt11" class="spe" onDblClick="wtEnglish2Metric(this);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_wt11", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_wt11", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bmi11" class="spe" onDblClick="calcBMI(this, pg3_wt11);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_bmi11", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bmi11", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_gest11" class="spe" style="width:100%;" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_gest11", "") %>" onDblClick="calcWeek(this)"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_gest11", "")) %>" onDblClick="calcWeek(this)"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_ht11" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_ht11", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_ht11", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_fhrAct11" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_fhrAct11", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_fhrAct11", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="checkbox" name="pg3_FM11" <%= props.getProperty("pg3_FM11", "")%> @oscar.formDB
@@ -2522,58 +2523,58 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
                 <td>
                     <input type="text" name="pg3_pos11" onDblClick="showBox('Langdiv',1, this, event);" class="spe"
-                           style="width:100%;" size="8" maxlength="8" value="<%= props.getProperty("pg3_pos11", "") %>"
+                           style="width:100%;" size="8" maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_pos11", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_comment11" style="width:100%" size="50" maxlength="70"
-                           value="<%= props.getProperty("pg3_comment11", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_comment11", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_retIn11" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_retIn11", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_retIn11", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td>
                     <input type="text" name="pg3_date12" class="spe" style="width:100%;" size="10" maxlength="10"
-                           onDblClick="calToday(this)" value="<%= props.getProperty("pg3_date12", "") %>" @oscar.formDB
+                           onDblClick="calToday(this)" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_date12", "")) %>" @oscar.formDB
                            dbType="date"/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bp12" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_bp12", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bp12", "")) %>" @oscar.formDB/>
                 </td>
                 <td nowrap>
                     <input type="text" name="pg3_urine12" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urine', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urine12", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urine12", "")) %>" @oscar.formDB/>
                     <input type="text" name="pg3_urineG12" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urineG', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urineG12", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urineG12", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_wt12" class="spe" onDblClick="wtEnglish2Metric(this);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_wt12", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_wt12", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bmi12" class="spe" onDblClick="calcBMI(this, pg3_wt12);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_bmi12", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bmi12", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_gest12" class="spe" style="width:100%;" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_gest12", "") %>" onDblClick="calcWeek(this)"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_gest12", "")) %>" onDblClick="calcWeek(this)"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_ht12" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_ht12", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_ht12", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_fhrAct12" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_fhrAct12", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_fhrAct12", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="checkbox" name="pg3_FM12" <%= props.getProperty("pg3_FM12", "")%> @oscar.formDB
@@ -2581,58 +2582,58 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
                 <td>
                     <input type="text" name="pg3_pos12" onDblClick="showBox('Langdiv',1, this, event);" class="spe"
-                           style="width:100%;" size="8" maxlength="8" value="<%= props.getProperty("pg3_pos12", "") %>"
+                           style="width:100%;" size="8" maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_pos12", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_comment12" style="width:100%" size="50" maxlength="70"
-                           value="<%= props.getProperty("pg3_comment12", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_comment12", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_retIn12" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_retIn12", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_retIn12", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td>
                     <input type="text" name="pg3_date13" class="spe" style="width:100%;" size="10" maxlength="10"
-                           onDblClick="calToday(this)" value="<%= props.getProperty("pg3_date13", "") %>" @oscar.formDB
+                           onDblClick="calToday(this)" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_date13", "")) %>" @oscar.formDB
                            dbType="date"/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bp13" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_bp13", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bp13", "")) %>" @oscar.formDB/>
                 </td>
                 <td nowrap>
                     <input type="text" name="pg3_urine13" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urine', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urine13", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urine13", "")) %>" @oscar.formDB/>
                     <input type="text" name="pg3_urineG13" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urineG', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urineG13", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urineG13", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_wt13" class="spe" onDblClick="wtEnglish2Metric(this);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_wt13", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_wt13", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bmi13" class="spe" onDblClick="calcBMI(this, pg3_wt13);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_bmi13", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bmi13", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_gest13" class="spe" style="width:100%;" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_gest13", "") %>" onDblClick="calcWeek(this)"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_gest13", "")) %>" onDblClick="calcWeek(this)"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_ht13" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_ht13", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_ht13", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_fhrAct13" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_fhrAct13", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_fhrAct13", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="checkbox" name="pg3_FM13" <%= props.getProperty("pg3_FM13", "")%> @oscar.formDB
@@ -2640,58 +2641,58 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
                 <td>
                     <input type="text" name="pg3_pos13" onDblClick="showBox('Langdiv',1, this, event);" class="spe"
-                           style="width:100%;" size="8" maxlength="8" value="<%= props.getProperty("pg3_pos13", "") %>"
+                           style="width:100%;" size="8" maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_pos13", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_comment13" style="width:100%" size="50" maxlength="70"
-                           value="<%= props.getProperty("pg3_comment13", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_comment13", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_retIn13" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_retIn13", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_retIn13", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td>
                     <input type="text" name="pg3_date14" class="spe" style="width:100%;" size="10" maxlength="10"
-                           onDblClick="calToday(this)" value="<%= props.getProperty("pg3_date14", "") %>" @oscar.formDB
+                           onDblClick="calToday(this)" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_date14", "")) %>" @oscar.formDB
                            dbType="date"/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bp14" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_bp14", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bp14", "")) %>" @oscar.formDB/>
                 </td>
                 <td nowrap>
                     <input type="text" name="pg3_urine14" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urine', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urine14", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urine14", "")) %>" @oscar.formDB/>
                     <input type="text" name="pg3_urineG14" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urineG', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urineG14", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urineG14", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_wt14" class="spe" onDblClick="wtEnglish2Metric(this);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_wt14", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_wt14", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bmi14" class="spe" onDblClick="calcBMI(this, pg3_wt14);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_bmi14", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bmi14", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_gest14" class="spe" style="width:100%;" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_gest14", "") %>" onDblClick="calcWeek(this)"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_gest14", "")) %>" onDblClick="calcWeek(this)"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_ht14" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_ht14", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_ht14", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_fhrAct14" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_fhrAct14", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_fhrAct14", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="checkbox" name="pg3_FM14" <%= props.getProperty("pg3_FM14", "")%> @oscar.formDB
@@ -2699,59 +2700,59 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
                 <td>
                     <input type="text" name="pg3_pos14" onDblClick="showBox('Langdiv',1, this, event);" class="spe"
-                           style="width:100%;" size="8" maxlength="8" value="<%= props.getProperty("pg3_pos14", "") %>"
+                           style="width:100%;" size="8" maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_pos14", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_comment14" style="width:100%" size="50" maxlength="70"
                            onmouseover="showHideBox('comment14Div',1)" onmouseout="showHideBox('comment14Div',0)"
-                           value="<%= props.getProperty("pg3_comment14", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_comment14", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_retIn14" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_retIn14", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_retIn14", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td>
                     <input type="text" name="pg3_date15" class="spe" style="width:100%;" size="10" maxlength="10"
-                           onDblClick="calToday(this)" value="<%= props.getProperty("pg3_date15", "") %>" @oscar.formDB
+                           onDblClick="calToday(this)" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_date15", "")) %>" @oscar.formDB
                            dbType="date"/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bp15" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_bp15", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bp15", "")) %>" @oscar.formDB/>
                 </td>
                 <td nowrap>
                     <input type="text" name="pg3_urine15" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urine', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urine15", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urine15", "")) %>" @oscar.formDB/>
                     <input type="text" name="pg3_urineG15" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urineG', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urineG15", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urineG15", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_wt15" class="spe" onDblClick="wtEnglish2Metric(this);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_wt15", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_wt15", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bmi15" class="spe" onDblClick="calcBMI(this, pg3_wt15);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_bmi15", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bmi15", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_gest15" class="spe" style="width:100%;" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_gest15", "") %>" onDblClick="calcWeek(this)"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_gest15", "")) %>" onDblClick="calcWeek(this)"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_ht15" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_ht15", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_ht15", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_fhrAct15" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_fhrAct15", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_fhrAct15", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="checkbox" name="pg3_FM15" <%= props.getProperty("pg3_FM15", "")%> @oscar.formDB
@@ -2759,58 +2760,58 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
                 <td>
                     <input type="text" name="pg3_pos15" onDblClick="showBox('Langdiv',1, this, event);" class="spe"
-                           style="width:100%;" size="8" maxlength="8" value="<%= props.getProperty("pg3_pos15", "") %>"
+                           style="width:100%;" size="8" maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_pos15", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_comment15" style="width:100%" size="50" maxlength="70"
-                           value="<%= props.getProperty("pg3_comment15", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_comment15", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_retIn15" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_retIn15", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_retIn15", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td>
                     <input type="text" name="pg3_date16" class="spe" style="width:100%;" size="10" maxlength="10"
-                           onDblClick="calToday(this)" value="<%= props.getProperty("pg3_date16", "") %>" @oscar.formDB
+                           onDblClick="calToday(this)" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_date16", "")) %>" @oscar.formDB
                            dbType="date"/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bp16" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_bp16", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bp16", "")) %>" @oscar.formDB/>
                 </td>
                 <td nowrap>
                     <input type="text" name="pg3_urine16" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urine', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urine16", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urine16", "")) %>" @oscar.formDB/>
                     <input type="text" name="pg3_urineG16" class="spe"
                            onDblClick="showPGBox('UrineDiv',1, this, event, 'pg3_urineG', 200, 481, 26);" size="2"
-                           maxlength="8" value="<%= props.getProperty("pg3_urineG16", "") %>" @oscar.formDB/>
+                           maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_urineG16", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_wt16" class="spe" onDblClick="wtEnglish2Metric(this);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_wt16", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_wt16", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_bmi16" class="spe" onDblClick="calcBMI(this, pg3_wt16);"
-                           style="width:100%" size="5" maxlength="5" value="<%= props.getProperty("pg3_bmi16", "") %>"
+                           style="width:100%" size="5" maxlength="5" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_bmi16", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_gest16" class="spe" style="width:100%;" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_gest16", "") %>" onDblClick="calcWeek(this)"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_gest16", "")) %>" onDblClick="calcWeek(this)"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_ht16" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_ht16", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_ht16", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_fhrAct16" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_fhrAct16", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_fhrAct16", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="checkbox" name="pg3_FM16" <%= props.getProperty("pg3_FM16", "")%> @oscar.formDB
@@ -2818,16 +2819,16 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 </td>
                 <td>
                     <input type="text" name="pg3_pos16" onDblClick="showBox('Langdiv',1, this, event);" class="spe"
-                           style="width:100%;" size="8" maxlength="8" value="<%= props.getProperty("pg3_pos16", "") %>"
+                           style="width:100%;" size="8" maxlength="8" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_pos16", "")) %>"
                            @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_comment16" style="width:100%" size="50" maxlength="70"
-                           value="<%= props.getProperty("pg3_comment16", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_comment16", "")) %>" @oscar.formDB/>
                 </td>
                 <td>
                     <input type="text" name="pg3_retIn16" style="width:100%" size="8" maxlength="8"
-                           value="<%= props.getProperty("pg3_retIn16", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_retIn16", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
         </table>
@@ -2997,19 +2998,19 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             <td>
                                 <input type="text" name="ar2_1USoundDate" id="ar2_1USoundDate"
                                        size="10" maxlength="10"
-                                       value="<%= props.getProperty("ar2_1USoundDate", "") %>" @oscar.formDB
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_1USoundDate", "")) %>" @oscar.formDB
                                        dbType="date">
                                 <img src="<%= request.getContextPath() %>/images/cal.gif" id="ar2_1USoundDate_cal">
                             </td>
                             <td>
                                 <input type="text" name="ar2_gestAgeUs"
                                        size="10" maxlength="10" style="width:100%;"
-                                       value="<%= props.getProperty("ar2_gestAgeUs", "") %>" @oscar.formDB/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_gestAgeUs", "")) %>" @oscar.formDB/>
                             </td>
                             <td>
                                 <input type="text" name="ar2_1USComment" id="ar2_1USComment" size="30" maxlength="30"
                                        style="width:100%;"
-                                       value="<%= props.getProperty("ar2_1USComment", "") %>" @oscar.formDB/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_1USComment", "")) %>" @oscar.formDB/>
                             </td>
                         </tr>
 
@@ -3017,20 +3018,20 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             <td>
                                 <input type="text" name="ar2_2USoundDate" id="ar2_2USoundDate"
                                        size="10" maxlength="10"
-                                       value="<%= props.getProperty("ar2_2USoundDate", "") %>"
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_2USoundDate", "")) %>"
                                        @oscar.formDB dbType="date"/>
                                 <img src="<%= request.getContextPath() %>/images/cal.gif" id="ar2_2USoundDate_cal">
                             </td>
                             <td>
                                 <input type="text" name="ar2_2gestAgeUs" id="ar2_2gestAgeUs"
                                        size="10" maxlength="10" style="width:100%;"
-                                       value="<%= props.getProperty("ar2_2gestAgeUs", "") %>"
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_2gestAgeUs", "")) %>"
                                        @oscar.formDB/>
                             </td>
                             <td>
                                 <input type="text" name="ar2_2USComment" id="ar2_2USComment" size="30" maxlength="30"
                                        style="width:100%;"
-                                       value="<%= props.getProperty("ar2_2USComment", "") %>" @oscar.formDB/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_2USComment", "")) %>" @oscar.formDB/>
                             </td>
                         </tr>
 
@@ -3040,20 +3041,20 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             <td>
                                 <input type="text" name="ar2_3USoundDate" id="ar2_3USoundDate"
                                        size="10" maxlength="10"
-                                       value="<%= props.getProperty("ar2_3USoundDate", "") %>"
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_3USoundDate", "")) %>"
                                        @oscar.formDB dbType="date"/>
                                 <img src="<%= request.getContextPath() %>/images/cal.gif" id="ar2_3USoundDate_cal">
                             </td>
                             <td>
                                 <input type="text" name="ar2_3gestAgeUs" id="ar2_3gestAgeUs"
                                        size="10" maxlength="10" style="width:100%;"
-                                       value="<%= props.getProperty("ar2_3gestAgeUs", "") %>"
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_3gestAgeUs", "")) %>"
                                        @oscar.formDB/>
                             </td>
                             <td>
                                 <input type="text" name="ar2_3USComment" id="ar2_3USComment" size="30" maxlength="30"
                                        style="width:100%;"
-                                       value="<%= props.getProperty("ar2_3USComment", "") %>" @oscar.formDB/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_3USComment", "")) %>" @oscar.formDB/>
                             </td>
 
                         </tr>
@@ -3063,20 +3064,20 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             <td>
                                 <input type="text" name="ar2_4USoundDate" id="ar2_4USoundDate"
                                        size="10" maxlength="10"
-                                       value="<%= props.getProperty("ar2_4USoundDate", "") %>"
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_4USoundDate", "")) %>"
                                        @oscar.formDB dbType="date"/>
                                 <img src="<%= request.getContextPath() %>/images/cal.gif" id="ar2_4USoundDate_cal">
                             </td>
                             <td>
                                 <input type="text" name="ar2_4gestAgeUs" id="ar2_4gestAgeUs"
                                        size="10" maxlength="10" style="width:100%;"
-                                       value="<%= props.getProperty("ar2_4gestAgeUs", "") %>"
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_4gestAgeUs", "")) %>"
                                        @oscar.formDB/>
                             </td>
                             <td>
                                 <input type="text" name="ar2_4USComment" id="ar2_4USComment" size="30" maxlength="30"
                                        style="width:100%;"
-                                       value="<%= props.getProperty("ar2_4USComment", "") %>" @oscar.formDB/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ar2_4USComment", "")) %>" @oscar.formDB/>
                             </td>
 
                         </tr>
@@ -3094,7 +3095,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                         <tr>
                             <td colspan="4">
                                 <textarea name="pg3_investigation" style="width:100%" cols="50" rows="3" @oscar.formDB
-                                          dbType="text"><%= props.getProperty("pg3_investigation", "") %></textarea>
+                                          dbType="text"><carlos:encode value='<%= props.getProperty("pg3_investigation", "") %>'/></textarea>
                             </td>
                             <td></td>
                         </tr>
@@ -3102,13 +3103,13 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                             <td><span class="small9"><fmt:message key="form.bcar.doula"/>:</span></td>
                             <td>
                                 <input type="text" name="pg3_doula" style="width:100%" size="50" maxlength="100"
-                                       value="<%= props.getProperty("pg3_doula", "") %>" @oscar.formDB/>
+                                       value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_doula", "")) %>" @oscar.formDB/>
                             </td>
                 </td>
 
                 <td align="right"><span class="small9">#:</span></td>
                 <td><input type="text" name="pg3_doulaNo" style="width:100%" size="10" maxlength="30"
-                           value="<%= props.getProperty("pg3_doulaNo", "") %>" @oscar.formDB/></td>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_doulaNo", "")) %>" @oscar.formDB/></td>
                 </td>
                 <td></td>
             </tr>
@@ -3120,7 +3121,7 @@ if (!fedb.equals("") && fedb.length()==10 ) {
             <tr>
                 <td colspan="2">
                     <input type="text" name="pg3_signature" style="width:100%" size="50" maxlength="60"
-                           value="<%= props.getProperty("pg3_signature", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg3_signature", "")) %>" @oscar.formDB/>
                 </td>
                 <td colspan="2">
                     <span class="small9"><fmt:message key="form.bcar.mdRm"/></span>
@@ -3155,9 +3156,9 @@ if (!fedb.equals("") && fedb.length()==10 ) {
                 %>
 
                 <td align="right"><b>Edit:</b>
-                    <a href="formbcar2012pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a>
+                    <a href="form/formbcar2012pg1?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR1</a>
                     |
-                    <a href="formbcar2012pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
+                    <a href="form/formbcar2012pg2?demographic_no=<%=demoNo%>&formId=<%=formId%>&provNo=<%=provNo%>">AR2
                         <font size=-2>(pg.1)</font></a> |
                     AR2<font size=-2>(pg.2)</font> |
                 </td>

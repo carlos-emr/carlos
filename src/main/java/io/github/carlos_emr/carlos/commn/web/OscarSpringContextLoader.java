@@ -22,7 +22,9 @@
  */
 package io.github.carlos_emr.carlos.commn.web;
 
-import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 import jakarta.servlet.ServletContext;
 
@@ -39,6 +41,12 @@ import org.springframework.web.context.support.XmlWebApplicationContext;
 import io.github.carlos_emr.CarlosProperties;
 /**
  * Servlet context listener that creates the Spring web application context.
+ *
+ * <p>This loader owns the list of Spring XML files the root context is built from. It refreshes
+ * the context itself, so Spring's {@code ContextLoader} never applies the
+ * {@code contextConfigLocation} parameter in {@code web.xml}: that value is not read. The list is
+ * {@link #CORE_MODULES} followed by every module named in the {@code ModuleNames} property
+ * ({@code applicationContext<Name>.xml}).
  */
 
 public final class OscarSpringContextLoader extends ContextLoaderListener {
@@ -46,6 +54,19 @@ public final class OscarSpringContextLoader extends ContextLoaderListener {
     private static final Logger log = MiscUtils.getLogger();
     private static final String CONTEXTNAME = "classpath:applicationContext";
     private static final String PROPERTYNAME = "ModuleNames";
+
+    /**
+     * Module names loaded on every deployment, in this order, before anything {@code ModuleNames}
+     * lists. The empty name is {@code applicationContext.xml} itself.
+     *
+     * <p>{@code REST} ({@code applicationContextREST.xml}) publishes the OAuth 1.0a handshake at
+     * {@code /ws/oauth} and the OAuth-guarded data API at {@code /ws/services}. It used to load only
+     * when an operator listed {@code REST} in {@code ModuleNames}. No shipped configuration does, so
+     * both CXF servers were never created and answered 404 (issue #3446). Loading it always is safe
+     * because both surfaces fail closed. A handshake needs a client an administrator registered, and
+     * every {@code /ws/services} call must carry a valid signed OAuth access token.
+     */
+    static final List<String> CORE_MODULES = List.of("", "REST");
 
     @Override
     protected WebApplicationContext createWebApplicationContext(ServletContext servletContext) {
@@ -73,30 +94,11 @@ public final class OscarSpringContextLoader extends ContextLoaderListener {
         // wac.setParent(parent);
         wac.setServletContext(servletContext);
 
-        // to load various contexts, we need to get Modules property
-        String modules = (String) CarlosProperties.getInstance().get(PROPERTYNAME);
-        String[] moduleList = new String[0];
-
-        if (modules != null) {
-            modules = modules.trim();
-
-            if (modules.length() > 0) {
-                moduleList = modules.split(",");
-            }
-        }
-
-        // now we create an list of application context file names
-        ArrayList<String> configLocations = new ArrayList<String>();
-
-        // always load applicationContext.xml
-        configLocations.add(CONTEXTNAME + ".xml");
-
-        for (String s : moduleList) {
-            configLocations.add(CONTEXTNAME + s.trim() + ".xml");
-        }
+        List<String> configLocations =
+                resolveConfigLocations((String) CarlosProperties.getInstance().get(PROPERTYNAME));
 
         for (String s : configLocations) {
-            log.info("Preparing " + s);
+            log.info("Preparing {}", s);
         }
 
         wac.setConfigLocations(configLocations.toArray(new String[0]));
@@ -107,5 +109,32 @@ public final class OscarSpringContextLoader extends ContextLoaderListener {
         }
 
         return wac;
+    }
+
+    /**
+     * Resolves the Spring XML locations the root context is built from.
+     *
+     * <p>Returns {@link #CORE_MODULES} first, then each module named in {@code moduleNames} in the
+     * order given. Names are trimmed, blank names are skipped, and a name already present is not
+     * added again. Configurations written before issue #3446 may still list {@code REST}, and
+     * reading that file a second time would re-register every bean it defines.
+     *
+     * @param moduleNames the raw comma-separated {@code ModuleNames} property value; may be null
+     * @return the {@code classpath:} locations to load, without duplicates
+     */
+    static List<String> resolveConfigLocations(String moduleNames) {
+        Set<String> locations = new LinkedHashSet<>();
+        for (String module : CORE_MODULES) {
+            locations.add(CONTEXTNAME + module + ".xml");
+        }
+        if (moduleNames != null) {
+            for (String module : moduleNames.split(",")) {
+                String name = module.trim();
+                if (!name.isEmpty()) {
+                    locations.add(CONTEXTNAME + name + ".xml");
+                }
+            }
+        }
+        return List.copyOf(locations);
     }
 }

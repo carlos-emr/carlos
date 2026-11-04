@@ -102,6 +102,12 @@
             pageContext.setAttribute("curreport", curreport);
             pageContext.setAttribute("templatexml", templatexml);
         }
+        // After a refused save (for example a non-SELECT statement), ManageTemplates2Action
+        // hands back what the author submitted so it can be corrected instead of retyped.
+        Object submittedXml = request.getAttribute("submittedXml");
+        if (submittedXml instanceof String) {
+            pageContext.setAttribute("templatexml", submittedXml);
+        }
         pageContext.setAttribute("action", action);
         pageContext.setAttribute("templateid", templateid);
     %>
@@ -145,10 +151,10 @@
         <input type="file" id="uploadReportXml" class="input-file" name="templateFile" title="Upload a formatted template file. The extension is usually xml or txt">
         </div>
         </div>
-        <input type="hidden" name="action" value="${ action }">
-        <input type="hidden" name="opentext" value="${ empty opentext ? param.opentext : opentext }">
-        <input type="hidden" name="templateid" value="${ templateid }">
-        <input type="hidden" name="uuid" value="${ curreport.uuid }">
+        <input type="hidden" name="action" value="${carlos:forHtmlAttribute(action)}">
+        <input type="hidden" name="opentext" value="${carlos:forHtmlAttribute(empty opentext ? param.opentext : opentext)}">
+        <input type="hidden" name="templateid" value="${carlos:forHtmlAttribute(templateid)}">
+        <input type="hidden" name="uuid" value="${carlos:forHtmlAttribute(curreport.uuid)}">
         <div class="mb-3">
         <div>
         <input type="submit" class="btn btn-primary float-end" value="Upload & <%=StringUtils.capitalize(action)%>">
@@ -168,10 +174,10 @@
                                    title="Upload a formatted template file. The extension is usually xml or txt">
                         </div>
                     </div>
-                    <input type="hidden" name="action" value="${ action }">
-                    <input type="hidden" name="opentext" value="${ empty opentext ? param.opentext : opentext }">
-                    <input type="hidden" name="templateid" value="${ templateid }">
-                    <input type="hidden" name="uuid" value="${ curreport.uuid }">
+                    <input type="hidden" name="action" value="${carlos:forHtmlAttribute(action)}">
+                    <input type="hidden" name="opentext" value="${carlos:forHtmlAttribute(empty opentext ? param.opentext : opentext)}">
+                    <input type="hidden" name="templateid" value="${carlos:forHtmlAttribute(templateid)}">
+                    <input type="hidden" name="uuid" value="${carlos:forHtmlAttribute(curreport.uuid)}">
                     <div class="mb-3">
                         <div>
                             <input type="submit" class="btn btn-primary float-end"
@@ -188,11 +194,11 @@
             <div class="row">
                 <div class="card card-body bg-body-tertiary">
                     <textarea id="xmltext" name="xmltext"
-                              style="width:99%;height:300px;overflow-y:scroll;">${ templatexml }</textarea>
-                    <input type="hidden" name="action" value="${ action }">
-                    <input type="hidden" name="opentext" value="${ empty opentext ? param.opentext : opentext }">
-                    <input type="hidden" name="templateid" value="${ templateid }">
-                    <input type="hidden" name="uuid" value="${ curreport.uuid }">
+                              style="width:99%;height:300px;overflow-y:scroll;">${carlos:forHtmlContent(templatexml)}</textarea>
+                    <input type="hidden" name="action" value="${carlos:forHtmlAttribute(action)}">
+                    <input type="hidden" name="opentext" value="${carlos:forHtmlAttribute(empty opentext ? param.opentext : opentext)}">
+                    <input type="hidden" name="templateid" value="${carlos:forHtmlAttribute(templateid)}">
+                    <input type="hidden" name="uuid" value="${carlos:forHtmlAttribute(curreport.uuid)}">
                 </div>
 
                 <div class="form-actions">

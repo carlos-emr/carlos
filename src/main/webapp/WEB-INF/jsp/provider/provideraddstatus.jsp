@@ -95,7 +95,9 @@
 %>
 <%
   //if action is good, then give me the result
-  boolean ajaxRequest = "XMLHttpRequest".equals(request.getHeader("X-Requested-With"));
+  // RequestNegotiation.isAjax, not an exact match: see providercontrol.jsp. An exact check missed
+  // the combined CSRFGuard header and left this reply as text/html for the filters to decorate.
+  boolean ajaxRequest = io.github.carlos_emr.carlos.utility.RequestNegotiation.isAjax(request);
   if (ajaxRequest) {
     response.setContentType("text/plain;charset=UTF-8");
   }

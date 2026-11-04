@@ -41,9 +41,13 @@ package io.github.carlos_emr.carlos.lab.ca.all.upload;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Set;
+import java.util.LinkedHashSet;
+import java.util.Objects;
 
 import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
@@ -88,7 +92,9 @@ public class ProviderLabRouting {
 
     /**
      * Creates missing provider routing and forwarding rows in the acknowledgement lock domain.
-     * Existing clinical routing status is preserved on repeated delivery.
+     * Removed rows are reactivated using the current forwarding rules only when no
+     * active matching routing exists. Acknowledged, filed and new routing status is
+     * preserved on repeated delivery, including alongside legacy removed duplicates.
      * @param labId report identifier
      * @param provider_no destination provider identifier
      * @param labType exact routing type
@@ -105,25 +111,100 @@ public class ProviderLabRouting {
         });
     }
 
-    private void routeInTransaction(int labId, String provider_no, String labType) {
-        List<ProviderLabRoutingModel> routings = providerLabRoutingDao.findRoutingForUpdate(labId, labType, provider_no);
-        // Delivery is idempotent, not a request to reopen an acknowledged/filed report.
-        // The current locking read also sees a concurrent acknowledgement after waiting.
-        if (!routings.isEmpty()) return;
-        ForwardingRules fr = new ForwardingRules();
-        String status = fr.getStatus(provider_no);
-        ArrayList<ArrayList<String>> forwardProviders = fr.getProviders(provider_no);
+    private void routeInTransaction(int labId, String providerNo, String labType) {
+        routeInTransaction(labId, providerNo, labType, null, new LinkedHashSet<>(), true);
+    }
 
-        ProviderLabRoutingModel p = new ProviderLabRoutingModel();
-        p.setProviderNo(provider_no);
-        p.setLabNo(labId);
-        p.setStatus(status);
-        p.setLabType(labType);
-        providerLabRoutingDao.persist(p);
+    /**
+     * Routes within the caller's report lock and transaction. Direct delivery and
+     * forwarding may reactivate removed rows; automatic MRP reconciliation preserves
+     * prior removals. Creation alone is reported so MRP auditing excludes reactivation.
+     * @return true only when a new routing row is created
+     */
+    private boolean routeInTransaction(int labId, String providerNo, String labType,
+                                       Integer demographicNo, Set<String> visited, boolean reactivateRemoved) {
+        if (!visited.add(providerNo)) return false;
+        List<ProviderLabRoutingModel> routings = providerLabRoutingDao.findRoutingForUpdate(labId, labType, providerNo);
+        boolean created = routings.isEmpty();
+        boolean hasActiveRouting = routings.stream().anyMatch(row -> !"X".equals(row.getStatus()));
+        ForwardingRules rules = new ForwardingRules();
+        boolean changed = false;
+        for (ProviderLabRoutingModel row : routings) {
+            boolean reactivated = reactivateRemoved && !hasActiveRouting && "X".equals(row.getStatus());
+            boolean promoted = demographicNo == null && row.getMrpDemographicNo() != null;
+            if (reactivated) {
+                // Inspect every matching row first: a removed legacy duplicate must
+                // not reopen an existing acknowledgement or filing decision.
+                row.setStatus(rules.getStatus(providerNo, labType));
+                row.setTimestamp(new Date());
+            }
+            if (promoted) row.setMrpDemographicNo(null);
+            if (reactivated || promoted) {
+                providerLabRoutingDao.merge(row);
+                changed = true;
+            }
+        }
+        if (!created && !changed) return false;
+        if (created) {
+            ProviderLabRoutingModel row = new ProviderLabRoutingModel();
+            row.setProviderNo(providerNo);
+            row.setLabNo(labId);
+            row.setStatus(rules.getStatus(providerNo, labType));
+            row.setLabType(labType);
+            row.setMrpDemographicNo(demographicNo);
+            providerLabRoutingDao.persist(row);
+        }
+        // Also terminate cycles when reactivating rows or promoting automatic assignments.
+        for (ArrayList<String> recipient : rules.getProviders(providerNo, labType)) {
+            routeInTransaction(labId, recipient.get(0), labType, demographicNo, visited, reactivateRemoved);
+        }
+        return created;
+    }
 
-        // All forwarded providers share this report lock and outer transaction.
-        for (ArrayList<String> forwardedProvider : forwardProviders) {
-            routeInTransaction(labId, forwardedProvider.get(0), labType);
+    /**
+     * Revokes obsolete rule-owned access and adds the current patient's MRP under the report lock.
+     * Callers matching multiple versions must hold all report locks in numeric order first.
+     * @return whether the direct MRP routing was created
+     */
+    public boolean reconcileMrpRouting(int labId, String labType, Integer demographicNo, String providerNo) {
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        return Boolean.TRUE.equals(transaction.execute(status -> {
+            providerLabRoutingDao.lockRoutingReport(labId);
+            Set<String> desired = new LinkedHashSet<>();
+            if (demographicNo != null && providerNo != null) collectRecipients(providerNo, labType, desired);
+            for (ProviderLabRoutingModel row : providerLabRoutingDao.findAllLabRoutingByIdandType(labId, labType)) {
+                if (row.getMrpDemographicNo() != null
+                        && (!Objects.equals(demographicNo, row.getMrpDemographicNo())
+                            || !desired.contains(row.getProviderNo()))) {
+                    providerLabRoutingDao.remove(row.getId());
+                }
+            }
+            boolean created = false;
+            if (!desired.isEmpty()) {
+                Set<String> visited = new LinkedHashSet<>();
+                for (String recipient : desired) {
+                    boolean added = routeInTransaction(labId, recipient, labType, demographicNo, visited, false);
+                    if (recipient.equals(providerNo)) created = added;
+                }
+                // An existing direct MRP assignment must not prevent a newly configured
+                // forwarding recipient from receiving this matched report. Existing rows
+                // retain their acknowledgement and independent-assignment provenance.
+                for (ProviderLabRoutingModel row : providerLabRoutingDao.findRoutingForUpdate(labId, labType, "0")) {
+                    providerLabRoutingDao.remove(row.getId());
+                }
+            } else if (providerLabRoutingDao.findAllLabRoutingByIdandType(labId, labType).isEmpty()) {
+                routeInTransaction(labId, "0", labType, null, new LinkedHashSet<>(), false);
+            }
+            return created;
+        }));
+    }
+
+    private void collectRecipients(String providerNo, String labType, Set<String> recipients) {
+        if (!recipients.add(providerNo)) return;
+        for (ArrayList<String> recipient : new ForwardingRules().getProviders(providerNo, labType)) {
+            collectRecipients(recipient.get(0), labType, recipients);
         }
     }
 

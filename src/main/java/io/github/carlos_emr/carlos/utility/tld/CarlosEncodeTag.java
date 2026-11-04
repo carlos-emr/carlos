@@ -54,6 +54,8 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  *   <li>{@code html} / {@code htmlContent} → {@link SafeEncode#forHtmlContent(String)}</li>
  *   <li>{@code htmlAttribute} → {@link SafeEncode#forHtmlAttribute(String)}</li>
  *   <li>{@code htmlUnquotedAttribute} → {@link SafeEncode#forHtmlUnquotedAttribute(String)}</li>
+ *   <li>{@code htmlWithBreakMarkers} → {@link SafeEncode#forHtmlContentWithBreakMarkers(String)}
+ *       (HL7 lab text whose {@code <br />} markers and newlines must render as line breaks)</li>
  *   <li>{@code forHtml} (legacy alias) → {@link SafeEncode#forHtml(String)}</li>
  *   <li>{@code javaScript} / {@code js} → {@link SafeEncode#forJavaScript(String)}</li>
  *   <li>{@code javaScriptAttribute} → {@link SafeEncode#forJavaScriptAttribute(String)}</li>

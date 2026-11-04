@@ -36,6 +36,7 @@ import java.util.Set;
 
 import jakarta.persistence.Query;
 
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.ProviderSite;
@@ -80,10 +81,14 @@ public class SiteDaoImpl extends AbstractDaoImpl<Site> implements SiteDao {
                 query.setParameter(2, old.getName());
                 query.executeUpdate();
 
-                query = entityManager.createNativeQuery("update billing_on_cheader1 set clinic = ?1 where clinic = ?2");
-                query.setParameter(1, s.getName());
-                query.setParameter(2, old.getName());
-                query.executeUpdate();
+                // billing_on_cheader1 is an Ontario billing table: a BC install's schema has no such table, and
+                // updating it there failed the whole rename.
+                if (CarlosProperties.getInstance().isOntarioBillingRegion()) {
+                    query = entityManager.createNativeQuery("update billing_on_cheader1 set clinic = ?1 where clinic = ?2");
+                    query.setParameter(1, s.getName());
+                    query.setParameter(2, old.getName());
+                    query.executeUpdate();
+                }
 
 
             }

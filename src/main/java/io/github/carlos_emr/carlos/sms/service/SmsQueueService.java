@@ -8,10 +8,12 @@ import io.github.carlos_emr.carlos.sms.dto.SmsSendResultDto;
 import io.github.carlos_emr.carlos.sms.validator.SmsSendValidator;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -25,8 +27,10 @@ public class SmsQueueService {
     private final SmsTransactionService transactionRecorder;
     private final SmsQueueProcessingService smsQueueWorker;
     private final SmsDefaultProviderResolver providerSelector;
+    private final SmsConfigService configService;
 
-    public SmsQueueService(
+    /** For tests: no stored settings, so sending is always on. */
+    SmsQueueService(
             SmsSendValidator validator,
             SmsConsentService consentService,
             SmsTransactionService transactionRecorder,
@@ -38,18 +42,49 @@ public class SmsQueueService {
         this.transactionRecorder = transactionRecorder;
         this.smsQueueWorker = smsQueueWorker;
         this.providerSelector = providerSelector;
+        this.configService = null;
+    }
+
+    @Autowired
+    public SmsQueueService(
+            SmsSendValidator validator,
+            SmsConsentService consentService,
+            SmsTransactionService transactionRecorder,
+            SmsQueueProcessingService smsQueueWorker,
+            SmsDefaultProviderResolver providerSelector,
+            SmsConfigService configService
+    ) {
+        this.validator = validator;
+        this.consentService = consentService;
+        this.transactionRecorder = transactionRecorder;
+        this.smsQueueWorker = smsQueueWorker;
+        this.providerSelector = providerSelector;
+        this.configService = configService;
     }
 
     public SmsSendResultDto enqueue(SmsSendCommand command) {
+        if (configService != null && !configService.sendingEnabled()) {
+            return SmsSendResultDto.validationFailed(List.of(SmsSendService.SMS_TURNED_OFF_MESSAGE));
+        }
         SmsSendValidator.Result validation = validator.validate(command);
         if (!validation.valid()) {
             return SmsSendResultDto.validationFailed(validation.messages());
         }
 
         SmsProviderType providerType = providerSelector.configuredDefault();
+        if (configService != null && !configService.providerReady(providerType)) {
+            // As on the direct path: a text the worker could never send is refused before it is recorded,
+            // rather than reported as queued and held until an administrator notices.
+            LOGGER.error("SMS not queued: SMS provider {} is not ready (see Administration > SMS).", providerType);
+            return SmsSendResultDto.validationFailed(List.of(SmsSendService.SMS_PROVIDER_NOT_READY_MESSAGE));
+        }
         SmsConsentDecisionDto consentDecision = Objects.requireNonNull(
                 consentService.evaluate(command), "SMS consent decision is required");
-        transactionRecorder.recordOutboundAttempt(command, providerType, consentDecision);
+        try {
+            transactionRecorder.recordOutboundAttempt(command, providerType, consentDecision);
+        } catch (SmsProviderSelectionChangedException e) {
+            return SmsSendResultDto.validationFailed(List.of(e.getMessage()));
+        }
         if (!consentDecision.allowed()) {
             return SmsSendResultDto.consentBlocked(consentDecision);
         }

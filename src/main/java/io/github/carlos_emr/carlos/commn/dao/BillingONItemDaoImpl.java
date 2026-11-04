@@ -88,6 +88,16 @@ public class BillingONItemDaoImpl extends AbstractDaoImpl<BillingONItem> impleme
         return query.getResultList();
     }
 
+    @Override
+    public List<BillingONItem> findByCh1IdsExcludingDeleted(List<Integer> ch1Ids) {
+        if (ch1Ids == null || ch1Ids.isEmpty()) {
+            return List.of();
+        }
+        Query query = createQuery("bi", "bi.ch1Id IN (?1) AND (bi.status IS NULL OR bi.status <> 'D') ORDER BY bi.ch1Id, bi.serviceCode, bi.id");
+        query.setParameter(1, ch1Ids);
+        return query.getResultList();
+    }
+
     public List<BillingONItem> findByCh1IdAndStatusNotEqual(Integer chId, String string) {
         Query query = createQuery("i", "i.ch1Id= ?1 AND i.status != 'D'");
         query.setParameter(1, chId);

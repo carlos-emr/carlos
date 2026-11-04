@@ -22,6 +22,16 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Builds BC billing simulation HTML for active providers and forwards it to ViewBillingSim.
+    Features: provider billing-number filtering, date-bounded extraction and simulation output.
+    Parameters: providers is a provider billing number or % for all active providers (the default);
+    xml_vdate is the start date (blank means no lower bound); xml_appointment_date is the end
+    date (blank uses curDate; missing both is a 400). verCode and billcenter supply the extraction version and centre.
+    Produces the html request attribute and forwards the effective dates and provider selection.
+    Requires _admin.billing or _admin write access.
+    @since 2026-07-07 (introduction of this protected JSP route)
+--%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -61,7 +71,7 @@
 
     int bCount = 1;
     String batchCount = "0";
-    String provider = request.getParameter("providers");
+    String provider = Objects.requireNonNullElse(request.getParameter("providers"), "%");
 
     String proOHIP = "";
     String billinggroup_no;
@@ -70,17 +80,22 @@
     String htmlValue = "";
     String oscar_home = oscarVariables.getProperty("project_home") + ".properties";
 
-    String dateBegin = request.getParameter("xml_vdate");
-    String dateEnd = request.getParameter("xml_appointment_date");
-    if (dateEnd.compareTo("") == 0) dateEnd = request.getParameter("curDate");
-    if (dateBegin.compareTo("") == 0) {
+    String dateBegin = Objects.requireNonNullElse(request.getParameter("xml_vdate"), "");
+    String dateEnd = Objects.requireNonNullElse(request.getParameter("xml_appointment_date"), "");
+    if (dateEnd.isEmpty()) dateEnd = Objects.requireNonNullElse(request.getParameter("curDate"), "");
+    if (dateEnd.isEmpty()) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST, "A simulation end date is required");
+        return;
+    }
+    if (dateBegin.isEmpty()) {
         dateRange = new DateRange(null, ConversionUtils.fromDateString(dateEnd));
     } else {
         dateRange = new DateRange(ConversionUtils.fromDateString(dateBegin), ConversionUtils.fromDateString(dateEnd));
     }
 
     for (Provider p : providerDao.getActiveProviders()) {
-        if (p.getOhipNo() != null && !p.getOhipNo().isEmpty()) {
+        if (p.getOhipNo() != null && !p.getOhipNo().isEmpty()
+                && ("%".equals(provider) || provider.equals(p.getOhipNo()))) {
 
             proOHIP = p.getOhipNo();
 
@@ -109,10 +124,15 @@
 
 
     request.setAttribute("html", htmlValue);
+    request.setAttribute("bcSimulationDateEnd", dateEnd);
+    request.setAttribute("bcSimulationDateBegin", dateBegin);
+    request.setAttribute("bcSimulationProvider", provider);
 %>
 
+<%-- jsp:param URL-encodes dispatcher parameters; the target view encodes them for HTML.
+     HTML-encoding here would corrupt provider values and dates during the forward. --%>
 <jsp:forward page='/billing/CA/BC/ViewBillingSim'>
-    <jsp:param name="xml_appointment_date" value='<%= dateEnd %>'/>
-    <jsp:param name="xml_v_date" value='<%= dateBegin %>'/>
-    <jsp:param name="provider" value='<%= provider %>'/>
+    <jsp:param name="xml_appointment_date" value="${requestScope.bcSimulationDateEnd}"/>
+    <jsp:param name="xml_vdate" value="${requestScope.bcSimulationDateBegin}"/>
+    <jsp:param name="providers" value="${requestScope.bcSimulationProvider}"/>
 </jsp:forward>

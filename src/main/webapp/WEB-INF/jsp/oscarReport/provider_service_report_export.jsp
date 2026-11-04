@@ -27,7 +27,11 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%-- Exports monthly and inclusive-range encounter counts as UTF-8 CSV.
+     Parameters: startDate and endDate (MM/yyyy); invalid ranges return HTTP 400.
+     @since 2026-10-02 --%>
 
+<%@ page pageEncoding="UTF-8" contentType="text/csv; charset=UTF-8" trimDirectiveWhitespaces="true" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -54,27 +58,29 @@
 <%@page import="java.text.*" %>
 <%@page import="org.apache.commons.text.StringEscapeUtils" %>
 <%
-    String agencyName = io.github.carlos_emr.CarlosProperties.getInstance().getProperty("db_name", "");
+    Clinic clinic = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.ClinicDAO.class).getClinic();
+    String agencyName = clinic == null || clinic.getClinicName() == null ? "" : clinic.getClinicName();
     String startDateString = request.getParameter("startDate");
     String endDateString = request.getParameter("endDate");
-    SimpleDateFormat dateFormatter = new SimpleDateFormat("MM/yyyy");
-    Date startDate = new Date();
-    Date endDate = new Date();
-
+    SimpleDateFormat dateFormatter = new SimpleDateFormat("MM/yyyy", Locale.ROOT);
+    dateFormatter.setLenient(false);
+    Date startDate;
+    Date endDate;
     try {
+        if (startDateString == null || endDateString == null
+                || !startDateString.matches("[0-9]{2}/[0-9]{4}")
+                || !endDateString.matches("[0-9]{2}/[0-9]{4}")) throw new ParseException("Invalid report month", 0);
         startDate = dateFormatter.parse(startDateString);
-    } catch (Exception e) {
-        // do nothing, bad input
-    }
-
-    try {
         endDate = dateFormatter.parse(endDateString);
-    } catch (Exception e) {
-        // do nothing, bad input
+        if (startDate.after(endDate)) throw new ParseException("Reversed report range", 0);
+    } catch (ParseException e) {
+        response.sendError(400, "Select a valid start and end month");
+        return;
     }
 
-    response.setContentType("application/x-download");
-    response.setHeader("Content-Disposition", "attachment; filename=provider_service_" + agencyName + "_" + dateFormatter.format(startDate) + "_" + dateFormatter.format(endDate) + ".csv");
+    String filename = "provider_service_" + new SimpleDateFormat("yyyy-MM", Locale.ROOT).format(startDate)
+            + "_" + new SimpleDateFormat("yyyy-MM", Locale.ROOT).format(endDate) + ".csv";
+    response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
 
     // print header
     {
@@ -108,11 +114,11 @@
     ProviderServiceReportUIBean providerServiceReportUIBean = new ProviderServiceReportUIBean(startDate, endDate);
     for (ProviderServiceReportUIBean.DataRow row : providerServiceReportUIBean.getDataRows()) {
         StringBuilder sb = new StringBuilder();
-        sb.append(StringEscapeUtils.escapeCsv(agencyName));
+        sb.append(ProviderServiceReportUIBean.csvLabel(agencyName));
         sb.append(',');
-        sb.append(StringEscapeUtils.escapeCsv(row.programName));
+        sb.append(ProviderServiceReportUIBean.csvLabel(row.programName));
         sb.append(',');
-        sb.append(StringEscapeUtils.escapeCsv(row.programType));
+        sb.append(ProviderServiceReportUIBean.csvLabel(row.programType));
         sb.append(',');
         sb.append(StringEscapeUtils.escapeCsv(row.date));
         sb.append(',');

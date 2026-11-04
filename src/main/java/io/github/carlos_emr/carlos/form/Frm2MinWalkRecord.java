@@ -93,7 +93,7 @@ public class Frm2MinWalkRecord extends FrmRecord {
 
                         String value;
                         MiscUtils.getLogger().debug(" name = " + name + " type = " + md.getColumnTypeName(i) + " scale = " + md.getScale(i));
-                        if (md.getColumnTypeName(i).equalsIgnoreCase("TINY")) {
+                        if (FrmRecordHelp.isBooleanColumnType(md.getColumnTypeName(i))) {
 
                             if (rs.getInt(i) == 1) {
                                 value = "checked='checked'";

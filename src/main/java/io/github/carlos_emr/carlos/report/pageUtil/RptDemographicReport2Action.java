@@ -72,6 +72,12 @@ public class RptDemographicReport2Action extends ActionSupport implements ModelD
         }
 
         String query = form.getQuery();
+        if (("Save Query".equals(query) || "Run Query And Save to Patient Set".equals(query))
+                && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         String[] select = form.getSelect();
         String studyId = form.getStudyId();
 

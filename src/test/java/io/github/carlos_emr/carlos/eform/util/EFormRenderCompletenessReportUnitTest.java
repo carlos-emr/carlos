@@ -312,7 +312,7 @@ class EFormRenderCompletenessReportUnitTest {
         // key line or a comment must not satisfy this test while the value cell is deleted.
         Map<String, String> surfaceOutputShapes = new LinkedHashMap<>();
         surfaceOutputShapes.put(
-                "src/main/java/io/github/carlos_emr/carlos/eform/actions/AddEForm2Action.java", "\"%s\"");
+                "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormSavedRenderResponse.java", "\"%s\"");
         surfaceOutputShapes.put(
                 "src/main/java/io/github/carlos_emr/carlos/fax/action/Fax2Action.java", "\"%s\"");
         surfaceOutputShapes.put(
@@ -344,12 +344,18 @@ class EFormRenderCompletenessReportUnitTest {
         // Every consumer of EformContentUnavailableException must be an offer surface above or an
         // explicitly-listed non-offer consumer. A NEW consumer failing here is the point: the
         // providerStampMissing gap happened because a surface simply was not on the list.
-        List<String> nonOfferConsumers = List.of(
-                // Approval-REDEMPTION endpoints: they consume an already-issued token and, on a
-                // digest mismatch, produce a terminal generic error — the issue set was disclosed
-                // by the offer surface that issued the token, and these disclose nothing new.
+        // Saved-form retries can discover changed omissions. All three actions must use the
+        // complete shared disclosure above, including after capacity or consent expiry.
+        List<String> delegatedOfferConsumers = List.of(
+                "src/main/java/io/github/carlos_emr/carlos/eform/actions/AddEForm2Action.java",
                 "src/main/java/io/github/carlos_emr/carlos/eform/actions/DownloadEFormPdf2Action.java",
-                "src/main/java/io/github/carlos_emr/carlos/eform/actions/SaveEFormAsEDoc2Action.java",
+                "src/main/java/io/github/carlos_emr/carlos/eform/actions/SaveEFormAsEDoc2Action.java");
+        for (String consumer : delegatedOfferConsumers) {
+            assertThat(Files.readString(Path.of(consumer), StandardCharsets.UTF_8))
+                    .describedAs("%s must delegate omission disclosure to the complete shared surface", consumer)
+                    .contains("EFormSavedRenderResponse.missing(");
+        }
+        List<String> nonOfferConsumers = List.of(
                 // Producer, thrower and pass-through — not surfaces.
                 "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormBrowserPdfService.java",
                 "src/main/java/io/github/carlos_emr/carlos/utility/EformContentUnavailableException.java",
@@ -372,7 +378,8 @@ class EFormRenderCompletenessReportUnitTest {
                             + "disclosure surface in this test or an explicitly-reviewed non-offer "
                             + "consumer — add it to the right list")
                     .allSatisfy(consumer -> assertThat(
-                            surfaceOutputShapes.containsKey(consumer) || nonOfferConsumers.contains(consumer))
+                            surfaceOutputShapes.containsKey(consumer) || delegatedOfferConsumers.contains(consumer)
+                                    || nonOfferConsumers.contains(consumer))
                             .describedAs("unlisted consumer: %s", consumer)
                             .isTrue());
         }

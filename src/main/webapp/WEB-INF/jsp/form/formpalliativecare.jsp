@@ -63,8 +63,8 @@
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Palliative Care</title>
-        <link rel="stylesheet" type="text/css" href="palliativeCareStyles.css"/>
-        <link rel="stylesheet" type="text/css" media="print" href="print.css"/>
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/palliativeCareStyles.css"/>
+        <link rel="stylesheet" type="text/css" media="print" href="${pageContext.request.contextPath}/form/print.css"/>
         <%-- S5131: getServerName() returns the Host header — safe when deployed behind a reverse proxy that validates the Host header (required for production) --%>
         <base href="<carlos:encode value='<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>' context="htmlAttribute"/>"> <%-- NOSONAR --%>
     </head>
@@ -334,14 +334,14 @@
                         </tr>
                         <tr class="pain">
                             <td><b><a
-                                    href="javascript: popupPage('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>pain');">PAIN</a></b></td>
+                                    href="<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="htmlAttribute"/>pain" onclick="popupPage(this.href); return false;">PAIN</a></b></td>
                             <td><textarea name="pain1"><carlos:encode value='<%= props.getProperty("pain1", "") %>' context="html"/></textarea></td>
                             <td><textarea name="pain2"><carlos:encode value='<%= props.getProperty("pain2", "") %>' context="html"/></textarea></td>
                             <td><textarea name="pain3"><carlos:encode value='<%= props.getProperty("pain3", "") %>' context="html"/></textarea></td>
                             <td><textarea name="pain4"><carlos:encode value='<%= props.getProperty("pain4", "") %>' context="html"/></textarea></td>
                         </tr>
                         <tr class="giBowels">
-                            <td><b><a href="javascript: popupPage('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>gi');">GI:</a></b><br>
+                            <td><b><a href="<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="htmlAttribute"/>gi" onclick="popupPage(this.href); return false;">GI:</a></b><br>
                                 Bowels<br>
                                 -diarrhea -constipation
                             </td>
@@ -379,7 +379,7 @@
                             <td><textarea name="giMouth4"><carlos:encode value='<%= props.getProperty("giMouth4", "") %>' context="html"/></textarea></td>
                         </tr>
                         <tr class="gu">
-                            <td><b><a href="javascript: popupPage('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>gu');">GU:</a></b><br>
+                            <td><b><a href="<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="htmlAttribute"/>gu" onclick="popupPage(this.href); return false;">GU:</a></b><br>
                                 Retention<br>
                                 Incontinence
                             </td>
@@ -390,7 +390,7 @@
                         </tr>
                         <tr class="skinUlcers">
                             <td><b><a
-                                    href="javascript: popupPage('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>skin');">SKIN:</a></b><br>
+                                    href="<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="htmlAttribute"/>skin" onclick="popupPage(this.href); return false;">SKIN:</a></b><br>
                                 Ulcers
                             </td>
                             <td><textarea name="skinUlcers1"><carlos:encode value='<%= props.getProperty("skinUlcers1", "") %>' context="html"/></textarea></td>
@@ -411,7 +411,7 @@
                         </tr>
                         <tr class="psychAgitation">
                             <td><b><a
-                                    href="javascript: popupPage('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>psych');">PSYCH:</a></b><br>
+                                    href="<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="htmlAttribute"/>psych" onclick="popupPage(this.href); return false;">PSYCH:</a></b><br>
                                 Agitation<br>
                                 Myoclonus
                             </td>
@@ -489,7 +489,7 @@
                         </tr>
                         <tr class="respCough">
                             <td><b><a
-                                    href="javascript: popupPage('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>resp');">RESP:</a></b><br>
+                                    href="<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="htmlAttribute"/>resp" onclick="popupPage(this.href); return false;">RESP:</a></b><br>
                                 Cough
                             </td>
                             <td><textarea name="respCough1"><carlos:encode value='<%= props.getProperty("respCough1", "") %>' context="html"/></textarea></td>
@@ -524,7 +524,7 @@
                         </tr>
                         <tr class="other">
                             <td><b><a
-                                    href="javascript: popupPage('<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="javaScriptAttribute"/>other');">Other
+                                    href="<carlos:encode value='<%= StringUtils.noNull(resource) %>' context="htmlAttribute"/>other" onclick="popupPage(this.href); return false;">Other
                                 Issues / FU Plan</a></b></td>
                             <td><textarea name="other1"><carlos:encode value='<%= props.getProperty("other1", "") %>' context="html"/></textarea></td>
                             <td><textarea name="other2"><carlos:encode value='<%= props.getProperty("other2", "") %>' context="html"/></textarea></td>

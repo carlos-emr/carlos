@@ -56,8 +56,8 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Laboratory Requisition</title>
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
-        <link rel="stylesheet" type="text/css" href="LabReqPrintStyle.css">
-        <link rel="stylesheet" type="text/css" media="print" href="print.css">
+        <link rel="stylesheet" type="text/css" href="${pageContext.request.contextPath}/form/LabReqPrintStyle.css">
+        <link rel="stylesheet" type="text/css" media="print" href="${pageContext.request.contextPath}/form/print.css">
     </head>
 
     <%
