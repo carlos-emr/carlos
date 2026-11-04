@@ -10,6 +10,24 @@ The 2026-10-15 focused validation for issue #4699, including blocking-WAF
 positive/negative controls and pending encounter-issue preservation, is recorded
 in [PR #4701 validation](pr4701-validation.md).
 
+The facility-chooser asset fix for #4621 (PR #5615) was validated from `62b8e13`.
+Both WARs and the full `2026.09.0~snapshot27` debs were built inside Ubuntu 26.04
+with OpenJDK 25.0.4.1 and installed fresh into an Ubuntu 26.04 systemd container
+with the Ontario demo dataset. DrugRef used the pinned `0d240f0` revision;
+`carlos-ctl` 1.3.0 came from its published release with its SHA-256 verified.
+The packaged Chromium revision 1685886 was fetched from the canonical
+`storage.googleapis.com` bucket using `CHROMIUM_BASE_URL`, with both pinned
+checksums verified. `carlos-ctl check` passed, and the first-login reset completed.
+Through `https://127.0.0.1/carlos` with `EXPECT_FRONT_DOOR=true`,
+`login-facility-chooser` passed all 18 steps without its expected-failure pin or
+asset-error suppression. `facility-selection`, `login` and
+`anonymous-access-refused` also passed; `--residue-audit` found no residue.
+Restoring the pre-fix `LoginFilter` on the same install made the chooser check
+fail on its stylesheet/script MIME errors, again with no residue. Restoring the
+fixed filter made all 18 chooser steps pass again and left the service checks clean. The focused
+login, facility-selection and forced-reset Java suites passed 217 tests; before
+the fix, the filter suite failed exactly its two chooser-asset cases.
+
 It is the procedure that first surfaced the WAF false positives on note-saving
 and eForm saves, the add-patient validation regression, the nullable-column
 500s on the consultation surfaces, and the empty Consultations inbox on the demo
