@@ -37,7 +37,7 @@ public class ReadingAidApprovalStore {
             return existing;
         }
         var row = new ReadingAidApproval(newApprovalId(), documentNo, demographicNo, approval.summaryVersion(),
-                approval.sourceSha256(), DocumentSummaryReviewBinding.NOTICE_VERSION, approval.language(),
+                approval.sourceSha256(), DocumentSummaryReviewBinding.noticeVersion(approval.language()), approval.language(),
                 approval.reviewerId(), approval.reviewedAt().getEpochSecond(), approval.generatedAt().getEpochSecond(),
                 approval.revisedAt() == null ? null : approval.revisedAt().getEpochSecond());
         entityManager.persist(row);

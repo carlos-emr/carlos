@@ -81,6 +81,13 @@ class ReadingAidApprovalStoreUnitTest {
     }
 
     @Test
+    void recordsTheNoticeVersionOfTheSummarysLanguage() {
+        var row = store.record(PATIENT, DOCUMENT, approval("fr"));
+        assertThat(row.getLanguage()).isEqualTo("fr");
+        assertThat(row.getNoticeVersion()).isEqualTo(DocumentSummaryReviewBinding.NOTICE_VERSION_FR).isNotEqualTo(DocumentSummaryReviewBinding.NOTICE_VERSION);
+    }
+
+    @Test
     void refusesWithoutAPatientAndADocument() {
         assertThatThrownBy(() -> store.record(0, DOCUMENT, approval())).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> store.record(PATIENT, 0, approval())).isInstanceOf(IllegalArgumentException.class);
@@ -122,13 +129,15 @@ class ReadingAidApprovalStoreUnitTest {
         assertThat(body).contains("PRIMARY KEY (approval_id)", "UNIQUE KEY reading_aid_approval_document_version (document_no, summary_version)");
     }
 
-    private static DocumentSummaryReviewBinding.Approval approval() {
+    private static DocumentSummaryReviewBinding.Approval approval() { return approval("en"); }
+
+    private static DocumentSummaryReviewBinding.Approval approval(String language) {
         var output = ClinicalSummaryAgentProtocol.JSON.createObjectNode().put("overview", "FAKE chest X-ray report overview.");
         output.putArray("points").addObject().put("text", "FAKE repeat imaging in 3 months.").putArray("evidence").add("FAKE repeat imaging in 3 months.");
         var scope = new DocumentSummaryReviewBinding.Scope("clinic-a", PATIENT, DOCUMENT);
         var meta = new DocumentSummaryReviewBinding.Metadata("FAKE.txt", "text/plain", "FAKE chest X-ray report", 1234L);
         var source = DocumentSummaryReviewBinding.capture(scope, meta, ORIGINAL);
-        var draft = new DocumentSummaryReviewBinding(Clock.fixed(GENERATED, ZoneOffset.UTC)).prepare(source, new DocumentSummary(output), "FAKE-model", "en");
+        var draft = new DocumentSummaryReviewBinding(Clock.fixed(GENERATED, ZoneOffset.UTC)).prepare(source, new DocumentSummary(output), "FAKE-model", language);
         var provider = mock(Provider.class);
         when(provider.getProviderNo()).thenReturn("4242");
         when(provider.getFormattedName()).thenReturn("FAKE-Reviewer, Demo");
