@@ -269,8 +269,9 @@ class DocumentAttachmentManagerImplLabsNotIncludedUnitTest extends CarlosUnitTes
         when(consultationManager.getAttachedDocumentsByType(loggedInInfo, REQUEST,
                 io.github.carlos_emr.carlos.commn.model.ConsultDocs.DOCTYPE_FORM))
                 .thenThrow(new IllegalStateException("lookup failed"));
+        MockHttpServletResponse response = new MockHttpServletResponse();
         try {
-            assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request, new MockHttpServletResponse()))
+            assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request, response))
                     .isInstanceOf(IllegalStateException.class);
             assertThat(letter).doesNotExist();
         } finally {

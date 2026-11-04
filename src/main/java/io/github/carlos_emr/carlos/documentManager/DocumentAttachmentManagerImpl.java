@@ -711,14 +711,7 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
                     loggedInInfo, Integer.parseInt(requestId), attachedForms, attachedHRMs, readerLocale);
             request.setAttribute(ConsultationAttachmentsNotIncluded.REQUEST_ATTRIBUTE, attachmentsNotIncluded);
             attachLabsNotIncludedNotice(labsNotIncluded, readerLocale, pdfDocumentList);
-            if (!attachmentsNotIncluded.isEmpty()) {
-                try (ByteArrayOutputStream notice = new ByteArrayOutputStream()) {
-                    notice.write(ConsultationAttachmentsNotIncluded.noticePage(attachmentsNotIncluded, readerLocale));
-                    pdfDocumentList.add(nioFileManager.saveTempFile("consultationAttachmentsNotIncluded", notice).toString());
-                } catch (IOException | DocumentException e) {
-                    throw new PDFGenerationException("The attachment omission notice could not be created", e);
-                }
-            }
+            attachAttachmentsNotIncludedNotice(attachmentsNotIncluded, readerLocale, pdfDocumentList);
             attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList);
             attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList);
             attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
@@ -733,6 +726,17 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             // the letter and the page naming the labs it leaves out both carry PHI.
             cleanupRenderedTempInputs(pdfDocumentList, null);
             throw e;
+        }
+    }
+
+    private void attachAttachmentsNotIncludedNotice(List<String> warnings, Locale locale,
+                                                    ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+        if (warnings.isEmpty()) return;
+        try (ByteArrayOutputStream notice = new ByteArrayOutputStream()) {
+            notice.write(ConsultationAttachmentsNotIncluded.noticePage(warnings, locale));
+            pdfDocumentList.add(nioFileManager.saveTempFile("consultationAttachmentsNotIncluded", notice).toString());
+        } catch (IOException | DocumentException e) {
+            throw new PDFGenerationException("The attachment omission notice could not be created", e);
         }
     }
 

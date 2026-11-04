@@ -141,11 +141,23 @@ public class DocumentAttach {
         // No additions or removals: preserve the stored relationship without parsing every HRM.
         // New selections still pass the normal privilege/ownership checks below.
         if (new LinkedHashSet<>(selected).equals(new LinkedHashSet<>(existing))) return false;
+        Set<String> available = availableConsultAttachmentIds(type, patient, requestId);
+        List<String> retained = existing.stream().filter(id -> !available.contains(id)).toList();
+        // Validate additions and visible selections normally. Unavailable existing rows are retained
+        // only; passing them back through ownership checks would prevent unrelated saves.
+        if (!validateSelection(type, patient, selected.stream().filter(id -> !retained.contains(id)).toList(),
+                existing.stream().filter(id -> !retained.contains(id)).toList())) return false;
+        for (String id : retained) if (!selected.contains(id)) selected.add(id);
+        return true;
+    }
+
+    /** Lists only form or HRM identifiers currently available to this consultation reader. */
+    private Set<String> availableConsultAttachmentIds(DocumentType type, int patient, Integer requestId) {
         var manager = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.ConsultationManager.class);
         Set<String> available = new LinkedHashSet<>();
         if (type == DocumentType.FORM) {
-            // FormsManager rejects denied reads instead of returning an empty listing. Preserve
-            // existing rows in that case; validateSelection below still rejects new form IDs.
+            // Avoid resolving forms for denied readers. Selection validation still rejects
+            // additions, while the existing unavailable relationships are retained.
             if (SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
                     .hasPrivilege(loggedInInfo, "_form", "r", Integer.toString(patient))) {
                 for (var form : manager.getAttachedForms(loggedInInfo, requestId, patient)) available.add(form.getFormId());
@@ -155,13 +167,7 @@ public class DocumentAttach {
                 available.add(String.valueOf(hrm.get("id")));
             }
         }
-        List<String> retained = existing.stream().filter(id -> !available.contains(id)).toList();
-        // Validate additions and visible selections normally. Unavailable existing rows are retained
-        // only; passing them back through ownership checks would prevent unrelated saves.
-        if (!validateSelection(type, patient, selected.stream().filter(id -> !retained.contains(id)).toList(),
-                existing.stream().filter(id -> !retained.contains(id)).toList())) return false;
-        for (String id : retained) if (!selected.contains(id)) selected.add(id);
-        return true;
+        return available;
     }
 
     private void attachToConsult(List<String> currentList, List<String> oldList, DocumentType documentType, String providerNo, Integer requestId) {

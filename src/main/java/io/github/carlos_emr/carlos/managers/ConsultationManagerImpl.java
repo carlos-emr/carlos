@@ -167,8 +167,13 @@ public class ConsultationManagerImpl implements ConsultationManager {
     DocumentManager documentManager;
     @Autowired
     private DocumentAttachmentManager documentAttachmentManager;
-    @Autowired
     private AttachmentOwnershipService attachmentOwnershipService;
+
+    // Preserve the legacy no-argument construction used by older callers and tests.
+    @Autowired
+    void setAttachmentOwnershipService(AttachmentOwnershipService attachmentOwnershipService) {
+        this.attachmentOwnershipService = attachmentOwnershipService;
+    }
 
     private final Logger logger = MiscUtils.getLogger();
 

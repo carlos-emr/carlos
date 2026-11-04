@@ -28,14 +28,17 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -69,6 +72,8 @@ import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
+import io.github.carlos_emr.carlos.managers.NioFileManagerImpl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -138,6 +143,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(ConsultationManager.class, consultationManager);
         registerMock(FaxManager.class, faxManager);
+        registerMock(NioFileManager.class, new NioFileManagerImpl());
         // CommonLabResultData resolves these DAOs in its static initializer; register them so the
         // class can initialize when Mockito instruments it for mocked construction below.
         patientLabRoutingDao = mock(PatientLabRoutingDao.class);
@@ -454,6 +460,53 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
             }
         } finally {
             Files.deleteIfExists(ownForm);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should protect and remove managed lab PDFs after successful or failed rendering")
+    void shouldRemoveManagedLabPdf_whenRenderingCompletesOrFails(boolean fail) throws Exception {
+        Path temporaryRoot = Path.of(System.getProperty("java.io.tmpdir"));
+        List<Path> staged = new ArrayList<>();
+        try {
+            NioFileManager fileManager = spy(new NioFileManagerImpl());
+            doAnswer(invocation -> {
+                Path file = (Path) invocation.callRealMethod();
+                staged.add(file);
+                assertThat(file).startsWith(temporaryRoot);
+                if (file.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+                    assertThat(Files.getPosixFilePermissions(file.getParent())).isEqualTo(
+                            java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+                }
+                return file;
+            }).when(fileManager).saveTempFile(eq("consultationLab"), any(ByteArrayOutputStream.class));
+            registerMock(NioFileManager.class, fileManager);
+            commonLabResultDataConstruction.close();
+            LabResultData lab = new LabResultData(LabResultData.HL7TEXT);
+            lab.setSegmentID("30");
+            commonLabResultDataConstruction = mockConstruction(CommonLabResultData.class, (data, context) ->
+                    when(data.populateLabResultsData(any(), eq("1"), eq("42"), anyBoolean()))
+                            .thenReturn(new ArrayList<>(List.of(lab))));
+            when(patientLabRoutingDao.findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                    .thenReturn(List.of(30));
+            try (MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class);
+                 MockedConstruction<LabPDFCreator> creators = mockConstruction(LabPDFCreator.class, (creator, context) ->
+                         doAnswer(invocation -> {
+                             assertThat(staged.getFirst()).exists();
+                             if (fail) throw new IOException("synthetic lab render failure");
+                             return null;
+                         }).when(creator).printPdf())) {
+                assertThat(action.execute()).isEqualTo(fail ? "error" : ActionSupport.NONE);
+                assertThat(creators.constructed()).hasSize(1);
+                assertThat(staged).hasSize(1);
+                assertThat(staged.getFirst()).doesNotExist();
+            }
+        } finally {
+            for (Path file : staged) {
+                Files.deleteIfExists(file);
+                Files.deleteIfExists(file.getParent());
+            }
         }
     }
 
