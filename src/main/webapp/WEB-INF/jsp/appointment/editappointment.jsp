@@ -667,6 +667,7 @@
                 %>
                 selectAppointmentLocationCode(document.EDITAPPT.locationCode, "<carlos:encode value='<%= apptObj.getLocationCode() %>' context="javaScriptBlock"/>");
                 <% if (pastedLegacy != null) { %>
+                <%-- Raw on purpose: the label is encoded for JavaScript below and set as option text, never parsed as HTML. --%>
                 <fmt:message key="appointment.location.legacyOption" var="pastedLegacyLabel"><fmt:param value="<%= pastedLegacy.trim() %>"/></fmt:message>
                 offerLegacyAppointmentLocation(document.EDITAPPT.locationCode, document.EDITAPPT.location,
                     "<carlos:encode value='<%= pastedLegacy %>' context="javaScriptBlock"/>",
