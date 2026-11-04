@@ -8,6 +8,11 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Map;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import net.sf.jasperreports.engine.JRException;
+import net.sf.jasperreports.engine.JasperFillManager;
+import org.apache.logging.log4j.Level;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
@@ -76,15 +81,21 @@ class DemographicLabelPdfUnitTest {
 
     @Test void shouldReturnFailure_whenTemplateIsMissing() throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
-        DemographicLabelPdf.write(response, Map.of(), null, null);
+        try (LogCapture logs = LogCapture.forLogger(DemographicLabelPdf.class)) {
+            DemographicLabelPdf.write(response, Map.of(), null, null);
+            assertDiagnostic(logs, "loading label template", "net.sf.jasperreports.engine.JRException");
+        }
         assertFailure(response);
     }
 
     @Test void shouldReturnFailureWithoutDatabaseDetails_whenConnectionFails() throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
-        try (MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
+        try (LogCapture logs = LogCapture.forLogger(DemographicLabelPdf.class);
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
             jdbc.when(LegacyJdbcQuery::getConnection).thenThrow(new SQLException("private database details"));
             DemographicLabelPdf.write(response, Map.of(), template("SELECT 'name' AS NAME"), null);
+            assertDiagnostic(logs, "opening label database connection", "java.sql.SQLException");
+            assertThat(logs.events().getFirst().getMessage().getFormattedMessage()).doesNotContain("private database details");
         }
         assertFailure(response);
         assertThat(response.getErrorMessage()).doesNotContain("private");
@@ -93,12 +104,48 @@ class DemographicLabelPdfUnitTest {
     @Test void shouldReturnFailureAndCloseConnection_whenReportHasNoPages() throws Exception {
         Connection connection = DriverManager.getConnection("jdbc:h2:mem:emptyLabelPdf");
         MockHttpServletResponse response = new MockHttpServletResponse();
-        try (MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
+        try (LogCapture logs = LogCapture.forLogger(DemographicLabelPdf.class);
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
             jdbc.when(LegacyJdbcQuery::getConnection).thenReturn(connection);
             DemographicLabelPdf.write(response, Map.of(), template("SELECT 'name' AS NAME WHERE 1=0"), null);
+            assertDiagnostic(logs, "label contains no patient data", "net.sf.jasperreports.engine.JRException");
         }
         assertFailure(response);
         assertThat(connection.isClosed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("should log cause locations without clinical messages when Jasper filling fails")
+    void shouldLogCauseLocationsWithoutClinicalMessages_whenJasperFillingFails() throws Exception {
+        Connection connection = DriverManager.getConnection("jdbc:h2:mem:failedLabelFill");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        SQLException cause = new SQLException("FAKE clinical SQL value");
+        cause.addSuppressed(new IllegalStateException("FAKE suppressed patient details"));
+        JRException failure = new JRException("FAKE report expression value", cause);
+        try (LogCapture logs = LogCapture.forLogger(DemographicLabelPdf.class);
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class);
+             MockedStatic<JasperFillManager> fill = mockStatic(JasperFillManager.class)) {
+            jdbc.when(LegacyJdbcQuery::getConnection).thenReturn(connection);
+            fill.when(() -> JasperFillManager.fillReport(any(net.sf.jasperreports.engine.JasperReport.class), anyMap(), eq(connection)))
+                    .thenThrow(failure);
+            DemographicLabelPdf.write(response, Map.of("demo", "FAKE request value"), template("SELECT 'name' AS NAME"), null);
+            assertDiagnostic(logs, "filling label report", "net.sf.jasperreports.engine.JRException");
+            assertThat(logs.events().getFirst().getMessage().getFormattedMessage())
+                    .contains("Caused by: java.sql.SQLException", "Suppressed: java.lang.IllegalStateException")
+                    .doesNotContain("FAKE", "clinical SQL value", "patient details", "expression value", "request value");
+        }
+        assertFailure(response);
+        assertThat(connection.isClosed()).isTrue();
+        assertThat(response.getErrorMessage()).isEqualTo("Unable to generate patient label");
+    }
+
+    private static void assertDiagnostic(LogCapture logs, String context, String exceptionType) {
+        assertThat(logs.events()).hasSize(1);
+        var event = logs.events().getFirst();
+        assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+        assertThat(event.getThrown()).isNull();
+        assertThat(event.getMessage().getFormattedMessage())
+                .contains("Label PDF generation failed while ", context, exceptionType, "DemographicLabelPdf.java:");
     }
 
     private static void assertFailure(MockHttpServletResponse response) {
