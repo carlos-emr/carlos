@@ -98,6 +98,8 @@ public class EctDisplayAction extends ActionSupport {
             Set.of("demographicNo", "demographic_no", "appointmentNo", "curProviderNo", "providerNo");
 
     private boolean enabled;
+    private LoggedInInfo moduleLogin;
+    private String moduleRoleNames;
 
     protected SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -397,15 +399,45 @@ public class EctDisplayAction extends ActionSupport {
         }
 
         NavBarDisplayDAO dao = resolveDisplayDao(cmd);
-        if (!hasReadAccessForDisplayCommand(new SecurityManager(), cmd, login)) {
+        String roleNames = resolveRoleNames(login);
+        if (!hasReadAccessForDisplayCommand(new SecurityManager(), cmd, roleNames)) {
             return null;
         }
-        if (!getInfo(bean, request, dao)) {
-            return forward;
+        // Module loaders must use the same identity even if logout invalidates the session
+        // while the appointment or module data is being read. Never put it back in the session.
+        moduleLogin = login;
+        moduleRoleNames = roleNames;
+        try {
+            if (!getInfo(bean, request, dao)) {
+                return forward;
+            }
+        } finally {
+            moduleLogin = null;
+            moduleRoleNames = null;
         }
 
         request.setAttribute("DAO", dao);
         return resolveForward(cmd, params, dao, isJsonRequest);
+    }
+
+    /**
+     * Returns the authorized login while a navbar module is loading. Direct callers of
+     * {@link #getInfo} retain the normal session lookup; no identity survives the module call.
+     */
+    protected LoggedInInfo getLoggedInInfo(HttpServletRequest moduleRequest) {
+        return moduleLogin != null ? moduleLogin : LoggedInInfo.getLoggedInInfoFromSession(moduleRequest);
+    }
+
+    /** Returns the authorized module's active roles and provider, or the direct caller's session roles. */
+    protected String getRoleNames(HttpServletRequest moduleRequest) {
+        return moduleRoleNames != null ? moduleRoleNames
+                : moduleRequest.getSession().getAttribute("userrole") + "," + moduleRequest.getSession().getAttribute("user");
+    }
+
+    /** Returns the authorized module provider, preserving session lookup for direct module callers. */
+    protected String getProviderNo(HttpServletRequest moduleRequest) {
+        return moduleLogin != null ? moduleLogin.getLoggedInProvider().getProviderNo()
+                : (String) moduleRequest.getSession().getAttribute("user");
     }
 
     private NavBarDisplayDAO resolveDisplayDao(String cmd) {
@@ -564,14 +596,19 @@ public class EctDisplayAction extends ActionSupport {
         return true;
     }
 
-    /** Applies legacy module rights using the authorized login's active roles and provider number. */
-    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
-    private boolean hasReadAccessForDisplayCommand(SecurityManager securityMgr, String cmd, LoggedInInfo login) {
+    /** Builds the role identity once for the legacy module gate and the module's own role filters. */
+    private String resolveRoleNames(LoggedInInfo login) {
         StringJoiner roles = new StringJoiner(",");
         securityInfoManager.getRoles(login).forEach(role -> roles.add(role.getRoleName()));
         roles.add(login.getLoggedInProvider().getProviderNo());
-        return securityMgr.hasReadAccess("_" + cmd.toLowerCase(), roles.toString());
+        return roles.toString();
+    }
+
+    /** Applies legacy module rights using the authorized login's active roles and provider number. */
+    // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
+    private boolean hasReadAccessForDisplayCommand(SecurityManager securityMgr, String cmd, String roleNames) {
+        return securityMgr.hasReadAccess("_" + cmd.toLowerCase(), roleNames);
     }
 
     public String getCmd() {

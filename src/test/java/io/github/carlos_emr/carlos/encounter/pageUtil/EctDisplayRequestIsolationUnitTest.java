@@ -9,6 +9,7 @@ import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.MessagingManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import io.github.carlos_emr.carlos.services.security.SecurityManager;
@@ -465,12 +466,53 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(action.loaded.curProviderNo).isEqualTo("999998");
             assertThat(action.loaded.providerNo).isEqualTo("999998");
             assertThat(action.loaded.userName).isEqualTo("Synthetic Provider");
+            assertThat(action.loadedLogin).isSameAs(login);
+            assertThat(action.loadedRoleNames).isEqualTo("doctor,999998");
+            assertThat(action.loadedProviderNo).isEqualTo("999998");
             assertThat(action.loaded.appointmentNo).isEqualTo("0");
             assertThat(LoggedInInfo.getLoggedInInfoFromSession(request)).isNull();
             assertThat(request.getSession()).isNotSameAs(session);
+            assertThat(action.getLoggedInInfo(request)).isNull();
+            assertThat(action.getProviderNo(request)).isNull();
+            assertThat(action.getRoleNames(request)).isEqualTo("null,null");
             verify(security).hasPrivilege(login, "_eChart", "r", "101");
             verify(security).isAllowedAccessToPatientRecord(login, 101);
             verify(moduleSecurity.constructed().getFirst()).hasReadAccess("_measurements", "doctor,999998");
+            verifyNoInteractions(demographics, templates, groups, charts, messages);
+        }
+    }
+
+    /** Keeps each real module's privilege check bound to the login authorized before logout. */
+    @ParameterizedTest
+    @CsvSource({"forms,_form", "eforms,_eform", "docs,_edoc", "msgs,_msg"})
+    void shouldUseAuthorizedLogin_forModulePrivilegesAfterConcurrentLogout(String command, String object) throws Exception {
+        createAndRegisterMock(MessagingManager.class);
+        MockHttpServletRequest request = request("101", "9002");
+        request.removeParameter("curProviderNo");
+        request.setParameter("cmd", command);
+        when(security.hasPrivilege(login, "_eChart", "r", "101")).thenReturn(true);
+        when(appointments.find(Integer.valueOf(9002))).thenAnswer(invocation -> {
+            session.invalidate();
+            return appointment(202, "B22222");
+        });
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var moduleSecurity = mockConstruction(SecurityManager.class,
+                     (mock, context) -> when(mock.hasReadAccess(anyString(), anyString())).thenReturn(true))) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            EctDisplayAction action = switch (command) {
+                case "forms" -> new EctDisplayForm2Action();
+                case "eforms" -> new EctDisplayEForm2Action();
+                case "docs" -> new EctDisplayDocs2Action();
+                case "msgs" -> new EctDisplayMsg2Action();
+                default -> throw new AssertionError(command);
+            };
+
+            assertThat(action.execute()).isEqualTo("success");
+            verify(security).hasPrivilege(login, object, "r", null);
+            verify(security, never()).hasPrivilege(isNull(), eq(object), eq("r"), isNull());
+            assertThat(LoggedInInfo.getLoggedInInfoFromSession(request)).isNull();
+            assertThat(action.getLoggedInInfo(request)).isNull();
             verifyNoInteractions(demographics, templates, groups, charts, messages);
         }
     }
@@ -641,11 +683,17 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
 
     private static final class RecordingDisplay extends EctDisplayAction {
         EctSessionBean loaded;
+        LoggedInInfo loadedLogin;
+        String loadedRoleNames;
+        String loadedProviderNo;
         String result;
 
         @Override public String getCmd() { return "measurements"; }
         @Override public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO dao) {
             loaded = bean;
+            loadedLogin = getLoggedInInfo(request);
+            loadedRoleNames = getRoleNames(request);
+            loadedProviderNo = getProviderNo(request);
             return true;
         }
     }
