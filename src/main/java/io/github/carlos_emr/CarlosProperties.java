@@ -22,6 +22,7 @@
  * Ontario, Canada
  
  * <p>
+ * Modifications by CARLOS Contributors, 2026.
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
@@ -78,6 +79,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class CarlosProperties extends Properties {
     private static final long serialVersionUID = -5965807410049845132L;
+    private transient File loadedPropertiesFile;
+    private transient String loadedPropertiesLocation;
     private static CarlosProperties carlosProperties = new CarlosProperties();
     private static final Set<String> activeMarkers = new HashSet<String>(Arrays.asList(new String[]{"true", "yes", "on"}));
     /**
@@ -235,8 +238,8 @@ public class CarlosProperties extends Properties {
 
     public void readFromFile(String url) throws IOException {
         InputStream is = getClass().getResourceAsStream(url);
+        File propertyFile = null;
         if (is == null) {
-            File propertyFile;
             try {
                 propertyFile = PathValidationUtils.resolveConfiguredFile(url, "carlos properties file");
             } catch (SecurityException e) {
@@ -252,6 +255,34 @@ public class CarlosProperties extends Properties {
             load(is);
         } finally {
             is.close();
+        }
+        // Remember only a successfully loaded source. Classpath resources (including
+        // WEB-INF configuration in a WAR) are not operator-writable configuration files.
+        loadedPropertiesFile = propertyFile;
+        loadedPropertiesLocation = url;
+    }
+
+    /**
+     * Persists a generated property to the configuration file that was actually loaded.
+     * Never creates a separate user-home file for configuration loaded from a resource.
+     *
+     * @param key property name
+     * @param value property value
+     * @throws IOException if the loaded configuration cannot be updated
+     */
+    public void savePropertyToLoadedFile(String key, String value) throws IOException {
+        if (loadedPropertiesFile == null) {
+            throw new IOException("Configuration source " + loadedPropertiesLocation
+                    + " is not an external properties file. Set " + key
+                    + " in an operator-managed properties file and load it with "
+                    + "-Dcarlos_override_properties=/path/to/carlos.properties before restarting.");
+        }
+        try {
+            saveProperty(loadedPropertiesFile.getPath(), key, value);
+        } catch (IOException e) {
+            throw new IOException("Unable to update loaded configuration file " + loadedPropertiesFile
+                    + ". Set " + key + " in that file before restarting; restore the original key "
+                    + "if encrypted data already exists.", e);
         }
     }
 
@@ -614,8 +645,8 @@ public class CarlosProperties extends Properties {
 		try (FileWriter writer = new FileWriter(propertyFile, true)) {
 			// Write the new key-value pair
 			writer.write("\n" + key + "=" + value + "\n");
-			carlosProperties.setProperty(key, value);
 		}
+		setProperty(key, value);
 	}
 
 }

@@ -22,6 +22,7 @@
  * Ontario, Canada
  
  * <p>
+ * Modifications by CARLOS Contributors, 2026.
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
@@ -144,7 +145,7 @@ public class Startup implements ServletContextListener {
 			if (Objects.isNull(secretKey) || secretKey.isBlank()) {
 				try {
 					secretKey = EncryptionUtils.generateSecretKey();
-					p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
+					p.savePropertyToLoadedFile(EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
 					logger.info("New Secret Key generated...");
 				} catch (IOException | NoSuchAlgorithmException e) {
 					/*
@@ -152,7 +153,8 @@ public class Startup implements ServletContextListener {
 					 * credentials. Fail fast rather than booting with no key, which would defer the
 					 * failure to the first credential save (an opaque runtime error for clinicians).
 					 */
-					throw new IllegalStateException("Unable to generate and persist a new encryption key at startup", e);
+					throw new IllegalStateException("Unable to generate and persist a new encryption key at startup: "
+							+ e.getMessage(), e);
 				}
 			} else {
 				logger.info("Using existing Secret Key...");

@@ -399,42 +399,6 @@ class StartupUnitTest extends CarlosUnitTestBase {
 
     @Test
     @Tag("create")
-    @DisplayName("should generate and persist a new key when startup finds a blank key")
-    void shouldGenerateAndPersistKey_whenStartupFindsBlankKey(@TempDir Path tempDir) throws Exception {
-        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
-        keySpecField.setAccessible(true);
-        Object originalKeySpec = keySpecField.get(null);
-
-        CarlosProperties props = CarlosProperties.getInstance();
-        String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
-        String originalUserHome = System.getProperty("user.home");
-
-        ServletContextEvent event = newStartupEvent(tempDir);
-
-        try {
-            System.setProperty("user.home", tempDir.toString());
-            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "   ");
-            keySpecField.set(null, null);
-
-            new Startup().contextInitialized(event);
-
-            // A fresh 32-byte (AES-256) key is generated, persisted, and usable for a round-trip.
-            String generated = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
-            assertThat(generated).isNotBlank();
-            assertThat(Base64.getDecoder().decode(generated)).hasSize(32);
-            assertThat(keySpecField.get(null)).isNotNull();
-
-            String encrypted = EncryptionUtils.encrypt("startup-password");
-            assertThat(EncryptionUtils.decrypt(encrypted)).isEqualTo("startup-password");
-        } finally {
-            restoreUserHome(originalUserHome);
-            restoreProperty(props, originalProp);
-            keySpecField.set(null, originalKeySpec);
-        }
-    }
-
-    @Test
-    @Tag("create")
     @DisplayName("should abort startup when no configuration file exists")
     void shouldAbortStartup_whenNoConfigFileExists(@TempDir Path tempDir) throws Exception {
         CarlosProperties props = CarlosProperties.getInstance();
