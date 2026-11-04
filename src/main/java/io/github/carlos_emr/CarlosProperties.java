@@ -161,13 +161,13 @@ public class CarlosProperties extends Properties {
      * @return the validated property value, or null if not found
      */
     public String getProperty(String key) {
-        if (key.equals("FORMS_PROMOTEXT")) {
-            return "";
-        }
-
         if (key == null || key.trim().isEmpty()) {
             MiscUtils.getLogger().warn("Attempted to retrieve property with blank key.");
             throw new IllegalArgumentException("Property key cannot be blank.");
+        }
+
+        if (key.equals("FORMS_PROMOTEXT")) {
+            return "";
         }
 
         String value = super.getProperty(key);
@@ -244,7 +244,8 @@ public class CarlosProperties extends Properties {
 
             String overrideProperties = System.getProperty("carlos_override_properties");
             if (overrideProperties != null) {
-                MiscUtils.getLogger().info("Applying override properties : " + overrideProperties);
+                String overrideLocation = LogSafe.sanitize(overrideProperties);
+                MiscUtils.getLogger().info("Applying override properties : {}", overrideLocation);
                 readFromFile(overrideProperties);
             }
         } catch (IOException e) {
@@ -277,7 +278,7 @@ public class CarlosProperties extends Properties {
                 // Release the lock before closing either owner of the same file descriptor.
                 try (FileInputStream input = new FileInputStream(propertyFile);
                      FileChannel channel = input.getChannel();
-                     FileLock ignored = channel.lock(0, Long.MAX_VALUE, true)) {
+                     FileLock _ = channel.lock(0, Long.MAX_VALUE, true)) {
                     load(input);
                 }
             }
@@ -313,7 +314,7 @@ public class CarlosProperties extends Properties {
             try (FileChannel channel = FileChannel.open(loadedPropertiesFile.toPath(),
                          StandardOpenOption.READ, StandardOpenOption.WRITE);
                  Reader reader = Channels.newReader(channel, StandardCharsets.ISO_8859_1);
-                 FileLock ignored = channel.lock()) {
+                 FileLock _ = channel.lock()) {
                 Properties persisted = new Properties();
                 persisted.load(reader);
                 String key = persisted.getProperty(keyName);

@@ -28,8 +28,10 @@ import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardWatchEventKinds;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
@@ -356,10 +358,11 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         Path start = tempDir.resolve("start");
         List<Process> workers = new ArrayList<>();
         List<Path> homes = new ArrayList<>();
-        try {
+        try (var readiness = FileSystems.getDefault().newWatchService()) {
             for (int index = 0; index < 2; index++) {
                 Path home = Files.createDirectory(tempDir.resolve("process-" + index));
                 homes.add(home);
+                home.register(readiness, StandardWatchEventKinds.ENTRY_CREATE);
                 String classpath = System.getProperty("surefire.test.class.path", System.getProperty("java.class.path"));
                 workers.add(new ProcessBuilder(
                         Path.of(System.getProperty("java.home"), "bin", "java").toString(),
@@ -372,7 +375,10 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
             while (homes.stream().anyMatch(home -> !Files.exists(home.resolve("ready")))
                     && System.nanoTime() < deadline && workers.stream().allMatch(Process::isAlive)) {
-                Thread.sleep(10);
+                var change = readiness.poll(10, TimeUnit.MILLISECONDS);
+                if (change != null) {
+                    change.reset();
+                }
             }
             assertThat(homes).allMatch(home -> Files.exists(home.resolve("ready")));
             Files.createFile(start);
