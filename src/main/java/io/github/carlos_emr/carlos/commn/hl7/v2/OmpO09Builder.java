@@ -339,7 +339,7 @@ public final class OmpO09Builder {
         } catch (NullPointerException e) {
             // no gender set
         } catch (Exception e) {
-            logger.error("Missed gender or dirty data in database. demographic.sex=" + oscarGender);
+            logger.error("Invalid gender code while building prescription HL7; using unknown gender");
         }
 
         if (gender == null) return "U";

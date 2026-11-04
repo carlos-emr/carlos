@@ -15,10 +15,15 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
+import java.io.ByteArrayInputStream;
+import java.awt.image.BufferedImage;
+import java.time.Instant;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import javax.imageio.ImageIO;
 
 import ca.uhn.hl7v2.model.v26.message.OMP_O09;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
@@ -121,6 +126,55 @@ public class PrescriptionQrCodeUIBeanUnitTest extends CarlosUnitTestBase {
             assertThat(logs.events()).anyMatch(event -> event.getLevel() == Level.DEBUG);
             assertThat(render(logs)).contains("prescriptionId=5322", "drugCount=1", "payloadLength=" + payload.length())
                     .doesNotContain(PATIENT, MEDICATION, payload);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"F", "SYNTHETIC5322GENDER"})
+    void shouldRenderDecodablePrescription_withoutLoggingClinicalDataInAnyLayer(String gender) throws Exception {
+        Date date = Date.from(Instant.parse("2000-01-02T00:00:00Z"));
+        clinic.setClinicName("SYNTHETIC5322CLINIC");
+        provider.setProviderNo("999990");
+        demographic.setLastName(PATIENT);
+        demographic.setFirstName("FAKE");
+        demographic.setYearOfBirth("1980");
+        demographic.setMonthOfBirth("01");
+        demographic.setDateOfBirth("02");
+        demographic.setSex(gender);
+        prescription.setDatePrescribed(date);
+        Drug drug = drugs.get(0);
+        drug.setGenericName(MEDICATION);
+        drug.setRxDate(date);
+        drug.setEndDate(date);
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.getProperty("QR_CODE_IMAGE_SCALE_FACTOR")).thenReturn("4");
+        when(properties.getProperty("QR_CODE_ERROR_CORRECTION_LEVEL")).thenReturn("M");
+
+        try (var configuration = mockStatic(CarlosProperties.class);
+             LogCapture uiLogs = LogCapture.forLogger(PrescriptionQrCodeUIBean.class);
+             LogCapture rendererLogs = LogCapture.forLogger(QrCodeUtils.class);
+             LogCapture builderLogs = LogCapture.forLogger(OmpO09Builder.class)) {
+            configuration.when(CarlosProperties::getInstance).thenReturn(properties);
+            configuration.when(CarlosProperties::getBuildTag).thenReturn("synthetic-build");
+            configuration.when(CarlosProperties::getBuildDate).thenReturn("synthetic-date");
+            byte[] png = PrescriptionQrCodeUIBean.getPrescriptionHl7QrCodeImage(PRESCRIPTION_ID);
+            assertThat(png).isNotNull();
+            BufferedImage image = ImageIO.read(new ByteArrayInputStream(png));
+            int[] pixels = image.getRGB(0, 0, image.getWidth(), image.getHeight(), null, 0, image.getWidth());
+            var source = new com.google.zxing.RGBLuminanceSource(image.getWidth(), image.getHeight(), pixels);
+            var bitmap = new com.google.zxing.BinaryBitmap(new com.google.zxing.common.HybridBinarizer(source));
+            String decoded = new com.google.zxing.qrcode.QRCodeReader().decode(bitmap).getText();
+            assertThat(decoded).contains(PATIENT, MEDICATION);
+            OMP_O09 parsed = (OMP_O09) Hl7ParserUtils.pipeParser.parse(decoded);
+            assertThat(parsed.getPATIENT().getPID().getAdministrativeSex().getValue())
+                    .isEqualTo("F".equals(gender) ? "F" : "U");
+            assertThat(rendererLogs.events()).anyMatch(event -> event.getLevel() == Level.DEBUG);
+            assertThat(render(rendererLogs)).contains("chunkIndex=0", "chunkLength=");
+            assertThat(render(uiLogs) + render(rendererLogs) + render(builderLogs))
+                    .doesNotContain(PATIENT, MEDICATION, "SYNTHETIC5322GENDER", decoded);
+            if (!"F".equals(gender)) {
+                assertThat(render(builderLogs)).contains("using unknown gender");
+            }
         }
     }
 
