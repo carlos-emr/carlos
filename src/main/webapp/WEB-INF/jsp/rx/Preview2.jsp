@@ -350,7 +350,7 @@
                             <th valign=top width="100px">
                                 <button type="button" id="halfLetterPrint" title="Print in a half letter size paper"
                                         style="border:0;background:transparent;padding:0;cursor:pointer"
-                                        onclick="parent.printHalfLetter('<%= "true".equalsIgnoreCase(rePrint) ? "rePrint" : "print" %>', this.form.dataset.scriptId)">
+                                        onclick="<%= SafeEncode.forHtmlAttribute("parent.printHalfLetter('" + ("true".equalsIgnoreCase(rePrint) ? "rePrint" : "print") + "', this.form.dataset.scriptId)") %>">
                                     <img src="rx/img/rx.gif" alt="Print prescription on half-letter paper"/>
                                 </button>
                                 <%

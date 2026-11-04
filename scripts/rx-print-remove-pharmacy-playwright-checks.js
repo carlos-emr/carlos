@@ -31,7 +31,7 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { stageCustomDrug, clearOwnedPrescriptionRows } = require('./rx-stash-patient-isolation-playwright-checks');
 const { viewScriptFrame, noteBodyTracker } = require('./gap-encounter-rx-script-notes-playwright-checks');
 const { execFileSync } = require('node:child_process');
-const { pdfTextBuffer } = require('./lib/export-content-helpers');
+const { pdfTextBuffer, requirePoppler } = require('./lib/export-content-helpers');
 
 const q = h.sqlString;
 
@@ -200,5 +200,8 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('rx-print-remove-pharmacy', workflow, { openPatient: true });
+if (require.main === module) runWorkflow('rx-print-remove-pharmacy', workflow, {
+  openPatient: true,
+  preflightConfig: () => requirePoppler('pdfinfo', 'pdftotext'),
+});
 module.exports = { workflow };

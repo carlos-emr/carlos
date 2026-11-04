@@ -451,6 +451,7 @@
             bindFaxModalCancellation();
 
             function printHalfLetter(method, scriptId) {
+                if (typeof hasPreview === 'undefined' || !hasPreview || !frames['preview']) return;
                 onPrint2(method, scriptId, null, false, null, null, 'PageSize.HALFLETTER');
             }
 
