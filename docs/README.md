@@ -26,6 +26,8 @@ The modern test framework documentation has its own dedicated directory with com
 **[📂 test/README.md](test/README.md)** - Start here for all testing documentation
 
 Key testing resources:
+
+- [Test-only release issue follow-up](ui-tests/test-only-release-issues.md) — per-ticket harness repairs, validation scope, and outstanding packaged acceptance for release 2026.08.
 - Modern Test Framework Guide (JUnit 5)
 - Test Writing Best Practices
 - Unit Testing Strategy

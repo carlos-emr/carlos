@@ -579,6 +579,119 @@ function isBaselinedText(text, baseline) {
  */
 const WIRED_PAGES = new WeakMap();
 
+// Only records created by the wiring can qualify for this exception. A caller
+// cannot waive a failed request by attaching a public diagnostic field to it.
+const NAVIGATION_CANCELLATIONS = new WeakMap();
+
+function navigationCancellation(entry) {
+  if (entry.errorText !== 'net::ERR_ABORTED') return null;
+  const operations = NAVIGATION_CANCELLATIONS.get(entry);
+  const operation = operations && [...operations].find(candidate => candidate.confirmed);
+  return operation ? { classification: 'BROWSER_NAVIGATION_CANCELLATION', operation: operation.kind } : null;
+}
+
+/**
+ * Snapshot pending loads before a navigation, including same-address reloads.
+ * A later URL comparison alone cannot distinguish a load the browser abandoned
+ * from a request that failed independently before the test left the page.
+ */
+function trackPendingNavigationRequests(page) {
+  const pending = new Map();
+  const candidates = new WeakMap();
+  const navigations = new Set();
+  const documentNavigations = new WeakMap();
+  const belongsTo = (frame, ancestor) => {
+    for (let current = frame; current; current = typeof current.parentFrame === 'function' ? current.parentFrame() : null) {
+      if (current === ancestor) return true;
+    }
+    return false;
+  };
+  const snapshot = (frame, kind) => {
+    const operation = { frame, kind, confirmed: false };
+    for (const [request, origin] of pending) {
+      if (!origin || (frame && !belongsTo(origin, frame))) continue;
+      if (!candidates.has(request)) candidates.set(request, new Set());
+      candidates.get(request).add(operation);
+    }
+    return operation;
+  };
+  page.on('request', request => {
+    let frame;
+    try { frame = request.frame(); } catch { /* Service-worker loads have no document to abandon. */ }
+    if (frame && typeof request.isNavigationRequest === 'function' && request.isNavigationRequest()) {
+      for (const operation of navigations) {
+        if (operation.frame === frame) {
+          operation.replacingDocument = true;
+          operation.documentRequest = request;
+          operation.responseReady = false;
+        }
+      }
+      const operation = snapshot(frame, 'document-navigation');
+      operation.replacingDocument = true;
+      operation.documentRequest = request;
+      navigations.add(operation);
+      documentNavigations.set(request, operation);
+    }
+    pending.set(request, frame);
+  });
+  page.on('response', response => {
+    // While a navigation waits on the server the old document is still alive:
+    // its own AbortController/XHR cancellations must remain failures. Chromium
+    // abandons old-document loads once the replacement response can commit.
+    // Redirect responses cannot replace the document themselves.
+    if (response.status() >= 300 && response.status() < 400) return;
+    for (const operation of navigations) {
+      if (operation.documentRequest === response.request()) operation.responseReady = true;
+    }
+  });
+  page.on('framenavigated', frame => {
+    for (const operation of navigations) {
+      // Hash/history-state navigation leaves the original document's requests
+      // alive. Only a replacement document can account for their cancellation.
+      if (operation.frame === frame && operation.replacingDocument && operation.responseReady) {
+        operation.confirmed = true;
+        navigations.delete(operation);
+      }
+    }
+  });
+  const finished = request => {
+    pending.delete(request);
+    const operation = documentNavigations.get(request);
+    if (operation) navigations.delete(operation);
+  };
+  page.on('requestfinished', finished);
+  page.on('requestfailed', finished);
+  // Retain the initiating test operation in the evidence. The document request,
+  // response and commit observers must still confirm an actual replacement.
+  for (const method of ['goto', 'reload', 'goBack', 'goForward']) {
+    if (typeof page[method] !== 'function' || typeof page.mainFrame !== 'function') continue;
+    const original = page[method].bind(page);
+    page[method] = async (...args) => {
+      const operation = snapshot(page.mainFrame(), method);
+      navigations.add(operation);
+      try { return await original(...args); } finally { navigations.delete(operation); }
+    };
+  }
+  if (typeof page.close === 'function') {
+    const original = page.close.bind(page);
+    page.close = async (...args) => {
+      const operation = snapshot(null, 'close');
+      const closed = () => { operation.confirmed = true; };
+      page.on('close', closed);
+      try { return await original(...args); } finally {
+        if (typeof page.removeListener === 'function') page.removeListener('close', closed);
+      }
+    };
+  }
+  return request => {
+    const operations = candidates.get(request);
+    // Freeze eligibility at the failure event: a later navigation response or
+    // commit cannot retroactively excuse an application-aborted request.
+    return operations && new Set([...operations].filter(operation => operation.kind === 'close'
+      || operation.responseReady));
+  };
+}
+
 /**
  * Point an already-wired page's recordings at a new label.
  *
@@ -646,6 +759,7 @@ function wireStrictPage(page, label, recorder, options = {}) {
   // they recorded before -- a migration must be a deliberate, reviewed change to
   // a check, never a silent new failure mode arriving underneath it.
   const strictSignals = options.strictSignals !== false;
+  const pendingNavigationRequests = strictSignals ? trackPendingNavigationRequests(page) : () => null;
 
   page.on('dialog', async (dialog) => {
     const entry = { label: wiring.label, type: dialog.type(), text: dialog.message() };
@@ -733,6 +847,8 @@ function wireStrictPage(page, label, recorder, options = {}) {
     const entry = {
       label: wiring.label, url, resourceType: request.resourceType(), errorText: failure ? failure.errorText : 'unknown',
     };
+    const operations = pendingNavigationRequests(request);
+    if (operations) NAVIGATION_CANCELLATIONS.set(entry, operations);
     Object.defineProperty(entry, 'requestRef', {enumerable:false, value:new WeakRef(request)});
     const origin = issuedFrom.get(request);
     // Non-enumerable: the entry's data shape (compared and serialised elsewhere) is unchanged. False when the
@@ -799,6 +915,7 @@ function assertStrictPage(recorder, labels = null) {
   }
   for (const entry of scoped(recorder.requestFailures)) {
     if (isQualifiedCdsMetadataFailure(entry)) continue;
+    if (navigationCancellation(entry)) continue;
     problems.push(`[${entry.label}] ${entry.resourceType} request failed (${entry.errorText})`);
   }
   for (const entry of scoped(recorder.badResponses)) {
@@ -933,7 +1050,12 @@ function buildFailureDetails(recorder) {
     pageErrors: clean(recorder.pageErrors),
     requestFailures: clean(recorder.requestFailures.map(entry => {
       const evidence = cdsMetadataQualification(entry);
-      return evidence ? {...entry, cdsMetadataEofEvidence:evidence} : entry;
+      const cancellation = navigationCancellation(entry);
+      // Public fields cannot claim the trusted observer's classification in
+      // exported evidence any more than they can bypass assertStrictPage.
+      const {navigationCancellation: untrustedCancellation, ...failure} = entry;
+      if (evidence) return {...failure, cdsMetadataEofEvidence:evidence};
+      return cancellation ? {...failure, navigationCancellation: cancellation} : failure;
     })),
     dialogs: clean(recorder.dialogs),
   };

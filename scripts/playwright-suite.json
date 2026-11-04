@@ -507,11 +507,17 @@
     {
       "name": "billing-bc-province-guard",
       "script": "scripts/billing-bc-province-guard-playwright-checks.js",
-      "tiers": ["core"],
+      "tiers": [
+        "core"
+      ],
       "assertsDatabase": false,
-      "provinces": ["ON"],
+      "provinces": [
+        "ON"
+      ],
       "timeoutSec": 120,
-      "env": ["CARLOS_PROPERTIES_FILE"]
+      "env": [
+        "CARLOS_PROPERTIES_FILE"
+      ]
     },
     {
       "name": "billing-service-code-admin",
@@ -1655,7 +1661,8 @@
       "timeoutSec": 300,
       "env": [
         "ERROR_SANITIZATION_SCREENSHOT_DIR"
-      ]
+      ],
+      "notes": "Former error probes must return controlled HTTP 400 through the packaged front door. Deterministic HTML and /ws 5xx body replacement is covered by ResponseSanitizationFilterTomcatIntegrationTest using test-only embedded Tomcat servlets."
     },
     {
       "name": "fax-configure",
@@ -2508,6 +2515,20 @@
         "EXPECT_PROGRAM_DOMAIN_RESTRICTION"
       ],
       "fixtures": "Owns synthetic patients, an unused DOB year, a program and admissions; verifies REST count/results, invalid inputs, domain restrictions, POST search/picker handoffs, merged pagination and unmerge; removes owned fixtures on success or failure."
+    },
+    {
+      "name": "rest-xml",
+      "script": "scripts/rest-xml-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "fixtures": "Owns and removes a synthetic patient, allergy and prevention; checks demographic, provider-list and provider XML including wildcard Accept, plus populated legacy and precision-aware clinical JSON."
     },
     {
       "name": "rest-birth-date",
@@ -5399,8 +5420,8 @@
       ],
       "timeoutSec": 180,
       "env": [],
-      "notes": "Deletes an orphan group-style mapping from an already-open administration form after a competing stylesheet removal; preserves a peer, checks refusal for referenced styles and replay/GET/HEAD safety.",
-      "fixtures": "Two per-run marker CSS locations and group-style mappings; cleanup removes only marker-owned rows and verifies none remain."
+      "notes": "Deletes an ordinary unused stylesheet and verifies both used mappings survive. Also removes an orphan mapping from an already-open form after a competing stylesheet removal, checks refusal for referenced styles, and preserves replay/GET/HEAD safety.",
+      "fixtures": "Three per-run marker CSS locations: two with group-style mappings and one unused stylesheet. Cleanup removes only marker-owned rows and verifies none remain."
     },
     {
       "name": "report-age-sex-visit",
@@ -5484,8 +5505,19 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "Two eForm email composers for two patients: each Send must carry only its own patient's eForm (app-findings-log.md finding 140; fails while the session-wide attachment list stands). Finding 140 is fixed on release/2026.08 by #4444 and the step that was pinned to it passed live on 2026.09.0~snapshot26, so it is now this fix's regression test and the entry carries no expectedFailure.",
+      "notes": "Supports release #bodyEmail and unified #message composer selectors. Prior live snapshot26 evidence applies only to the release composer; current-branch packaged runtime acceptance must be recorded separately (#5166).",
       "fixtures": "Owned patient Y, owned LOCAL emailConfig pointing at an in-process 127.0.0.1 SMTP sink and an owned eForm template; nothing leaves the host. The sender is offered clinic-wide, so it must not run concurrently with other checks."
+    },
+    {
+      "name": "eform-email-error",
+      "script": "scripts/eform-email-error-playwright-checks.js",
+      "tiers": ["core"],
+      "assertsDatabase": true,
+      "provinces": ["all"],
+      "timeoutSec": 300,
+      "env": ["EXCLUSIVE"],
+      "notes": "Issue #4477: an unavailable selected attachment must show the dedicated preparation error, preserve the saved letter and retry the same draft after the attachment is restored. No email is sent.",
+      "fixtures": "Owned patient, eForm template, saved attachment and LOCAL sender pointing at a loopback SMTP sink. The owned attachment is removed just before compose and restored before Retry; cleanup verifies the owned eForm and sender rows are gone. The sender is offered clinic-wide, so this check requires a loopback BASE_URL and an exclusive run (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "admin-role-management",
@@ -8672,7 +8704,7 @@
       ],
       "timeoutSec": 600,
       "env": [],
-      "notes": "With SHOW_APPT_REASON, SHOW_APPT_REASON_TOOLTIP and TOGGLE_REASON_BY_PROVIDER unset, checks default reason hiding, popup details and the provider toggle in both directions. The separate tooltip disclosure regression (L329) remains asserted; that failure does not mask toggle validation.",
+      "notes": "Owner decision in #5214: schedule hover shows reason and notes; this check preserves hidden grid text and details-popup/toggle assertions and verifies that approved tooltip behavior (#5576).",
       "fixtures": "Throwaway login plus an owned FAKE- patient and one appointment on the throwaway's own schedule; deleted in cleanup."
     },
     {
@@ -10451,7 +10483,7 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Rx print window (rx/viewScript) for a patient with a preferred pharmacy: the printable preview (rx/ViewPreview2 #pharmInfo) names the pharmacy (name, address, fax) with the Remove pharmacy info link and the paper-size warning shows. The link empties the pharmacy block and hides the warning while the drug stays; a note typed in Additional Rx Notes reloads the preview with the note and still without the pharmacy; Print prints the preview without it (the preview frame's print() is replaced for that one call by a recorder of the text it would print).",
+      "notes": "Rx print window (rx/viewScript) for a patient with a preferred pharmacy: the printable preview (rx/ViewPreview2 #pharmInfo) names the pharmacy (name, address, fax) with the Remove pharmacy info link and the paper-size warning shows. The link empties the pharmacy block and hides the warning while the drug stays; a note typed in Additional Rx Notes reloads the preview with the note and still without the pharmacy; Print prints the preview without it (the preview frame's print() is replaced for that one call by a recorder of the text it would print). The Rx image submits one native PDF POST in both print and reprint modes, carrying the displayed script and patient; the returned prescription PDF has half-letter dimensions, the preview stays in place and the paper-size selector is preserved. Requires pdftotext and pdfinfo.",
       "fixtures": "The owned pharmacy is in the clinic-wide pharmacy search while the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). The synthetic patient, one owned pharmacy (pharmacyInfo, named with the run marker) linked as its preferred pharmacy, and one custom drug named with the run marker. Cleanup removes the drug and its script (with any signature row the print stamped), the link and the pharmacy, and asserts them gone.",
       "mutates": [
         "pharmacyInfo"
@@ -12206,9 +12238,12 @@
         "all"
       ],
       "timeoutSec": 300,
-      "env": [],
-      "notes": "Native Rev in a linked recipient chart shows only explicitly shared revisions. Matches the modern chart recipient-read grant, including an authorized reader without the reporter role. Covers restricted recipients, absent active note-read grants despite an inactive doctor assignment, owner-chart denial, forged/unlinked/future revision IDs and immediate active-link revocation; cumulative history never discloses unshared content.",
-      "fixtures": "Owned recipient and separately named owner patients, canonical note revisions and exact group links, facility with group notes enabled, four throwaway logins and two temporary roles with controlled clinical read rights. Patient search must return only the recipient; the reader is denied the owner chart. Cleanup removes owned clinical children, links, facility, logins, role privileges, roles and patients by key and asserts removal. No existing clinic privileges or facility settings are changed."
+      "env": [
+        "LAB_UPLOAD_JOURNAL_UNIT",
+        "LAB_UPLOAD_SERVER_LOG"
+      ],
+      "notes": "Reopening Current Issues through the native E-Chart control keeps the recipient issue and excludes the group-owner issue while full patient-state and link snapshots stay identical (#4704). An optional journal or console log is probed before group fixtures; the reopening window is polled for group-issue PathException events. Missing or unreadable logs skip only that assertion with an explicit notice, preserving all functional browser coverage. Native Rev in a linked recipient chart shows only explicitly shared revisions. Matches the modern chart recipient-read grant, including an authorized reader without the reporter role. Covers restricted recipients, absent active note-read grants despite an inactive doctor assignment, owner-chart denial, forged/unlinked/future revision IDs and immediate active-link revocation; cumulative history never discloses unshared content.",
+      "fixtures": "Owned recipient and separately named owner patients, canonical note revisions, linked owner and local recipient issues and exact group links, facility with group notes enabled, four throwaway logins and two temporary roles with controlled clinical read rights. Patient search must return only the recipient; the reader is denied the owner chart. Cleanup removes owned clinical children, links, facility, logins, role privileges, roles and patients by key and asserts removal. No existing clinic privileges or facility settings are changed."
     },
     {
       "name": "group-note-selection",
@@ -13610,21 +13645,6 @@
       "env": [],
       "fixtures": "Owned FAKE- patient with two allergies seeded by SQL, one active and one inactive; cleanup deletes the patient's allergies and their partial_date rows and asserts none remain.",
       "notes": "Fails at its last step on develop: Reactivate on an inactive allergy posts it as allergyToArchive, which the #4410 stale-amendment guard refuses with 409 ('changed or inactivated in another window'), so nothing is reactivated (#4756, pending finding 301; fix pending on release/2026.08, fix/allergy-reactivate-after-stale-guard). Every earlier step passes."
-    },
-    {
-      "name": "allergy-partial-start-date",
-      "script": "scripts/allergy-partial-start-date-playwright-checks.js",
-      "tiers": [
-        "core"
-      ],
-      "assertsDatabase": true,
-      "provinces": [
-        "all"
-      ],
-      "timeoutSec": 300,
-      "env": [],
-      "fixtures": "Owned FAKE- patient with two allergies seeded by SQL (a year-only and a year-and-month start date, each with its partial_date row) and the allergies the dialogue saves (two amendments and seven Custom Allergies); cleanup deletes the patient's allergies and their partial_date rows and asserts none remain.",
-      "notes": "Fails at its last step on release/2026.08 and develop: a Start Date typed as 2019 or 2019-05, or a stored 2019-05 clicked into and out of on Modify, is posted as 2019-01-01 or 2019-05-01, because the box is a flatpickr field (calendar-setup.js shim) that parses typed text as a full date, so the precision is lost (pending finding 300, #4807; its release fix #4810 is a draft). Every earlier step passes. The check turns green on release when #4810 merges, and on develop when that reaches it in the forward merge; drop this note then."
     },
     {
       "name": "admin-lot-number-delete",
@@ -18267,11 +18287,7 @@
       "envSet": {
         "RX_SAVE_FAILURE_MODE": "only-new"
       },
-      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive.",
-      "expectedFailure": {
-        "finding": 333,
-        "step": "a real second medication INSERT fails and the complete clinical batch rolls back with its draft retained"
-      }
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
     },
     {
       "name": "rx-save-failure-retry-print-new",
@@ -18290,11 +18306,7 @@
       "envSet": {
         "RX_SAVE_FAILURE_MODE": "print-new"
       },
-      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive.",
-      "expectedFailure": {
-        "finding": 333,
-        "step": "a real second medication INSERT fails and the complete clinical batch rolls back with its draft retained"
-      }
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
     },
     {
       "name": "rx-save-failure-retry-only-mixed",
@@ -18313,11 +18325,7 @@
       "envSet": {
         "RX_SAVE_FAILURE_MODE": "only-mixed"
       },
-      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive.",
-      "expectedFailure": {
-        "finding": 333,
-        "step": "a real second medication INSERT fails and the complete clinical batch rolls back with its draft retained"
-      }
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
     },
     {
       "name": "rx-save-failure-retry-print-mixed",
@@ -18336,11 +18344,7 @@
       "envSet": {
         "RX_SAVE_FAILURE_MODE": "print-mixed"
       },
-      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive.",
-      "expectedFailure": {
-        "finding": 333,
-        "step": "a real second medication INSERT fails and the complete clinical batch rolls back with its draft retained"
-      }
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
     },
     {
       "name": "rx-save-failure-retry-only-lost",

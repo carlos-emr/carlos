@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const {devices} = require('playwright');
 const {launchBrowser} = require('./lib/playwright-harness');
+const {pickDate} = require('./lib/playwright-ui');
 const web = path.join(__dirname, '../src/main/webapp');
 
 (async () => {
@@ -70,9 +71,8 @@ const web = path.join(__dirname, '../src/main/webapp');
       // A real calendar pick must correct an invalid typed date, including its validation state.
       await day.fill('31/12/2030');
       await page.locator('#outside').click();
-      await day.click();
-      await page.locator('.flatpickr-calendar.open .flatpickr-day:not(.prevMonthDay):not(.nextMonthDay)').first().click();
-      assert.match(await day.inputValue(), /^\d{4}-\d{2}-01$/);
+      await pickDate(page, day, '2030-12-31', {timeout: 10000, maxMonthSteps: 120});
+      assert.equal(await day.inputValue(), '2030-12-31');
       assert.equal(await day.evaluate(input => input.validationMessage), '');
       // The time control must still support its spinner and emit a parseable one-digit hour.
       await time.click();

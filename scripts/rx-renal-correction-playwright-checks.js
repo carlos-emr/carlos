@@ -65,7 +65,7 @@ async function workflow(s) {
   };
   const refresh=async()=>{
     const [response]=await Promise.all([rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
-      panel.getByRole('link',{name:'Refresh',exact:true}).click()]);
+      panel.getByRole('button',{name:'Refresh',exact:true}).click()]);
     const params=new URL(response.url()).searchParams;
     h.assert(response.status()===200,`Renal refresh returned HTTP ${response.status()}`);
     h.assert(params.get('demographicNo')===patient,'Refresh lost the originating patient');
