@@ -44,7 +44,7 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
     }
 
     private static Assessment managed(Operation operation, PortalMyCarlosManagedPairContext value, Observations observations) {
-        return assess(operation, Role.READING_AID, value, observations, RetrySourcePolicy.UNRESOLVED);
+        return assess(operation, Role.READING_AID, value, observations, RetrySourcePolicy.RETRY_OWN_RETAINED_BYTES);
     }
 
     private static void refuses(String json) {
@@ -229,15 +229,33 @@ class PortalMyCarlosPairDispatchPolicyUnitTest {
         assertArrayEquals(before, value.encode());
     }
 
-    @Test void everyQueuedUploadPathHoldsUnresolvedRetryPolicyWithoutChoosingSourceRule() {
+    @Test void aRetryResendsItsOwnRetainedBytesWhateverTheCurrentSourceIsAndAMissingPolicyHolds() {
         var value = context(); byte[] before = value.encode();
         for (Operation operation : new Operation[] {Operation.CLAIM, Operation.TRANSMIT, Operation.RESUME, Operation.REFRESH_RETRY}) {
             for (String laterSource : new String[] {SOURCE, OTHER_SOURCE, null}) {
-                var assessment = managed(operation, value, reported(value, laterSource, "selected-signer"));
-                assertEquals(new Assessment(Disposition.HOLD, Reason.RETRY_POLICY_UNRESOLVED), assessment);
+                // No raw-source comparison on a retry (answer 1): the source never changes the result.
+                assertEquals(new Assessment(Disposition.HOLD, Reason.PRODUCTION_ADAPTERS_UNAVAILABLE),
+                        managed(operation, value, reported(value, laterSource, "selected-signer")));
+                assertEquals(new Assessment(Disposition.HOLD, Reason.RETRY_POLICY_UNRESOLVED),
+                        assess(operation, Role.READING_AID, value, reported(value, laterSource, "selected-signer"), null));
             }
         }
         assertArrayEquals(before, value.encode());
+    }
+
+    @Test void anOriginalIsNeverHeldBackByMissingOrConflictingAidEvidence() {
+        var value = context();
+        for (Report report : Report.values()) {
+            var observed = new Observations(Classification.ORDINARY_ORIGINAL, value, report, report, report, report, report, SOURCE, null);
+            for (Operation operation : new Operation[] {Operation.STAGE, Operation.CLAIM, Operation.TRANSMIT}) {
+                assertEquals(new Assessment(Disposition.DEFER_TO_EXISTING_ORDINARY_PATH,
+                        Reason.ORDINARY_PATH_REQUIRES_EXISTING_ADMISSION),
+                        assess(operation, Role.ORIGINAL, null, observed, RetrySourcePolicy.RETRY_OWN_RETAINED_BYTES));
+            }
+        }
+        // The aid with the same missing evidence is the one that is held.
+        assertEquals(Reason.PAIR_EVIDENCE_UNAVAILABLE, managed(Operation.STAGE, value, new Observations(Classification.MANAGED_READING_AID, value, Report.UNAVAILABLE,
+                Report.UNAVAILABLE, Report.UNAVAILABLE, Report.UNAVAILABLE, Report.UNAVAILABLE, SOURCE, "selected-signer")).reason());
     }
 
     @Test void evenFabricatedAllMatchingReportsCannotAuthorizeManagedUpload() {

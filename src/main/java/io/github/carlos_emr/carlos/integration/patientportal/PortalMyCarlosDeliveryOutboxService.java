@@ -63,7 +63,7 @@ final class PortalMyCarlosDeliveryOutboxService {
 
     /** Original and per-device immutable body commit together, encrypted, before any HTTP. */
     long stage(LoggedInInfo session, PortalMyCarlosDeliveryComposer.Copy copy, PortalMyCarlosDeliverySnapshot snapshot) {
-        if (snapshot == null) throw invalid();
+        if (snapshot == null || snapshot.readingAid()) throw invalid();
         requireStaff(session, snapshot.demographicNo());
         standalone();
         validateCopy(copy, snapshot);
@@ -74,43 +74,129 @@ final class PortalMyCarlosDeliveryOutboxService {
         });
     }
 
-    /** B and C outbox row IDs, not the IDs of retained original-PDF rows. */
-    record StagedPair(long originalRowId, long readingAidRowId) { }
+    /**
+     * The original's own staging. It never waits for, or looks at, a reading aid: the original is
+     * never held back by its aid (answer 1).
+     */
+    long stageOriginal(LoggedInInfo session, PortalMyCarlosDeliveryComposer.Copy copy, PortalMyCarlosDeliverySnapshot snapshot) {
+        return stage(session, copy, snapshot);
+    }
+
+    /** What happened to the aid of a send: it never changes what happened to the original. */
+    enum AidResult { NOT_REQUESTED, STAGED, REFUSED, FAILED }
+    /** Why an aid was not staged: a known refusal, or an unexpected failure (FAILED). */
+    enum AidRefusal { NONE, INVALID, CONFLICT, UNAVAILABLE, UNEXPECTED }
+    record Staged(long originalRowId, long readingAidRowId, AidResult aid, AidRefusal reason) {
+        Staged(long originalRowId, long readingAidRowId, AidResult aid) { this(originalRowId, readingAidRowId, aid, AidRefusal.NONE); }
+    }
 
     /**
-     * Synthetic, unwired transaction seam for an already verified B/C assembler. This does not
-     * authenticate a reading aid, verify recipient capabilities, or authorize sending C. Both
-     * snapshots must reference the same raw eDoc mapping; their signed document IDs are separate
-     * assembler inputs. The existing schema retains no pair relationship or pair authority.
+     * Stages the original, then its reading aid as a delivery of its own, in separate owner
+     * transactions. Whatever goes wrong with the aid half, the original stays staged and its row id
+     * is returned with the reason: there is no both-or-neither. Pass a null {@code aid} for an
+     * original alone (no approval, or the tick left out).
      */
-    StagedPair stagePair(LoggedInInfo session,
-            PortalMyCarlosDeliveryComposer.Copy original, PortalMyCarlosDeliverySnapshot originalSnapshot,
-            PortalMyCarlosDeliveryComposer.Copy readingAid, PortalMyCarlosDeliverySnapshot readingAidSnapshot) {
-        if (originalSnapshot == null || readingAidSnapshot == null) throw invalid();
-        requireStaff(session, originalSnapshot.demographicNo());
+    Staged stageWithAid(LoggedInInfo session, PortalMyCarlosDeliveryComposer.Copy original,
+            PortalMyCarlosDeliverySnapshot originalSnapshot, PortalMyCarlosDeliveryComposer.Copy aid,
+            PortalMyCarlosDeliverySnapshot aidSnapshot) {
+        long originalRow = stageOriginal(session, original, originalSnapshot);
+        if (aid == null || aidSnapshot == null) return new Staged(originalRow, 0, AidResult.NOT_REQUESTED);
+        try {
+            return new Staged(originalRow, stageAid(session, aid, aidSnapshot), AidResult.STAGED);
+        } catch (ImmutableConflict refused) {
+            return new Staged(originalRow, 0, AidResult.REFUSED, AidRefusal.CONFLICT);
+        } catch (Ineligible refused) {
+            return new Staged(originalRow, 0, AidResult.REFUSED, AidRefusal.UNAVAILABLE);
+        } catch (IllegalArgumentException refused) {
+            return new Staged(originalRow, 0, AidResult.REFUSED, AidRefusal.INVALID);
+        } catch (RuntimeException unexpected) {
+            // A database, cipher or other failure in the aid half. The original is already committed,
+            // so this must not surface as a failed send. No message: it may carry content.
+            return new Staged(originalRow, 0, AidResult.FAILED, AidRefusal.UNEXPECTED);
+        }
+    }
+
+    /**
+     * Stages a reading aid as its own outbox row under its own delivery ID, for an original that
+     * already has a row for this clinic, device and raw source document, whether that row is still
+     * staged or already sent. Until the outbox has pair columns (V1.0.85, with P4b), the aid is keyed
+     * by its own (clinic, delivery ID, device) like any row, and its relation to the original lives
+     * inside its encrypted snapshot (kind in the outer record, {@code pairedOriginalDeliveryId}) and
+     * in the signed manifest's pair claims. Each row keeps its own lease, retry and fence. This does
+     * not authenticate the aid or authorize sending it: the approval check at send time does.
+     */
+    long stageAid(LoggedInInfo session, PortalMyCarlosDeliveryComposer.Copy copy, PortalMyCarlosDeliverySnapshot snapshot) {
+        if (snapshot == null || !snapshot.readingAid()) throw invalid();
+        requireStaff(session, snapshot.demographicNo());
         standalone();
-        validateCopy(original, originalSnapshot);
-        validateCopy(readingAid, readingAidSnapshot);
-        requirePairScope(originalSnapshot, readingAidSnapshot);
-        if (!original.recipientId().equals(originalSnapshot.recipientId())
-                || !readingAid.recipientId().equals(readingAidSnapshot.recipientId())) throw invalid();
+        validateCopy(copy, snapshot);
+        if (!copy.recipientId().equals(snapshot.recipientId())) throw invalid();
         return transactions.withSigningInventory(inventory -> {
             var signer = inventory.orElseThrow(() -> unavailable());
-            eligible(originalSnapshot);
-            eligible(readingAidSnapshot);
-            requireSigner(signer, originalSnapshot);
-            requireSigner(signer, readingAidSnapshot);
-            boolean originalExists = priorPairItem(originalSnapshot);
-            boolean readingAidExists = priorPairItem(readingAidSnapshot);
-            if (originalExists != readingAidExists) throw conflict();
-            return new StagedPair(stageWithinOwner(original, originalSnapshot),
-                    stageWithinOwner(readingAid, readingAidSnapshot));
+            eligible(snapshot);
+            requireSigner(signer, snapshot);
+            // The device files the aid by the signed id; CARLOS fences by the snapshot's. They must be one.
+            var claims = pairClaims(copy);
+            if (!claims[0].equals(snapshot.pairedOriginalDeliveryId())) throw invalid();
+            var original = outbox.find(snapshot.clinicId(), snapshot.pairedOriginalDeliveryId(), snapshot.device().kid())
+                    .orElseThrow(() -> conflict());
+            var originalSnapshot = load(original);
+            if (originalSnapshot.readingAid() || !originalSnapshot.documentSha256().equals(claims[1])
+                    || (originalSnapshot.createdAt() != snapshot.createdAt() || originalSnapshot.expiresAt() != snapshot.expiresAt())
+                    || !pairable(original.state())) throw conflict();
+            requirePairScope(originalSnapshot, snapshot);
+            requireNoLiveTwin(snapshot);
+            return stageWithinOwner(copy, snapshot);
         });
     }
 
+    /** The signed aid manifest's pair claims: {original delivery ID, original PDF hash}. */
+    private static String[] pairClaims(PortalMyCarlosDeliveryComposer.Copy copy) {
+        var claims = PortalMyCarlosDeviceApprovalCodec.envelope(copy.manifest()).payload().copy();
+        var pair = PortalMyCarlosDeliveryCodec.object(claims, 8192).get("pair");
+        if (pair == null) throw invalid();
+        return new String[] {PortalMyCarlosDeliveryCodec.text(pair, "original_delivery_id"),
+                PortalMyCarlosDeliveryCodec.text(pair, "original_document_sha256")};
+    }
+
+    /**
+     * An original holds one live aid for a device. A second aid with identical content under a
+     * fresh delivery ID (a double submit, a retry that lost its first ID) is refused. A changed aid
+     * (a newer review) is allowed: the device decides which review wins by the signed review time
+     * and acknowledges the stale one, so the portal stops offering it. Without a pair column the
+     * original's aids are found by scanning the patient's newest rows (two pages) inside the owner
+     * transaction; P4b's V1.0.85 unique (original, kind) key backs this rule later.
+     */
+    private void requireNoLiveTwin(PortalMyCarlosDeliverySnapshot aid) {
+        long before = 0;
+        for (int page = 0; page < 2; page++) {
+            var references = outbox.historyReferences(aid.clinicId(), aid.demographicNo(), before, 51);
+            for (var reference : references) {
+                if (!reference.deviceKid().equals(aid.device().kid()) || reference.deliveryId().equals(aid.deliveryId())) continue;
+                var row = outbox.find(reference.id()).orElseThrow(() -> unavailable());
+                if (!pairable(row.state())) continue;
+                var other = load(row);
+                if (other.readingAid() && aid.pairedOriginalDeliveryId().equals(other.pairedOriginalDeliveryId())
+                        && aid.documentSha256().equals(other.documentSha256())) throw conflict();
+            }
+            if (references.size() < 51) return;
+            before = references.get(references.size() - 1).id();
+        }
+    }
+
+    /** An aid may follow an original that is waiting for pickup or already picked up, never a dead one. */
+    private static boolean pairable(String state) {
+        return switch (state) {
+            case "staged", "waiting", "picked_up" -> true;
+            default -> false;
+        };
+    }
+
+    /** Aid and original must share clinic, patient, recipient, device, signer and raw source document. */
     private static void requirePairScope(PortalMyCarlosDeliverySnapshot b, PortalMyCarlosDeliverySnapshot c) {
         if (b.deliveryId().equals(c.deliveryId()) || b.sourceDocumentId() == null
                 || !b.sourceDocumentId().equals(c.sourceDocumentId())
+                || !b.deliveryId().equals(c.pairedOriginalDeliveryId())
                 || !b.clinicId().equals(c.clinicId()) || b.demographicNo() != c.demographicNo()
                 || !b.recipientId().equals(c.recipientId()) || !b.publicBase().equals(c.publicBase())
                 || !b.internalTarget().equals(c.internalTarget()) || !b.configSha256().equals(c.configSha256())
@@ -119,17 +205,15 @@ final class PortalMyCarlosDeliveryOutboxService {
                 || !b.signerKid().equals(c.signerKid())) throw invalid();
     }
 
-    /** Both delivery identities must be unused, or each have its sole matching-device row. */
-    private boolean priorPairItem(PortalMyCarlosDeliverySnapshot s) {
-        var rows = outbox.findForDelivery(s.clinicId(), s.deliveryId());
-        var original = outbox.original(s.clinicId(), s.deliveryId());
-        if (rows.isEmpty()) {
-            if (original.isPresent()) throw conflict();
-            return false;
-        }
-        if (rows.size() != 1 || !rows.get(0).deviceKid().equals(s.device().kid())
-                || original.isEmpty() || rows.get(0).originalId() != original.get().id()) throw conflict();
-        return true;
+    /**
+     * A dead original (fenced, errored, removed or expired) fences its aid when the aid next claims
+     * or transmits, with no pair column to query: a row that names an original checks that
+     * original's row first, with the same rule as staging. Fencing an aid never touches the original.
+     */
+    private void requireOriginalNotFenced(PortalMyCarlosDeliverySnapshot s) {
+        if (!s.readingAid()) return;
+        var original = outbox.find(s.clinicId(), s.pairedOriginalDeliveryId(), s.device().kid());
+        if (original.isEmpty() || !pairable(original.get().state())) throw unavailable();
     }
 
     private static void validateCopy(PortalMyCarlosDeliveryComposer.Copy copy, PortalMyCarlosDeliverySnapshot snapshot) {
@@ -273,6 +357,7 @@ final class PortalMyCarlosDeliveryOutboxService {
                 || !portal.myCarlosClinicId().equals(s.clinicId())
                 || !portal.myCarlosDeliveryTarget(s.demographicNo()).toASCIIString().equals(s.internalTarget())) throw unavailable();
         if (outbox.deviceFenced(s.clinicId(), s.device().kid())) throw unavailable();
+        requireOriginalNotFenced(s);
         var binding = bindings.findByClinicPatientForUpdate(s.clinicId(), s.demographicNo()).orElseThrow(() -> unavailable());
         var device = devices.findByKidForUpdate(s.device().kid()).orElseThrow(() -> unavailable());
         if (!binding.recipientId().equals(s.recipientId()) || !binding.publicBase().equals(s.publicBase())

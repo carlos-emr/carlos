@@ -16,8 +16,11 @@ final class PortalMyCarlosPairDispatchPolicy {
     enum Classification { UNKNOWN, ORDINARY_ORIGINAL, MANAGED_READING_AID }
     enum Report { UNAVAILABLE, MATCH, CONFLICT }
 
-    /** Product selection is intentionally unresolved; no current-A-at-retry rule is installed. */
-    enum RetrySourcePolicy { UNRESOLVED }
+    /**
+     * Answer 1 (independent copies): a retry re-sends that copy's own retained bytes. It never reads
+     * the current raw source document, and an original's retry never touches its aid.
+     */
+    enum RetrySourcePolicy { RETRY_OWN_RETAINED_BYTES }
     enum Disposition { HOLD, RECONCILIATION_ONLY, DEFER_TO_EXISTING_ORDINARY_PATH }
     enum Reason {
         HISTORICAL_ONLY, ORDINARY_PATH_REQUIRES_EXISTING_ADMISSION, CLASSIFICATION_UNAVAILABLE, CLASSIFICATION_CONFLICT,
@@ -31,6 +34,9 @@ final class PortalMyCarlosPairDispatchPolicy {
     record Assessment(Disposition disposition, Reason reason) { }
 
     /**
+     * An ORIGINAL is never held for any aid reason: its classification is ordinary and it takes the
+     * existing path whatever the aid evidence says (the original is never held back by its aid; the
+     * aid is staged when its inputs exist). Only a READING_AID is held on missing aid evidence.
      * Never deserialized from context/JSON. MATCH is only a report for exercising policy rules;
      * it is not an authenticated capability, signature result or approval. Even all MATCH inputs
      * for a managed reading aid remain HOLD here. Future adapters must establish exact custody.
@@ -86,9 +92,8 @@ final class PortalMyCarlosPairDispatchPolicy {
         if (observed.signerKid() == null) return hold(Reason.SIGNER_EVIDENCE_UNAVAILABLE);
         if (!intent.capture().preparedSignerKid().equals(observed.signerKid())) return hold(Reason.SIGNER_CHANGED);
         if (operation != Operation.STAGE) {
-            // No raw-A comparison here: choosing its effect on an immutable queued pair is a
-            // product decision. Both null and the only current enum value mean unavailable policy.
-            if (retryPolicy == null || retryPolicy == RetrySourcePolicy.UNRESOLVED) return hold(Reason.RETRY_POLICY_UNRESOLVED);
+            // No raw-source comparison on a retry: each copy re-sends its own retained bytes.
+            if (retryPolicy != RetrySourcePolicy.RETRY_OWN_RETAINED_BYTES) return hold(Reason.RETRY_POLICY_UNRESOLVED);
         } else {
             // Preserve the reference contract's preparation/capture check, separately from retry.
             if (observed.sourceFingerprint() == null) return hold(Reason.SOURCE_EVIDENCE_UNAVAILABLE);

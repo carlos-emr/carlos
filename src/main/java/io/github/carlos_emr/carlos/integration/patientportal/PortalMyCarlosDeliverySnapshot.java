@@ -18,11 +18,15 @@ record PortalMyCarlosDeliverySnapshot(String clinicId, int demographicNo, String
         String publicBase, String internalTarget, String configSha256, long acceptedDeviceId,
         long acceptanceVersion, String acceptanceSha256, String deliveryId, DeviceKeys device,
         String signerKid, String documentSha256, String ciphertextSha256, long createdAt,
-        long expiresAt, String bodySha256, Bytes body, String sourceDocumentId) {
+        long expiresAt, String bodySha256, Bytes body, String sourceDocumentId, String pairedOriginalDeliveryId) {
+    /** The only outer-record kind a copy may carry besides none (an original). */
+    static final String READING_AID_KIND = "reading-aid/1";
     private static final Set<String> FIELDS = Set.of("clinic_id", "demographic_no", "recipient_id", "public_base",
             "internal_target", "config_sha256", "accepted_device_id", "acceptance_version", "acceptance_sha256",
             "delivery_id", "device_key_id", "x25519_public_key", "ed25519_public_key", "signer_kid",
             "document_sha256", "ciphertext_sha256", "created_at", "expires_at", "body_sha256");
+    private static final Set<String> OUTER_FIELDS = Set.of("v", "suite", "delivery_id", "recipient_id", "device_key_id",
+            "size", "ciphertext_sha256", "created_at", "expires_at");
 
     PortalMyCarlosDeliverySnapshot(String clinicId, int demographicNo, String recipientId,
             String publicBase, String internalTarget, String configSha256, long acceptedDeviceId,
@@ -31,7 +35,18 @@ record PortalMyCarlosDeliverySnapshot(String clinicId, int demographicNo, String
             long expiresAt, String bodySha256, Bytes body) {
         this(clinicId, demographicNo, recipientId, publicBase, internalTarget, configSha256, acceptedDeviceId,
                 acceptanceVersion, acceptanceSha256, deliveryId, device, signerKid, documentSha256,
-                ciphertextSha256, createdAt, expiresAt, bodySha256, body, null);
+                ciphertextSha256, createdAt, expiresAt, bodySha256, body, null, null);
+    }
+
+    /** An original carrying its raw source mapping: never paired to anything. */
+    PortalMyCarlosDeliverySnapshot(String clinicId, int demographicNo, String recipientId,
+            String publicBase, String internalTarget, String configSha256, long acceptedDeviceId,
+            long acceptanceVersion, String acceptanceSha256, String deliveryId, DeviceKeys device,
+            String signerKid, String documentSha256, String ciphertextSha256, long createdAt,
+            long expiresAt, String bodySha256, Bytes body, String sourceDocumentId) {
+        this(clinicId, demographicNo, recipientId, publicBase, internalTarget, configSha256, acceptedDeviceId,
+                acceptanceVersion, acceptanceSha256, deliveryId, device, signerKid, documentSha256,
+                ciphertextSha256, createdAt, expiresAt, bodySha256, body, sourceDocumentId, null);
     }
 
     PortalMyCarlosDeliverySnapshot {
@@ -59,8 +74,18 @@ record PortalMyCarlosDeliverySnapshot(String clinicId, int demographicNo, String
         if (!PortalMyCarlosDeviceApprovalCrypto.sha256(body.copy()).equals(bodySha256)) throw invalid();
         byte[][] parts = twoFrames(body.copy(), MAX_OUTER_BYTES, MAX_SEALED_BYTES);
         JsonNode outer = object(parts[0], MAX_OUTER_BYTES);
-        fields(outer, Set.of("v", "suite", "delivery_id", "recipient_id", "device_key_id", "size",
-                "ciphertext_sha256", "created_at", "expires_at"));
+        // A reading aid's outer record carries kind "reading-aid/1" (carlos-portal contract, "Reading
+        // aids") and its snapshot names the original it reads; an original has neither.
+        boolean aid = outer.has("kind");
+        var outerFields = new java.util.HashSet<>(OUTER_FIELDS);
+        if (aid) outerFields.add("kind");
+        fields(outer, outerFields);
+        if (aid != (pairedOriginalDeliveryId != null) || (aid && (!READING_AID_KIND.equals(text(outer, "kind"))
+                || sourceDocumentId == null))) throw invalid();
+        if (aid) {
+            uuid(pairedOriginalDeliveryId, true);
+            if (pairedOriginalDeliveryId.equals(deliveryId)) throw invalid();
+        }
         fields(outer.get("suite"), Set.of("kem_id", "kdf_id", "aead_id"));
         if (epoch(outer, "v") != 1 || epoch(outer.get("suite"), "kem_id") != 32
                 || epoch(outer.get("suite"), "kdf_id") != 1 || epoch(outer.get("suite"), "aead_id") != 3
@@ -94,6 +119,7 @@ record PortalMyCarlosDeliverySnapshot(String clinicId, int demographicNo, String
         values.put("expires_at", expiresAt);
         values.put("body_sha256", bodySha256);
         if (sourceDocumentId != null) values.put("source_document_id", sourceDocumentId);
+        if (pairedOriginalDeliveryId != null) values.put("paired_original_delivery_id", pairedOriginalDeliveryId);
         byte[] metadata = canonical(values);
         if (metadata.length > 16384) throw invalid();
         return PortalMyCarlosDeviceApprovalCrypto.frame(metadata, body.copy());
@@ -104,6 +130,7 @@ record PortalMyCarlosDeliverySnapshot(String clinicId, int demographicNo, String
         JsonNode m = object(parts[0], 16384);
         var expected = new java.util.HashSet<>(FIELDS);
         if (m.has("source_document_id")) expected.add("source_document_id");
+        if (m.has("paired_original_delivery_id")) expected.add("paired_original_delivery_id");
         fields(m, expected);
         long demographic = epoch(m, "demographic_no");
         if (demographic > Integer.MAX_VALUE) throw invalid();
@@ -116,8 +143,12 @@ record PortalMyCarlosDeliverySnapshot(String clinicId, int demographicNo, String
                 PortalMyCarlosDeliveryClient.cursor(text(m, "acceptance_version")), text(m, "acceptance_sha256"),
                 text(m, "delivery_id"), keys, text(m, "signer_kid"), text(m, "document_sha256"),
                 text(m, "ciphertext_sha256"), epoch(m, "created_at"), epoch(m, "expires_at"),
-                text(m, "body_sha256"), new Bytes(parts[1]), m.has("source_document_id") ? text(m, "source_document_id") : null);
+                text(m, "body_sha256"), new Bytes(parts[1]), m.has("source_document_id") ? text(m, "source_document_id") : null,
+                m.has("paired_original_delivery_id") ? text(m, "paired_original_delivery_id") : null);
     }
+
+    /** True for a reading aid: its outer record names the kind and its snapshot names its original. */
+    boolean readingAid() { return pairedOriginalDeliveryId != null; }
 
     int sealedSize() {
         ByteBuffer framed = ByteBuffer.wrap(body.copy());
