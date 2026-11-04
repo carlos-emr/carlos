@@ -32,6 +32,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.BillRecipientsDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingHistoryDao;
@@ -40,6 +43,8 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanS00;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.BillRow;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.PaymentRow;
+import io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows.PrivatePaymentRow;
 import io.github.carlos_emr.carlos.entities.MSPBill;
 import io.github.carlos_emr.carlos.entities.Provider;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -140,6 +145,112 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
 
     private MSPReconcile.BillSearch report(String type) {
         return reconcile.getBillsByType("all", "all", "all", "", "", false, false, false, false, type);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"REP_INVOICE", "REP_ACCOUNT_REC"})
+    void shouldRetainLegacyRows_whenCsvAmountsCannotBeCalculated(String type) throws Exception {
+        var csv = spy(new MSPReconcile(true));
+        doReturn(new Properties()).when(csv).currentC12Records();
+        doReturn("").when(csv).getS00String(anyString());
+        doReturn(new Provider()).when(csv).getProvider(anyString(), anyInt());
+        for (String amount : Arrays.asList(null, "", " ", "bad amount", "NaN", "1e309")) {
+            var malformed = new BillRow("Pri", "41", "1", "1", "FAKE-Patient", "", "O", "", "", "", "41",
+                    amount, "00100", "", null, "", "", "", "", "", "12345", "12345", "", "");
+            var valid = new BillRow("Pri", "42", "1", "1", "FAKE-Patient", "", "O", "", "", "", "42",
+                    "100.00", "00100", "", "20261001", "", "", "", "", "", "12345", "12345", "", "");
+            when(billingmasterDao.findBcBills(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any()))
+                    .thenReturn(List.of(malformed, valid));
+            var result = csv.getBillsByType("ALL", "ALL", "ALL", "", "", false, false, false, false, type);
+            assertThat(result.list).hasSize(2);
+            assertThat(((MSPBill) result.list.getFirst()).getAmount()).isEqualTo(amount);
+            assertThat(((MSPBill) result.list.getFirst()).getServiceDate()).isNull();
+            assertThat(((MSPBill) result.list.getFirst()).getAmtOwing()).isEmpty();
+            assertThat(((MSPBill) result.list.get(1)).getAmtOwing()).isEqualTo("100.0");
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"bad", "12.3"})
+    void shouldRetainValidPaymentsAndAdjustments_whenTeleplanFieldsAreMalformed(String malformedAmount) throws Exception {
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao.class);
+        var csv = spy(new MSPReconcile(true));
+        Provider provider = new Provider(); provider.setFirstName("Test"); provider.setLastName("Provider");
+        doReturn(provider).when(csv).getProvider(anyString(), anyInt());
+        doReturn("Adjustment").when(csv).getAdjustmentCodeDesc(anyString());
+        when(billingmasterDao.findBcPayments(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean()))
+                .thenReturn(List.of(paymentRow(malformedAmount, "AA", "bad adjustment", "000225"),
+                        paymentRow("001250", "", "", ""), paymentRow("00050}", "", "", ""),
+                        paymentRow("", "AA", "000075", "")));
+
+        for (String type : List.of(MSPReconcile.REP_PAYREF, MSPReconcile.REP_PAYREF_SUM)) {
+            var result = csv.getPayments("ALL", "ALL", "ALL", "", "", false, false, true, false, type);
+            assertThat(result.list).hasSize(4);
+            var first = (MSPBill) result.list.getFirst();
+            if (MSPReconcile.REP_PAYREF.equals(type)) {
+                assertThat(first.getAmount()).isEqualTo("bad".equals(malformedAmount) ? "bad" : "Unparsed Teleplan amount: 12.3");
+                assertThat(first.getAdjustmentCodeAmt()).contains("bad adjustment", "2.25");
+                assertThat(((MSPBill) result.list.get(1)).getType()).isEqualTo("PMT");
+                assertThat(((MSPBill) result.list.get(2)).getType()).isEqualTo("RFD");
+            } else {
+                assertThat(first.getAmount()).isEqualTo("0.00");
+                assertThat(first.getAdjustmentCodeAmt()).isEqualTo("2.25");
+                var output = new java.io.ByteArrayOutputStream();
+                io.github.carlos_emr.carlos.report.export.BcBillingCsv.write(output, type,
+                        result.list.stream().map(MSPBill.class::cast).toList());
+                var rows = org.apache.commons.csv.CSVFormat.DEFAULT.parse(new java.io.StringReader(
+                        output.toString(java.nio.charset.StandardCharsets.UTF_8))).getRecords();
+                assertThat(rows.get(1).toList()).containsExactly("Cash", "7.50", "-5.00");
+                assertThat(rows.get(6).toList()).containsExactly("Electronic", "3.00", "0.00");
+                assertThat(rows.get(9).toList()).containsExactly("Total", "10.50", "-5.00");
+            }
+        }
+    }
+
+    private PaymentRow paymentRow(String paid, String adjustment, String first, String second) {
+        return new PaymentRow("MSP", "20261101", "1", "1", "FAKE-Patient", paid, "41", "00000000", "1", "", "",
+                "12345", "12345", "12345", adjustment, first, second, "", "", "", "", "");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"REP_INVOICE", "REP_ACCOUNT_REC"})
+    void shouldRetainUnknownBalance_whenS00PaymentCannotBeDecoded(String type) throws Exception {
+        var csv = spy(new MSPReconcile(true));
+        doReturn(new Properties()).when(csv).currentC12Records();
+        doReturn("").when(csv).getS00String(anyString());
+        doReturn(new Provider()).when(csv).getProvider(anyString(), anyInt());
+        reportRows("MSP", "Pri");
+        for (String amount : List.of("bad", "12.3")) {
+            var payment = new TeleplanS00(); payment.setPaidAmount(amount);
+            when(teleplanDao.findByOfficeNumber("0000041")).thenReturn(List.of(payment));
+            var result = csv.getBillsByType("ALL", "ALL", "ALL", "", "", false, false, false, false, type);
+            assertThat(result.list).hasSize(2);
+            assertThat(((MSPBill) result.list.getFirst()).getAmtOwing()).isEmpty();
+            assertThat(((MSPBill) result.list.get(1)).getAmtOwing()).isEqualTo("100.0");
+        }
+        when(teleplanDao.findByOfficeNumber("0000041")).thenThrow(new jakarta.persistence.PersistenceException("synthetic read failure"));
+        assertThatThrownBy(() -> csv.getBillsByType("ALL", "ALL", "ALL", "", "", false, false, false, false, type))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Billing export data could not be read").hasNoCause();
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"bad"})
+    void shouldKeepPrivatePaymentExports_whenLegacyAmountsAreMissingOrMalformed(String amount) {
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao.class);
+        var csv = spy(new MSPReconcile(true));
+        Provider provider = new Provider(); provider.setFirstName("Test"); provider.setLastName("Provider");
+        doReturn(provider).when(csv).getProvider(anyString(), anyInt());
+        when(billingmasterDao.findBcPrivatePayments(any(), any(), any(), any(), any()))
+                .thenReturn(List.of(new PrivatePaymentRow("41", "Pri", "1", "FAKE-Patient", "00000000", "12345", "12345", "12345",
+                                amount, null, "1"),
+                        new PrivatePaymentRow("42", "Pri", "1", "FAKE-Patient", "20261101", "12345", "12345", "12345",
+                                "12.50", java.time.LocalDate.of(2026, 11, 1), "1")));
+        var result = csv.getPayments("ALL", "ALL", "ALL", "", "", false, false, false, false);
+        assertThat(result.list).hasSize(2);
+        assertThat(((MSPBill) result.list.getFirst()).getAmount()).isEqualTo(amount == null ? "" : amount);
+        assertThat(((MSPBill) result.list.getFirst()).getPaymentDate()).isEmpty();
+        assertThat(((MSPBill) result.list.get(1)).getAmount()).isEqualTo("12.50");
     }
 
     @Test

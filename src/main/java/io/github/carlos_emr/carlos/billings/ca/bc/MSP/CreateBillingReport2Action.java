@@ -316,7 +316,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         BillSearch search = payments
                 ? msp.getPayments(getSelAccount(), getSelPayee(), getSelProv(), getXml_vdate(), getXml_appointment_date(),
                         !Boolean.parseBoolean(getShowWCB()), !Boolean.parseBoolean(getShowMSP()),
-                        !Boolean.parseBoolean(getShowPRIV()), !Boolean.parseBoolean(getShowICBC()))
+                        !Boolean.parseBoolean(getShowPRIV()), !Boolean.parseBoolean(getShowICBC()), getRepType())
                 : msp.getBillsByType(getSelAccount(), getSelPayee(), getSelProv(), getXml_vdate(), getXml_appointment_date(),
                         !Boolean.parseBoolean(getShowWCB()), !Boolean.parseBoolean(getShowMSP()),
                         !Boolean.parseBoolean(getShowPRIV()), !Boolean.parseBoolean(getShowICBC()), getRepType());
