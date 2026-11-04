@@ -2517,6 +2517,20 @@
       "fixtures": "Owns synthetic patients, an unused DOB year, a program and admissions; verifies REST count/results, invalid inputs, domain restrictions, POST search/picker handoffs, merged pagination and unmerge; removes owned fixtures on success or failure."
     },
     {
+      "name": "rest-xml",
+      "script": "scripts/rest-xml-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "fixtures": "Owns and removes a synthetic patient, allergy and prevention; checks demographic, provider-list and provider XML including wildcard Accept, plus populated legacy and precision-aware clinical JSON."
+    },
+    {
       "name": "rest-birth-date",
       "script": "scripts/rest-birth-date-playwright-checks.js",
       "tiers": [
