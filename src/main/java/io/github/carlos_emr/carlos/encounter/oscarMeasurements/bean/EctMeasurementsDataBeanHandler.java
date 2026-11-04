@@ -68,6 +68,11 @@ public class EctMeasurementsDataBeanHandler {
         init(demo, type);
     }
 
+    /** A flowsheet defers provenance loading until it has collected readings from all its types. */
+    public EctMeasurementsDataBeanHandler(Integer demo, String type, boolean loadSourceLabs) {
+        init(demo, type, loadSourceLabs);
+    }
+
     public boolean init(Integer demo) {
         MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
         for (MeasurementType mt : dao.findMeasurementsTypes(demo)) {
@@ -83,9 +88,13 @@ public class EctMeasurementsDataBeanHandler {
         return true;
     }
 
+    public boolean init(Integer demo, String type) {
+        return init(demo, type, true);
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public boolean init(Integer demo, String type) {
+    private boolean init(Integer demo, String type, boolean loadSourceLabs) {
         MeasurementTypes mt = MeasurementTypes.getInstance();
         EctMeasurementTypesBean mBean = mt.getByType(type);
         if (mBean != null) {
@@ -137,7 +146,9 @@ public class EctMeasurementsDataBeanHandler {
                 measurementsDataVector.add(data);
 
             }
-            populateSourceLabs(measurementsDataVector);
+            if (loadSourceLabs) {
+                populateSourceLabs(measurementsDataVector);
+            }
         }
         return true;
     }
@@ -187,21 +198,23 @@ public class EctMeasurementsDataBeanHandler {
     }
 
     /** Load provenance once per history, rather than querying extensions for each rendered reading. */
-    private static void populateSourceLabs(Collection<EctMeasurementsDataBean> measurements) {
+    public static void populateSourceLabs(Collection<EctMeasurementsDataBean> measurements) {
         if (measurements.isEmpty()) {
             return;
         }
-        Map<Integer, EctMeasurementsDataBean> byId = new HashMap<>();
+        Map<Integer, Integer> sourceLabs = new HashMap<>();
         for (EctMeasurementsDataBean measurement : measurements) {
-            byId.put(measurement.getId(), measurement);
+            sourceLabs.put(measurement.getId(), null);
         }
         MeasurementsExtDao extensions = SpringUtils.getBean(MeasurementsExtDao.class);
-        for (MeasurementsExt extension : extensions.getMeasurementsExtListByMeasurementIdList(new ArrayList<>(byId.keySet()))) {
-            EctMeasurementsDataBean measurement = byId.get(extension.getMeasurementId());
-            if (measurement != null && "lab_no".equals(extension.getKeyVal())) {
+        for (MeasurementsExt extension : extensions.findByMeasurementIdsAndKey(new ArrayList<>(sourceLabs.keySet()), "lab_no")) {
+            if (sourceLabs.containsKey(extension.getMeasurementId()) && "lab_no".equals(extension.getKeyVal())) {
                 // Never put an unchecked extension string into a URL or JavaScript context.
-                measurement.setSourceLabNo(LabPatientAccess.positiveIdentity(extension.getVal()));
+                sourceLabs.put(extension.getMeasurementId(), LabPatientAccess.positiveIdentity(extension.getVal()));
             }
+        }
+        for (EctMeasurementsDataBean measurement : measurements) {
+            measurement.setSourceLabNo(sourceLabs.get(measurement.getId()));
         }
     }
 

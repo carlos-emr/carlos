@@ -593,6 +593,7 @@ async function workflow(s) {
         await link.press('Enter');
         const report = await reportPromise;
         h.wireStrictPage(report, `tracker-source-${lab.key}`, s.recorder);
+        await report.waitForURL((url) => url.href !== 'about:blank', { timeout: TIMEOUT, waitUntil: 'domcontentloaded' });
         await report.waitForLoadState('networkidle');
         h.assert(new URL(report.url()).searchParams.get('segmentID') === String(lab.labNo), 'Tracker keyboard link opened the wrong lab');
         h.assert((await report.locator('body').innerText()).includes(lab.accession), 'Tracker keyboard link did not render the source report');
