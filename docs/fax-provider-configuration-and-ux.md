@@ -133,6 +133,15 @@ that is intentional, and pre-import error rows do not suppress the retry.
   (stopped without a recorded error — the benign startup state), and
   **Scheduler Stopped (Fatal Error)** (stopped with a recorded error).
 - Saving a configuration with an active account auto-starts the scheduler.
+- Inbound account-level poll failures (provider listing, client setup or uncaught processing
+  errors) retry after 1, 2, 4, 8, 16 and 32 minutes, then at most once per hour. Only the first
+  failure and recovery are logged at WARN. Other accounts and already-downloaded local imports
+  continue on their normal schedule. Individual document errors keep their existing handling.
+- **Configure Fax** displays failing inbound accounts, consecutive failed polls, the first
+  failure time and the next retry time. Refresh after a retry to see recovery. Correcting
+  credentials takes effect at the next scheduled retry. The state is local to this application
+  instance, resets on application restart, and is discarded for removed or disabled accounts
+  on the next poll; it is not a persistent outage history or an outbound fax status.
 
 ## Configuration Expectations
 When provider type is `SRFAX`:
