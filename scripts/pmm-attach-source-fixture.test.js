@@ -7,33 +7,50 @@ const { assertOwnedPrograms, assertOnlyCopiedNote, assertStagedDefaults, assertC
     ensureReadOnlyType }
     = require('./lib/pmm-attach-source-context-checks');
 
+/** Model one access definition and its policy references, including interrupted insertion. */
 function accessTypeFixture({ shared = false, lostInsert = false } = {}) {
     const marker = 'FAKE-PW0123456789abcdef';
     const state = { row: shared ? ['71', 'note-read-only', 'access'] : null, links: 0, writes: [] };
     const cleanups = [];
     const sql = {
-        rows(query) {
+        rows(query, parameters) {
             if (query.startsWith('SELECT access_id FROM access_type')) return state.row ? [[state.row[0]]] : [];
-            if (query.startsWith('SELECT access_id,name,type FROM access_type')) return state.row ? [[...state.row]] : [];
+            if (query.startsWith('SELECT access_id,name,type FROM access_type')) {
+                assert.deepEqual(parameters, query.endsWith('access_id=?') ? ['72'] : [`${marker}-pmm-read-only`]);
+                return state.row ? [[...state.row]] : [];
+            }
             assert.fail(`Unexpected access-type read: ${query}`);
         },
-        value(query) {
-            if (query.startsWith('INSERT INTO access_type')) {
-                state.row = ['72', `${marker}-pmm-read-only`, 'access'];
-                state.writes.push('insert');
-                if (lostInsert) throw new Error('Lost INSERT acknowledgement');
-                return '72';
+        value(query, parameters) {
+            if (query.includes('FROM program_access')) {
+                assert.deepEqual(parameters, ['72', '72']);
+                return String(state.links);
             }
-            if (query.includes('FROM program_access')) return String(state.links);
-            if (query.includes(`name='${marker}-pmm-read-only'`)) return '0';
-            if (query.includes('FROM access_type WHERE access_id=')) return state.row ? '1' : '0';
+            if (query.endsWith('name=?')) {
+                assert.deepEqual(parameters, [`${marker}-pmm-read-only`]);
+                return '0';
+            }
+            if (query.endsWith('access_id=?')) {
+                assert.deepEqual(parameters, ['72']);
+                return state.row ? '1' : '0';
+            }
             assert.fail(`Unexpected access-type scalar: ${query}`);
         },
-        execute(query) {
+        insertId(query, parameters) {
+            assert.equal(query, "INSERT INTO access_type (name,type) VALUES (?,'access')");
+            assert.deepEqual(parameters, [`${marker}-pmm-read-only`]);
+            state.row = ['72', parameters[0], 'access'];
+            state.writes.push('insert');
+            if (lostInsert) throw new Error('Lost INSERT acknowledgement');
+            return '72';
+        },
+        execute(query, parameters) {
             if (query.startsWith('UPDATE access_type')) {
+                assert.deepEqual(parameters, ['72', `${marker}-pmm-read-only`]);
                 state.writes.push('rename');
                 state.row[1] = 'note-read-only';
             } else if (query.startsWith('DELETE FROM access_type')) {
+                assert.deepEqual(parameters, ['72', state.row[1]]);
                 state.writes.push('delete');
                 state.row = null;
             } else assert.fail(`Unexpected access-type mutation: ${query}`);

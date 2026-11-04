@@ -66,6 +66,9 @@ const PRIVILEGE_VALUE = /^[ruwdxo]$/;
 const OBJECT_NAME = /^_[A-Za-z0-9_.]{1,60}$/;
 
 /**
+ * Create isolated authorization identities and remove their provider-owned rows on cleanup.
+ * Program defaults are inherited only when a caller explicitly requests that policy context.
+ *
  * @param sql the session's createSqlRunner result
  * @param marker the run marker (`FAKE-PW<16 hex>`)
  * @param provider provider_no of the shared test login (lastUpdateUser, orgcd source)
@@ -264,11 +267,11 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
         'The login did not join exactly the test login\'s programs');
       if (copyDefaults) {
         const defaults = owner => sql.rows(`SELECT program_id,signnote FROM provider_default_program
-          WHERE provider_no=${sqlString(owner)} ORDER BY program_id,signnote`);
+          WHERE provider_no=? ORDER BY program_id,signnote`, [owner]);
         const expectedDefaults = defaults(provider);
         assert(expectedDefaults.length > 0, 'The test login has no default program to inherit');
         sql.execute(`INSERT INTO provider_default_program (provider_no, program_id, signnote)
-          SELECT ${p}, program_id, signnote FROM provider_default_program WHERE provider_no=${sqlString(provider)}`);
+          SELECT ?, program_id, signnote FROM provider_default_program WHERE provider_no=?`, [login.providerNo, provider]);
         assert(JSON.stringify(defaults(login.providerNo)) === JSON.stringify(expectedDefaults),
           'The login did not inherit exactly the test login\'s default programs');
       }

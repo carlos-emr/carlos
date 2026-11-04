@@ -9,7 +9,12 @@ const q = h.sqlString;
 const TIMEOUT = 30000;
 const NOTE = '#caseManagementEntryForm textarea[name="caseNote_note"]';
 
-/** Fresh demo installs can omit this definition. Own a new row, never a shared grant. */
+/**
+ * Reuse the read-only definition, or own a missing definition until its policy links are removed.
+ * Register recovery before insertion; cleanup retains renamed, retyped or externally linked rows.
+ * @param s workflow session supplying SQL, a run marker and cleanup registration
+ * @returns {string} the existing or newly owned access_type identifier
+ */
 function ensureReadOnlyType(s) {
     const { sql, marker } = s;
     const existing = sql.rows("SELECT access_id FROM access_type WHERE name='note-read-only' AND type='access'");
@@ -17,32 +22,33 @@ function ensureReadOnlyType(s) {
         'The note-read-only access type is ambiguous');
     if (existing.length) return existing[0][0];
     const ownedName = `${marker}-pmm-read-only`;
-    h.assert(sql.value(`SELECT COUNT(*) FROM access_type WHERE name=${q(ownedName)}`) === '0',
+    h.assert(sql.value('SELECT COUNT(*) FROM access_type WHERE name=?', [ownedName]) === '0',
         'The owned PMM access type already exists');
     let ownedId;
     s.cleanup(() => {
-        const rows = sql.rows(`SELECT access_id,name,type FROM access_type WHERE ${ownedId
-            ? `access_id=${ownedId}` : `name=${q(ownedName)}`}`);
+        const rows = ownedId
+            ? sql.rows('SELECT access_id,name,type FROM access_type WHERE access_id=?', [ownedId])
+            : sql.rows('SELECT access_id,name,type FROM access_type WHERE name=?', [ownedName]);
         h.assert(rows.length <= 1 && rows.every(row => row[2] === 'access'
             && (row[1] === ownedName || (ownedId && row[1] === 'note-read-only'))),
         'The owned PMM access type changed; retaining it');
         if (!rows.length) return;
         const [id, name] = rows[0];
         h.assert(/^[1-9]\d*$/.test(id) && sql.value(`SELECT
-            (SELECT COUNT(*) FROM program_access WHERE access_type_id=${q(id)})
-            + (SELECT COUNT(*) FROM default_role_access WHERE access_id=${id})`) === '0',
+            (SELECT COUNT(*) FROM program_access WHERE access_type_id=?)
+            + (SELECT COUNT(*) FROM default_role_access WHERE access_id=?)`, [id, id]) === '0',
         'The owned PMM access type acquired policy links; retaining it');
-        sql.execute(`DELETE FROM access_type WHERE access_id=${id} AND name=${q(name)} AND type='access'`);
-        h.assert(sql.value(`SELECT COUNT(*) FROM access_type WHERE access_id=${id}`) === '0',
+        sql.execute("DELETE FROM access_type WHERE access_id=? AND name=? AND type='access'", [id, name]);
+        h.assert(sql.value('SELECT COUNT(*) FROM access_type WHERE access_id=?', [id]) === '0',
             'The owned PMM access type was not removed');
     });
     // A marker name recovers an INSERT whose acknowledgement was lost. Once its id
     // is known, publish the semantic name that the application's real policy reads.
-    ownedId = h.insertId(sql, `INSERT INTO access_type (name,type) VALUES (${q(ownedName)},'access')`,
-        'PMM read-only access type');
+    ownedId = h.insertId(sql, "INSERT INTO access_type (name,type) VALUES (?,'access')",
+        'PMM read-only access type', [ownedName]);
     h.assert(/^[1-9]\d*$/.test(ownedId), 'The owned PMM access type key is invalid');
-    sql.execute(`UPDATE access_type SET name='note-read-only' WHERE access_id=${ownedId}
-        AND name=${q(ownedName)} AND type='access'`);
+    sql.execute(`UPDATE access_type SET name='note-read-only' WHERE access_id=?
+        AND name=? AND type='access'`, [ownedId, ownedName]);
     return ownedId;
 }
 

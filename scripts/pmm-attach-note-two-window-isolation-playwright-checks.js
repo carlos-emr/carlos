@@ -162,6 +162,10 @@ async function saveNote(chart, sql, patient, text) {
   return noteId;
 }
 
+/**
+ * Drive two native attachment popups and verify copy identity, program policy and refusals.
+ * @param s owned workflow session; its cleanup restores facilities and removes all fixture rows
+ */
 async function workflow(s) {
   const { sql, marker, provider, config, patient: A } = s;
   const B = ownedPatient(s, 'PatientBravo');
