@@ -1,5 +1,25 @@
 #!/usr/bin/env node
-/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 'use strict';
 
 // Administration > Reports > Dashboard Manager (#2244): create, edit, inactivate,
@@ -105,7 +125,7 @@ async function workflow(s) {
     h.assert(await form().getByLabel('Name', { exact: true }).inputValue() === literalName, 'Edit name did not round-trip');
     h.assert(await form().getByLabel('Description', { exact: true }).inputValue() === literalDescription,
       'Textarea content was not escaped correctly');
-    await h.screenshot(frame.page(), s.config.screenshotDir, 'dashboard-manager.png');
+    await h.screenshot(frame.page(), s.config.screenshotDir, 'dashboard-manager');
   });
   await s.step('a POST without the CSRF token is refused and changes nothing', async () => {
     const where = `creator=${h.sqlString(fixture.providerNo)} AND name LIKE ${h.sqlString(marker + '%')}`;
