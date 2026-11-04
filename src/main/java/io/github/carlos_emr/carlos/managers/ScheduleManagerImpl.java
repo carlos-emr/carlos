@@ -261,6 +261,12 @@ public class ScheduleManagerImpl implements ScheduleManager {
         oscarAppointmentDao.merge(appointment);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Legacy edits retain the privilege check, row lock and transactional archive;
+     * a supplied token additionally requires the client's read version to match.</p>
+     */
     @Override
     @Transactional
     public Appointment updateAppointment(LoggedInInfo loggedInInfo, Integer appointmentId,

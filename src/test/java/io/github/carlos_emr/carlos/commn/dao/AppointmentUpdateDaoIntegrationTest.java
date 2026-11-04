@@ -184,6 +184,7 @@ class AppointmentUpdateDaoIntegrationTest {
         assertState("FAKE-fresh", 2);
     }
 
+    /** Verifies that a legacy write archives newer data and invalidates the previous read token. */
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.NullAndEmptySource
     @org.junit.jupiter.params.provider.ValueSource(strings = {" ", "\t\n"})
@@ -313,6 +314,7 @@ class AppointmentUpdateDaoIntegrationTest {
         assertThat(read().getEditVersion()).isEqualTo(version);
     }
 
+    /** Exercises optional tokens on imported rows that have no update timestamp. */
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.NullAndEmptySource
     @org.junit.jupiter.params.provider.ValueSource(strings = {"unversioned", " "})

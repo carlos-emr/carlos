@@ -158,6 +158,7 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
         verifyNoInteractions(mockAppointmentManager);
     }
 
+    /** Covers every update route with omitted, JSON null, empty and whitespace-only tokens. */
     static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> legacyAppointmentEdits() {
         return java.util.stream.Stream.of("/schedule/updateAppointment", "/schedule/appointment/42/updateStatus",
                 "/schedule/appointment/42/updateType", "/schedule/appointment/42/updateUrgency").flatMap(path ->

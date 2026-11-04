@@ -387,6 +387,7 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(appointmentManager);
     }
 
+    /** Pins the response token returned to an unchanged legacy client after a successful write. */
     @Test
     void shouldReturnUpdatedAppointment_whenEditVersionIsMissing() {
         registerMock(DemographicDao.class, Mockito.mock(DemographicDao.class));
