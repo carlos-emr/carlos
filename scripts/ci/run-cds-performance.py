@@ -135,11 +135,26 @@ def verify_java_identity(pid: int, uid: int, gid: int, executable: Path, started
         raise RuntimeError("actual non-root Java executable/start identity could not be verified")
 
 
+def process_parent_map(proc_root: Path = Path("/proc")) -> dict[int, int]:
+    """Read process ancestry while allowing entries to disappear during enumeration."""
+    parents = {}
+    for entry in proc_root.iterdir():
+        if not entry.name.isdecimal():
+            continue
+        try:
+            fields = (entry / "stat").read_text().rsplit(")", 1)[1].split()
+            parents[int(entry.name)] = int(fields[1])
+        except (FileNotFoundError, ProcessLookupError):
+            # procfs can report ENOENT or ESRCH when a task exits after enumeration.
+            pass
+    return parents
+
+
 def service_sample(pid: int) -> dict | None:
     try:
         started = Path(f'/proc/{pid}/stat').read_text().rsplit(')',1)[1].split()[19]
         status = Path(f'/proc/{pid}/status').read_text()
-    except FileNotFoundError:
+    except (FileNotFoundError, ProcessLookupError):
         return None  # A completed JVM may disappear before its supervisor is reaped.
     if re.search(r'^State:\s+[ZX]',status,re.M) and not re.search(r'^VmRSS:',status,re.M):
         return None
@@ -152,7 +167,7 @@ def service_sample(pid: int) -> dict | None:
         # Missing measurements from a live JVM must still fail the resource gate.
         try:
             final = Path(f'/proc/{pid}/stat').read_text().rsplit(')',1)[1].split()
-        except FileNotFoundError:
+        except (FileNotFoundError, ProcessLookupError):
             return None
         if final[19] != started:
             raise RuntimeError('service JVM identity changed during resource sampling')
@@ -923,15 +938,7 @@ def main() -> None:
                             os.killpg(process.pid, signal.SIGTERM)
                             raise RuntimeError("benchmark deadline exceeded; retain exact accepted run and reconcile")
                         # Only descendants of this exact installed supervisor can become the measured JVM.
-                        parents = {}
-                        for entry in Path("/proc").iterdir():
-                            if not entry.name.isdecimal():
-                                continue
-                            try:
-                                fields = (entry / "stat").read_text().rsplit(")", 1)[1].split()
-                                parents[int(entry.name)] = int(fields[1])
-                            except FileNotFoundError:
-                                pass
+                        parents = process_parent_map()
                         children = {process.pid}
                         for _ in range(8):
                             children |= {pid for pid, parent in parents.items() if parent in children}
@@ -944,7 +951,7 @@ def main() -> None:
                                     uid = int(re.search(r'^Uid:\s+(\d+)',process_status,re.M)[1])
                                     if uid == service_account.pw_uid and uid != 0:
                                         candidates.append((pid,command))
-                            except FileNotFoundError:
+                            except (FileNotFoundError, ProcessLookupError):
                                 pass
                         if len(candidates) > 1:
                             raise RuntimeError("ambiguous service JVM measurement target")

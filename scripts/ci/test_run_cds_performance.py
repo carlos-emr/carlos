@@ -87,12 +87,27 @@ class PerformanceEvidenceTest(unittest.TestCase):
             with self.subTest(observed=observed,kernel=kernel):
                 with self.assertRaises(RuntimeError):GATE.enforce_rss_budget(observed,kernel,budget)
 
+    def test_process_parent_scan_ignores_exited_entries_but_not_unreadable_live_processes(self):
+        entries=[Path('/proc/123456'),Path('/proc/self'),Path('/proc/234567')]
+        for vanished in (FileNotFoundError(),ProcessLookupError()):
+            with self.subTest(vanished=type(vanished).__name__):
+                with patch.object(Path,'iterdir',return_value=entries), \
+                     patch.object(Path,'read_text',side_effect=[vanished,'234567 (java worker) S 17 0 0']):
+                    self.assertEqual(GATE.process_parent_map(),{234567:17})
+        with patch.object(Path,'iterdir',return_value=entries), \
+             patch.object(Path,'read_text',side_effect=PermissionError):
+            with self.assertRaises(PermissionError):GATE.process_parent_map()
+
     def test_normal_process_disappearance_is_distinct_from_an_unreadable_live_process(self):
-        with patch.object(Path,'read_text',side_effect=FileNotFoundError):
-            self.assertIsNone(GATE.service_sample(123456))
+        stat='123456 (java) Z '+' '.join('0' for _ in range(20))
+        for vanished in (FileNotFoundError,ProcessLookupError):
+            with self.subTest(vanished=vanished.__name__):
+                with patch.object(Path,'read_text',side_effect=vanished):
+                    self.assertIsNone(GATE.service_sample(123456))
+                with patch.object(Path,'read_text',side_effect=[stat,vanished()]):
+                    self.assertIsNone(GATE.service_sample(123456))
         with patch.object(Path,'read_text',side_effect=PermissionError):
             with self.assertRaises(PermissionError):GATE.service_sample(123456)
-        stat='123456 (java) Z '+' '.join('0' for _ in range(20))
         with patch.object(Path,'read_text',side_effect=[stat,'State:\tZ (zombie)\nUid:\t999\n']):
             self.assertIsNone(GATE.service_sample(123456))
 
@@ -101,7 +116,7 @@ class PerformanceEvidenceTest(unittest.TestCase):
             fields=['R','1','0','0','0','0',str(flags)]+['0']*12+[started]
             return '123456 (java) '+' '.join(fields)
         missing='State:\tR (running)\nUid:\t999\n'
-        for final in (stat(4), FileNotFoundError()):
+        for final in (stat(4), FileNotFoundError(), ProcessLookupError()):
             with self.subTest(final=final):
                 with patch.object(Path,'read_text',side_effect=[stat(0),missing,final]):
                     self.assertIsNone(GATE.service_sample(123456))

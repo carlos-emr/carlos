@@ -22,6 +22,7 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -72,8 +73,6 @@ import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConcatPDF;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-import com.sun.xml.messaging.saaj.util.ByteInputStream;
-import com.sun.xml.messaging.saaj.util.ByteOutputStream;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -108,9 +107,13 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
 
     private static final Logger logger = MiscUtils.getLogger();
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    // Struts creates this action per request; its Spring services are not serialized.
+    @SuppressWarnings("java:S1948")
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    private ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
+    // Retain the per-request Spring binding rather than serializing a service proxy.
+    @SuppressWarnings("java:S1948")
+    private final ConsultationManager consultationManager = SpringUtils.getBean(ConsultationManager.class);
 
     private static FaxManager faxManager = SpringUtils.getBean(FaxManager.class);
 
@@ -172,9 +175,8 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             path = path + File.separator;
         }
         ArrayList<Object> alist = new ArrayList<Object>();
-        byte[] buffer;
-        ByteInputStream bis;
-        ByteOutputStream bos;
+        ByteArrayInputStream bis;
+        PdfBuffer bos;
         CommonLabResultData consultLabs = new CommonLabResultData();
         ArrayList<InputStream> streams = new ArrayList<InputStream>();
 
@@ -190,12 +192,11 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         Exception exception = null;
         try {
 
-            bos = new ByteOutputStream();
+            bos = new PdfBuffer();
             ConsultationPDFCreator cpdfc = new ConsultationPDFCreator(request, bos);
             cpdfc.printPdf(loggedInInfo);
 
-            buffer = bos.getBytes();
-            bis = new ByteInputStream(buffer, bos.getCount());
+            bis = bos.openInputStream();
             bos.close();
             streams.add(bis);
             alist.add(bis);
@@ -237,14 +238,13 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                 EDoc doc = docs.get(i);
                 if (doc.isPrintable()) {
                     if (doc.isImage()) {
-                        bos = new ByteOutputStream();
+                        bos = new PdfBuffer();
                         request.setAttribute("imagePath", path + doc.getFileName());
                         request.setAttribute("imageTitle", doc.getDescription());
                         ImagePDFCreator ipdfc = new ImagePDFCreator(request, bos);
                         ipdfc.printPdf();
 
-                        buffer = bos.getBytes();
-                        bis = new ByteInputStream(buffer, bos.getCount());
+                        bis = bos.openInputStream();
                         bos.close();
                         streams.add(bis);
                         alist.add(bis);
@@ -252,52 +252,57 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                     } else if (doc.isPDF()) {
                         alist.add(path + doc.getFileName());
                     } else {
-                        logger.error("EctConsultationFormRequestPrintAction: {} is marked as printable but no means have been established to print it.", LogSafe.sanitize(doc.getType()));
+                        if (logger.isErrorEnabled()) {
+                            logger.error("EctConsultationFormRequestPrintAction: {} is marked as printable but no means have been established to print it.", LogSafe.sanitize(doc.getType()));
+                        }
                     }
                 }
             }
 
             // Iterating over requested labs.
             for (int i = 0; labs != null && i < labs.size(); i++) {
-                File tempLabPDF = File.createTempFile("lab" + labs.get(i).segmentID, "pdf");
+                // Keep generated lab content owner-only, including on hosts with a shared temp root.
+                File tempLabPDF = PathValidationUtils.createSecureTempFile("lab" + labs.get(i).segmentID, "pdf");
 
-                // Defense-in-depth: verify temp file is in an allowed temp directory
-                if (!PathValidationUtils.isInAllowedTempDirectory(tempLabPDF)) {
-                    logger.error("Temp file not in allowed temp directory: {}", LogSafe.sanitize(tempLabPDF.getAbsolutePath()));
-                    tempLabPDF.delete();
-                    throw new SecurityException("Temp file created outside allowed temp directory");
+                try {
+                    // Defense-in-depth: verify temp file is in an allowed temp directory
+                    if (!PathValidationUtils.isInAllowedTempDirectory(tempLabPDF)) {
+                        if (logger.isErrorEnabled()) {
+                            logger.error("Temp file not in allowed temp directory: {}", LogSafe.sanitize(tempLabPDF.getAbsolutePath()));
+                        }
+                        throw new SecurityException("Temp file created outside allowed temp directory");
+                    }
+
+                    // Storing the lab in PDF format inside a byte stream.
+                    try (
+                            // tempLabPDF is securely created and passes the allowed-temp check.
+                            // nosemgrep: carlos.httpservlet-path-traversal
+                            FileOutputStream fileOutputStream = new FileOutputStream(tempLabPDF);
+                            PdfBuffer byteOutputStream = new PdfBuffer();
+                    ) {
+                        request.setAttribute("segmentID", labs.get(i).segmentID);
+                        LabPDFCreator labPDFCreator = new LabPDFCreator(request, fileOutputStream);
+                        labPDFCreator.printPdf();
+                        labPDFCreator.addEmbeddedDocuments(tempLabPDF, byteOutputStream);
+
+                        // Transferring PDF to an input stream to be concatenated with
+                        // the rest of the documents.
+                        bis = byteOutputStream.openInputStream();
+                        streams.add(bis);
+                        alist.add(bis);
+                    }
+                } finally {
+                    deleteTemporaryLab(tempLabPDF);
                 }
-
-                // Storing the lab in PDF format inside a byte stream.
-                try (
-                        // tempLabPDF comes from File.createTempFile and passes the allowed-temp check.
-                        // nosemgrep: carlos.httpservlet-path-traversal
-                        FileOutputStream fileOutputStream = new FileOutputStream(tempLabPDF);
-                        ByteOutputStream byteOutputStream = new ByteOutputStream();
-                ) {
-                    request.setAttribute("segmentID", labs.get(i).segmentID);
-                    LabPDFCreator labPDFCreator = new LabPDFCreator(request, fileOutputStream);
-                    labPDFCreator.printPdf();
-                    labPDFCreator.addEmbeddedDocuments(tempLabPDF, byteOutputStream);
-
-                    // Transferring PDF to an input stream to be concatenated with
-                    // the rest of the documents.
-                    buffer = byteOutputStream.getBytes();
-                    bis = new ByteInputStream(buffer, byteOutputStream.getCount());
-                    streams.add(bis);
-                    alist.add(bis);
-                }
-                tempLabPDF.delete();
             }
 
             // attached HRMs
             ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments = consultationManager.getAttachedHRMDocuments(loggedInInfo, demoNo, reqId);
             for (HashMap<String, ? extends Object> attachedHRMDocument : attachedHRMDocuments) {
-                bos = new ByteOutputStream();
+                bos = new PdfBuffer();
                 HRMPDFCreator hrmPdf = new HRMPDFCreator(bos, (Integer) attachedHRMDocument.get("id"), loggedInInfo);
                 hrmPdf.printPdf();
-                buffer = bos.getBytes();
-                bis = new ByteInputStream(buffer, bos.getCount());
+                bis = bos.openInputStream();
                 bos.close();
                 streams.add(bis);
                 alist.add(bis);
@@ -315,7 +320,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
             if (alist.size() > 0) {
 
-                bos = new ByteOutputStream();
+                bos = new PdfBuffer();
                 int skipped = ConcatPDF.concat(alist, bos);
                 if (skipped > 0) {
                     // A document PDFBox could not parse was dropped — do not stream a consultation
@@ -331,7 +336,8 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                         "inline; filename=\"combinedPDF-"
                                 + UtilDateUtilities.getToday("yyyy-mm-dd.hh.mm.ss")
                                 + ".pdf\"");
-                response.getOutputStream().write(bos.getBytes(), 0, bos.getCount());
+                // writeTo emits only the written bytes, matching SAAJ's buffer/count pair.
+                bos.writeTo(response.getOutputStream());
             }
 
         } catch (DocumentException de) {
@@ -374,6 +380,25 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         // result or bare null) stops Struts from resolving a view into the binary response.
         return NONE;
 
+    }
+
+    /** A bounded, non-copying view; each writer is finished before its buffer is published. */
+    private static final class PdfBuffer extends ByteArrayOutputStream {
+        ByteArrayInputStream openInputStream() {
+            return new ByteArrayInputStream(buf, 0, count);
+        }
+    }
+
+    /** Keeps cleanup nonfatal and reports only the exception type, never patient paths. */
+    @SuppressWarnings("java:S1166") // Preserve nonfatal cleanup without logging patient-correlating paths.
+    private static void deleteTemporaryLab(File temporaryLab) {
+        try {
+            Files.deleteIfExists(temporaryLab.toPath());
+        } catch (IOException e) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("Temporary lab PDF cleanup failed ({})", e.getClass().getSimpleName());
+            }
+        }
     }
 
     /**
