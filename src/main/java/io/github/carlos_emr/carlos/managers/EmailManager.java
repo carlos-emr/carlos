@@ -227,7 +227,7 @@ public class EmailManager {
      * @return EmailLog the updated transport log, or the refreshed stored state after resolution;
      *         null if the log is missing
      * @throws SecurityException if user lacks _email WRITE privilege
-     * @throws NullPointerException if emailStatus is null
+     * @throws NullPointerException if emailStatus is null and the log exists
      */
     public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, Integer emailLogId, EmailStatus emailStatus, String errorMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
