@@ -62,6 +62,8 @@ or decrypted credentials while troubleshooting.
      `org.apache.catalina.startup.Bootstrap` process has exited. The stop wrapper
      can return before shutdown completes; confirm the process is gone before
      exporting configuration or backing up the database.
+     Use a logical dump or MariaDB-aware backup for the database. If backing up
+     by copying the MariaDB data files or volume, stop MariaDB before copying.
   2. Export the complete configuration to a private directory outside the
      repository and keep it with the database backup. For example, after
      creating `/absolute/private/carlos-config` with mode `0700`, run:
