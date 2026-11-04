@@ -97,7 +97,8 @@ public final class AiDocumentSummary2Action extends ActionSupport {
         request.setAttribute("documentSummaryExtraction", extract.reason());
         request.setAttribute("documentSummaryAllowed", !extract.text().isBlank());
         if (generate && !extract.text().isBlank()) {
-            LogAction.addLogSynchronous(user, "DocumentSummary.generate", "documentId=" + documentId);
+            LogAction.addLogSynchronous(user, "DocumentSummary.generate", AiReviewedDocumentSummary2Action.AUDIT_CONTENT,
+                    Integer.toString(documentId), document.patientId(), "documentId=" + documentId);
             try {
                 var summary = summarizer.summarize(extract.text());
                 if (!security.hasPrivilege(user, "_edoc", "r", null)) {
@@ -115,7 +116,8 @@ public final class AiDocumentSummary2Action extends ActionSupport {
                 request.setAttribute("documentSummaryGenerated", true);
             } catch (ClinicalSummaryGenerationException rejected) {
                 request.setAttribute("documentSummaryError", rejected.getMessage());
-                LogAction.addLogSynchronous(user, "DocumentSummary.generateRejected", "documentId=" + documentId);
+                LogAction.addLogSynchronous(user, "DocumentSummary.generateRejected", AiReviewedDocumentSummary2Action.AUDIT_CONTENT,
+                        Integer.toString(documentId), document.patientId(), "documentId=" + documentId);
             }
         }
         return SUCCESS;
