@@ -389,6 +389,8 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLRemoveFromWaitingList2Action",
                     "_demographic", "w"),
             // --- eform ---
+            Arguments.of("io.github.carlos_emr.carlos.eform.actions.HtmlEdit2Action",
+                    "_eform", "w"),
             Arguments.of("io.github.carlos_emr.carlos.eform.EFormAttachDocs2Action", "_eform", "u"),
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
                     "_admin.eform", "w"),
@@ -791,6 +793,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
         // eform slice: only these are registered; broader slice audit tracked in issue #2828.
+        "io.github.carlos_emr.carlos.eform.actions.HtmlEdit2Action",
         "io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
         "io.github.carlos_emr.carlos.eform.actions.SaveEFormAsEDoc2Action",
         // Fax slice: the fax package is not in IN_SCOPE_PACKAGE_PREFIXES, so its gated

@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.eform.data.EFormBase;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 
 public class HtmlEdit2Action extends ActionSupport {
@@ -53,7 +54,16 @@ public class HtmlEdit2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
-    public String execute() {
+    @Override
+    public String execute() throws IOException {
+        // This route only saves; the editor view has a separate GET route. CSRFGuard
+        // does not validate GET/HEAD, so reject them before reading or storing a form.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
+
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
             throw new SecurityException("missing required sec object (_eform)");
         }
