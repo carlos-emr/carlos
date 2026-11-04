@@ -530,13 +530,14 @@
                 <version>2.15.1</version>
             </dependency>
             <!-- Override the OpenTelemetry API family aligned by the transitive dependency tree.
-                 Addresses the Snyk/OpenTelemetry baggage-header allocation alert (CVE-2026-45292)
+                 Addresses the baggage-header allocation alert (CVE-2026-45292) and
+                 quadratic W3C tracestate parsing (GHSA-ccrj-gw8r-854m)
                  without importing the full BOM because CARLOS does not directly depend on the
                  OpenTelemetry module set. -->
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-api</artifactId>
-                <version>1.62.0</version>
+                <version>1.67.0</version>
             </dependency>
             <!-- Pin the httpcore5 pair reached transitively through httpclient5 and through the
                  older httpclient5-cache 5.3.1 that is also in the tree. 5.4.3 fixes CVE-2026-54399
