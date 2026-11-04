@@ -108,6 +108,14 @@ async function workflow(s) {
     });
     await s.step('retry through the same Save control writes the exact medications once',async()=>{
       const [response]=await Promise.all([rx.waitForResponse(saveMatch),button.click()]);h.assert(response.status()===200,'The retained draft could not be retried');await response.finished();
+      if(print) {
+        // The save response precedes the native preview's iframe/scripts. Settle that
+        // user-visible result before the next step deliberately reloads the Rx page.
+        const {viewScriptFrame}=require('./rx-drug-name-quotes-playwright-checks');
+        const view=await viewScriptFrame(rx);
+        for(const card of cards)await view.frameLocator('#preview').locator('body').filter({hasText:card.name}).waitFor({state:'visible',timeout:30000});
+        await rx.waitForLoadState('networkidle');
+      }
     });
   } else {
     await s.step('a committed save with a lost response stays distinct from server rollback',async()=>{
