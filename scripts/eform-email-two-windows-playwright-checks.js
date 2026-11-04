@@ -202,8 +202,12 @@ async function workflow(s) {
     await composer.locator('#senderEmailAddress').selectOption(configId);
     await composer.locator('#subjectEmail').fill(`${marker} ${label}`);
     await composer.locator('#message').fill(`${marker} body ${label}`);
+    await composer.locator('#consentOverride').check();
+    await composer.locator('#consentOverrideReason').fill(`${marker} synthetic consent confirmation`);
     await composer.locator('#doNotAddAsNoteOption').check();
     await Promise.all([composer.waitForURL(/\/email\/emailSendAction/, { timeout: TIMEOUT }), composer.locator('#btnSend').click()]);
+    const errors = await composer.locator('.alert-danger:visible').allTextContents();
+    h.assert(errors.length === 0, `The ${label} send was refused: ${errors.join(' ')}`);
     await composer.locator('#successMessage').waitFor({ timeout: TIMEOUT });
     h.assert((await composer.locator('#successMessage').innerText()).includes(entry.address),
       `The ${label} confirmation does not name its patient's address`);
