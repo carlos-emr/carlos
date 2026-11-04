@@ -276,9 +276,16 @@ const CASES = [
   }],
   ['a failed editor read leaves Save blocked until another editor is opened', async (page, state) => {
     state.expectedAlerts = ['FAKE load failed'];
-    state.failEdits = true;
     await page.getByRole('link', {name: 'FAKE job 01', exact: true}).click();
+    await page.waitForFunction(() => jQuery('#jobTypeId').val() === '1' && jQuery.active === 0);
+    await page.getByRole('button', {name: 'Cancel', exact: true}).click();
+    state.failEdits = true;
+    await page.getByRole('link', {name: 'FAKE job 02', exact: true}).click();
     await page.waitForFunction(() => jQuery.active === 0);
+    for (const id of ['jobTypeName', 'jobTypeDescription', 'jobTypeClassName']) {
+      assert.equal(await page.locator(`#${id}`).inputValue(), '', 'A failed load must not show another job type');
+    }
+    assert.equal(await page.locator('#jobTypeId').inputValue(), '0');
     assert.equal(await page.getByRole('button', {name: 'Save', exact: true}).isDisabled(), true);
     assert.equal(state.saves.length, 0);
     await page.getByRole('button', {name: 'Cancel', exact: true}).click();

@@ -101,6 +101,7 @@
             }
 
             function editJobType(jobTypeId) {
+                clearJobTypeEditor();
                 jobTypeEditorLoading = true;
                 $('#new-jobtype').dialog('open');
                 var editorGeneration = jobTypeEditorGeneration;
@@ -133,12 +134,17 @@
                     });
             }
 
-            function addNewJobType() {
-                jobTypeEditorLoading = false;
+            function clearJobTypeEditor() {
                 $('#jobTypeId').val('0');
                 $('#jobTypeName').val('');
                 $('#jobTypeDescription').val('');
                 $('#jobTypeClassName').val('');
+                $('#jobTypeEnabled').prop('checked', false);
+            }
+
+            function addNewJobType() {
+                jobTypeEditorLoading = false;
+                clearJobTypeEditor();
                 $('#jobTypeEnabled').prop('checked', true);
                 $('#new-jobtype').dialog('open');
             }
