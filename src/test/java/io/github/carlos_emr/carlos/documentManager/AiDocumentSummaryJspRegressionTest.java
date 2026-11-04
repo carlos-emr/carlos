@@ -70,6 +70,28 @@ class AiDocumentSummaryJspRegressionTest {
         }
     }
 
+    /** Textarea-closing payloads must stay plain text in both preview and correction controls. */
+    @Test
+    void shouldEscapeCorrectionsAndKeepContentUpdateSeparateFromAffirmation() throws IOException {
+        String source = Files.readString(AI_DOCUMENT_SUMMARY_JSP, StandardCharsets.UTF_8);
+        int route = source.indexOf("/documentManager/ReviseReviewedAiDocumentSummary");
+        assertThat(route).isPositive().isEqualTo(source.lastIndexOf("/documentManager/ReviseReviewedAiDocumentSummary"));
+        String form = source.substring(source.lastIndexOf("<form", route), source.indexOf("</form>", route));
+        assertThat(form).contains("method=\"post\"", "<csrf:tokenname/>", "<csrf:tokenvalue/>", "name=\"draftId\"",
+                "name=\"removePoint\"", "maxlength=\"4000\"", "maxlength=\"2000\"");
+        assertThat(form).contains(
+                "required><carlos:encode value=\"${documentSummaryOverview}\"/></textarea>",
+                "required><carlos:encode value=\"${point.text}\"/></textarea>");
+        assertThat(form).doesNotContain("name=\"affirmReview\"", "name=\"evidence\"", "contenteditable", "checked");
+        assertThat(source).contains("<p class=\"document-summary-text\"><carlos:encode value=\"${documentSummaryOverview}\"/></p>",
+                "name=\"affirmReview\" value=\"true\" required aria-describedby=\"summary-confirm-saved\"",
+                "Unsaved corrections and removal selections do not apply.",
+                "this exact saved summary displayed above");
+        String encoded = io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(
+                "FAKE document. </textarea><script>alert(1)</script>&");
+        assertThat(encoded).doesNotContain("</textarea", "<script").contains("&lt;", "&amp;");
+    }
+
     private static final Path AI_DOCUMENT_SUMMARY_JSP =
             resolveProjectPath(Path.of("src", "main", "webapp", "WEB-INF", "jsp", "documentManager",
                     "aiDocumentSummary.jsp"));

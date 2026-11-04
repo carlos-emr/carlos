@@ -12,8 +12,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -36,6 +39,7 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
     @Override public String execute() throws Exception { return handle("view"); }
     public String generate() throws Exception { return handle("generate"); }
     public String approve() throws Exception { return handle("approve"); }
+    public String revise() throws Exception { return handle("revise"); }
     public String discard() throws Exception { return handle("discard"); }
     public String original() throws Exception { return handle("original"); }
 
@@ -57,7 +61,7 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
             String value = single(request, "documentId");
             if (!value.matches("[1-9][0-9]{0,8}")) throw new IllegalArgumentException();
             documentId = Integer.parseInt(value);
-            if (List.of("approve", "original", "discard").contains(operation)) {
+            if (List.of("approve", "original", "discard", "revise").contains(operation)) {
                 String token = single(request, "draftId");
                 draftId = UUID.fromString(token);
                 if (!draftId.toString().equals(token)) throw new IllegalArgumentException();
@@ -150,6 +154,33 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
                 if (draftId != null && !before.draftId().equals(draftId)) {
                     response.sendError(409); return NONE;
                 }
+                if ("revise".equals(operation)) {
+                    int count = before.summary().points().size();
+                    var texts = request.getParameterValues("pointText");
+                    if (texts == null || texts.length != count) throw new IllegalArgumentException();
+                    var corrected = new ArrayList<String>(count);
+                    for (String text : texts) corrected.add(correctionText(text, 2000));
+                    String overview = correctionText(single(request, "overview"), 4000);
+                    Set<Integer> removed = new HashSet<>();
+                    var selections = request.getParameterValues("removePoint");
+                    if (selections != null) {
+                        if (selections.length > count) throw new IllegalArgumentException();
+                        for (String selection : selections) {
+                            if (selection == null || !selection.matches("0|[1-9][0-9]?")) throw new IllegalArgumentException();
+                            int index = Integer.parseInt(selection);
+                            if (index >= count || !removed.add(index)) throw new IllegalArgumentException();
+                        }
+                    }
+                    if (removed.size() == count) {
+                        // Identical ownership/freshness guard as discard; never accept an empty summary.
+                        removeReview(session);
+                        session.removeAttribute(GENERATION_KEY);
+                        return SUCCESS;
+                    }
+                    review.revise(currentActor, fresh.scope(), draftId, source, overview, corrected, removed);
+                    LogAction.addLogSynchronous(currentActor, "DocumentSummary.reviewRevised", "documentId=" + documentId);
+                    // Ignore any submitted affirmation: only the separately rendered existing form may approve.
+                }
                 if ("approve".equals(operation)) {
                     boolean affirmative = Arrays.equals(request.getParameterValues("affirmReview"), new String[]{"true"});
                     review.approve(currentActor, fresh.scope(), draftId, source, affirmative);
@@ -181,6 +212,7 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
                 request.setAttribute("documentSummaryNotice", view.notice());
                 request.setAttribute("documentSummaryReviewed", view.approved());
                 request.setAttribute("documentSummaryGeneratedAt", view.generatedAt().toString());
+                request.setAttribute("documentSummaryRevisedAt", view.revisedAt() == null ? null : view.revisedAt().toString());
                 request.setAttribute("documentSummaryExtraction", view.extractionDisclosure());
             }
             return SUCCESS;
@@ -212,6 +244,13 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
         var current = session.getAttribute(DocumentSummaryReviewSession.SESSION_KEY);
         if (current instanceof DocumentSummaryReviewSession review) review.close();
         session.removeAttribute(DocumentSummaryReviewSession.SESSION_KEY);
+    }
+    private static String correctionText(String value, int maximum) {
+        // Browser textarea form encoding uses CRLF. Canonicalize only those transport line endings.
+        if (value == null || value.length() > maximum * 2) throw new IllegalArgumentException();
+        String text = value.replace("\r\n", "\n");
+        if (text.length() > maximum) throw new IllegalArgumentException();
+        return text;
     }
     private static String single(HttpServletRequest request, String name) {
         var values = request.getParameterValues(name);

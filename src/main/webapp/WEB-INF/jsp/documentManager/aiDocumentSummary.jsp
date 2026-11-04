@@ -44,6 +44,9 @@
     <c:when test="${documentSummaryGenerated}">
         <c:if test="${documentSummaryReviewWorkflow}">
             <p>Generated: <carlos:encode value="${documentSummaryGeneratedAt}"/></p>
+            <c:if test="${not empty documentSummaryRevisedAt}">
+                <p>Clinician text revision: <carlos:encode value="${documentSummaryRevisedAt}"/>.</p>
+            </c:if>
             <p><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ReviewedAiSummaryOriginal?documentId=${carlos:forHtmlAttribute(documentSummaryId)}&amp;draftId=${carlos:forHtmlAttribute(documentSummaryDraftId)}">Download the exact original used for this summary</a></p>
         </c:if>
         <details id="document-summary-overview" class="mb-3">
@@ -62,12 +65,30 @@
             </c:forEach>
         </section>
         <c:if test="${documentSummaryReviewWorkflow}">
+            <details class="my-3">
+                <summary>Correct summary text or remove points</summary>
+                <p>Save corrections to display a new draft before confirming your review. Supporting excerpts stay unchanged. Removing every point discards this draft.</p>
+                <form method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ReviseReviewedAiDocumentSummary">
+                    <input type="hidden" name="documentId" value="${carlos:forHtmlAttribute(documentSummaryId)}">
+                    <input type="hidden" name="draftId" value="${carlos:forHtmlAttribute(documentSummaryDraftId)}">
+                    <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
+                    <label for="summary-correction-overview">Overview</label>
+                    <textarea id="summary-correction-overview" name="overview" maxlength="4000" rows="4" class="form-control mb-3" required><carlos:encode value="${documentSummaryOverview}"/></textarea>
+                    <c:forEach items="${documentSummaryPoints}" var="point" varStatus="position">
+                        <label for="summary-correction-point-${position.index}">Point ${position.count}</label>
+                        <textarea id="summary-correction-point-${position.index}" name="pointText" maxlength="2000" rows="3" class="form-control" required><carlos:encode value="${point.text}"/></textarea>
+                        <label class="d-block mb-3"><input type="checkbox" name="removePoint" value="${position.index}"> Remove point ${position.count}</label>
+                    </c:forEach>
+                    <button type="submit" class="btn btn-outline-primary">Save corrections and clear this review</button>
+                </form>
+            </details>
             <c:if test="${not documentSummaryReviewed}">
                 <form method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/documentManager/ApproveReviewedAiDocumentSummary" class="my-3">
                     <input type="hidden" name="documentId" value="${carlos:forHtmlAttribute(documentSummaryId)}">
                     <input type="hidden" name="draftId" value="${carlos:forHtmlAttribute(documentSummaryDraftId)}">
                     <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
-                    <label><input type="checkbox" name="affirmReview" value="true" required> I reviewed the original, this exact summary and the extraction limits and patient notice.</label>
+                    <p id="summary-confirm-saved">This confirms the saved summary displayed above. Unsaved corrections and removal selections do not apply. Save corrections first to review and confirm revised text.</p>
+                    <label><input type="checkbox" name="affirmReview" value="true" required aria-describedby="summary-confirm-saved"> I reviewed the original, this exact saved summary displayed above and the extraction limits and patient notice.</label>
                     <button type="submit" class="btn btn-primary d-block mt-2">Record my clinician review</button>
                 </form>
             </c:if>

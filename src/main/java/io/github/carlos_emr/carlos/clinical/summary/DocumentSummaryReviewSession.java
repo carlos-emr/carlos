@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -43,7 +44,7 @@ public final class DocumentSummaryReviewSession implements HttpSessionBindingLis
     @FunctionalInterface public interface SourceLoader { byte[] load() throws IOException; }
 
     public record View(UUID draftId, DocumentSummary summary, String notice, Instant generatedAt,
-            boolean approved, String extractionDisclosure, String originalSha256, String version) {
+            boolean approved, String extractionDisclosure, String originalSha256, String version, Instant revisedAt) {
         @Override public String toString() { return "SummaryReviewView[REDACTED]"; }
     }
 
@@ -162,7 +163,7 @@ public final class DocumentSummaryReviewSession implements HttpSessionBindingLis
             authorize(actor, currentScope, currentSource);
             return new View(draft.id(), draft.summary(), approval == null ? draft.previewNotice() : approval.patientNotice(),
                     draft.generatedAt(), approval != null, draft.extractionDisclosure(),
-                    captured.source().originalSha256(), draft.version());
+                    captured.source().originalSha256(), draft.version(), draft.revisedAt());
         }
     }
 
@@ -174,6 +175,19 @@ public final class DocumentSummaryReviewSession implements HttpSessionBindingLis
             var recorded = binding.approve(draft, displayedDraftId, currentSource, actor, affirmativeReview);
             // A duplicate form submission keeps the original server-recorded review time.
             if (approval == null) approval = recorded;
+        }
+    }
+
+    /** A content update never affirms review, changes original custody or extends this session's expiry. */
+    public void revise(LoggedInInfo actor, DocumentSummaryReviewBinding.Scope currentScope,
+            UUID displayedDraftId, DocumentSummaryReviewBinding.Source currentSource,
+            String overview, List<String> pointTexts, Set<Integer> removedPoints) {
+        synchronized (LOCK) {
+            authorize(actor, currentScope, currentSource);
+            if (!draft.id().equals(displayedDraftId)) throw stale();
+            var revised = binding.revise(draft, overview, pointTexts, removedPoints);
+            draft = revised;
+            approval = null;
         }
     }
 

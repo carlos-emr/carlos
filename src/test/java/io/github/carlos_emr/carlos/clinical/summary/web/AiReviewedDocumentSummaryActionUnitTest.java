@@ -246,4 +246,124 @@ class AiReviewedDocumentSummaryActionUnitTest {
         assertThat(action.original()).isEqualTo(ActionSupport.NONE); assertThat(output.toByteArray()).isEqualTo(bytes());
         assertThat(review.view(actor, SCOPE, source()).approved()).isFalse();
     }
+    private void correction(DocumentSummaryReviewSession review, String overview, String... texts) {
+        token(review);
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameterValues("overview")).thenReturn(new String[]{overview});
+        when(request.getParameterValues("pointText")).thenReturn(texts);
+    }
+    @Test void correctionRendersNewUnreviewedContentIgnoringPostedAffirmationAndEvidence() throws Exception {
+        var review = generate(); approve(review);
+        var before = review.view(actor, SCOPE, source());
+        correction(review, "FAKE blood work document.", "Blood work was planned.");
+        when(request.getParameterValues("affirmReview")).thenReturn(new String[]{"true"});
+        when(request.getParameterValues("evidence")).thenReturn(new String[]{"Invented evidence."});
+        when(request.getParameterValues("modelIdentity")).thenReturn(new String[]{"IMPOSTOR"});
+        clearInvocations(request, generator);
+        assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS);
+        var revised = review.view(actor, SCOPE, source());
+        assertThat(revised.approved()).isFalse();
+        assertThat(revised.draftId()).isNotEqualTo(before.draftId());
+        assertThat(revised.generatedAt()).isEqualTo(before.generatedAt());
+        assertThat(revised.originalSha256()).isEqualTo(before.originalSha256());
+        assertThat(revised.summary().points().get(0).get("evidence")).isEqualTo(List.of("Repeat blood work was planned."));
+        verify(request).setAttribute("documentSummaryOverview", "FAKE blood work document.");
+        verify(request).setAttribute("documentSummaryDraftId", revised.draftId().toString());
+        verify(request).setAttribute("documentSummaryReviewed", false);
+        verify(request, never()).getParameterValues("affirmReview");
+        verify(request, never()).getParameterValues("evidence");
+        verify(request, never()).getParameterValues("modelIdentity");
+        verifyNoInteractions(generator);
+        approve(review);
+        assertThat(review.view(actor, SCOPE, source()).approved()).isTrue();
+    }
+    @Test void correctionRejectsGetAndRemainsDefaultOffBeforeReaders() throws Exception {
+        assertThat(action.revise()).isEqualTo(ActionSupport.NONE);
+        verify(response).sendError(405); verifyNoInteractions(context, generator);
+        when(request.getMethod()).thenReturn("POST");
+        enabled.when(DocumentSummaryReviewContext::enabled).thenReturn(false);
+        assertThat(action.revise()).isEqualTo(ActionSupport.NONE);
+        verify(response).sendError(404); verifyNoInteractions(context, generator);
+    }
+    @Test void staleCorrectionPreservesCurrentApprovalAndNeverReadsPostedContent() throws Exception {
+        var review = generate(); approve(review);
+        var before = review.view(actor, SCOPE, source());
+        when(request.getParameterValues("draftId")).thenReturn(new String[]{UUID.randomUUID().toString()});
+        clearInvocations(request);
+        assertThat(action.revise()).isEqualTo(ActionSupport.NONE); verify(response).sendError(409);
+        assertThat(current()).isSameAs(review);
+        assertThat(review.view(actor, SCOPE, source()).version()).isEqualTo(before.version());
+        assertThat(review.view(actor, SCOPE, source()).approved()).isTrue();
+        verify(request, never()).getParameterValues("pointText");
+    }
+    @Test void crossDocumentCorrectionCannotModifyOrDiscardNewerApprovedReview() throws Exception {
+        var otherScope = new DocumentSummaryReviewBinding.Scope("FAKE-clinic", 8, 12);
+        var other = DocumentSummaryReviewSession.generate(otherScope, META, AiReviewedDocumentSummaryActionUnitTest::bytes,
+                generator, "FAKE-model", actor);
+        var otherSource = DocumentSummaryReviewBinding.capture(otherScope, META, bytes());
+        var before = other.view(actor, otherScope, otherSource);
+        other.approve(actor, otherScope, before.draftId(), otherSource, true);
+        state.put(DocumentSummaryReviewSession.SESSION_KEY, other);
+        when(request.getMethod()).thenReturn("POST");
+        when(request.getParameterValues("draftId")).thenReturn(new String[]{before.draftId().toString()});
+        when(request.getParameterValues("removePoint")).thenReturn(new String[]{"0"});
+        assertThat(action.revise()).isEqualTo(ActionSupport.NONE); verify(response).sendError(409);
+        assertThat(current()).isSameAs(other);
+        assertThat(other.view(actor, otherScope, otherSource).version()).isEqualTo(before.version());
+        assertThat(other.view(actor, otherScope, otherSource).approved()).isTrue();
+        verify(request, never()).getParameterValues("pointText");
+    }
+    @Test void correctionOnChangedLoginClosesPriorReviewBeforeDocumentReaders() throws Exception {
+        var review = generate(); approve(review); correction(review, "FAKE document.", "Blood work planned.");
+        var nextLogin = actor(72);
+        authentication.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(nextLogin);
+        clearInvocations(context);
+        assertThat(action.revise()).isEqualTo(ActionSupport.NONE); verify(response).sendError(409);
+        verifyNoInteractions(context); assertThat(current()).isNull();
+        assertThatThrownBy(() -> review.view(actor, SCOPE, source())).isInstanceOf(IllegalStateException.class);
+    }
+    @Test void correctionCannotBypassRevokedDocumentAuthorization() throws Exception {
+        var review = generate(); approve(review); correction(review, "FAKE document.", "Blood work planned.");
+        var before = review.view(actor, SCOPE, source());
+        when(context.load(actor, 11)).thenThrow(new SecurityException("FAKE access revoked"));
+        clearInvocations(request);
+        assertThatThrownBy(action::revise).isInstanceOf(SecurityException.class);
+        verify(request, never()).getParameterValues("pointText");
+        assertThat(review.view(actor, SCOPE, source()).version()).isEqualTo(before.version());
+    }
+    @Test void changedSourceCorrectionCannotRetainOldReview() throws Exception {
+        var review = generate(); approve(review); correction(review, "FAKE document.", "Blood work planned.");
+        when(context.currentSource(any())).thenReturn(DocumentSummaryReviewBinding.capture(SCOPE, META,
+                (TEXT + " Changed.").getBytes(StandardCharsets.UTF_8)));
+        clearInvocations(request);
+        assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(current()).isNull();
+        verify(request, never()).getParameterValues("pointText");
+    }
+    @Test void removingEveryPointDiscardsDraftInsteadOfProducingEmptySummary() throws Exception {
+        var review = generate(); approve(review); correction(review, "FAKE document.", "Repeat blood work was planned.");
+        when(request.getParameterValues("removePoint")).thenReturn(new String[]{"0"});
+        assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(current()).isNull();
+        assertThatThrownBy(() -> review.view(actor, SCOPE, source())).isInstanceOf(IllegalStateException.class);
+        verify(generator, times(1)).summarize(TEXT);
+    }
+    @Test void correctionRejectsExtraPointOrDuplicateRemovalRatherThanAddingContent() throws Exception {
+        var review = generate(); correction(review, "FAKE document.", "Blood work planned.", "Injected extra point.");
+        assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS); assertThat(current()).isNull();
+        review = generate(); correction(review, "FAKE document.", "Blood work planned.");
+        when(request.getParameterValues("removePoint")).thenReturn(new String[]{"0", "0"});
+        assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS); assertThat(current()).isNull();
+    }
+    @Test void correctionNormalizesBrowserLineEndingsAndKeepsMarkupAsPlainText() throws Exception {
+        var review = generate();
+        String payload = "FAKE document.\r\n</textarea><script>alert(1)</script>";
+        correction(review, payload, "Repeat blood work was planned.");
+        assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS);
+        String stored = review.view(actor, SCOPE, source()).summary().overview();
+        assertThat(stored).isEqualTo(payload.replace("\r\n", "\n"));
+        verify(request).setAttribute("documentSummaryOverview", stored);
+        assertThat(review.view(actor, SCOPE, source()).approved()).isFalse();
+    }
+
 }

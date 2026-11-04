@@ -11,8 +11,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -170,22 +172,32 @@ public final class DocumentSummaryReviewBinding {
         private final Source source;
         private final DocumentSummary summary;
         private final Instant generatedAt;
+        private final String modelIdentity;
+        private final String language;
+        private final Instant revisedAt;
         private final String version;
 
-        private Draft(Source source, DocumentSummary summary, String modelIdentity, String language, Instant generatedAt) {
+        private Draft(Source source, DocumentSummary summary, String modelIdentity, String language, Instant generatedAt, Instant revisedAt) {
             this.source = source;
             this.summary = summary;
             this.generatedAt = generatedAt;
+            this.modelIdentity = modelIdentity;
+            this.language = language;
+            this.revisedAt = revisedAt;
             // These values are already validated strings/lists. Hash each value with an unambiguous
             // length frame, preserving point/excerpt order and exact Unicode, not normalized prose.
             String pointsHash = fingerprint("points", ClinicalSummaryAgentProtocol.JSON.valueToTree(summary.points()).toString());
             version = fingerprint("draft", id.toString(), source.fingerprint, summary.overview(), pointsHash,
-                    modelIdentity, language, generatedAt.toString(), NOTICE_VERSION, NOTICE_HEADING, NOTICE_BODY);
+                    modelIdentity, language, generatedAt.toString(), NOTICE_VERSION, NOTICE_HEADING, NOTICE_BODY,
+                    Objects.toString(revisedAt, null));
         }
 
         public UUID id() { return id; }
         public String version() { return version; }
         public Instant generatedAt() { return generatedAt; }
+        public Instant revisedAt() { return revisedAt; }
+        public String modelIdentity() { return modelIdentity; }
+        public String language() { return language; }
         public DocumentSummary summary() { return summary; }
         public boolean extractionComplete() { return source.extraction.complete(); }
         public String extractionDisclosure() { return source.extraction.reason(); }
@@ -211,7 +223,36 @@ public final class DocumentSummaryReviewBinding {
                 "overview", summary.overview(), "points", summary.points()));
         DocumentSummaryService.validate(value, source.extraction.text());
         Instant generatedAt = now();
-        return new Draft(source, new DocumentSummary(value), modelIdentity, language, generatedAt);
+        return new Draft(source, new DocumentSummary(value), modelIdentity, language, generatedAt, null);
+    }
+
+    /**
+     * Revise only existing text/removals; evidence and model-generation provenance remain server-owned.
+     * The caller must authorize the current source and displayed draft before calling this method.
+     * Empty results belong to the existing discard operation, not a different summary schema.
+     */
+    Draft revise(Draft prior, String overview, List<String> pointTexts, Set<Integer> removedPoints) {
+        if (prior == null || overview == null || overview.length() > 4000
+                || pointTexts == null || removedPoints == null) throw invalid();
+        var existing = ClinicalSummaryAgentProtocol.JSON.valueToTree(prior.summary.points());
+        int count = existing.size();
+        if (pointTexts.size() != count || removedPoints.size() >= count
+                || removedPoints.stream().anyMatch(index -> index == null || index < 0 || index >= count)
+                || pointTexts.stream().anyMatch(text -> text == null || text.length() > 2000)) throw invalid();
+        var value = ClinicalSummaryAgentProtocol.JSON.createObjectNode().put("overview", overview);
+        var points = value.putArray("points");
+        for (int index = 0; index < count; index++) {
+            if (!removedPoints.contains(index)) {
+                var point = points.addObject().put("text", pointTexts.get(index));
+                point.set("evidence", existing.get(index).get("evidence").deepCopy());
+            }
+        }
+        DocumentSummaryService.validate(value, prior.source.extraction.text());
+        Instant revisedAt = now();
+        if (revisedAt.isBefore(prior.generatedAt)
+                || (prior.revisedAt != null && revisedAt.isBefore(prior.revisedAt))) throw changed();
+        return new Draft(prior.source, new DocumentSummary(value), prior.modelIdentity, prior.language,
+                prior.generatedAt, revisedAt);
     }
 
     public static final class Approval {
@@ -232,6 +273,7 @@ public final class DocumentSummaryReviewBinding {
         public String summaryVersion() { return draft.version; }
         public String sourceSha256() { return draft.source.originalSha256; }
         public Instant generatedAt() { return draft.generatedAt; }
+        public Instant revisedAt() { return draft.revisedAt; }
         public DocumentSummary summary() { return draft.summary; }
         public boolean extractionComplete() { return draft.extractionComplete(); }
         public String extractionDisclosure() { return draft.extractionDisclosure(); }
@@ -269,7 +311,8 @@ public final class DocumentSummaryReviewBinding {
         label(reviewerId, 64);
         label(reviewerName, 240);
         Instant reviewedAt = now();
-        if (reviewedAt.isBefore(draft.generatedAt)) throw changed();
+        if (reviewedAt.isBefore(draft.generatedAt)
+                || (draft.revisedAt != null && reviewedAt.isBefore(draft.revisedAt))) throw changed();
         return new Approval(draft, reviewerId, reviewerName, reviewedAt);
     }
 
