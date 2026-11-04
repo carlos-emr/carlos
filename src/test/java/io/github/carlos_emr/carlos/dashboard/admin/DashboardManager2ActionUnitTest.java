@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.dashboard.admin;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -77,8 +78,8 @@ class DashboardManager2ActionUnitTest {
     @DisplayName("should refuse access when the manager denies a read after the action permission check")
     void shouldRefuseRead_whenManagerDeniesAccess() throws Exception {
         when(manager.getDashboards(info)).thenReturn(null);
-        execute();
-        assertThat(response.getStatus()).isEqualTo(403);
+        assertThatThrownBy(this::execute).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_dashboardManager)");
     }
 
     @ParameterizedTest
@@ -124,8 +125,8 @@ class DashboardManager2ActionUnitTest {
         request.setMethod("POST");
         request.setParameter("operation", "save");
         when(security.hasPrivilege(info, "_dashboardManager", "w", null)).thenReturn(false);
-        assertThat(execute()).isEqualTo(ActionSupport.NONE);
-        assertThat(response.getStatus()).isEqualTo(403);
+        assertThatThrownBy(this::execute).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_dashboardManager)");
         verifyNoInteractions(manager);
     }
 
@@ -133,8 +134,8 @@ class DashboardManager2ActionUnitTest {
     @DisplayName("should deny dashboard enumeration without read access")
     void shouldDenyView_whenUnauthorized() throws Exception {
         when(security.hasPrivilege(info, "_dashboardManager", "r", null)).thenReturn(false);
-        execute();
-        assertThat(response.getStatus()).isEqualTo(403);
+        assertThatThrownBy(this::execute).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_dashboardManager)");
         verifyNoInteractions(manager);
     }
 

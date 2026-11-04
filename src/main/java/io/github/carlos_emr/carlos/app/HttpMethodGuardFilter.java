@@ -182,7 +182,9 @@ public class HttpMethodGuardFilter implements Filter {
             "/form/select", Set.of("forward"),
             // Generate Teleplan File: providers (the Create Report form's physician) writes an MSP batch; the menu
             // item and the year archive links open the page without it (#4439 D3).
-            "/billing/CA/BC/GenerateTeleplanFile", Set.of("providers")
+            "/billing/CA/BC/GenerateTeleplanFile", Set.of("providers"),
+            // Dashboard administration renders on GET; operation is present only on its mutation forms.
+            "/web/dashboard/admin/DashboardManager", Set.of("operation")
     );
 
     /** {@link #MUTATION_INTENT_PARAMS_BY_ROUTE} with every path and name lowercased, for lookup. */

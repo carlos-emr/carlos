@@ -110,12 +110,12 @@ async function workflow(s) {
   await s.step('a POST without the CSRF token is refused and changes nothing', async () => {
     const where = `creator=${h.sqlString(fixture.providerNo)} AND name LIKE ${h.sqlString(marker + '%')}`;
     const before = sql.value(`SELECT COUNT(*) FROM dashboard WHERE ${where}`);
-    const response = await context.request.post(h.appUrl(s.config.baseUrl, '/web/dashboard/admin/DashboardManager').href,
+    const response = await context.request.post(h.appUrl(s.config.baseUrl, '/web/dashboard/admin/DashboardManager'),
       { form: { operation: 'save', name: marker + ' CSRF probe' }, maxRedirects: 0 });
     await h.assertRefused(s, { response, table: 'dashboard', where, before, label: 'Dashboard save without CSRF token' });
   });
   await s.step('a GET save is refused and changes nothing', async () => {
-    const url = h.appUrl(s.config.baseUrl, '/web/dashboard/admin/DashboardManager');
+    const url = new URL(h.appUrl(s.config.baseUrl, '/web/dashboard/admin/DashboardManager'));
     url.searchParams.set('operation', 'save');
     url.searchParams.set('name', marker + ' Get probe');
     const where = `creator=${h.sqlString(fixture.providerNo)} AND name LIKE ${h.sqlString(marker + '%')}`;
