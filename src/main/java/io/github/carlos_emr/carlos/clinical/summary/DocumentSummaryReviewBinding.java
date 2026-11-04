@@ -46,16 +46,16 @@ public final class DocumentSummaryReviewBinding {
      * patient's record ({@link #noticeLanguage(String)}), not from the sender.
      */
     public static final String NOTICE_VERSION_FR = "carlos-5537-fr-1";
-    private static final String NOTICE_HEADING_FR = "Aide à la lecture générée par l'IA — ouvrez le document original";
+    private static final String NOTICE_HEADING_FR = "Aide à la lecture générée par l’IA — ouvrez le document original";
     private static final String NOTICE_BODY_FR =
             "Ce résumé facultatif a été généré par une intelligence artificielle à partir du document lié. "
             + "Il peut contenir des énoncés inexacts ou trompeurs, ou omettre des renseignements importants, "
-            + "y compris sur les médicaments, les doses et les résultats d'examens.\n\n"
+            + "y compris sur les médicaments, les doses et les résultats d’examens.\n\n"
             + "Il ne remplace ni le document original ni les directives de votre équipe de soins. Ouvrez le "
-            + "document original pour obtenir l'information complète. Ne commencez pas, n'arrêtez pas, ne "
+            + "document original pour obtenir l’information complète. Ne commencez pas, n’arrêtez pas, ne "
             + "modifiez pas et ne retardez pas un traitement en vous fondant uniquement sur ce résumé. "
-            + "Communiquez avec votre clinique si quelque chose n'est pas clair ou diffère de l'original. "
-            + "En cas de problème médical urgent, communiquez avec les services d'urgence appropriés; "
+            + "Communiquez avec votre clinique si quelque chose n’est pas clair ou diffère de l’original. "
+            + "En cas de problème médical urgent, communiquez avec les services d’urgence appropriés; "
             + "ne vous fiez pas à ce résumé.";
     /** The languages a reviewed notice exists in. */
     public static final Set<String> NOTICE_LANGUAGES = Set.of("en", "fr");
@@ -358,8 +358,9 @@ public final class DocumentSummaryReviewBinding {
     public static String noticeLanguage(String officialLanguage) {
         if (officialLanguage == null) return "en";
         String value = officialLanguage.strip().toLowerCase(java.util.Locale.ROOT);
-        return value.startsWith("fr") || value.equals("fre") || value.equals("français") || value.equals("francais")
-                ? "fr" : "en";
+        // Exact tokens only: "fr", "fre", "fra", "fr-CA"/"fr_CA", "french", "français", "francais";
+        // never a value that merely starts with "fr" ("Frisian", "free text").
+        return value.matches("fr|fre|fra|fr[-_][a-z0-9]{2,8}|french|français|francais") ? "fr" : "en";
     }
 
     public static String noticeVersion(String language) { return "fr".equals(language) ? NOTICE_VERSION_FR : NOTICE_VERSION; }

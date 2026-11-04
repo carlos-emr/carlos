@@ -296,12 +296,12 @@ class DocumentSummaryReviewBindingUnitTest {
         assertThat(french.language()).isEqualTo("fr");
         assertThat(french.version()).isNotEqualTo(english.version());
         String preview = french.previewNotice();
-        assertThat(preview).startsWith("Aide à la lecture générée par l'IA — ouvrez le document original\n")
-                .contains("Statut de la révision : révision non confirmée", "résultats d'examens")
+        assertThat(preview).startsWith("Aide à la lecture générée par l’IA — ouvrez le document original\n")
+                .contains("Statut de la révision : révision non confirmée", "résultats d’examens")
                 .doesNotContain("Review status", "AI-generated", "healthcare team", "Reviewed by");
         var approved = service(REVIEWED).approve(french, french.id(), source, actor(), true);
         assertThat(approved.patientNotice())
-                .startsWith("Aide à la lecture générée par l'IA — ouvrez le document original\n")
+                .startsWith("Aide à la lecture générée par l’IA — ouvrez le document original\n")
                 .contains("Statut de la révision : révisé par le professionnel de la santé FAKE Reviewer le " + REVIEWED)
                 .contains("ne vous fiez pas à ce résumé.")
                 .doesNotContain("Review status", "Reviewed by clinician", "do not rely");
@@ -315,9 +315,9 @@ class DocumentSummaryReviewBindingUnitTest {
 
     @Test
     void noticeLanguageFollowsThePatientsOfficialLanguageAndDefaultsToEnglish() {
-        for (String value : new String[]{"French", "french", " FRENCH ", "fr", "fr-CA", "FRE", "Français"})
+        for (String value : new String[]{"French", "french", " FRENCH ", "fr", "fr-CA", "fr_CA", "FRE", "fra", "Français", "francais"})
             assertThat(DocumentSummaryReviewBinding.noticeLanguage(value)).as(value).isEqualTo("fr");
-        for (String value : new String[]{"English", "ENG", "en", "en-CA", "", " ", "Spanish", "Cree", "unknown", null})
+        for (String value : new String[]{"English", "ENG", "en", "en-CA", "", " ", "Spanish", "Cree", "unknown", "Frisian", "free text", "fra-x", "fr-", "French Canadian", null})
             assertThat(DocumentSummaryReviewBinding.noticeLanguage(value)).as(String.valueOf(value)).isEqualTo("en");
     }
 }
