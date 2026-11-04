@@ -3,10 +3,14 @@
 
     This software is published under the GPL GNU General Public License.
 
-    Email preparation failed after the eForm was saved (#4477). The action restores this
-    window's draft, so reloading retries its own compose URL. Keep this page independent
-    of the eForm viewer: forwarding there renders an empty template and breaks relative links.
-    Reached only through EmailCompose2Action's _email write privilege check.
+--%>
+<%--
+    Purpose: Display eForm email-preparation failures (#4477).
+    Features: Confirm saved-form recovery and retry this window's restored draft.
+        Keep the page independent of the eForm viewer to avoid empty templates and broken relative links.
+    Parameters: errorMessage (String) request attribute containing the localized failure message.
+    Access control: Reached only through EmailCompose2Action's _email write privilege check.
+    @since 2026-11-04
 --%>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
