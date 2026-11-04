@@ -86,6 +86,19 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
         }
     }
 
+    /**
+     * Finds issues linked to a note, optionally filtered by resolution state.
+     * Results are ordered by resolution state, with unresolved issues first;
+     * ordering within each state is unspecified.
+     *
+     * @param noteId Integer identifier of the note; must not be null
+     * @param resolved Boolean resolution state to match, or null to return issues
+     *                 without filtering by resolution
+     * @return non-null {@code List<CaseManagementIssue>} of matching issues, or an
+     *         empty list if the note does not exist or has no matching linked issues
+     * @throws IllegalArgumentException if noteId is null
+     * @throws org.springframework.dao.DataAccessException if persistence access fails
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByNote(Integer noteId, Boolean resolved) {
