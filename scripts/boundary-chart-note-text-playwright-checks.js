@@ -147,6 +147,9 @@ async function workflow(s) {
     const closed = chart.waitForEvent('close', { timeout: 30000 });
     const [response] = await Promise.all([
       chart.waitForResponse(isEntry('saveAndExit'), { timeout: 30000 }),
+      // Sign & Save reloads the opener. Arm this before clicking so the next
+      // step cannot inspect the old page while its replacement is loading.
+      s.master.waitForEvent('load', { timeout: 30000 }),
       chart.locator('#signSaveImg').first().click(),
       closed,
     ]);
@@ -166,6 +169,8 @@ async function workflow(s) {
 
   await s.step('reopening the edited note shows its complete text, including both literal textarea terminators', async () => {
     await s.master.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+    await waitVisible(s.master.locator('a').filter({ hasText: /^\s*E-?Chart\s*$/i }).first(),
+      'Boundary note: Master Record E-Chart link');
     const chart = await s.chart();
     const note = noteContents(chart, editedId);
     await waitVisible(note, 'Boundary note: edited revision');
