@@ -28,8 +28,10 @@ import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardWatchEventKinds;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
@@ -220,18 +222,55 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         assertThat(EncryptionUtils.decrypt(ciphertext)).isEqualTo("home-configuration");
     }
 
-    @Test
-    void shouldRequestExternalConfiguration_whenOnlyBundledConfigurationWasLoaded() throws Exception {
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   "})
+    void shouldRequestExternalConfiguration_whenOnlyBundledConfigurationWasLoaded(String key) throws Exception {
         CarlosProperties properties = reloadProperties();
-        properties.setProperty(KEY, "");
+        properties.setProperty("db_name", "startup_test");
+        if (key == null) {
+            properties.remove(KEY);
+        } else {
+            properties.setProperty(KEY, key);
+        }
 
         assertThatThrownBy(this::startApplication)
                 .hasMessageContaining("/carlos.properties")
                 .hasMessageContaining(KEY)
-                .hasMessageContaining("-Dcarlos_override_properties=");
+                .hasMessageContaining("-Dcarlos_override_properties=")
+                .hasMessageContaining("Restore the original key")
+                .hasMessageContaining("https://github.com/carlos-emr/carlos/blob/release/2026.08/docs/startup-encryption-key.md");
         assertThat(userHome.resolve("carlos.properties")).doesNotExist();
-        assertThat(properties.getProperty(KEY)).isEmpty();
+        assertThat(properties.getProperty(KEY)).isEqualTo(key);
         assertThat(keySpecField.get(null)).isNull();
+    }
+
+    @Test
+    void shouldReuseConfiguredKey_whenOnlyClasspathConfigurationWasLoaded() throws Exception {
+        String resource = "/WEB-INF/startup-configured-encryption-key.properties";
+        byte[] originalResource;
+        try (var input = getClass().getResourceAsStream(resource)) {
+            originalResource = input.readAllBytes();
+        }
+        CarlosProperties properties = reloadProperties();
+        properties.clear();
+        properties.readFromFile(resource);
+        String configuredKey = properties.getProperty(KEY);
+
+        startApplication();
+        String ciphertext = EncryptionUtils.encrypt("classpath-configuration");
+
+        CarlosProperties secondBoot = reloadProperties();
+        secondBoot.clear();
+        secondBoot.readFromFile(resource);
+        startApplication();
+
+        assertThat(secondBoot.getProperty(KEY)).isEqualTo(configuredKey);
+        assertThat(EncryptionUtils.decrypt(ciphertext)).isEqualTo("classpath-configuration");
+        assertThat(userHome.resolve("carlos.properties")).doesNotExist();
+        try (var input = getClass().getResourceAsStream(resource)) {
+            assertThat(input.readAllBytes()).isEqualTo(originalResource);
+        }
     }
 
     @Test
@@ -319,10 +358,11 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         Path start = tempDir.resolve("start");
         List<Process> workers = new ArrayList<>();
         List<Path> homes = new ArrayList<>();
-        try {
+        try (var readiness = FileSystems.getDefault().newWatchService()) {
             for (int index = 0; index < 2; index++) {
                 Path home = Files.createDirectory(tempDir.resolve("process-" + index));
                 homes.add(home);
+                home.register(readiness, StandardWatchEventKinds.ENTRY_CREATE);
                 String classpath = System.getProperty("surefire.test.class.path", System.getProperty("java.class.path"));
                 workers.add(new ProcessBuilder(
                         Path.of(System.getProperty("java.home"), "bin", "java").toString(),
@@ -335,7 +375,11 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
             while (homes.stream().anyMatch(home -> !Files.exists(home.resolve("ready")))
                     && System.nanoTime() < deadline && workers.stream().allMatch(Process::isAlive)) {
-                Thread.sleep(10);
+                var change = readiness.poll(10, TimeUnit.MILLISECONDS);
+                if (change != null) {
+                    change.pollEvents();
+                    change.reset();
+                }
             }
             assertThat(homes).allMatch(home -> Files.exists(home.resolve("ready")));
             Files.createFile(start);

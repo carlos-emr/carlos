@@ -161,13 +161,13 @@ public class CarlosProperties extends Properties {
      * @return the validated property value, or null if not found
      */
     public String getProperty(String key) {
-        if (key.equals("FORMS_PROMOTEXT")) {
-            return "";
-        }
-
         if (key == null || key.trim().isEmpty()) {
             MiscUtils.getLogger().warn("Attempted to retrieve property with blank key.");
             throw new IllegalArgumentException("Property key cannot be blank.");
+        }
+
+        if (key.equals("FORMS_PROMOTEXT")) {
+            return "";
         }
 
         String value = super.getProperty(key);
@@ -244,7 +244,8 @@ public class CarlosProperties extends Properties {
 
             String overrideProperties = System.getProperty("carlos_override_properties");
             if (overrideProperties != null) {
-                MiscUtils.getLogger().info("Applying override properties : " + overrideProperties);
+                String overrideLocation = LogSafe.sanitize(overrideProperties);
+                MiscUtils.getLogger().info("Applying override properties : {}", overrideLocation);
                 readFromFile(overrideProperties);
             }
         } catch (IOException e) {
@@ -277,7 +278,7 @@ public class CarlosProperties extends Properties {
                 // Release the lock before closing either owner of the same file descriptor.
                 try (FileInputStream input = new FileInputStream(propertyFile);
                      FileChannel channel = input.getChannel();
-                     FileLock ignored = channel.lock(0, Long.MAX_VALUE, true)) {
+                     FileLock _ = channel.lock(0, Long.MAX_VALUE, true)) {
                     load(input);
                 }
             }
@@ -301,16 +302,19 @@ public class CarlosProperties extends Properties {
             String keyName = EncryptionUtils.SECRET_KEY_ENV_VAR;
             if (loadedPropertiesFile == null) {
                 throw new IOException("Configuration source " + loadedPropertiesLocation
-                        + " is not an external properties file. Set " + keyName
-                        + " in an operator-managed properties file and load it with "
-                        + "-Dcarlos_override_properties=/path/to/carlos.properties before restarting.");
+                        + " is not an external properties file; refusing to generate an unpersisted encryption key. "
+                        + "Set " + keyName + " in the loaded configuration, or supply a writable external properties "
+                        + "file with -Dcarlos_override_properties=/path/to/carlos.properties before restarting. "
+                        + "Restore the original key if encrypted data already exists. "
+                        + "See https://github.com/carlos-emr/carlos/blob/release/2026.08/docs/startup-encryption-key.md "
+                        + "for configuration and recovery instructions.");
             }
             // Do not create a replacement/stub if the loaded file has since disappeared.
             // Keep one descriptor open for both reading and writing throughout the lock.
             try (FileChannel channel = FileChannel.open(loadedPropertiesFile.toPath(),
                          StandardOpenOption.READ, StandardOpenOption.WRITE);
                  Reader reader = Channels.newReader(channel, StandardCharsets.ISO_8859_1);
-                 FileLock ignored = channel.lock()) {
+                 FileLock _ = channel.lock()) {
                 Properties persisted = new Properties();
                 persisted.load(reader);
                 String key = persisted.getProperty(keyName);

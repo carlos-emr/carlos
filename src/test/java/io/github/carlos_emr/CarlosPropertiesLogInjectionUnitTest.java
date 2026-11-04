@@ -27,8 +27,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
 /**
  * Log-injection regression test for {@link CarlosProperties#getProperty(String)}.
@@ -56,6 +60,17 @@ class CarlosPropertiesLogInjectionUnitTest {
             CarlosProperties.getInstance().remove(addedKey);
             addedKey = null;
         }
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   "})
+    @DisplayName("should reject null and blank keys before checking special property names")
+    void shouldRejectInvalidKeys_beforeCheckingSpecialProperties(String key) {
+        CarlosProperties properties = CarlosProperties.getInstance();
+
+        assertThatIllegalArgumentException().isThrownBy(() -> properties.getProperty(key))
+                .withMessage("Property key cannot be blank.");
     }
 
     @Test
