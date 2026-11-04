@@ -18,9 +18,8 @@ for (const page of ['LimitedUseCode.jsp', 'WriteScript.jsp']) {
   test(`${page}: offered LU links cancel navigation and append repeated codes to only their directions`, () => {
     const source = fs.readFileSync(path.join(rxDirectory, page), 'utf8');
     const rawAnchor = source.match(/<a\s+onclick="[^]*?addLuCode\([^]*?<\/a>/)[0];
-    let encodedValue = 0;
     const anchor = rawAnchor
-      .replace(/<carlos:encode[^]*?\/>/g, () => ['selected', '123', '123'][encodedValue++])
+      .replace(/<carlos:encode[^]*?\/>/g, tag => tag.includes('randomId') ? 'selected' : '123')
       .replace(/<%=\s*limitedUseCode\.getUseId\(\)\s*%>/g, '123');
     const handler = anchor.match(/onclick="([^"]*)"/)[1];
     const href = anchor.match(/href="([^"]*)"/)[1];

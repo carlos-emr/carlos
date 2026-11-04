@@ -17811,7 +17811,7 @@
       "env": [
         "RX_ODB_FILE"
       ],
-      "notes": "Real formulary code clicks, append/repeat behavior, same/other-patient controls, saved medication and reprint preview, unsaved cancellation and cleanup (#5270). Regression coverage for the native LU link syntax error fixed by #5571."
+      "notes": "Real formulary code clicks, append/repeat behavior, same/other-patient controls, saved medication and reprint preview, unsaved cancellation and cleanup (#5270). Regression coverage for issue #5571, fixed by PR #5589."
     },
     {
       "name": "rx-renal-correction",
