@@ -729,6 +729,13 @@ public class ConsultationManagerImpl implements ConsultationManager {
 
     @Override
     public List<EctFormData.PatientForm> getAttachedForms(LoggedInInfo loggedInInfo, int consultRequestId, int demographicNo) {
+        // Consultation readers may not be allowed to read clinical forms. All consultation
+        // screens and packet builders use this filtered list; the omission notice compares it
+        // with the stored relationships without exposing or rendering those forms.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ,
+                Integer.toString(demographicNo))) {
+            return Collections.emptyList();
+        }
         List<ConsultDocs> attachedForms = getAttachedDocumentsByType(loggedInInfo, consultRequestId, ConsultDocs.DOCTYPE_FORM);
         List<EctFormData.PatientForm> filteredForms = new ArrayList<>(attachedForms.size());
         /*
