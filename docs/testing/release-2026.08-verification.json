@@ -1665,7 +1665,8 @@
         "-Djacoco.destFile={run}/jacoco.exec",
         "-Djacoco.dataFile={run}/jacoco.exec",
         "-Dtest.coverageDirectory={run}/coverage",
-        "-DexcludedGroups=flyway-schema"
+        "-DexcludedGroups=flyway-schema",
+        "-Dcarlos.test.schema.expected=generated"
       ],
       "minimumCases": 2500,
       "requiredFamilies": {
@@ -1707,7 +1708,8 @@
         "-Dtest.reportsDirectory={run}/reports",
         "-Djacoco.destFile={run}/jacoco.exec",
         "-Djacoco.dataFile={run}/jacoco.exec",
-        "-Dtest.coverageDirectory={run}/coverage"
+        "-Dtest.coverageDirectory={run}/coverage",
+        "-Dcarlos.test.schema.expected=flyway"
       ],
       "minimumCases": 80,
       "requiredFamilies": {
@@ -1749,7 +1751,8 @@
         "-Dtest.reportsDirectory={run}/reports",
         "-Djacoco.destFile={run}/jacoco.exec",
         "-Djacoco.dataFile={run}/jacoco.exec",
-        "-Dtest.coverageDirectory={run}/coverage"
+        "-Dtest.coverageDirectory={run}/coverage",
+        "-Dcarlos.test.schema.expected=flyway"
       ],
       "minimumCases": 34,
       "requiredFamilies": {
