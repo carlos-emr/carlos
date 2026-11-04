@@ -41,7 +41,7 @@ class DemographicFieldLengthUnitTest {
     @DisplayName("should preserve pronouns and gender at the column boundary and reject overflow")
     void shouldPreservePronounsAndGender_atTheirColumnBoundaries() {
         Demographic demographic = new Demographic();
-        String exact = "X".repeat(25);
+        String exact = "😀".repeat(25);
         demographic.setPronoun(exact);
         demographic.setGender(exact);
         assertThat(demographic.validateFieldLengths()).isEmpty();

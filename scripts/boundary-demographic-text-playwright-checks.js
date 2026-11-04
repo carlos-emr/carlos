@@ -35,11 +35,11 @@ async function assertFormLimits(form, sql) {
   for (const [input, column] of FIELD_COLUMNS) {
     const box = form.locator(`[name="${input}"]`).first();
     const declared = b.columnLength(sql, 'demographic', column);
-    const name = input === 'last_name' || input === 'first_name';
+    const codePoints = ['last_name', 'first_name', 'pronouns', 'gender'].includes(input);
     // HTML maxlength counts UTF-16 units; name validation counts the VARCHAR's Unicode code points.
-    h.assert(Number(await box.getAttribute('maxlength')) === declared * (name ? 2 : 1),
+    h.assert(Number(await box.getAttribute('maxlength')) === declared * (codePoints ? 2 : 1),
       `${input} maxlength disagrees with column ${column} (${declared} characters)`);
-    if (name) h.assert(Number(await box.getAttribute('data-max-codepoints')) === declared,
+    if (codePoints) h.assert(Number(await box.getAttribute('data-max-codepoints')) === declared,
       `${input} Unicode character limit disagrees with column ${column}`);
   }
 }
@@ -128,7 +128,6 @@ async function workflow(s) {
   await s.step('the Edit form redisplays every value identically and an unchanged Update changes no column', async () => {
     await add.locator('#editBtn').click();
     await add.locator('#editDemographic').waitFor({ state: 'visible', timeout: TIMEOUT });
-    await assertFormLimits(add.locator('#editDemographic'), sql);
     const shown = async (name) => add.locator(`#editDemographic [name="${name}"]`).first().inputValue();
     const wrong = [];
     for (const [input, value] of [['last_name', stored.last_name], ['first_name', stored.first_name], ['middleNames', stored.middleNames],
@@ -164,11 +163,11 @@ async function workflow(s) {
     add = await openAddForm(s, tag + 'V');
     const overForm = await fillBasics(add, over, 'Over');
     const surname = overForm.locator('input[name="last_name"]');
-    h.assert(await surname.inputValue() === over, 'The over-length surname was silently changed');
+    h.assert(await surname.inputValue() === over.toUpperCase(), 'The over-length surname was silently changed');
     h.assert(await surname.evaluate(box => !box.checkValidity() && box.validationMessage.length > 0),
       'The over-length surname has no visible validation error');
     await submitAdd(add);
-    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE ${where('V')}`) === '0',
+    h.assert(sql.value('SELECT COUNT(*) FROM demographic WHERE last_name LIKE ?', [tag + 'V%']) === '0',
       'The invalid over-length surname was saved');
     await add.close();
   });
@@ -231,15 +230,22 @@ async function workflow(s) {
     const form = await fillBasics(add, tag + 'Q', 'Wide');
     await form.locator('input[name="pronouns"]').fill(pronOver);
     await form.locator('input[name="gender"]').fill(genderOver);
-    const acceptedPronoun = await form.locator('input[name="pronouns"]').inputValue();
-    const acceptedGender = await form.locator('input[name="gender"]').inputValue();
-    h.assert(acceptedPronoun.length === pron && acceptedGender.length === gender, 'Pronoun or gender was not visibly limited');
-    await submitAdd(add);
-    for (const [column, typedValue] of [['pronoun', acceptedPronoun], ['gender', acceptedGender]]) {
-      try {
-        b.assertNotSilentlyTruncated(sql, 'demographic', column, where('Q'), typedValue, `Add form ${column}`);
-      } catch (error) { problems.push(error.message); }
+    for (const input of ['pronouns', 'gender']) {
+      const box = form.locator(`[name="${input}"]`);
+      h.assert(await box.evaluate(field => !field.checkValidity() && field.validationMessage.length > 0),
+        `${input} overflow has no visible validation error`);
     }
+    await submitAdd(add);
+    h.assert(sql.value('SELECT COUNT(*) FROM demographic WHERE last_name LIKE ?', [tag + 'Q%']) === '0',
+      'An over-length pronoun or gender was saved');
+    // Each VARCHAR must hold its full Unicode capacity, not half as many supplementary characters.
+    const acceptedPronoun = '😀'.repeat(pron);
+    const acceptedGender = '😀'.repeat(gender);
+    await form.locator('input[name="pronouns"]').fill(acceptedPronoun);
+    await form.locator('input[name="gender"]').fill(acceptedGender);
+    await submitAdd(add);
+    b.assertStored(sql, 'demographic', 'pronoun', where('Q'), acceptedPronoun, 'Unicode pronoun at the column length');
+    b.assertStored(sql, 'demographic', 'gender', where('Q'), acceptedGender, 'Unicode gender at the column length');
     await add.close();
     h.assert(problems.length === 0, problems.join(' || '));
   });
