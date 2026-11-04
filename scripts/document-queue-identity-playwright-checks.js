@@ -14,11 +14,16 @@ async function workflow(s) {
   const q = h.sqlString;
   const adminName = `Q${marker.slice(-16)}A`;
   const providerName = `Q${marker.slice(-16)}P`;
-  const names = `${q(adminName)},${q(providerName)}`;
+  const rollbackName = `Q${marker.slice(-16)}R`;
+  const trigger = `pw_queue_${marker.slice(-16)}`;
+  h.assert(/^pw_queue_[a-f0-9]{16}$/.test(trigger), 'Invalid queue fault scope');
+  const names = `${q(adminName)},${q(providerName)},${q(rollbackName)}`;
+  let triggerMayExist = false;
   const predicate = `provider_no=${q(provider)} AND name='doc_default_queue'`;
   const snapshot = () => sql.rows(`SELECT id,COALESCE(HEX(value),''),value IS NULL FROM property WHERE ${predicate} ORDER BY id`);
   const original = snapshot();
   s.cleanup(() => {
+    if (triggerMayExist) sql.execute(`DROP TRIGGER IF EXISTS ${trigger}`);
     const restore = [`DELETE FROM property WHERE ${predicate}`];
     for (const [id, hex, isNull] of original) {
       h.assert(/^\d+$/.test(id) && /^[0-9a-f]*$/i.test(hex), 'Invalid default queue snapshot');
@@ -39,6 +44,7 @@ async function workflow(s) {
   const editor = await s.context.newPage();
   const openPreference = () => h.gotoApp(editor, s.config.baseUrl, '/setProviderStaleDate?method=viewDefaultDocQueue');
   let providerId;
+  let adminPage;
   await s.step('the default queue form creates and saves its own queue ID', async () => {
     await openPreference();
     await editor.locator('a[onclick="showhide();"]').last().click();
@@ -53,6 +59,7 @@ async function workflow(s) {
   await s.step('Administration Add Queue associates its security object with the inserted ID', async () => {
     const { page: admin } = await clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel,#admin2').first(),
       { context: s.context, recorder: s.recorder, label: 'administration', timeout: 20000 });
+    adminPage = admin;
     const link = admin.locator('a.contentLink[href$="/admin/ViewAddQueue"]').first();
     await revealAuditLink(admin, link, 20000);
     await link.click();
@@ -71,6 +78,41 @@ async function workflow(s) {
     h.assert((await editor.locator('body').innerText()).includes('NOT been saved'), 'Creation failure was reported as success');
     h.assert(sql.value(`SELECT value FROM property WHERE ${predicate}`) === providerId, 'Failed insert changed the provider default');
     h.assert(sql.value(`SELECT COUNT(*) FROM queue WHERE name=${q(providerName)}`) === '1', 'Failed insert created another row');
+  });
+
+  await s.step('a security-object write failure rolls the queue back and the same name can be retried', async () => {
+    h.assert(sql.value(`SELECT COUNT(*) FROM information_schema.TRIGGERS
+      WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME=${q(trigger)}`) === '0', 'Fault trigger already exists');
+    triggerMayExist = true;
+    sql.execute(`DELIMITER //
+CREATE TRIGGER ${trigger} BEFORE INSERT ON secObjectName FOR EACH ROW
+BEGIN
+  IF NEW.description=${q(rollbackName)} THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='FAKE-PW queue security failure';
+  END IF;
+END//
+DELIMITER ;`);
+    const add = async () => {
+      await adminPage.locator('#dynamic-content #newQueueName').fill(rollbackName);
+      const [response] = await Promise.all([
+        adminPage.waitForResponse(r => new URL(r.url()).pathname.endsWith('/documentManager/inboxManage')
+          && r.request().method() === 'POST'),
+        adminPage.locator('#dynamic-content #add-btn').click(),
+      ]);
+      h.assert(response.status() === 200, 'Queue creation returned an unexpected HTTP status');
+      return (await response.json()).addNewQueue;
+    };
+    try {
+      h.assert(await add() === false, 'Security failure was reported as success');
+      await adminPage.locator('#dynamic-content .alert-danger').waitFor({ state: 'visible' });
+      h.assert(sql.value(`SELECT COUNT(*) FROM queue WHERE name=${q(rollbackName)}`) === '0', 'Failed security write left an orphan queue');
+    } finally {
+      sql.execute(`DROP TRIGGER IF EXISTS ${trigger}`);
+      triggerMayExist = false;
+    }
+    h.assert(await add() === true, 'Retry after rollback could not reuse the queue name');
+    await expectValue(sql, `SELECT COUNT(*) FROM queue q JOIN secObjectName s ON s.objectName=CONCAT('_queue.',q.id)
+      WHERE q.name=${q(rollbackName)} AND s.description=${q(rollbackName)}`, '1', 'Retry did not commit both records');
   });
 }
 

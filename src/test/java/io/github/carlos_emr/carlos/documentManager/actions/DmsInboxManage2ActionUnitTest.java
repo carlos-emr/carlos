@@ -235,6 +235,7 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         org.mockito.Mockito.verify(secObjectNameDao).saveOrUpdate(org.mockito.ArgumentMatchers.argThat(
                 sbn -> "_queue.42".equals(sbn.getObjectname()) && "Lab Queue".equals(sbn.getDescription())));
         verify(queueDao, never()).getLastId();
+        assertThat(transactions.commits).isEqualTo(1);
     }
 
     @Test
@@ -252,6 +253,7 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).isEqualTo("{\"addNewQueue\":false}");
         verifyNoInteractions(secObjectNameDao);
         verify(queueDao, never()).getLastId();
+        assertThat(transactions.rollbacks).isEqualTo(1);
     }
 
     @Test
@@ -267,6 +269,8 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         new DmsInboxManage2Action().execute();
 
         assertThat(response.getContentAsString()).isEqualTo("{\"addNewQueue\":false}");
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isEqualTo(1);
     }
 
     @Test
@@ -282,6 +286,22 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getContentAsString()).isEqualTo("{\"addNewQueue\":false}");
         verifyNoInteractions(secObjectNameDao);
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReportFailure_whenQueueTransactionCannotCommit() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("method", "addNewQueue");
+        request.setParameter("newQueueName", "Lab Queue");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(queueDao.addNewQueueAndGetId("Lab Queue")).thenReturn(42);
+        transactions.failCommit = true;
+
+        new DmsInboxManage2Action().execute();
+
+        assertThat(response.getContentAsString()).isEqualTo("{\"addNewQueue\":false}");
     }
 
     @Test

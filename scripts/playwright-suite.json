@@ -7932,8 +7932,8 @@
       "assertsDatabase": true,
       "env": ["TEST_PASSWORD", "TEST_PIN", "MYSQL_PASSWORD"],
       "mutates": ["queue", "secObjectName", "property:doc_default_queue"],
-      "fixtures": "Disposable installed database only; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Creates two marker-named queues through the provider form and Administration. Restores the provider default and removes owned queues/security objects on completion or interruption.",
-      "notes": "#4054: generated queue IDs, exact security association, and duplicate-name creation failure with a later global MAX. Opens the registered legacy default-queue view route because no Preferences link currently exposes it."
+      "fixtures": "Disposable installed database only; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Requires CREATE/DROP TRIGGER permission for a marker-scoped security-write fault. Creates three marker-named queues through the provider form and Administration. Restores the provider default and removes owned queues/security objects and trigger on completion or interruption.",
+      "notes": "#4054: generated queue IDs, exact security association, duplicate-name creation failure with a later global MAX, and rollback/retry after a security-object failure. Opens the registered legacy default-queue view route because no Preferences link currently exposes it."
     },
     {
       "name": "get-reject-inbox-queue",
