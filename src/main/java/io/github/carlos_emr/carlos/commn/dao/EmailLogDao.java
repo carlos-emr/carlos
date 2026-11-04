@@ -83,8 +83,22 @@ public interface EmailLogDao extends AbstractDao<EmailLog> {
      * @param id Integer the unique identifier of the email log record to update
      * @param status EmailLog.EmailStatus the new delivery status (SUCCESS, FAILED, or RESOLVED)
      * @param errorMessage String the error message for failed deliveries; null for successful deliveries
-     * @param timestamp Date the timestamp of the status update; typically the current time
-     * @return int the number of records updated (should be 1 for successful update, 0 if ID not found)
+     * @param timestamp Date the timestamp of the transport outcome; ignored for RESOLVED to preserve stored send time
+     * @return int 1 if updated; 0 if the ID is missing or a RESOLVED transition was rejected
+     *         because the stored status is not FAILED
      */
     public int updateEmailStatus(Integer id, EmailLog.EmailStatus status, String errorMessage, Date timestamp);
+
+    /**
+     * Returns the current stored log, bypassing a stale persistence-context snapshot.
+     * <p>
+     * The implementation selects the row under a pessimistic read lock and refreshes it within
+     * the same DAO transaction, so the result reflects stored state rather than an earlier
+     * first-level cache snapshot. The DAO starts or joins the transaction for this read.
+     * </p>
+     *
+     * @param id Integer the unique identifier of the email log record to reload
+     * @return EmailLog the current stored log record, or {@code null} if no row exists for the ID
+     */
+    EmailLog findFresh(Integer id);
 }
