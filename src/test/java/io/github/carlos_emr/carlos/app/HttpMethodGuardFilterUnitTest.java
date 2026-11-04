@@ -112,6 +112,31 @@ class HttpMethodGuardFilterUnitTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD"})
+    void shouldBlockEditorSave_forSafeMethods(String method) throws Exception {
+        when(request.getMethod()).thenReturn(method);
+        when(request.getRequestURI()).thenReturn("/carlos/eform/editForm");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).sendError(eq(HttpServletResponse.SC_METHOD_NOT_ALLOWED), anyString());
+        verify(chain, never()).doFilter(request, response);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "POST"})
+    void shouldPreserveEditorAccess_forViewAndPost(String method) throws Exception {
+        when(request.getMethod()).thenReturn(method);
+        when(request.getRequestURI()).thenReturn("POST".equals(method)
+                ? "/carlos/eform/editForm" : "/carlos/eform/efmformmanageredit");
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain).doFilter(request, response);
+        verify(response, never()).sendError(anyInt(), anyString());
+    }
+
     @Nested
     @DisplayName("GET requests to read-only actions")
     class ReadOnlyActions {

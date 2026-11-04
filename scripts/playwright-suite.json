@@ -7869,7 +7869,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Seeds one marker-named eform row by SQL; edits it through Administration \u25b8 Manage eForms; cleanup deletes it and asserts it.",
-      "notes": "Expected to FAIL at the last step 'the eForm editor refused GET/HEAD and the owned template is unchanged' until eform/editForm (HtmlEdit2Action) rejects GET (today a GET replaces the template HTML)."
+      "notes": "Regression for #5637: an authorized multipart POST stores the edited template; GET and HEAD must answer application-origin 405 without changing it, and a multipart POST without its CSRF token must answer application-origin 403 without changing it."
     },
     {
       "name": "contact-editor",
