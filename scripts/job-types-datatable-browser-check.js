@@ -205,9 +205,14 @@ const CASES = [
     assert.equal(active, 1, 'Two rapid save callbacks started duplicate requests');
     await waitForSave(page, state, 1);
     assert.equal(await page.getByRole('button', { name: 'Save', exact: true }).isDisabled(), true);
+    assert.equal(await page.locator('#jobTypeForm input, #jobTypeForm textarea')
+      .evaluateAll(inputs => inputs.every(input => input.disabled)), true);
+    assert.equal(new URLSearchParams(state.saves[0].body).get('jobType.name'), 'FAKE new job');
+    assert.equal(new URLSearchParams(state.saves[0].body).get('jobType.id'), '0');
     completeSave(state.saves[0], 200);
     await page.waitForFunction(() => !jQuery('#new-jobtype').dialog('isOpen') && jQuery.active === 0);
     assert.equal(await page.locator('.ui-dialog-buttonpane button').first().isDisabled(), false);
+    assert.equal(await page.locator('#jobTypeName').isDisabled(), false);
   }],
   ['failed Save keeps the dialog and inputs; retry succeeds and closes it', async (page, state) => {
     state.expectedAlerts = ['FAKE save failed'];
@@ -222,6 +227,7 @@ const CASES = [
     assert.equal(await page.locator('#jobTypeName').inputValue(), 'FAKE edited job');
     assert.deepEqual(state.alerts, ['FAKE save failed']);
     assert.equal(await page.getByRole('button', { name: 'Save', exact: true }).isDisabled(), false);
+    assert.equal(await page.locator('#jobTypeName').isDisabled(), false);
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await waitForSave(page, state, 2);
     assert.equal(new URLSearchParams(state.saves[1].body).get('jobType.name'), 'FAKE edited job');

@@ -218,6 +218,7 @@
                     modal: true,
                     open: function () {
                         jobTypeEditorGeneration++;
+                        $('#jobTypeForm :input').prop('disabled', false);
                         updateJobTypeSaveButton();
                     },
                     buttons: {
@@ -233,15 +234,20 @@
                                 var $dialog = $(this);
                                 var editorGeneration = jobTypeEditorGeneration;
                                 var creating = $('#jobTypeId').val() === '0';
+                                var formData = $('#jobTypeForm').serialize();
                                 function restoreSaveButton() {
                                     jobTypeSavePending = false;
+                                    if (editorGeneration === jobTypeEditorGeneration) {
+                                        $('#jobTypeForm :input').prop('disabled', false);
+                                    }
                                     updateJobTypeSaveButton();
                                 }
                                 jobTypeSavePending = true;
+                                $('#jobTypeForm :input').prop('disabled', true);
                                 updateJobTypeSaveButton();
                                 var saveRequest;
                                 try {
-                                    saveRequest = $.post('${pageContext.request.contextPath}/ws/rs/jobs/saveJobType', $('#jobTypeForm').serialize());
+                                    saveRequest = $.post('${pageContext.request.contextPath}/ws/rs/jobs/saveJobType', formData);
                                 } catch (error) {
                                     restoreSaveButton();
                                     window.alert(jobTypesSaveErrorLabel);
