@@ -547,16 +547,16 @@ Ontario, Canada
                 document.forms[0].type.dataset.previousType = document.forms[0].type.value;
                 <% if (locationMode) {
                     // A pasted appointment keeps its location (a cut is a move): its item when the
-                    // dropdown offers it, otherwise its name as a legacy option (typed text, or an
-                    // item disabled since), which saves the name without a code.
-                    String pastedLegacy = appointmentLocations.pastedLegacyText(apptObj.getLocationCode(), apptObj.getLocation());
+                    // dropdown offers it, the active item its typed text names, or otherwise its name
+                    // as a legacy option (an item disabled since), which saves the name without a code.
+                    AppointmentLocationList.Choice pasted = appointmentLocations.pastedChoice(apptObj.getLocationCode(), apptObj.getLocation());
                 %>
-                selectAppointmentLocationCode(document.forms[0].locationCode, "<carlos:encode value='<%= apptObj.getLocationCode() %>' context="javaScriptBlock"/>");
-                <% if (pastedLegacy != null) { %>
+                selectAppointmentLocationCode(document.forms[0].locationCode, "<carlos:encode value='<%= pasted.value() %>' context="javaScriptBlock"/>");
+                <% if (pasted.legacy() != null) { %>
                 <%-- Raw on purpose: the label is encoded for JavaScript below and set as option text, never parsed as HTML. --%>
-                <fmt:message key="appointment.location.legacyOption" var="pastedLegacyLabel"><fmt:param value="<%= pastedLegacy.trim() %>"/></fmt:message>
+                <fmt:message key="appointment.location.legacyOption" var="pastedLegacyLabel"><fmt:param value="<%= pasted.legacy().trim() %>"/></fmt:message>
                 offerLegacyAppointmentLocation(document.forms[0].locationCode, document.forms[0].location,
-                    "<carlos:encode value='<%= pastedLegacy %>' context="javaScriptBlock"/>",
+                    "<carlos:encode value='<%= pasted.legacy() %>' context="javaScriptBlock"/>",
                     "<carlos:encode value="${pastedLegacyLabel}" context="javaScriptBlock"/>");
                 <% } %>
                 <% } else { %>

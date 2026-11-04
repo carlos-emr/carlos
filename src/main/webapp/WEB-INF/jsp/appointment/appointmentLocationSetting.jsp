@@ -285,9 +285,10 @@
     </c:otherwise>
 </c:choose>
 
+<%-- Disabling takes the location out of every booking screen, so it asks first (form[data-confirm]). --%>
+<script src="${carlos:forHtmlAttribute(ctx)}/js/appointmentSettingsConfirm.js"></script>
 <script>
     (function () {
-        // Disabling takes the location out of every booking screen, so it asks first; cancelling sends nothing.
         // The icon picker shows the chosen icon before it is saved.
         document.querySelectorAll('select.location-icon').forEach(function (select) {
             var preview = select.parentElement.querySelector('.location-icon-preview');
@@ -300,14 +301,6 @@
                 var chosen = select.value || preview.dataset.defaultIcon;
                 preview.classList.add(chosen);
                 preview.dataset.current = chosen;
-            });
-        });
-        document.querySelectorAll('form[data-confirm]').forEach(function (form) {
-            form.addEventListener('submit', function (event) {
-                if (!window.confirm(form.dataset.confirm)) {
-                    event.preventDefault();
-                    event.stopImmediatePropagation();
-                }
             });
         });
     })();

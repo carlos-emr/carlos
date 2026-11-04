@@ -154,9 +154,11 @@ public final class AppointmentLocationList {
      * @return List&lt;LookupListItem&gt; the active items in display order, then the inactive by name
      */
     public List<LookupListItem> getItemsActiveFirst() {
+        // The label column allows NULL, and a row written outside the settings page may have one.
         Stream<LookupListItem> inactive = items.stream()
                 .filter(item -> !item.isActive())
-                .sorted(Comparator.comparing(LookupListItem::getLabel, String.CASE_INSENSITIVE_ORDER));
+                .sorted(Comparator.comparing(item -> StringUtils.defaultString(item.getLabel()),
+                        String.CASE_INSENSITIVE_ORDER));
         return Stream.concat(getActiveItems().stream(), inactive).toList();
     }
 
@@ -194,26 +196,29 @@ public final class AppointmentLocationList {
     }
 
     /**
-     * The name a pasted appointment's location is kept under when the booking dropdown cannot
-     * select it. A paste (a cut is a move) keeps its location: an active item is selected by its
-     * code, so nothing is needed; an item disabled since keeps its name; a location typed before the
-     * list existed keeps its text. Either is offered as a legacy option, which saves the name
-     * without a code. The add and edit pages both paste through this.
+     * Works out what the booking dropdown starts on for a pasted appointment. A paste (a cut is a
+     * move) keeps its location: its item when that is active; the item's name as a legacy option
+     * when it has been disabled since; and otherwise what {@link #choiceFor} gives its text, so a
+     * location typed before the list existed is linked to the active item of that name, as the
+     * edit screen links it, or kept as a legacy option. The add and edit pages both paste through
+     * this.
      *
      * <p>A disabled item gives its current name, not the booking's saved one: copy and cut fill the
      * clipboard from the edit form, whose location text is blank for a booking with a code.</p>
      *
      * @param pastedCode String the pasted appointment's location code as stored, or null
      * @param pastedLocation String the pasted appointment's location text, or null
-     * @return String the name to offer as a legacy option, or null when there is none to offer
+     * @return Choice the starting choice; its legacy text is null unless a legacy option is needed
      */
-    public String pastedLegacyText(String pastedCode, String pastedLocation) {
+    public Choice pastedChoice(String pastedCode, String pastedLocation) {
         LookupListItem item = find(parseCode(pastedCode));
         if (item != null && item.isActive()) {
-            return null;
+            return new Choice(String.valueOf(item.getId()), null);
         }
-        String text = item != null ? item.getLabel() : pastedLocation;
-        return StringUtils.isBlank(text) ? null : text;
+        if (item != null && StringUtils.isNotBlank(item.getLabel())) {
+            return new Choice(LEGACY_VALUE, item.getLabel());
+        }
+        return choiceFor(null, pastedLocation);
     }
 
     /**

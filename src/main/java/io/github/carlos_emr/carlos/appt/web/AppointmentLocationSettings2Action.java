@@ -47,8 +47,9 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * Appointment Settings, Locations tab ({@code appointment/apptLocationSetting}): the appointment
  * Location List (issue #3982).
  *
- * <p>Routed on the {@code dispatch} request parameter. Anything other than a change renders the
- * list. The changes, each acting on location {@code id} where it names one:</p>
+ * <p>Routed on the {@code dispatch} request parameter. A request without one renders the list;
+ * any {@code dispatch} asks for a change and must be posted, even one naming no change. The
+ * changes, each acting on location {@code id} where it names one:</p>
  * <ul>
  *   <li>{@code add} adds {@code name}; {@code addMany} adds every line of {@code names}.</li>
  *   <li>{@code rename} renames to {@code name}; {@code updateColour} and {@code updateIcon} set

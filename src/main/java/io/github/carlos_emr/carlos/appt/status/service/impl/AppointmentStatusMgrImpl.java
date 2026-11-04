@@ -30,7 +30,6 @@ package io.github.carlos_emr.carlos.appt.status.service.impl;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
@@ -40,6 +39,7 @@ import io.github.carlos_emr.carlos.config.CacheConfig;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationStyle;
 import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr;
 import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusStyleException;
 import org.springframework.beans.BeansException;
@@ -67,8 +67,6 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final String CUSTOM_STATUS_COLOR = "#897DF8";
-
-    private static final Pattern COLOUR = Pattern.compile("#[0-9a-fA-F]{6}");
 
     /*
      * Each seeded status's default style, keyed by status code: row ids differ between installs.
@@ -239,8 +237,9 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
     @Override
     public boolean updateColour(int id, String colour) {
         String value = StringUtils.trimToEmpty(colour);
-        // The colour is written into style attributes on the schedule, so nothing but #rrggbb is stored.
-        if (!COLOUR.matcher(value).matches()) {
+        // The colour is written into style attributes on the schedule, so nothing but #rrggbb is
+        // stored: the same rule as a Location List colour.
+        if (!AppointmentLocationStyle.isValidColour(value)) {
             throw new AppointmentStatusStyleException("admin.appt.status.mgr.error.color");
         }
         return getAppointmentStatusDao().modifyStyle(id, null, value, null);

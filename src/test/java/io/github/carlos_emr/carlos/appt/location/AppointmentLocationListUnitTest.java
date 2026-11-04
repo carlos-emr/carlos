@@ -182,20 +182,34 @@ class AppointmentLocationListUnitTest {
 
     @ParameterizedTest
     @CsvSource(nullValues = "NULL", value = {
-            // An active item is selected by its code: nothing to offer.
-            "12, Old room label, NULL",
+            // An active item is selected by its code.
+            "12, Old room label, 12, NULL",
             // An item disabled since keeps its own name, not the stored snapshot.
-            "13, Old satellite label, Satellite office",
-            // A location typed before the list existed, or a code naming no item, keeps its text.
-            "NULL, Basement, Basement",
-            "99, Basement, Basement",
-            "legacy, Basement, Basement",
-            // No location at all: nothing to offer.
-            "NULL, NULL, NULL",
-            "NULL, '   ', NULL"
+            "13, Old satellite label, legacy, Satellite office",
+            // Typed text naming an active item is linked to it, as the edit screen links it.
+            "NULL, '  room 2 ', 12, NULL",
+            "99, Virtual, 11, NULL",
+            // Other text (or a code naming no item) is kept as a legacy option.
+            "NULL, Basement, legacy, Basement",
+            "99, Basement, legacy, Basement",
+            "legacy, Basement, legacy, Basement",
+            // No location at all starts on "Not specified".
+            "NULL, NULL, '', NULL",
+            "NULL, '   ', '', NULL"
     })
-    void shouldOfferPastedLocation_onlyWhenDropdownCannotSelectIt(String code, String location, String expected) {
-        assertThat(list(false).pastedLegacyText(code, location)).isEqualTo(expected);
+    void shouldStartPastedBooking_onItemOrLegacyOption(String code, String location, String value, String legacy) {
+        AppointmentLocationList.Choice choice = list(false).pastedChoice(code, location);
+
+        assertThat(choice.value()).isEqualTo(value);
+        assertThat(choice.legacy()).isEqualTo(legacy);
+    }
+
+    @Test
+    void shouldListInactiveItemWithoutLabel_withoutFailing() {
+        LookupListItem unnamed = item(15, null, 1, false);
+        AppointmentLocationList locations = AppointmentLocationList.of(List.of(roomTwo, satellite, unnamed), false);
+
+        assertThat(locations.getItemsActiveFirst()).containsExactly(roomTwo, unnamed, satellite);
     }
 
     @Test

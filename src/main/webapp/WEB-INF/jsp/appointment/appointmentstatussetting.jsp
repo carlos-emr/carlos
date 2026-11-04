@@ -181,8 +181,10 @@
                                 <c:if test="${icon == apptStatus.icon}"><c:set var="iconListed" value="true"/></c:if>
                                 <option value="${carlos:forHtmlAttribute(icon)}"${icon == apptStatus.icon ? ' selected' : ''}><carlos:encode value="${icon}"/></option>
                             </c:forEach>
-                            <%-- A stored icon outside the set stays shown; it cannot be chosen again once changed. --%>
-                            <c:if test="${not iconListed}">
+                            <%-- A stored icon outside the set stays shown; it cannot be chosen again once changed.
+                                 No icon at all (an empty column) just offers the set, with the first one selected. --%>
+                            <c:set var="iconUnlisted" value="${not iconListed and not empty apptStatus.icon}"/>
+                            <c:if test="${iconUnlisted}">
                                 <option value="" selected disabled>
                                     <fmt:message key="admin.appt.status.mgr.label.iconNotListed">
                                         <fmt:param value="${carlos:forHtml(apptStatus.icon)}"/>
@@ -191,7 +193,7 @@
                             </c:if>
                         </select>
                         <%-- An unlisted stored icon is a disabled option, which a form does not post: Save waits for a listed icon. --%>
-                        <button class="btn btn-sm btn-outline-primary" type="submit" aria-describedby="status-row-${apptStatus.id}"${iconListed ? '' : ' disabled'}><fmt:message key="global.btnSave"/></button>
+                        <button class="btn btn-sm btn-outline-primary" type="submit" aria-describedby="status-row-${apptStatus.id}"${iconUnlisted ? ' disabled' : ''}><fmt:message key="global.btnSave"/></button>
                     </form>
                 </td>
                 <td class="text-nowrap"><fmt:message key="${apptStatus.active > 0 ? 'global.yes' : 'global.no'}"/></td>
@@ -219,18 +221,10 @@
     </table>
 </fieldset>
 
+<%-- Reset and Disable cannot be undone from the page, so each asks first (form[data-confirm]). --%>
+<script src="${carlos:forHtmlAttribute(ctx)}/js/appointmentSettingsConfirm.js"></script>
 <script>
     (function () {
-        // Reset and Disable cannot be undone from the page, so each asks first; cancelling sends nothing.
-        document.querySelectorAll('form[data-confirm]').forEach(function (form) {
-            form.addEventListener('submit', function (event) {
-                if (!window.confirm(form.dataset.confirm)) {
-                    event.preventDefault();
-                    event.stopImmediatePropagation();
-                }
-            });
-        });
-
         // Preview the chosen icon; the select only offers the server's whitelist of file names.
         const base = document.getElementById('statusTable').dataset.iconBase;
         document.querySelectorAll('select.status-icon').forEach(function (select) {

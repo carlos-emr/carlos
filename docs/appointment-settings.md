@@ -105,9 +105,10 @@ order, on edit the appointment's own item even if deactivated since (marked), an
 "Legacy: <text>" option for location text that names no item. An edit screen links typed text to
 the active item with the same name (ignoring case and surrounding spaces) so it is coded on the next save.
 `js/appointmentLocationSelect.js` picks the option an appointment type names and the one a
-pasted appointment carries (`ApptData.locationCode`). A pasted location the add screen cannot
-select (typed text, or an item disabled since) is offered as a legacy option with its name, so a
-cut and paste keeps it (`offerLegacyAppointmentLocation`). The choice survives a patient search and
+pasted appointment carries (`ApptData.locationCode`, through `AppointmentLocationList.pastedChoice`,
+which also links typed text to the active item of that name). A pasted location the screen cannot
+select (an item disabled since, or text naming no item) is offered as a legacy option with its
+name, so a cut and paste keeps it (`offerLegacyAppointmentLocation`). The choice survives a patient search and
 the add-patient detour (`demographicsearch2apptresults.jsp`, `add-form-personal.jsp`,
 `demographicaddarecord.jsp`). `AppointmentEditVersion` includes the code.
 
