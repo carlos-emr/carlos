@@ -404,12 +404,10 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
     void shouldPropagateAuditFailure_afterPhotoDeletion() {
         request.setParameter("method", "deleteImage");
         DataAccessResourceFailureException failure = new DataAccessResourceFailureException("audit unavailable");
-        try (MockedStatic<LogAction> audit = mockStatic(LogAction.class)) {
-            audit.when(() -> LogAction.addLogSynchronous(loggedInInfo,
-                    "ClientImage2Action.deleteImage", "clientId=123")).thenThrow(failure);
+        logActionMock.when(() -> LogAction.addLogSynchronous(loggedInInfo,
+                "ClientImage2Action.deleteImage", "clientId=123")).thenThrow(failure);
 
-            assertThatThrownBy(() -> action.execute()).isSameAs(failure);
-        }
+        assertThatThrownBy(() -> action.execute()).isSameAs(failure);
         verify(clientImageManager).deleteClientImage(123);
         assertThat(action.getActionErrors()).isEmpty();
         assertThat(request.getAttribute("success")).isNull();
