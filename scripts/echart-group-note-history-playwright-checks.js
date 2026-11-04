@@ -111,7 +111,7 @@ async function workflow(s) {
     function seed(text, uuid, history) {
       const id = sql.value(`INSERT INTO casemgmt_note
         (demographic_no,provider_no,signing_provider_no,note,history,uuid,signed,locked,archived,include_issue_innote,position,observation_date,update_date,program_no,reporter_caisi_role,appointmentNo)
-        VALUES (${owner},${q(reader.providerNo)},${q(reader.providerNo)},${q(text)},${q(history)},${q(uuid)},1,0,0,1,0,NOW(),NOW(),'0',${q(role)},0);
+        VALUES (${owner},${q(reader.providerNo)},${q(reader.providerNo)},${q(text)},${q(history)},${q(uuid)},1,NULL,0,1,0,NOW(),NOW(),'0',${q(role)},0);
         SELECT LAST_INSERT_ID()`);
       h.assert(/^[1-9]\d*$/.test(id), 'The owned note revision was not created');
       return id;
@@ -119,6 +119,10 @@ async function workflow(s) {
     privateId = seed(texts.privateText, `${marker}-chain`, texts.privateText);
     sharedId = seed(texts.shared, `${marker}-chain`, texts.cumulative);
     futureId = seed(texts.future, `${marker}-chain`, texts.cumulative);
+    // Legacy NULL locks must hydrate without changing the stored clinical rows (#4703).
+    h.assert(sql.value(`SELECT COUNT(*) FROM casemgmt_note
+      WHERE note_id IN (${privateId},${sharedId},${futureId}) AND locked IS NULL`) === '3',
+    'The owned group revisions must exercise legacy NULL locks');
     groupLink = sql.value(`INSERT INTO GroupNoteLink (noteId,demographicNo,anonymous,active,created)
       VALUES (${sharedId},${patient},0,1,NOW()); SELECT LAST_INSERT_ID()`);
     h.assert(/^[1-9]\d*$/.test(groupLink), 'The exact-revision group link was not created');

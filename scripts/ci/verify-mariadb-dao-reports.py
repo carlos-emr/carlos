@@ -20,9 +20,11 @@ critical = {
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 required = {"generated": {**critical, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
-                          "AbstractDaoFindAllOrderingIntegrationTest": 6}, "flyway": critical,
+                          "AbstractDaoFindAllOrderingIntegrationTest": 6},
+            "flyway": {**critical, "CaseManagementNoteLockMariaDbIntegrationTest": 15},
             "bc-flyway": {"BcBillingNativeMariaDbIntegrationTest": 8,
-                           "BcBillingDaoTransactionIntegrationTest": 4}}
+                           "BcBillingDaoTransactionIntegrationTest": 4,
+                           "CaseManagementNoteLockMariaDbIntegrationTest": 15}}
 counts = {mode: dict(tests=0, failures=0, errors=0, skipped=0) for mode in required}
 families = {mode: dict.fromkeys(required[mode], 0) for mode in required}
 lines = []
