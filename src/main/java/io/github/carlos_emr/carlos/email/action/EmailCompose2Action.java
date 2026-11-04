@@ -47,7 +47,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
  *   <li>Validates patient email consent status before sending</li>
  *   <li>Retrieves and validates recipient email addresses</li>
  *   <li>Sanitizes attachment filenames for security</li>
- *   <li>Validates numeric form ID (fid) parameters to prevent injection attacks</li>
+ *   <li>Validates the numeric form ID (fid) from the staged draft to prevent injection attacks</li>
  * </ul>
  *
  * Healthcare Context:
@@ -260,7 +260,7 @@ public class EmailCompose2Action extends ActionSupport {
 
         // Validate the draft's fid is numeric if provided
         if (fid != null && !fid.matches("\\d+")) {
-            logger.warn("Invalid (non-numeric) fid parameter received; ignoring it");
+            logger.warn("Invalid (non-numeric) draft fid received; ignoring it");
             fid = null;
         }
 

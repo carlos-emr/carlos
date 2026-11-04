@@ -15,7 +15,6 @@ const HTML = '<html><head><title>Email error fixture</title></head><body>'
 
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
-  const q = h.sqlString;
   const name = `${marker} Email error`;
   const note = `${marker} Saved letter`;
   let fid;
@@ -27,31 +26,32 @@ async function workflow(s) {
 
   s.cleanup(() => {
     if (!fid) return;
-    h.assert(sql.value(`SELECT COUNT(*) FROM eform WHERE fid=${fid} AND form_name=${q(name)}`) === '1',
+    h.assert(sql.value('SELECT COUNT(*) FROM eform WHERE fid=? AND form_name=?', [fid, name]) === '1',
       'Owned eForm template changed');
-    const owned = `SELECT fdid FROM eform_data WHERE fid=${fid} AND demographic_no=${patient}`;
-    const ids = sql.rows(owned).map(row => row[0]);
+    const ids = sql.rows('SELECT fdid FROM eform_data WHERE fid=? AND demographic_no=?', [fid, patient]).map(row => row[0]);
     h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Invalid owned eForm id');
-    sql.execute(`DELETE FROM EFormDocs WHERE fdid IN (${owned});
-      DELETE FROM eform_values WHERE fdid IN (${owned});
-      DELETE FROM eform_data WHERE fid=${fid} AND demographic_no=${patient};
-      DELETE FROM eform WHERE fid=${fid} AND form_name=${q(name)}`);
-    if (ids.length) h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM EFormDocs WHERE fdid IN (${ids.join(',')}))
-      + (SELECT COUNT(*) FROM eform_values WHERE fdid IN (${ids.join(',')}))`) === '0',
-    'Owned attachment relations or values remain');
-    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM eform WHERE fid=${fid})
-      + (SELECT COUNT(*) FROM eform_data WHERE fid=${fid})`) === '0', 'Owned eForm rows remain');
+    for (const id of ids) {
+      sql.execute('DELETE FROM EFormDocs WHERE fdid=?', [id]);
+      sql.execute('DELETE FROM eform_values WHERE fdid=?', [id]);
+      h.assert(sql.value('SELECT (SELECT COUNT(*) FROM EFormDocs WHERE fdid=?)'
+        + ' + (SELECT COUNT(*) FROM eform_values WHERE fdid=?)', [id, id]) === '0',
+      'Owned attachment relations or values remain');
+    }
+    sql.execute('DELETE FROM eform_data WHERE fid=? AND demographic_no=?', [fid, patient]);
+    sql.execute('DELETE FROM eform WHERE fid=? AND form_name=?', [fid, name]);
+    h.assert(sql.value('SELECT (SELECT COUNT(*) FROM eform WHERE fid=?)'
+      + ' + (SELECT COUNT(*) FROM eform_data WHERE fid=?)', [fid, fid]) === '0', 'Owned eForm rows remain');
   });
-  fid = sql.value(`INSERT INTO eform(form_name,file_name,subject,form_date,form_time,form_creator,
+  fid = sql.insertId(`INSERT INTO eform(form_name,file_name,subject,form_date,form_time,form_creator,
     status,form_html,showLatestFormOnly,patient_independent,roleType,restrictToProgram,stable)
-    VALUES(${q(name)},'',${q(name)},CURDATE(),CURTIME(),${q(provider)},1,${q(HTML)},0,0,'',0,1);
-    SELECT LAST_INSERT_ID()`);
+    VALUES(?,'',?,CURDATE(),CURTIME(),?,1,?,0,0,'',0,1)`, [name, name, provider, HTML]);
   h.assert(/^[1-9]\d*$/.test(fid), 'Owned template was not created');
-  const seedAttachment = id => sql.value(`INSERT INTO eform_data(fdid,fid,form_name,subject,demographic_no,
-    status,form_date,form_time,form_provider,form_data,showLatestFormOnly,patient_independent,roleType)
-    VALUES(${id || 'NULL'},${fid},${q(name)},'Attachment',${patient},1,CURDATE(),CURTIME(),
-      ${q(provider)},${q(HTML)},0,0,'');
-    SELECT fdid FROM eform_data WHERE fid=${fid} AND demographic_no=${patient} AND subject='Attachment'`);
+  const seedAttachment = id => {
+    sql.execute(`INSERT INTO eform_data(fdid,fid,form_name,subject,demographic_no,
+      status,form_date,form_time,form_provider,form_data,showLatestFormOnly,patient_independent,roleType)
+      VALUES(?,?,?,'Attachment',?,1,CURDATE(),CURTIME(),?,?,0,0,'')`, [id || null, fid, name, patient, provider, HTML]);
+    return sql.value("SELECT fdid FROM eform_data WHERE fid=? AND demographic_no=? AND subject='Attachment'", [fid, patient]);
+  };
   attachment = seedAttachment();
   h.assert(/^[1-9]\d*$/.test(attachment), 'Owned attachment was not created');
 
@@ -69,7 +69,7 @@ async function workflow(s) {
     }, attachment);
     form.on('request', request => requests.push(request.url()));
     await form.route('**/email/emailComposeAction?**', async route => {
-      sql.execute(`DELETE FROM eform_data WHERE fdid=${attachment} AND fid=${fid} AND demographic_no=${patient}`);
+      sql.execute('DELETE FROM eform_data WHERE fdid=? AND fid=? AND demographic_no=?', [attachment, fid, patient]);
       await route.continue();
     }, { times: 1 });
     await h.withExpectedDialogs(form, async () => {
@@ -90,11 +90,11 @@ async function workflow(s) {
     h.assert(await css.evaluate(element => !!element.sheet), 'Error-page stylesheet did not load');
     h.assert(!requests.some(url => /\/email\/(?:efmformrtl_templates|library\/)/.test(url)),
       'Error page requested an eForm resource under /email/');
-    fdid = sql.value(`SELECT fdid FROM eform_data WHERE fid=${fid} AND demographic_no=${patient}`);
+    fdid = sql.value('SELECT fdid FROM eform_data WHERE fid=? AND demographic_no=?', [fid, patient]);
     h.assert(/^[1-9]\d*$/.test(fdid), 'The letter was not saved');
-    h.assert(sql.value(`SELECT var_value FROM eform_values WHERE fdid=${fdid} AND var_name='note'`) === note,
+    h.assert(sql.value("SELECT var_value FROM eform_values WHERE fdid=? AND var_name='note'", [fdid]) === note,
       'The saved letter lost its typed value');
-    h.assert(sql.value(`SELECT COUNT(*) FROM emailLog WHERE demographicNo=${patient}`) === '0', 'An email was sent');
+    h.assert(sql.value('SELECT COUNT(*) FROM emailLog WHERE demographicNo=?', [patient]) === '0', 'An email was sent');
     await h.screenshot(form, s.config.screenshotDir, 'eform-email-error');
   });
 
@@ -112,9 +112,9 @@ async function workflow(s) {
     await form.locator('#emailComposeForm').waitFor({ timeout: TIMEOUT });
     h.assert(form.url() === composeUrl, 'Recovery changed the draft key');
     h.assert(await form.locator('.attachmentName').count() === 2, 'Retry did not prepare both original attachments');
-    h.assert(sql.value(`SELECT var_value FROM eform_values WHERE fdid=${fdid} AND var_name='note'`) === note,
+    h.assert(sql.value("SELECT var_value FROM eform_values WHERE fdid=? AND var_name='note'", [fdid]) === note,
       'Retry changed the saved letter');
-    h.assert(sql.value(`SELECT COUNT(*) FROM emailLog WHERE demographicNo=${patient}`) === '0', 'Retry sent an email');
+    h.assert(sql.value('SELECT COUNT(*) FROM emailLog WHERE demographicNo=?', [patient]) === '0', 'Retry sent an email');
   });
 }
 
