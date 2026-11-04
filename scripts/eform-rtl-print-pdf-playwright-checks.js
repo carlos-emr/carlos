@@ -155,9 +155,10 @@ async function typeLetter(page, text = LETTER_TEXT) {
   return html;
 }
 
-async function openNewLetter(context, recorder, fid, label) {
+async function openNewLetter(context, recorder, fid, label, onRequest) {
   const page = await context.newPage();
   wirePage(page, label, recorder);
+  if (onRequest) page.on('request', onRequest);
   await gotoApp(page, config.baseUrl, `/eform/efmformadd_data?fid=${encodeURIComponent(fid)}&demographic_no=${encodeURIComponent(config.demographicNo)}`);
   await assertNotErrorPage(page, label);
   await waitForEditor(page);
@@ -421,8 +422,17 @@ legacyHarness.runLegacyCheck('eform-rtl-print-pdf',async({cancellation})=>{
 
     // ---------- 6. Every shipped template fills without false AP lookup warnings (#5625) ----------
     const templates = [...new Set(['clinic_letter.rtl', 'patient_letter.rtl', 'consultation_letter.rtl', config.templateName])];
+    let templateLookupRequests = 0;
     for (const requestedTemplate of templates) {
-      page = await openNewLetter(context, recorder, fid, 'rtl-template-' + requestedTemplate);
+      const lookupKeys = [];
+      // Observe before navigation: the configured default can warm the cache before selection.
+      page = await openNewLetter(context, recorder, fid, 'rtl-template-' + requestedTemplate, request => {
+        const query = new URL(request.url()).searchParams;
+        if (query.get('oscarAPCacheLookupType') === 'template') {
+          templateLookupRequests++;
+          lookupKeys.push(...query.getAll('key'));
+        }
+      });
       cancellation?.throwIfCancelled();
       let templateName = requestedTemplate;
       if (config.templateIsFixture && requestedTemplate === config.templateName
@@ -435,11 +445,6 @@ legacyHarness.runLegacyCheck('eform-rtl-print-pdf',async({cancellation})=>{
       const offered = (await page.locator(`#template option[value="${templateName}"]`).count()) === 1;
       step(`template dropdown offers ${templateName}`, offered, '');
       if (offered) {
-        const lookupKeys = [];
-        page.on('request', request => {
-          const query = new URL(request.url()).searchParams;
-          if (query.get('oscarAPCacheLookupType') === 'template') lookupKeys.push(...query.getAll('key'));
-        });
         const templateResponse = page.waitForResponse(r => new URL(r.url()).searchParams.get('imagefile') === templateName, {timeout: 30000});
         await page.locator('#template').selectOption(templateName);
         cancellation?.throwIfCancelled();
@@ -475,10 +480,15 @@ legacyHarness.runLegacyCheck('eform-rtl-print-pdf',async({cancellation})=>{
         const composites = ['letterhead', '_ClosingSalutation', '_age', 'gender', 'ageGender'];
         // A configured default may already have warmed every field in this template.
         step(`${templateName} requests no composite names from the server`, !lookupKeys.some(key => composites.includes(key)), lookupKeys.join(', '));
+        // Closing a template while its signature image is still streaming logs a
+        // client-abort ERROR on the server and obscures the lookup log assertion.
+        await page.waitForLoadState('networkidle', {timeout: 30000});
+        cancellation?.throwIfCancelled();
       }
       await page.close();
       cancellation?.throwIfCancelled();
     }
+    step('template lookup requests were observed during initial load or selection', templateLookupRequests > 0, String(templateLookupRequests));
 
     // ---------- 7. No JS failures anywhere ----------
     assertNoPageErrors(recorder);

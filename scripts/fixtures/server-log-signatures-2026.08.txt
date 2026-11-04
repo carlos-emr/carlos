@@ -1,6 +1,6 @@
 # Signatures scripts/deb-server-log-audit.sh printed for the 2026.08.0~alpha19 promotion
 # validation (Ontario demo install, full Playwright suite, docs/ui-tests/deb-install-validation.md),
-# plus the entries added later, each marked "Added with <check>" above it (so far one, for mcedt-mailbox-outbox).
+# plus the entries added later, each marked "Added with <check>" above it (including mcedt-mailbox-outbox and the renderer probe).
 # Signatures carry no message text (numeric path segments read {n}). scripts/deb-server-log-audit.test.js requires every
 # baseline entry to match at least one of these, so a regex that drifts from the real
 # signature shape fails the test rather than silently explaining nothing.
@@ -78,3 +78,6 @@ ERROR pageUtil.EctConsultationFormFax2Action (EctConsultationFormFax2Action.java
 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:366) uri=/carlos/ws/rs/demographics @AbstractDaoImpl.persist :: jakarta.servlet.ServletException org.hibernate.exception.ConstraintViolationException java.sql.SQLIntegrityConstraintViolationException
 ERROR utility.DbConnectionFilter (DbConnectionFilter.java:111) @AbstractDaoImpl.persist :: org.hibernate.exception.ConstraintViolationException java.sql.SQLIntegrityConstraintViolationException
 ERROR interceptor.AbstractFaultChainInitiatorObserver (AbstractFaultChainInitiatorObserver.java:114) @AbstractDaoImpl.persist :: org.hibernate.exception.ConstraintViolationException java.sql.SQLIntegrityConstraintViolationException
+
+# Added with eform-apcache-renderer, Ubuntu 26.04 package validation for PR #5630.
+ERROR eform.efmformapconfig_005flookup_jsp (efmformapconfig_005flookup_jsp.java:359) apcache-key=renderer_missing_ap_{n}

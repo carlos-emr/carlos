@@ -15,6 +15,7 @@
 # pass -- an unexplained ERROR is a finding first (report, don't encode).
 #
 # Provoked on purpose by checks that prove error handling or refusal:
+^ERROR eform\.efmformapconfig_005flookup_jsp \(efmformapconfig_005flookup_jsp\.java:359\) apcache-key=renderer_missing_ap_\{n\}$	the exact synthetic missing-key negative control in scripts/eform-apcache-renderer-playwright-checks.js; real unknown keys remain unexplained (#5625, #5582)
 ^ERROR pageUtil\.EctConsultationFormFax2Action \(EctConsultationFormFax2Action\.java:235\)$	the no-active-sender refusal of scripts/consultation-submit-and-fax-playwright-checks.js, which asserts the configured-account error dialog and zero queued fax jobs
 ^ERROR utility\.ResponseSanitizationFilter \(ResponseSanitizationFilter\.java:[0-9]+\) uri=/carlos/ws/rs/schedule/fetchProvidersApptsCount/not-a-date/not-a-date$	the deliberate /ws 5xx body replacement of scripts/error-sanitization-playwright-checks.js
 ^ERROR rest\.ScheduleService \(ScheduleService\.java:[0-9]+\) @ScheduleManagerImpl\.listProviderAppointmentCounts :: jakarta\.ws\.rs\.WebApplicationException$	the not-a-date request of scripts/error-sanitization-playwright-checks.js, logged by the service before the filter replaces its body
