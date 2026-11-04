@@ -58,6 +58,13 @@ public class Startup implements ServletContextListener {
 	private static final Logger logger = MiscUtils.getLogger();
 	private CarlosProperties p = CarlosProperties.getInstance();
 
+    /**
+     * Initializes configuration, persisted encryption state and application resources.
+     * Required configuration or key failures abort startup before encrypted data is used.
+     *
+     * @param sc ServletContextEvent the application context being initialized
+     * @throws RuntimeException if required startup configuration or initialization fails
+     */
     public void contextInitialized(ServletContextEvent sc) {
         logger.info("Starting OSCAR application ");
 

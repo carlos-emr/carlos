@@ -73,6 +73,11 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
     private Path userHome;
     private boolean configurationCaptured;
 
+    /**
+     * Captures process-wide state before creating an isolated home and override selection.
+     *
+     * @throws Exception if reflective state capture or temporary directory creation fails
+     */
     @BeforeEach
     void isolateConfiguration() throws Exception {
         singletonField = CarlosProperties.class.getDeclaredField("carlosProperties");
@@ -89,6 +94,11 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         System.clearProperty(OVERRIDE);
     }
 
+    /**
+     * Attempts every captured-state restoration even if an earlier restoration fails.
+     *
+     * @throws Exception if a captured field cannot be restored
+     */
     @AfterEach
     void restoreConfiguration() throws Exception {
         if (!configurationCaptured) {
@@ -263,6 +273,11 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         assertThat(userHome.resolve("carlos.properties")).doesNotExist();
     }
 
+    /**
+     * Starts two blank-key snapshots together and verifies one persisted initialization.
+     *
+     * @throws Exception if configuration setup or concurrent initialization fails
+     */
     @Test
     void shouldReuseOneKey_whenInstancesInitializeConcurrently() throws Exception {
         Path override = writeConfiguration(tempDir.resolve("shared.properties"), "");
@@ -291,6 +306,12 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    /**
+     * Coordinates two JVMs after both load a blank key, then decrypts both outputs with
+     * the single persisted key. Always terminates child processes after the assertions.
+     *
+     * @throws Exception if process coordination, startup or ciphertext verification fails
+     */
     @Test
     void shouldReuseOneKey_whenProcessesStartConcurrently() throws Exception {
         Path override = writeConfiguration(tempDir.resolve("shared.properties"), "");
@@ -343,6 +364,12 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    /**
+     * Installs a fresh configuration singleton and clears the prepared encryption key.
+     *
+     * @return CarlosProperties the freshly loaded active configuration
+     * @throws Exception if configuration construction or singleton replacement fails
+     */
     private CarlosProperties reloadProperties() throws Exception {
         CarlosProperties properties = createProperties();
         singletonField.set(null, properties);
@@ -350,18 +377,37 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         return properties;
     }
 
+    /**
+     * Constructs an independent configuration snapshot without replacing the singleton.
+     *
+     * @return CarlosProperties the newly loaded configuration
+     * @throws Exception if reflective construction fails
+     */
     private CarlosProperties createProperties() throws Exception {
         Constructor<CarlosProperties> constructor = CarlosProperties.class.getDeclaredConstructor();
         constructor.setAccessible(true);
         return constructor.newInstance();
     }
 
+    /**
+     * Writes fixture database and document settings with an optional encryption entry.
+     *
+     * @param path Path the destination properties file
+     * @param key String the key value, or null to omit the property entirely
+     * @return Path the written configuration file
+     * @throws Exception if the fixture file cannot be written
+     */
     private Path writeConfiguration(Path path, String key) throws Exception {
         Files.writeString(path, "db_name=startup_test\nBASE_DOCUMENT_DIR=" + tempDir.resolve("documents") + "\n"
                 + (key == null ? "" : KEY + "=" + key + "\n"));
         return path;
     }
 
+    /**
+     * Runs the real startup listener with a minimal servlet context and temporary webapp.
+     *
+     * @throws Exception if webapp setup or application startup fails
+     */
     private void startApplication() throws Exception {
         Path root = Files.createDirectories(tempDir.resolve("webapps/carlos"));
         ServletContext context = mock(ServletContext.class);
@@ -369,6 +415,12 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         new Startup().contextInitialized(new ServletContextEvent(context));
     }
 
+    /**
+     * Restores the original value or absence of a process-wide property.
+     *
+     * @param name String the system property name
+     * @param original String the previous value, or null when the property was absent
+     */
     private static void restoreSystemProperty(String name, String original) {
         if (original == null) {
             System.clearProperty(name);
