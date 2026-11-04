@@ -115,6 +115,8 @@ jobs:
         run: node scripts/prevention-print-popup-browser-check.js
       - name: Check signed-note lifecycle locators in Chromium
         run: node scripts/echart-note-lifecycle-browser-check.js
+      - name: Check HRM report list links in Chromium
+        run: node scripts/hrm-report-list-browser-check.js
       - name: Check messenger reply native form encoding in Chromium
         run: node scripts/messenger-reply-form-browser-check.js
       - name: Check Messenger inbox sort headers in Chromium
