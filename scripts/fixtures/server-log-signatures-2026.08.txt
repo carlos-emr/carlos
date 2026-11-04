@@ -1,6 +1,6 @@
 # Signatures scripts/deb-server-log-audit.sh printed for the 2026.08.0~alpha19 promotion
 # validation (Ontario demo install, full Playwright suite, docs/ui-tests/deb-install-validation.md),
-# plus the entries added later, each marked "Added with <check>" above it (including mcedt-mailbox-outbox and the renderer probe).
+# plus later entries, with the owning check and capture provenance noted above each addition.
 # Signatures carry no message text (numeric path segments read {n}). scripts/deb-server-log-audit.test.js requires every
 # baseline entry to match at least one of these, so a regex that drifts from the real
 # signature shape fails the test rather than silently explaining nothing.
@@ -81,3 +81,6 @@ ERROR interceptor.AbstractFaultChainInitiatorObserver (AbstractFaultChainInitiat
 
 # Added with eform-apcache-renderer, Ubuntu 26.04 package validation for PR #5630.
 ERROR eform.efmformapconfig_005flookup_jsp (efmformapconfig_005flookup_jsp.java:359) apcache-key=renderer_missing_ap_{n}
+# Added with scripts/eform-email-error-playwright-checks.js: deliberately unavailable owned eForm attachment in the #4477 browser check,
+# captured on the installed 2026.09.0~snapshot27 package; no exception message or patient data.
+ERROR action.EmailCompose2Action (EmailCompose2Action.java:312) @EmailComposeManager.patientAttachmentIds :: io.github.carlos_emr.carlos.utility.PDFGenerationException

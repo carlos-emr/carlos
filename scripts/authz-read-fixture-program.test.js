@@ -32,6 +32,10 @@ function programFixture(sourceDefaults, { blockExisting = false } = {}) {
     },
     rows(query, parameters) {
       statements.push(query);
+      if (query.startsWith('SELECT privilege FROM secObjPrivilege')) {
+        assert.match(query, /roleUserGroup='doctor' AND objectName='_appointment'/);
+        return [['w']];
+      }
       assert.match(query, /^SELECT program_id,signnote FROM provider_default_program\s+WHERE provider_no=\? ORDER BY program_id,signnote$/);
       assert.equal(parameters.length, 1);
       if (parameters[0] === '999998') return structuredClone(sourceDefaults);
