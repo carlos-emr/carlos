@@ -879,10 +879,14 @@ public class LogoutBroadcastFilter implements Filter {
          */
         @Override
         public void reset() {
+            // A rejected reset must leave both the delegate and our cached state intact.
+            super.reset();
             clearDeferredContentLength();
             htmlInjectionBufferConfigured = false;
             htmlInjectionBufferUnavailable = false;
-            super.reset();
+            responseWriterObtained = false;
+            responseOutputStreamObtained = false;
+            writer = null;
         }
 
         /**
