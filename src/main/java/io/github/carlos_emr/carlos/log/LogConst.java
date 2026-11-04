@@ -88,5 +88,9 @@ public class LogConst {
     public static final String CON_FAX = "fax";
     public static final String CON_PHARMACY = "pharmacy";
     public static final String CON_PROVIDER_INBOX = "provider_inbox";
+    /** AI prototype rows (content column); each names the feature, never generated text. */
+    public static final String CON_AI_CHART_UPDATE = "AI chart update";
+    public static final String CON_AI_CLINICAL_SUMMARY = "AI clinical summary";
+    public static final String CON_AI_DOCUMENT_SUMMARY = "AI document summary";
 
 }

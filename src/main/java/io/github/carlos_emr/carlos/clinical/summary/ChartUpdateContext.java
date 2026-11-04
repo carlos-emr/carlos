@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.commn.dao.TicklerDao;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -201,7 +202,8 @@ public class ChartUpdateContext {
         String fingerprint = ChartUpdateProposals.hash(documentId + "\n" + patient + "\n" + patientLabel + "\n" + program + "\n"
                 + membership.getRoleId() + "\n" + sourceHash + "\n" + document.getDocfilename() + "\n"
                 + document.getUpdatedatetime() + "\n" + document.getDocdesc() + "\n" + date + "\n" + entries);
-        LogAction.addLogSynchronous(user, "ChartUpdates.read", "documentId=" + documentId + ",demographicNo=" + patient);
+        LogAction.addLogSynchronous(user, "ChartUpdates.read", LogConst.CON_AI_CHART_UPDATE, Integer.toString(documentId),
+                patient, "documentId=" + documentId + ",demographicNo=" + patient);
         return new Snapshot(documentId, patient, patientLabel, document.getDocdesc(), date, extract.text(), sourceHash,
                 fingerprint, program, membership.getRoleId().toString(), List.copyOf(entries));
     }
