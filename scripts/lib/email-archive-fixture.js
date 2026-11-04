@@ -35,6 +35,8 @@ function createEmailArchiveCleanup(sql, documentDir = process.env.DOCUMENT_DIR) 
     assert.equal(sql.value(`SELECT COUNT(*) FROM outboundEmailArchive WHERE emailLogId IN (${logs})`),
       String(rows.length), 'An email archive has unfamiliar ownership or document metadata');
     if (!rows.length) return;
+    assert.equal(process.env.CARLOS_DISPOSABLE_VM, 'true',
+      'Removing synthetic email archives requires CARLOS_DISPOSABLE_VM=true');
     assert(documentDir, 'Owned email archive cleanup requires DOCUMENT_DIR');
     const store = fs.realpathSync(documentDir);
     assert(fs.statSync(store).isDirectory(), 'Email document store is not a directory');

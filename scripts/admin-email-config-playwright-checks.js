@@ -339,7 +339,7 @@ async function workflow(s) {
     h.assert(await manager.locator(`#senderEmailAddress option[value="${sender}"]`).count() === 1, 'Manage Emails does not offer the owned sender');
     await fetchEmails('-1');
     h.assert(await cards().count() === 2, `Expected the 2 owned log rows, Manage Emails listed ${await cards().count()}`);
-    h.assert((await manager.locator(`#emailStatus${sentLog}`).innerText()).trim() === 'SUCCESS'
+    h.assert((await manager.locator(`#emailStatus${sentLog}`).innerText()).trim() === 'ACCEPTED BY MAIL SERVER'
       && (await manager.locator(`#emailStatus${failedLog}`).innerText()).trim() === 'FAILED', 'Card statuses differ from the log rows');
     h.assert(await cards().filter({hasText: subject}).count() === 1 && await cards().filter({hasText: failedSubject}).count() === 1,
       'Card subjects differ from the log rows');
@@ -355,9 +355,10 @@ async function workflow(s) {
         admin.waitForResponse(r => r.request().method() === 'POST' && (r.request().postData() || '').includes('method=setResolved'), {timeout: TIMEOUT}),
         manager.locator(`#btnResolve${failedLog}`).click(),
       ]);
-      h.assert(response.status() === 200, `Resolve answered HTTP ${response.status()}`);
+      h.assert(response.status() === 204, `Resolve answered HTTP ${response.status()}`);
     });
     h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Resolve did not ask for confirmation');
+    await manager.locator(`#emailStatus${failedLog}`).filter({hasText: 'RESOLVED'}).waitFor({timeout: TIMEOUT});
     await expectValue(sql, `SELECT status FROM emailLog WHERE id=${failedLog}`, 'RESOLVED',
       'Resolve showed RESOLVED but the log row is still FAILED');
   });

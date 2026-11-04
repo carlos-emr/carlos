@@ -6,6 +6,8 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 const {createEmailArchiveCleanup} = require('./lib/email-archive-fixture');
+// This test file runs in its own Node test process and creates only temporary fixture files.
+process.env.CARLOS_DISPOSABLE_VM = 'true';
 
 function fixture(t, overrides = {}) {
   const store = fs.mkdtempSync(path.join(os.tmpdir(), 'owned-email-archive-'));
@@ -76,4 +78,14 @@ test('archive cleanup preserves files if the SQL transaction fails', t => {
   const f = fixture(t, {sqlFailure: true});
   assert.throws(f.run, /simulated SQL failure/);
   assert(fs.existsSync(f.owned) && fs.existsSync(f.unrelated));
+});
+
+test('archive cleanup refuses to remove archives without an explicit disposable-install flag', t => {
+  const f = fixture(t);
+  delete process.env.CARLOS_DISPOSABLE_VM;
+  try {
+    assert.throws(f.run, /CARLOS_DISPOSABLE_VM/);
+    assert.equal(f.mutations.length, 0);
+    assert(fs.existsSync(f.owned) && fs.existsSync(f.unrelated));
+  } finally { process.env.CARLOS_DISPOSABLE_VM = 'true'; }
 });

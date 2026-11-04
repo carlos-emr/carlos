@@ -10,6 +10,12 @@ The 2026-10-15 focused validation for issue #4699, including blocking-WAF
 positive/negative controls and pending encounter-issue preservation, is recorded
 in [PR #4701 validation](pr4701-validation.md).
 
+The 2026-11-03 focused validation for issue #5166 restored the three email
+browser workflows on `develop`: all three passed against source-built snapshot27
+packages installed on Ubuntu 26.04 through the packaged front door, with no
+fixture residue. See [PR #5598 validation](pr5598-validation.md) for the original
+selector failure, current compose contracts, package inputs and test configuration.
+
 It is the procedure that first surfaced the WAF false positives on note-saving
 and eForm saves, the add-patient validation regression, the nullable-column
 500s on the consultation surfaces, and the empty Consultations inbox on the demo

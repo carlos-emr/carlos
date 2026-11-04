@@ -235,6 +235,8 @@ async function workflow(s) {
     await composer.locator('#successMessage').waitFor({ timeout: TIMEOUT });
     h.assert((await composer.locator('#successMessage').innerText()).includes(entry.address),
       `The ${label} confirmation does not name its patient's address`);
+    // The next eForm uses a fixed popup name; wait until this successful composer releases it.
+    if (!composer.isClosed()) await composer.waitForEvent('close', {timeout: TIMEOUT});
   }
 
   await s.step('a changed submitted patient number cannot redirect the staged email or eForm', async () => {
@@ -288,8 +290,20 @@ async function workflow(s) {
   let composerY;
   await s.step('a Manage Emails resend of X\'s email keeps X\'s eForm while Y\'s email is composed', async () => {
     h.assert(/^[1-9]\d*$/.test(sentLogX || ''), 'X\'s sent email log is missing');
-    resend = await context.newPage();
-    await h.gotoApp(resend, s.config.baseUrl, `/admin/ManageEmails?method=resendEmail&logId=${sentLogX}`);
+    const manager = await context.newPage();
+    await h.gotoApp(manager, s.config.baseUrl, '/admin/ManageEmails?method=view');
+    const today = sql.value("SELECT DATE_FORMAT(CURDATE(),'%Y-%m-%d')");
+    for (const selector of ['#dateBegin', '#dateEnd']) {
+      await manager.locator(selector).fill(today);
+      await manager.locator(selector).press('Tab');
+    }
+    await manager.locator('#senderEmailAddress').selectOption(sender);
+    await manager.locator('#emailStatus').selectOption('SUCCESS');
+    await manager.locator('#btnFetch').click();
+    const copy = manager.locator(`#btnResend${sentLogX}`);
+    await copy.waitFor({timeout: TIMEOUT});
+    // The real control prepares the new compose state with a CSRF-protected POST; GET is refused.
+    resend = await s.popup(manager, copy, 'resend-email');
     await resend.locator('#emailComposeForm').waitFor({ timeout: TIMEOUT });
     h.assert(await resend.locator('.attachmentName').count() === 1, 'The resend window does not list X\'s eForm');
 
