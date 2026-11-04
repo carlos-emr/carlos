@@ -32,6 +32,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.BillRecipientsDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingHistoryDao;
@@ -140,6 +142,28 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
 
     private MSPReconcile.BillSearch report(String type) {
         return reconcile.getBillsByType("all", "all", "all", "", "", false, false, false, false, type);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"REP_INVOICE", "REP_ACCOUNT_REC"})
+    void shouldRetainLegacyRows_whenCsvAmountsCannotBeCalculated(String type) throws Exception {
+        var csv = spy(new MSPReconcile(true));
+        doReturn(new Properties()).when(csv).currentC12Records();
+        doReturn("").when(csv).getS00String(anyString());
+        doReturn(new Provider()).when(csv).getProvider(anyString(), anyInt());
+        for (String amount : Arrays.asList(null, "", " ", "bad amount", "NaN")) {
+            var malformed = new BillRow("Pri", "41", "1", "1", "FAKE-Patient", "", "O", "", "", "", "41",
+                    amount, "00100", "", "", "", "", "", "", "", "12345", "12345", "", "");
+            var valid = new BillRow("Pri", "42", "1", "1", "FAKE-Patient", "", "O", "", "", "", "42",
+                    "100.00", "00100", "", "20261001", "", "", "", "", "", "12345", "12345", "", "");
+            when(billingmasterDao.findBcBills(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any()))
+                    .thenReturn(List.of(malformed, valid));
+            var result = csv.getBillsByType("ALL", "ALL", "ALL", "", "", false, false, false, false, type);
+            assertThat(result.list).hasSize(2);
+            assertThat(((MSPBill) result.list.getFirst()).getAmount()).isEqualTo(amount);
+            assertThat(((MSPBill) result.list.getFirst()).getAmtOwing()).isEmpty();
+            assertThat(((MSPBill) result.list.get(1)).getAmtOwing()).isEqualTo("100.0");
+        }
     }
 
     @Test

@@ -1266,9 +1266,12 @@ public class MSPReconcile {
                         b.demoPhone2 = demographic.getPhone2();
                     }
                 } else if (MSPReconcile.REP_INVOICE.equals(type)) {
-                    double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype,
-                            paidTotals.getOrDefault(ConversionUtils.fromIntString(b.billMasterNo), 0.0));
-                    b.amtOwing = String.valueOf(dblAmtOwing);
+                    b.amtOwing = "";
+                    if (canCalculateReportBalance(b.amount)) {
+                        double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype,
+                                paidTotals.getOrDefault(ConversionUtils.fromIntString(b.billMasterNo), 0.0));
+                        b.amtOwing = String.valueOf(dblAmtOwing);
+                    }
                     //append the explanatory code to end of reason field
                     String expString = c12.getProperty(b.billing_no) != null ? c12.getProperty(b.billing_no) : "";
                     b.reason += " " + expString;
@@ -1285,10 +1288,13 @@ public class MSPReconcile {
                  * we need to get the difference between what was billed and what was paid
                  **/
                 if (type.equals(MSPReconcile.REP_ACCOUNT_REC)) {
-                    double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype,
-                            paidTotals.getOrDefault(ConversionUtils.fromIntString(b.billMasterNo), 0.0));
-                    b.amtOwing = String.valueOf(dblAmtOwing);
-                    skipBill = Double.valueOf(b.amtOwing).doubleValue() == 0.0;
+                    b.amtOwing = "";
+                    if (canCalculateReportBalance(b.amount)) {
+                        double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype,
+                                paidTotals.getOrDefault(ConversionUtils.fromIntString(b.billMasterNo), 0.0));
+                        b.amtOwing = String.valueOf(dblAmtOwing);
+                        skipBill = dblAmtOwing == 0.0;
+                    }
                 }
 
                 if (!skipBill) {
@@ -1303,6 +1309,19 @@ public class MSPReconcile {
             reportReadFailure(e);
         }
         return billSearch;
+    }
+
+    private boolean canCalculateReportBalance(String amount) {
+        if (!failOnReadError) return true;
+        if (amount == null || amount.isBlank()) return false;
+        try {
+            new BigDecimal(amount);
+            return true;
+        } catch (NumberFormatException invalid) {
+            // CSV retains the source amount, but cannot infer a balance or call the bill settled.
+            // Database/payment-read failures still propagate through reportReadFailure.
+            return false;
+        }
     }
 
     /**
