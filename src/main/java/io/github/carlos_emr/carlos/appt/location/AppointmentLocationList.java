@@ -200,6 +200,9 @@ public final class AppointmentLocationList {
      * list existed keeps its text. Either is offered as a legacy option, which saves the name
      * without a code. The add and edit pages both paste through this.
      *
+     * <p>A disabled item gives its current name, not the booking's saved one: copy and cut fill the
+     * clipboard from the edit form, whose location text is blank for a booking with a code.</p>
+     *
      * @param pastedCode String the pasted appointment's location code as stored, or null
      * @param pastedLocation String the pasted appointment's location text, or null
      * @return String the name to offer as a legacy option, or null when there is none to offer
