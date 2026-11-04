@@ -10,6 +10,44 @@ The 2026-10-15 focused validation for issue #4699, including blocking-WAF
 positive/negative controls and pending encounter-issue preservation, is recorded
 in [PR #4701 validation](pr4701-validation.md).
 
+Issue #5627 ([PR #5631](https://github.com/carlos-emr/carlos/pull/5631)) was validated
+on 2026-11-03 in an Ubuntu 26.04 systemd container with Ontario demonstration data.
+CARLOS was compiled and tested with the distribution's JDK 25, and pinned DrugRef
+source was built against `debian/drugref-dependencies-lock.json`. The complete
+`2026.09.0~snapshot27` debs were built with `dpkg-buildpackage -us -uc -b`, including
+Chromium revision 1685886 and chromedriver, both checked against their committed
+SHA-256 values. The documented allowed
+`CHROMIUM_BASE_URL=https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64`
+was used through the session proxy. The pinned `carlos-ctl` 1.3.0 tag was built
+with its release changelog stamp in an isolated worktree. The complete packages
+were reinstalled before the final run; `carlos-ctl check` passed before and after.
+
+Through nginx/ModSecurity HTTPS with shipped Chromium 154.0.8025.0, all four
+`rx-save-failure-retry` new/mixed × Save Only/Save And Print modes pass. Each owned
+second-INSERT fault is observed, the complete clinical snapshot is unchanged,
+entered cards survive, retry writes exactly one prescription, and the reopened
+profile and prescription agree with storage. Save And Print waits for its native
+preview to settle before deliberately reloading, retaining strict browser-error
+checks. The lost-response controls preserve committed rows without a second
+prescription and still report the existing finding 334 warning defect; its two
+expected-failure pins remain. After the runbook's dictionary initialization, the
+final six-mode run reports **4 passes, 0 failures, 0 skips and 2 known failures**,
+no residue and no application restart (`NRestarts` 0 → 0). Finding 333 is fixed
+and its four expected-failure pins are removed.
+
+After merging the current release branch, the Ubuntu build passed 2,445 Rx
+tests; the review-specific run passed 139
+focused cases, including audit-after-commit ordering and real-H2 partial-date
+rollback/retry. The H2 check observes a first-card partial-date row before a real
+second-drug INSERT fails, verifies that all three tables roll back, and checks
+exactly one partial-date row after retry. Both Save And Print modes also pass
+again after bounding the best-effort network-settling wait, with no residue or
+service restart. Pinned DrugRef passed 74
+tests. Locked Node regressions passed 7,082 tests with one existing TODO; the
+updated manifest/Rx harness checks passed 71 tests. The CDS crosswalk check and
+its 25 Python tests pass with the reviewed reader bytes preserved. Source lints
+and `lintian --fail-on error` on the complete debs pass.
+
 Issue #5572 (Browse Notes document Delete), [PR #5586](https://github.com/carlos-emr/carlos/pull/5586),
 was validated on 2026-11-03 in an Ubuntu 26.04 systemd container with Ontario demo data.
 CARLOS and the pinned DrugRef source were built with Maven inside Ubuntu 26.04;
