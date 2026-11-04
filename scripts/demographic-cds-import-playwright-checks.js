@@ -3,9 +3,10 @@
 /*
  * Real menu/form, bounded raw-body upload, durable jobs and protected reports.
  * Required environment: disposable migrated database, enabled CDS importer,
- * approved source namespace/profile and maintenance admission. Missing feature
- * configuration reports SKIP with the prerequisite named. Configured importer
- * failures remain failures; a skip does not validate the import release gate.
+ * approved source namespace/profile, xmllint and maintenance admission. Missing
+ * optional-install prerequisites report explicit SKIP/exit 2 under #5578; they
+ * are unavailable coverage, never a passing release gate. Full CDS release
+ * acceptance must provide them. Browser, transport, import and cleanup errors fail.
  * Synthetic owned clinical fixtures are removed only after their import holds
  * clear. Durable import receipts and audit evidence remain for investigation.
  */
@@ -221,9 +222,14 @@ async function openImportFrame(s, label = 'cds-import-admin') {
   h.assert(frame, 'Demographic Import frame did not load');
   observed.prover = createCdsMetadataProver({frame,config:s.config,sql:s.sql,readApi:importApi});
   await frame.locator('#cdsImportForm #importFile').waitFor();
-  await frame.waitForFunction(() => Boolean(document.querySelector('input[name="CSRF-TOKEN"]')?.value));
-  const ready = await initialStatus; h.assert(ready.status() === 200, 'Initial owner-scoped upload status was refused');
+  // The owner-scoped uploads/status read remains available when admission is
+  // disabled (CdsUploadService.pending does not requireEnabled). Settle it
+  // before classifying a missing feature/profile, so SKIP cannot hide transport
+  // or authorization failures that occurred while opening the page.
+  const ready = await initialStatus;
+  h.assert(ready.status() === 200, 'Initial owner-scoped upload status was refused');
   const source = await requireImportSource(frame, s.recorder);
+  await frame.waitForFunction(() => Boolean(document.querySelector('input[name="CSRF-TOKEN"]')?.value));
   await frame.locator('#cdsSource').selectOption(source);
   h.assert(!await frame.locator('#mergeExisting').isChecked(), 'Existing-patient merge must default off');
   await admin.waitForLoadState('networkidle', {timeout:10000});

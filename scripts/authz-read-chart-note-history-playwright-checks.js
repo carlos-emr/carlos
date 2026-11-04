@@ -97,7 +97,7 @@ async function workflow(s) {
       h.assert(own.status === 200 && own.found.includes(text), `The owner was not served ${method} for the right patient (HTTP ${own.status})`);
     }
     h.assert(fixture.roleHoldsNothing('er_clerk'), 'er_clerk is expected to hold no sec object');
-    clerk = await signIn(s, fixture.addLogin('er_clerk'),{allowForbiddenSchedule:true});
+    clerk = await signIn(s, fixture.addLogin('er_clerk'));
     for (const method of ['notehistory', 'history']) {
       const result = await get(clerk.context, noteUrl(method, patient));
       h.assert(forbiddenByApp(result) && !result.found.length, `${method} answered HTTP ${result.status} to a login without sec objects`);

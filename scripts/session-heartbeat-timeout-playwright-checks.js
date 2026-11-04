@@ -76,6 +76,9 @@ function requireExclusiveFixture(env = process.env) {
   if (env.CARLOS_DISPOSABLE_VM !== 'true') throw new h.SkipCheck('The clinic-wide fixture requires CARLOS_DISPOSABLE_VM=true');
   if (env.EXCLUSIVE !== '1') throw new h.SkipCheck('The clinic-wide Suggested Text fixture requires EXCLUSIVE=1');
 }
+function preflightConfig({env=process.env}={}) {
+  return requireExclusiveFixture(env);
+}
 async function workflow(s) {
   requireExclusiveFixture();
   const { sql, context, config, recorder, patient, provider, marker } = s;
@@ -303,5 +306,5 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('session-heartbeat-timeout', workflow, { openPatient: true, preflightConfig: () => requireExclusiveFixture() });
-module.exports = { workflow, requireExclusiveFixture };
+if (require.main === module) runWorkflow('session-heartbeat-timeout', workflow, { openPatient: true, preflightConfig });
+module.exports = { workflow, preflightConfig, requireExclusiveFixture };

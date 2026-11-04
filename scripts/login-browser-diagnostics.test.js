@@ -27,6 +27,7 @@ function fixture() {
   const recorder = h.createRecorder();
   const page = new EventEmitter();
   h.wireStrictPage(page, 'missing-CSRF', recorder, { baseline: [] });
+  const permanentResponseObservers = page.listeners('response');
   function respond(options = {}) {
     const body = options.body ?? '<html><p>CARLOS Error: 403</p></html>';
     const status = options.status ?? 403;
@@ -48,7 +49,12 @@ function fixture() {
     }
     return { response, result: { status, url: response.url(), text: body.slice(0, 300) } };
   }
-  return { page, recorder, respond };
+  return { page, recorder, respond, permanentResponseObservers };
+}
+
+function assertWitnessRemoved(fixture) {
+  assert.deepEqual(fixture.page.listeners('response'), fixture.permanentResponseObservers,
+    'the local witness is removed and every permanent strict response observer remains');
 }
 
 test('only the exact proven CSRF response and its resource diagnostic are acknowledged', async () => {
@@ -58,7 +64,7 @@ test('only the exact proven CSRF response and its resource diagnostic are acknow
     async () => f.respond().result, async () => { verified = true; });
   assert.equal(verified, true);
   h.assertStrictPage(f.recorder);
-  assert.equal(f.page.listenerCount('response'), 1, 'the local witness must unregister itself');
+  assertWitnessRemoved(f);
 });
 
 test('a different request to the same endpoint stays fatal alongside the owned refusal', async () => {
@@ -92,7 +98,7 @@ test('duplicate owned responses fail without removing either HTTP finding', asyn
     f.respond(); return f.respond().result;
   }, () => {}), /exactly one/);
   assert.equal(f.recorder.badResponses.length, 2);
-  assert.equal(f.page.listenerCount('response'), 1);
+  assertWitnessRemoved(f);
 });
 
 for (const [name, options] of [
@@ -108,7 +114,7 @@ for (const [name, options] of [
     await assert.rejects(expectRefusal(f.page, f.recorder, endpoint, form,
       async () => f.respond(options).result, () => {}), /HTTP 403|application error evidence/);
     assert.equal(f.recorder.badResponses.length, 1);
-    assert.equal(f.page.listenerCount('response'), 1);
+    assertWitnessRemoved(f);
   });
 }
 
@@ -132,5 +138,5 @@ test('a send failure always unregisters the temporary witness', async () => {
   const f = fixture();
   await assert.rejects(expectRefusal(f.page, f.recorder, endpoint, form,
     async () => { throw new Error('request failed'); }, () => {}), /request failed/);
-  assert.equal(f.page.listenerCount('response'), 1);
+  assertWitnessRemoved(f);
 });

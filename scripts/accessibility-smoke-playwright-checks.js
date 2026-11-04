@@ -11,6 +11,9 @@ function requireAxeCore(resolve=require.resolve) {
     throw error;
   }
 }
+function preflightConfig({resolve=require.resolve}={}) {
+  return requireAxeCore(resolve);
+}
 async function workflow(s) {
   const axePath=requireAxeCore();
   await eachUiQualitySurface(s,async(label,page)=>s.step(`${label}: report accessibility rules`,async()=>{
@@ -25,5 +28,5 @@ async function workflow(s) {
     console.log(JSON.stringify({surface:label,...report}));
   }));
 }
-if(require.main===module)runWorkflow('accessibility-smoke',workflow,{openPatient:true,preflightConfig:()=>requireAxeCore()});
-module.exports={workflow,requireAxeCore};
+if(require.main===module)runWorkflow('accessibility-smoke',workflow,{openPatient:true,preflightConfig});
+module.exports={workflow,preflightConfig,requireAxeCore};

@@ -65,7 +65,7 @@ async function workflow(s) {
     'receptionist no longer matches the seeded role matrix');
     for (const role of Object.keys(DENIED)) {
       const login = fixture.addLogin(role);
-      sessions[role] = await signIn(s, login, { allowForbiddenSchedule: role === 'er_clerk' });
+      sessions[role] = await signIn(s, login);
     }
   });
 

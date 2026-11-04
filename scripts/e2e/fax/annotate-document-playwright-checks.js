@@ -85,7 +85,7 @@ async function navigateAnnotationViewer(page, rawBaseUrl, viewerDocId, waitUntil
 }
 
 /** Report a refused fax handoff immediately instead of waiting for a URL that cannot arrive. */
-async function waitForAnnotationFaxCover(page) {
+async function waitForAnnotationFaxCover(page, diagnostics = []) {
   const outcome = await page.waitForFunction(() => {
     if (document.getElementById('btnSend')) return 'ready';
     const refusal = document.querySelector('[role="alert"]');
@@ -97,7 +97,8 @@ async function waitForAnnotationFaxCover(page) {
   }, null, {timeout: 120000});
   const result = await outcome.jsonValue();
   if (result === 'no-account') {
-    throw new h.SkipCheck('Annotation Save and fax requires an active fax account available to the test provider. Prepare an owned UI-only fax fixture.');
+    h.assert(diagnostics.length===0, 'Annotation flow reported CSP or uncaught script errors before the unavailable fax prerequisite');
+    throw new h.SkipCheck('Annotation Save and fax requires an active fax account available to the test provider. Prepare an owned UI-only fax fixture; the handoff was not tested.');
   }
   if (result !== 'ready') throw new Error('Annotation Save and fax was refused before reaching the cover page; inspect the visible save/fax error.');
 }
@@ -1929,7 +1930,7 @@ async function main({cancellation,fixture}={}) {
     cancellation?.throwIfCancelled();
     await page.locator('#btnSaveFax').click();
     cancellation?.throwIfCancelled();
-    await waitForAnnotationFaxCover(page);
+    await waitForAnnotationFaxCover(page, cspViolations);
     cancellation?.throwIfCancelled();
     await page.waitForURL('**/fax/faxAction*', { timeout: 120000 });
     cancellation?.throwIfCancelled();
@@ -2001,10 +2002,9 @@ h.runCheck({name:'annotate-document',async run(context) {
   ownedFixture=createOwnedAnnotationFixture(readConfig());
   ownedFixture.create();
   try {await main({...context,fixture:ownedFixture});}
-  catch (error) {
-    if (error?.name === 'SkipCheck') {
-      h.assert(findings.length===0,`${findings.length} annotation check(s) failed before unavailable fax prerequisite: ${error.message}`);
-    }
+  catch(error) {
+    // A missing later prerequisite cannot hide failures already observed.
+    if(error.name==='SkipCheck'&&findings.length)throw new Error(`${findings.length} annotation check(s) failed before the unavailable fax prerequisite`);
     throw error;
   }
   finally {notes.forEach(line=>console.log(line));findings.forEach(line=>console.log(line));}
