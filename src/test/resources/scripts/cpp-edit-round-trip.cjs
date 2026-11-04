@@ -24,6 +24,8 @@ const context = {
   cppNames: [],
   $: element,
   caseNote: 'synthetic-case-note',
+  noteSwitchSavePending: false,
+  beginIssueUpdate() {return () => {};},
   CONTROL_CHAR_PATTERN_2: /[\u0000-\u0008]/g,
   sanitizeElementByPattern() {},
   CarlosAjax: {request(url, options) {posted = options.postBody;}},

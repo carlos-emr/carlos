@@ -15,8 +15,10 @@
  *   served   2xx whose body is real content (not an error page). A caller that wants proof of WHICH
  *            data was served also passes `needles` (strings only that data contains).
  *
- * Probes only ever GET/HEAD routes the caller has verified cannot write on GET, and requests
- * run through context.request (a negative probe, never the positive path of a workflow).
+ * GET/HEAD probes use routes the caller has verified cannot write on GET. A POST
+ * refusal probe requires explicit allowPost: true for a read-only print preview
+ * and carries the session's CSRF token. Requests run through context.request
+ * (a negative probe, never the positive path of a workflow).
  */
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
@@ -26,10 +28,10 @@ const {authenticatedProbe,authenticationStateProbe}=require('./authenticated-pro
 const APPLICATION_HEADER = 'x-permitted-cross-domain-policies';
 
 /** One request through a login's browser context; never follows redirects. */
-async function probeWithTransport(context, url, { method = 'GET', needles = [], baseUrl = h.validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos') } = {}, transport) {
+async function probeWithTransport(context, url, { method = 'GET', allowPost = false, needles = [], baseUrl = h.validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos') } = {}, transport) {
   try {
     const response = await transport({context,config:{baseUrl}},url,
-      {method,timeout:40000,allowSecurityErrorRedirect:true});
+      {method,allowPost,timeout:40000,allowSecurityErrorRedirect:true});
     const body = method === 'HEAD' ? Buffer.alloc(0) : await response.body();
     const headers = response.headers();
     const type = (headers['content-type'] || '').split(';')[0];
@@ -55,7 +57,10 @@ async function probeWithTransport(context, url, { method = 'GET', needles = [], 
       hash: crypto.createHash('sha1').update(body).digest('hex').slice(0, 10),
     };
   } catch (error) {
-    return { status: 0, error: String(error.message).slice(0, 80), found: [], lead: '' };
+    // Playwright call logs can embed several patient-bearing request URLs.
+    // Redact the whole diagnostic before truncating; callers print this cause
+    // alongside HTTP 0 and must not archive patient query parameters with it.
+    return { status: 0, error: h.withoutQueryStrings(error.message).slice(0, 80), found: [], lead: '' };
   }
 }
 
@@ -107,24 +112,40 @@ function urlFor(config, route) {
 }
 
 /**
- * Sign a throwaway login (from authzReadFixture.addLogin) in through the login form and return
- * its context. Pages of this context are not wired to the workflow recorder: the restricted
- * logins deliberately land on pages their role cannot fully load.
+ * Sign a throwaway login (from authzReadFixture.addLogin) in through the login form.
+ * Its fixture records whether its sole role holds schedule access; validate that
+ * landing centrally so an expected 403 neither fails every caller nor hides an
+ * unexpected refusal for a role allowed to see the schedule.
  */
-async function signIn(session, login,{allowForbiddenSchedule=false}={}) {
+async function signIn(session, login) {
   const context = await h.newContext(session.context.browser(), session.config);
   context.setDefaultTimeout(20000);
-  const {failureMark,consumeExpectedFailure}=require('./concurrency-support'),mark=failureMark(session.recorder);
-  const page = await h.login(context, { ...session.config, testUser: login.username }, session.recorder);
-  if(allowForbiddenSchedule) {
-    const url=new URL(page.url());
-    h.assert(url.origin===session.config.baseUrl.origin&&url.pathname===new URL(h.appUrl(session.config.baseUrl,'/provider/providercontrol')).pathname,'Restricted login failed outside the schedule landing');
-    const proof=await authenticatedProbe({...session,context},url.href);
-    try {h.assert(proof.status()===403&&Object.hasOwn(proof.headers(),h.APPLICATION_HEADER)&&!h.isWafPage(proof.status(),await proof.text()),'Restricted schedule landing is not an authenticated application refusal');}
-    finally {await proof.dispose();}
-    consumeExpectedFailure(session.recorder,mark,{status:403,method:'GET',path:/\/provider\/providercontrol$/});
+  const { failureMark, consumeExpectedFailure } = require('./concurrency-support');
+  const mark = failureMark(session.recorder);
+  try {
+    const page = await h.login(context, { ...session.config, testUser: login.username }, session.recorder);
+    if (typeof login.scheduleAccess === 'boolean') {
+      const url = new URL(page.url());
+      h.assert(url.origin === session.config.baseUrl.origin
+        && url.pathname === new URL(h.appUrl(session.config.baseUrl, '/provider/providercontrol')).pathname,
+      'Role login failed outside the schedule landing');
+      const proof = await authenticatedProbe({ ...session, context }, url.href);
+      const expectedStatus = login.scheduleAccess ? 200 : 403;
+      try {
+        h.assert(proof.status() === expectedStatus && Object.hasOwn(proof.headers(), h.APPLICATION_HEADER)
+          && !h.isWafPage(proof.status(), await proof.text()),
+        `Role schedule landing is not an authenticated application ${login.scheduleAccess ? 'page' : 'refusal'} `
+          + `(expected HTTP ${expectedStatus}, got ${proof.status()})`);
+      } finally { await proof.dispose(); }
+      if (!login.scheduleAccess) {
+        consumeExpectedFailure(session.recorder, mark, { status: 403, method: 'GET', path: /\/provider\/providercontrol$/ });
+      }
+    }
+    return { context, page, login };
+  } catch (error) {
+    await context.close();
+    throw error;
   }
-  return { context, page, login };
 }
 
 /**

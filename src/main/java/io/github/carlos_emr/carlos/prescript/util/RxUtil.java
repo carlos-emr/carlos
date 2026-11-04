@@ -2964,7 +2964,8 @@ public class RxUtil {
         } else {
             rx.setSpecial("");
         }
-        rx.setQuantity(getDefaultQuantity());
+        // A free-text note has no dispensable quantity, regardless of the drug default (#5353).
+        rx.setQuantity(rx.isCustomNote() ? "0" : getDefaultQuantity());
         rx.setRepeat(0);
 
     }

@@ -19,6 +19,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { hrmReportLink } = require('./lib/hrm-report-list');
 const { createOwnedHrmReport } = require('./lib/gap-records-hrm-fixture');
 
 const TIMEOUT = 30000;
@@ -58,7 +59,7 @@ async function workflow(s) {
   await s.step('E-Chart HRM Documents opens the owned report', async () => {
     const chart = await s.chart();
     list = await s.popup(chart, chart.locator('#leftNavBar a[onclick*="/hospitalReportManager/ViewDocList"]').first(), 'hrm-actions-list');
-    viewer = await s.popup(list, list.locator(`#tblHRM a[onclick*="Display?id=${reportId}'"]`), 'hrm-actions-report');
+    viewer = await s.popup(list, hrmReportLink(list, reportId), 'hrm-actions-report');
     await viewer.locator(`#hrmdoc_${reportId}`).waitFor({ state: 'attached', timeout: TIMEOUT });
     h.assert((await viewer.locator('#hrmReportContent').innerText()).includes(reportText), 'The owned report body is not displayed');
   });
