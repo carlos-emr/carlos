@@ -79,7 +79,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class CarlosProperties extends Properties {
     private static final long serialVersionUID = -5965807410049845132L;
+    @SuppressFBWarnings(value = "SE_TRANSIENT_FIELD_NOT_RESTORED",
+            justification = "Deserialized properties must not inherit a writable source; only readFromFile establishes provenance.")
     private transient File loadedPropertiesFile;
+    @SuppressFBWarnings(value = "SE_TRANSIENT_FIELD_NOT_RESTORED",
+            justification = "The source description is process-local provenance and is intentionally absent after deserialization.")
     private transient String loadedPropertiesLocation;
     private static CarlosProperties carlosProperties = new CarlosProperties();
     private static final Set<String> activeMarkers = new HashSet<String>(Arrays.asList(new String[]{"true", "yes", "on"}));
