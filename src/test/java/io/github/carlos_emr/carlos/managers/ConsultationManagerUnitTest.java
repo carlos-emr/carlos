@@ -711,7 +711,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldReuseStoredRelationships_whenRenderingPanelsAndWarnings() {
+        void shouldReuseStoredRelationships_withPreloadedPanelData() {
             when(mockConsultDocsDao.findByRequestIdDocType(TEST_REQUEST_ID, ConsultDocs.DOCTYPE_FORM))
                     .thenReturn(List.of(
                             new ConsultDocs(TEST_REQUEST_ID, 120, ConsultDocs.DOCTYPE_FORM, TEST_PROVIDER_NO),
