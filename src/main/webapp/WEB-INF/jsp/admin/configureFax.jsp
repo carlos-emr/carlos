@@ -79,10 +79,13 @@
 
 <%@page import="java.util.List" %>
 <%@page import="java.util.HashMap" %>
+<%@page import="java.util.Map" %>
+<%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.FaxManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.fax.provider.SRFaxProviderClient" %>
 <%@ page import="io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action" %>
+<%@ page import="io.github.carlos_emr.carlos.fax.core.FaxImporter" %>
 
 <%
     // Declare Java variables at page scope before any HTML/JavaScript
@@ -510,6 +513,34 @@
         <div class="row">
             <div class="col-md-12">
                 <legend class="fax-section-title"><i class="fas fa-satellite-dish"></i> <fmt:message key="admin.configureFax.gatewayConfiguration"/></legend>
+
+                <%
+                    Map<Integer, FaxImporter.PollingFailure> pollingFailures = SpringUtils.getBean(FaxImporter.class).getPollingFailures();
+                    for (FaxConfig account : faxConfigList) {
+                        FaxImporter.PollingFailure failure = pollingFailures.get(account.getId());
+                        if (account.isActive() && account.isDownload() && failure != null) {
+                            String pollingAccountLabel = StringUtils.defaultIfBlank(account.getAccountName(), account.getFaxUser());
+                            pollingAccountLabel = StringUtils.defaultIfBlank(pollingAccountLabel, String.valueOf(account.getId()));
+                %>
+                <div class="alert alert-warning fax-poll-failure" role="status" data-account-id="<%= account.getId() %>">
+                    <fmt:message key="admin.configureFax.pollingFailed" var="pollingFailureMessage">
+                        <fmt:param value="<%= pollingAccountLabel %>"/>
+                    </fmt:message>
+                    <strong><carlos:encode value="${pollingFailureMessage}"/></strong>
+                    <p class="mb-1"><fmt:message key="admin.configureFax.pollingFailureHelp"/></p>
+                    <dl class="mb-0">
+                        <dt><fmt:message key="admin.configureFax.pollingFailureAttempts"/></dt>
+                        <dd class="fax-poll-attempts"><%= failure.attempts() %></dd>
+                        <dt><fmt:message key="admin.configureFax.pollingFailureSince"/></dt>
+                        <dd><fmt:formatDate value="<%= java.util.Date.from(failure.firstFailure()) %>" type="both"/></dd>
+                        <dt><fmt:message key="admin.configureFax.pollingNextRetry"/></dt>
+                        <dd class="fax-poll-next-retry"><fmt:formatDate value="<%= java.util.Date.from(failure.nextRetry()) %>" type="both"/></dd>
+                    </dl>
+                </div>
+                <%
+                        }
+                    }
+                %>
 
                 <div class="row fax-card">
                     <div class="col-md-12">
