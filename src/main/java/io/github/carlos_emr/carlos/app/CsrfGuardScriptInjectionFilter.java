@@ -460,14 +460,22 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return writer;
         }
 
-        /** Discard the uncommitted capture when a nested forward resets its response. */
+        /**
+         * Discards the uncommitted capture when a nested forward resets its response.
+         *
+         * <p>Every CARLOS wrapper applies one rule to an accepted {@code resetBuffer()}: a length that
+         * predates the reset, pending or published, described the discarded body and is dropped. A
+         * forward always replaces the body, so a pre-forward length is stale by definition. A rejected
+         * reset (the delegate throws) leaves the capture and the pending length as they were.</p>
+         */
         @Override
         public void resetBuffer() {
             super.resetBuffer();
             if (captureWriter != null) {
                 captureWriter.reset();
             }
-            // resetBuffer preserves headers, including a length deferred before channel selection.
+            deferredContentLength = null;
+            deferredContentLengthLong = null;
         }
 
         /** Reset channel/capture state only after the underlying response accepts the full reset. */

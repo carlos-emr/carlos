@@ -82,9 +82,11 @@ Content-Type header setters also publish known non-HTML lengths. If the type
 changes to HTML before commitment, the decorators remove their published lengths
 through every outer wrapper and defer them again until the append decision.
 Decorated HTML omits the obsolete length so the outer sanitizer or container can
-frame the completed response. A `resetBuffer()` keeps a length that is still
-pending, but the decorators remove one they already published: it described the
-discarded bytes and would otherwise truncate a longer replacement. A writer
+frame the completed response. On an accepted `resetBuffer()` every decorator
+drops a pending length and removes one it published: both described the
+discarded body, and a forward always replaces the body. A rejected reset leaves
+all state unchanged; `reset()` clears everything. This is stricter than the bare
+container, which keeps the header. A writer
 initially captured before its Content-Type
 was known still uses the existing CSRF writer replay contract: the container may
 choose chunked framing instead of a supplied length. Exact byte integrity remains
@@ -122,6 +124,8 @@ order. It reads each shipped descriptor's setting independently. The matrix cove
   pre-forward prefixes, and exactly-once applicable CSRF/logout/privacy decoration.
 - Tainted 403/500 writer and stream responses below/above the capture limit,
   container 503 ERROR dispatch, and binary/static byte integrity.
+- A non-HTML length declared before a forward with no channel open never frames
+  the forwarded body.
 - A durable negative control with Tomcat's default, minimal sanitizer isolation,
   and a JavaMelody-only passing control. These expected empty responses characterize
   the unsupported default; they do not make that default a supported deployment.

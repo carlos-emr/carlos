@@ -915,12 +915,11 @@ public class LogoutBroadcastFilter implements Filter {
         /**
          * Resets only the body buffer and clears the Content-Length state this wrapper owns.
          *
-         * <p>The servlet response keeps its headers across {@code resetBuffer()}, but the body length
-         * no longer matches any prior downstream Content-Length. Clearing the deferred value avoids
-         * replaying an obsolete length after an error path swaps the response body. A length this
-         * wrapper already published for a non-HTML channel described the discarded bytes too, so it
-         * is removed from the response; otherwise the replacement body would be framed (and
-         * truncated) by it. The HTML buffer configured flag is intentionally left intact because
+         * <p>Every CARLOS wrapper applies one rule to an accepted {@code resetBuffer()}: a length that
+         * predates the reset, pending or published, described the discarded body and is dropped. A
+         * forward always replaces the body, so a pre-forward length is stale by definition; replaying
+         * it would frame (and truncate) the replacement. This is stricter than the bare container,
+         * which keeps the header. The HTML buffer configured flag is intentionally left intact because
          * servlet containers keep the buffer size across {@code resetBuffer()} just as they keep
          * headers. A rejected reset (the response is already committed) leaves all of this state
          * as it was.</p>

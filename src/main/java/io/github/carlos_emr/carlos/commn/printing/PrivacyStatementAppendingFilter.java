@@ -487,9 +487,13 @@ public class PrivacyStatementAppendingFilter implements Filter {
         @Override
         public void resetBuffer() {
             super.resetBuffer();
-            // Buffer-only reset preserves headers, including a pending entity length. A length
-            // already published for a non-HTML channel described the discarded bytes, so remove
-            // it rather than let it frame (and truncate) the replacement body.
+            // Every CARLOS wrapper applies one rule to an accepted resetBuffer(): a length that
+            // predates the reset, pending or published, described the discarded body and is
+            // dropped. A forward always replaces the body, so a pre-forward length is stale by
+            // definition; replaying it would frame (and truncate) the replacement. This is
+            // stricter than the bare container, which keeps the header. A rejected reset (the
+            // delegate throws above) leaves this state as it was.
+            deferredContentLength = null;
             if (publishedContentLength != null) {
                 super.setHeader(CONTENT_LENGTH, null);
                 publishedContentLength = null;

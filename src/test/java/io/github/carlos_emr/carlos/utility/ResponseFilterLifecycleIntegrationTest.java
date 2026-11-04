@@ -318,6 +318,23 @@ class ResponseFilterLifecycleIntegrationTest {
         assertLength(response);
     }
 
+    static Stream<Arguments> staleLengthCases() {
+        return Stream.of("/development", "/packaged").flatMap(context ->
+                Stream.of("forward", "nested").map(dispatch -> Arguments.of(context, dispatch)));
+    }
+
+    @ParameterizedTest(name = "stale length {0} {1}")
+    @MethodSource("staleLengthCases")
+    void shouldNotFrameForwardedBody_withLengthDeclaredBeforeTheForward(String context, String dispatch)
+            throws Exception {
+        // A pass-through stream: the outer sanitizer captures writer output and re-frames it with
+        // a byte-accurate length at replay, which would hide a stale length on the writer path.
+        HttpResponse<byte[]> response = get(context + "/" + dispatch + "?output=binary&staleLength=true&noLength=true");
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).as("forwarded binary body for %s at %s", dispatch, context).isEqualTo(BINARY);
+        assertLength(response);
+    }
+
     @ParameterizedTest(name = "reset {0} {1} {2} -> {3}")
     @MethodSource("fullResetCases")
     void shouldCoordinateFullResetAcrossEveryWrapper_andAllowChannelReselection(
@@ -516,7 +533,12 @@ class ResponseFilterLifecycleIntegrationTest {
             if ("/nested".equals(path) || "/forward".equals(path)) {
                 // resetBuffer at each forward must discard earlier captured output.
                 String initial = request.getParameter("reset");
-                if ("stream".equals(initial)) {
+                if ("true".equals(request.getParameter("staleLength"))) {
+                    // A length declared before the forward, with no channel open, describes a body
+                    // that the forward replaces; it must never frame the forwarded body.
+                    response.setContentType("application/octet-stream");
+                    response.setContentLength(10);
+                } else if ("stream".equals(initial)) {
                     response.getOutputStream().write("DISCARDED PRE-FORWARD PREFIX".getBytes(StandardCharsets.UTF_8));
                 } else if ("writer".equals(initial) || (!"stream".equals(output) && !"binary".equals(output))) {
                     response.getWriter().write("DISCARDED PRE-FORWARD PREFIX");
@@ -557,7 +579,9 @@ class ResponseFilterLifecycleIntegrationTest {
                 jakarta.servlet.ServletOutputStream stream;
                 if (lateType == null) {
                     response.setContentType("application/octet-stream");
-                    response.setContentLength(BINARY.length);
+                    if (!"true".equals(request.getParameter("noLength"))) {
+                        response.setContentLength(BINARY.length);
+                    }
                     if ("true".equals(request.getParameter("addNullLength"))) {
                         response.addHeader("Content-Length", null);
                     }
@@ -606,7 +630,8 @@ class ResponseFilterLifecycleIntegrationTest {
                 stream.write(body.getBytes(StandardCharsets.UTF_8));
                 return;
             }
-            if (!Set.of("/sanitizer", "/capture").contains(request.getContextPath())) {
+            if (!Set.of("/sanitizer", "/capture").contains(request.getContextPath())
+                    && !"true".equals(request.getParameter("noLength"))) {
                 response.setContentLength(body.getBytes(StandardCharsets.UTF_8).length);
             }
             if ("jsp".equals(output)) {

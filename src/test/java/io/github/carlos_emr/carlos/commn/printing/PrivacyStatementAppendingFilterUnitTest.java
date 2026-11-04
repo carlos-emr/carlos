@@ -165,7 +165,7 @@ class PrivacyStatementAppendingFilterUnitTest {
     }
 
     @Test
-    void shouldPreserveDeferredLength_onBufferResetButClearItOnFullReset() throws Exception {
+    void shouldDropPendingLength_onBufferResetAndOnFullReset() throws Exception {
         for (boolean fullReset : new boolean[] {false, true}) {
             MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
             MockHttpServletResponse response = new MockHttpServletResponse();
@@ -179,7 +179,7 @@ class PrivacyStatementAppendingFilterUnitTest {
                 res.setContentType("application/octet-stream");
                 res.getOutputStream().write(new byte[] {0, 1, 2, 3});
             });
-            assertThat(response.getHeader("Content-Length")).isEqualTo(fullReset ? null : "4");
+            assertThat(response.getHeader("Content-Length")).as("fullReset=%s", fullReset).isNull();
             assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
         }
     }
