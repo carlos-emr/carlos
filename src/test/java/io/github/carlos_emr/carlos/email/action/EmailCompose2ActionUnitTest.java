@@ -362,7 +362,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(request.getAttribute("FAKE-result")).isEqualTo("compose");
             assertThat(request.getAttribute("fid")).isNull();
             String logged = capture.messages().stream()
-                    .filter(message -> message.startsWith("Invalid (non-numeric) fid parameter received"))
+                    .filter(message -> message.startsWith("Invalid (non-numeric) draft fid received"))
                     .findFirst()
                     .orElseThrow();
             assertThat(logged).doesNotContain("\r").doesNotContain("\n");
