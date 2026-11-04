@@ -121,9 +121,19 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
                     generator = new DocumentSummaryService(agent);
                     model = agent.displayName();
                 }
-                audit(actor, "DocumentSummary.reviewGenerate", snapshot.scope());
-                pending = DocumentSummaryReviewSession.generate(snapshot.scope(), snapshot.metadata(),
-                        () -> context.read(snapshot), generator, model, actor, snapshot.noticeLanguage());
+                final var auditActor = actor;
+                try {
+                    pending = DocumentSummaryReviewSession.generate(snapshot.scope(), snapshot.metadata(),
+                            () -> {
+                                // Called only once the cap has admitted this request, before any model call.
+                                audit(auditActor, "DocumentSummary.reviewGenerate", snapshot.scope());
+                                return context.read(snapshot);
+                            }, generator, model, actor, snapshot.noticeLanguage());
+                } catch (DocumentSummaryReviewSession.CapacityFullException refused) {
+                    // A refusal is its own audit row, never a generation that did not happen.
+                    audit(auditActor, "DocumentSummary.reviewGenerateRefused", snapshot.scope());
+                    throw refused;
+                }
                 var freshActor = LoggedInInfo.getLoggedInInfoFromSession(request);
                 var fresh = context.load(freshActor, documentId);
                 var source = context.currentSource(fresh);
