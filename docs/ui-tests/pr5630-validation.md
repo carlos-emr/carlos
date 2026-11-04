@@ -85,3 +85,8 @@ known renderer-probe events and zero unexplained signatures. `carlos-ctl check`
 passed again. The installed bundled asset, deployed image copy, canonical source
 and release mirror share SHA-256
 `afe92aa4b13de1589dbecee7350aafbae84bebe93eebd05b92b95f4fbfecb0f2`.
+
+CodeRabbit's cached-HTML parsing comment was addressed with an inert template
+fragment. A native Chromium probe confirmed that reading its text triggers no
+signature-image request. The affected packaged print/PDF check passed again
+(44/44), with no residue and no new unexplained server-log signatures.

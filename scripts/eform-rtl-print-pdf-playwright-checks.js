@@ -467,9 +467,9 @@ legacyHarness.runLegacyCheck('eform-rtl-print-pdf',async({cancellation})=>{
             if (name === 'consultation_letter.rtl') fields.push('ageGender');
             const filled = d.body.innerHTML.length > 0 && fields.every(key => {
               if (!cache.contains(key) || !cache.get(key)) return false;
-              const field = document.createElement('div');
+              const field = document.createElement('template');
               field.innerHTML = cache.get(key);
-              return normalize(d.body.textContent).includes(normalize(field.textContent));
+              return normalize(d.body.textContent).includes(normalize(field.content.textContent));
             });
             return {ok: true, designMode: d.designMode, filled};
           } catch (error) { return {ok: false, error: String(error)}; }
