@@ -861,5 +861,149 @@
         "content": "StringBuilder conditions = new StringBuilder(\"Invalid values from \").append(source);"
       }
     }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "generic quoted predicate",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String condition = \"id = '\" + userInput + \"'\";"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "bare ORDER BY fragment",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String order = \"ORDER BY \" + sortCol;"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "bare GROUP BY fragment",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String group = \"group by \" + userColumn;"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "bare WHERE fragment",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String clause = \"WHERE \" + cond;"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "bare DELETE fragment",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "dao.run(\"DELETE \" + table);"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "lowercase quoted SQL",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String result = \"select * from patient where name = '\" + name + \"'\";"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "mixed-case SQL",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "String result = \"DeLeTe FrOm \" + table;"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "SQL-shaped logger prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.info(\"Please select a patient from the list \" + selection);"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "SQL-shaped exception prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "throw new IllegalStateException(\"Cannot delete from cache \" + cacheName);"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "SQL-shaped getLogger prose",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "MiscUtils.getLogger().debug(\"Cannot delete from cache \" + cacheName);"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "nested query in logger must block",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.debug(stmt.executeQuery(\"select * from patient where id = \" + rawId));"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "query assignment in logger must block",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.debug(sql = \"SELECT * FROM patient WHERE id = \" + rawId);"
+      }
+    }
   }
 ]

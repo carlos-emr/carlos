@@ -57,10 +57,32 @@ echo ""
 
 FIXTURES="$(cd "$(dirname "$0")" && pwd)/test-sql-safety-fixtures.json"
 current_section=""
+fixture_dir=$(mktemp -d)
+trap 'rm -rf -- "$fixture_dir"' EXIT
 
-# The Python fixture emitter below uses tab-delimited fields for Bash.
-# Keep emitted section, description, expected_exit, and JSON payload fields single-line and tab-free.
-while IFS=$'	' read -r section description expected_exit json_payload; do
+# Materialize the tab-delimited payloads first. A Python failure inside process
+# substitution would be hidden from set -e and could silently skip the fixtures.
+python3 - "$FIXTURES" > "$fixture_dir/cases.tsv" <<'PYFIXTURES'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    cases = json.load(handle)
+if not isinstance(cases, list) or not cases:
+    raise ValueError("SQL safety fixtures must be a nonempty list")
+for case in cases:
+    for field in ("section", "description"):
+        if not isinstance(case[field], str) or not case[field] or any(
+            c in case[field] for c in "\t\r\n"
+        ):
+            raise ValueError(f"Invalid fixture field: {field}")
+    if type(case["expected_exit"]) is not int or case["expected_exit"] not in (0, 2):
+        raise ValueError("Invalid expected_exit")
+    payload = json.dumps(case["payload"], separators=(",", ":"))
+    print("\t".join((case["section"], case["description"], str(case["expected_exit"]), payload)))
+PYFIXTURES
+expected_total=$(wc -l < "$fixture_dir/cases.tsv")
+while IFS=$'\t' read -r section description expected_exit json_payload; do
     if [ "$section" != "$current_section" ]; then
         if [ -n "$current_section" ]; then
             echo ""
@@ -69,55 +91,54 @@ while IFS=$'	' read -r section description expected_exit json_payload; do
         current_section="$section"
     fi
     run_test "$description" "$expected_exit" "$json_payload"
-done < <(python3 - "$FIXTURES" <<'PYFIXTURES'
-import json
-import sys
+done < "$fixture_dir/cases.tsv"
 
-with open(sys.argv[1], encoding="utf-8") as handle:
-    cases = json.load(handle)
-
-for case in cases:
-    payload = json.dumps(case["payload"], separators=(",", ":"))
-    print("	".join((case["section"], case["description"], str(case["expected_exit"]), payload)))
-PYFIXTURES
-)
-
-# Exercise reconstruction from a real file: unrelated edits must not be blocked
-# by pre-existing prose, while a newly introduced query must still be blocked.
-fixture_dir=$(mktemp -d)
-trap 'rm -rf -- "$fixture_dir"' EXIT
+# Reconstruct real files: prose must allow unrelated edits, but pre-existing
+# unsafe SQL must still block them, proving the whole file was actually read.
 python3 - "$fixture_dir" <<'PYEDIT'
 import sys
 from pathlib import Path
 
-Path(sys.argv[1], "EmailManager.java").write_text('''class EmailManager {
+content = '''class EmailManager {
     void check() {
         throw new IllegalStateException("Invalid email transport status transition from "
                 + previousStatus + " to " + emailStatus);
     }
     int retries = 1;
 }
-''', encoding="utf-8")
+'''
+Path(sys.argv[1], "EmailManager.java").write_text(content, encoding="utf-8")
+Path(sys.argv[1], "UnsafeQuery.java").write_text(content.replace(
+    "int retries = 1;", 'int retries = 1; String sql = "WHERE id = " + userId;'
+), encoding="utf-8")
 PYEDIT
-while IFS=$'\t' read -r description expected_exit json_payload; do
-    run_test "$description" "$expected_exit" "$json_payload"
-done < <(python3 - "$fixture_dir/EmailManager.java" <<'PYEDIT'
+python3 - "$fixture_dir" > "$fixture_dir/edits.tsv" <<'PYEDIT'
 import json
 import sys
+from pathlib import Path
 
 for tool in ("Edit", "MultiEdit"):
-    for expected_exit, replacement in (
-        (0, "int retries = 2;"),
-        (2, 'String sql = "SELECT * FROM users WHERE id = " + userId;'),
+    for file, expected_exit, replacement in (
+        ("EmailManager.java", 0, "int retries = 2;"),
+        ("EmailManager.java", 2, 'String sql = "SELECT * FROM users WHERE id = " + userId;'),
+        ("UnsafeQuery.java", 2, "int retries = 2;"),
     ):
         edit = {"old_string": "int retries = 1;", "new_string": replacement}
-        tool_input = {"file_path": sys.argv[1]}
+        tool_input = {"file_path": str(Path(sys.argv[1], file))}
         tool_input.update(edit if tool == "Edit" else {"edits": [edit]})
         payload = {"tool_name": tool, "tool_input": tool_input}
-        description = f"{tool} reconstructs existing prose (expected {expected_exit})"
+        description = f"{tool} reconstructs {file} (expected {expected_exit})"
         print("\t".join((description, str(expected_exit), json.dumps(payload))))
 PYEDIT
-)
+expected_total=$((expected_total + 6))
+while IFS=$'\t' read -r description expected_exit json_payload; do
+    run_test "$description" "$expected_exit" "$json_payload"
+done < "$fixture_dir/edits.tsv"
+
+if [ "$TOTAL" -ne "$expected_total" ]; then
+    echo "Expected $expected_total checks, ran $TOTAL" >&2
+    exit 1
+fi
 
 echo ""
 

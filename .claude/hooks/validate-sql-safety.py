@@ -584,13 +584,29 @@ def has_sql_context(statement: str) -> bool:
     ):
         return True
 
+    # Even SQL-shaped text is prose at an explicit message sink. Check actual
+    # query sinks/assignments first so a nested query cannot use this exemption.
+    if re.search(
+        r'\bnew\s+(?:[\w$]+\.)*[\w$]*(?:Exception|Error)\s*\(|'
+        r'\b(?:log|logger)\s*\.\s*(?:trace|debug|info|warn|error|fatal)\s*\(|'
+        r'\bgetLogger\s*\([^)]*\)\s*\.\s*(?:trace|debug|info|warn|error|fatal)\s*\(',
+        code, re.IGNORECASE
+    ):
+        return False
+
     sql_structure = (
+        # A literal containing only a clause starter is a query fragment, not
+        # a keyword embedded in a sentence ("Error reading XML from ...").
+        r'^\s*(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN)\s*$|'
         r'\bSELECT\b[^;]*\bFROM\b|'
         r'\bINSERT\s+INTO\b|\bDELETE\s+FROM\b|'
         r'\bUPDATE\s+[\w.$`]+\s+SET\b|'
         r'^\s*FROM\s+[\w.$`]+\b|'
         r'\b(?:WHERE|SET|ON)\s+[\w.$`]+\s*(?:[=<>!]|LIKE\b|IN\s*\(|IS\b|BETWEEN\b)|'
-        r'\bVALUES\s*\(|\b(?:ORDER|GROUP)\s+BY\s+[\w.$`]+\b'
+        r'\bVALUES\s*\(|\b(?:ORDER|GROUP)\s+BY\b|'
+        # Predicates are often assembled before WHERE is added. In particular,
+        # id = '\" + raw + "' must remain an always-unsafe quote sandwich.
+        r'^\s*\(*\s*[\w.$`]+\s*(?:[=<>!]|LIKE\b|IN\s*\(|IS\b|BETWEEN\b)'
     )
     return any(re.search(sql_structure, literal, re.IGNORECASE) for literal in literals)
 
