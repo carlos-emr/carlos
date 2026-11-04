@@ -29,10 +29,45 @@ function assertNoGroupIssueQueryFailure(text) {
   'Current Issues logged a group-note issue PathException');
 }
 
+function groupIssueLogWindow({env = process.env, reader, notify = console.log} = {}) {
+  try {
+    const source = reader || serverLogFromEnvironment(env);
+    if (!source.configured) {
+      notify('    SKIP group-issue server-log assertion: no journal or console log configured; browser assertions continue');
+      return null;
+    }
+    const mark = source.mark();
+    source.since(mark);
+    return {reader: source, mark};
+  } catch {
+    notify('    SKIP group-issue server-log assertion: configured source is unreadable; browser assertions continue');
+    return null;
+  }
+}
+
+async function verifyGroupIssueQueryLog(window, {settleMs = 5000, intervalMs = 250,
+  now = Date.now, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), notify = console.log} = {}) {
+  if (!window) return;
+  const deadline = now() + settleMs;
+  while (true) {
+    let text;
+    try { text = window.reader.since(window.mark); }
+    catch {
+      notify('    SKIP group-issue server-log assertion: source became unreadable; browser assertions continue');
+      return;
+    }
+    // Keep the assertion outside the read-error handler: a real query defect must fail.
+    assertNoGroupIssueQueryFailure(text);
+    const remaining = deadline - now();
+    if (remaining <= 0) return;
+    await sleep(Math.min(intervalMs, remaining));
+  }
+}
+
 async function workflow(s) {
   const {sql, patient, provider, marker, config} = s;
-  const serverLog = serverLogFromEnvironment();
-  if (!serverLog.configured) throw new h.SkipCheck('A readable LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG is required for the group-note issue query assertion');
+  // Probe before group-fixture setup; an unavailable log must not skip the browser coverage.
+  const serverLog = groupIssueLogWindow()?.reader;
   const q = h.sqlString;
   const fixture = authzReadFixture({sql, marker, provider, testUser: config.testUser});
   const texts = {shared: `${marker} SHARED`, privateText: `${marker} PRIVATE`, future: `${marker} FUTURE`, cumulative: `${marker} CUMULATIVE`};
@@ -166,7 +201,7 @@ async function workflow(s) {
     links: sql.rows(`SELECT * FROM GroupNoteLink WHERE demographicNo IN (${patient},${owner}) ORDER BY id`)});
   await s.step('reopening Current Issues preserves both patient states and keeps group-owner issues out of recipient controls', async () => {
     const before = snapshot();
-    const logMark = serverLog.mark();
+    const logWindow = serverLog ? groupIssueLogWindow({reader: serverLog}) : null;
     // Keep the first document alive: reloading it interrupts its lock-release beacon.
     // Free the named popup target, then enter again through the patient's E-Chart control.
     await chart.evaluate(name => { window.name = name; }, `${marker}-initial-group-chart`);
@@ -182,8 +217,7 @@ async function workflow(s) {
     await chart.locator('#notesFilterToggle').click();
     // The journal can lag the HTTP response. Inspect only this reopening window,
     // without printing log messages that may contain clinical text.
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    assertNoGroupIssueQueryFailure(serverLog.since(logMark));
+    await verifyGroupIssueQueryLog(logWindow);
   });
   const address = (id, target = patient) => h.appUrl(config.baseUrl,
     `/CaseManagementEntry?method=notehistory&demographicNo=${target}&noteId=${id}`);
@@ -240,5 +274,6 @@ async function workflow(s) {
   });
 }
 
-module.exports = {workflow, assertSharedHistoryText, assertDeniedHistory, assertNoGroupIssueQueryFailure};
+module.exports = {workflow, assertSharedHistoryText, assertDeniedHistory, assertNoGroupIssueQueryFailure,
+  groupIssueLogWindow, verifyGroupIssueQueryLog};
 if (require.main === module) runWorkflow('echart-group-note-history', workflow, {openPatient: true});
