@@ -2847,8 +2847,8 @@ function updateQty(element){
                CarlosAjax.request(url, {method:'get',parameters:params,onComplete:function(transport) {
                    // A slow earlier response must not replace more recently requested guidance.
                    if (panel.renalDosingRequest === requestNumber && document.getElementById(divId) === panel) {
-                       var renderable = transport.status >= 200 && transport.status < 300;
-                       if (transport.status === 400) {
+                       var renderable = false;
+                       if ((transport.status >= 200 && transport.status < 300) || transport.status === 400) {
                            var fragment = document.createElement('template');
                            fragment.innerHTML = transport.responseText || '';
                            renderable = !!fragment.content.querySelector('[data-renal-dosing-panel]');

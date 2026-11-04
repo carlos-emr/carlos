@@ -4,14 +4,17 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const source=fs.readFileSync(require('node:path').join(__dirname,'../src/main/webapp/WEB-INF/jsp/rx/SearchDrug3.jsp'),'utf8');
 const refresh=source.slice(source.indexOf('function getRenalDosingInformation(divId,atcCode)'),source.indexOf('function getLUC(',source.indexOf('function getRenalDosingInformation(divId,atcCode)')));
 function harness(initial='previous calculation') {
-  const link={},panel={innerHTML:initial,querySelector:selector=>{assert.equal(selector,'a');return link;}},requests=[];
+  const link={},panel={innerHTML:initial,querySelector:selector=>{
+    assert.equal(selector,'a');
+    return /<a\b[^>]*>[^<]*Refresh<\/a>/.test(panel.innerHTML)?link:null;
+  }},requests=[];
   let current=panel;
-  const context={document:{getElementById:()=>current,createElement:tag=>{
+  const context={document:{getElementById:id=>id==='renalDosing_7'?current:null,createElement:tag=>{
     assert.equal(tag,'template');
     const fragment={innerHTML:''};
     fragment.content={querySelector:selector=>{
       assert.equal(selector,'[data-renal-dosing-panel]');
-      return fragment.innerHTML.includes('data-renal-dosing-panel')?{}:null;
+      return /<div\b[^>]*\sdata-renal-dosing-panel(?:\s|=|>)/.test(fragment.innerHTML)?{}:null;
     }};
     return fragment;
   }},CarlosAjax:{request:(url,options)=>requests.push({url,...options})},Math,encodeURIComponent};
@@ -25,41 +28,55 @@ for(const status of [200,400])test(`only the latest renal refresh can replace a 
   const parameters=new URLSearchParams(requests[1].parameters);
   assert.equal(parameters.get('divId'),'renalDosing_7');
   assert.equal(parameters.get('atcCode'),'J01MA02,S01AX13');
-  const body=status===400?'<div data-renal-dosing-panel>newest refusal</div>':'newest calculation';
+  const body=`<div data-renal-dosing-panel>newest ${status===400?'refusal':'calculation'}</div>`;
   requests[1].onComplete({status,responseText:body});
-  requests[0].onComplete({status:200,responseText:'stale recommendation'});
+  requests[0].onComplete({status:200,responseText:'<div data-renal-dosing-panel>stale recommendation</div>'});
   assert.equal(panel.innerHTML,body);
 });
-test('a removed drug card cannot receive a late renal response',()=>{
-  const h=harness('original'),replacement={innerHTML:'replacement'};
+for(const replacement of [null,{innerHTML:'replacement'}])test(`a ${replacement?'replaced':'removed'} drug card cannot receive a late renal response`,()=>{
+  const h=harness('original');
   h.context.getRenalDosingInformation('renalDosing_7','J01MA02');
   h.replace(replacement);
-  h.requests[0].onComplete({status:200,responseText:'late calculation'});
+  h.requests[0].onComplete({status:200,responseText:'<div data-renal-dosing-panel>late calculation</div>'});
   assert.equal(h.panel.innerHTML,'original');
-  assert.equal(replacement.innerHTML,'replacement');
+  if(replacement)assert.equal(replacement.innerHTML,'replacement');
+});
+test('an unknown panel ID cannot start a renal request',()=>{
+  const h=harness();
+  h.context.getRenalDosingInformation('missing-panel','J01MA02');
+  assert.equal(h.requests.length,0);
+  assert.equal(h.panel.innerHTML,'previous calculation');
 });
 test('an older network failure cannot erase newer renal guidance',()=>{
   const h=harness();
   h.context.getRenalDosingInformation('renalDosing_7','J01MA02');
   h.context.getRenalDosingInformation('renalDosing_7','J01MA02');
-  h.requests[1].onComplete({status:200,responseText:'newest calculation'});
+  const body='<div data-renal-dosing-panel>newest calculation</div>';
+  h.requests[1].onComplete({status:200,responseText:body});
   h.requests[0].onComplete({status:0,responseText:'Network error'});
-  assert.equal(h.panel.innerHTML,'newest calculation');
+  assert.equal(h.panel.innerHTML,body);
 });
-for(const initial of ['', '<table><tr class="selected">old dose</tr></table>'])for(const status of [0,400,401,403,404,500,503]) {
-  test(`renal HTTP ${status} remains retryable from ${initial?'an existing dose':'an initial load'}`,()=>{
-    const h=harness(initial),body='<h1>Unexpected backend error body</h1>';
+for(const initial of ['', '<table><tr class="selected">old dose</tr></table>'])for(const {status,body} of [
+  ...[0,400,401,403,404,500,503].map(status=>({status,body:'<h1>Unexpected backend error body</h1>'})),
+  {status:200,body:''},
+  {status:200,body:'<h1>Sign in</h1>'},
+  {status:200,body:'data-renal-dosing-panel'},
+]) {
+  test(`renal HTTP ${status} with ${JSON.stringify(body)} remains retryable from ${initial?'an existing dose':'an initial load'}`,()=>{
+    const h=harness(initial);
     h.context.getRenalDosingInformation('renalDosing_7','J01MA02,S01AX13');
     h.requests[0].onComplete({status,responseText:body});
     assert.ok(h.panel.innerHTML.includes('data-renal-dosing-unavailable'));
     assert.ok(h.panel.innerHTML.includes('N/A')&&h.panel.innerHTML.includes('Refresh'));
-    assert.ok(!h.panel.innerHTML.includes('old dose')&&!h.panel.innerHTML.includes(body));
+    assert.ok(!h.panel.innerHTML.includes('old dose'));
+    if(body)assert.ok(!h.panel.innerHTML.includes(body));
     assert.equal(h.link.onclick(),false,'Retry must prevent the default link navigation');
     assert.equal(h.requests.length,2);
     const parameters=new URLSearchParams(h.requests[1].parameters);
     assert.equal(parameters.get('divId'),'renalDosing_7');
     assert.equal(parameters.get('atcCode'),'J01MA02,S01AX13');
-    h.requests[1].onComplete({status:200,responseText:'recovered calculation'});
-    assert.equal(h.panel.innerHTML,'recovered calculation');
+    const recovered='<div data-renal-dosing-panel>recovered calculation</div>';
+    h.requests[1].onComplete({status:200,responseText:recovered});
+    assert.equal(h.panel.innerHTML,recovered);
   });
 }
