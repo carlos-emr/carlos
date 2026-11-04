@@ -129,11 +129,13 @@ class DocumentSummaryReviewSessionUnitTest {
         assertThatThrownBy(() -> view(review)).isInstanceOf(IllegalStateException.class);
     }
     @Test void processCapacityRejectsBeforeLoadingAndClosingReleasesSlot() throws Exception {
-        for (int i = 0; i < 4; i++) generate();
+        int capacity = DocumentSummaryReviewSession.capacity();
+        assertThat(capacity).isEqualTo(4); // the default, with no clinical.ai_document_summary.review.max_active set
+        for (int i = 0; i < capacity; i++) generate();
         var loads = new AtomicInteger();
         var service = mock(DocumentSummaryService.class);
         when(service.summarize(TEXT)).thenReturn(summary());
-        assertThatThrownBy(() -> generate(() -> { loads.incrementAndGet(); return bytes(); }, service)).isInstanceOf(IllegalStateException.class).hasMessageContaining("capacity");
+        assertThatThrownBy(() -> generate(() -> { loads.incrementAndGet(); return bytes(); }, service)).isInstanceOf(IllegalStateException.class).hasMessageContaining("capacity (" + capacity + ")");
         assertThat(loads).hasValue(0);
         reviews.get(0).close();
         assertThat(generate(() -> { loads.incrementAndGet(); return bytes(); }, service)).isNotNull();
@@ -145,7 +147,26 @@ class DocumentSummaryReviewSessionUnitTest {
         when(service.summarize(TEXT)).thenThrow(new ClinicalSummaryGenerationException("FAKE model unavailable"));
         assertThatThrownBy(() -> generate(() -> loaded, service)).isInstanceOf(ClinicalSummaryGenerationException.class);
         assertThat(loaded).containsOnly((byte) 0);
-        for (int i = 0; i < 4; i++) generate();
+        for (int i = 0; i < DocumentSummaryReviewSession.capacity(); i++) generate();
+    }
+    @Test void abandonedDraftsPastExpiryDoNotBlockTheNextClinician() throws Exception {
+        for (int i = 0; i < DocumentSummaryReviewSession.capacity(); i++) generate();
+        var abandoned = List.copyOf(reviews);
+        clock.now = clock.now.plusSeconds(900);
+        // The sweep runs on the generate attempt itself: no timer, no logout needed.
+        var fresh = generate();
+        assertThat(fresh).isNotNull();
+        for (var review : abandoned) assertThatThrownBy(() -> view(review)).isInstanceOf(IllegalStateException.class);
+        // One slot is taken by the fresh review, so capacity minus one more fit.
+        for (int i = 1; i < DocumentSummaryReviewSession.capacity(); i++) generate();
+        assertThatThrownBy(this::generate).isInstanceOf(IllegalStateException.class).hasMessageContaining("capacity");
+    }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(value = {
+            "null,4", "'',4", "' ',4", "abc,4", "0,4", "-3,4", "33,4", "4.5,4",
+            "1,1", "4,4", "' 8 ',8", "32,32"}, nullValues = "null")
+    void capacityPropertyAcceptsOneToThirtyTwoAndDefaultsOtherwise(String raw, int expected) {
+        assertThat(DocumentSummaryReviewSession.configuredCapacity(raw)).isEqualTo(expected);
     }
     @Test void failedLoaderReleasesReservationBeforeAnyModelCall() throws Exception {
         var service = mock(DocumentSummaryService.class);
