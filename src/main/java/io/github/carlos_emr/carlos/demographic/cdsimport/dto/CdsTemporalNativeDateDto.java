@@ -106,7 +106,8 @@ public final class CdsTemporalNativeDateDto implements Serializable {
          *
          * @param value the {@link JaxbValue} carrier, or {@code null}
          * @return the validated date value, or {@code null} for a null carrier
-         * @throws CdsTemporalPrecisionException if the precision, value, or interval is inconsistent
+         * @throws CdsTemporalPrecisionException if the precision or interval fields are inconsistent
+         * @throws io.github.carlos_emr.carlos.commn.model.CdsClinicalException if the value is invalid for its precision
          */
         @Override
         public CdsTemporalNativeDateDto unmarshal(JaxbValue value) {
