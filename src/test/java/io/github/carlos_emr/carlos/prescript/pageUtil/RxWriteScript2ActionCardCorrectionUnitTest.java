@@ -550,6 +550,41 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        void shouldQueueAuditsOnlyAfterCommit_whenNewRenewalBatchSaved() {
+            card.setDrugReferenceId(55);
+            bean.addReRxDrugIdList("55");
+            when(mockRxManager.archiveDrug(mockLoggedInInfo, 55, DEMOGRAPHIC_NO, Drug.REPRESCRIBED)).thenReturn(true);
+            card.setDrugReasonCodeSystem("icd9");
+            card.setDrugReasonCode("401");
+            var reasons = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DrugReasonDao.class);
+            when(reasons.addNewDrugReason(any())).thenReturn(true);
+            registerMock(io.github.carlos_emr.carlos.commn.dao.DrugReasonDao.class, reasons);
+            var committed = new java.util.concurrent.atomic.AtomicBoolean();
+            registerMock(org.springframework.transaction.PlatformTransactionManager.class, new NoDatabaseTransactions() {
+                @Override
+                protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {
+                    logActionMock.verifyNoInteractions();
+                    committed.set(true);
+                }
+            });
+
+            try (var codes = mockConstruction(io.github.carlos_emr.carlos.managers.CodingSystemManager.class,
+                    (mock, context) -> when(mock.isCodeAvailable(anyString(), anyString())).thenReturn(true))) {
+                assertThat(save()).isEqualTo("77");
+            }
+
+            assertThat(committed).isTrue();
+            logActionMock.verify(() -> LogAction.addLog(any(), eq(LogConst.ADD), eq(LogConst.CON_PRESCRIPTION),
+                    eq("77"), any(), any(), any()));
+            logActionMock.verify(() -> LogAction.addLog(any(), eq(LogConst.ADD), eq(LogConst.CON_DRUGREASON),
+                    any(), any(), any(), any()));
+            logActionMock.verify(() -> LogAction.addLog(any(), eq(LogConst.REPRESCRIBE), eq(LogConst.CON_MEDICATION),
+                    eq("drugid=55"), any(), any(), any()));
+            logActionMock.verify(() -> LogAction.addLog(any(), eq(LogConst.DISCONTINUE), eq(LogConst.CON_MEDICATION),
+                    eq("drugid=55"), any(), any(), any()));
+        }
+
+        @Test
         void shouldKeepNewBatchConsumed_whenCommitOutcomeIsUnknown() {
             String revision = card.getDraftRevision();
             registerMock(org.springframework.transaction.PlatformTransactionManager.class, new NoDatabaseTransactions() {

@@ -944,6 +944,7 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(response.getContentAsString()).contains("INCOMPLETE_RX_SAVE");
             assertThat(data.constructed()).hasSize(2);
+            verify(data.constructed().getLast()).saveScript(mockLoggedInInfo, bean);
         }
     }
 
@@ -1080,6 +1081,7 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(action.updateSaveAllDrugs()).isEqualTo(RxWriteScript2Action.NONE);
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(data.constructed()).hasSize(2);
+            verify(data.constructed().getLast()).saveScript(mockLoggedInInfo, bean);
         }
     }
 
