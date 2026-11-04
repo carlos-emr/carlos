@@ -339,6 +339,7 @@ test('CPP save conflict reopens the filled dialog without replacing the saved ro
   const h = harness(); const requests = []; let rowReplaced = false;
   vm.runInContext(block('function updateCPPNote()', '    function clickLoadDiv('), h.context);
   Object.assign(h.context, { sanitizeElementByPattern() {}, CONTROL_CHAR_PATTERN_2: '', caseNote: 'caseNote_note31',
+    noteSwitchSavePending: false, beginIssueUpdate: () => () => {},
     savingNoteError: 'Save failed', CarlosAjax: { request: (url, options) => requests.push(options) } });
   h.cpp.elements.noteEditTxt = { value: 'dirty CPP draft' };
   Object.assign(h.cpp, { action: '/CaseManagementEntry?method=issueNoteSave', serialize: () => 'noteEditTxt=dirty&issue_id=12' });
