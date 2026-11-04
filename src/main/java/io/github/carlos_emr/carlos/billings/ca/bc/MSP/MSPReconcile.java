@@ -149,6 +149,50 @@ public class MSPReconcile {
                 : convCurValue(value);
     }
 
+    private String csvPaymentAmount(String value, boolean summary) {
+        try {
+            return convertReportAmount(value);
+        } catch (NumberFormatException invalid) {
+            if (!failOnReadError) throw invalid;
+            return summary ? "0.00" : value;
+        } catch (ArithmeticException invalid) {
+            if (!failOnReadError) throw invalid;
+            // A fractional cent string must not be reinterpreted as decimal dollars by money().
+            return summary ? "0.00" : "Unparsed Teleplan amount: " + value;
+        }
+    }
+
+    private String csvAdjustmentAmount(PaymentRow row, boolean summary) {
+        String[] components = {row.tAja1(), row.tAja2(), row.tAja3(), row.tAja4(), row.tAja5(), row.tAja6(), row.tAja7()};
+        BigDecimal total = BigDecimal.ZERO;
+        List<String> details = new ArrayList<>();
+        boolean malformed = false;
+        for (String value : components) {
+            try {
+                String amount = convertReportAmount(value);
+                total = total.add(new BigDecimal(amount));
+                details.add(amount);
+            } catch (NumberFormatException | ArithmeticException invalid) {
+                malformed = true;
+                details.add(value == null ? "" : value);
+            }
+        }
+        // Detail shows every component when a total is unavailable; summary keeps the known subtotal.
+        return summary || !malformed ? total.toPlainString() : String.join(" | ", details);
+    }
+
+    private boolean keepCsvPayment(MSPBill bill) {
+        if (bill.amount == null) bill.amount = "";
+        try {
+            int sign = new BigDecimal(bill.amount).signum();
+            bill.type = sign > 0 ? "PMT" : sign < 0 ? "RFD" : "";
+            return sign != 0 || !bill.adjustmentCode.isEmpty();
+        } catch (NumberFormatException invalid) {
+            bill.type = "";
+            return true;
+        }
+    }
+
     public MSPReconcile() {
         initTeleplanMonetarySuffixes();
         fmt = new SimpleDateFormat(DATE_FORMAT);
@@ -1315,8 +1359,7 @@ public class MSPReconcile {
         if (!failOnReadError) return true;
         if (amount == null || amount.isBlank()) return false;
         try {
-            new BigDecimal(amount);
-            return true;
+            return Double.isFinite(new BigDecimal(amount).doubleValue());
         } catch (NumberFormatException invalid) {
             // CSV retains the source amount, but cannot infer a balance or call the bill settled.
             // Database/payment-read failures still propagate through reportReadFailure.
@@ -1430,6 +1473,28 @@ public class MSPReconcile {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public MSPReconcile.BillSearch getPayments(String account, String payeeNo, String providerNo, String startDate, String endDate, boolean excludeWCB, boolean excludeMSP, boolean excludePrivate, boolean exludeICBC) {
+        return getPayments(account, payeeNo, providerNo, startDate, endDate, excludeWCB, excludeMSP, excludePrivate, exludeICBC, REP_PAYREF);
+    }
+
+    /**
+     * Reads payment rows for a detail or summary report. CSV summaries sum usable adjustment
+     * components; detail rows retain malformed component text so it can be reconciled.
+     *
+     * @param account account filter
+     * @param payeeNo payee filter
+     * @param providerNo provider filter
+     * @param startDate inclusive payment-date lower bound
+     * @param endDate inclusive payment-date upper bound
+     * @param excludeWCB whether to exclude WCB bills
+     * @param excludeMSP whether to exclude MSP bills
+     * @param excludePrivate whether to exclude private bills
+     * @param exludeICBC whether to exclude ICBC bills
+     * @param reportType REP_PAYREF or REP_PAYREF_SUM
+     * @return BillSearch payment rows in report order
+     */
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal billing type; not a security decision")
+    public MSPReconcile.BillSearch getPayments(String account, String payeeNo, String providerNo, String startDate, String endDate,
+            boolean excludeWCB, boolean excludeMSP, boolean excludePrivate, boolean exludeICBC, String reportType) {
         BillSearch billSearch = new BillSearch();
 
 
@@ -1449,12 +1514,10 @@ public class MSPReconcile {
                 b.demoName = row.demographicName();
 
                 if (!MSPReconcile.BILLTYPE_PRI.equalsIgnoreCase(b.billingtype)) {
-                    b.amount = convertReportAmount(row.tPaidamt());
+                    b.amount = csvPaymentAmount(row.tPaidamt(), REP_PAYREF_SUM.equals(reportType));
                 } else {
                     b.amount = String.valueOf(getAmountPaid(row.billingmasterNo(), MSPReconcile.BILLTYPE_PRI));
-                    if (failOnReadError) {
-                        new BigDecimal(b.amount);
-                    } else if (!StringUtils.isNumeric(b.amount)) {
+                    if (!failOnReadError && !StringUtils.isNumeric(b.amount)) {
                         throw new RuntimeException("Amount not a number");
                         //     b.amount = this.convCurValue(row.tPaidamt());
                     }
@@ -1474,24 +1537,28 @@ public class MSPReconcile {
                 b.adjustmentCode = b.adjustmentCode == null ? "" : b.adjustmentCode;
                 b.adjustmentCodeDesc = "";
                 if (!"".equals(b.adjustmentCode)) {
-                    String adjCode1amt1Str = convertReportAmount(row.tAja1());
-                    String adjCode1amt2Str = convertReportAmount(row.tAja2());
-                    String adjCode1amt3Str = convertReportAmount(row.tAja3());
-                    String adjCode1amt4Str = convertReportAmount(row.tAja4());
-                    String adjCode1amt5Str = convertReportAmount(row.tAja5());
-                    String adjCode1amt6Str = convertReportAmount(row.tAja6());
-                    String adjCode1amt7Str = convertReportAmount(row.tAja7());
+                    if (failOnReadError) {
+                        b.adjustmentCodeAmt = csvAdjustmentAmount(row, REP_PAYREF_SUM.equals(reportType));
+                    } else {
+                        String adjCode1amt1Str = convertReportAmount(row.tAja1());
+                        String adjCode1amt2Str = convertReportAmount(row.tAja2());
+                        String adjCode1amt3Str = convertReportAmount(row.tAja3());
+                        String adjCode1amt4Str = convertReportAmount(row.tAja4());
+                        String adjCode1amt5Str = convertReportAmount(row.tAja5());
+                        String adjCode1amt6Str = convertReportAmount(row.tAja6());
+                        String adjCode1amt7Str = convertReportAmount(row.tAja7());
 
-                    double adjCode1amt1 = Double.parseDouble(adjCode1amt1Str);
-                    double adjCode1amt2 = Double.parseDouble(adjCode1amt2Str);
-                    double adjCode1amt3 = Double.parseDouble(adjCode1amt3Str);
-                    double adjCode1amt4 = Double.parseDouble(adjCode1amt4Str);
-                    double adjCode1amt5 = Double.parseDouble(adjCode1amt5Str);
-                    double adjCode1amt6 = Double.parseDouble(adjCode1amt6Str);
-                    double adjCode1amt7 = Double.parseDouble(adjCode1amt7Str);
+                        double adjCode1amt1 = Double.parseDouble(adjCode1amt1Str);
+                        double adjCode1amt2 = Double.parseDouble(adjCode1amt2Str);
+                        double adjCode1amt3 = Double.parseDouble(adjCode1amt3Str);
+                        double adjCode1amt4 = Double.parseDouble(adjCode1amt4Str);
+                        double adjCode1amt5 = Double.parseDouble(adjCode1amt5Str);
+                        double adjCode1amt6 = Double.parseDouble(adjCode1amt6Str);
+                        double adjCode1amt7 = Double.parseDouble(adjCode1amt7Str);
 
-                    String adjCodeAmt = String.valueOf(adjCode1amt1 + adjCode1amt2 + adjCode1amt3 + adjCode1amt4 + adjCode1amt5 + adjCode1amt6 + adjCode1amt7);
-                    b.adjustmentCodeAmt = adjCodeAmt;
+                        String adjCodeAmt = String.valueOf(adjCode1amt1 + adjCode1amt2 + adjCode1amt3 + adjCode1amt4 + adjCode1amt5 + adjCode1amt6 + adjCode1amt7);
+                        b.adjustmentCodeAmt = adjCodeAmt;
+                    }
                     b.adjustmentCodeDesc = getAdjustmentCodeDesc(b.adjustmentCode) + "(" + b.adjustmentCode + ")";
                     if (b.adjustmentCodeDesc.equals("")) {
                         if (!failOnReadError) MiscUtils.getLogger().debug("no description for b.adjustmentCode:" + b.adjustmentCode);
@@ -1503,6 +1570,15 @@ public class MSPReconcile {
                 b.payeeName = this.getProvider(b.payeeNo, 1).getInitials();
                 b.provName = this.getProvider(b.apptDoctorNo, 1).getInitials();
 
+                if (failOnReadError) {
+                    // Preserve malformed rows and zero payments with adjustments. Summary formatting
+                    // treats unusable payment amounts as zero without discarding valid adjustments.
+                    if (!keepCsvPayment(b)) continue;
+                    billSearch.justBillingMaster.add(b.billMasterNo);
+                    billSearch.list.add(b);
+                    billSearch.count++;
+                    continue;
+                }
                 double dblAmount = Double.valueOf(b.amount).doubleValue();
                 /**
                  * @todo Get rid of hard coded strings
@@ -1526,7 +1602,9 @@ public class MSPReconcile {
 
         //Now we need to get the Private Payments
         if (!excludePrivate) {
-            MSPReconcile.BillSearch privatePayments = getPrivatePayments(account, payeeNo, providerNo, startDate, endDate, true);
+            MSPReconcile.BillSearch privatePayments = failOnReadError
+                    ? getPrivatePayments(account, payeeNo, providerNo, startDate, endDate)
+                    : getPrivatePayments(account, payeeNo, providerNo, startDate, endDate, true);
             List<Object> privatePaymentsList = privatePayments.list;
             if (privatePaymentsList != null && !privatePaymentsList.isEmpty()) {
                 billSearch.list.addAll(privatePaymentsList);
@@ -1576,10 +1654,13 @@ public class MSPReconcile {
                 b.provName = this.getProvider(b.apptDoctorNo, 0).getInitials();
 
                 b.amount = row.amountReceived();
-                b.paymentDate = this.fmt.format(java.sql.Date.valueOf(row.creationDate()));
+                b.paymentDate = failOnReadError && row.creationDate() == null ? "" : this.fmt.format(java.sql.Date.valueOf(row.creationDate()));
                 b.paymentMethod = row.paymentTypeId();
                 b.setPaymentMethodName(this.getPaymentMethodDesc(b.paymentMethod));
-                if (failOnReadError) new BigDecimal(b.amount);
+                if (failOnReadError) {
+                    if (keepCsvPayment(b)) billSearch.list.add(b);
+                    continue;
+                }
                 double dblAmount = UtilMisc.safeParseDouble(b.amount);
                 b.type = dblAmount > 0 ? "PMT" : "RFD";
                 if (dblAmount != 0) {

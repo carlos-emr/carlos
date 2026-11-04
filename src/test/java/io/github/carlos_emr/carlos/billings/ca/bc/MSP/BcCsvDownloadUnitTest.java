@@ -78,7 +78,7 @@ class BcCsvDownloadUnitTest extends CarlosWebTestBase {
         action.setDocFormat("csv"); action.setRepType("REP_ACCOUNT_REC");
         assertThat(executeAction(action)).isEqualTo("none");
         assertThat(getMockResponse().getStatus()).isEqualTo(200);
-        assertThat(getMockResponse().getContentAsString()).contains("\"Unknown age\"", "\"23.45\"");
+        assertThat(getMockResponse().getContentAsString()).contains("\"Unknown age\"", ",\"23.45\"\n");
         assertThat(getMockResponse().getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"REP_ACCOUNT_REC.csv\"");
     }
 

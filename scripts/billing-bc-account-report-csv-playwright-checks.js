@@ -229,10 +229,10 @@ async function workflow(s) {
       { serviceDate: '20260230', amount: '11.00' },
     ].map(values => {
       const claim = seedOwnedBcBill(s, { serviceDate: day, amount: '23.45' });
-      sql.execute(`UPDATE billing SET apptProvider_no=${q(provider)} WHERE billing_no=${Number(claim.billingNo)}
-        AND demographic_no=${s.patient};
-        UPDATE billingmaster SET service_date=${q(values.serviceDate)}, bill_amount=${q(values.amount)}
-        WHERE billingmaster_no=${Number(claim.billingmasterNo)} AND demographic_no=${s.patient}`);
+      sql.execute('UPDATE billing SET apptProvider_no=? WHERE billing_no=? AND demographic_no=?',
+        [provider, Number(claim.billingNo), s.patient]);
+      sql.execute('UPDATE billingmaster SET service_date=?, bill_amount=? WHERE billingmaster_no=? AND demographic_no=?',
+        [values.serviceDate, values.amount, Number(claim.billingmasterNo), s.patient]);
       return { ...values, key: `${claim.billingNo}-${claim.billingmasterNo}` };
     });
     for (const repType of ['REP_ACCOUNT_REC', 'REP_INVOICE']) {
