@@ -78,7 +78,7 @@ async function workflow(s) {
   const halfLetterPdf = async method => {
     const originalPreview = preview().url();
     const selectedSize = await script.locator('#printPageSize').inputValue();
-    const endpoint = new URL('form/createcustomedpdf', `${s.config.baseUrl}/`);
+    const endpoint = new URL(h.appUrl(s.config.baseUrl, '/form/createcustomedpdf'));
     const matches = url => url.origin === endpoint.origin && url.pathname === endpoint.pathname;
     let resolve, reject, timer, calls = 0;
     const operations = [];

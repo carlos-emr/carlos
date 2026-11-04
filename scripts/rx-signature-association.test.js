@@ -26,7 +26,8 @@ function setup() {
     refreshImage() { refreshes++; },
     fetch(url, options) { return new Promise((resolve, reject) => requests.push({ url, options, resolve, reject })); },
   });
-  for (const [name, next] of [['shouldDisableFaxControls', 'resetFailedFaxSubmission'],
+  for (const [name, next] of [['printHalfLetter', 'onPrint2'],
+    ['shouldDisableFaxControls', 'resetFailedFaxSubmission'],
     ['updateSignatureAssociationControls', 'associateSavedSignature'],
     ['associateSavedSignature', 'setDigitalSignatureToRx'],
     ['setDigitalSignatureToRx', 'toggleFaxButtons']]) {
@@ -52,6 +53,27 @@ test('fax remains locked until the signature association is explicitly confirmed
   assert.equal(s.context.hasStoredSignature, true);
   assert.equal(s.disabled(), false);
   assert.equal(s.refreshes(), 1);
+});
+
+test('half-letter print and reprint wait for the signature association to finish', async () => {
+  for (const method of ['print', 'rePrint']) {
+    const s = setup();
+    s.context.frames = { preview: {} };
+    const submissions = [];
+    s.context.onPrint2 = (...args) => submissions.push(args);
+    const pending = s.save('12');
+    s.context.printHalfLetter(method, '45');
+    assert.equal(submissions.length, 0, 'a PDF must not render the previous signature during the save');
+
+    await flush();
+    s.requests[0].resolve(confirmed());
+    await pending;
+    s.context.printHalfLetter(method, '45');
+    assert.equal(submissions.length, 1);
+    assert.equal(submissions[0][0], method);
+    assert.equal(submissions[0][1], '45');
+    assert.equal(submissions[0][6], 'PageSize.HALFLETTER');
+  }
 });
 
 for (const scenario of ['no-preview', 'missing-frame', 'loading-frame', 'missing-fields', 'inaccessible-frame', 'ready']) {
