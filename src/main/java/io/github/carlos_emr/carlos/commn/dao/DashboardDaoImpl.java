@@ -54,7 +54,8 @@ public class DashboardDaoImpl extends AbstractDaoImpl<Dashboard> implements Dash
     @SuppressWarnings("unchecked")
     @Override
     public List<Dashboard> getDashboardsByStatus(boolean status) {
-        Query query = entityManager.createQuery("SELECT x FROM Dashboard x WHERE x.active = :status");
+        Query query = entityManager.createQuery("SELECT x FROM Dashboard x WHERE x.active = :status "
+                + "OR (:status = false AND x.active IS NULL)");
         query.setParameter("status", status);
         List<Dashboard> result = query.getResultList();
         return result;
@@ -75,7 +76,7 @@ public class DashboardDaoImpl extends AbstractDaoImpl<Dashboard> implements Dash
     @Override
     public boolean updateMetadata(int id, String name, String description, Date edited) {
         return entityManager.createQuery("UPDATE Dashboard x SET x.name=:name, x.description=:description, "
-                + "x.edited=:edited WHERE x.id=:id AND x.locked=false")
+                + "x.edited=:edited WHERE x.id=:id AND (x.locked=false OR x.locked IS NULL)")
                 .setParameter("name", name).setParameter("description", description)
                 .setParameter("edited", edited).setParameter("id", id).executeUpdate() == 1;
     }
@@ -83,7 +84,7 @@ public class DashboardDaoImpl extends AbstractDaoImpl<Dashboard> implements Dash
     @Override
     public boolean updateActive(int id, boolean active, Date edited) {
         return entityManager.createQuery("UPDATE Dashboard x SET x.active=:active, x.edited=:edited "
-                + "WHERE x.id=:id AND x.locked=false")
+                + "WHERE x.id=:id AND (x.locked=false OR x.locked IS NULL)")
                 .setParameter("active", active).setParameter("edited", edited)
                 .setParameter("id", id).executeUpdate() == 1;
     }

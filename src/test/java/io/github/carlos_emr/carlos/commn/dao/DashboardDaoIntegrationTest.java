@@ -91,6 +91,27 @@ class DashboardDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @DisplayName("should hydrate nullable legacy flags and permit editing and activation of an unlocked dashboard")
+    void shouldPermitUpdates_whenLegacyFlagsAreNull() {
+        int id = createDashboard(false).getId();
+        entityManager.createNativeQuery("UPDATE dashboard SET locked=NULL, active=NULL WHERE id=:id")
+                .setParameter("id", id).executeUpdate();
+        entityManager.clear();
+        Dashboard legacy = dao.find(id);
+        assertThat(legacy.isLocked()).isFalse();
+        assertThat(legacy.isActive()).isFalse();
+        assertThat(dao.getDashboardsByStatus(false)).extracting(Dashboard::getId).contains(id);
+        assertThat(dao.getActiveDashboards()).extracting(Dashboard::getId).doesNotContain(id);
+        assertThat(dao.updateMetadata(id, "Legacy renamed", "Updated", new Date())).isTrue();
+        assertThat(dao.updateActive(id, true, new Date())).isTrue();
+        entityManager.clear();
+        Dashboard updated = dao.find(id);
+        assertThat(updated.getName()).isEqualTo("Legacy renamed");
+        assertThat(updated.isActive()).isTrue();
+        assertThat(updated.isLocked()).isFalse();
+    }
+
+    @Test
     @DisplayName("should reject metadata and status changes when a dashboard is locked or missing")
     void shouldRefuseUpdates_whenLockedOrMissing() {
         int id = createDashboard(true).getId();

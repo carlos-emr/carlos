@@ -114,6 +114,18 @@ async function workflow(s) {
         'Listed active state differs from the database');
     });
   }
+  await s.step('legacy nullable flags remain editable and can be activated', async () => {
+    sql.execute(`UPDATE dashboard SET active=NULL, locked=NULL WHERE id=${id}`);
+    await frame.goto(frame.url());
+    h.assert((await row().locator('td').nth(1).innerText()).trim() === 'Inactive', 'A nullable active flag was not treated as inactive');
+    await navigate(() => row().getByRole('link', { name: 'Edit Dashboard', exact: true }).click());
+    await form().getByLabel('Description', { exact: true }).fill('Legacy null flags');
+    await navigate(() => form().getByRole('button', { name: 'Save', exact: true }).click());
+    h.assert(sql.value(`SELECT COUNT(*) FROM dashboard WHERE id=${id} AND description='Legacy null flags'
+      AND active IS NULL AND locked IS NULL`) === '1', 'Legacy metadata edit failed or changed unrelated flags');
+    await navigate(() => row().getByRole('button', { name: 'Activate', exact: true }).click());
+    h.assert(sql.value(`SELECT active+0 FROM dashboard WHERE id=${id}`) === '1', 'Legacy dashboard could not be activated');
+  });
   await s.step('stored dashboard markup stays literal in the list and editor', async () => {
     const literalName = renamed + ' <b>literal</b>';
     const literalDescription = 'Text & </textarea><b>literal</b>';
@@ -130,8 +142,21 @@ async function workflow(s) {
   await s.step('a POST without the CSRF token is refused and changes nothing', async () => {
     const where = `creator=${h.sqlString(fixture.providerNo)} AND name LIKE ${h.sqlString(marker + '%')}`;
     const before = sql.value(`SELECT COUNT(*) FROM dashboard WHERE ${where}`);
-    const response = await context.request.post(h.appUrl(s.config.baseUrl, '/web/dashboard/admin/DashboardManager'),
-      { form: { operation: 'save', name: marker + ' CSRF probe' }, maxRedirects: 0 });
+    const target = new URL(h.appUrl(s.config.baseUrl, '/web/dashboard/admin/DashboardManager'));
+    // APIRequestContext omits Secure cookies on HTTP loopback even when Chromium sends them.
+    // Replay only this application's most-specific session cookie, without following redirects.
+    const now = Date.now() / 1000;
+    const cookie = (await context.cookies()).filter(entry => {
+      const domain = entry.domain.toLowerCase(), host = target.hostname.toLowerCase();
+      const domainMatches = domain.startsWith('.') ? host === domain.slice(1) || host.endsWith(domain) : host === domain;
+      const path = entry.path || '/';
+      const pathMatches = target.pathname === path || (target.pathname.startsWith(path)
+        && (path.endsWith('/') || target.pathname[path.length] === '/'));
+      return entry.name === 'JSESSIONID' && domainMatches && pathMatches && (entry.expires === -1 || entry.expires > now);
+    }).sort((a, b) => (b.path || '/').length - (a.path || '/').length)[0];
+    h.assert(cookie && cookie.value, 'Missing authenticated application session for the CSRF probe');
+    const response = await context.request.post(target.href,
+      { headers: { Cookie: `JSESSIONID=${cookie.value}` }, form: { operation: 'save', name: marker + ' CSRF probe' }, maxRedirects: 0 });
     await h.assertRefused(s, { response, table: 'dashboard', where, before, label: 'Dashboard save without CSRF token' });
   });
   await s.step('a GET save is refused and changes nothing', async () => {

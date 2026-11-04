@@ -89,7 +89,11 @@ class DashboardManagerAdministrationUnitTest {
         when(security.hasPrivilege(info, "_dashboardManager", "w", null)).thenReturn(true);
         Dashboard stored = new Dashboard();
         stored.setId(17);
+        stored.setName("Unchanged");
+        stored.setDescription("Original");
         stored.setLocked(true);
+        when(dao.updateMetadata(eq(17), eq("Unchanged"), eq("Original"), any())).thenReturn(false);
+        when(dao.updateActive(eq(17), eq(false), any())).thenReturn(false);
         try (var log = mockStatic(LogAction.class)) {
             assertThat(manager.addDashboard(info, stored)).isFalse();
             assertThat(manager.toggleDashboardActive(info, 17, false)).isFalse();
@@ -97,6 +101,9 @@ class DashboardManagerAdministrationUnitTest {
         }
         verify(dao, never()).merge(any());
         verify(dao, never()).persist(any());
+        verify(dao).updateMetadata(eq(17), eq("Unchanged"), eq("Original"), any());
+        verify(dao).updateActive(eq(17), eq(false), any());
+        verifyNoMoreInteractions(dao);
     }
 
     @Test
