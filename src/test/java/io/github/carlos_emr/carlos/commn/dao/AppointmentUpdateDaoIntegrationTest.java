@@ -184,6 +184,29 @@ class AppointmentUpdateDaoIntegrationTest {
         assertState("FAKE-fresh", 2);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {" ", "\t\n"})
+    void shouldPreserveLegacyLastWriterWins_whenVersionIsAbsentOrBlank(String version) {
+        String originalVersion = read().getEditVersion();
+        Appointment first = save(clientA, originalVersion, row -> row.setReason("FAKE-first"));
+        Appointment legacy = save(clientB, version, row -> row.setReason("FAKE-legacy"));
+        assertState("FAKE-legacy", 2);
+        assertThat(legacy.getEditVersion()).isNotEqualTo(first.getEditVersion())
+                .isEqualTo(read().getEditVersion());
+        assertThat(read().getLastUpdateUser()).isEqualTo("FAKE-B");
+        tx(em -> {
+            assertThat(em.createQuery("from AppointmentArchive order by id", AppointmentArchive.class)
+                    .getResultList()).extracting(AppointmentArchive::getReason)
+                    .containsExactly("FAKE-original", "FAKE-first");
+            return null;
+        });
+        assertThatThrownBy(() -> save(clientA, first.getEditVersion(), row -> row.setReason("FAKE-stale")))
+                .isInstanceOfSatisfying(AppointmentUpdateException.class,
+                        e -> assertThat(e.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
+        assertState("FAKE-legacy", 2);
+    }
+
     @Test
     void shouldSerializeConcurrentEdits_andRejectTheWaitingStaleWriter() throws Exception {
         String version = read().getEditVersion();
