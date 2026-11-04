@@ -517,6 +517,7 @@ public class DemographicAddRecord2Action extends ActionSupport {
         request.setAttribute("notes", request.getParameter("notes"));
         request.setAttribute("reason", request.getParameter("reason"));
         request.setAttribute("location", request.getParameter("location"));
+        request.setAttribute("locationCode", request.getParameter("locationCode"));
         request.setAttribute("resources", request.getParameter("resources"));
         request.setAttribute("type", request.getParameter("type"));
         request.setAttribute("style", request.getParameter("style"));

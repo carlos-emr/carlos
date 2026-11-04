@@ -174,7 +174,7 @@ async function checkEditPopup(context, daySheet, booked, statuses) {
 
 /** Asserts the status editor's rows in whatever document (popup page or panel frame) it loaded into. */
 async function assertStatusEditor(root, statuses, surface) {
-  const cells = root.locator('td.nowrap:first-child');
+  const cells = root.locator('#statusTable tbody th[scope="row"]');
   await cells.first().waitFor({ state: 'attached', timeout: 30000 });
   const listed = await cells.evaluateAll((nodes) => nodes.map((cell) => cell.textContent.trim()));
   for (const code of ['t', 'C']) {
@@ -182,8 +182,11 @@ async function assertStatusEditor(root, statuses, surface) {
   }
   assert(listed.length >= statuses.length,
     `${surface}: status editor lists ${listed.length} statuses, fewer than the ${statuses.length} active ones`);
-  assert(await root.locator('a[href*="dispatch=modify"]').count() > 0,
-    `${surface}: status editor offers no Edit link for any status`);
+  // Statuses are edited inline (#3982): each row carries its own description, colour and icon forms.
+  for (const dispatch of ['updateDescription', 'updateColour', 'updateIcon']) {
+    assert(await root.locator(`form input[name="dispatch"][value="${dispatch}"]`).count() >= listed.length,
+      `${surface}: status editor offers no inline ${dispatch} form on every row`);
+  }
   return listed.length;
 }
 

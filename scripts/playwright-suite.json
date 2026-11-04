@@ -4779,6 +4779,21 @@
       "fixtures": "Owned FAKE- patient with a seeded Inf prevention and a marker lot under JE; changes the clinic-wide hide_prevention_item property (snapshot and restore), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "appointment-settings",
+      "script": "scripts/appointment-settings-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "Issue #3982: the Location List tab (add, paste, style, reorder, rename, confirm-before-disable), inline styling of a core status, GET/HEAD 405 probes, and a booking that keeps its location across the patient search and stores code plus label; the booking half skips in a site setup (multisites, scheduleSiteID or CAISI program locations).",
+      "fixtures": "Changes the clinic-wide appointment Location List and the No Show status, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Locations the clinic already enabled are disabled for the run and re-enabled in cleanup; marker locations, the marker appointment (2028-02-15) and its archive rows are deleted, and the status description, colour and icon are restored."
+    },
+    {
       "name": "schedule-admin-settings",
       "script": "scripts/schedule-admin-settings-playwright-checks.js",
       "tiers": [

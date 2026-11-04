@@ -367,30 +367,40 @@ async function workflow(s) {
     await popup.close();
   });
 
-  await s.step('Appointment Status Setting edits a status label and colour, disables and enables it, then restores it', async () => {
-    const list = () => openAdminSection(admin, '/appointment/apptStatusSetting?dispatch=view', 'table.borderAll');
+  await s.step('Appointment Status Setting edits a status inline, confirms before disabling, enables it, then restores it', async () => {
+    const list = () => openAdminSection(admin, '/appointment/apptStatusSetting?dispatch=view', '#statusTable');
     let frame = await list();
+    // Each field saves from its own small form (#3982), so a description save never rewrites the colour.
     async function edit(desc, color) {
-      await frameNavigation(admin, frame, () => frame.locator(`a[href*="dispatch=modify&id=${statusId}"]`).first().click());
-      h.assert(await frame.locator('#apptStatus').inputValue() === statusCode, 'The status edit form opened another status');
-      await frame.locator('#apptDesc').fill(desc);
-      await frame.locator('#apptColor').fill(color);
-      await frameNavigation(admin, frame, () => frame.locator('form input[type="submit"]').click());
-      await frame.locator('table.borderAll').waitFor();
+      h.assert(await frame.locator(`#status-${statusId}`).getAttribute('data-status-code') === statusCode,
+        'The status row shows another status');
+      await frame.locator(`#desc-${statusId}`).fill(desc);
+      await frameNavigation(admin, frame, () => frame.locator(`form:has(#desc-${statusId}) button[type="submit"]`).click());
+      await frame.locator(`#colour-${statusId}`).fill(color);
+      await frameNavigation(admin, frame, () => frame.locator(`form:has(#colour-${statusId}) button[type="submit"]`).click());
+      await frame.locator('#statusTable').waitFor();
     }
     const desc = `PW${hex}`;
     await edit(desc, '#123456');
     h.assert(JSON.stringify(sql.rows(`SELECT description,color FROM appointment_status WHERE id=${Number(statusId)}`)) === JSON.stringify([[desc, '#123456']]),
       'The status label and colour were not saved');
-    h.assert(await frame.locator('tr', {hasText: desc}).count() === 1, 'The status list does not show the new label');
-    const toggle = label => frame.locator(`form:has(input[name="id"][value="${statusId}"]) button`, {hasText: label});
-    await frameNavigation(admin, frame, () => toggle(LABEL.disable).click());
+    h.assert(await frame.locator(`#desc-${statusId}`).inputValue() === desc, 'The status list does not show the new label');
+    const toggle = label => frame.locator(
+      `form:has(input[name="dispatch"][value="changestatus"]):has(input[name="id"][value="${statusId}"]) button`, {hasText: label});
+    // Cancelling the confirmation sends nothing.
+    const dismissed = await h.withExpectedDialogs(admin, () => toggle(LABEL.disable).click(), {accept: false});
+    h.assert(dismissed.length === 1 && dismissed[0].type === 'confirm', 'Disable did not ask for confirmation first');
+    await expectValue(sql, `SELECT active FROM appointment_status WHERE id=${Number(statusId)}`, '1', 'A cancelled Disable still deactivated the status');
+    const confirmed = await h.withExpectedDialogs(admin, () => frameNavigation(admin, frame, () => toggle(LABEL.disable).click()));
+    h.assert(confirmed.length === 1, 'Disable did not ask for confirmation exactly once');
     await expectValue(sql, `SELECT active FROM appointment_status WHERE id=${Number(statusId)}`, '0', 'Disable did not deactivate the status');
     await frameNavigation(admin, frame, () => toggle(LABEL.enable).click());
     await expectValue(sql, `SELECT active FROM appointment_status WHERE id=${Number(statusId)}`, '1', 'Enable did not reactivate the status');
     frame = await list();
     await edit(statusDesc, statusColor);
-    h.assert(statusSnapshot() === originalStatus, 'Editing back did not restore the status label and colour');
+    // The colour picker reports lower case; the stored value is the same colour.
+    h.assert(statusSnapshot().toLowerCase() === originalStatus.toLowerCase(), 'Editing back did not restore the status label and colour');
+    sql.execute(`UPDATE appointment_status SET color=${q(statusColor)} WHERE id=${Number(statusId)}`);
   });
 
   const typeRows = () => sql.rows(`SELECT id,name,duration,reason,notes,location,resources FROM appointmentType WHERE name=${q(typeName)}`);
@@ -451,7 +461,8 @@ async function workflow(s) {
       `/schedule/HolidaySetting?dboperation=${LABEL.save}&holiday_name=x&sdate_1_1=${holidayDate}`,
       `/schedule/TemplateCodeSetting?dboperation=${LABEL.codeSave}&code=${code}&description=x&bookinglimit=1`,
       `/schedule/DateSave?provider_no=${owner}&date=${holidayDate}&Submit=${LABEL.dateSave}&available=1&hour=${templateName}`,
-      `/appointment/apptStatusSetting?dispatch=update&id=${statusId}&apptDesc=x&apptColor=%23000000`,
+      `/appointment/apptStatusSetting?dispatch=updateDescription&id=${statusId}&apptDesc=x`,
+      `/appointment/apptStatusSetting?dispatch=updateColour&id=${statusId}&apptColor=%23000000`,
       `/appointment/appointmentTypeAction?oper=save&name=${encodeURIComponent(typeName)}&duration=15`,
     ];
     for (const probe of probes) {

@@ -74,6 +74,7 @@
 <%@ page
         import="java.util.*, java.sql.*,java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.commn.OtherIdManager"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
@@ -130,7 +131,7 @@
                 a.setName(request.getParameter("keyword"));
                 a.setNotes(request.getParameter("notes"));
                 a.setReason(request.getParameter("reason"));
-                a.setLocation(request.getParameter("location"));
+                AppointmentLocationResolver.applyPostedLocation(a, request);
                 a.setResources(request.getParameter("resources"));
                 a.setType(request.getParameter("type"));
                 a.setStyle(request.getParameter("style"));
@@ -259,7 +260,7 @@
                     a.setName(request.getParameter("keyword"));
                     a.setNotes(request.getParameter("notes"));
                     a.setReason(request.getParameter("reason"));
-                    a.setLocation(request.getParameter("location"));
+                    AppointmentLocationResolver.applyPostedLocation(a, request);
                     a.setResources(request.getParameter("resources"));
                     a.setType(request.getParameter("type"));
                     a.setStyle(request.getParameter("style"));

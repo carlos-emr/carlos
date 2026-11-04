@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.appointment.service;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
@@ -27,12 +28,14 @@ public class RecurringAppointmentService {
     private final OscarAppointmentDao appointments;
     private final AppointmentArchiveDao archives;
     private final SecurityInfoManager security;
+    private final AppointmentLocationResolver locations;
 
     public RecurringAppointmentService(OscarAppointmentDao appointments, AppointmentArchiveDao archives,
-                                       SecurityInfoManager security) {
+                                       SecurityInfoManager security, AppointmentLocationResolver locations) {
         this.appointments = appointments;
         this.archives = archives;
         this.security = security;
+        this.locations = locations;
     }
 
     /** All validation and series discovery precede writes; a failure rolls back the entire operation. */
@@ -77,6 +80,12 @@ public class RecurringAppointmentService {
         if (anchor != null) {
             if (!values.containsKey("style")) template.setStyle(anchor.getStyle());
             if (!values.containsKey("billing")) template.setBilling(anchor.getBilling());
+            // A form without the Location List dropdown keeps the saved item while its text is
+            // unchanged, as AppointmentLocationResolver.setLocationText does for a single booking.
+            if (!values.containsKey(AppointmentLocationResolver.LOCATION_CODE_PARAM)
+                    && equalText(anchor.getLocation(), template.getLocation())) {
+                template.setLocationCode(anchor.getLocationCode());
+            }
         }
         if (adding && anchor != null && !sameDetails(anchor, template)) {
             throw new IllegalArgumentException("Save changes to the appointment before creating repeats.");
@@ -135,7 +144,7 @@ public class RecurringAppointmentService {
         }
     }
 
-    private static Appointment template(Map<String, String> v, int programId, String creator) {
+    private Appointment template(Map<String, String> v, int programId, String creator) {
         Appointment a = new Appointment();
         try {
             a.setAppointmentDate(Date.valueOf(LocalDate.parse(v.getOrDefault("appointment_date", ""))));
@@ -156,7 +165,9 @@ public class RecurringAppointmentService {
         a.setName(v.getOrDefault("keyword", ""));
         a.setNotes(v.getOrDefault("notes", ""));
         a.setReason(v.getOrDefault("reason", ""));
-        a.setLocation(v.getOrDefault("location", ""));
+        // The Location List item and its label together, or the posted free text (#3982).
+        locations.applyPostedLocation(a, v.get(AppointmentLocationResolver.LOCATION_CODE_PARAM),
+                v.getOrDefault(AppointmentLocationResolver.LOCATION_PARAM, ""));
         a.setResources(v.getOrDefault("resources", ""));
         a.setType(v.getOrDefault("type", ""));
         a.setStyle(v.getOrDefault("style", ""));
@@ -193,7 +204,7 @@ public class RecurringAppointmentService {
                 && equalText(a.getName(), b.getName())
                 && equalText(Appointment.normalizeLineEndings(a.getNotes()), Appointment.normalizeLineEndings(b.getNotes()))
                 && equalText(Appointment.normalizeLineEndings(a.getReason()), Appointment.normalizeLineEndings(b.getReason()))
-                && equalText(a.getLocation(), b.getLocation())
+                && equalText(a.getLocation(), b.getLocation()) && Objects.equals(a.getLocationCode(), b.getLocationCode())
                 && equalText(a.getResources(), b.getResources()) && equalText(a.getType(), b.getType())
                 && equalText(a.getStyle(), b.getStyle()) && equalText(a.getBilling(), b.getBilling())
                 && equalText(a.getStatus(), b.getStatus()) && equalText(a.getRemarks(), b.getRemarks())
@@ -208,7 +219,9 @@ public class RecurringAppointmentService {
         target.setDemographicNo(source.getDemographicNo());
         target.setNotes(source.getNotes());
         target.setReason(source.getReason());
+        // The code and its label snapshot travel together.
         target.setLocation(source.getLocation());
+        target.setLocationCode(source.getLocationCode());
         target.setResources(source.getResources());
         target.setType(source.getType());
         if (updateStyle) target.setStyle(source.getStyle());

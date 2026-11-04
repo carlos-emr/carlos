@@ -62,6 +62,8 @@ public class ApptUtil {
     // Numeric patterns for structured fields
     private static final Pattern SAFE_DURATION = Pattern.compile("\\d{1,4}");
     private static final Pattern SAFE_REASON_CODE = Pattern.compile("[a-zA-Z0-9]{1,20}");
+    /** A Location List item id; "legacy" and blank copy no location code. */
+    private static final Pattern SAFE_LOCATION_CODE = Pattern.compile("[0-9]{1,10}");
 
     private static String validateOptional(String value, Pattern pattern, String fieldName) {
         if (value == null || value.isEmpty()) {
@@ -121,6 +123,8 @@ public class ApptUtil {
         obj.setStatus(validateOptional(request.getParameter("status"), SAFE_STATUS, "status"));
         obj.setDuration(validateOptional(request.getParameter("duration"), SAFE_DURATION, "duration"));
         obj.setReasonCode(validateOptional(request.getParameter("reasonCode"), SAFE_REASON_CODE, "reasonCode"));
+        String locationCode = request.getParameter("locationCode");
+        obj.setLocationCode(locationCode != null && SAFE_LOCATION_CODE.matcher(locationCode).matches() ? locationCode : null);
         // Free-text fields: length-capped and control characters rejected
         obj.setName(sanitizeText(request.getParameter("keyword"), MAX_FIELD_LEN));
         obj.setNotes(sanitizeMultilineText(request.getParameter("notes"), MAX_NOTES_LEN));

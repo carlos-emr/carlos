@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.appt.status.service.impl;
 
+import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr;
+import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusStyleException;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDao;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
@@ -48,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link AppointmentStatusMgrImpl} legacy cache invalidation hooks.
@@ -203,24 +206,24 @@ class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reset descriptions and colours by stable status code")
-    void shouldResetDescriptionsAndColours_byStableStatusCode() {
+    @DisplayName("should reset descriptions, colours and icons by stable status code")
+    void shouldResetDescriptionsColoursAndIcons_byStableStatusCode() {
         Map<String, ResetExpectation> defaults = new LinkedHashMap<>();
-        defaults.put("t", new ResetExpectation("To Do", "#FDFEC7"));
-        defaults.put("T", new ResetExpectation("Daysheet Printed", "#FDFEC7"));
-        defaults.put("H", new ResetExpectation("Here", "#00ee00"));
-        defaults.put("P", new ResetExpectation("Picked", "#FFBBFF"));
-        defaults.put("E", new ResetExpectation("Empty Room", "#FFFF33"));
-        defaults.put("a", new ResetExpectation("Customized 1", "#897DF8"));
-        defaults.put("b", new ResetExpectation("Customized 2", "#897DF8"));
-        defaults.put("c", new ResetExpectation("Customized 3", "#897DF8"));
-        defaults.put("d", new ResetExpectation("Customized 4", "#897DF8"));
-        defaults.put("e", new ResetExpectation("Customized 5", "#897DF8"));
-        defaults.put("f", new ResetExpectation("Customized 6", "#897DF8"));
-        defaults.put("h", new ResetExpectation("Confirmed", "#2fcccf"));
-        defaults.put("N", new ResetExpectation("No Show", "#cccccc"));
-        defaults.put("C", new ResetExpectation("Cancelled", "#999999"));
-        defaults.put("B", new ResetExpectation("Billed", "#3ea4e1"));
+        defaults.put("t", new ResetExpectation("To Do", "#FDFEC7", "starbill.gif"));
+        defaults.put("T", new ResetExpectation("Daysheet Printed", "#FDFEC7", "todo.gif"));
+        defaults.put("H", new ResetExpectation("Here", "#00ee00", "here.gif"));
+        defaults.put("P", new ResetExpectation("Picked", "#FFBBFF", "picked.gif"));
+        defaults.put("E", new ResetExpectation("Empty Room", "#FFFF33", "empty.gif"));
+        defaults.put("a", new ResetExpectation("Customized 1", "#897DF8", "1.gif"));
+        defaults.put("b", new ResetExpectation("Customized 2", "#897DF8", "2.gif"));
+        defaults.put("c", new ResetExpectation("Customized 3", "#897DF8", "3.gif"));
+        defaults.put("d", new ResetExpectation("Customized 4", "#897DF8", "4.gif"));
+        defaults.put("e", new ResetExpectation("Customized 5", "#897DF8", "5.gif"));
+        defaults.put("f", new ResetExpectation("Customized 6", "#897DF8", "5.gif"));
+        defaults.put("h", new ResetExpectation("Confirmed", "#2fcccf", "thumb.png"));
+        defaults.put("N", new ResetExpectation("No Show", "#cccccc", "noshow.gif"));
+        defaults.put("C", new ResetExpectation("Cancelled", "#999999", "cancel.gif"));
+        defaults.put("B", new ResetExpectation("Billed", "#3ea4e1", "billed.gif"));
 
         Map<String, Integer> ids = new LinkedHashMap<>();
         int nextId = 301;
@@ -234,10 +237,112 @@ class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
 
         defaults.forEach((code, expectation) -> {
             verify(appointmentStatusDao).findByStatus(code);
-            verify(appointmentStatusDao).modifyStatus(
-                    ids.get(code), expectation.description(), expectation.colour());
+            verify(appointmentStatusDao).modifyStyle(
+                    ids.get(code), expectation.description(), expectation.colour(), expectation.icon());
         });
         verifyNoMoreInteractions(appointmentStatusDao);
+    }
+
+    @Test
+    @DisplayName("should not restyle a different code that only shares the first letter")
+    void shouldSkipReset_whenLookupReturnsDifferentCode() {
+        when(appointmentStatusDao.findByStatus("t")).thenReturn(status(77, "tX"));
+
+        new AppointmentStatusMgrImpl().reset();
+
+        verify(appointmentStatusDao, never()).modifyStyle(77, "To Do", "#FDFEC7", "starbill.gif");
+    }
+
+    @Test
+    @DisplayName("should save a trimmed description for any status, including a core one")
+    void shouldSaveTrimmedDescription_forAnyStatus() {
+        when(appointmentStatusDao.modifyStyle(14, "Patient cancelled", null, null)).thenReturn(true);
+
+        assertThat(new AppointmentStatusMgrImpl().updateDescription(14, "  Patient cancelled  ")).isTrue();
+
+        verify(appointmentStatusDao).modifyStyle(14, "Patient cancelled", null, null);
+        verify(appointmentStatusDao, never()).find(14);
+    }
+
+    @Test
+    @DisplayName("should refuse a blank or over-long description without saving")
+    void shouldRefuseDescription_whenBlankOrTooLong() {
+        AppointmentStatusMgrImpl manager = new AppointmentStatusMgrImpl();
+
+        assertThatThrownBy(() -> manager.updateDescription(13, "   "))
+                .isInstanceOf(AppointmentStatusStyleException.class)
+                .extracting("messageKey").isEqualTo("admin.appt.status.mgr.error.descriptionRequired");
+        assertThatThrownBy(() -> manager.updateDescription(13, "d".repeat(AppointmentStatusMgr.DESCRIPTION_MAX_LENGTH + 1)))
+                .isInstanceOf(AppointmentStatusStyleException.class)
+                .extracting("messageKey").isEqualTo("admin.appt.status.mgr.error.descriptionLength");
+        assertThat(manager.updateDescription(13, "d".repeat(AppointmentStatusMgr.DESCRIPTION_MAX_LENGTH))).isFalse();
+        verify(appointmentStatusDao).modifyStyle(13, "d".repeat(AppointmentStatusMgr.DESCRIPTION_MAX_LENGTH), null, null);
+    }
+
+    @Test
+    @DisplayName("should accept only #rrggbb colours")
+    void shouldRefuseColour_whenNotHexTriplet() {
+        AppointmentStatusMgrImpl manager = new AppointmentStatusMgrImpl();
+        when(appointmentStatusDao.modifyStyle(13, null, "#AbCdEf", null)).thenReturn(true);
+
+        assertThat(manager.updateColour(13, " #AbCdEf ")).isTrue();
+        for (String bad : new String[]{null, "", "red", "#abc", "#abcdeg", "#abcdef;background:url(x)", "abcdef"}) {
+            assertThatThrownBy(() -> manager.updateColour(13, bad))
+                    .as("colour %s", bad)
+                    .isInstanceOf(AppointmentStatusStyleException.class)
+                    .extracting("messageKey").isEqualTo("admin.appt.status.mgr.error.color");
+        }
+        verify(appointmentStatusDao).modifyStyle(13, null, "#AbCdEf", null);
+        verifyNoMoreInteractions(appointmentStatusDao);
+    }
+
+    @Test
+    @DisplayName("should accept only icons from the icon set")
+    void shouldRefuseIcon_whenOutsideIconSet() {
+        AppointmentStatusMgrImpl manager = new AppointmentStatusMgrImpl();
+        when(appointmentStatusDao.modifyStyle(13, null, null, "thumb.png")).thenReturn(true);
+
+        assertThat(manager.updateIcon(13, "thumb.png")).isTrue();
+        for (String bad : new String[]{null, "", "../../WEB-INF/web.xml", "Sthumb.png", "noshow.gif\"", "javascript:x"}) {
+            assertThatThrownBy(() -> manager.updateIcon(13, bad))
+                    .as("icon %s", bad)
+                    .isInstanceOf(AppointmentStatusStyleException.class)
+                    .extracting("messageKey").isEqualTo("admin.appt.status.mgr.error.icon");
+        }
+        verify(appointmentStatusDao).modifyStyle(13, null, null, "thumb.png");
+        verifyNoMoreInteractions(appointmentStatusDao);
+    }
+
+    @Test
+    @DisplayName("should enable or disable only a status whose editable flag is 1")
+    void shouldChangeStatus_onlyWhenEditable() {
+        AppointmentStatus editable = status(13, "N");
+        editable.setEditable(1);
+        AppointmentStatus core = status(14, "C");
+        core.setEditable(0);
+        when(appointmentStatusDao.find(13)).thenReturn(editable);
+        when(appointmentStatusDao.find(14)).thenReturn(core);
+        AppointmentStatusMgrImpl manager = new AppointmentStatusMgrImpl();
+
+        assertThat(manager.changeStatus(13, 0)).isTrue();
+        assertThat(manager.changeStatus(14, 0)).isFalse();
+        assertThat(manager.changeStatus(99, 1)).isFalse();
+        assertThatThrownBy(() -> manager.changeStatus(13, 2))
+                .isInstanceOf(AppointmentStatusStyleException.class);
+
+        verify(appointmentStatusDao).changeStatus(13, 0);
+        verify(appointmentStatusDao, never()).changeStatus(14, 0);
+    }
+
+    @Test
+    @DisplayName("should list only icons whose signed and verified copies exist")
+    void shouldListIcons_withSignedAndVerifiedCopies() {
+        java.nio.file.Path images = java.nio.file.Path.of("src/main/webapp/images");
+        for (String icon : AppointmentStatusMgr.ICON_SET) {
+            assertThat(images.resolve(icon)).as(icon).exists();
+            assertThat(images.resolve("S" + icon)).as("S" + icon).exists();
+            assertThat(images.resolve("V" + icon)).as("V" + icon).exists();
+        }
     }
 
     private AppointmentStatus status(int id, String code) {
@@ -247,5 +352,5 @@ class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
         return status;
     }
 
-    private record ResetExpectation(String description, String colour) {}
+    private record ResetExpectation(String description, String colour, String icon) {}
 }

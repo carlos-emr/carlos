@@ -24,45 +24,77 @@
 package io.github.carlos_emr.carlos.appt.status.web;
 
 import java.util.List;
+import java.util.Set;
+import java.util.function.Supplier;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-import org.springframework.web.context.WebApplicationContext;
-import org.springframework.web.context.support.WebApplicationContextUtils;
-
-import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr;
-import io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgrImpl;
-
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusMgr;
+import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusStyleException;
+import io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgrImpl;
+import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+
+/**
+ * Appointment Settings, Status tab ({@code appointment/apptStatusSetting}): lists the appointment
+ * statuses and edits them inline.
+ *
+ * <p>Routed on the {@code dispatch} request parameter:</p>
+ * <ul>
+ *   <li>{@code view}, or anything else: render the list. {@code modify}, the retired separate edit
+ *       page, also renders the list so bookmarked links keep working.</li>
+ *   <li>{@code updateDescription}, {@code updateColour}, {@code updateIcon}: set status {@code id}'s
+ *       description ({@code apptDesc}), colour ({@code apptColor}) or icon ({@code apptIcon}). Each
+ *       field is its own form, so saving one never rewrites another, in particular a legacy
+ *       non-hexadecimal colour (#3381) is only replaced by an explicit colour save.</li>
+ *   <li>{@code changestatus}: enable or disable status {@code id} ({@code active} 1 or 0). The page
+ *       asks for confirmation before it posts a disable.</li>
+ *   <li>{@code reset}: restore the seeded description, colour and icon of every seeded status.</li>
+ * </ul>
+ *
+ * <p>Style edits apply to every status, including the core statuses seeded with
+ * {@code editable=0}: in CARLOS that flag gates only enabling and disabling (#3888).</p>
+ *
+ * <p>Reads need {@code _admin.schedule} read; every change needs {@code _admin.schedule} write, must
+ * be posted (GET and HEAD answer 405 before anything is changed) and writes an audit row that names
+ * the status id and the field, never patient data.</p>
+ */
 public class AppointmentStatus2Action extends ActionSupport {
-    private static final String EDIT = "edit";
     private static final String SCHEDULE_ADMIN_SECURITY_OBJECT = "_admin.schedule";
     private static final String READ = "r";
     private static final String WRITE = "w";
-    private static final int DESCRIPTION_MAX_LENGTH = 30;
-    private static final String HEX_COLOR_PATTERN = "^#[0-9A-Fa-f]{6}$";
-    private static final String DEFAULT_COLOR = "#FFFFFF";
+    private static final Set<String> MUTATIONS = Set.of(
+            "reset", "changestatus", "updateDescription", "updateColour", "updateIcon");
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private static final Logger logger = MiscUtils.getLogger();
+    private Integer id;
+    private Integer active;
+    private String apptDesc;
+    private String apptColor;
+    private String apptIcon;
 
+    /**
+     * Renders the status list, or applies the change named by {@code dispatch}.
+     *
+     * @return String {@code success} to render the list, or {@code none} after answering 405
+     * @throws SecurityException if the user lacks {@code _admin.schedule} read, or write for a change
+     */
+    @Override
     public String execute() {
         String dispatch = request.getParameter("dispatch");
-        boolean mutation = isMutation(dispatch);
+        boolean mutation = dispatch != null && MUTATIONS.contains(dispatch);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String requiredPrivilege = mutation ? WRITE : READ;
         if (!securityInfoManager.hasPrivilege(
@@ -76,145 +108,114 @@ public class AppointmentStatus2Action extends ActionSupport {
             return NONE;
         }
 
-        if ("view".equals(dispatch)) {
+        if (!mutation) {
             return view();
-        } else if ("reset".equals(dispatch)) {
-            return reset();
-        } else if ("changestatus".equals(dispatch)) {
-            return changestatus();
-        } else if ("modify".equals(dispatch)) {
-            return modify();
-        } else if ("update".equals(dispatch)) {
-            return update();
         }
-        return view();
+        switch (dispatch) {
+            case "reset" -> reset();
+            case "changestatus" -> changestatus();
+            case "updateDescription" -> changeStyle(dispatch, "description",
+                    () -> getApptStatusMgr().updateDescription(id, apptDesc));
+            case "updateColour" -> changeStyle(dispatch, "colour",
+                    () -> getApptStatusMgr().updateColour(id, apptColor));
+            default -> changeStyle(dispatch, "icon",
+                    () -> getApptStatusMgr().updateIcon(id, apptIcon));
+        }
+        populateAllStatus(request);
+        return SUCCESS;
     }
 
+    /**
+     * Renders the status list.
+     *
+     * @return String {@code success}
+     */
     public String view() {
-        logger.warn("view");
         populateAllStatus(request);
         return SUCCESS;
     }
 
-    public String reset() {
-        logger.warn("reset");
-        AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();
-        apptStatusMgr.reset();
+    private void reset() {
+        getApptStatusMgr().reset();
+        audit("reset", "seeded appointment statuses restored to their default description, colour and icon");
         addActionMessage(getText("admin.appt.status.mgr.message.reset"));
-        populateAllStatus(request);
-        return SUCCESS;
     }
 
-    @SuppressWarnings("java:S3516") // Struts actions must return a configured result name on every branch.
-    public String changestatus() {
-        logger.warn("changestatus");
-        AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();
-        AppointmentStatus appointmentStatus = getExistingStatus(apptStatusMgr);
-        if (appointmentStatus == null || appointmentStatus.getEditable() != 1
-                || (active == null || (active != 0 && active != 1))) {
-            if (appointmentStatus != null && appointmentStatus.getEditable() != 1) {
-                addActionError(getText("admin.appt.status.mgr.error.notEditable"));
-            } else if (appointmentStatus != null) {
-                addActionError(getText("admin.appt.status.mgr.error.invalidActive"));
-            }
-            populateAllStatus(request);
-            return SUCCESS;
-        }
-
-        apptStatusMgr.changeStatus(id, active);
-        addActionMessage(getText("admin.appt.status.mgr.message.activationUpdated"));
-        populateAllStatus(request);
-        return SUCCESS;
-    }
-
-    public String modify() {
-        logger.warn("modify");
-        AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();
-        AppointmentStatus appt = getExistingStatus(apptStatusMgr);
-        if (appt == null) {
-            populateAllStatus(request);
-            return SUCCESS;
-        }
-
-        populateEditFields(appt, true);
-
-        return EDIT;
-    }
-
-    public String update() {
-        logger.warn("update");
-        AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();
-        AppointmentStatus appointmentStatus = getExistingStatus(apptStatusMgr);
+    private void changestatus() {
+        AppointmentStatus appointmentStatus = getExistingStatus();
         if (appointmentStatus == null) {
-            populateAllStatus(request);
-            return SUCCESS;
+            return;
         }
+        // editable=0 marks a core status: it can be restyled but never disabled (#3888).
+        if (appointmentStatus.getEditable() != 1) {
+            addActionError(getText("admin.appt.status.mgr.error.notEditable"));
+            return;
+        }
+        if (active == null || (active != 0 && active != 1)) {
+            addActionError(getText("admin.appt.status.mgr.error.invalidActive"));
+            return;
+        }
+        try {
+            if (!getApptStatusMgr().changeStatus(id, active)) {
+                addActionError(getText("admin.appt.status.mgr.error.notEditable"));
+                return;
+            }
+        } catch (AppointmentStatusStyleException e) {
+            addActionError(getText(e.getMessageKey()));
+            return;
+        }
+        audit("changestatus", "appointment_status id=" + id + " active=" + active);
+        addActionMessage(getText("admin.appt.status.mgr.message.activationUpdated"));
+    }
 
-        validateUpdate();
-        if (hasActionErrors()) {
-            populateEditFields(appointmentStatus, false);
-            return EDIT;
+    /* Applies one inline style edit, reporting a refused value instead of saving it. */
+    private void changeStyle(String dispatch, String field, Supplier<Boolean> update) {
+        if (getExistingStatus() == null) {
+            return;
         }
-
-        String colorToPersist = apptColor;
-        if (!replaceLegacyColor && !isValidColor(appointmentStatus.getColor())
-                && DEFAULT_COLOR.equals(apptColor)) {
-            colorToPersist = appointmentStatus.getColor();
+        try {
+            if (!update.get()) {
+                addActionError(getText("admin.appt.status.mgr.error.notFound"));
+                return;
+            }
+        } catch (AppointmentStatusStyleException e) {
+            addActionError(getText(e.getMessageKey()));
+            return;
         }
-        apptStatusMgr.modifyStatus(id, apptDesc.trim(), colorToPersist);
+        audit(dispatch, "appointment_status id=" + id + " " + field + " updated");
         addActionMessage(getText("admin.appt.status.mgr.message.updated"));
-        populateAllStatus(request);
-        return SUCCESS;
     }
 
-    private boolean isMutation(String dispatch) {
-        return "reset".equals(dispatch) || "changestatus".equals(dispatch) || "update".equals(dispatch);
+    /**
+     * Writes the audit row for a saved change. The data names the status and the field changed,
+     * never patient data.
+     *
+     * @param dispatch String the change applied
+     * @param data String what changed
+     */
+    protected void audit(String dispatch, String data) {
+        LogAction.addLogSynchronous(LoggedInInfo.getLoggedInInfoFromSession(request),
+                "AppointmentStatus2Action." + dispatch, data);
     }
 
-    private AppointmentStatus getExistingStatus(AppointmentStatusMgr apptStatusMgr) {
+    private AppointmentStatus getExistingStatus() {
         if (id == null || id <= 0) {
             addActionError(getText("admin.appt.status.mgr.error.invalidId"));
             return null;
         }
 
-        AppointmentStatus appointmentStatus = apptStatusMgr.getStatus(id);
+        AppointmentStatus appointmentStatus = getApptStatusMgr().getStatus(id);
         if (appointmentStatus == null) {
             addActionError(getText("admin.appt.status.mgr.error.notFound"));
         }
         return appointmentStatus;
     }
 
-    private void validateUpdate() {
-        if (apptDesc == null || apptDesc.trim().isEmpty()) {
-            addActionError(getText("admin.appt.status.mgr.error.descriptionRequired"));
-        } else if (apptDesc.trim().length() > DESCRIPTION_MAX_LENGTH) {
-            addActionError(getText("admin.appt.status.mgr.error.descriptionLength"));
-        }
-
-        if (!isValidColor(apptColor)) {
-            addActionError(getText("admin.appt.status.mgr.error.color"));
-        }
-    }
-
-    private boolean isValidColor(String color) {
-        return color != null && color.matches(HEX_COLOR_PATTERN);
-    }
-
-    private void populateEditFields(AppointmentStatus appointmentStatus, boolean includeEditableFields) {
-        id = appointmentStatus.getId();
-        apptStatus = appointmentStatus.getStatus();
-        apptOldColor = appointmentStatus.getColor();
-        if (includeEditableFields) {
-            apptDesc = appointmentStatus.getDescription();
-            apptColor = isValidColor(appointmentStatus.getColor())
-                    ? appointmentStatus.getColor() : DEFAULT_COLOR;
-        }
-    }
-
-    public WebApplicationContext getApptContext() {
-        return WebApplicationContextUtils.getRequiredWebApplicationContext(ServletActionContext.getServletContext());
-    }
-
+    /**
+     * The status manager this action uses; tests substitute their own.
+     *
+     * @return AppointmentStatusMgr the manager
+     */
     public AppointmentStatusMgr getApptStatusMgr() {
         return new AppointmentStatusMgrImpl();
     }
@@ -223,19 +224,13 @@ public class AppointmentStatus2Action extends ActionSupport {
         AppointmentStatusMgr apptStatusMgr = getApptStatusMgr();
         List<AppointmentStatus> allStatus = apptStatusMgr.getAllStatus();
         request.setAttribute("allStatus", allStatus);
+        request.setAttribute("iconSet", AppointmentStatusMgr.ICON_SET);
+        request.setAttribute("descriptionMaxLength", AppointmentStatusMgr.DESCRIPTION_MAX_LENGTH);
         int usedStatusIndex = apptStatusMgr.checkStatusUsuage(allStatus);
         if (usedStatusIndex >= 0 && usedStatusIndex < allStatus.size()) {
             request.setAttribute("useStatus", allStatus.get(usedStatusIndex).getStatus());
         }
     }
-
-    private Integer id;
-    private Integer active;
-    private String apptStatus;
-    private String apptDesc;
-    private String apptOldColor;
-    private String apptColor;
-    private boolean replaceLegacyColor;
 
     public Integer getId() {
         return id;
@@ -255,10 +250,6 @@ public class AppointmentStatus2Action extends ActionSupport {
         this.active = active;
     }
 
-    public String getApptStatus() {
-        return apptStatus;
-    }
-
     public String getApptDesc() {
         return apptDesc;
     }
@@ -266,10 +257,6 @@ public class AppointmentStatus2Action extends ActionSupport {
     @StrutsParameter
     public void setApptDesc(String apptDesc) {
         this.apptDesc = apptDesc;
-    }
-
-    public String getApptOldColor() {
-        return apptOldColor;
     }
 
     public String getApptColor() {
@@ -281,16 +268,12 @@ public class AppointmentStatus2Action extends ActionSupport {
         this.apptColor = apptColor;
     }
 
-    public boolean isLegacyColor() {
-        return !isValidColor(apptOldColor);
-    }
-
-    public boolean isReplaceLegacyColor() {
-        return replaceLegacyColor;
+    public String getApptIcon() {
+        return apptIcon;
     }
 
     @StrutsParameter
-    public void setReplaceLegacyColor(boolean replaceLegacyColor) {
-        this.replaceLegacyColor = replaceLegacyColor;
+    public void setApptIcon(String apptIcon) {
+        this.apptIcon = apptIcon;
     }
 }

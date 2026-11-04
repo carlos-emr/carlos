@@ -39,6 +39,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
@@ -124,7 +125,8 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
         a.setName(text.name());
         a.setNotes(text.notes());
         a.setReason(text.reason());
-        a.setLocation(request.getParameter("location"));
+        // Saves the Location List item and its label together, or the posted free text (#3982).
+        AppointmentLocationResolver.applyPostedLocation(a, request);
         a.setResources(text.resources());
         a.setType(request.getParameter("type"));
         a.setStyle(request.getParameter("style"));

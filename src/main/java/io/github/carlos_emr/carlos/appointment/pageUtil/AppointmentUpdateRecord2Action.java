@@ -28,6 +28,7 @@
 
 package io.github.carlos_emr.carlos.appointment.pageUtil;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import java.io.IOException;
 import java.util.List;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -202,7 +203,9 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
             // text there: the setters normalize new writes and would rewrite those stored bytes.
             if (!StringUtils.equals(appt.getNotes(), text.notes())) appt.setNotes(text.notes());
             if (!StringUtils.equals(appt.getReason(), text.reason())) appt.setReason(text.reason());
-            appt.setLocation(request.getParameter("location"));
+            // Saves the Location List item and its label together, or the posted free text,
+            // which keeps the saved item only while the text is unchanged (#3982).
+            AppointmentLocationResolver.applyPostedLocation(appt, request);
             appt.setResources(text.resources());
             appt.setType(request.getParameter("type"));
             appt.setStyle(request.getParameter("style"));

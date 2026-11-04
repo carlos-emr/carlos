@@ -41,6 +41,8 @@ import io.github.carlos_emr.carlos.lab.service.ProviderLinkingRulesService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.providers.pageUtil.DeleteMyGroupMembers2Action;
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationService;
+import io.github.carlos_emr.carlos.appt.web.AppointmentLocationSettings2Action;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -460,6 +462,11 @@ class MutatorActionGetRejectionContractUnitTest {
         // Appointment types: a bare GET (and oper=edit) renders the list/edit form; only
         // oper=save and oper=del are POST-only (see AppointmentType2ActionUnitTest).
         "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
+        // Appointment Settings (#3982): a bare GET renders the Statuses or Locations tab; every
+        // dispatch that changes a status or a location is POST-only (see the parameterized cases
+        // below, AppointmentStatus2ActionUnitTest and AppointmentLocationSettings2ActionUnitTest).
+        "io.github.carlos_emr.carlos.appt.status.web.AppointmentStatus2Action",
+        "io.github.carlos_emr.carlos.appt.web.AppointmentLocationSettings2Action",
         // Facility admin: list/edit/add render on a GET (method=add only builds a transient
         // Facility for the form); only method=delete and method=save are POST-only
         // (see FacilityManager2ActionUnitTest).
@@ -588,9 +595,11 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         "io.github.carlos_emr.carlos.admin.web.LabDisplaySettings2Action",
         "io.github.carlos_emr.carlos.admin.web.AdminNewGroup2Action",
-        // appt slice: AppointmentType2Action is the only migrated mutator; the appt package is
-        // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
+        // appt slice: the appt packages are not in IN_SCOPE_PACKAGE_PREFIXES, so their migrated
+        // mutators register explicitly (conditional mutators).
         "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
+        "io.github.carlos_emr.carlos.appt.status.web.AppointmentStatus2Action",
+        "io.github.carlos_emr.carlos.appt.web.AppointmentLocationSettings2Action",
         "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
         "io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
         "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action",
@@ -796,6 +805,35 @@ class MutatorActionGetRejectionContractUnitTest {
             assertRejectsUnsafeMethod(
                     "io.github.carlos_emr.carlos.prescript.web.CopyFavorites2Action",
                     "_rx", "w", httpMethod, Map.of("dispatch", dispatch));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"reset", "changestatus", "updateDescription", "updateColour", "updateIcon"})
+    @DisplayName("AppointmentStatus2Action should reject GET and HEAD for every status change")
+    void shouldRejectUnsafeMethod_forAppointmentStatusChange(String dispatch) throws Exception {
+        for (String httpMethod : List.of("GET", "HEAD")) {
+            assertRejectsUnsafeMethod(
+                    "io.github.carlos_emr.carlos.appt.status.web.AppointmentStatus2Action",
+                    "_admin.schedule", "w", httpMethod,
+                    Map.of("dispatch", dispatch, "id", "13", "active", "0", "apptDesc", "Missed",
+                            "apptColor", "#abcdef", "apptIcon", "noshow.gif"));
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "add, w", "addMany, w", "rename, w", "updateColour, w", "updateIcon, w",
+        "moveUp, w", "moveDown, w", "restore, w", "deactivate, d"
+    })
+    @DisplayName("AppointmentLocationSettings2Action should reject GET and HEAD for every location change")
+    void shouldRejectUnsafeMethod_forAppointmentLocationChange(String dispatch, String privilege) throws Exception {
+        for (String httpMethod : List.of("GET", "HEAD")) {
+            assertRejectsUnsafeMethod(
+                    "io.github.carlos_emr.carlos.appt.web.AppointmentLocationSettings2Action",
+                    "_admin.schedule", privilege, httpMethod,
+                    Map.of("dispatch", dispatch, "id", "7", "name", "Room 2", "names", "Room 3",
+                            "colour", "#abcdef", "icon", "fa-house"));
         }
     }
 
@@ -1087,6 +1125,12 @@ class MutatorActionGetRejectionContractUnitTest {
 
     private static Object instantiateAction(Class<?> actionClass, Map<Class<?>, Object> autoMocks)
             throws Exception {
+        if (actionClass.equals(AppointmentLocationSettings2Action.class)) {
+            // The shared granting SecurityInfoManager, so the declared privilege tuple is checked on it.
+            return new AppointmentLocationSettings2Action(SpringUtils.getBean(SecurityInfoManager.class),
+                    (AppointmentLocationService) autoMocks.computeIfAbsent(
+                            AppointmentLocationService.class, Mockito::mock));
+        }
         if (actionClass.equals(DelEForm2Action.class)) {
             return new DelEForm2Action(mock(SecurityInfoManager.class));
         }

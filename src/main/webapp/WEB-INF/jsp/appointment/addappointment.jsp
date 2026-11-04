@@ -129,6 +129,8 @@ Ontario, Canada
 <%@ page import="io.github.carlos_emr.carlos.appt.JdbcApptImpl" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationList" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
@@ -146,6 +148,7 @@ Ontario, Canada
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib tagdir="/WEB-INF/tags/appointment" prefix="appt" %>
 
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
@@ -227,12 +230,18 @@ Ontario, Canada
     boolean locationEnabled = caisiEnabled && (useProgramLocation != null && useProgramLocation.equals("true"));
 
     ProgramManager2 programManager2 = SpringUtils.getBean(ProgramManager2.class);
+
+    // The Location List replaces the free-text location only while it has an active item and no
+    // site setup (multisite, scheduleSiteID, CAISI programs) is configured; those keep their controls.
+    AppointmentLocationList appointmentLocations = SpringUtils.getBean(AppointmentLocationResolver.class).load();
+    boolean locationMode = appointmentLocations.isLocationMode();
 %>
 
 <html>
     <head>
         <fmt:message key="appointment.type.reason.length.error" var="typeReasonLengthError"/>
         <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/appointmentTypeReason.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/appointmentLocationSelect.js"></script>
         <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
         <fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
@@ -536,7 +545,11 @@ Ontario, Canada
                 document.forms[0].type.value = "<carlos:encode value='<%= apptObj.getType() %>' context="javaScriptBlock"/>";
                 document.forms[0].type.dataset.previousReason = document.forms[0].type.selectedOptions[0]?.dataset.reason || '';
                 document.forms[0].type.dataset.previousType = document.forms[0].type.value;
+                <% if (locationMode) { %>
+                selectAppointmentLocationCode(document.forms[0].locationCode, "<carlos:encode value='<%= apptObj.getLocationCode() %>' context="javaScriptBlock"/>");
+                <% } else { %>
                 document.forms[0].location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
+                <% } %>
                 if ('<carlos:encode value='<%= apptObj.getUrgency() %>' context="javaScriptBlock"/>' == 'critical') {
                     document.forms[0].urgency.checked = "checked";
                 }
@@ -546,7 +559,7 @@ Ontario, Canada
                 statusCode = statusCode.substring(0, 1); //the selector only supports setting the first status
                 document.forms[0].status.value = statusCode;
                 <%}%>
-                <%if("true".equals(pros.getProperty("appointment.paste.location","false"))) {%>
+                <%if(!locationMode && "true".equals(pros.getProperty("appointment.paste.location","false"))) {%>
                 document.forms[0].location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
                 <%}%>
 
@@ -577,7 +590,9 @@ Ontario, Canada
                 document.forms['ADDAPPT'].duration.value = durSel;
                 document.forms['ADDAPPT'].resources.value = resSel;
                 var loc = document.forms['ADDAPPT'].location;
-                if (loc.nodeName === 'SELECT') {
+                if (document.forms['ADDAPPT'].locationCode) {
+                    selectAppointmentLocationByName(document.forms['ADDAPPT'].locationCode, locSel);
+                } else if (loc.nodeName === 'SELECT') {
                     for (c = 0; c < loc.length; c++) {
                         if (loc.options[c].innerHTML == locSel) {
                             loc.selectedIndex = c;
@@ -1366,6 +1381,11 @@ Ontario, Canada
                                     }
                                     %>
                                 </select>
+                                <% } else if (locationMode) { %>
+                                <appt:locationSelect choices="<%= appointmentLocations.getActiveItems() %>"
+                                                     selected='<%= bFirstDisp ? "" : request.getParameter("locationCode") %>'
+                                                     selectId="locationCode" labelledBy="apptLocationLabel"
+                                                     cssClass="form-select form-select-sm"/>
                                 <% } else { %>
                                 <input type="text" id="locationText" aria-labelledby="apptLocationLabel" name="location" value="<carlos:encode value='<%= loc != null ? loc : "" %>' context="htmlAttribute"/>" class="form-control form-control-sm">
                                 <% } %>

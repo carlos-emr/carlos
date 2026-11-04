@@ -28,6 +28,7 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
@@ -48,6 +49,16 @@ public class AppointmentConverter extends AbstractConverter<Appointment, Appoint
     private static final String[] SERVER_MANAGED_PROPERTIES = {
             "id", "createDateTime", "updateDateTime", "creator", "creatorSecurityId",
             "lastUpdateUser", "bookingSource"
+    };
+
+    /**
+     * {@link #SERVER_MANAGED_PROPERTIES} plus the location text, which goes through
+     * {@link AppointmentLocationResolver#setLocationText} so a REST edit of the text clears a
+     * Location List code that no longer matches it.
+     */
+    private static final String[] COPY_IGNORED_PROPERTIES = {
+            "id", "createDateTime", "updateDateTime", "creator", "creatorSecurityId",
+            "lastUpdateUser", "bookingSource", "location", "locationCode"
     };
 
     private boolean includeDemographic;
@@ -97,7 +108,8 @@ public class AppointmentConverter extends AbstractConverter<Appointment, Appoint
             justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
                     "known CARLOS types; no user-controlled property name reaches the sink")
     public void applyEditableProperties(AppointmentTo1 source, Appointment target) {
-        BeanUtils.copyProperties(source, target, SERVER_MANAGED_PROPERTIES);
+        BeanUtils.copyProperties(source, target, COPY_IGNORED_PROPERTIES);
+        AppointmentLocationResolver.setLocationText(target, source.getLocation());
     }
 
     @Override

@@ -1,7 +1,9 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.appointment.service;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
+import io.github.carlos_emr.carlos.commn.dao.LookupListDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -42,6 +44,7 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager em;
     private final LoggedInInfo user = mock(LoggedInInfo.class);
     private final SecurityInfoManager security = mock(SecurityInfoManager.class);
+    private final LookupListDao lookupLists = mock(LookupListDao.class);
     private RecurringAppointmentService service;
     private Map<String, String> values;
 
@@ -58,7 +61,8 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
     }
 
     private RecurringAppointmentService proxied(OscarAppointmentDao dao) {
-        ProxyFactory factory = new ProxyFactory(new RecurringAppointmentService(dao, archives, security));
+        ProxyFactory factory = new ProxyFactory(new RecurringAppointmentService(dao, archives, security,
+                new AppointmentLocationResolver(lookupLists)));
         factory.addAdvice(new TransactionInterceptor(transactions, new AnnotationTransactionAttributeSource()));
         return (RecurringAppointmentService) factory.getProxy();
     }
@@ -184,6 +188,50 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
         assertThat(rows()).isEmpty();
         Number count = (Number) em.createNativeQuery("SELECT COUNT(*) FROM appointmentArchive WHERE notes='PW_RECURRENCE_INTEGRATION'").getSingleResult();
         assertThat(count.intValue()).isEqualTo(9);
+    }
+
+    private void offerLocation(int id, String label) {
+        io.github.carlos_emr.carlos.commn.model.LookupListItem item = new io.github.carlos_emr.carlos.commn.model.LookupListItem();
+        item.setId(id);
+        item.setLabel(label);
+        item.setActive(true);
+        io.github.carlos_emr.carlos.commn.model.LookupList list = new io.github.carlos_emr.carlos.commn.model.LookupList();
+        list.setItems(new java.util.ArrayList<>(List.of(item)));
+        when(lookupLists.findByName(AppointmentLocationResolver.LIST_NAME)).thenReturn(list);
+    }
+
+    @Test void shouldBookEveryOccurrenceAtChosenItem_whenLocationListItemPosted() {
+        offerLocation(501, "Virtual");
+        values.put("locationCode", "501");
+        values.put("location", "");
+        assertThat(service.apply(user, values, 10016)).isEqualTo(3);
+        em.flush();
+        em.clear();
+        assertThat(rows()).hasSize(3).allSatisfy(a -> {
+            assertThat(a.getLocationCode()).isEqualTo(501);
+            assertThat(a.getLocation()).isEqualTo("Virtual");
+        });
+    }
+
+    @Test void shouldKeepSavedItem_whenUpdateFormHasNoDropdownAndSameText() {
+        offerLocation(501, "Virtual");
+        values.put("locationCode", "501");
+        service.apply(user, values, 10016);
+        values.remove("locationCode");
+        values.put("location", "Virtual");
+        values.put("appointment_no", rows().getFirst().getId().toString());
+        values.put("groupappt", "Group Update");
+        assertThat(service.apply(user, values, 10016)).isEqualTo(3);
+        assertThat(rows()).allSatisfy(a -> assertThat(a.getLocationCode()).isEqualTo(501));
+
+        values.put("location", "Room 9");
+        assertThat(service.apply(user, values, 10016)).isEqualTo(3);
+        em.flush();
+        em.clear();
+        assertThat(rows()).allSatisfy(a -> {
+            assertThat(a.getLocationCode()).isNull();
+            assertThat(a.getLocation()).isEqualTo("Room 9");
+        });
     }
 
     @Test void preservesUnsubmittedStyleAndBillingWhenCreatingSavedRepeats() {

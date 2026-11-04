@@ -1,0 +1,51 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+--%>
+<%--
+    Appointment Settings tabs: Statuses and Locations.
+
+    Purpose:
+      Lets an administrator move between the two appointment settings pages. The Statuses tab is
+      shown only while appointment status editing is enabled (ENABLE_EDIT_APPT_STATUS, on unless
+      set to a non-active value), because otherwise the schedule ignores the statuses it edits.
+
+    Include statically inside <body>, after setting the page attribute:
+      activeTab - "status" or "location"
+
+    @since 2026-11-04
+--%>
+<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<c:set var="appointmentStatusTabEnabled" value="<%= CarlosProperties.getInstance().isAppointmentStatusEditingEnabled() %>"/>
+<ul class="nav nav-tabs mb-3">
+    <c:if test="${appointmentStatusTabEnabled}">
+        <li class="nav-item">
+            <a class="nav-link${activeTab == 'status' ? ' active' : ''}"${activeTab == 'status' ? ' aria-current="page"' : ''}
+               href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/apptStatusSetting"><fmt:message key="admin.appt.settings.tab.status"/></a>
+        </li>
+    </c:if>
+    <li class="nav-item">
+        <a class="nav-link${activeTab == 'location' ? ' active' : ''}"${activeTab == 'location' ? ' aria-current="page"' : ''}
+           href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/apptLocationSetting"><fmt:message key="admin.appt.settings.tab.location"/></a>
+    </li>
+</ul>

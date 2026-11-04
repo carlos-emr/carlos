@@ -92,6 +92,8 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationList" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
@@ -118,6 +120,7 @@
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib tagdir="/WEB-INF/tags/appointment" prefix="appt" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%
 
@@ -215,6 +218,11 @@
     boolean caisiEnabled = moduleNames != null && org.apache.commons.lang3.StringUtils.containsIgnoreCase(moduleNames, "Caisi");
     boolean locationEnabled = caisiEnabled && (useProgramLocation != null && useProgramLocation.equals("true"));
 
+    // The Location List replaces the free-text location only while it has an active item and no
+    // site setup (multisite, scheduleSiteID, CAISI programs) is configured; those keep their controls.
+    AppointmentLocationList appointmentLocations = SpringUtils.getBean(AppointmentLocationResolver.class).load();
+    boolean locationMode = appointmentLocations.isLocationMode();
+
     CaseManagementManager caseManagementManager = (CaseManagementManager) SpringUtils.getBean(CaseManagementManager.class);
 
 
@@ -288,6 +296,7 @@
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
         <script src="${pageContext.request.contextPath}/js/appointmentPatientLink.js"></script>
         <script src="${pageContext.request.contextPath}/js/appointmentTextBounds.js"></script>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/appointmentLocationSelect.js"></script>
 
         <style>
 
@@ -651,7 +660,11 @@
                 CarlosAppointmentPatientLink.rebase(document.EDITAPPT.keyword);
                 document.forms[0].reason.value = "<carlos:encode value='<%= apptObj.getReason() %>' context="javaScriptBlock"/>";
                 document.forms[0].notes.value = "<carlos:encode value='<%= apptObj.getNotes() %>' context="javaScriptBlock"/>";
+                <% if (locationMode) { %>
+                selectAppointmentLocationCode(document.EDITAPPT.locationCode, "<carlos:encode value='<%= apptObj.getLocationCode() %>' context="javaScriptBlock"/>");
+                <% } else { %>
                 document.EDITAPPT.location.value = "<carlos:encode value='<%= apptObj.getLocation() %>' context="javaScriptBlock"/>";
+                <% } %>
                 document.EDITAPPT.resources.value = "<carlos:encode value='<%= apptObj.getResources() %>' context="javaScriptBlock"/>";
                 document.EDITAPPT.type.value = "<carlos:encode value='<%= apptObj.getType() %>' context="javaScriptBlock"/>";
                 if ('<%=apptObj.getUrgency()%>' === 'critical') {
@@ -685,7 +698,9 @@
                 document.forms['EDITAPPT'].duration.value = durSel;
                 document.forms['EDITAPPT'].resources.value = resSel;
                 var loc = document.forms['EDITAPPT'].location;
-                if (loc.nodeName.toUpperCase() === 'SELECT') {
+                if (document.forms['EDITAPPT'].locationCode) {
+                    selectAppointmentLocationByName(document.forms['EDITAPPT'].locationCode, locSel);
+                } else if (loc.nodeName.toUpperCase() === 'SELECT') {
                     for (c = 0; c < loc.length; c++) {
                         if (loc.options[c].innerHTML === locSel) {
                             loc.selectedIndex = c;
@@ -1197,6 +1212,17 @@
                             }
                             %>
                         </select>
+                        <% } else if (locationMode) {
+                            // First display starts from the saved booking; a re-render (patient search,
+                            // refused save) keeps what the form posted, with its legacy text still offered.
+                            AppointmentLocationList.Choice locationChoice = bFirstDisp
+                                    ? appointmentLocations.choiceFor(appt.getLocationCode(), appt.getLocation())
+                                    : new AppointmentLocationList.Choice(request.getParameter("locationCode"), request.getParameter("location"));
+                        %>
+		<label for="locationCode" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
+		<appt:locationSelect choices="<%= appointmentLocations.getChoices(locationChoice.code()) %>"
+		                     selected="<%= locationChoice.value() %>" legacy="<%= locationChoice.legacy() %>"
+		                     selectId="locationCode" cssClass="form-select"/>
                         <% } else { %>
 		        <label for="locationText" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
 		        <input type="text" class="form-control" name="location" id="locationText"

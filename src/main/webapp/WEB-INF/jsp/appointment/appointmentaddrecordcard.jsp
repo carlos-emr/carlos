@@ -50,6 +50,7 @@
 
 <%@ page
         import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.carlos.commn.OtherIdManager, io.github.carlos_emr.carlos.util.ConversionUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
 <%@ page import="io.github.carlos_emr.carlos.event.EventService, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -100,7 +101,7 @@
                     a.setName(request.getParameter("keyword"));
                     a.setNotes(request.getParameter("notes"));
                     a.setReason(request.getParameter("reason"));
-                    a.setLocation(request.getParameter("location"));
+                    AppointmentLocationResolver.applyPostedLocation(a, request);
                     a.setResources(request.getParameter("resources"));
                     a.setType(request.getParameter("type"));
                     a.setStyle(request.getParameter("style"));
@@ -132,7 +133,7 @@
                         appt.setName(request.getParameter("keyword"));
                         appt.setNotes(request.getParameter("notes"));
                         appt.setReason(request.getParameter("reason"));
-                        appt.setLocation(request.getParameter("location"));
+                        AppointmentLocationResolver.applyPostedLocation(appt, request);
                         appt.setResources(request.getParameter("resources"));
                         appt.setType(request.getParameter("type"));
                         appt.setStyle(request.getParameter("style"));

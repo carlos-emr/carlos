@@ -23,32 +23,37 @@
 
 --%>
 <%--
-    Appointment Status Settings
+    Appointment Settings, Statuses tab
 
     Purpose:
-      Lists appointment statuses and provides the administration controls used
-      to edit, reset, enable, and disable them.
+      Lists the appointment statuses and edits each one inline: description, background colour and
+      icon each save from their own small form, so saving one field never rewrites another (a
+      legacy non-hexadecimal colour stays until a colour is saved on purpose, #3381).
 
     Features:
-      Encoded status rendering, edit links, action feedback, and CSRF-protected
-      POST forms for reset and activation changes.
+      - Style edits for every status, including the core statuses seeded with editable=0: in
+        CARLOS that flag only gates enabling and disabling (#3888).
+      - Enable/Disable for editable statuses; disabling asks for confirmation first, and
+        cancelling sends no request. Reset asks too, because it cannot be undone.
+      - Every form posts to appointment/apptStatusSetting, which answers 405 to GET/HEAD for a
+        change. CSRFGuard adds the token to these same-origin POST forms.
 
-    Request attributes:
-      allStatus - appointment statuses rendered in the settings table.
-      useStatus - status-usage data populated by the paired action.
+    Request attributes (AppointmentStatus2Action):
+      allStatus            - List<AppointmentStatus> every status
+      iconSet              - List<String> the icon images a status may use, under /images
+      descriptionMaxLength - Integer the description column width
+      useStatus            - String code of a disabled status still used by appointments, if any
 
     @since 2026-08-07
 --%>
-<%@ page import="java.util.*,io.github.carlos_emr.carlos.commn.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.AppointmentStatus" %>
+<%@ page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/struts-tags" prefix="s" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -57,120 +62,173 @@
                    objectName="_admin,_admin.userAdmin,_admin.schedule" rights="r" reverse="<%=true%>">
     <%response.sendRedirect(request.getContextPath() + "/logoutPage");%>
 </security:oscarSec>
-
-
+<c:set var="ctx" value="${pageContext.request.contextPath}"/>
+<c:set var="statusAction" value="${ctx}/appointment/apptStatusSetting"/>
+<c:set var="activeTab" value="status"/>
+<fmt:message key="admin.appt.status.mgr.msg.confirmDisable" var="confirmDisable"/>
+<fmt:message key="admin.appt.status.mgr.msg.confirmReset" var="confirmReset"/>
+<fmt:message key="admin.appt.status.mgr.label.lockedTitle" var="lockedTitle"/>
+<!DOCTYPE html>
 <html>
 <head>
-    <link rel="icon" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/images/favicon.ico"/>
-    <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/global.js"></script>
+    <meta charset="UTF-8">
+    <link rel="icon" href="${carlos:forHtmlAttribute(ctx)}/images/favicon.ico"/>
     <title><fmt:message key="admin.appt.status.mgr.title"/></title>
-    <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/library/jquery/jquery-3.7.1.min.js"></script>
-    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/library/jquery/jquery-compat.js"></script>
-    <script>
-        jQuery.noConflict();
-    </script>
-    <link rel="stylesheet" type="text/css" media="all" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/css/extractedFromPages.css"/>
-<style>
-    .inline-action { display: inline; }
-    .link-button { background: none; border: 0; color: #0000EE; cursor: pointer; padding: 0; text-decoration: underline; }
-    .status-header { background-color: #486ebd; }
-    .status-title { color: #FFFFFF; font-family: Helvetica, sans-serif; text-align: center; white-space: nowrap; }
-    .status-reset { color: #CCCCCC; font-family: Helvetica, sans-serif; text-align: right; white-space: nowrap; }
-</style>
+    <%@ include file="/WEB-INF/jspf/bootstrap-css.jspf" %>
+    <style>
+        .status-swatch { display: inline-block; width: 1.25rem; height: 1.25rem; vertical-align: middle;
+            border: 1px solid #adb5bd; border-radius: .2rem; }
+        .status-desc { min-width: 10rem; }
+        .status-colour { width: 3rem; padding: .1rem; }
+        .status-icon-preview { width: 16px; height: 16px; object-fit: contain; }
+    </style>
 </head>
-<body>
-<table border=0 cellspacing=0 cellpadding=0 width="100%">
-    <tr class="status-header">
-        <th class="status-title"><fmt:message key="admin.appt.status.mgr.title"/></th>
-        <th class="status-reset">
-            <form class="inline-action" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/apptStatusSetting" method="post">
-                <input type="hidden" name="dispatch" value="reset"/>
-                <button class="link-button" type="submit"><fmt:message key="admin.appt.status.mgr.label.reset"/></button>
-            </form>
-        </th>
-    </tr>
-</table>
+<body class="p-3">
+<%@ include file="/WEB-INF/jsp/appointment/appointmentSettingsNav.jspf" %>
 
-<s:actionerror/>
-<s:actionmessage/>
+<div class="d-flex align-items-center mb-3">
+    <h1 class="h5 mb-0 me-auto"><fmt:message key="admin.appt.status.mgr.title"/></h1>
+    <form action="${carlos:forHtmlAttribute(statusAction)}" method="post" data-confirm="${carlos:forHtmlAttribute(confirmReset)}">
+        <input type="hidden" name="dispatch" value="reset"/>
+        <button class="btn btn-sm btn-outline-secondary" type="submit"><fmt:message key="admin.appt.status.mgr.label.reset"/></button>
+    </form>
+</div>
 
+<s:if test="hasActionErrors()">
+    <div class="alert alert-danger" role="alert"><s:actionerror/></div>
+</s:if>
+<s:if test="hasActionMessages()">
+    <div class="alert alert-success" role="status"><s:actionmessage/></div>
+</s:if>
+<c:if test="${not empty useStatus}">
+    <div class="alert alert-warning" role="alert">
+        <fmt:message key="admin.appt.status.mgr.msg.usedBefore">
+            <fmt:param value="${carlos:forHtml(useStatus)}"/>
+        </fmt:message>
+    </div>
+</c:if>
 
-<table class="borderAll" width="100%">
-    <tr>
-        <th><fmt:message key="admin.appt.status.mgr.label.status"/></th>
-        <th><fmt:message key="admin.appt.status.mgr.label.desc"/></th>
-        <th><fmt:message key="admin.appt.status.mgr.label.color"/></th>
-        <th><fmt:message key="admin.appt.status.mgr.label.enable"/></th>
-        <th><fmt:message key="admin.appt.status.mgr.label.active"/></th>
-    </tr>
-    <%
-        List apptsList = (List) request.getAttribute("allStatus");
-        AppointmentStatus apptStatus = null;
-        int iStatusID = 0;
-        String strStatus = "";
-        String strDesc = "";
-        String strColor = "";
-        int iActive = 0;
-        int iEditable = 0;
-        for (int i = 0; i < apptsList.size(); i++) {
-            apptStatus = (AppointmentStatus) apptsList.get(i);
-            iStatusID = apptStatus.getId();
-            strStatus = apptStatus.getStatus();
-            strDesc = apptStatus.getDescription();
-            strColor = apptStatus.getColor();
-            String displayColor = strColor != null && strColor.matches("#[0-9A-Fa-f]{6}")
-                    ? strColor : "#FFFFFF";
-            iActive = apptStatus.getActive();
-            iEditable = apptStatus.getEditable();
-    %>
-    <tr class=<%=(i % 2 == 0) ? "even" : "odd"%>>
-        <td class="nowrap"><%=SafeEncode.forHtmlContent(strStatus)%>
-        </td>
-        <td class="nowrap"><%=SafeEncode.forHtmlContent(strDesc)%>
-        </td>
-        <td class="nowrap" style="background-color: <%=SafeEncode.forCssString(displayColor)%>"><%=SafeEncode.forHtmlContent(strColor)%>
-        </td>
-        <td class="nowrap"><%=iActive%>
-        </td>
-        <td class="nowrap">
-            <%
-                String url = request.getContextPath();
-                url = url + "/appointment/apptStatusSetting?dispatch=modify&id=";
-                url = url + iStatusID;
-            %> <a href="<%=SafeEncode.forHtmlAttribute(url)%>"><fmt:message key="oscar.appt.status.mgr.label.edit"/></a> &nbsp;&nbsp;&nbsp; <%
-            int iToStatus = (iActive > 0) ? 0 : 1;
-            String activationMessageKey = (iActive > 0)
-                    ? "admin.appt.status.mgr.label.disable"
-                    : "admin.appt.status.mgr.label.enableAction";
-            if (iEditable == 1) {
-        %>
-            <form class="inline-action" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/apptStatusSetting" method="post">
-                <input type="hidden" name="dispatch" value="changestatus"/>
-                <input type="hidden" name="id" value="<%=iStatusID%>"/>
-                <input type="hidden" name="active" value="<%=iToStatus%>"/>
-                <button class="link-button" type="submit">
-                    <fmt:message key="<%=activationMessageKey%>"/>
-                </button>
-            </form>
-            <%
+<div class="table-responsive">
+    <table id="statusTable" class="table table-sm table-striped align-middle"
+           data-icon-base="${carlos:forHtmlAttribute(ctx)}/images/">
+        <thead>
+        <tr>
+            <th scope="col"><fmt:message key="admin.appt.status.mgr.label.status"/></th>
+            <th scope="col"><fmt:message key="admin.appt.status.mgr.label.desc"/></th>
+            <th scope="col"><fmt:message key="admin.appt.status.mgr.label.color"/></th>
+            <th scope="col"><fmt:message key="admin.appt.status.mgr.label.icon"/></th>
+            <th scope="col"><fmt:message key="admin.appt.status.mgr.label.enable"/></th>
+            <th scope="col"><fmt:message key="admin.appt.status.mgr.label.active"/></th>
+        </tr>
+        </thead>
+        <tbody>
+        <c:forEach items="${allStatus}" var="apptStatus">
+            <c:set var="statusColour" value="${apptStatus.color}"/>
+            <%-- A legacy colour (a name saved by an older release) cannot be shown by the picker. --%>
+            <c:set var="legacyColour" value="${empty statusColour or not statusColour.matches('#[0-9A-Fa-f]{6}')}"/>
+            <tr id="status-${apptStatus.id}" data-status-code="${carlos:forHtmlAttribute(apptStatus.status)}">
+                <th scope="row" class="text-nowrap"><code><carlos:encode value="${apptStatus.status}"/></code></th>
+                <td>
+                    <form class="d-flex gap-1" action="${carlos:forHtmlAttribute(statusAction)}" method="post">
+                        <input type="hidden" name="dispatch" value="updateDescription"/>
+                        <input type="hidden" name="id" value="${apptStatus.id}"/>
+                        <label class="visually-hidden" for="desc-${apptStatus.id}"><fmt:message key="admin.appt.status.mgr.label.desc"/></label>
+                        <input class="form-control form-control-sm status-desc" type="text" id="desc-${apptStatus.id}" name="apptDesc"
+                               value="<carlos:encode value='${apptStatus.description}' context='htmlAttribute'/>"
+                               maxlength="${descriptionMaxLength}" required>
+                        <button class="btn btn-sm btn-outline-primary" type="submit"><fmt:message key="global.btnSave"/></button>
+                    </form>
+                </td>
+                <td>
+                    <form class="d-flex align-items-center gap-1" action="${carlos:forHtmlAttribute(statusAction)}" method="post">
+                        <input type="hidden" name="dispatch" value="updateColour"/>
+                        <input type="hidden" name="id" value="${apptStatus.id}"/>
+                        <%-- Only a stored #rrggbb value is ever written into a style attribute. --%>
+                        <span class="status-swatch"<c:if test="${not legacyColour}"> style="background-color: ${carlos:forCssString(statusColour)}"</c:if>></span>
+                        <label class="visually-hidden" for="colour-${apptStatus.id}"><fmt:message key="admin.appt.status.mgr.label.color"/></label>
+                        <input class="form-control form-control-sm form-control-color status-colour" type="color" id="colour-${apptStatus.id}"
+                               name="apptColor" value="${legacyColour ? '#ffffff' : carlos:forHtmlAttribute(statusColour)}">
+                        <button class="btn btn-sm btn-outline-primary" type="submit"><fmt:message key="global.btnSave"/></button>
+                    </form>
+                    <c:if test="${legacyColour}">
+                        <div class="form-text text-warning-emphasis">
+                            <fmt:message key="admin.appt.status.mgr.msg.legacyColour">
+                                <fmt:param value="${carlos:forHtml(statusColour)}"/>
+                            </fmt:message>
+                        </div>
+                    </c:if>
+                </td>
+                <td>
+                    <form class="d-flex align-items-center gap-1" action="${carlos:forHtmlAttribute(statusAction)}" method="post">
+                        <input type="hidden" name="dispatch" value="updateIcon"/>
+                        <input type="hidden" name="id" value="${apptStatus.id}"/>
+                        <img class="status-icon-preview" alt="" src="${carlos:forHtmlAttribute(ctx)}/images/${carlos:forUriComponent(apptStatus.icon)}">
+                        <label class="visually-hidden" for="icon-${apptStatus.id}"><fmt:message key="admin.appt.status.mgr.label.icon"/></label>
+                        <select class="form-select form-select-sm status-icon" id="icon-${apptStatus.id}" name="apptIcon">
+                            <c:set var="iconListed" value="false"/>
+                            <c:forEach items="${iconSet}" var="icon">
+                                <c:if test="${icon == apptStatus.icon}"><c:set var="iconListed" value="true"/></c:if>
+                                <option value="${carlos:forHtmlAttribute(icon)}"${icon == apptStatus.icon ? ' selected' : ''}><carlos:encode value="${icon}"/></option>
+                            </c:forEach>
+                            <%-- A stored icon outside the set stays shown; it cannot be chosen again once changed. --%>
+                            <c:if test="${not iconListed}">
+                                <option value="" selected disabled>
+                                    <fmt:message key="admin.appt.status.mgr.label.iconNotListed">
+                                        <fmt:param value="${carlos:forHtml(apptStatus.icon)}"/>
+                                    </fmt:message>
+                                </option>
+                            </c:if>
+                        </select>
+                        <button class="btn btn-sm btn-outline-primary" type="submit"><fmt:message key="global.btnSave"/></button>
+                    </form>
+                </td>
+                <td class="text-nowrap"><fmt:message key="${apptStatus.active > 0 ? 'global.yes' : 'global.no'}"/></td>
+                <td class="text-nowrap">
+                    <c:choose>
+                        <c:when test="${apptStatus.editable == 1}">
+                            <form action="${carlos:forHtmlAttribute(statusAction)}" method="post"<c:if test="${apptStatus.active > 0}"> data-confirm="${carlos:forHtmlAttribute(confirmDisable)}"</c:if>>
+                                <input type="hidden" name="dispatch" value="changestatus"/>
+                                <input type="hidden" name="id" value="${apptStatus.id}"/>
+                                <input type="hidden" name="active" value="${apptStatus.active > 0 ? 0 : 1}"/>
+                                <button class="btn btn-sm ${apptStatus.active > 0 ? 'btn-outline-danger' : 'btn-outline-success'}" type="submit">
+                                    <fmt:message key="${apptStatus.active > 0 ? 'admin.appt.status.mgr.label.disable' : 'admin.appt.status.mgr.label.enableAction'}"/>
+                                </button>
+                            </form>
+                        </c:when>
+                        <c:otherwise>
+                            <span class="badge text-bg-secondary" title="${carlos:forHtmlAttribute(lockedTitle)}"><fmt:message key="admin.appt.status.mgr.label.locked"/></span>
+                        </c:otherwise>
+                    </c:choose>
+                </td>
+            </tr>
+        </c:forEach>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    (function () {
+        // Reset and Disable cannot be undone from the page, so each asks first; cancelling sends nothing.
+        document.querySelectorAll('form[data-confirm]').forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!window.confirm(form.dataset.confirm)) {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
                 }
-            %>
-        </td>
-    </tr>
-    <%
-        }
-    %>
-</table>
-<br>
+            });
+        });
 
-<%
-    String strUseStatus = (String) request.getAttribute("useStatus");
-    if (null != strUseStatus && strUseStatus.length() > 0) {
-%>
-The code [<%=SafeEncode.forHtmlContent(strUseStatus)%>] has been used before, please enable that
-status.
-<%
-    }
-%>
+        // Preview the chosen icon; the select only offers the server's whitelist of file names.
+        const base = document.getElementById('statusTable').dataset.iconBase;
+        document.querySelectorAll('select.status-icon').forEach(function (select) {
+            select.addEventListener('change', function () {
+                const preview = select.form.querySelector('.status-icon-preview');
+                if (preview && select.value) {
+                    preview.src = base + encodeURIComponent(select.value);
+                }
+            });
+        });
+    })();
+</script>
 </body>
 </html>

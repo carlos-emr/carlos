@@ -627,9 +627,13 @@
                         <%-- Absent ENABLE_EDIT_APPT_STATUS means enabled; see CarlosProperties.isAppointmentStatusEditingEnabled(). --%>
                         <% if (CarlosProperties.getInstance().isAppointmentStatusEditingEnabled()) { %>
                             <li><a href="#"
-                                   onclick="popupPage(500,600,'${pageContext.request.contextPath}/appointment/apptStatusSetting');return false;"
+                                   onclick="popupPage(700,1000,'${pageContext.request.contextPath}/appointment/apptStatusSetting');return false;"
                                    title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.appointmentStatusSetting"/></a></li>
                         <% } %>
+                        <%-- The Location List replaces free-text locations only without a site setup; see AppointmentLocationList. --%>
+                        <li><a href="#"
+                               onclick="popupPage(700,1000,'${pageContext.request.contextPath}/appointment/apptLocationSetting');return false;"
+                               title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.appointmentLocationSetting"/></a></li>
 
                         <li><a href="#"
                                onclick="popupPage(500,screen.width,'${pageContext.request.contextPath}/appointment/appointmentTypeAction'); return false;"><fmt:message key="admin.admin.appointmentTypeList"/></a></li>
