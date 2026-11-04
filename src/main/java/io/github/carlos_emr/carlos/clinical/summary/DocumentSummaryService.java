@@ -45,21 +45,18 @@ public final class DocumentSummaryService {
      * word of the same family; the overview only when the document does. Families rather than stems:
      * "prescrit" supports "prescrite", "prescription" supports "prescribed". A fixed list in English and
      * French: the rule is a provenance check on wording the model added, not a clinical judgement.
-     * Deliberately absent: "instruction" (an overview rightly calls an imperative line an instruction)
-     * and French "prévu" (planned, the dated-plan paraphrase, not a booking); on the eight exposed
-     * synthetic outputs those two words produced every false rejection, see the branch's commit message.
+     * Deliberately absent: "instruction" (an overview rightly calls an imperative line an instruction),
+     * French "prévu" (planned, the dated-plan paraphrase, not a booking), and the everyday families
+     * given/donné and taken/pris ("étant donné", "given the history", "prise de sang", "prise en charge",
+     * "taking into account", "take care"), which say nothing about a medication's status.
      */
     static final List<Set<String>> STATUS_FAMILIES = List.of(
             Set.of("prescribed", "prescribe", "prescribes", "prescribing", "prescription",
                     "prescrit", "prescrite", "prescrits", "prescrites", "prescrire"),
             Set.of("administered", "administer", "administers", "administering", "administration",
                     "administré", "administrée", "administrés", "administrées", "administrer"),
-            Set.of("given", "give", "gives", "giving",
-                    "donné", "donnée", "donnés", "données", "donner"),
             Set.of("started", "start", "starts", "starting", "commenced", "initiated",
                     "commencé", "commencée", "commencés", "commencées", "commencer", "débuté", "débutée", "instauré", "instaurée"),
-            Set.of("taken", "take", "takes", "taking",
-                    "pris", "prise", "prises", "prendre"),
             Set.of("scheduled", "schedule", "schedules", "scheduling",
                     "programmé", "programmée", "programmés", "programmées",
                     "planifié", "planifiée", "planifiés", "planifiées"),

@@ -152,7 +152,9 @@ public class ReviewedChartUpdateService {
         tickler.setUpdateDate(new Date());
         if (!ticklers.addTickler(user, tickler) || tickler.getId() == null) throw new IllegalStateException("Tickler was not saved.");
         // The source document rides as a tickler attachment (develop's picker model, which replaced
-        // tickler links): the service checks the caller's read on the document and its patient.
+        // tickler links): the service checks the caller's read on the document and its patient. A
+        // refusal here is a race (access or filing changed between the review page and this save) and
+        // surfaces as the usual 403; the transaction rolls the tickler back with it.
         attachments.syncAttachments(user, tickler, Map.of(DocumentType.DOC, List.of(String.valueOf(snapshot.documentId()))));
         return tickler.getId();
     }

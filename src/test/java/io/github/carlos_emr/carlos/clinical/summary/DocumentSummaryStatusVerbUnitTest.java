@@ -46,7 +46,8 @@ class DocumentSummaryStatusVerbUnitTest {
                 "administré");
         String english = "Metoprolol: 12.5 mg twice daily.";
         assertRejected(english, point("Metoprolol is prescribed at 12.5 mg twice daily.", english), "prescribed");
-        assertRejected(english, point("Metoprolol is taken at 12.5 mg twice daily.", english), "taken");
+        // "taken" is an everyday word (take care, taking into account) and is no longer a status family.
+        assertThat(DocumentSummaryService.statusWordWithoutSupport("Metoprolol is taken at 12.5 mg twice daily.", english)).isNull();
     }
 
     @Test
@@ -72,6 +73,19 @@ class DocumentSummaryStatusVerbUnitTest {
         assertThat(DocumentSummaryService.statusWordWithoutSupport("Aucun antibiotique n'est prescrit.",
                 "Aucun antibiotique n'est prescrit.")).isNull();
         assertThat(DocumentSummaryService.statusWordWithoutSupport("The wound improves.", "The wound improves.")).isNull();
+    }
+
+    @Test
+    void shouldAcceptEverydayGivenAndTakenPhrasesThatSayNothingAboutAMedication() throws Exception {
+        for (String[] pair : java.util.List.of(
+                new String[]{"Prise de sang le 2026-12-03.", "Une prise de sang est notée pour le 2026-12-03."},
+                new String[]{"Prise en charge par la clinique de la douleur.", "Prise en charge notée par la clinique de la douleur."},
+                new String[]{"Étant donné l'historique, un suivi est noté.", "Un suivi est noté étant donné l'historique."},
+                new String[]{"Given the history, a follow-up is noted.", "A follow-up is noted given the history."},
+                new String[]{"Taking into account the history, a review is noted.", "A review is noted, taking into account the history."},
+                new String[]{"Take care when standing up.", "Advice to take care when standing up."})) {
+            assertAccepted(pair[0], point(pair[1], pair[0]));
+        }
     }
 
     @Test
