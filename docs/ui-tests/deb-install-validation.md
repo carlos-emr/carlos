@@ -3842,3 +3842,48 @@ The local Ubuntu 26.04 package provenance, per-ticket runtime results, profile
 runs and published-beta2 upgrade validation are recorded in
 [harness-coverage-5456.md](harness-coverage-5456.md). That record distinguishes
 passing workflows from product findings and unavailable fixture prerequisites.
+
+### eForm post-save failure and consumed-token replay (2026-11-03, issue #4424)
+
+The application fix already merged in #5042 was revalidated from `release/2026.08`
+at `eba0178bdd2`, with the browser-check extension in `87c3de1486e`. No application
+code, version metadata or migrations changed in this follow-up.
+
+CARLOS and the DrugRef revision in `debian/drugref.pin` (`0d240f07ee5c`) were compiled
+from source with OpenJDK 25 in an Ubuntu 26.04 container. Their WARs were packaged
+with `dpkg-buildpackage -us -uc -b -nc` through the supported `CARLOS_WAR` and
+`DRUGREF_WAR` inputs. The resulting `carlos-emr` and `carlos-emr-drugref`
+`2026.09.0~snapshot27` debs were installed with the pinned, checksum-verified
+`carlos-ctl` 1.3.0 in a fresh Ubuntu 26.04.1 systemd container, using bridge
+networking and the Ontario demonstration dataset. The renderer was included:
+Chromium revision 1685886 and its driver passed the committed SHA-256 checks.
+`CHROMIUM_BASE_URL=https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64`
+selected the permitted official storage endpoint; the default hostname was denied
+by the environment's egress policy. TLS verification remained enabled.
+
+- `lintian --fail-on error`: passed, with no findings. `carlos-ctl check`: all
+  checks passed. The harness completed the mandatory first-login reset.
+- Focused Java action, submission guard, transaction and resource-bundle tests:
+  **186 passed**, no failures, errors or skips. Node manifest/findings checks:
+  **76 passed**.
+- Installed `double-submit-eform`: **PASS** through nginx/ModSecurity on `:443`,
+  including every rapid-submit mode, the post-save document refusal and a direct
+  replay of that failed POST as the same restricted login. The first 409 names
+  Add to Documents; the second 409 is the replay refusal. Both retain "patient's"
+  and return `no-store`, `nosniff`, UTF-8 plain text. Exactly one eForm and note
+  field remain, with no document filed. The PDF-rendering prerequisite passed.
+- Related installed checks: **6 passed, none failed or skipped**:
+  `application-health`, `eform-toolbar-fax-recipient` (no active fax account),
+  `eform-email-two-windows`, `eform-template-outputs`, `eform-template-consult` and
+  `eform-template-document-provider`. Both suite runs reported `no residue`.
+- The installed log contained the confirmed-save `ADD_TO_DOCUMENTS` failure and
+  stack frames, without the permission exception's message or synthetic PHI.
+
+The first installed runs exposed two harness issues. The deliberately restricted
+login cannot open the schedule reached after sign-in; the check now uses
+`signIn(..., { allowForbiddenSchedule: true })`, which proves that exact 403 is
+an authenticated application refusal. A deliberate POST reload also intermittently
+aborted the result page's spinner image (#5217). The check now waits for that
+image to decode before reloading; missing or broken images still fail. The failed
+attempts also reported no fixture residue. These corrections change the browser
+harness only; none of the application's failure responses were suppressed.

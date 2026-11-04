@@ -158,7 +158,11 @@ async function workflow(s) {
         ]);
         h.assert(initial.status() === 200, `The initial eForm submission answered HTTP ${initial.status()}`);
         h.assert((await initial.finished()) === null, 'The initial eForm submission response did not finish');
-        await form.waitForURL(url => route.test(url.pathname), { waitUntil: 'domcontentloaded' });
+        // Finish the result page's spinner before deliberately unloading it (#5217).
+        // Waiting for decoding also covers a late image request after the page's load event;
+        // a missing or broken image still fails instead of being ignored by the recorder.
+        await form.waitForURL(url => route.test(url.pathname), { waitUntil: 'load' });
+        await form.locator('#img-oscar-spinner').evaluate(image => image.decode());
         await form.reload({ waitUntil: 'domcontentloaded', timeout: 20000 });
       };
       if (mode.key === 'slowResubmit') {
@@ -320,7 +324,9 @@ async function workflow(s) {
     const role = fixture.addRole({ _eform: 'w', _demographic: 'r', _eChart: 'r' });
     const login = fixture.addLogin(role);
     const subject = noEdocSubject;
-    const restricted = await signIn(s, login);
+    // This eForm-only role cannot open the schedule reached after login. Qualify that exact
+    // authenticated application refusal without granting unrelated appointment rights.
+    const restricted = await signIn(s, login, { allowForbiddenSchedule: true });
     try {
       const page = await restricted.context.newPage();
       await h.gotoApp(page, s.config.baseUrl, `/eform/efmformadd_data?fid=${fid}&demographic_no=${patient}`);
