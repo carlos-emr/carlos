@@ -36,6 +36,9 @@
             <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
         </global-exception-mappings>
 
+        <action name="web/dashboard/admin/DashboardManager" class="io.github.carlos_emr.carlos.dashboard.admin.DashboardManager2Action">
+            <result name="success">/WEB-INF/jsp/web/dashboard/admin/DashboardManager.jsp</result>
+        </action>
         <action name="web/dashboard/display/DashboardDisplay" class="io.github.carlos_emr.carlos.dashboard.display.DisplayDashboard2Action">
             <result name="success">/WEB-INF/jsp/web/dashboard/display/DashboardDisplay.jsp</result>
             <result name="unauthorized">/WEB-INF/jsp/error/securityError.jsp</result>

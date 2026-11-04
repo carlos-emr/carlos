@@ -27,6 +27,7 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -221,23 +222,35 @@ public class DashboardManagerImpl implements DashboardManager {
 
         boolean success = Boolean.FALSE;
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardManager", SecurityInfoManager.READ, null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardManager", SecurityInfoManager.WRITE, null)) {
             LogAction.addLog(loggedInInfo, "DashboardManager.addDashboard", null, null, null,
                     "User missing _dashboardManager role with write access");
             return success;
         }
 
-        if (dashboard.getId() == null) {
+        boolean creating = dashboard.getId() == null;
+        if (creating) {
             // all new Dashboards are active.
             dashboard.setActive(Boolean.TRUE);
+            dashboard.setCreator(loggedInInfo.getLoggedInProviderNo());
+            dashboard.setEdited(new Date());
             dashboardDao.persist(dashboard);
         } else {
-            dashboardDao.merge(dashboard);
+            Dashboard existing = dashboardDao.find(dashboard.getId().intValue());
+            if (existing == null || existing.isLocked()) {
+                return false;
+            }
+            // An edit changes only the description and name. Preserve status, creator,
+            // lock and indicator membership rather than accepting them from the edit form.
+            existing.setName(dashboard.getName());
+            existing.setDescription(dashboard.getDescription());
+            existing.setEdited(new Date());
+            dashboardDao.merge(existing);
         }
 
         if (dashboard.getId() > 0) {
             LogAction.addLog(loggedInInfo, "DashboardManager.addDashboard", "Dashboard", dashboard.getId() + "", null,
-                    "New Dashboard added with id");
+                    creating ? "Dashboard created" : "Dashboard updated");
             success = Boolean.TRUE;
         }
 
@@ -251,7 +264,7 @@ public class DashboardManagerImpl implements DashboardManager {
     @Override
     public void toggleDashboardActive(LoggedInInfo loggedInInfo, int dashboardId, Boolean state) {
 
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardManager", SecurityInfoManager.READ, null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dashboardManager", SecurityInfoManager.WRITE, null)) {
             LogAction.addLog(loggedInInfo, "DashboardManager.toggleDashboardActive", null, null, null,
                     "User missing _dashboardManager role with write access");
             return;
@@ -259,10 +272,11 @@ public class DashboardManagerImpl implements DashboardManager {
 
         Dashboard dashboard = dashboardDao.find(dashboardId);
 
-        if (dashboard != null) {
+        if (dashboard != null && !dashboard.isLocked()) {
             dashboard.setActive(state);
-            LogAction.addLog(loggedInInfo, "DashboardManager.toggleIndicatorActive", "Active State", state + "", null,
-                    "Dashboard Active state set to ");
+            dashboard.setEdited(new Date());
+            LogAction.addLog(loggedInInfo, "DashboardManager.toggleDashboardActive", "Dashboard", dashboardId + "", null,
+                    "Dashboard active state set to " + state);
             dashboardDao.merge(dashboard);
         }
     }

@@ -5979,6 +5979,17 @@
       ]
     },
     {
+      "name": "dashboard-manager",
+      "script": "scripts/dashboard-manager-playwright-checks.js",
+      "tiers": ["core"],
+      "assertsDatabase": true,
+      "provinces": ["all"],
+      "timeoutSec": 180,
+      "env": [],
+      "notes": "Administration > Reports > Dashboard Manager: create, edit, inactivate, reactivate, reload, GET refusal (#2244).",
+      "fixtures": "Owned dashboards and a throwaway login with dashboard administration grants; all removed."
+    },
+    {
       "name": "dashboard-display",
       "script": "scripts/dashboard-display-playwright-checks.js",
       "tiers": [
