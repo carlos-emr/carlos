@@ -226,6 +226,17 @@ class ReadingAidArtifactUnitTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void noticeVersionIsMatchedByShapeNotByScheme() {
+        assertThat(ReadingAidArtifact.noticeLanguage(DocumentSummaryReviewBinding.NOTICE_VERSION)).isEqualTo("en");
+        assertThat(ReadingAidArtifact.noticeLanguage("clinic-notice-fr-12")).isEqualTo("fr");
+        assertThat(ReadingAidArtifact.noticeLanguage("x-yue-3")).isEqualTo("yue");
+        for (String bad : List.of("carlos-5537-1", "carlos-5537-en", "CARLOS-5537-en-1", "en-1", "", "carlos-5537-english-1")) {
+            assertThat(ReadingAidArtifact.noticeLanguage(bad)).as(bad).isNull();
+        }
+        assertThat(ReadingAidArtifact.noticeLanguage(null)).isNull();
+    }
+
     // --- helpers ---------------------------------------------------------------------------------
     private static JsonNode vectors() {
         try (var in = ReadingAidArtifactUnitTest.class.getResourceAsStream("/clinical/summary/reading-aid-pair-sender-vectors.json")) {

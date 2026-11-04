@@ -39,7 +39,8 @@ public final class ReadingAidArtifact {
     private static final Pattern UUID_V4 = Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}");
     private static final Pattern HEX64 = Pattern.compile("[0-9a-f]{64}");
     private static final Pattern LANGUAGE = Pattern.compile("[a-z]{2,3}(-[A-Za-z0-9]{2,8})*");
-    private static final Pattern NOTICE_VERSION = Pattern.compile("carlos-5537-([a-z]{2,3})-[0-9]+");
+    /** A notice version is {@code <scheme>-<language>-<n>}; the language tag must be the aid's. */
+    private static final Pattern NOTICE_VERSION = Pattern.compile("[a-z0-9-]+-([a-z]{2,3})-[0-9]+");
     /** The contract's lifetime bound for a pair: at most seven days from created_at to expires_at. */
     public static final long MAX_LIFETIME_SECONDS = 7L * 24 * 60 * 60;
     private static final Base64.Encoder B64URL = Base64.getUrlEncoder().withoutPadding();
@@ -111,8 +112,7 @@ public final class ReadingAidArtifact {
         if (reviewerId != null && !reviewerId.isBlank() && approvalId.contains(reviewerId)) throw invalid();
         String language = approval.language();
         if (language == null || !LANGUAGE.matcher(language).matches()) throw invalid();
-        var noticeTag = NOTICE_VERSION.matcher(DocumentSummaryReviewBinding.NOTICE_VERSION);
-        if (!noticeTag.matches() || !noticeTag.group(1).equals(language.split("-", 2)[0])) {
+        if (!language.split("-", 2)[0].equals(noticeLanguage(DocumentSummaryReviewBinding.NOTICE_VERSION))) {
             throw new IllegalArgumentException("No patient notice exists in the summary's language.");
         }
         DocumentSummary summary = approval.summary();
@@ -311,6 +311,12 @@ public final class ReadingAidArtifact {
         long value = Objects.requireNonNull(instant).getEpochSecond();
         if (value < 0) throw invalid();
         return value;
+    }
+
+    /** The language tag of a notice version such as {@code carlos-5537-en-1}, or null when it has none. */
+    static String noticeLanguage(String noticeVersion) {
+        var matcher = NOTICE_VERSION.matcher(noticeVersion == null ? "" : noticeVersion);
+        return matcher.matches() ? matcher.group(1) : null;
     }
 
     static String sha256Hex(byte[] bytes) {
