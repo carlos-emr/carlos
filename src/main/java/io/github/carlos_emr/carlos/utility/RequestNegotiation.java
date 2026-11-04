@@ -5,7 +5,10 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
 import java.util.Locale;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -138,6 +141,28 @@ public final class RequestNegotiation {
             }
         }
         return false;
+    }
+
+    /**
+     * Charset for bytes a filter appends to a response after the body was written: the declared
+     * response charset when the JRE can use it, otherwise UTF-8.
+     *
+     * <p>Tomcat 11 keeps a rejected charset name visible through {@code getCharacterEncoding()},
+     * so a filter encoding a notice or a replay at the end of an already-written response must
+     * not let an unusable name become that response's failure. Illegal, unsupported, empty and
+     * missing names all fall back.</p>
+     */
+    public static Charset responseCharset(ServletResponse response) {
+        String name = response.getCharacterEncoding();
+        if (name == null || name.isEmpty()) {
+            return StandardCharsets.UTF_8;
+        }
+        try {
+            return Charset.forName(name);
+        } catch (IllegalArgumentException _) {
+            // IllegalCharsetNameException and UnsupportedCharsetException both extend it.
+            return StandardCharsets.UTF_8;
+        }
     }
 
     /** Detects HTML response content types by prefix so charset parameters are accepted. */

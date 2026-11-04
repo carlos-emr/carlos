@@ -30,9 +30,6 @@ package io.github.carlos_emr.carlos.commn.printing;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.charset.Charset;
-import java.nio.charset.IllegalCharsetNameException;
-import java.nio.charset.StandardCharsets;
 import java.io.Writer;
 import java.util.Collections;
 import java.util.HashSet;
@@ -139,8 +136,6 @@ public class PrivacyStatementAppendingFilter implements Filter {
         }
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         boolean isConfidentialityNotePrinted = false;
@@ -170,8 +165,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 delegatingServletResponse.completeWithoutStatement();
                 return;
             }
-            boolean isHtmlResponse = contentType.toLowerCase().startsWith("text/html");
-            if (!isHtmlResponse) {
+            if (!RequestNegotiation.isHtmlContentType(contentType)) {
                 delegatingServletResponse.completeWithoutStatement();
                 return;
             }
@@ -253,30 +247,12 @@ public class PrivacyStatementAppendingFilter implements Filter {
     private void printConfidentialityStatement(ServletResponse response, DelegatingServletResponse delegatingServletResponse,
                                                String statement) throws IOException {
         if (delegatingServletResponse.isResponseOutputStreamObtained()) {
-            response.getOutputStream().write(statement.getBytes(noticeCharset(response)));
+            response.getOutputStream().write(statement.getBytes(RequestNegotiation.responseCharset(response)));
         } else if (delegatingServletResponse.isResponseWriterObtained()) {
             response.getWriter().print(statement);
         }
 
         response.flushBuffer();
-    }
-
-    /**
-     * Charset for a notice appended to a byte stream: the response's declared charset when the JRE
-     * supports it, otherwise UTF-8 (what this filter wrote before it honoured the declared charset).
-     * Tomcat 11 keeps a rejected charset name visible through {@code getCharacterEncoding()}, so an
-     * unusable name must not turn the appended notice into the failure of an already-written page.
-     */
-    private static Charset noticeCharset(ServletResponse response) {
-        String name = response.getCharacterEncoding();
-        try {
-            if (name != null && Charset.isSupported(name)) {
-                return Charset.forName(name);
-            }
-        } catch (IllegalCharsetNameException _) {
-            // Fall through: an illegal name is as unusable as an unsupported one.
-        }
-        return StandardCharsets.UTF_8;
     }
 
     private void resetConfidentialityNote(HttpServletRequest request) {

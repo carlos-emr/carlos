@@ -186,6 +186,27 @@ class PrivacyStatementAppendingFilterUnitTest {
     }
 
     @Test
+    void shouldAppendNotice_whenContentTypeIsUpperCaseHtml() throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic case notice.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentType("TEXT/HTML;charset=UTF-8");
+                res.getWriter().write("<p>upper</p>");
+            });
+            assertThat(response.getContentAsString()).contains("<p>upper</p>", "Synthetic case notice.");
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.setProperty("confidentiality_statement.v1", (String) original);
+            }
+        }
+    }
+
+    @Test
     void shouldAppendNoticeToBothPages_whenTwoRequestsShareOneSessionConcurrently() throws Exception {
         var properties = io.github.carlos_emr.CarlosProperties.getInstance();
         Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic race notice.");

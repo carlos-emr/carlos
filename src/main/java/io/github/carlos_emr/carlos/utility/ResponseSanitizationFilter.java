@@ -40,7 +40,6 @@ import java.io.CharArrayWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Set;
@@ -831,7 +830,7 @@ public class ResponseSanitizationFilter implements Filter {
         if (content == null || content.isEmpty()) {
             return;
         }
-        byte[] bytes = content.getBytes(resolveEncoding(response));
+        byte[] bytes = content.getBytes(RequestNegotiation.responseCharset(response));
         if (!prepareForReplay(response, bytes.length)) {
             appendAfterCommit(response, bytes);
             return;
@@ -908,28 +907,6 @@ public class ResponseSanitizationFilter implements Filter {
     }
 
     /**
-     * The charset to encode replayed content with: the response's own, or UTF-8 when it
-     * declares none. Shared so the byte and character replay paths cannot disagree about
-     * the encoding and produce a Content-Length that does not match the bytes.
-     *
-     * @param response HttpServletResponse the real (unwrapped) response
-     * @return Charset the charset to use
-     */
-    private static Charset resolveEncoding(HttpServletResponse response) {
-        String encoding = response.getCharacterEncoding();
-        if (encoding == null || encoding.isEmpty()) {
-            return StandardCharsets.UTF_8;
-        }
-        try {
-            return Charset.forName(encoding);
-        } catch (IllegalArgumentException e) {
-            // Unsupported or malformed charset name on the response; UTF-8 keeps the replay
-            // working rather than throwing out of the outermost filter.
-            return StandardCharsets.UTF_8;
-        }
-    }
-
-    /**
      * Prepares the real response for replaying safe captured content: clears any buffered
      * output and sets the byte-accurate Content-Length.
      *
@@ -992,7 +969,7 @@ public class ResponseSanitizationFilter implements Filter {
             // inspected-safe page is dropped on the degraded path's own degraded path.
             try {
                 PrintWriter out = response.getWriter();
-                out.write(new String(content, resolveEncoding(response)));
+                out.write(new String(content, RequestNegotiation.responseCharset(response)));
                 out.flush();
             } catch (IOException | IllegalStateException fallbackFailure) {
                 LOGGER.error("Appending captured content after premature commit failed through "
