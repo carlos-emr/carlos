@@ -133,6 +133,13 @@ public class EctDisplayAction extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Loads a navbar module with one login identity for patient authorization and provider context.
+     *
+     * @return String the Struts result, or {@link #NONE} when the response was written directly
+     * @throws IOException if writing the response fails
+     * @throws ServletException if including the navbar view fails
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws IOException, ServletException {
@@ -143,16 +150,19 @@ public class EctDisplayAction extends ActionSupport {
         boolean isJsonRequest = isJsonRequest();
         request.setAttribute("isJsonRequest", isJsonRequest);
 
+        // A concurrent logout can invalidate the session after the privilege check. Keep the
+        // authorized login for this request instead of dereferencing a second session lookup.
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
         EctSessionBean bean;
         try {
-            bean = prepareEncounterSessionBean();
+            bean = prepareEncounterSessionBean(login);
         } catch (IllegalArgumentException invalidPatient) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
             return NONE;
         }
 
         String params = resolveCommandParams();
-        String forward = handleDisplayCommand(bean, cmd, params, isJsonRequest);
+        String forward = handleDisplayCommand(bean, cmd, params, isJsonRequest, login);
 
         logUnexpectedForward(forward, navName, cmd, params);
         return finalizeForward(forward);
@@ -176,11 +186,8 @@ public class EctDisplayAction extends ActionSupport {
                 && ((value.charAt(3) | 0x20) == 'e');
     }
 
-    private EctSessionBean prepareEncounterSessionBean() {
+    private EctSessionBean prepareEncounterSessionBean(LoggedInInfo login) {
         String demographicNo = EncounterPatientContext.requireDemographicNo(request);
-        // A concurrent logout can invalidate the session after the privilege check. Keep the
-        // authorized login for this request instead of dereferencing a second session lookup.
-        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
         ensureChartReadPrivilege(demographicNo, login);
         return rebuildEncounterSessionBean(demographicNo, login);
     }
@@ -189,10 +196,11 @@ public class EctDisplayAction extends ActionSupport {
         PatientRecordAccess.require(securityInfoManager, login, demographicNo, "_eChart", "r");
     }
 
+    /** Builds request-only chart context, dropping appointments belonging to another patient. */
     private EctSessionBean rebuildEncounterSessionBean(String demographicNo, LoggedInInfo login) {
         EctSessionBean bean = new EctSessionBean();
         bean.currentDate = resolveCurrentDate();
-        bean.providerNo = resolveProviderNo();
+        bean.providerNo = resolveProviderNo(login);
         bean.demographicNo = demographicNo;
         String appointmentNo = resolveNumericParameter("appointmentNo", "Invalid non-numeric appointmentNo");
         Appointment appointment = findOwnedAppointment(demographicNo, appointmentNo);
@@ -206,7 +214,7 @@ public class EctDisplayAction extends ActionSupport {
         }
         bean.appointmentNo = appointmentNo;
         bean.curProviderNo = resolveCurrentProviderNo(demographicNo, appointmentNo, appointment, login);
-        populateEncounterRequestFields(bean);
+        populateEncounterRequestFields(bean, login);
         exposeEncounterRequestBean(bean);
         return bean;
     }
@@ -216,14 +224,15 @@ public class EctDisplayAction extends ActionSupport {
         return currentDate == null ? new Date() : currentDate;
     }
 
-    private String resolveProviderNo() {
+    /** Uses a valid explicit provider, otherwise the provider whose login passed authorization. */
+    private String resolveProviderNo(LoggedInInfo login) {
         String providerNo = request.getParameter("providerNo");
         if (providerNo != null && !providerNo.matches("[a-zA-Z0-9]{1,6}")) {
             logger.warn("Invalid providerNo rejected at trust boundary, falling back to session user: {}", LogSafe.sanitize(providerNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             providerNo = null;
         }
         if (providerNo == null) {
-            providerNo = (String) request.getSession().getAttribute("user"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fallback to authenticated provider from own session
+            providerNo = login.getLoggedInProvider().getProviderNo();
         }
         return providerNo;
     }
@@ -243,6 +252,10 @@ public class EctDisplayAction extends ActionSupport {
                 ? appointment : null;
     }
 
+    /**
+     * Prefers an owned appointment, then an explicit or matching saved provider, and finally the
+     * authorized login. A concurrent logout must not turn that final fallback into a session read.
+     */
     private String resolveCurrentProviderNo(String demographicNo, String appointmentNo, Appointment ownedAppointment,
                                            LoggedInInfo login) {
         // Only an appointment the requested patient owns may supply the provider; an entry snapshot
@@ -267,10 +280,10 @@ public class EctDisplayAction extends ActionSupport {
         return currentProviderNo;
     }
 
-    private void populateEncounterRequestFields(EctSessionBean bean) {
+    private void populateEncounterRequestFields(EctSessionBean bean, LoggedInInfo login) {
         bean.reason = resolveReason();
         bean.encType = resolveEncounterType();
-        bean.userName = resolveUserName();
+        bean.userName = resolveUserName(login);
         bean.appointmentDate = resolveDateParameter("appointmentDate", "Rejected invalid appointmentDate at trust boundary: {}");
         bean.startTime = resolveTimeParameter("startTime");
         bean.status = resolveStatusParameter("status");
@@ -298,20 +311,17 @@ public class EctDisplayAction extends ActionSupport {
         return encounterType;
     }
 
-    private String resolveUserName() {
+    /** Falls back to the authorized provider's name when the requested display name is absent or invalid. */
+    private String resolveUserName(LoggedInInfo login) {
         String userName = request.getParameter("userName");
         if (userName == null) {
-            return sessionUserName();
+            return login.getLoggedInProvider().getFullName();
         }
         if (!SAFE_TEXT.matcher(userName).matches() || userName.length() > 100) {
             logger.warn("Rejected invalid userName at trust boundary, falling back to session-derived name");
-            return sessionUserName();
+            return login.getLoggedInProvider().getFullName();
         }
         return userName;
-    }
-
-    private String sessionUserName() {
-        return ((String) request.getSession().getAttribute("userfirstname")) + " " + ((String) request.getSession().getAttribute("userlastname")); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): authenticated user's name from own session
     }
 
     private String resolveDateParameter(String parameterName, String invalidMessage) {
@@ -378,14 +388,16 @@ public class EctDisplayAction extends ActionSupport {
         return params;
     }
 
-    private String handleDisplayCommand(EctSessionBean bean, String cmd, String params, boolean isJsonRequest) throws IOException {
+    /** Checks the module's roles before loading its data and selecting its HTML or JSON response. */
+    private String handleDisplayCommand(EctSessionBean bean, String cmd, String params, boolean isJsonRequest,
+                                        LoggedInInfo login) throws IOException {
         String forward = "error";
         if (params == null || params.indexOf(cmd) <= -1) {
             return forward;
         }
 
         NavBarDisplayDAO dao = resolveDisplayDao(cmd);
-        if (!hasReadAccessForDisplayCommand(new SecurityManager(), cmd)) {
+        if (!hasReadAccessForDisplayCommand(new SecurityManager(), cmd, login)) {
             return null;
         }
         if (!getInfo(bean, request, dao)) {
@@ -552,16 +564,14 @@ public class EctDisplayAction extends ActionSupport {
         return true;
     }
 
-    /**
-     * Must be implemented by subclasses to retrieve module name
-     *
-     * @return Returns name of the module corresponding to the mapping in the {@link #Actions}
-     */
+    /** Applies legacy module rights using the authorized login's active roles and provider number. */
     // FindSecBugs IMPROPER_UNICODE: case-fold in a trust path; locale-safe hardening tracked in #2496. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-fold in a trust path; locale-safe hardening tracked in #2496")
-    private boolean hasReadAccessForDisplayCommand(SecurityManager securityMgr, String cmd) {
-        return securityMgr.hasReadAccess("_" + cmd.toLowerCase(),
-                request.getSession().getAttribute("userrole") + "," + request.getSession().getAttribute("user"));
+    private boolean hasReadAccessForDisplayCommand(SecurityManager securityMgr, String cmd, LoggedInInfo login) {
+        StringJoiner roles = new StringJoiner(",");
+        securityInfoManager.getRoles(login).forEach(role -> roles.add(role.getRoleName()));
+        roles.add(login.getLoggedInProvider().getProviderNo());
+        return securityMgr.hasReadAccess("_" + cmd.toLowerCase(), roles.toString());
     }
 
     public String getCmd() {

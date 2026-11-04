@@ -10,6 +10,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import io.github.carlos_emr.carlos.services.security.SecurityManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -64,7 +65,12 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
         login = mock(LoggedInInfo.class);
         Provider provider = new Provider();
         provider.setProviderNo("999998");
+        provider.setFirstName("Synthetic");
+        provider.setLastName("Provider");
         when(login.getLoggedInProvider()).thenReturn(provider);
+        Secuserrole role = new Secuserrole();
+        role.setRoleName("doctor");
+        when(security.getRoles(login)).thenReturn(List.of(role));
         session = new MockHttpSession();
         session.setAttribute("user", "999998");
         session.setAttribute("userrole", "doctor");
@@ -431,6 +437,7 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    /** Reproduces both logout timing windows without depending on concurrent thread scheduling. */
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void shouldKeepAuthorizedProvider_whenLogoutInvalidatesSessionDuringPreparation(boolean duringAppointmentLookup) throws Exception {
@@ -456,11 +463,32 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(action.result).isEqualTo("success");
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(action.loaded.curProviderNo).isEqualTo("999998");
+            assertThat(action.loaded.providerNo).isEqualTo("999998");
+            assertThat(action.loaded.userName).isEqualTo("Synthetic Provider");
             assertThat(action.loaded.appointmentNo).isEqualTo("0");
             assertThat(LoggedInInfo.getLoggedInInfoFromSession(request)).isNull();
             assertThat(request.getSession()).isNotSameAs(session);
             verify(security).hasPrivilege(login, "_eChart", "r", "101");
             verify(security).isAllowedAccessToPatientRecord(login, 101);
+            verify(moduleSecurity.constructed().getFirst()).hasReadAccess("_measurements", "doctor,999998");
+            verifyNoInteractions(demographics, templates, groups, charts, messages);
+        }
+    }
+
+    @Test
+    void shouldKeepModuleRefusal_whenLogoutInvalidatesSessionAfterPatientAuthorization() throws Exception {
+        MockHttpServletRequest request = request("101", "9002");
+        request.removeParameter("curProviderNo");
+        when(security.hasPrivilege(login, "_eChart", "r", "101")).thenReturn(true);
+        when(appointments.find(Integer.valueOf(9002))).thenAnswer(invocation -> {
+            session.invalidate();
+            return appointment(202, "B22222");
+        });
+        try (var moduleSecurity = mockConstruction(SecurityManager.class)) {
+            RecordingDisplay action = execute(request, new MockHttpServletResponse());
+            assertThat(action.result).isNull();
+            assertThat(action.loaded).isNull();
+            verify(moduleSecurity.constructed().getFirst()).hasReadAccess("_measurements", "doctor,999998");
             verifyNoInteractions(demographics, templates, groups, charts, messages);
         }
     }
