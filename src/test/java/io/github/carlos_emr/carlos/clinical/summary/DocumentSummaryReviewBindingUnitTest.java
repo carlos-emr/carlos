@@ -363,6 +363,10 @@ class DocumentSummaryReviewBindingUnitTest {
             assertThat(DocumentSummaryReviewBinding.noticeLanguage("English", value)).as(value).isEqualTo("pl");
         for (String value : new String[]{"Portuguese", "por", "pt", "pt-BR", "pt_PT", "Português", "portugues", "Brazilian Portuguese"})
             assertThat(DocumentSummaryReviewBinding.noticeLanguage(null, value)).as(value).isEqualTo("pt-BR");
+        // A decomposed accent (a combining mark) reads the same as the precomposed letter.
+        assertThat(DocumentSummaryReviewBinding.noticeLanguage("English", "Espan\u0303ol")).isEqualTo("es");
+        assertThat(DocumentSummaryReviewBinding.noticeLanguage("Franc\u0327ais", null)).isEqualTo("fr");
+        assertThat(DocumentSummaryReviewBinding.noticeLanguage("English", "Portugue\u0302s")).isEqualTo("pt-BR");
         // An unknown, empty or merely similar spoken language is English: never a prefix match.
         for (String value : new String[]{"Cree", "Mandarin", "English", "French", "Spanglish", "Polynesian", "Portuguese Creole", "polish-ish", "spa-x", "es-", " ", "", "unknown", "Polo", null})
             assertThat(DocumentSummaryReviewBinding.noticeLanguage("English", value)).as(String.valueOf(value)).isEqualTo("en");
