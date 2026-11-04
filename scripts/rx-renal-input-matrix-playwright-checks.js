@@ -38,7 +38,7 @@ async function workflow(s) {
       h.assert(!(await panel.innerText()).includes('Unexpected renal transport failure'),'The renal panel displayed an error response body');
       await consumeRenalRefusal(s,rx,response,mark,503);
       const [retry]=await Promise.all([rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
-        panel.getByRole('link',{name:'Refresh',exact:true}).click()]);
+        panel.getByRole('button',{name:'Refresh',exact:true}).click()]);
       h.assert(retry.status()===200,'The initial renal failure could not be retried');await retry.finished();
     }
     await panel.locator('table.equation').waitFor({state:'visible'});
@@ -60,14 +60,14 @@ async function workflow(s) {
   if(name==='male-valid')await s.step('invalid refresh removes an existing dose recommendation and remains refreshable',async()=>{
     fixture.apply({weight:'40',cr:'200'});
     const refresh=()=>Promise.all([rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
-      panel.getByRole('link',{name:'Refresh',exact:true}).click()]);
+      panel.getByRole('button',{name:'Refresh',exact:true}).click()]);
     await refresh();
     await panel.locator('table.sofT tr.selected').waitFor({state:'visible'});
     fixture.apply({weight:'40',cr:'not-a-number',crDate:null,lab:'200',labDate:'03-Jan-25'});
     const mark=failureMark(s.recorder);
     const [refusal]=await refresh();
     h.assert(refusal.status()===400,'Invalid stored observation did not answer HTTP 400');await refusal.finished();
-    await panel.getByRole('link',{name:'Refresh',exact:true}).waitFor({state:'visible'});
+    await panel.getByRole('button',{name:'Refresh',exact:true}).waitFor({state:'visible'});
     await rx.waitForFunction(id=>document.querySelector(id)?.textContent.includes('N/A'),`#renalDosing_${card}`);
     h.assert(await panel.locator('table.equation').count()===1 && await panel.locator('tr.selected').count()===0,
       'Refused refresh retained a stale recommendation or appended a duplicate panel');
@@ -85,7 +85,7 @@ async function workflow(s) {
   if(name==='male-valid')await s.step('incomplete and malformed birth dates refuse dosing without a server error',async()=>{
     fixture.apply({weight:'40',cr:'200'});
     const refresh=()=>Promise.all([rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
-      panel.getByRole('link',{name:'Refresh',exact:true}).click()]);
+      panel.getByRole('button',{name:'Refresh',exact:true}).click()]);
     await refresh();
     await panel.locator('tr.selected').waitFor({state:'visible'});
     for(const birthDate of [['','01','01'],['1966','','01'],['1966','01',''],
@@ -103,7 +103,7 @@ async function workflow(s) {
     fixture.apply({...testCase,weight:'80',cr:'100',crDate:'2025-01-02',lab:undefined});
     const mark=testCase.age<0?failureMark(s.recorder):null;
     const [response]=await Promise.all([rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
-      panel.getByRole('link',{name:'Refresh',exact:true}).click()]);
+      panel.getByRole('button',{name:'Refresh',exact:true}).click()]);
     h.assert(response.status()===(testCase.age<0?400:200),'Restoring renal observations returned an unexpected status');await response.finished();
     const parameters=new URL(response.url()).searchParams;
     h.assert(parameters.get('demographicNo')===s.patient&&parameters.get('atcCode')===originalAtc&&parameters.get('divId')===`renalDosing_${card}`,

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd">
+    <!-- Extend CarlosTestBase's real JPA transaction context with the BCAR save boundary. -->
+    <bean id="bcarForms" class="io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020Dao"/>
+    <bean id="bcarData" class="io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020DataDao"/>
+    <bean id="bcarText" class="io.github.carlos_emr.carlos.commn.dao.forms.FormBCAR2020TextDao"/>
+    <bean id="bcarSave" class="io.github.carlos_emr.carlos.form.BCAR2020FormSaveService">
+        <constructor-arg ref="bcarForms"/>
+        <constructor-arg ref="bcarData"/>
+        <constructor-arg ref="bcarText"/>
+        <constructor-arg ref="securityInfoManager"/>
+    </bean>
+</beans>

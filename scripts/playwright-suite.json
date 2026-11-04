@@ -2914,7 +2914,7 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300,
+      "timeoutSec": 600,
       "env": [
         "TEST_SCHEDULE_PROVIDER",
         "MYSQL_HOST",
@@ -7924,6 +7924,18 @@
       "notes": "EditMeasurementGroup forward=add/delete and SelectMeasurementGroup forward=delete refuse GET/HEAD (#3335). The last step also reports the /styles.css MIME errors of finding L87 if the group pages still raise them."
     },
     {
+      "name": "document-queue-identity",
+      "script": "scripts/document-queue-identity-playwright-checks.js",
+      "tiers": ["core"],
+      "provinces": ["all"],
+      "timeoutSec": 300,
+      "assertsDatabase": true,
+      "env": ["TEST_PASSWORD", "TEST_PIN", "MYSQL_PASSWORD"],
+      "mutates": ["queue", "secObjectName", "property:doc_default_queue"],
+      "fixtures": "Disposable installed database only; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Requires CREATE/DROP TRIGGER permission for a marker-scoped security-write fault. Creates three marker-named queues through the provider form and Administration. Restores the provider default and removes owned queues/security objects and trigger on completion or interruption.",
+      "notes": "#4054: generated queue IDs, exact security association, duplicate-name creation failure with a later global MAX, and rollback/retry after a security-object failure. Opens the registered legacy default-queue view route because no Preferences link currently exposes it."
+    },
+    {
       "name": "get-reject-inbox-queue",
       "script": "scripts/get-reject-inbox-queue-playwright-checks.js",
       "tiers": [
@@ -8888,7 +8900,7 @@
       "timeoutSec": 480,
       "env": [],
       "fixtures": "Owns the synthetic patient and one marker eForm template, and for finding 168 one owned role (_eform w, _demographic r, _eChart r; no _edoc) with a login holding it; cleanup deletes the instances (eform_values + eform_data), the template, the login and the role and asserts them gone. At the start it may insert one owned eform_data row at an explicit id above the demo database's stale EFormDocs ids and delete it again, which moves the table's id counter past them (the counter is not restored; it only ever rises).",
-      "notes": "Verifies one saved eForm and its clinical fields across rapid activation, slow re-click and POST reload; bypasses JavaScript to assert server replay rejection, then checks independent windows and a reopened saved-form revision. Last, pinned to app-findings-log.md finding 168: a login that may save eForms but holds no _edoc x presses Add to Documents; the eForm is stored once and no document is filed (control step), and the answer must not be the replay refusal (AddEForm2Action used to answer every post-commit RuntimeException with eform.submitUnavailable; since #4424 it answers HTTP 409 eform.submitSavedStepIncomplete, naming the step). Runs about 65 s. The demo database carries EFormDocs rows (attached documents, labs, forms, HRM reports and eForms) for ids 247-1063 that no eform_data row owns, so a new instance whose id falls there inherits them and a login without read access to those object types is refused 403 before the eForm is stored (\"no permission to use one or more selected attachments\"); the workflow therefore moves the id counter past them first, or the control step would fail depending on the id it happened to get. The POST-replay step failed once in an earlier run of this plan with its message lost and did not fail in 22 later runs (16 through the runner, 6 replay-only under four busy CPU cores): see the Task 15 report. Its failure messages now carry the AddEForm statuses and the owned-row count. The finding-168 step needs the eForm PDF renderer: before passing it, the check downloads one of the run's saved eForms (eform/downloadEFormPdf); when no PDF comes back, Add to Documents never reached the document step, and the check SKIPs there rather than passing the pinned step."
+      "notes": "Verifies one saved eForm and its clinical fields across rapid activation, slow re-click and POST reload; bypasses JavaScript to assert server replay rejection, then checks independent windows and a reopened saved-form revision. Last, pinned to app-findings-log.md finding 168: a login that may save eForms but holds no _edoc x presses Add to Documents; the eForm is stored once and no document is filed (control step), and the answer must not be the replay refusal (AddEForm2Action used to answer every post-commit RuntimeException with eform.submitUnavailable; since #4424 it answers HTTP 409 eform.submitSavedStepIncomplete, naming the step). Replays that failed POST as the same restricted login and requires the actual replay refusal, exactly one stored eForm and clinical field, no document, and no-store/nosniff UTF-8 plain text for both responses. Runs about 65 s. The demo database carries EFormDocs rows (attached documents, labs, forms, HRM reports and eForms) for ids 247-1063 that no eform_data row owns, so a new instance whose id falls there inherits them and a login without read access to those object types is refused 403 before the eForm is stored (\"no permission to use one or more selected attachments\"); the workflow therefore moves the id counter past them first, or the control step would fail depending on the id it happened to get. The POST-replay step failed once in an earlier run of this plan with its message lost and did not fail in 22 later runs (16 through the runner, 6 replay-only under four busy CPU cores): see the Task 15 report. Its failure messages now carry the AddEForm statuses and the owned-row count. The finding-168 step needs the eForm PDF renderer: before passing it, the check downloads one of the run's saved eForms (eform/downloadEFormPdf); when no PDF comes back, Add to Documents never reached the document step, and the check SKIPs there rather than passing the pinned step."
     },
     {
       "name": "eform-pdf-template-path",
@@ -10159,11 +10171,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Creates four throwaway logins (own provider rows 800000-899999, copy of the test login's credential, one seeded role each: er_clerk, receptionist, nurse, doctor) and one owned patient; reads only; cleanup deletes the owned login/provider/audit rows and asserts they are gone. The full-access control can initialize/update the operator quick-list selection; its exact baseline is guarded and restored. It must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Expected to FAIL only at the last step 'a refusal is a 403, never an HTTP 500 \"unexpected error\" page' until the SecurityException exception-mapping is added to struts-billing.xml, struts-eform.xml and struts-messenger.xml (70 routes answer a login with no sec object with HTTP 500). Every earlier step (307 pinned refusals, GET and HEAD) passes.",
-      "expectedFailure": {
-        "finding": 345,
-        "step": "a refusal is a 403, never an HTTP 500 \"unexpected error\" page (lists the packages whose gates fail that way)"
-      },
+      "notes": "Four single-role logins verify application refusals for GET and HEAD outside their security objects, with a positive control per role. Error-page refusal routes must return HTTP 403 rather than HTTP 500, including quick-list loading without _dxresearch read access (#5527).",
       "mutates": [
         "quickListUser"
       ]
@@ -12074,8 +12082,8 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "notes": "Issue #4673: the chart note editor's Attach (PMM 'attach note to client') popup in two chart windows of one login. A's and B's charts each save a note and open their Attach popup, B's last; each popup's client search for C links to and attaches its own chart's note, so C receives one copy of A's note and one of B's. Each source chart is entered for a visit of its own, so its note carries that visit; each copy is a new note of C's own, with a new uuid and no appointment. The popup used to read the note from the session, where the popup opened last replaced it. Also pins the popup's search form: its criteria were checkboxes, the page had no head (so CSRFGuard gave its form no token and every search answered 403) and its stylesheets loaded from outside the application. The search ticks 'Search all clients' because C initially has no program admission; PMMFilter initializes the authenticated program domain before the action. The PMM client view (PMmodule/ClientManager) is not driven: its result names a Tiles page that does not exist. Additional source-read and target-write refusals preserve complete owned clinical rows, with an authorized copy positive control. Native nondefault-source and genuinely tokenless-source popup searches/copies preserve separate signed source and target contexts. Forged, other-patient and reporter-hidden source contexts and a native server-issued read-only target context are refused by the application, preserving full source/target clinical snapshots, drafts, editor text and locks.",
-      "fixtures": "Owned FAKE patients A/B/C plus a PMM source patient (the run marker as last name) with one visit each for A and B, owned source notes and the copies attached to C; a throwaway login (lib/throwaway-login-fixture.js) with the test login's roles plus an owned role FAKEPW<hex>pmm whose only secObjPrivilege row grants _pmm_management, and the test provider's program memberships. The source-context fixture uses three owned programs, existing cached reporter roles with a real denial, one owned read-only program policy, owned admissions and a temporary default on the throwaway login only. Shared roles/grants remain exact and the owned login default is restored. Facility.enablePhoneEncounter (which shows the editor's Attach button) is set for the run and restored to its value, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup verifies program/provider/patient/policy ownership before deleting owned rows, removes every owned clinical row by key and asserts it gone.",
+      "notes": "Issue #4673: the chart note editor's Attach (PMM 'attach note to client') popup in two chart windows of one login. A's and B's charts each save a note and open their Attach popup, B's last; each popup's client search for C links to and attaches its own chart's note, so C receives one copy of A's note and one of B's. Each source chart is entered for a visit of its own, so its note carries that visit; each copy is a new note of C's own, with a new uuid and no appointment. The popup used to read the note from the session, where the popup opened last replaced it. Also pins the popup's search form: its criteria were checkboxes, the page had no head (so CSRFGuard gave its form no token and every search answered 403) and its stylesheets loaded from outside the application. The search ticks 'Search all clients' because C initially has no program admission; PMMFilter initializes the authenticated program domain before the action. The PMM client view (PMmodule/ClientManager) is not driven: its result names a Tiles page that does not exist. Additional source-read and target-write refusals preserve complete owned clinical rows. The restricted logins inherit the source provider's default program and signing setting as well as memberships, so the authorized copy control reads the same reporter-role policy; it follows the redirect to the target's signed chart and verifies exactly one copy (#5355). Native nondefault-source and genuinely tokenless-source popup searches/copies preserve separate signed source and target contexts. Forged, other-patient and reporter-hidden source contexts and a native server-issued read-only target context are refused by the application, preserving full source/target clinical snapshots, drafts, editor text and locks.",
+      "fixtures": "Owned FAKE patients A/B/C plus a PMM source patient (the run marker as last name) with one visit each for A and B, owned source notes and the copies attached to C; a throwaway login (lib/throwaway-login-fixture.js) with the test login's roles plus an owned role FAKEPW<hex>pmm whose only secObjPrivilege row grants _pmm_management, and the test provider's program memberships. The source-context fixture uses three owned programs, existing cached reporter roles with a real denial, one owned read-only program policy (with an owned access_type definition created and removed if the fresh install lacks it), owned admissions and a temporary default on the throwaway login only. The restricted copy-control logins inherit default programs and their provider_default_program rows are removed and verified. Shared roles/grants remain exact and the owned login default is restored. Facility.enablePhoneEncounter (which shows the editor's Attach button) is set for the run and restored to its value, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup verifies program/provider/patient/policy ownership before deleting owned rows, removes every owned clinical row by key and asserts it gone.",
       "mutates": [
         "Facility",
         "secObjPrivilege"
@@ -17687,11 +17695,7 @@
       "env": [
         "RX_ODB_FILE"
       ],
-      "notes": "Real formulary code clicks, append/repeat behavior, same/other-patient controls, saved medication and reprint preview, unsaved cancellation and cleanup (#5270).",
-      "expectedFailure": {
-        "finding": 341,
-        "step": "offered LU links complete without uncaught JavaScript errors"
-      }
+      "notes": "Real formulary code clicks, append/repeat behavior, same/other-patient controls, saved medication and reprint preview, unsaved cancellation and cleanup (#5270). Regression coverage for issue #5571, fixed by PR #5589."
     },
     {
       "name": "rx-renal-correction",
@@ -18223,11 +18227,7 @@
       "envSet": {
         "DIALOG_CONFIRMATION_TARGET": "document"
       },
-      "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently.",
-      "expectedFailure": {
-        "finding": 336,
-        "step": "dismissing document Delete confirms once and leaves both document rows unchanged"
-      }
+      "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently. Fixed by #5572."
     },
     {
       "script": "scripts/tickler-demo-main-status-playwright-checks.js",

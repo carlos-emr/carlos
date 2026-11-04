@@ -413,12 +413,16 @@ var CarlosAjax = (function () {
         }
 
         updaterOptions.onSuccess = function (transport) {
+            // A 2xx transport can still fail its callback or DOM installation.
+            // Consumers that must wait for rendered state can check this in onComplete.
+            transport.updateSucceeded = false;
             // 1. Fire original onSuccess first
             if (origOnSuccess) origOnSuccess(transport);
 
             // 2. Update DOM (between onSuccess and onComplete)
             if (successContainer && transport.responseText != null) {
                 insertContent(successContainer, transport.responseText, insertion, evalScripts);
+                transport.updateSucceeded = true;
             }
         };
 

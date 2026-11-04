@@ -2,6 +2,20 @@
 'use strict';
 const h=require('./playwright-harness'),{newOwnedMarker}=require('./owned-patient'),{throwawayLoginFixture}=require('./throwaway-login-fixture');
 const START='2031-03-03',END='2031-03-28';
+// SQL fixture writes do not evict ProviderDao's five-minute active-provider cache.
+// Reload the real picker until it offers this run's provider; never select a shared one.
+async function waitForScheduleProvider(loadFrame, provider, {now=Date.now,
+  pause=ms=>new Promise(resolve=>setTimeout(resolve,ms)), checkpoint=()=>{}}={}) {
+  h.assert(/^[1-9]\d{0,5}$/.test(String(provider)), 'Invalid owned schedule provider');
+  const deadline=now()+330000;
+  let frame=await loadFrame();
+  while(frame && await frame.locator(`select[name="provider_no"] option[value="${provider}"]`).count()===0) {
+    checkpoint();
+    h.assert(now()<deadline, 'Schedule Setting never offered the owned provider after the active-provider cache expired; the login must be allowed to select another provider (check _admin.schedule.curprovider_only restrictions)');
+    await pause(15000); checkpoint(); frame=await loadFrame();
+  }
+  return frame;
+}
 function validateRows({weekly,dates,provider,creator,template}) {
   h.assert(weekly.length<=1,'Unexpected owned weekly schedules; retain them');
   const hours=['MON','TUE','WED','THU','FRI'].map(day=>`<${day}>${template}</${day}>`).join('');
@@ -33,4 +47,4 @@ function ownedScheduleProvider(sql,config) {
     },
   };
 }
-module.exports={ownedScheduleProvider,validateRows};
+module.exports={ownedScheduleProvider,validateRows,waitForScheduleProvider};
