@@ -101,5 +101,36 @@
     "created_at": 1792450800,
     "expires_at": 1793055600,
     "kid": "opVXT3byX9TTRh_4R8FJ3TxeWzT0itR6IbwRyRrhlCY"
+  },
+  "reading_aid_fr": {
+    "note": "French aid built with carlos-portal tests/reading_aid_pair_reference (reading_aid('fr', ...)) and CARLOS's own French notice; FAKE content, no keys",
+    "reading_aid": {
+      "v": 1,
+      "typ": "mycarlos-reading-aid",
+      "language": "fr",
+      "notice": {
+        "version": "carlos-5537-fr-1",
+        "heading": "Aide à la lecture générée par l’IA — ouvrez le document original",
+        "body": "Ce résumé facultatif a été généré par une intelligence artificielle à partir du document lié. Il peut contenir des énoncés inexacts ou trompeurs, ou omettre des renseignements importants, y compris sur les médicaments, les doses et les résultats d’examens.\n\nIl ne remplace ni le document original ni les directives de votre équipe de soins. Ouvrez le document original pour obtenir l’information complète. Ne commencez pas, n’arrêtez pas, ne modifiez pas et ne retardez pas un traitement en vous fondant uniquement sur ce résumé. Communiquez avec votre clinique si quelque chose n’est pas clair ou diffère de l’original. En cas de problème médical urgent, communiquez avec les services d’urgence appropriés; ne vous fiez pas à ce résumé."
+      },
+      "overview": "FAKE rapport de radiographie thoracique : le rapport décrit les images et un plan.",
+      "points": [
+        {
+          "text": "FAKE : aucun changement aigu n'est décrit par rapport aux images précédentes.",
+          "evidence": [
+            "FAKE aucun changement aigu par rapport à l'étude précédente."
+          ]
+        },
+        {
+          "text": "FAKE : une nouvelle image est prévue dans trois mois.",
+          "evidence": [
+            "FAKE nouvelle imagerie dans 3 mois."
+          ]
+        }
+      ]
+    },
+    "reading_aid_sha256": "169ef620d32b38bf56be7858dd7eb60ee73a62ad67fb5abd0603405ff865e7f0",
+    "size": 1360,
+    "notice_version": "carlos-5537-fr-1"
   }
 }

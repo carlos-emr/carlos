@@ -73,8 +73,8 @@ class ReadingAidArtifactUnitTest {
         var artifact = ReadingAidArtifact.of(approval, ORIGINAL, "apr-FAKE0001-9d2e");
         Map<String, Object> expected = plain(VECTORS.get("reading_aid"));
         @SuppressWarnings("unchecked") Map<String, Object> notice = new LinkedHashMap<>((Map<String, Object>) expected.get("notice"));
-        notice.put("heading", DocumentSummaryReviewBinding.noticeHeading());
-        notice.put("body", DocumentSummaryReviewBinding.noticeBody());
+        notice.put("heading", DocumentSummaryReviewBinding.noticeHeading("en"));
+        notice.put("body", DocumentSummaryReviewBinding.noticeBody("en"));
         notice.put("version", DocumentSummaryReviewBinding.NOTICE_VERSION);
         expected.put("notice", notice);
         assertThat(artifact.json()).isEqualTo(ReadingAidArtifact.canonical(expected));
@@ -171,11 +171,35 @@ class ReadingAidArtifactUnitTest {
     }
 
     @Test
+    void aFrenchApprovalGivesTheFrenchAidWithFrancesOwnNoticeAndVersion() throws Exception {
+        JsonNode fr = VECTORS.get("reading_aid_fr");
+        // The French original the summary's excerpts are quoted from.
+        byte[] original = frenchOriginal(fr).getBytes(StandardCharsets.UTF_8);
+        var approval = approval(summary(fr.get("reading_aid")), "fr", original);
+        var artifact = ReadingAidArtifact.of(approval, original, "apr-FAKE0002-fr01");
+        // Built independently by the portal reference's canonical writer: same bytes, same hash.
+        assertThat(artifact.sha256()).isEqualTo(fr.get("reading_aid_sha256").asText());
+        assertThat(artifact.size()).isEqualTo(fr.get("size").asInt());
+        assertThat(artifact.language()).isEqualTo("fr");
+        JsonNode json = ClinicalSummaryAgentProtocol.JSON.readTree(artifact.json());
+        assertThat(json.get("notice").get("version").asText()).isEqualTo(fr.get("notice_version").asText())
+                .isEqualTo(DocumentSummaryReviewBinding.NOTICE_VERSION_FR);
+        assertThat(json.get("notice").get("heading").asText()).isEqualTo(DocumentSummaryReviewBinding.noticeHeading("fr"));
+        assertThat(json.get("notice").get("body").asText()).isEqualTo(DocumentSummaryReviewBinding.noticeBody("fr"))
+                .isNotEqualTo(DocumentSummaryReviewBinding.noticeBody("en"));
+        JsonNode v = VECTORS.get("manifest_claims");
+        var pair = new ReadingAidArtifact.Pair(v.get("pair").get("pair_id").asText(), v.get("pair").get("original_delivery_id").asText());
+        Map<String, Object> claims = artifact.manifestClaims(pair, routing(v), v.get("created_at").asLong(), v.get("expires_at").asLong(), "k");
+        @SuppressWarnings("unchecked") Map<String, Object> aidClaim = (Map<String, Object>) claims.get("reading_aid");
+        assertThat(aidClaim).containsEntry("language", "fr").containsEntry("notice_version", "carlos-5537-fr-1").containsEntry("sha256", artifact.sha256());
+    }
+
+    @Test
     void refusesALanguageWithoutAPatientNoticeAndALifetimeBeyondSevenDays() {
-        // The notice version is carlos-5537-en-1, and the review binding already refuses a draft in a
-        // language without a notice, so no French approval can exist yet; the artifact's own check of
-        // the notice tag against the language is a guard for the day a second notice version lands.
-        assertThatThrownBy(() -> approval(summary(VECTORS.get("reading_aid")), "fr"))
+        // English and French have a notice; the review binding refuses a draft in any other language,
+        // so no such approval can exist, and the artifact's own check of the notice tag against the
+        // language is a guard for the day a notice version and its language drift apart.
+        assertThatThrownBy(() -> approval(summary(VECTORS.get("reading_aid")), "es"))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("language");
         var artifact = ReadingAidArtifact.of(approval(summary(VECTORS.get("reading_aid"))), ORIGINAL, "apr-1");
         JsonNode v = VECTORS.get("manifest_claims");
@@ -244,6 +268,12 @@ class ReadingAidArtifactUnitTest {
         } catch (java.io.IOException e) { throw new IllegalStateException(e); }
     }
 
+    private static String frenchOriginal(JsonNode fr) {
+        var excerpts = new java.util.ArrayList<String>();
+        fr.get("reading_aid").get("points").forEach(point -> point.get("evidence").forEach(e -> excerpts.add(e.asText())));
+        return "FAKE rapport de radiographie thoracique. " + String.join(" ", excerpts);
+    }
+
     private static DocumentSummary summary(JsonNode readingAid) {
         ObjectNode output = ClinicalSummaryAgentProtocol.JSON.createObjectNode().put("overview", readingAid.get("overview").asText());
         output.set("points", readingAid.get("points").deepCopy());
@@ -253,7 +283,11 @@ class ReadingAidArtifactUnitTest {
     private static DocumentSummaryReviewBinding.Approval approval(DocumentSummary summary) { return approval(summary, "en"); }
 
     private static DocumentSummaryReviewBinding.Approval approval(DocumentSummary summary, String language) {
-        var source = DocumentSummaryReviewBinding.capture(SCOPE, META, ORIGINAL);
+        return approval(summary, language, ORIGINAL);
+    }
+
+    private static DocumentSummaryReviewBinding.Approval approval(DocumentSummary summary, String language, byte[] original) {
+        var source = DocumentSummaryReviewBinding.capture(SCOPE, META, original);
         var draft = new DocumentSummaryReviewBinding(Clock.fixed(GENERATED, ZoneOffset.UTC)).prepare(source, summary, "FAKE-model", language);
         var provider = mock(Provider.class);
         when(provider.getProviderNo()).thenReturn("4242");

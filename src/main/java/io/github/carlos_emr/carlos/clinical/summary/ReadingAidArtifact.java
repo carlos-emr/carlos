@@ -73,6 +73,7 @@ public final class ReadingAidArtifact {
     private final byte[] json;
     private final String sha256;
     private final String language;
+    private final String noticeVersion;
     private final String summaryVersion;
     private final String originalSha256;
     private final long generatedAt;
@@ -84,6 +85,7 @@ public final class ReadingAidArtifact {
         this.json = json;
         this.sha256 = sha256Hex(json);
         this.language = language;
+        this.noticeVersion = DocumentSummaryReviewBinding.noticeVersion(language);
         this.summaryVersion = approval.summaryVersion();
         this.originalSha256 = approval.sourceSha256();
         this.generatedAt = seconds(approval.generatedAt());
@@ -112,7 +114,7 @@ public final class ReadingAidArtifact {
         if (reviewerId != null && !reviewerId.isBlank() && approvalId.contains(reviewerId)) throw invalid();
         String language = approval.language();
         if (language == null || !LANGUAGE.matcher(language).matches()) throw invalid();
-        if (!language.split("-", 2)[0].equals(noticeLanguage(DocumentSummaryReviewBinding.NOTICE_VERSION))) {
+        if (!language.split("-", 2)[0].equals(noticeLanguage(DocumentSummaryReviewBinding.noticeVersion(language)))) {
             throw new IllegalArgumentException("No patient notice exists in the summary's language.");
         }
         DocumentSummary summary = approval.summary();
@@ -121,9 +123,10 @@ public final class ReadingAidArtifact {
         value.put("typ", TYPE);
         value.put("language", language);
         Map<String, Object> notice = new LinkedHashMap<>();
-        notice.put("version", DocumentSummaryReviewBinding.NOTICE_VERSION);
-        notice.put("heading", DocumentSummaryReviewBinding.noticeHeading());
-        notice.put("body", DocumentSummaryReviewBinding.noticeBody());
+        String noticeVersion = DocumentSummaryReviewBinding.noticeVersion(language);
+        notice.put("version", noticeVersion);
+        notice.put("heading", DocumentSummaryReviewBinding.noticeHeading(language));
+        notice.put("body", DocumentSummaryReviewBinding.noticeBody(language));
         value.put("notice", notice);
         value.put("overview", text(summary.overview(), 4000));
         List<Map<String, Object>> points = summary.points();
@@ -183,7 +186,7 @@ public final class ReadingAidArtifact {
         aid.put("summary_version", summaryVersion);
         aid.put("generated_at", generatedAt);
         aid.put("revised_at", revisedAt);
-        aid.put("notice_version", DocumentSummaryReviewBinding.NOTICE_VERSION);
+        aid.put("notice_version", noticeVersion);
         claims.put("reading_aid", aid);
         claims.put("approval", sorted(Map.of("id", approvalId, "reviewer_role", REVIEWER_ROLE, "reviewed_at", reviewedAt)));
         claims.put("created_at", createdAt);
