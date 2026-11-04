@@ -189,6 +189,12 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         String error = "";
         Exception exception = null;
         try {
+            ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments =
+                    consultationManager.getAttachedHRMDocuments(loggedInInfo, demoNo, reqId);
+            List<EctFormData.PatientForm> forms = consultationManager.getAttachedForms(
+                    loggedInInfo, Integer.parseInt(reqId.trim()), ownerDemographicNo);
+            List<String> attachmentsNotIncluded = ConsultationAttachmentsNotIncluded.describe(consultationManager,
+                    loggedInInfo, Integer.parseInt(reqId.trim()), forms, attachedHRMDocuments, readerLocale);
 
             bos = new ByteOutputStream();
             ConsultationPDFCreator cpdfc = new ConsultationPDFCreator(request, bos);
@@ -202,6 +208,12 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
 
             if (!labsNotIncluded.isEmpty()) {
                 InputStream notice = new ByteArrayInputStream(ConsultationLabsNotIncluded.noticePage(labsNotIncluded, readerLocale));
+                streams.add(notice);
+                alist.add(notice);
+            }
+
+            if (!attachmentsNotIncluded.isEmpty()) {
+                InputStream notice = new ByteArrayInputStream(ConsultationAttachmentsNotIncluded.noticePage(attachmentsNotIncluded, readerLocale));
                 streams.add(notice);
                 alist.add(notice);
             }
@@ -291,7 +303,6 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             }
 
             // attached HRMs
-            ArrayList<HashMap<String, ? extends Object>> attachedHRMDocuments = consultationManager.getAttachedHRMDocuments(loggedInInfo, demoNo, reqId);
             for (HashMap<String, ? extends Object> attachedHRMDocument : attachedHRMDocuments) {
                 bos = new ByteOutputStream();
                 HRMPDFCreator hrmPdf = new HRMPDFCreator(bos, (Integer) attachedHRMDocument.get("id"), loggedInInfo);
@@ -304,7 +315,6 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             }
 
             // attached forms
-            List<EctFormData.PatientForm> forms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(reqId.trim()), ownerDemographicNo);
 
             for (EctFormData.PatientForm formItem : forms) {
                 InputStream attachedFormStream = renderFormAttachment(

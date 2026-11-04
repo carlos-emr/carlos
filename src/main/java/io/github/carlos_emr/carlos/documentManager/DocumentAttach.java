@@ -112,7 +112,7 @@ public class DocumentAttach {
             }
         } else {
             List<String> existing = rows.stream().map(row -> Integer.toString(row.getDocumentNo())).toList();
-            validateSelection(documentType, demographicNo, selected, existing);
+            validateConsultSelection(documentType, demographicNo, requestId, new ArrayList<>(selected), existing);
         }
     }
 
@@ -123,9 +123,37 @@ public class DocumentAttach {
         for (ConsultDocs consultDoc : consultDocsList) {
             oldList.add(Integer.toString(consultDoc.getDocumentNo()));
         }
-        if (!validateSelection(documentType, patient, currentList, oldList)) return;
+        if (!validateConsultSelection(documentType, patient, requestId, currentList, oldList)) return;
         detachFromConsult(currentList, oldList, documentType, requestId);
         attachToConsult(currentList, oldList, documentType, providerNo, requestId);
+    }
+
+    /** Re-evaluated under the consultation lock: an omitted picker row is not a detach request. */
+    private boolean validateConsultSelection(DocumentType type, int patient, Integer requestId,
+            List<String> selected, List<String> existing) {
+        if (type == DocumentType.HRM && !io.github.carlos_emr.CarlosProperties.getInstance().isOntarioBillingRegion()
+                && !existing.containsAll(selected)) {
+            throw new SecurityException("missing required sec object (_hrm)");
+        }
+        if (requestId == null || existing.isEmpty() || (type != DocumentType.FORM && type != DocumentType.HRM)) {
+            return validateSelection(type, patient, selected, existing);
+        }
+        var manager = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.ConsultationManager.class);
+        Set<String> available = new LinkedHashSet<>();
+        if (type == DocumentType.FORM) {
+            for (var form : manager.getAttachedForms(loggedInInfo, requestId, patient)) available.add(form.getFormId());
+        } else {
+            for (var hrm : manager.getAttachedHRMDocuments(loggedInInfo, Integer.toString(patient), requestId.toString())) {
+                available.add(String.valueOf(hrm.get("id")));
+            }
+        }
+        List<String> retained = existing.stream().filter(id -> !available.contains(id)).toList();
+        // Validate additions and visible selections normally. Unavailable existing rows are retained
+        // only; passing them back through ownership checks would prevent unrelated saves.
+        if (!validateSelection(type, patient, selected.stream().filter(id -> !retained.contains(id)).toList(),
+                existing.stream().filter(id -> !retained.contains(id)).toList())) return false;
+        for (String id : retained) if (!selected.contains(id)) selected.add(id);
+        return true;
     }
 
     private void attachToConsult(List<String> currentList, List<String> oldList, DocumentType documentType, String providerNo, Integer requestId) {

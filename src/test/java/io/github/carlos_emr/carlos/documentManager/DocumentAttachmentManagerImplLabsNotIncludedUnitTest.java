@@ -237,6 +237,29 @@ class DocumentAttachmentManagerImplLabsNotIncludedUnitTest extends CarlosUnitTes
     }
 
     @Test
+    void shouldDiscloseUnavailableFormAndHiddenReport_whenBuildingPreviewOrFaxPacket() throws Exception {
+        listAttachedLabs();
+        when(consultationManager.getAttachedDocumentsByType(loggedInInfo, REQUEST,
+                io.github.carlos_emr.carlos.commn.model.ConsultDocs.DOCTYPE_FORM))
+                .thenReturn(List.of(new io.github.carlos_emr.carlos.commn.model.ConsultDocs(REQUEST, 701,
+                        io.github.carlos_emr.carlos.commn.model.ConsultDocs.DOCTYPE_FORM, "999998")));
+        when(consultationManager.getAttachedDocumentsByType(loggedInInfo, REQUEST,
+                io.github.carlos_emr.carlos.commn.model.ConsultDocs.DOCTYPE_HRM))
+                .thenReturn(List.of(new io.github.carlos_emr.carlos.commn.model.ConsultDocs(REQUEST, 801,
+                        io.github.carlos_emr.carlos.commn.model.ConsultDocs.DOCTYPE_HRM, "999998")));
+
+        manager.renderConsultationFormWithAttachments(request, new MockHttpServletResponse());
+
+        assertThat(packet.get()).hasSize(2);
+        assertThat(pdfText(noticeBytes.get())).contains("Attachments not included", "clinical form", "this session")
+                .doesNotContain("701", "801", "HRM");
+        assertThat(request.getAttribute(
+                io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachmentsNotIncluded.REQUEST_ATTRIBUTE))
+                .isInstanceOf(List.class);
+        verifyNoMoreInteractions(labManager);
+    }
+
+    @Test
     @DisplayName("should add no page and name nothing when every attached lab is HL7")
     void shouldAddNoNoticePage_whenEveryLabIsHl7() throws Exception {
         listAttachedLabs(hl7Lab("10"));
