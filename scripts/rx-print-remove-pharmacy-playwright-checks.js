@@ -19,6 +19,8 @@
  *   3. A note typed in Additional Rx Notes reloads the preview with the note and still without the pharmacy.
  *   4. Print prints the preview without the pharmacy (the preview frame's print() is replaced, for this one call, by a
  *      recorder of the text it would print, since a headless browser prints nothing).
+ *   5. The Rx image generates a real 396 by 612 point half-letter PDF in print and reprint modes (#3331),
+ *      without navigating the preview to the placeholder form route or changing the selected paper size.
  * Fixtures: the owned synthetic patient, one owned pharmacy (pharmacyInfo, name with the run marker) linked to it as its
  * preferred pharmacy, and one custom drug named with the run marker. The pharmacy is in the clinic-wide pharmacy search while
  * the run lasts, so the check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Cleanup removes the drug and its script (with any
@@ -28,6 +30,8 @@ const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { stageCustomDrug, clearOwnedPrescriptionRows } = require('./rx-stash-patient-isolation-playwright-checks');
 const { viewScriptFrame, noteBodyTracker } = require('./gap-encounter-rx-script-notes-playwright-checks');
+const { execFileSync } = require('node:child_process');
+const { pdfTextBuffer } = require('./lib/export-content-helpers');
 
 const q = h.sqlString;
 
@@ -69,6 +73,66 @@ async function workflow(s) {
   const pharmacyBlock = async () => ((await preview().locator('#pharmInfo').innerText()) || '').trim();
   const warningShown = () => script.locator('#selectedPharmacy').isVisible();
 
+  // Capture the one native form POST and give its original bytes back to the browser.
+  // A context route also sees the initial navigation of the target="_blank" popup.
+  const halfLetterPdf = async method => {
+    const originalPreview = preview().url();
+    const selectedSize = await script.locator('#printPageSize').inputValue();
+    const endpoint = new URL('form/createcustomedpdf', `${s.config.baseUrl}/`);
+    const matches = url => url.origin === endpoint.origin && url.pathname === endpoint.pathname;
+    let resolve, reject, timer, calls = 0;
+    const operations = [];
+    const captured = new Promise((yes, no) => { resolve = yes; reject = no; });
+    captured.catch(() => {});
+    const handler = route => {
+      const operation = (async () => {
+        let response;
+        try {
+          h.assert(++calls === 1, 'The half-letter control submitted more than one PDF request');
+          const request = route.request();
+          const params = new URL(request.url()).searchParams;
+          const fields = new URLSearchParams(request.postData() || '');
+          h.assert(request.method() === 'POST' && request.isNavigationRequest(), 'The PDF did not use a native form POST');
+          h.assert(params.get('__method') === method && params.get('scriptId') === scriptNo
+            && params.get('rxPageSize') === 'PageSize.HALFLETTER' && fields.get('demographic_no') === patient,
+          'The half-letter PDF request lost its mode, script, paper size or patient');
+          response = await route.fetch({ maxRedirects: 0, maxRetries: 0, timeout: 30000 });
+          const pdf = { status: response.status(), headers: response.headers(), bytes: await response.body() };
+          await route.fulfill({ response, body: pdf.bytes });
+          return pdf;
+        } catch (error) {
+          await route.abort('failed').catch(() => {});
+          throw error;
+        } finally {
+          if (response) await response.dispose();
+        }
+      })();
+      operations.push(operation);
+      operation.then(resolve, reject);
+      return operation.catch(() => {});
+    };
+    await s.context.route(matches, handler);
+    timer = setTimeout(() => reject(new Error('The Rx image produced no half-letter PDF')), 35000);
+    let pdf;
+    try {
+      [, pdf] = await Promise.all([
+        preview().getByTitle('Print in a half letter size paper', { exact: true }).click(), captured,
+      ]);
+    } finally {
+      clearTimeout(timer);
+      await Promise.allSettled(operations);
+      await s.context.unroute(matches, handler);
+    }
+    h.assert(pdf.status === 200 && /^application\/pdf(?:;|$)/i.test(pdf.headers['content-type'] || ''),
+      'The half-letter print did not return a PDF');
+    h.assert(calls === 1, 'The half-letter control submitted more than one PDF request');
+    h.assert(pdfTextBuffer(pdf.bytes, { raw: true }).includes(drug), 'The half-letter PDF lost the prescription');
+    const info = execFileSync('pdfinfo', ['-'], { input: pdf.bytes, encoding: 'utf8', timeout: 15000 });
+    h.assert(/Page size:\s+396\s+x\s+612\s+pts/.test(info), 'The PDF does not have half-letter dimensions');
+    h.assert(preview().url() === originalPreview, 'Printing navigated away from the prescription preview');
+    h.assert(await script.locator('#printPageSize').inputValue() === selectedSize, 'Half-letter printing changed the selected paper size');
+  };
+
   await s.step('Save And Print shows the preferred pharmacy on the preview with its remove link', async () => {
     const key = await stageCustomDrug(rx, drug);
     await rx.locator(`#instructions_${key}`).fill('Take one tablet daily');
@@ -88,6 +152,8 @@ async function workflow(s) {
       'The preview\'s pharmacy block does not name the preferred pharmacy with its address and fax');
     h.assert(await warningShown(), 'The paper-size warning is not shown while the pharmacy is on the preview');
   });
+
+  await s.step('the Rx image prints a half-letter PDF for the saved prescription', () => halfLetterPdf('print'));
 
   await s.step('Remove pharmacy info empties the pharmacy block and hides the warning, and the drug stays', async () => {
     await preview().locator('#pharmInfo a').click();
@@ -121,6 +187,16 @@ async function workflow(s) {
     h.assert(printed.includes(drug), 'Print did not print the prescription');
     h.assert(![pharmacy.name, pharmacy.address, pharmacy.fax].some(part => printed.includes(part)),
       'Print printed the pharmacy that was removed');
+  });
+
+  await s.step('the Rx image prints a half-letter PDF after opening the saved prescription through Reprint', async () => {
+    await rx.reload({ waitUntil: 'networkidle' });
+    await rx.locator('a').filter({ hasText: /^Reprint$/ }).first().click();
+    await rx.locator(`#reprint a[onclick*="reprint2('${scriptNo}')"]`).first().click();
+    script = await viewScriptFrame(rx);
+    await script.frameLocator('#preview').locator('#preview2Form').waitFor({ state: 'attached', timeout: 30000 });
+    await rx.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    await halfLetterPdf('rePrint');
   });
 }
 

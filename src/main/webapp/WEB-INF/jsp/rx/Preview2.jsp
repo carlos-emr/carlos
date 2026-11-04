@@ -170,18 +170,6 @@
             %>
         </c:if>
 
-            <%--<script type="text/javascript" language="Javascript">--%>
-            <%--	--%>
-
-            <%--    function onPrint2(method) {--%>
-
-            <%--            document.getElementById("preview2Form").action = "<%= request.getContextPath() %>/form/createcustomedpdf?__title=Rx&__method=" + method;--%>
-            <%--            document.getElementById("preview2Form").target="_blank";--%>
-            <%--            document.getElementById("preview2Form").submit();--%>
-            <%--       return true;--%>
-            <%--    }--%>
-            <%--</script>--%>
-
     </head>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
 
@@ -360,10 +348,11 @@
                         <thead>
                         <tr>
                             <th valign=top width="100px">
-                                <input type="image"
-                                       src="rx/img/rx.gif" border="0" alt="[Submit]"
-                                       name="submit" title="Print in a half letter size paper"
-                                       onclick="<%=rePrint.equalsIgnoreCase("true") ? "javascript:return onPrint2('rePrint');" : "javascript:return onPrint2('print');"  %>"/>
+                                <button type="button" id="halfLetterPrint" title="Print in a half letter size paper"
+                                        style="border:0;background:transparent;padding:0;cursor:pointer"
+                                        onclick="parent.printHalfLetter('<%= "true".equalsIgnoreCase(rePrint) ? "rePrint" : "print" %>', this.form.dataset.scriptId)">
+                                    <img src="rx/img/rx.gif" alt="Print prescription on half-letter paper"/>
+                                </button>
                                 <%
                                     String clinicTitle = provider.getClinicName().replaceAll("\\(\\d{6}\\)", "") + "<br>";
                                     clinicTitle += provider.getClinicAddress() + "<br>";

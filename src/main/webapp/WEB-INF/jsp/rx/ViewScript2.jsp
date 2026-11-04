@@ -450,13 +450,17 @@
             }
             bindFaxModalCancellation();
 
+            function printHalfLetter(method, scriptId) {
+                onPrint2(method, scriptId, null, false, null, null, 'PageSize.HALFLETTER');
+            }
+
             function onPrint2(method, scriptId, faxDocumentId, pasteAfterSuccess, capturedPasteText,
-                              previousUnloadHandler) {
+                              previousUnloadHandler, pageSizeOverride) {
                 if (method === 'oscarRxFax' && (faxQueued || faxSubmissionUncertain || faxPreviewReloading
                         || signatureAssociationPending || signatureAssociationFailed)) return false;
                 var useSC = false;
                 var scAddress = "";
-                var rxPageSize = document.getElementById('printPageSize').value;
+                var rxPageSize = pageSizeOverride || document.getElementById('printPageSize').value;
                 console.log("rxPagesize  " + rxPageSize);
 
                 <% if(vecAddressName != null) { %>
