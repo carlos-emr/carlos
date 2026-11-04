@@ -49,6 +49,9 @@ public class RemEForm2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    /** Sort-order parameter every eForm list page reads; carried through the redirect. */
+    private static final String PARAM_ORDER_BY = "orderby";
+
     public String execute() {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eform", "w", null)) {
@@ -63,13 +66,27 @@ public class RemEForm2Action extends ActionSupport {
             eFormDataDao.merge(eFormData);
         }
 
-        if ("independent".equals(request.getParameter("callpage"))) {
-            return "independent";
-        }
-        if ("single".equals(request.getParameter("callpage"))) {
-            return "single";
-        }
         return SUCCESS;
+    }
+
+    /**
+     * Where the POST/redirect/GET result sends the operator after a delete: the list page the
+     * delete button lived on ({@code callpage}), with that page's context carried over. See
+     * {@link EFormListRedirect} for why this must be a redirect, not a forward.
+     *
+     * @return the application-relative list route, read by the struts result via OGNL
+     */
+    public String getRedirectTarget() {
+        String callpage = request.getParameter("callpage");
+        if ("independent".equals(callpage)) {
+            return EFormListRedirect.to("/eform/efmmanageindependent", request, PARAM_ORDER_BY);
+        }
+        if ("single".equals(callpage)) {
+            return EFormListRedirect.to("/eform/efmpatientformlistsingle", request,
+                    "demographic_no", "fdid", "parentAjaxId", "appointment", PARAM_ORDER_BY);
+        }
+        return EFormListRedirect.to("/eform/efmpatientformlist", request,
+                "demographic_no", "group_view", "parentAjaxId", "appointment", PARAM_ORDER_BY);
     }
 
 }

@@ -35,6 +35,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.xml.bind.annotation.XmlRootElement;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
@@ -47,8 +49,10 @@ public class NoteTo1 implements Serializable {
     private Boolean isSigned;
     private Boolean isVerified;
     private Boolean isEditable;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date observationDate;
     private String revision;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date updateDate;
     private String providerName;
     private String providerNo;

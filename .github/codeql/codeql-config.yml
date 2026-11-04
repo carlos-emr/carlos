@@ -25,6 +25,10 @@ name: "CARLOS EMR CodeQL Configuration"
 # WEB-INF/eform-assets/ are intentionally kept in scope.
 paths-ignore:
   - "src/main/webapp/library/**"
+  # These are deliberately vulnerable source snippets consumed only by `semgrep --test`.
+  # They are never compiled or shipped. Scanning them as application code also taints
+  # the shared PathValidationUtils helper and produces false path-injection alerts.
+  - "src/test/semgrep/**"
 
 # Custom CodeQL customization pack (source: codeql/customizations/) that models
 # io.github.carlos_emr.carlos.utility.PathValidationUtils as a path-injection sanitizer,

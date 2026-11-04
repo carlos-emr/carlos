@@ -25,6 +25,9 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * <p>
+ * composePharmacyPhone ported from Open-O (openo-beta/Open-O PR #2494,
+ * Liam Stanziani, 2026); modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -46,11 +49,16 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.StringJoiner;
+import java.util.regex.Pattern;
 
 /**
  * @author Jay Gallagher
  */
 public class RxPharmacyData {
+
+    /** A run of CR/LF inside a stored phone value; collapsed so the fax note stays on one line. */
+    private static final Pattern LINE_BREAKS = Pattern.compile("[\\r\\n]+");
 
     private PharmacyInfoDao pharmacyInfoDao = (PharmacyInfoDao) SpringUtils.getBean(PharmacyInfoDao.class);
     private DemographicPharmacyDao demographicPharmacyDao = (DemographicPharmacyDao) SpringUtils.getBean(DemographicPharmacyDao.class);
@@ -256,5 +264,40 @@ public class RxPharmacyData {
 
     public Long getTotalDemographicsPreferedToPharmacyByPharmacyId(String pharmacyId) {
         return demographicPharmacyDao.getTotalDemographicsPreferedToPharmacyByPharmacyId(Integer.parseInt(pharmacyId));
+    }
+
+    /**
+     * Composes a pharmacy's telephone numbers into the single value shown wherever a pharmacy is
+     * named to a provider: the "Rx faxed to" encounter note written by {@code rx/ViewScript2.jsp}
+     * and the pharmacy block printed on the prescription PDF.
+     *
+     * <p>{@code phone1} and {@code phone2} are joined with a single space, skipping whichever is
+     * null or blank, so the result never contains a stray separator or the literal {@code "null"}.
+     * Each number is trimmed and any embedded CR/LF run is collapsed to one space so the chart
+     * note stays on one line. Otherwise the numbers are returned verbatim: stored pharmacy phone
+     * fields are unvalidated, admin-entered free text in mixed formats, so this method does not
+     * normalise them and callers must still encode the result for their output context.</p>
+     *
+     * <p>Ported from Open-O PR #2494 (openo-beta/Open-O, LiamStanziani).</p>
+     *
+     * @param pharmacy the pharmacy, may be null
+     * @return the joined phone numbers, or {@code ""} when the pharmacy is null or has none on file;
+     *         never null
+     * @since 2026-09-26
+     */
+    public static String composePharmacyPhone(PharmacyInfo pharmacy) {
+        if (pharmacy == null) {
+            return "";
+        }
+        StringJoiner phones = new StringJoiner(" ");
+        for (String phone : new String[]{pharmacy.getPhone1(), pharmacy.getPhone2()}) {
+            if (phone != null) {
+                String cleaned = LINE_BREAKS.matcher(phone).replaceAll(" ").trim();
+                if (!cleaned.isEmpty()) {
+                    phones.add(cleaned);
+                }
+            }
+        }
+        return phones.toString();
     }
 }

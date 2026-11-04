@@ -58,6 +58,8 @@ const {
 } = require('./lib/playwright-ui');
 const { assertAuditClean, auditCatalogue, catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
 
+const { releaseChartLocks, closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
+
 const SKIP_ITEMS = [
   {
     match: /^(log\s*out|exit|close)$/i,
@@ -194,13 +196,14 @@ async function main() {
       limit,
       timeout,
       screenshotDir,
+      beforePopupClose: page => releaseChartLocks(context, config.baseUrl, [page]),
     });
 
     console.log(`  opened ${result.opened.length} Master Record item(s), skipped ${result.skipped} by policy`);
     assertAuditClean(result, { surface: 'Master Record', minimumOpened: limit ? 1 : 8 });
     return { opened: result.opened.length, skipped: result.skipped };
   } finally {
-    await browser.close().catch(() => {});
+    await closeBrowserWithChartCleanup(browser, config.baseUrl);
   }
 }
 

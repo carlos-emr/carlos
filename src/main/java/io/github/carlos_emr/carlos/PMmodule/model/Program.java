@@ -64,7 +64,10 @@ public class Program extends AbstractModel<Integer> {
 
     private Integer id;
 
-    private boolean userDefined = true;
+    // Preserve nullable legacy storage independently of the primitive display/write API.
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "userDefined")
+    private Boolean userDefined = true;
     private Integer numOfMembers;
     private Integer numOfIntakes;
     private Integer queueSize;
@@ -80,10 +83,18 @@ public class Program extends AbstractModel<Integer> {
     private String emergencyNumber;
     private String location;
     private String name;
-    private boolean holdingTank;
-    private boolean allowBatchAdmission;
-    private boolean allowBatchDischarge;
-    private boolean hic;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "holdingTank")
+    private Boolean holdingTank = false;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "allowBatchAdmission")
+    private Boolean allowBatchAdmission = false;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "allowBatchDischarge")
+    private Boolean allowBatchDischarge = false;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "hic")
+    private Boolean hic = false;
     private String programStatus = "active";
     private Integer intakeProgram;
     private String manOrWoman;
@@ -99,7 +110,9 @@ public class Program extends AbstractModel<Integer> {
     private Integer ageMin;
     private Integer ageMax;
     private Integer maximumServiceRestrictionDays;
-    private Integer defaultServiceRestrictionDays;
+    @jakarta.persistence.Access(jakarta.persistence.AccessType.FIELD)
+    @jakarta.persistence.Column(name = "defaultServiceRestrictionDays")
+    private Integer defaultServiceRestrictionDays = DEFAULT_SERVICE_RESTRICTION_DAYS;
     private Integer shelterId;
     private Integer facilityId;
 
@@ -275,9 +288,9 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if user defined, false otherwise
      */
-    @jakarta.persistence.Column(name = "userDefined")
+    @jakarta.persistence.Transient
     public boolean isUserDefined() {
-        return userDefined;
+        return userDefined == null || userDefined;
     }
 
     /**
@@ -630,9 +643,9 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if this is a holding tank program, false otherwise
      */
-    @jakarta.persistence.Column(name = "holdingTank")
+    @jakarta.persistence.Transient
     public boolean isHoldingTank() {
-        return holdingTank;
+        return Boolean.TRUE.equals(holdingTank);
     }
 
     /**
@@ -649,9 +662,9 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if batch admission is allowed, false otherwise
      */
-    @jakarta.persistence.Column(name = "allowBatchAdmission")
+    @jakarta.persistence.Transient
     public boolean isAllowBatchAdmission() {
-        return allowBatchAdmission;
+        return Boolean.TRUE.equals(allowBatchAdmission);
     }
 
     /**
@@ -668,9 +681,9 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if batch discharge is allowed, false otherwise
      */
-    @jakarta.persistence.Column(name = "allowBatchDischarge")
+    @jakarta.persistence.Transient
     public boolean isAllowBatchDischarge() {
-        return allowBatchDischarge;
+        return Boolean.TRUE.equals(allowBatchDischarge);
     }
 
     /**
@@ -687,9 +700,9 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return true if a HIC is required, false otherwise
      */
-    @jakarta.persistence.Column(name = "hic")
+    @jakarta.persistence.Transient
     public boolean isHic() {
-        return hic;
+        return Boolean.TRUE.equals(hic);
     }
 
     /**
@@ -990,7 +1003,7 @@ public class Program extends AbstractModel<Integer> {
      * 
      * @return the default service restriction days, or the program default if not set or invalid
      */
-    @jakarta.persistence.Column(name = "defaultServiceRestrictionDays")
+    @jakarta.persistence.Transient
     public Integer getDefaultServiceRestrictionDays() {
         if ((this.defaultServiceRestrictionDays != null) && (this.defaultServiceRestrictionDays > 0)) {
             return defaultServiceRestrictionDays;
@@ -1005,7 +1018,8 @@ public class Program extends AbstractModel<Integer> {
      * @param defaultServiceRestrictionDays the default service restriction days to set
      */
     public void setDefaultServiceRestrictionDays(Integer defaultServiceRestrictionDays) {
-        this.defaultServiceRestrictionDays = defaultServiceRestrictionDays;
+        this.defaultServiceRestrictionDays = defaultServiceRestrictionDays != null && defaultServiceRestrictionDays > 0
+                ? defaultServiceRestrictionDays : DEFAULT_SERVICE_RESTRICTION_DAYS;
     }
 
     @Override

@@ -11,10 +11,13 @@
 
 </head>
 
+<!-- The shared age parser the other chart risk calculators use (issue #3665). -->
+<script type="text/javascript" charset="utf-8"
+        src="../../../share/javascript/clinicalCalculatorAge.js"></script>
 <script type="text/javascript" language="javascript" charset="utf-8"
         src="js/js.js"></script>
 
-<body onload="UpdateNonDiabetic()">
+<body onload="PrefillFromChart(); UpdateNonDiabetic()">
 
 <div id="wrapper">
 
@@ -31,7 +34,7 @@
 
     <div id="nav">You are using the <span class="ttl">Framingham
 Risk Calculator</span>, intended<br/>
-        for patients with no history of diabetes. <a href="diabetic.html">Is
+        for patients with no history of diabetes. <a id="otherCalculator" href="diabetic.html">Is
             the patient diabetic?</a></div>
 
     <div id="content">

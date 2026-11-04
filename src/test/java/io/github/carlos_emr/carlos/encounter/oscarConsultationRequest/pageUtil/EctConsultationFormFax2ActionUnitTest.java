@@ -31,6 +31,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -41,6 +42,10 @@ import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxJobDao;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.ConsultAttachmentWarning;
+import io.github.carlos_emr.carlos.consultation.ConsultAttachmentApprovalService;
+import io.github.carlos_emr.carlos.consultation.ConsultAttachmentApprovalService.Operation;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.FilePromotionException;
@@ -92,6 +97,8 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         request = new MockHttpServletRequest("POST", "/encounter/ConsultationFax");
+        request.getSession();
+        registerMock(ConsultAttachmentApprovalService.class, new ConsultAttachmentApprovalService());
         response = new MockHttpServletResponse();
         loggedInInfo = mock(LoggedInInfo.class);
         securityInfoManager = mock(SecurityInfoManager.class);
@@ -299,6 +306,93 @@ class EctConsultationFormFax2ActionUnitTest extends CarlosUnitTestBase {
                 .doesNotContain("SensitiveFixturePatient", "/private/", "fixture-secret", "attachment.pdf");
         org.mockito.Mockito.verifyNoInteractions(nioFileManager, faxJobDao);
         verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+
+    @Test
+    void shouldRequireReview_beforePromotingOrQueuingIncompleteFax() throws Exception {
+        grantFaxPrivileges();
+        Path applicationTemp = Files.createDirectories(Path.of(System.getProperty("java.io.tmpdir"),
+                io.github.carlos_emr.carlos.utility.PathValidationUtils.APPLICATION_TEMP_ROOT_NAME));
+        Path rendered = Files.createTempFile(applicationTemp, "consult-review-", ".pdf");
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenAnswer(call -> {
+            assertThat(request.getAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE)).isEqualTo(true);
+            request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE, java.util.List.of(
+                    ConsultAttachmentWarning.unavailable(DocumentType.DOC, 80),
+                    ConsultAttachmentWarning.notRendered(DocumentType.EFORM, 12)));
+            return rendered;
+        });
+        assertThat(action.execute()).isEqualTo("attachmentReview");
+        assertThat(request.getAttribute(ConsultAttachmentApprovalService.TOKEN)).isNotNull();
+        assertThat(rendered).doesNotExist();
+        assertThat(request.getAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE)).isNull();
+        verify(nioFileManager, never()).promoteApplicationTempFile(any());
+        verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    void shouldRejectClientSuppliedWarningKeys_withoutServerIssuedApproval() throws Exception {
+        grantFaxPrivileges();
+        request.setParameter("confirmSendWithoutUnavailable", "true");
+        request.setParameter("confirmedUnavailableAttachments", "D:80");
+        request.setParameter(ConsultAttachmentApprovalService.CONFIRM, "true");
+        request.setParameter(ConsultAttachmentApprovalService.TOKEN, "forged");
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenAnswer(call -> {
+            request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE,
+                    java.util.List.of(ConsultAttachmentWarning.unavailable(DocumentType.DOC, 80)));
+            return null;
+        });
+        assertThat(action.execute()).isEqualTo("error");
+        assertThat(request.getAttribute("errorMessage")).asString().contains("already used");
+        assertThat(request.getAttribute(ConsultAttachmentApprovalService.REVIEW_REQUIRED)).isNull();
+        verify(nioFileManager, never()).promoteApplicationTempFile(any());
+        verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldRequireFreshApproval_whenRenderFindsAdditionalOmission(boolean changed) throws Exception {
+        grantFaxPrivileges();
+        var approved = java.util.List.of(ConsultAttachmentWarning.notRendered(DocumentType.DOC, 80));
+        var service = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(ConsultAttachmentApprovalService.class);
+        request.setParameter(ConsultAttachmentApprovalService.TOKEN,
+                service.issue(request, loggedInInfo, "456", "123", Operation.FAX, approved));
+        request.setParameter(ConsultAttachmentApprovalService.CONFIRM, "true");
+        Path rendered = temporaryDirectory.resolve("approved.pdf");
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenAnswer(call -> {
+            request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE, changed
+                    ? java.util.List.of(approved.getFirst(), ConsultAttachmentWarning.notRendered(DocumentType.EFORM, 12))
+                    : approved);
+            return rendered;
+        });
+        // Stop at promotion: reaching it proves approval passed, without queueing a synthetic job.
+        when(nioFileManager.promoteApplicationTempFile(rendered)).thenThrow(new FilePromotionException("fixture stop"));
+        assertThat(action.execute()).isEqualTo(changed ? "attachmentReview" : "error");
+        verify(nioFileManager, org.mockito.Mockito.times(changed ? 0 : 1)).promoteApplicationTempFile(rendered);
+        verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    @DisplayName("should name, by type and id, the attachments that could not be read when the fax is refused")
+    void shouldNameUnreadableAttachments_whenFaxRenderFails() throws Exception {
+        grantFaxPrivileges();
+        when(documentAttachmentManager.renderConsultationFormWithAttachments(request, response)).thenAnswer(call -> {
+            request.setAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE,
+                    java.util.List.of(ConsultAttachmentWarning.notRendered(DocumentType.LAB, 7)));
+            throw new io.github.carlos_emr.carlos.utility.PDFGenerationException("One or more consultation attachments could not be rendered");
+        });
+
+        assertThat(action.execute()).isEqualTo("error");
+
+        assertThat(request.getAttribute("errorMessage")).isEqualTo("This fax was not sent, and no faxes were queued. "
+                + "These attachments could not be read: Lab result 7. Fix or detach them, then try again.");
+        verify(faxManager, never()).persistAndLogConsultationFaxJobs(any(), any(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    private void grantFaxPrivileges() {
+        when(securityInfoManager.hasPrivilege(any(), eq("_con"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("w"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_fax"), eq("r"), isNull())).thenReturn(true);
     }
 
     @Test

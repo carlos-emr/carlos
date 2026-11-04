@@ -580,6 +580,50 @@ public class PrescriptionManagerUnitTest extends PrescriptionUnitTestBase {
             assertThat(result).isEmpty();
         }
 
+        @Test
+        @DisplayName("should list a renewed product once, as the JSP medication views do")
+        void shouldListRenewedProductOnce_whenRenewalDiffersOnlyInDates() {
+            // Given: the same coded product and regimen prescribed twice, a month apart (#4420)
+            Drug original = createTestDrugWithId(1);
+            original.setGcnSeqNo("12345");
+            original.setRxDate(new Date(System.currentTimeMillis() - 60L * 24 * 3600 * 1000));
+            Drug renewal = createTestDrugWithId(2);
+            renewal.setGcnSeqNo("12345");
+            Drug other = createTestDrugWithId(3);
+            other.setGcnSeqNo("67890");
+            when(mockDrugDao.findByDemographicId(TEST_DEMO_NO))
+                    .thenReturn(new ArrayList<>(List.of(original, renewal, other)));
+
+            // When
+            List<Drug> result = prescriptionManager.getUniqueDrugsByPatient(mockLoggedInInfo, TEST_DEMO_NO);
+
+            // Then
+            assertThat(result).extracting(Drug::getId).containsExactly(3, 2);
+        }
+
+        @Test
+        @DisplayName("should keep two regimens of one product and omit deleted rows")
+        void shouldKeepDistinctRegimens_andOmitDeletedRows() {
+            // Given
+            Drug morning = createTestDrugWithId(1);
+            morning.setGcnSeqNo("12345");
+            Drug evening = createTestDrugWithId(2);
+            evening.setGcnSeqNo("12345");
+            evening.setDosage("1000mg");
+            Drug deleted = createTestDrugWithId(3);
+            deleted.setGcnSeqNo("67890");
+            deleted.setArchived(true);
+            deleted.setArchivedReason(Drug.DELETED);
+            when(mockDrugDao.findByDemographicId(TEST_DEMO_NO))
+                    .thenReturn(new ArrayList<>(List.of(morning, evening, deleted)));
+
+            // When
+            List<Drug> result = prescriptionManager.getUniqueDrugsByPatient(mockLoggedInInfo, TEST_DEMO_NO);
+
+            // Then
+            assertThat(result).extracting(Drug::getId).containsExactly(2, 1);
+        }
+
     }
 
     /**

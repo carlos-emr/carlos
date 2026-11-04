@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. -->
+<jasperReport name="Rourke2020PageIINotes" pageWidth="612" pageHeight="792" columnWidth="540" leftMargin="36" rightMargin="36" topMargin="36" bottomMargin="36">
+    <style name="defaultStyle" default="true" fontName="DejaVu Sans" fontSize="11"/>
+    <parameter name="c_pName"/>
+    <parameter name="c_birthDate"/>
+    <parameter name="p2_development2m"/>
+    <parameter name="p2_development4m"/>
+    <parameter name="p2_development6m"/>
+    <parameter name="p2_physical2m"/>
+    <parameter name="p2_physical4m"/>
+    <parameter name="p2_physical6m"/>
+    <parameter name="p2_immunization6m"/>
+    <pageHeader height="66">
+        <element kind="staticText" x="0" y="0" width="540" height="20" bold="true" fontSize="14"><text><![CDATA[Rourke Baby Record 2020 — Page II notes]]></text></element>
+        <element kind="textField" x="0" y="25" width="540" height="18" blankWhenNull="true"><expression><![CDATA[$P{c_pName}]]></expression></element>
+        <element kind="textField" x="0" y="44" width="540" height="18"><expression><![CDATA["Date of birth: " + ($P{c_birthDate} == null ? "" : $P{c_birthDate})]]></expression></element>
+    </pageHeader>
+    <detail>
+        <band height="68" splitType="Stretch">
+            <printWhenExpression><![CDATA[$P{p2_development2m} != null && !$P{p2_development2m}.isBlank()]]></printWhenExpression>
+            <element kind="staticText" x="0" y="10" width="540" height="18" bold="true"><text><![CDATA[2 months — Development]]></text></element>
+            <element kind="textField" x="0" y="30" width="540" height="32" textAdjust="StretchHeight" blankWhenNull="true"><expression><![CDATA[$P{p2_development2m}]]></expression></element>
+        </band>
+        <band height="68" splitType="Stretch">
+            <printWhenExpression><![CDATA[$P{p2_development4m} != null && !$P{p2_development4m}.isBlank()]]></printWhenExpression>
+            <element kind="staticText" x="0" y="10" width="540" height="18" bold="true"><text><![CDATA[4 months — Development]]></text></element>
+            <element kind="textField" x="0" y="30" width="540" height="32" textAdjust="StretchHeight" blankWhenNull="true"><expression><![CDATA[$P{p2_development4m}]]></expression></element>
+        </band>
+        <band height="68" splitType="Stretch">
+            <printWhenExpression><![CDATA[$P{p2_development6m} != null && !$P{p2_development6m}.isBlank()]]></printWhenExpression>
+            <element kind="staticText" x="0" y="10" width="540" height="18" bold="true"><text><![CDATA[6 months — Development]]></text></element>
+            <element kind="textField" x="0" y="30" width="540" height="32" textAdjust="StretchHeight" blankWhenNull="true"><expression><![CDATA[$P{p2_development6m}]]></expression></element>
+        </band>
+        <band height="68" splitType="Stretch">
+            <printWhenExpression><![CDATA[$P{p2_physical2m} != null && !$P{p2_physical2m}.isBlank()]]></printWhenExpression>
+            <element kind="staticText" x="0" y="10" width="540" height="18" bold="true"><text><![CDATA[2 months — Physical examination]]></text></element>
+            <element kind="textField" x="0" y="30" width="540" height="32" textAdjust="StretchHeight" blankWhenNull="true"><expression><![CDATA[$P{p2_physical2m}]]></expression></element>
+        </band>
+        <band height="68" splitType="Stretch">
+            <printWhenExpression><![CDATA[$P{p2_physical4m} != null && !$P{p2_physical4m}.isBlank()]]></printWhenExpression>
+            <element kind="staticText" x="0" y="10" width="540" height="18" bold="true"><text><![CDATA[4 months — Physical examination]]></text></element>
+            <element kind="textField" x="0" y="30" width="540" height="32" textAdjust="StretchHeight" blankWhenNull="true"><expression><![CDATA[$P{p2_physical4m}]]></expression></element>
+        </band>
+        <band height="68" splitType="Stretch">
+            <printWhenExpression><![CDATA[$P{p2_physical6m} != null && !$P{p2_physical6m}.isBlank()]]></printWhenExpression>
+            <element kind="staticText" x="0" y="10" width="540" height="18" bold="true"><text><![CDATA[6 months — Physical examination]]></text></element>
+            <element kind="textField" x="0" y="30" width="540" height="32" textAdjust="StretchHeight" blankWhenNull="true"><expression><![CDATA[$P{p2_physical6m}]]></expression></element>
+        </band>
+        <band height="68" splitType="Stretch">
+            <printWhenExpression><![CDATA[$P{p2_immunization6m} != null && !$P{p2_immunization6m}.isBlank()]]></printWhenExpression>
+            <element kind="staticText" x="0" y="10" width="540" height="18" bold="true"><text><![CDATA[6 months — Immunization]]></text></element>
+            <element kind="textField" x="0" y="30" width="540" height="32" textAdjust="StretchHeight" blankWhenNull="true"><expression><![CDATA[$P{p2_immunization6m}]]></expression></element>
+        </band>
+    </detail>
+    <pageFooter height="20">
+        <element kind="textField" x="0" y="4" width="540" height="16" fontSize="9"><expression><![CDATA["Page II notes — " + $V{PAGE_NUMBER}]]></expression></element>
+    </pageFooter>
+</jasperReport>

@@ -34,7 +34,7 @@ import org.apache.struts2.ServletActionContext;
  * Security gate for the Update Demographic Provider admin page.
  *
  * <p>Requires {@code _admin.misc} read privilege before forwarding to the JSP.
- * All provider reassignment logic is handled by the JSP.</p>
+ * POST mutations additionally require write privilege and run in a scoped transaction.</p>
  *
  * @since 2026-04-05
  */
@@ -42,8 +42,11 @@ public class UpdateDemographicProvider2Action extends ActionSupport {
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
+    private final io.github.carlos_emr.carlos.admin.service.DemographicProviderReassignmentService reassignments =
+            SpringUtils.getBean(io.github.carlos_emr.carlos.admin.service.DemographicProviderReassignmentService.class);
+
     @Override
-    public String execute() {
+    public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
@@ -51,6 +54,39 @@ public class UpdateDemographicProvider2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.misc)");
         }
 
+        String operation = request.getParameter("update");
+        if (operation != null) {
+            var response = ServletActionContext.getResponse();
+            if (!"POST".equals(request.getMethod())) {
+                response.setHeader("Allow", "POST");
+                response.sendError(405, "POST required");
+                return NONE;
+            }
+            // The blocking CSRFGuard filter validates all POSTs to this route.
+            if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.misc", "w", null)) {
+                throw new SecurityException("missing required sec object (_admin.misc w)");
+            }
+            String suffix = switch (operation) {
+                case "UpdateResident" -> "2";
+                case "UpdateNurse" -> "1";
+                case "UpdateMidwife" -> "4";
+                case "UpdateMrp" -> "5";
+                default -> null;
+            };
+            if (suffix == null) {
+                response.sendError(400, "Unknown reassignment operation");
+                return NONE;
+            }
+            try {
+                int count = reassignments.reassign(loggedInInfo, operation,
+                        request.getParameter("oldcust" + suffix), request.getParameter("newcust" + suffix),
+                        request.getParameter("last_name_from"), request.getParameter("last_name_to"));
+                request.setAttribute("reassignedProviderCount", count);
+            } catch (IllegalArgumentException invalid) {
+                response.sendError(400, "Invalid provider or name range");
+                return NONE;
+            }
+        }
         return SUCCESS;
     }
 }

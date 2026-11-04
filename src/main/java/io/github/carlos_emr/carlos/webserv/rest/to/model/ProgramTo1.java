@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.xml.bind.annotation.XmlRootElement;
 
 import io.github.carlos_emr.carlos.model.LookupCodeValue;
@@ -87,12 +89,14 @@ public class ProgramTo1 implements Serializable {
     private Integer capacity_space = Integer.valueOf(0);
     private Integer capacity_actual = Integer.valueOf(0);
     private String lastUpdateUser;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastUpdateDate;
     private LookupCodeValue shelter;
     private String siteSpecificField;
     private Boolean enableEncounterTime = false;
     private Boolean enableEncounterTransportationTime = false;
     private String emailNotificationAddressesCsv = null;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastReferralNotification = null;
 
     public Integer getId() {

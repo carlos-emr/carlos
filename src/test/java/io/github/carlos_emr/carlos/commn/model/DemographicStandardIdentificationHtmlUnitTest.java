@@ -25,13 +25,28 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
+
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+// Mutates process-wide Locale defaults; never overlap another test in this JVM.
+@Isolated
 @DisplayName("Demographic standard identification HTML")
 @Tag("unit")
 @Tag("demographic")
 class DemographicStandardIdentificationHtmlUnitTest {
+
+    @Test
+    @SuppressWarnings("deprecation")
+    void shouldPreserveLegacySignatures_withEnglishFallback() {
+        Demographic demographic = demographicWithHostileDisplayFields();
+        demographic.setRosterStatus("RO");
+        assertThat(demographic.getStandardIdentificationHTML("/carlos"))
+                .isEqualTo(demographic.getStandardIdentificationHtml("/carlos", Locale.ENGLISH));
+        assertThat(demographic.getRosterStatusDisplay()).isEqualTo("Rostered");
+    }
 
     @Test
     void shouldEscapePatientLabelFields_whenRenderingStandardIdentificationHtml() {
@@ -79,7 +94,7 @@ class DemographicStandardIdentificationHtmlUnitTest {
         demographic.setCellPhone("555<2");
         demographic.setEmail("a<b@example.com");
 
-        String html = demographic.getStandardIdentificationHTML("/ctx");
+        String html = demographic.getStandardIdentificationHtml("/ctx", Locale.ENGLISH);
 
         assertThat(html)
                 .contains("&lt;Dr&gt;")
@@ -112,7 +127,7 @@ class DemographicStandardIdentificationHtmlUnitTest {
         demographic.setPhone("555\"000");
         demographic.setEmail("a\"b@example.com");
 
-        String html = demographic.getStandardIdentificationHTML("/ctx");
+        String html = demographic.getStandardIdentificationHtml("/ctx", Locale.ENGLISH);
 
         // Body text renders via forHtmlContent, where a bare quote is harmless,
         // so only the copyToClip attribute context must be quote-free.
@@ -123,6 +138,64 @@ class DemographicStandardIdentificationHtmlUnitTest {
                 .doesNotContain("copyToClip('12\"")
                 .doesNotContain("copyToClip('555\"")
                 .doesNotContain("copyToClip('a\"");
+    }
+
+    @Test
+    @DisplayName("should label the chart header in the caller's locale, not the server's")
+    void shouldLabelChartHeader_withCallerLocale() {
+        Demographic demographic = demographicWithHostileDisplayFields();
+        demographic.setDemographicNo(42);
+        demographic.setSex("F");
+
+        demographic.setPronoun("she/her");
+        demographic.setGender("woman");
+        demographic.setPhone("250-555-0100");
+        demographic.setCellPhone("250-555-0101");
+        demographic.setEmail("synthetic@example.invalid");
+
+        // "Sex" and "Age" are rendered here in Java while the rest of the header comes from
+        // <fmt:message>. Reading the locale from the JVM/LocaleContextHolder instead of the
+        // request is what left a French chart half-translated.
+        String french = demographic.getStandardIdentificationHtml("/ctx", Locale.FRENCH);
+        String english = demographic.getStandardIdentificationHtml("/ctx", Locale.ENGLISH);
+
+        assertThat(french).contains(">Sexe<", ">DDN<", ">Âge<", ">Prochain rendez-vous<", ">MRP<")
+                .contains(">Pronoms<", ">Genre<", ">Téléphone<", ">Tél. cellulaire<", ">Courriel<")
+                .doesNotContain(">Sex<", ">Age<", ">DOB<", ">Next Appt.<");
+        assertThat(english).contains(">Sex<", ">DOB<", ">Age<", ">Next Appt.<", ">MRP<");
+        assertThat(french).isNotEqualTo(english);
+    }
+
+    @Test
+    @DisplayName("should fall back to English labels when the locale has no bundle")
+    void shouldFallBackToEnglishLabels_whenLocaleHasNoBundle() {
+        Demographic demographic = demographicWithHostileDisplayFields();
+        demographic.setDemographicNo(42);
+
+        // German has no oscarResources bundle. The fallback must be English, never whatever
+        // language the server JVM happens to default to.
+        Locale originalDefault = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.FRENCH);
+            java.util.ResourceBundle.clearCache();
+
+            String html = demographic.getStandardIdentificationHtml("/ctx", Locale.GERMAN);
+
+            assertThat(html).contains("Sex").doesNotContain("Sexe");
+        } finally {
+            Locale.setDefault(originalDefault);
+            java.util.ResourceBundle.clearCache();
+        }
+    }
+
+    @Test
+    @DisplayName("should localize the roster status label by the caller's locale")
+    void shouldLocalizeRosterStatus_byCallerLocale() {
+        Demographic demographic = new Demographic();
+        demographic.setRosterStatus("RO");
+
+        assertThat(demographic.getRosterStatusDisplay(Locale.ENGLISH)).isEqualTo("Rostered");
+        assertThat(demographic.getRosterStatusDisplay(Locale.FRENCH)).isEqualTo("Inscrit");
     }
 
     private static Demographic demographicWithHostileDisplayFields() {

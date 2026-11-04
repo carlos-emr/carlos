@@ -430,4 +430,33 @@ class DroolsHelperUnitTest {
             }
         }
     }
+
+    /**
+     * Tests for {@link DroolsHelper#readDrl(URL)}, which returns DRL text without
+     * compiling it so callers can cache compiled rules by content.
+     */
+    @Nested
+    @DisplayName("readDrl")
+    class ReadDrl {
+
+        @Test
+        @DisplayName("should return the DRL text of a classpath resource without compiling it")
+        void shouldReturnDrlText_fromClasspathUrl() throws DroolsCompilationException {
+            URL url = getClass().getResource("/oscar/encounter/oscarMeasurements/flowsheets/tracker.drl");
+            assertThat(url).as("tracker.drl must be on classpath").isNotNull();
+
+            assertThat(DroolsHelper.readDrl(url)).contains("package TrackerFlowSheet;");
+        }
+
+        @Test
+        @Tag("security")
+        @DisplayName("should reject http URL before opening stream")
+        void shouldRejectHttpUrl_beforeOpeningStream() throws Exception {
+            URL remoteUrl = new URL("http://169.254.169.254/latest/meta-data/rules.drl");
+
+            assertThatThrownBy(() -> DroolsHelper.readDrl(remoteUrl))
+                    .isInstanceOf(DroolsCompilationException.class)
+                    .hasMessageContaining("Unsupported DRL URL protocol");
+        }
+    }
 }

@@ -56,7 +56,7 @@
             //jQuery("#general").hide();
             jQuery("#scheduling").hide();
             jQuery("#encounter").hide();
-            jQuery("#prescript").hide();
+            jQuery("#rx").hide();
             jQuery("#consultation").hide();
             jQuery("#caisi").hide();
             jQuery("#billing").hide();

@@ -63,7 +63,14 @@
             FrmRecord rec = (new FrmRecordFactory()).factory("BCHP");
             java.util.Properties props = rec.getFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo, formId);
 
-            request.getRequestDispatcher("/WEB-INF/jsp/form/formbchp" + props.getProperty("c_lastVisited", "pg1")
+            // The page the record was last saved from, as the form posts it back in c_lastVisited. Only this
+            // form's own pages are taken: an empty value made this page include itself until the stack
+            // overflowed, and the value is request data, so it must not name any other page under WEB-INF.
+            String lastVisited = props.getProperty("c_lastVisited", "");
+            if (!lastVisited.matches("pg[12]")) {
+                lastVisited = "pg1";
+            }
+            request.getRequestDispatcher("/WEB-INF/jsp/form/formbchp" + lastVisited
                     + ".jsp?demographic_no=" + demoNo + "&formId=" + formId + historyet).include(request, response);
         }
 

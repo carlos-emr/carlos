@@ -13,8 +13,12 @@
 package io.github.carlos_emr.carlos.lab.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.lab.service.LabPatientAccess;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.mds.data.MDSResultsData;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -27,6 +31,10 @@ import org.apache.struts2.ServletActionContext;
  * {@code /WEB-INF/jsp/lab/} location. Part of the lab module
  * security-hardening migration (2Action gate pattern from #1109, #1629,
  * #1632, #1644, #1662, #1663, #1665, #1666).
+ *
+ * <p>Global {@code _lab} read does not override a patient lock ({@code _demographic$N} or
+ * {@code _eChart$N}): the report's actual CML routing owner, and the owner of every version the
+ * JSP reads beside it, must be open to the caller. A non-numeric {@code segmentID} is a 400.
  *
  * @since 2026-04-13
  */
@@ -41,6 +49,22 @@ public final class ViewCMLDisplay2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", null)) {
             throw new SecurityException("missing required sec object (_lab)");
+        }
+
+        String segment = request.getParameter("segmentID");
+        Integer labNo = LabPatientAccess.positiveIdentity(segment);
+        if (labNo == null) {
+            ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        PatientLabRoutingDao routings = SpringUtils.getBean(PatientLabRoutingDao.class);
+        LabPatientAccess.requireLab(securityInfoManager, routings, loggedInInfo, labNo, "CML");
+        // CMLDisplay.jsp also links the report's other versions and renders their acknowledgement
+        // comments. Authorize the same server-resolved chain (CMLLabTest.populateLab) up front.
+        String versions = new MDSResultsData().getCmlVersionChain(segment).ids();
+        if (!LabPatientAccess.requireOtherVersions(securityInfoManager, routings, loggedInInfo, labNo, versions, "CML")) {
+            ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
 
         return SUCCESS;

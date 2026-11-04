@@ -1,0 +1,55 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+
+    labsNotIncludedNotice.jspf: names the attached lab results that the consultation PDF could not
+    include, on the pages that confirm a print or a fax (issue #4693).
+
+    Why: the consultation PDF can draw HL7 lab reports only. A CML, MDS or PathNet (BCP) lab, or an
+    attachment whose source was never recorded, is left out of the packet and named instead on a
+    page right after the consultation letter. This block tells the sender the same thing, so a
+    missing lab is not first noticed by the clinician who receives the fax.
+
+    Reads the request attribute consultLabsNotIncluded (ConsultationLabsNotIncluded.REQUEST_ATTRIBUTE),
+    a List<String> of names already in the reader's language, set by
+    DocumentAttachmentManager.renderConsultationFormWithAttachments. Renders nothing when the
+    attribute is absent or empty. The names carry lab disciplines and dates, so each one is
+    HTML-encoded; the block only appears in the response to the user who printed or faxed them.
+
+    Usage, once per page, inside <body>:
+        <%@ include file="/WEB-INF/jsp/encounter/oscarConsultationRequest/labsNotIncludedNotice.jspf" %>
+
+    @since 2026-10-16
+--%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+<c:if test="${not empty consultLabsNotIncluded}">
+    <div id="consultLabsNotIncluded" class="alert alert-warning text-start py-2 px-3 mb-3" role="alert" style="font-size:0.85rem;">
+        <i class="fa-solid fa-triangle-exclamation me-1"></i>
+        <fmt:message key="encounter.oscarConsultationRequest.ConfirmConsultationRequest.msgLabsNotIncluded"/>
+        <ul class="mb-0 mt-1">
+            <c:forEach items="${consultLabsNotIncluded}" var="labNotIncluded">
+                <li><carlos:encode value="${labNotIncluded}"/></li>
+            </c:forEach>
+        </ul>
+    </div>
+</c:if>

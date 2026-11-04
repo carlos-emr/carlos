@@ -175,4 +175,18 @@ class BillingOnClaimLoaderComparatorUnitTest {
         assertThat(comparator.compare(paid, nullFee)).isPositive();
         assertThat(comparator.compare(nullFee, nullFee)).isZero();
     }
+    @Test
+    void shouldSortMissingLocationsConsistently_inBothDirections() {
+        var missing = new BillingClaimHeaderDto().withFacilityNumber(null);
+        var empty = new BillingClaimHeaderDto().withFacilityNumber("");
+        var first = new BillingClaimHeaderDto().withFacilityNumber("0001");
+        var last = new BillingClaimHeaderDto().withFacilityNumber("9999");
+        var rows = new ArrayList<>(List.of(last, missing, first, empty));
+        rows.sort(BillingOnClaimLoader.VISIT_LOCATION_COMPARATOR);
+        assertThat(rows).containsExactly(missing, empty, first, last);
+        rows.sort(BillingOnClaimLoader.VISIT_LOCATION_COMPARATOR.reversed());
+        assertThat(rows).containsExactly(last, first, empty, missing);
+        assertThat(BillingOnClaimLoader.VISIT_LOCATION_COMPARATOR.compare(missing, missing)).isZero();
+    }
+
 }

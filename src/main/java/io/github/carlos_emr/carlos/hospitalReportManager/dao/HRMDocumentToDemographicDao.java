@@ -15,6 +15,8 @@
 package io.github.carlos_emr.carlos.hospitalReportManager.dao;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import jakarta.persistence.Query;
@@ -66,6 +68,26 @@ public class HRMDocumentToDemographicDao extends AbstractDaoImpl<HRMDocumentToDe
         @SuppressWarnings("unchecked")
         List<HRMDocumentToDemographic> documentToDemographics = query.getResultList();
         return documentToDemographics;
+    }
+
+    /**
+     * Deletes every patient link of a report with a bulk statement.
+     *
+     * <p>Use this, not {@code remove(entity)}, while the report is locked with
+     * {@code HRMDocumentDao.findForUpdate}: that loads {@code HRMDocument.matchedDemographics}, an
+     * eager unidirectional collection, and an {@code EntityManager.remove()} of one of its rows
+     * leaves the document referencing a removed instance, so the next flush throws
+     * {@code TransientPropertyValueException} and the unlink or re-link rolls back. A bulk delete
+     * bypasses the persistence context and still rolls back with the caller's transaction.</p>
+     *
+     * @param hrmDocumentId the report
+     * @return the number of links deleted
+     */
+    public int deleteByHrmDocumentId(Integer hrmDocumentId) {
+        Query query = entityManager.createQuery(
+                "delete from HRMDocumentToDemographic x where x.hrmDocumentId=?1");
+        query.setParameter(1, hrmDocumentId);
+        return query.executeUpdate();
     }
 
     /**
@@ -158,4 +180,29 @@ public class HRMDocumentToDemographicDao extends AbstractDaoImpl<HRMDocumentToDe
         return attachedHRMDocumentToDemographics;
     }
 
+    /**
+     * Returns the subset of {@code hrmDocumentIds} linked to the given patient through
+     * {@code HRMDocumentToDemographic}. Used as an ownership check before a browser-supplied HRM id
+     * is attached to, or sent out with, that patient's referral.
+     *
+     * @param demographicNo the patient that must own the reports; {@code null} yields an empty list
+     * @param hrmDocumentIds candidate HRM document ids; {@code null} or empty yields an empty list
+     *                       without querying
+     * @return the owned HRM document ids; never {@code null}
+     * @since 2026-09-24
+     */
+    public List<Integer> findHrmIdsForDemographic(Integer demographicNo, Collection<Integer> hrmDocumentIds) {
+        if (demographicNo == null || hrmDocumentIds == null || hrmDocumentIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        // Constant JPQL; every value, including the IN list, is a bound parameter.
+        Query query = entityManager.createQuery("select distinct x.hrmDocumentId from HRMDocumentToDemographic x"
+                + " where x.demographicNo = :demographicNo and x.hrmDocumentId in (:hrmDocumentIds)");
+        query.setParameter("demographicNo", demographicNo);
+        query.setParameter("hrmDocumentIds", hrmDocumentIds);
+
+        @SuppressWarnings("unchecked")
+        List<Integer> owned = query.getResultList();
+        return owned;
+    }
 }

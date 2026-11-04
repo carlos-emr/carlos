@@ -76,4 +76,36 @@ public class HRMDocumentToDemographicDaoIntegrationTest extends CarlosTestBase {
         assertThat(entity.getId()).isNotNull();
         assertThat(hrmDocumentToDemographicDao.find(entity.getId())).isNotNull();
     }
+
+    @Test
+    @Tag("query")
+    @DisplayName("should return only HRM document ids linked to the patient")
+    void shouldReturnOwnedHrmIds_forDemographic() {
+        HRMDocument ownDoc = new HRMDocument();
+        ownDoc.setReportType("test");
+        ownDoc.setReportStatus("A");
+        entityManager.persist(ownDoc);
+        HRMDocument foreignDoc = new HRMDocument();
+        foreignDoc.setReportType("test");
+        foreignDoc.setReportStatus("A");
+        entityManager.persist(foreignDoc);
+        hibernateTemplate.flush();
+
+        HRMDocumentToDemographic own = new HRMDocumentToDemographic();
+        own.setDemographicNo(7001);
+        own.setHrmDocumentId(ownDoc.getId());
+        own.setTimeAssigned(new java.util.Date());
+        hrmDocumentToDemographicDao.persist(own);
+        HRMDocumentToDemographic foreign = new HRMDocumentToDemographic();
+        foreign.setDemographicNo(7002);
+        foreign.setHrmDocumentId(foreignDoc.getId());
+        foreign.setTimeAssigned(new java.util.Date());
+        hrmDocumentToDemographicDao.persist(foreign);
+        hibernateTemplate.flush();
+
+        assertThat(hrmDocumentToDemographicDao.findHrmIdsForDemographic(7001,
+                java.util.List.of(ownDoc.getId(), foreignDoc.getId(), 99999)))
+                .containsExactly(ownDoc.getId());
+        assertThat(hrmDocumentToDemographicDao.findHrmIdsForDemographic(7001, java.util.List.of())).isEmpty();
+    }
 }

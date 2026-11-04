@@ -28,6 +28,22 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        Add a Login Record form (Administration > User Management): creates a provider's login.
+
+    Features:
+        Provider dropdown limited to active providers without a login (site-scoped on multisite
+        installs). Role dropdown with no preselection, listing the roles Assign Role to Provider
+        would offer this administrator: every login is created with the role chosen here (#2689).
+        Browser checks mirror the server's; SecurityAddSecurityHelper is authoritative.
+
+    Parameters:
+        None (posts user_name, password, conPassword, provider_no, role_name, PIN, expiry,
+        forcePasswordReset and enableMfa to admin/SecurityAddSecurity).
+
+    @since 2001 (OSCAR McMaster); role selection added 2026-10-15 (#2689)
+--%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -75,6 +91,7 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.MfaManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page import="io.github.carlos_emr.carlos.www.admin.SecurityAddSecurityHelper" %>
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
     ProviderSiteDao providerSiteDao = SpringUtils.getBean(ProviderSiteDao.class);
@@ -167,6 +184,13 @@
                 }
                 if (document.searchprovider.provider_no.value == "") {
                     alert('<fmt:message key="admin.securityrecord.formProviderNo"/> <fmt:message key="admin.securityrecord.msgIsRequired"/>');
+                    return false;
+                }
+                // Issue #2689: a login with no role can sign in but reach nothing, so the
+                // first role is chosen here. The server re-checks it against the same list.
+                if (document.searchprovider.role_name.value == "") {
+                    alert('<fmt:message key="admin.securityrecord.formRole"/> <fmt:message key="admin.securityrecord.msgIsRequired"/>');
+                    document.searchprovider.role_name.focus();
                     return false;
                 }
                 if (document.forms[0].b_ExpireSet.checked && document.forms[0].date_ExpireDate.value.length < 10) {
@@ -297,6 +321,22 @@
                         <%
                                     }
                                 }
+                            }
+                        %>
+                    </select></td>
+                </tr>
+                <%-- No option is preselected: the administrator chooses the role explicitly,
+                     and only from the roles Assign Role to Provider would let them assign. --%>
+                <tr>
+                    <td style="text-align: right"><label for="role_name"><fmt:message key="admin.securityrecord.formRole"/></label>:
+                    </td>
+                    <td><select name="role_name" id="role_name" aria-required="true">
+                        <option value="">-- select one --</option>
+                        <%
+                            for (String roleName : new SecurityAddSecurityHelper().assignableRoleNames(pageContext)) {
+                        %>
+                        <option value="<carlos:encode value='<%= roleName %>' context="htmlAttribute"/>"><carlos:encode value='<%= roleName %>' context="html"/></option>
+                        <%
                             }
                         %>
                     </select></td>

@@ -64,6 +64,18 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
     private static final String RESOURCE_EDITCONTROL = "/WEB-INF/eform-assets/editControl2.js";
     private static final String RESOURCE_BLANK = "/WEB-INF/eform-assets/blank.rtl";
     private static final String RESOURCE_HELP = "/WEB-INF/eform-assets/editor_help.html";
+    /** The Rich Text Letter loads stamps.js on every open; a missing one 404s and is refused as HTML. */
+    private static final String RESOURCE_STAMPS = "/WEB-INF/eform-assets/stamps.js";
+    /**
+     * The Rich Text Letter's starter templates. The editor's template dropdown is built by
+     * scanning the eForm images directory for *.rtl, so a template that never deploys does not
+     * exist as far as a clinician is concerned.
+     */
+    private static final String[] RESOURCE_LETTER_TEMPLATES = {
+        "/WEB-INF/eform-assets/clinic_letter.rtl",
+        "/WEB-INF/eform-assets/consultation_letter.rtl",
+        "/WEB-INF/eform-assets/patient_letter.rtl"
+    };
     private static final String RESOURCE_SIGNATURE_PAD = "/share/javascript/signature_pad.min.js";
     private static final String RESOURCE_JQUERY = "/library/jquery/jquery-3.7.1.min.js";
     private static final String RESOURCE_JQUERY_COMPAT = "/library/jquery/jquery-compat.js";
@@ -110,6 +122,11 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
         when(mockServletContext.getResourceAsStream(RESOURCE_EDITCONTROL)).thenReturn(toStream("js content"));
         when(mockServletContext.getResourceAsStream(RESOURCE_BLANK)).thenReturn(toStream("blank content"));
         when(mockServletContext.getResourceAsStream(RESOURCE_HELP)).thenReturn(toStream("help content"));
+        when(mockServletContext.getResourceAsStream(RESOURCE_STAMPS)).thenReturn(toStream("/* stamps */"));
+        for (String template : RESOURCE_LETTER_TEMPLATES) {
+            when(mockServletContext.getResourceAsStream(template))
+                    .thenAnswer(invocation -> toStream("<html><body>template</body></html>"));
+        }
         when(mockServletContext.getResourceAsStream(RESOURCE_SIGNATURE_PAD)).thenReturn(toStream("signature pad"));
         // thenAnswer (not thenReturn): the deployer now reads this resource path twice, once per
         // legacy jQuery alias (3.1.0 and 1.12.0). A real ServletContext hands back an independent
@@ -140,6 +157,10 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
             assertThat(new File(tempDir.toFile(), "editControl2.js")).exists();
             assertThat(new File(tempDir.toFile(), "blank.rtl")).exists();
             assertThat(new File(tempDir.toFile(), "editor_help.html")).exists();
+            assertThat(new File(tempDir.toFile(), "stamps.js")).exists();
+            assertThat(new File(tempDir.toFile(), "clinic_letter.rtl")).exists();
+            assertThat(new File(tempDir.toFile(), "consultation_letter.rtl")).exists();
+            assertThat(new File(tempDir.toFile(), "patient_letter.rtl")).exists();
             assertThat(new File(tempDir.toFile(), "signature_pad.min.js")).exists();
             assertThat(new File(tempDir.toFile(), "BNK.png")).exists();
             assertThat(new File(tempDir.toFile(), "jquery-3.1.0.min.js")).exists();
@@ -261,6 +282,22 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("Should keep a clinic's own stamps.js when one is already deployed")
+        void shouldPreserveClinicStampsJs_whenAlreadyDeployed() throws Exception {
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            stubAllAssets();
+            // stamps.js is where a clinic lists its shared signature images; the shipped file is
+            // only a placeholder so the letter stops loading a 404 in its place.
+            File clinicStamps = new File(tempDir.toFile(), "stamps.js");
+            Files.writeString(clinicStamps.toPath(), "ImgArray = [\"Smith|smith_signature.png\"];");
+
+            deployer.afterPropertiesSet();
+
+            assertThat(Files.readString(clinicStamps.toPath()))
+                    .isEqualTo("ImgArray = [\"Smith|smith_signature.png\"];");
+        }
+
+        @Test
         @DisplayName("Should preserve a seeded asset when the clinic has customized it")
         void shouldPreserveSeededAsset_whenClinicCustomizedIt() throws Exception {
             when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
@@ -310,6 +347,89 @@ class EFormAssetDeployerUnitTest extends CarlosUnitTestBase {
 
             assertThat(Files.readString(deployed.toPath())).isEqualTo("js content");
             assertThat(Files.getLastModifiedTime(deployed.toPath()).toMillis()).isZero();
+        }
+
+        /**
+         * The exact bytes every install deployed for the three lab decision-support stubs from
+         * 2026-07-28 until the CSRF fix: copied from a packaged install, not reconstructed.
+         */
+        private byte[] retiredSendBeaconStub() throws IOException {
+            try (InputStream in = EFormAssetDeployerUnitTest.class
+                    .getResourceAsStream("/eform/retired-lab-ds-stub-sendbeacon.js")) {
+                assertThat(in).as("retired stub fixture is on the test classpath").isNotNull();
+                return in.readAllBytes();
+            }
+        }
+
+        /** The script with comments removed, so assertions see only what executes. */
+        private String executableCode(String script) {
+            return script.replaceAll("(?s)/\\*.*?\\*/", "").replaceAll("(?m)^\\s*//.*$", "");
+        }
+
+        @Test
+        @DisplayName("Should report a stubbed lab function through an XHR that CSRFGuard can tokenize")
+        void shouldReportStubInvocation_throughCsrfTokenizedXhr() throws Exception {
+            // navigator.sendBeacon() cannot carry the CSRF-TOKEN header and the eForm page has no
+            // token to put in its body, so every report was refused with 403 (verified on a packaged
+            // install with the SOPLR lab requisition). CSRFGuard's client script adds the header to
+            // an XMLHttpRequest by itself, which is how the toolbar's window.onerror report succeeds.
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            for (String stub : new String[] {"LocationsLab_Nov2020.js", "LabDecisionSupport3_2024.js", "LabEngine_2023.js"}) {
+                String script = executableCode(Files.readString(tempDir.resolve(stub)));
+                assertThat(script).as(stub)
+                        .doesNotContain("sendBeacon")
+                        .contains("new global.XMLHttpRequest()")
+                        .contains("report.open('POST', ctx + '/eform/logEformError', true)");
+            }
+        }
+
+        @Test
+        @DisplayName("Should upgrade a lab stub that is byte-for-byte the retired sendBeacon version")
+        void shouldUpgradeLabStub_whenDeployedCopyIsRetiredShippedVersion() throws Exception {
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            Path deployed = tempDir.resolve("LabEngine_2023.js");
+            Files.write(deployed, retiredSendBeaconStub());
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            assertThat(executableCode(Files.readString(deployed)))
+                    .doesNotContain("sendBeacon").contains("new global.XMLHttpRequest()");
+        }
+
+        @Test
+        @DisplayName("Should preserve a lab script the clinic put in place of the stub")
+        void shouldPreserveLabScript_whenClinicReplacedTheStub() throws Exception {
+            // These stubs exist to be replaced by a clinic's real decision-support script; one edited
+            // byte away from the retired version is already a clinic copy.
+            when(mockProperties.getEformImageDirectory()).thenReturn(tempDir.toString());
+            Path realScript = tempDir.resolve("LabDecisionSupport3_2024.js");
+            Files.writeString(realScript, "/* clinic's real decision-support engine */");
+            byte[] edited = retiredSendBeaconStub();
+            edited[edited.length - 1] = (byte) ' ';
+            Path editedStub = tempDir.resolve("LocationsLab_Nov2020.js");
+            Files.write(editedStub, edited);
+            stubAllAssets();
+
+            deployer.afterPropertiesSet();
+
+            assertThat(Files.readString(realScript)).isEqualTo("/* clinic's real decision-support engine */");
+            assertThat(Files.readAllBytes(editedStub)).isEqualTo(edited);
+        }
+
+        @Test
+        @DisplayName("Should recognize the retired version only under the stub filenames it was shipped as")
+        void shouldRecognizeRetiredCopy_onlyForStubFilenames() throws Exception {
+            Path copy = tempDir.resolve("copy.js");
+            Files.write(copy, retiredSendBeaconStub());
+
+            assertThat(EFormAssetDeployer.isRetiredShippedCopy("LabEngine_2023.js", copy)).isTrue();
+            assertThat(EFormAssetDeployer.isRetiredShippedCopy("blank.rtl", copy)).isFalse();
+            assertThat(EFormAssetDeployer.isRetiredShippedCopy("LabEngine_2023.js", tempDir.resolve("absent.js"))).isFalse();
         }
 
         @Test

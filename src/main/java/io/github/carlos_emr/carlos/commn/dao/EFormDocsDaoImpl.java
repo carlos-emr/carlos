@@ -31,6 +31,12 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.persistence.LockModeType;
+import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+
 import java.util.List;
 
 import jakarta.persistence.Query;
@@ -42,8 +48,30 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings("unchecked")
 public class EFormDocsDaoImpl extends AbstractDaoImpl<EFormDocs> implements EFormDocsDao {
 
-    public EFormDocsDaoImpl() {
+    private final PatientLabRoutingDao patientLabRoutingDao;
+
+    @Autowired
+    public EFormDocsDaoImpl(PatientLabRoutingDao patientLabRoutingDao) {
         super(EFormDocs.class);
+        this.patientLabRoutingDao = patientLabRoutingDao;
+    }
+
+    @Override
+    public void persist(AbstractModel<?> model) {
+        EFormDocs attachment = (EFormDocs) model;
+        if (EFormDocs.DOCTYPE_LAB.equals(attachment.getDocType())) {
+            var owner = entityManager.find(EFormData.class,
+                    attachment.getFdid());
+            if (owner == null || owner.getDemographicId() == null) {
+                throw new IllegalArgumentException("Lab attachment parent is missing");
+            }
+            String selection = attachment.getLabType() == null ? Integer.toString(attachment.getDocumentNo())
+                    : attachment.getLabType() + ":" + attachment.getDocumentNo();
+            var reference = LabAttachmentReference.resolve(
+                    selection, owner.getDemographicId(), patientLabRoutingDao);
+            attachment.setLabType(reference.source());
+        }
+        super.persist(model);
     }
 
     public List<EFormDocs> findByFdidIdDocNoDocType(Integer fdid, Integer documentNo, String docType) {
@@ -76,9 +104,16 @@ public class EFormDocsDaoImpl extends AbstractDaoImpl<EFormDocs> implements EFor
     }
 
     public List<Object[]> findLabs(Integer fdid) {
-        Query q = entityManager.createQuery("SELECT cd, plr FROM EFormDocs cd, PatientLabRouting plr WHERE plr.labNo = cd.documentNo AND cd.fdid = ?1 AND cd.docType = ?2 AND cd.deleted IS NULL ORDER BY cd.documentNo");
+        Query q = entityManager.createQuery("SELECT cd, plr FROM EFormDocs cd, PatientLabRouting plr WHERE plr.labNo = cd.documentNo AND plr.labType = cd.labType AND EXISTS (select owner.id from EFormData owner where owner.id = cd.fdid and owner.demographicId = plr.demographicNo) AND cd.fdid = ?1 AND cd.docType = ?2 AND cd.deleted IS NULL ORDER BY cd.documentNo");
         q.setParameter(1, fdid);
         q.setParameter(2, EFormDocs.DOCTYPE_LAB);
         return q.getResultList();
     }
+    @Override
+    public List<EFormDocs> findByFdidIdDocTypeForUpdate(Integer id, String docType) {
+        return entityManager.createQuery("select x from EFormDocs x where x.fdid = :id and x.docType = :docType and x.deleted is null", EFormDocs.class)
+                .setParameter("id", id).setParameter("docType", docType)
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE).getResultList();
+    }
+
 }

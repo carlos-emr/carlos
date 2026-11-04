@@ -57,6 +57,10 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
     @PersistenceContext private EntityManager em;
     @Autowired private PlatformTransactionManager transactionManager;
     @Autowired private TicklerDao ticklerDao;
+    @Autowired private io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao ticklerDocsDao;
+    @Autowired private io.github.carlos_emr.carlos.commn.dao.DocumentDao documentDao;
+    @Autowired private io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao patientLabRoutingDao;
+    @Autowired private io.github.carlos_emr.carlos.commn.dao.EFormDataDao eFormDataDao;
     @Autowired private CaseManagementManager caseManagementManager;
     private TransactionTemplate transactions;
     private ChartUpdateReceiptStore receipts;
@@ -67,6 +71,7 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
     private CarlosProperties properties;
     private ChartUpdateContext.Snapshot snapshot;
     private ChartUpdateContext context;
+    private io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService attachments;
     private final java.util.List<Issue> createdIssues = new java.util.ArrayList<>();
 
     @BeforeEach void configure() {
@@ -74,6 +79,14 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
         transactions.executeWithoutResult(status -> {
             IntegrationTestSeedService.ensureProviderExists(em, "999998");
             IntegrationTestSeedService.ensureDemographicExists(em, PATIENT);
+            // Document 42, filed to the patient: the tickler's source, attached through the real
+            // TicklerAttachmentService, whose ownership check reads this live ctl_document link.
+            em.createNativeQuery("INSERT INTO document (document_no, doctype, docdesc, docfilename, doccreator, responsible, updatedatetime, status, contenttype, public1, observationdate) "
+                    + "SELECT 42, 'Synthetic', 'Synthetic source document', 'FAKE-source-42.txt', '999998', '999998', CURRENT_TIMESTAMP, 'A', 'text/plain', 0, CURRENT_DATE "
+                    + "WHERE NOT EXISTS (SELECT 1 FROM document WHERE document_no = 42)").executeUpdate();
+            em.createNativeQuery("INSERT INTO ctl_document (module, module_id, document_no, status) "
+                    + "SELECT 'demographic', " + PATIENT + ", 42, 'A' "
+                    + "WHERE NOT EXISTS (SELECT 1 FROM ctl_document WHERE module = 'demographic' AND module_id = " + PATIENT + " AND document_no = 42)").executeUpdate();
             em.createNativeQuery("INSERT INTO program (id, name) SELECT 10016, 'Synthetic program' WHERE NOT EXISTS (SELECT 1 FROM program WHERE id=10016)").executeUpdate();
             for (String section : ChartUpdateSections.CODES) {
                 if (em.createQuery("from Issue where code = :code").setParameter("code", section).getResultList().isEmpty()) {
@@ -108,7 +121,17 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
         when(security.hasPrivilege(any(), anyString(), anyString(), nullable(String.class))).thenReturn(true);
         ReflectionTestUtils.setField(nativeTicklers, "securityInfoManager", security);
         ReflectionTestUtils.setField(nativeTicklers, "ticklerDao", ticklerDao);
-        var target = new ReviewedChartUpdateService(context, receipts, nativeTicklers, caseManagementManager, providers);
+        // The real TicklerAttachmentService over the test database: its ticklerDocs write joins the
+        // service's transaction, so a commit leaves a row for document 42 and a rollback leaves none.
+        // Security and the non-document collaborators are stand-ins; the DAOs are the context's.
+        var access = mock(io.github.carlos_emr.carlos.documentManager.TicklerDocumentAccess.class);
+        when(access.canRead(any(), anyInt())).thenReturn(true);
+        attachments = new io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService(ticklerDocsDao, security,
+                documentDao, patientLabRoutingDao, eFormDataDao,
+                mock(io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class),
+                mock(io.github.carlos_emr.carlos.managers.FormsManager.class),
+                mock(io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager.class), ticklerDao, access);
+        var target = new ReviewedChartUpdateService(context, receipts, nativeTicklers, attachments, caseManagementManager, providers);
         var interceptor = new TransactionInterceptor();
         interceptor.setTransactionManager(transactionManager);
         interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
@@ -164,9 +187,14 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
         assertThat(apply()).isEqualTo(new ReviewedChartUpdateService.Result("tickler", result.target(), true));
         transactions.executeWithoutResult(status -> {
             assertThat(ticklerDao.findActiveByDemographicNo(PATIENT)).hasSize(1);
-            assertThat(em.createQuery("select count(l) from TicklerLink l where l.ticklerNo = :id", Long.class)
-                    .setParameter("id", (int) result.target()).getSingleResult()).isEqualTo(1);
             assertThat(receipts.find(review.receiptKey(proposal.key())).getTarget()).isEqualTo(result.target());
+        });
+        // The source document is attached once, to the committed tickler; the replay attached nothing more.
+        transactions.executeWithoutResult(status -> {
+            var rows = ticklerDocsDao.findByTicklerId((int) result.target());
+            assertThat(rows).hasSize(1);
+            assertThat(rows.get(0).getDocumentNo()).isEqualTo(42);
+            assertThat(rows.get(0).getDocType()).isEqualTo("D");
         });
     }
 
@@ -203,9 +231,11 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
         transactions.executeWithoutResult(status -> {
             assertThat(ticklerDao.findActiveByDemographicNo(PATIENT)).isEmpty();
             assertThat(receipts.find(review.receiptKey(proposal.key()))).isNull();
-            assertThat(em.createQuery("select count(l) from TicklerLink l where l.tableName = 'DOC' and l.tableId = 42", Long.class)
-                    .getSingleResult()).isZero();
         });
+        // The attachment write joined the rolled-back transaction: no tickler_docs row for document 42.
+        transactions.executeWithoutResult(status -> assertThat(
+                em.createQuery("select count(d) from TicklerDocs d where d.documentNo = 42", Long.class).getSingleResult())
+                .isZero());
     }
 
     private void prepareHistory() {

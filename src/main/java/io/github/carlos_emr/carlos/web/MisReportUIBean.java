@@ -28,6 +28,7 @@ package io.github.carlos_emr.carlos.web;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.HashSet;
 import java.util.List;
@@ -139,6 +140,54 @@ public final class MisReportUIBean {
     public static String getDateRangeForDisplay(GregorianCalendar startDate, GregorianCalendar endDate) {
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
         return (Encode.forHtml(simpleDateFormat.format(startDate.getTime()) + " to " + simpleDateFormat.format(endDate.getTime()) + " (inclusive)"));
+    }
+
+    /**
+     * The dates an MIS report covers, from the report form's start and end month lists.
+     *
+     * <p>The lists number months 1 to 12, while {@link GregorianCalendar} counts them from 0.
+     * Passing them straight through made every report cover the month after the one chosen
+     * (issue #4846), so the conversion lives here, in one tested place.</p>
+     *
+     * @param start        the first instant of the start month
+     * @param endExclusive the first instant of the month after the end month: the end bound the
+     *                     report's constructors and queries take
+     * @since 2026-10-17
+     */
+    public record ReportPeriod(GregorianCalendar start, GregorianCalendar endExclusive) {
+
+        /**
+         * @param startYear  the year of the first month
+         * @param startMonth the first month, 1 = January
+         * @param endYear    the year of the last month
+         * @param endMonth   the last month, 1 = January; it is included in the period
+         * @return the period from the first day of the start month through the last day of the end month
+         * @throws IllegalArgumentException when a month is outside 1 to 12
+         */
+        public static ReportPeriod ofMonths(int startYear, int startMonth, int endYear, int endMonth) {
+            GregorianCalendar endExclusive = firstDayOf(endYear, endMonth);
+            endExclusive.add(Calendar.MONTH, 1);
+            return new ReportPeriod(firstDayOf(startYear, startMonth), endExclusive);
+        }
+
+        /** @return the first day of the period, yyyy-MM-dd */
+        public String firstDay() {
+            return new SimpleDateFormat("yyyy-MM-dd").format(start.getTime());
+        }
+
+        /** @return the last day of the period (the end month's last day), yyyy-MM-dd */
+        public String lastDay() {
+            GregorianCalendar lastDay = (GregorianCalendar) endExclusive.clone();
+            lastDay.add(Calendar.DAY_OF_MONTH, -1);
+            return new SimpleDateFormat("yyyy-MM-dd").format(lastDay.getTime());
+        }
+
+        private static GregorianCalendar firstDayOf(int year, int month) {
+            if (month < 1 || month > 12) {
+                throw new IllegalArgumentException("month must be 1 to 12");
+            }
+            return new GregorianCalendar(year, month - 1, 1);
+        }
     }
 
     private void populateAdmissions() {

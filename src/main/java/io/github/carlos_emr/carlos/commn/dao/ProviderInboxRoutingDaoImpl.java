@@ -32,7 +32,6 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.persistence.Query;
@@ -122,33 +121,61 @@ public class ProviderInboxRoutingDaoImpl extends AbstractDaoImpl<ProviderInboxIt
      *                   class.
      */
     // TODO Replace labType parameter with an enum
-    @SuppressWarnings("unchecked")
     @Override
     public void addToProviderInbox(String providerNo, Integer labNo, String labType) {
-        ArrayList<String> listofAdditionalProviders = new ArrayList<String>();
-        boolean fileForMainProvider = false;
-
         try {
+            addToProviderInboxStrict(providerNo, labNo, labType);
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Provider inbox routing failed", e);
+        }
+    }
+
+    /**
+     * Adds the item to the recipient's inbox and follows the recipient's forwarding rules.
+     *
+     * <p>Only rules that apply to {@code labType} are followed, both for forwarding and for the
+     * "file" status ({@link IncomingLabRules#appliesToLabType(String)}): a rule scoped to HL7 or
+     * HRM must not route a document. Active rules are those with {@code archive = '0'}, as in
+     * {@link IncomingLabRulesDao#findCurrentByProviderNo(String)}, which HRM routing and the lab
+     * file-status lookup use. Forwarding chains are followed transitively; cycles terminate on
+     * the visited set.</p>
+     *
+     * <p>The surrounding transaction owns all recipients; no partial forwarding is reported as
+     * success.</p>
+     */
+    @SuppressWarnings("unchecked")
+    @Override
+    public void addToProviderInboxStrict(String providerNo, Integer labNo, String labType) {
+        if (providerNo == null || providerNo.isBlank()) throw new IllegalArgumentException("Missing inbox recipient");
+        java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>();
+        java.util.Set<String> visited = new java.util.HashSet<>();
+        pending.add(providerNo);
+        while (!pending.isEmpty()) {
+            String currentProvider = pending.removeFirst();
+            if (!visited.add(currentProvider)) continue;
+            boolean fileForMainProvider = false;
             Query rulesQuery = entityManager
                     .createQuery("FROM IncomingLabRules r WHERE r.archive = '0' AND r.providerNo = ?1");
-            rulesQuery.setParameter(1, providerNo);
+            rulesQuery.setParameter(1, currentProvider);
 
             for (IncomingLabRules rules : (List<IncomingLabRules>) rulesQuery.getResultList()) {
+                if (!rules.appliesToLabType(labType)) continue;
                 String status = rules.getStatus();
                 String frwdProvider = rules.getFrwdProviderNo();
 
-                listofAdditionalProviders.add(frwdProvider);
+                if (frwdProvider == null || frwdProvider.isBlank()) throw new IllegalArgumentException("Missing forwarding recipient");
+                pending.add(frwdProvider);
                 if (status != null && status.equals("F"))
                     fileForMainProvider = true;
             }
 
             ProviderInboxItem p = new ProviderInboxItem();
-            p.setProviderNo(providerNo);
+            p.setProviderNo(currentProvider);
             p.setLabNo(labNo);
             p.setLabType(labType);
             p.setStatus(fileForMainProvider ? ProviderInboxItem.FILE : ProviderInboxItem.NEW);
 
-            List<ProviderInboxItem> documentsLinkedWithProvider = findDocumentsLinkedWithProvider(labType, labNo, providerNo);
+            List<ProviderInboxItem> documentsLinkedWithProvider = findDocumentsLinkedWithProvider(labType, labNo, currentProvider);
             if (documentsLinkedWithProvider.isEmpty()) {
                 persist(p);
             } else {
@@ -157,13 +184,7 @@ public class ProviderInboxRoutingDaoImpl extends AbstractDaoImpl<ProviderInboxIt
                 merge(existingProviderInboxItem);
             }
 
-            for (String provider : listofAdditionalProviders) {
-                addToProviderInbox(provider, labNo, labType);
-            }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
         }
-
     }
 
 }

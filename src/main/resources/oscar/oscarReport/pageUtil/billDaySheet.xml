@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<jasperReport name="billDaySheet" columnCount="1" printOrder="Vertical" orientation="Portrait" pageWidth="842" pageHeight="595" columnWidth="782" columnSpacing="0" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" whenNoDataType="NoPages" isTitleNewPage="false" isSummaryNewPage="false">
+<jasperReport name="billDaySheet" columnCount="1" printOrder="Vertical" orientation="Portrait" pageWidth="842" pageHeight="595" columnWidth="782" columnSpacing="0" leftMargin="30" rightMargin="30" topMargin="20" bottomMargin="20" whenNoDataType="NoPages" titleNewPage="false" summaryNewPage="false">
 	<property name="ireport.scriptlethandling" value="0" />
 	<property name="ireport.encoding" value="UTF-8" />
-	<import value="java.util.*" />
-	<import value="net.sf.jasperreports.engine.*" />
-	<import value="net.sf.jasperreports.engine.data.*" />
-	<parameter name="input_date" isForPrompting="false" class="java.lang.String" />
-	<queryString><![CDATA[select * from appointment where appointment_date = $P{input_date}]]></queryString>
+	<import>java.util.*</import>
+	<import>net.sf.jasperreports.engine.*</import>
+	<import>net.sf.jasperreports.engine.data.*</import>
+	<parameter name="input_date" forPrompting="false" class="java.lang.String" />
+	<query language="sql"><![CDATA[select * from appointment where appointment_date = $P{input_date}]]></query>
 	<field name="appointment_no" class="java.lang.Integer" />
 	<field name="provider_no" class="java.lang.String" />
 	<field name="appointment_date" class="java.sql.Date" />
@@ -39,20 +39,16 @@
 			<text><![CDATA[Daily Appointments]]></text>
 		</element>
 		<element kind="line" x="0" y="48" width="781" height="0" forecolor="#000000" backcolor="#FFFFFF" key="line" direction="TopDown">
-			<graphicElement stretchType="NoStretch" />
 		</element>
 		<element kind="line" x="0" y="3" width="781" height="0" forecolor="#000000" backcolor="#FFFFFF" key="line" direction="TopDown">
-			<graphicElement stretchType="NoStretch" />
 		</element>
 		<element kind="textField" x="47" y="59" width="103" height="18" key="textField-1" blankWhenNull="false" pattern="" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
 			<box />
 			<expression><![CDATA[$P{input_date}]]></expression>
 		</element>
 		<element kind="line" x="0" y="54" width="781" height="0" key="line-1" direction="TopDown">
-			<graphicElement stretchType="NoStretch" />
 		</element>
 		<element kind="line" x="0" y="78" width="781" height="0" key="line-2" direction="TopDown">
-			<graphicElement stretchType="NoStretch" />
 		</element>
 		<element kind="staticText" x="5" y="59" width="37" height="16" key="staticText-1" bold="true" pdfFontName="Helvetica-Bold">
 			<box />
@@ -63,15 +59,11 @@
 			</pageHeader>
 	<columnHeader height="142">
 		<element kind="rectangle" mode="Opaque" x="0" y="0" width="782" height="17" forecolor="#000000" backcolor="#808080" key="rectangle">
-			<graphicElement stretchType="NoStretch">
-				<pen lineWidth="0.0" lineStyle="Solid" />
-			</graphicElement>
+			<pen lineWidth="0.0" lineStyle="Solid" />
 		</element>
 		<element kind="line" x="0" y="0" width="782" height="0" forecolor="#000000" backcolor="#FFFFFF" key="line" direction="BottomUp">
-			<graphicElement stretchType="NoStretch" />
 		</element>
 		<element kind="line" x="0" y="15" width="782" height="0" forecolor="#000000" backcolor="#FFFFFF" key="line" direction="BottomUp">
-			<graphicElement stretchType="NoStretch" />
 		</element>
 		<element kind="staticText" x="0" y="0" width="83" height="142" forecolor="#FFFFFF" key="staticText" hTextAlign="Center" fontSize="12.0">
 			<box>
@@ -617,7 +609,6 @@ I]]></text>
 	<detail>
 		<band height="17">
 			<element kind="line" x="0" y="16" width="782" height="0" forecolor="#808080" backcolor="#FFFFFF" key="line" direction="TopDown">
-				<graphicElement stretchType="NoStretch" />
 			</element>
 			<element kind="textField" x="0" y="-1" width="83" height="17" forecolor="#000000" key="textField" hTextAlign="Center" fontSize="12.0" bold="false" italic="false" underline="false" strikeThrough="false" pdfEmbedded="false" blankWhenNull="false" pattern="h.mm a" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
 				<box>
@@ -733,7 +724,6 @@ I]]></text>
 			<expression><![CDATA["" + $V{PAGE_NUMBER}]]></expression>
 		</element>
 		<element kind="line" x="0" y="3" width="782" height="0" forecolor="#000000" backcolor="#FFFFFF" key="line" direction="TopDown">
-			<graphicElement stretchType="NoStretch" />
 		</element>
 		<element kind="textField" x="1" y="6" width="209" height="19" forecolor="#000000" key="textField" blankWhenNull="false" evaluationTime="Now" hyperlinkType="None" hyperlinkTarget="Self">
 			<box>

@@ -157,8 +157,15 @@
         ds_rules="diab-C-no-is-high.drl"/>
     <item
         measurement_type="FTLS"
-        display_name="Test loss of Sensation"
-        guideline="Check for peripheral anesthesia with 10g monofilament or 128 Hz tuning fork"
+        display_name="Neurological exam: 10g monofilament"
+        guideline="Check for peripheral anesthesia with 10g monofilament"
+        graphable="no"
+        value_name="Normal"
+        ds_rules="diab-C-no-is-high.drl"/>
+    <item
+        measurement_type="NRTF"
+        display_name="Neurological exam: 128Hz tuning fork D1"
+        guideline="Check for peripheral anesthesia with 128 Hz tuning fork"
         graphable="no"
         value_name="Normal"
         ds_rules="diab-C-no-is-high.drl"/>
@@ -398,6 +405,16 @@
            name="Yes/No"
            regularExp="YES|yes|Yes|Y|NO|no|No|N"/>   
     </measurement>   
+
+    <measurement
+        type="NRTF"
+        typeDesc="Neurological exam: 128Hz tuning fork D1"
+        typeDisplayName="Neurological exam: 128Hz tuning fork D1"
+        measuringInstrc="Normal">
+        <validationRule
+           name="Yes/No"
+           regularExp="YES|yes|Yes|Y|NO|no|No|N"/>
+    </measurement>
  
           
     <measurement 

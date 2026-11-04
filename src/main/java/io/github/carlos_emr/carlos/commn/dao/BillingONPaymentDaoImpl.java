@@ -101,7 +101,7 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
         BigDecimal paymentsSum = null;
         try {
             paymentsSum = (BigDecimal) query.getSingleResult();
-        } catch (NoResultException ex) {
+        } catch (NoResultException _) {
             paymentsSum = new BigDecimal(0);
         }
         return paymentsSum;
@@ -113,7 +113,7 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
         BigDecimal paymentsSum = null;
         try {
             paymentsSum = (BigDecimal) query.getSingleResult();
-        } catch (NoResultException ex) {
+        } catch (NoResultException _) {
             paymentsSum = new BigDecimal(0);
         }
         return paymentsSum;
@@ -125,7 +125,7 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
         BigDecimal paymentsSum = null;
         try {
             paymentsSum = (BigDecimal) query.getSingleResult();
-        } catch (NoResultException ex) {
+        } catch (NoResultException _) {
             paymentsSum = new BigDecimal(0);
         }
         return paymentsSum;
@@ -137,7 +137,7 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
         try {
             query.setParameter(1, Integer.parseInt(billingNo));
             paymentsSum = (BigDecimal) query.getSingleResult();
-        } catch (NoResultException ex) {
+        } catch (NoResultException _) {
             // Expected: a billing row with no payments yet — return zero formatted as currency.
             paymentsSum = new BigDecimal(0);
         } catch (NumberFormatException ex) {
@@ -155,7 +155,7 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
         try {
             query.setParameter(1, Integer.parseInt(billingNo));
             paymentsSum = (BigDecimal) query.getSingleResult();
-        } catch (NoResultException ex) {
+        } catch (NoResultException _) {
             // Expected: no refund rows on this bill — render zero.
             paymentsSum = new BigDecimal(0);
         } catch (NumberFormatException ex) {
@@ -172,7 +172,7 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
         try {
             query.setParameter(1, Integer.valueOf(billingNo));
             return (Integer) query.getSingleResult();
-        } catch (NoResultException e) {
+        } catch (NoResultException _) {
             // Expected: bill has no payment row yet — caller treats 0 as "no payment".
             return 0;
         }
@@ -236,7 +236,7 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, bCh1.getId());
         query.setParameter(2, startDate);
-        query.setParameter(3, endDate);
+        query.setParameter(3, BillingPaymentDateRange.endExclusive(endDate));
 
         @SuppressWarnings("unchecked")
         List<BillingONPayment> results = query.getResultList();
@@ -254,7 +254,7 @@ public class BillingONPaymentDaoImpl extends AbstractDaoImpl<BillingONPayment> i
         Query query = entityManager.createQuery(sql);
         query.setParameter(1, billingNos);
         query.setParameter(2, startDate);
-        query.setParameter(3, endDate);
+        query.setParameter(3, BillingPaymentDateRange.endExclusive(endDate));
 
         @SuppressWarnings("unchecked")
         List<BillingONPayment> results = query.getResultList();

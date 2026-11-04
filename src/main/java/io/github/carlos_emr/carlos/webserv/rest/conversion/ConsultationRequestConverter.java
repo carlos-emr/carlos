@@ -36,7 +36,23 @@ import org.springframework.stereotype.Component;
 @Component
 public class ConsultationRequestConverter extends AbstractConverter<ConsultationRequest, ConsultationRequestTo1> {
 
+    /**
+     * Applies submitted fields only after validating the patient of the existing request.
+     *
+     * @param loggedInInfo authenticated caller context
+     * @param t submitted request fields
+     * @param d existing request, or a new unsaved request
+     * @return the updated request
+     * @throws IllegalArgumentException if required metadata is missing or ownership changes
+     * @throws ConversionException if conversion cannot complete
+     */
     public ConsultationRequest getAsDomainObject(LoggedInInfo loggedInInfo, ConsultationRequestTo1 t, ConsultationRequest d) throws ConversionException {
+        if (t == null || d == null) throw new IllegalArgumentException("Consultation request is unavailable");
+        Integer patient = t.getDemographicId();
+        if (patient == null || patient <= 0
+                || (d.getId() != null && !patient.equals(d.getDemographicId()))) {
+            throw new IllegalArgumentException("Invalid consultation request patient");
+        }
         d.setAllergies(t.getAllergies());
         d.setAppointmentDate(t.getAppointmentDate());
         d.setAppointmentTime(t.getAppointmentTime());

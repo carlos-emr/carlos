@@ -47,8 +47,21 @@ function eRefer(event) {
         data: data,
         success: function (response) {
             console.log(response);
-        }
+        },
+        error: reportOceanAttachmentFailure
     });
+}
+
+// The server verifies that every attachment (and, when editing, the consultation) belongs to this
+// patient and rejects the whole request otherwise (issue #3867). Tell the user rather than letting
+// the referral go out silently without its attachments.
+function reportOceanAttachmentFailure(jqXHR) {
+    if (jqXHR && (jqXHR.status === 400 || jqXHR.status === 403)) {
+        alert("The selected attachments could not be sent to Ocean because they could not be verified for this patient. "
+            + "Please close this window and restart the referral from the patient's chart.");
+    } else {
+        console.log("Ocean attachment request failed" + (jqXHR ? ": " + jqXHR.status : ""));
+    }
 }
 
 function getDocuments(event) {
@@ -87,6 +100,7 @@ function attachOceanAttachments() {
         data: data,
         success: function (response) {
             console.log(response);
-        }
+        },
+        error: reportOceanAttachmentFailure
     });
 }

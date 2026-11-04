@@ -48,7 +48,7 @@ class SmsSendTransactionBoundaryIntegrationTest extends CarlosTestBase {
                 dao, mock(ApplicationEventPublisher.class), transactionManager));
         SmsProviderClient provider = new StubSmsProviderClient() {
             @Override
-            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId) {
+            public SmsProviderSendResultDto send(SmsSendCommand command, String clientReferenceId, SmsProviderSettings settings) {
                 assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
                 Long id = Long.valueOf(clientReferenceId.substring("sms-transaction-".length()));
                 sentId.set(id);
@@ -57,7 +57,7 @@ class SmsSendTransactionBoundaryIntegrationTest extends CarlosTestBase {
                     assertThat(committed).isNotNull();
                     assertThat(committed.getStatus()).isEqualTo(SmsStatus.SENDING);
                 }
-                return super.send(command, clientReferenceId);
+                return super.send(command, clientReferenceId, settings);
             }
         };
         SmsSendService service = (SmsSendService) transactional(new SmsSendService(new SmsSendValidator(),
@@ -74,6 +74,51 @@ class SmsSendTransactionBoundaryIntegrationTest extends CarlosTestBase {
                     cleanup.getTransaction().begin();
                     cleanup.createQuery("DELETE FROM SmsTransaction t WHERE t.id = :id")
                             .setParameter("id", sentId.get()).executeUpdate();
+                    cleanup.getTransaction().commit();
+                }
+            }
+        }
+    }
+
+    @Test
+    void shouldReleaseCommittedClaim_whenRateLimitDeniesDirectSend() {
+        SmsTransactionService recorder = (SmsTransactionService) transactional(new JpaSmsTransactionService(
+                dao, mock(ApplicationEventPublisher.class), transactionManager));
+        AtomicReference<Long> claimedId = new AtomicReference<>();
+        SmsSendRateLimitService deniesAfterClaimCommits = type -> {
+            // By now markSending has committed the claim in its own transaction.
+            try (EntityManager observer = entityManagerFactory.createEntityManager()) {
+                SmsTransaction claimed = observer.createQuery(
+                                "SELECT t FROM SmsTransaction t WHERE t.messageBody = :body", SmsTransaction.class)
+                        .setParameter("body", "synthetic rate-limit release test")
+                        .getSingleResult();
+                claimedId.set(claimed.getId());
+                assertThat(claimed.getStatus()).isEqualTo(SmsStatus.SENDING);
+            }
+            return false;
+        };
+        SmsSendService service = (SmsSendService) transactional(new SmsSendService(new SmsSendValidator(),
+                command -> SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z")), new SmsProviderClientResolver(List.of(
+                        new StubSmsProviderClient())), recorder,
+                deniesAfterClaimCommits, new SmsDefaultProviderResolver(() -> "STUB")));
+        try {
+            assertThat(service.send(SmsSendCommand.patientMessage(
+                    123, "416-555-1212", "synthetic rate-limit release test", "999998")).status())
+                    .isEqualTo(SmsStatus.QUEUED);
+
+            // The release must match the version markSending committed, or it is silently skipped.
+            try (EntityManager observer = entityManagerFactory.createEntityManager()) {
+                SmsTransaction released = observer.find(SmsTransaction.class, claimedId.get());
+                assertThat(released.getStatus()).isEqualTo(SmsStatus.QUEUED);
+                assertThat(released.getAttemptCount()).isZero();
+                assertThat(released.getNextAttemptAt()).isNotNull().isBeforeOrEqualTo(new java.util.Date());
+            }
+        } finally {
+            if (claimedId.get() != null) {
+                try (EntityManager cleanup = entityManagerFactory.createEntityManager()) {
+                    cleanup.getTransaction().begin();
+                    cleanup.createQuery("DELETE FROM SmsTransaction t WHERE t.id = :id")
+                            .setParameter("id", claimedId.get()).executeUpdate();
                     cleanup.getTransaction().commit();
                 }
             }

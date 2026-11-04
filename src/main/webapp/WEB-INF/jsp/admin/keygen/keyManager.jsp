@@ -57,7 +57,7 @@
 
 <br/>
 
-<input type="button" value="Create New Key" onclick="document.location='/admin/ViewKeygenCreateKey'"/>
+<input type="button" value="Create New Key" onclick="document.location='${carlos:forJavaScriptAttribute(pageContext.request.contextPath)}/admin/ViewKeygenCreateKey'"/>
 
 <br/>
 <hr/>
@@ -117,7 +117,7 @@
     function updateMatchingProcessionalSpecialist() {
         var selectKeyList = document.getElementById("selectKeyList");
         var selectProfessionalSpecialistList = document.getElementById("selectProfessionalSpecialistList");
-        jQuery.post("/admin/ViewKeygenUpdateMatchingProfessionalSpecialist", {
+        jQuery.post("${carlos:forJavaScriptBlock(pageContext.request.contextPath)}/admin/ViewKeygenUpdateMatchingProfessionalSpecialist", {
                 serviceName: getSelectListValue(selectKeyList),
                 professionalSpecialistId: getSelectListValue(selectProfessionalSpecialistList)
             },

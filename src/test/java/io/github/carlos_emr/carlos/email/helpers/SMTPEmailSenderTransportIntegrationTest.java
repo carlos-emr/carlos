@@ -19,9 +19,17 @@
 package io.github.carlos_emr.carlos.email.helpers;
 
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
+import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.utility.PDFSigningUtil;
+import io.github.carlos_emr.carlos.test.util.PdfSigningTestSupport;
+import jakarta.mail.Multipart;
+import jakarta.mail.Part;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
 import org.mockito.MockedStatic;
 import org.junit.jupiter.api.AfterEach;
 import static org.mockito.Mockito.mockStatic;
@@ -29,21 +37,32 @@ import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.EmailSendingException.Refusal;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStreamReader;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.KeyPair;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mail.javamail.JavaMailSender;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -58,11 +77,14 @@ import static org.mockito.Mockito.when;
  */
 @Tag("integration")
 class SMTPEmailSenderTransportIntegrationTest {
+    @TempDir
+    private Path tempDir;
     private MockedStatic<SpringUtils> springUtils;
     private LoggedInInfo caller;
+    private final List<Path> generatedPdfs = new ArrayList<>();
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws IOException {
         springUtils = mockStatic(SpringUtils.class);
         caller = mock(LoggedInInfo.class);
         SecurityInfoManager security = mock(SecurityInfoManager.class);
@@ -70,20 +92,29 @@ class SMTPEmailSenderTransportIntegrationTest {
         when(security.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
         JavaMailSender mailSender = mock(JavaMailSender.class);
         NioFileManager fileManager = mock(NioFileManager.class);
+        when(fileManager.createManagedTempFile(any(), any())).thenAnswer(invocation ->
+                Files.createTempFile(tempDir, invocation.getArgument(0), invocation.getArgument(1)));
         springUtils.when(() -> SpringUtils.getBean(JavaMailSender.class)).thenReturn(mailSender);
         springUtils.when(() -> SpringUtils.getBean(NioFileManager.class)).thenReturn(fileManager);
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws Exception {
         if (springUtils != null) {
             springUtils.close();
         }
+        for (Path pdf : generatedPdfs) Files.deleteIfExists(pdf);
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void shouldPreservePreparedMimeBytes_whenAcknowledgementVaries(boolean dropAcknowledgement) throws Exception {
+    @MethodSource("messageInputs")
+    void shouldPreservePreparedMimeBytes_whenAcknowledgementVaries(boolean dropAcknowledgement, String body) throws Exception {
+        KeyPair keyPair = PdfSigningTestSupport.createKeyPair("EC", 256);
+        Path signed = PDFSigningUtil.signPDF(PdfSigningTestSupport.writeSinglePagePdf(tempDir.resolve("source.pdf")),
+                PdfSigningTestSupport.enabledConfig(tempDir.resolve("fake.p12"), keyPair.getPrivate(),
+                        PdfSigningTestSupport.createSelfSignedCertificate(keyPair, "SHA256withECDSA")));
+        generatedPdfs.add(signed);
+        byte[] signedBytes = Files.readAllBytes(signed);
         try (ServerSocket receiver = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
             receiver.setSoTimeout(10_000);
             CompletableFuture<byte[]> received = new CompletableFuture<>();
@@ -91,8 +122,10 @@ class SMTPEmailSenderTransportIntegrationTest {
                     () -> receive(receiver, received, dropAcknowledgement ? null : "250 accepted"));
             SMTPEmailSender sender = new LocalSMTPEmailSender(caller, localConfig(receiver.getLocalPort()),
                     new String[]{"recipient@example.test"}, "Synthetic archive transport test",
-                    "First line\r\n.dot-stuffed line\r\nFinal line", List.of());
+                    body, List.of(new EmailAttachment("signed.pdf", signed.toString(), DocumentType.DOC, 101)));
             byte[] archived = sender.prepareArtifactBytes();
+            assertThat(pdfAttachmentBytes(new MimeMessage(Session.getInstance(new Properties()),
+                    new ByteArrayInputStream(archived)))).isEqualTo(signedBytes);
 
             if (dropAcknowledgement) {
                 assertThatThrownBy(sender::sendPrepared).isInstanceOfSatisfying(
@@ -102,11 +135,37 @@ class SMTPEmailSenderTransportIntegrationTest {
                 sender.sendPrepared();
             }
 
-            assertThat(received.get(10, TimeUnit.SECONDS)).isEqualTo(archived);
+            byte[] captured = received.get(10, TimeUnit.SECONDS);
+            assertThat(captured).isEqualTo(archived);
+            byte[] receivedPdf = pdfAttachmentBytes(new MimeMessage(Session.getInstance(new Properties()),
+                    new ByteArrayInputStream(captured)));
+            assertThat(receivedPdf).isEqualTo(signedBytes);
+            Path delivered = Files.write(tempDir.resolve("delivered.pdf"), receivedPdf);
+            assertThat(PdfSigningTestSupport.verifyDetachedSignature(delivered, null)).isTrue();
             assertThat(sender.getPreparedAttachments()).isEmpty();
             assertThatThrownBy(sender::sendPrepared).isInstanceOf(EmailSendingException.class)
                     .hasMessageContaining("must be prepared");
         }
+    }
+
+    private static Stream<Arguments> messageInputs() {
+        return Stream.of("First line\r\n.dot-stuffed line\r\nFinal line",
+                "First line\n.dot-stuffed line\nFinal line",
+                "First line\r.dot-stuffed line\rFinal line",
+                "First line\r\n.dot-stuffed line\nAnother line\rFinal line")
+                .flatMap(body -> Stream.of(Arguments.of(false, body), Arguments.of(true, body)));
+    }
+
+    private static byte[] pdfAttachmentBytes(Part part) throws Exception {
+        if ("signed.pdf".equals(part.getFileName())) return part.getInputStream().readAllBytes();
+        if (part.isMimeType("multipart/*")) {
+            Multipart body = (Multipart) part.getContent();
+            for (int i = 0; i < body.getCount(); i++) {
+                byte[] found = pdfAttachmentBytes(body.getBodyPart(i));
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 
     /**

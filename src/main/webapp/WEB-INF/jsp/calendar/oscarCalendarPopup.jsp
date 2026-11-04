@@ -75,12 +75,19 @@
 
             }
 
+            // Writes the picked day into the opener's field: the named form's element, or else the first field with
+            // that name (the CAISI message editors are plain forms since the Struts 1 tags went).
             function typeCaisiDate(form_name, element_name, year1, month1, day1) {
+                var doc = opener && !opener.closed ? opener.document : null;
+                var form = doc ? doc.forms.namedItem(form_name) : null;
+                var field = form ? form.elements.namedItem(element_name) : null;
+                if (!field && doc) {
+                    field = doc.getElementsByName(element_name)[0] || null;
+                }
+                if (field) {
+                    field.value = year1 + "-" + month1 + "-" + day1;
+                }
                 self.close();
-                var test = "opener.document." + form_name + ".elements['" + element_name + "'].value";
-                var val = "'" + year1 + "-" + month1 + "-" + day1 + "'";
-                var myexpr = test + "=" + val;
-                eval(myexpr);
             }
 
             //-->

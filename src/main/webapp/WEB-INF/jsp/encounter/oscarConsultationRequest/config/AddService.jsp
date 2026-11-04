@@ -30,6 +30,8 @@
 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConTitlebar" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.FormSubmissionGuard" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -102,12 +104,18 @@
                 %>
                 <div class="alert alert-success">
                     <fmt:message key="encounter.oscarConsultationRequest.config.AddService.msgServiceAdded">
-                        <fmt:param value="<%=added%>" />
+                        <%-- fmt:message does not escape its parameters; the name is user-entered. --%>
+                        <fmt:param value="<%= SafeEncode.forHtmlContent(added) %>" />
                     </fmt:message>
                 </div>
                 <% } %>
 
                 <form action="${pageContext.request.contextPath}/encounter/AddService" method="post" onsubmit="return checkServiceName();">
+                    <%-- One service per rendering (issue #4225): a reload of this page after an add, or a
+                         repeated Add, ends as the first add did. Each rendering, the confirmation included,
+                         gets its own token, so adding another service still works. --%>
+                    <input type="hidden" name="<%= FormSubmissionGuard.PARAMETER %>"
+                           value="<carlos:encode value='<%= FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.CONSULTATION_SERVICE_ADD, null) %>' context="htmlAttribute"/>"/>
                     <div class="row mb-3">
                         <div class="col-md-5">
                             <label for="service" class="form-label"><fmt:message key="encounter.oscarConsultationRequest.config.AddService.service"/></label>

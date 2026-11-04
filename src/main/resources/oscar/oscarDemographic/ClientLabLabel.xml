@@ -23,13 +23,13 @@
 	<field name="curr_date" class="java.lang.String" />
 	<field name="program_name" class="java.lang.String" />
 	<title height="60">
-		<element kind="textField" positionType="Float" mode="Opaque" x="0" y="10" width="330" height="14" fontSize="10.0" bold="true">
+		<element fontName="DejaVu Sans" kind="textField" positionType="Float" mode="Opaque" x="0" y="10" width="330" height="14" fontSize="10.0" bold="true">
 			<expression><![CDATA[$F{first_name} + " " + $F{last_name} + " (Client Record# " + $F{demographic_no} + ")"]]></expression>
 		</element>
-		<element kind="textField" positionType="Float" mode="Opaque" x="0" y="25" width="330" height="14" fontSize="10.0">
+		<element fontName="DejaVu Sans" kind="textField" positionType="Float" mode="Opaque" x="0" y="25" width="330" height="14" fontSize="10.0">
 			<expression><![CDATA["HIN: " +$F{hin} + ", Birthday: " + $F{birthday} + ", Gender: " + $F{sex} + ", Age: " + $F{age}]]></expression>
 		</element>
-		<element kind="textField" positionType="Float" mode="Opaque" x="0" y="38" width="330" height="14" fontSize="10.0">
+		<element fontName="DejaVu Sans" kind="textField" positionType="Float" mode="Opaque" x="0" y="38" width="330" height="14" fontSize="10.0">
 			<expression><![CDATA["Date of Collection: " + $F{curr_date} + ", Clinic Location: " + $F{program_name} ]]></expression>
 		</element>
 	</title>

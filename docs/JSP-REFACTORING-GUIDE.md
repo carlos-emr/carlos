@@ -529,9 +529,9 @@ if (!confirm(i18n.msgConfirmDelete)) return;
 
 #### UTF-8 Encoding
 
-Properties files must be saved as valid UTF-8 on Java 21. Direct non-ASCII characters
-are allowed, and existing `\uXXXX` escapes remain valid. See
-[I18N-STANDARDS.md — Encoding](I18N-STANDARDS.md#utf-8-encoding-requirements-java-21).
+Properties files are ASCII only: accented letters are written as lowercase `\uXXXX`
+escapes, and the bundle-parse test (`shouldKeepPropertiesSourceFiles_asciiOnly`) fails on any raw non-ASCII character. See
+[I18N-STANDARDS.md — Encoding](I18N-STANDARDS.md#utf-8-encoding-requirements-java-25).
 
 #### Legacy Pattern to Avoid
 

@@ -92,6 +92,30 @@ class SRFaxProviderClientRequestConstructionUnitTest extends CarlosUnitTestBase 
             this.capturedParams = params;
             return cannedResponse;
         }
+
+        @Override
+        protected JsonNode postDocument(String endpoint, List<NameValuePair> params, Path file, String legacyDocument)
+                throws FaxProviderException {
+            try (var input = FaxDocumentEntity.openDocument(file, legacyDocument)) {
+                var captured = new java.util.ArrayList<NameValuePair>(params);
+                captured.add(new org.apache.hc.core5.http.message.BasicNameValuePair("sFileContent_1",
+                        Base64.getEncoder().encodeToString(input.readAllBytes())));
+                return postForm(endpoint, captured);
+            } catch (java.io.IOException e) {
+                throw new FaxProviderException("Test document read failed", e);
+            }
+        }
+
+        @Override
+        protected FaxDownload downloadDocument(String endpoint, List<NameValuePair> params) throws FaxProviderException {
+            postForm(endpoint, params);
+            try {
+                return FaxDownload.read(new org.apache.hc.core5.http.io.entity.StringEntity(cannedResponse.toString(),
+                        org.apache.hc.core5.http.ContentType.APPLICATION_JSON), new ObjectMapper(), "Result");
+            } catch (java.io.IOException e) {
+                throw new FaxProviderException("Test response read failed", e);
+            }
+        }
     }
 
     @BeforeEach
@@ -240,7 +264,12 @@ class SRFaxProviderClientRequestConstructionUnitTest extends CarlosUnitTestBase 
         assertThat(param("sDirection")).isEqualTo("IN");
         assertThat(param("sFaxFormat")).isEqualTo("PDF");
         assertThat(hasParam("sMarkasViewed")).as("download must not flip the viewed flag").isFalse();
-        assertThat(downloaded.getDocument()).isEqualTo("QkFTRTY0LURPQw==");
+        try {
+            assertThat(downloaded.getDocument()).isNull();
+            assertThat(Files.readString(downloaded.getDocumentPath())).isEqualTo("BASE64-DOC");
+        } finally {
+            Files.deleteIfExists(downloaded.getDocumentPath());
+        }
     }
 
     // --- Update_Viewed_Status (markFaxAsRead) ---

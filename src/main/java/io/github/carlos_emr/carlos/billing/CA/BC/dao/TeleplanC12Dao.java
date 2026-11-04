@@ -66,9 +66,13 @@ public class TeleplanC12Dao extends AbstractDaoImpl<TeleplanC12> {
 
     @SuppressWarnings("unchecked")
     public List<TeleplanC12> select_c12_record(String status, String claimNo) {
+        if (status == null || status.length() != 1) {
+            throw new IllegalArgumentException("Teleplan status must be exactly one character");
+        }
         Query query = createQuery("t", "t.status = :status and t.officeFolioClaimNo = :claimNo");
         query.setParameter("claimNo", claimNo);
-        query.setParameter("status", status);
+        // The mapped status is Character; Hibernate 7 rejects a String binding.
+        query.setParameter("status", status.charAt(0));
         return query.getResultList();
     }
 

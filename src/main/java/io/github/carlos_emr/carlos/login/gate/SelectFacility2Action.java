@@ -120,6 +120,8 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
         int facilityId = Integer.parseInt(facilityIdString);
         List<Integer> allowedFacilityIds = providerDao.getFacilityIds(providerNo);
         if (allowedFacilityIds == null || !allowedFacilityIds.contains(facilityId)) {
+            // provider and remote address use LogSafe.sanitize; facilityId is a parsed int.
+            // nosemgrep: carlos.crlf-injection-logs
             LOGGER.warn("Rejected /select_facility: unauthorized facility provider={}, facilityId={}, remote={}",
                     LogSafe.sanitize(providerNo), facilityId, LogSafe.sanitize(request.getRemoteAddr()));
             return redirectToLogoutAfterInvalidating(session, request, response);
@@ -127,6 +129,8 @@ public final class SelectFacility2Action extends BaseLoginPageView2Action {
 
         Facility facility = facilityDao.find(facilityId);
         if (facility == null) {
+            // provider and remote address use LogSafe.sanitize; facilityId is a parsed int.
+            // nosemgrep: carlos.crlf-injection-logs
             LOGGER.warn("Rejected /select_facility: missing facility provider={}, facilityId={}, remote={}",
                     LogSafe.sanitize(providerNo), facilityId, LogSafe.sanitize(request.getRemoteAddr()));
             return redirectToLogoutAfterInvalidating(session, request, response);

@@ -87,7 +87,7 @@
     <h3>Add Private Billing Code</h3>
     <div class="container-fluid card card-body bg-body-tertiary">
 
-        <form action="${pageContext.request.contextPath}/billing/CA/BC/billingAddCode" method="post" onsubmit="return checkUnits();">
+        <form name="BillingAddCodeForm" action="${pageContext.request.contextPath}/billing/CA/BC/billingAddCode" method="post" onsubmit="return checkUnits();">
             <%
                 if (request.getAttribute("returnMessage") != null) {
             %>
@@ -106,7 +106,7 @@
             Price:<br>
             <input type="text" name="value" id="value" /><br>
 
-            <input type="submit" name="submit" class="btn btn-primary" value="Add"/> <a href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode" class="btn btn-secondary">Cancel</a>
+            <input type="submit" name="submit" class="btn btn-primary" value="Add"/> <a href="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingPrivateCodeAdjust" class="btn btn-secondary">Cancel</a>
         </form>
     </div>
     </body>
