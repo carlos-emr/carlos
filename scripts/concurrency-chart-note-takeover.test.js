@@ -9,7 +9,8 @@ const support = require('./lib/concurrency-support');
 // Exercise the workflow's real assertions and diagnostics consumption with deterministic browser
 // and database doubles. Negative cases must fail even when B's original text is still present.
 async function run({ status = 409, extraResponse, extraConsole, revision = false,
-  changedText = false, kept = true, alerts = [{ type: 'alert', text: 'Failed to save note! 409' }] } = {}) {
+  changedText = false, persistedStale = false, kept = true,
+  alerts = [{ type: 'alert', text: 'Failed to save note! 409' }] } = {}) {
   const recorder = h.createRecorder();
   const marker = 'FAKE-PW-takeover';
   const textB = `${marker} note typed in the window that took the lock`;
@@ -67,7 +68,7 @@ async function run({ status = 409, extraResponse, extraConsole, revision = false
   const steps = [];
   await sandbox.module.exports.workflow({ patient: '42', marker, recorder,
     sql: {
-      value(query) { return query.includes('stale window') ? '0' : '1'; },
+      value(query) { return query.includes('stale window') ? (staleSaved && persistedStale ? '1' : '0') : '1'; },
       rows() {
         const rows = [['101', 'note-uuid', staleSaved && changedText ? 'changed' : textB, staleSaved && revision ? '2' : '1']];
         if (staleSaved && revision) rows.push(['102', 'note-uuid', textB, '2']);
@@ -83,6 +84,10 @@ async function run({ status = 409, extraResponse, extraConsole, revision = false
 
 test('one expected save 409 and its console error reach the note and editor assertions', async () => {
   await run();
+});
+
+test('localized save refusal feedback is recognized by its HTTP status', async () => {
+  await run({ alerts: [{ type: 'alert', text: 'Échec de la sauvegarde de la note ! 409' }] });
 });
 
 for (const status of [200, 403, 500]) {
@@ -110,6 +115,10 @@ test('an extra revision preserving B\'s text fails the persistence assertion', a
 
 test('a changed saved note fails the persistence assertion', async () => {
   await assert.rejects(run({ changedText: true }), /note text or revision/);
+});
+
+test('persisting the stale editor text fails even if B\'s note is unchanged', async () => {
+  await assert.rejects(run({ persistedStale: true }), /text was written to the chart/);
 });
 
 test('losing the editor after refusal still fails', async () => {
