@@ -13,6 +13,7 @@
  *   1. the menu item opens the report form, which offers the Spread Sheet format;
  *   2. the Invoice spreadsheet lists exactly the range's claims that are not deleted;
  *   3. the A/R spreadsheet lists exactly the range's claims that are neither deleted nor written off;
+ *      unbounded A/R and Invoice exports also retain owned legacy rows with unusable service dates or amounts;
  *   4. a login with report read but not billing read opens the form, and Create Report gets the app's refusal and
  *      no file;
  *   5. LAST: the Rejection spreadsheet lists the range's rejected claims, each under its full claim number and with
@@ -143,14 +144,14 @@ async function workflow(s) {
   let frame;
 
   /** Fills the form for one report as a spreadsheet and returns the HTTP answer and the downloaded bytes. */
-  const createReport = async (target, page, repType) => {
+  const createReport = async (target, page, repType, reportDay = day) => {
     // The report type first: the page enables Provider and Payee only for the types that use them.
     await target.locator('select[name="repType"]').selectOption(repType);
     await target.locator('select[name="selAccount"]').selectOption('ALL');
     await target.locator('select[name="docFormat"]').selectOption('csv');
     for (const box of ['showMSP', 'showWCB', 'showPRIV', 'showICBC']) await target.locator(`input[name="${box}"]`).check();
-    await target.locator('[name="xml_vdate"]').evaluate((input, date) => { input.value = date; }, day);
-    await target.locator('[name="xml_appointment_date"]').evaluate((input, date) => { input.value = date; }, day);
+    await target.locator('[name="xml_vdate"]').evaluate((input, date) => { input.value = date; }, reportDay);
+    await target.locator('[name="xml_appointment_date"]').evaluate((input, date) => { input.value = date; }, reportDay);
     const downloaded = page.waitForEvent('download', { timeout: TIMEOUT }).catch(() => null);
     const [response] = await Promise.all([
       page.waitForResponse(r => r.request().method() === 'POST' && /createBillingReportAction$/.test(h.pathOnly(r.url())),
@@ -161,8 +162,8 @@ async function workflow(s) {
   };
 
   /** One report as a spreadsheet: it is a CSV, and its claim rows are exactly the ones SQL selects. */
-  const spreadsheet = async repType => {
-    const { response, downloaded } = await createReport(frame, admin, repType);
+  const spreadsheet = async (repType, reportDay = day) => {
+    const { response, downloaded } = await createReport(frame, admin, repType, reportDay);
     h.assert(response.status() === 200, `${REPORTS[repType].what}: Create Report answered HTTP ${response.status()} `
       + `(${h.pathOnly(response.url())})`);
     const download = await downloaded;
@@ -178,6 +179,8 @@ async function workflow(s) {
     h.assert(/^application\/csv\b/i.test(type), `${REPORTS[repType].what} came back as ${JSON.stringify(type)}`);
     const text = bytes.toString('utf8');
     h.assert(!text.startsWith('%PDF-') && !/<html|<!doctype/i.test(text.slice(0, 512)), `${REPORTS[repType].what} is a PDF or an HTML page`);
+    // Missing/invalid dates cannot match a date-range predicate; inspect the owned rows in an unbounded export.
+    if (!reportDay) return parseCsv(text);
     // A claim's row carries "<billing_no>-<billingmaster_no>"; other fields of that shape (a phone number) are not claims.
     const listed = new Set();
     for (const field of parseCsv(text).flat().map(f => f.trim())) {
@@ -218,7 +221,38 @@ async function workflow(s) {
   });
 
   await s.step(STEP.invoice, () => spreadsheet('REP_INVOICE'));
-  await s.step(STEP.accountsReceivable, () => spreadsheet('REP_ACCOUNT_REC'));
+  await s.step(STEP.accountsReceivable, async () => {
+    await spreadsheet('REP_ACCOUNT_REC');
+    const legacy = [
+      { serviceDate: '', amount: '23.45' },
+      { serviceDate: '00000000', amount: 'bad' },
+      { serviceDate: '20260230', amount: '11.00' },
+    ].map(values => {
+      const claim = seedOwnedBcBill(s, { serviceDate: day, amount: '23.45' });
+      sql.execute('UPDATE billing SET apptProvider_no=? WHERE billing_no=? AND demographic_no=?',
+        [provider, Number(claim.billingNo), s.patient]);
+      sql.execute('UPDATE billingmaster SET service_date=?, bill_amount=? WHERE billingmaster_no=? AND demographic_no=?',
+        [values.serviceDate, values.amount, Number(claim.billingmasterNo), s.patient]);
+      return { ...values, key: `${claim.billingNo}-${claim.billingmasterNo}` };
+    });
+    for (const repType of ['REP_ACCOUNT_REC', 'REP_INVOICE']) {
+      const rows = await spreadsheet(repType, '');
+      if (repType === 'REP_ACCOUNT_REC') h.assert(rows[0][9] === 'Unknown age', 'A/R has no appended Unknown age column');
+      for (const claim of legacy) {
+        const matching = rows.slice(1).filter(row => row[3] === claim.key);
+        h.assert(matching.length === 1, `${repType} did not retain exactly one owned legacy claim`);
+        const row = matching[0];
+        h.assert(row[2] === (claim.serviceDate === '20260230' ? claim.serviceDate : ''), 'Legacy service date was not preserved');
+        if (repType === 'REP_ACCOUNT_REC') {
+          h.assert(row.slice(4, 8).every(value => value === '') && row[9] === claim.amount,
+            'An unageable balance was lost or assigned a known age');
+        } else {
+          h.assert(row[7] === claim.amount, 'Invoice lost a legacy amount');
+          if (claim.amount === 'bad') h.assert(row[8] === '', 'Invoice invented a balance for a malformed amount');
+        }
+      }
+    }
+  });
 
   await s.step(STEP.role, async () => {
     // secObjPrivilege.roleUserGroup holds 30 characters: the 23-character marker plus "-report" fits.

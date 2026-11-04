@@ -1,4 +1,4 @@
-# Browser-harness/source-contract tests and an isolated Chromium editor fixture.
+# Browser-harness/source-contract tests and isolated Chromium fixtures.
 # No VM, running application, database or secrets required.
 # Licensed under the repository's LICENSE.
 name: Script Regressions
@@ -137,3 +137,7 @@ jobs:
         run: node scripts/messenger-reply-form-browser-check.js
       - name: Check Messenger inbox sort headers in Chromium
         run: node scripts/search-sort-messenger-inbox-browser-check.js
+      - name: Check tickler CRUD synchronization in Chromium
+        run: node scripts/tickler-crud-browser-check.js
+      - name: Check job type table refresh and save lifecycle in Chromium
+        run: node scripts/job-types-datatable-browser-check.js
