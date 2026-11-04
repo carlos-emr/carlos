@@ -10,6 +10,29 @@ The 2026-10-15 focused validation for issue #4699, including blocking-WAF
 positive/negative controls and pending encounter-issue preservation, is recorded
 in [PR #4701 validation](pr4701-validation.md).
 
+Issue #5572 (Browse Notes document Delete), [PR #5586](https://github.com/carlos-emr/carlos/pull/5586),
+was validated on 2026-11-03 in an Ubuntu 26.04 systemd container with Ontario demo data.
+CARLOS and the pinned DrugRef source were built with Maven inside Ubuntu 26.04;
+`dpkg-buildpackage -us -uc -b` built the complete `2026.09.0~snapshot27` packages,
+including the checksum-verified pinned Chromium renderer. They were installed with
+`carlos-ctl` 1.3.0; `carlos-ctl check` passed. The default Chromium download host was
+unavailable in this environment, so `CHROMIUM_BASE_URL` used the configured allowed
+`https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64` endpoint,
+with the committed revision and SHA-256 checks unchanged.
+
+The original release JSP, substituted into that install, fails
+`dialog-confirmations-document` at its exact cancellation step with zero dialogs
+and no SQL residue. Restoring the byte-identical packaged fixed JSP passes that
+check, `note-browser-documents` and `note-browser-controls`: 3/3 checks, 41 steps,
+no skips and no SQL residue, through `:443` with `EXPECT_FRONT_DOOR=true` and
+Chromium 154.0.8025.0. Cancel preserves the form and both document rows without a
+request; OK deletes only the selected document, and refile/undelete still work.
+A focused Polish-browser probe also passed: the confirmation displays `Czy na pewno chcesz usunąć`
+with the selected description, and Cancel preserves the document; the final deployment
+health check passed. The focused Java regression run passed 219 tests. Locked Node regressions passed
+6,983 tests (zero failures, one existing TODO); the final chart-context and JSP
+inline-script checks passed 28 and 13 tests respectively.
+
 It is the procedure that first surfaced the WAF false positives on note-saving
 and eForm saves, the add-patient validation regression, the nullable-column
 500s on the consultation surfaces, and the empty Consultations inbox on the demo
