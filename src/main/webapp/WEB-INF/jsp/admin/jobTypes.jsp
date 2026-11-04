@@ -84,6 +84,7 @@
             const jobTypesCancelLabel = "${carlos:forJavaScript(jobTypesCancelLabel)}";
             const jobTypesSaveErrorLabel = "${carlos:forJavaScript(jobTypesSaveErrorLabel)}";
             let jobTypeTable;
+            let jobTypeRefreshGeneration = 0;
             let jobTypeSavePending = false;
             let jobTypeEditorGeneration = 0;
 
@@ -122,8 +123,13 @@
             }
 
             function getJobTypes() {
+                // A delayed earlier refresh must not replace rows from a later save.
+                var refreshGeneration = ++jobTypeRefreshGeneration;
                 return jQuery.getJSON("${pageContext.request.contextPath}/ws/rs/jobs/types/all", {async: false},
                     function (xml) {
+                        if (refreshGeneration !== jobTypeRefreshGeneration) {
+                            return;
+                        }
                         var arr = [];
                         if (xml.types) {
                             if (xml.types instanceof Array) {

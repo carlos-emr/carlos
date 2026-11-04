@@ -34,7 +34,7 @@ const ASSETS = new Map([
 
 function renderFixture() {
   const jsp = fs.readFileSync(JSP, 'utf8');
-  const inline = [...jsp.matchAll(/<script>\s*([\s\S]*?)<\/script>/g)]
+  const inline = [...jsp.matchAll(/<script>\s*([\s\S]*?)<\/script>/gi)]
     .map(match => match[1]).find(script => script.includes('function getJobTypes()'));
   assert.ok(inline, 'The JSP inline job types script was not found');
   const script = inline
@@ -60,7 +60,8 @@ const jobs = () => Array.from({ length: 30 }, (_, index) => ({
 }));
 
 async function withFixture(browser, exercise) {
-  const state = { rows: jobs(), mode: 'array', saves: [], alerts: [], expectedAlerts: [], errors: [] };
+  const state = { rows: jobs(), mode: 'array', saves: [], lists: [], deferLists: false,
+    alerts: [], expectedAlerts: [], errors: [] };
   const server = http.createServer((request, response) => {
     try {
       const url = new URL(request.url, 'http://fixture');
@@ -73,9 +74,11 @@ async function withFixture(browser, exercise) {
         response.end(renderFixture());
       } else if (url.pathname === '/ws/rs/jobs/types/all') {
         response.setHeader('Content-Type', 'application/json');
-        response.end(JSON.stringify(state.mode === 'empty' ? {} : {
+        const body = JSON.stringify(state.mode === 'empty' ? {} : {
           types: state.mode === 'single' ? state.rows[0] : state.rows,
-        }));
+        });
+        if (state.deferLists) state.lists.push({response, body});
+        else response.end(body);
       } else if (url.pathname === '/ws/rs/jobs/saveJobType' && request.method === 'POST') {
         let body = '';
         request.setEncoding('utf8');
@@ -105,7 +108,7 @@ async function withFixture(browser, exercise) {
       server.once('error', reject);
       server.listen(0, '127.0.0.1', resolve);
     });
-    await page.goto(`http://127.0.0.1:${server.address().port}/`);
+    await page.goto(`http://127.0.0.1:${server.address().port}/`); // nosemgrep: javascript.playwright.security.audit.playwright-goto-injection.playwright-goto-injection -- this script's own server binds 127.0.0.1 on an OS-assigned port; no user-controlled host or path
     await page.waitForFunction(() => typeof jobTypeTable !== 'undefined'
       && jobTypeTable && jobTypeTable.rows().count() === 30 && jQuery.active === 0);
     await exercise(page, state);
@@ -120,13 +123,17 @@ async function withFixture(browser, exercise) {
   }
 }
 
-async function waitForSave(page, state, count) {
+async function waitForRequests(page, requests, count) {
   await page.waitForFunction(() => jQuery.active > 0);
   const deadline = Date.now() + 5000;
-  while (state.saves.length < count && Date.now() < deadline) {
+  while (requests.length < count && Date.now() < deadline) {
     await new Promise(resolve => setTimeout(resolve, 10));
   }
-  assert.equal(state.saves.length, count, 'Unexpected number of actual POST requests');
+  assert.equal(requests.length, count, 'Unexpected number of actual fixture requests');
+}
+
+async function waitForSave(page, state, count) {
+  await waitForRequests(page, state.saves, count);
 }
 
 function completeSave(save, status) {
@@ -140,6 +147,23 @@ async function openNew(page) {
 }
 
 const CASES = [
+  ['a delayed earlier refresh cannot replace newer table rows', async (page, state) => {
+    state.deferLists = true;
+    state.rows = [{...jobs()[0], name: 'FAKE older response'}];
+    // Distinct URLs let Chromium dispatch both held reads without cache coalescing.
+    await page.evaluate(() => { jQuery.ajaxSetup({cache: false}); getJobTypes(); });
+    await waitForRequests(page, state.lists, 1);
+    state.rows = [{...jobs()[0], name: 'FAKE newer response'}];
+    await page.evaluate(() => { getJobTypes(); });
+    await waitForRequests(page, state.lists, 2);
+    state.lists[1].response.end(state.lists[1].body);
+    await page.waitForFunction(() => jQuery.active === 1);
+    assert.equal(await page.locator('#jobTypeTable tbody td').first().innerText(), 'FAKE newer response');
+    state.lists[0].response.end(state.lists[0].body);
+    await page.waitForFunction(() => jQuery.active === 0);
+    assert.equal(await page.locator('#jobTypeTable tbody td').first().innerText(), 'FAKE newer response');
+    assert.equal(await page.evaluate(() => jobTypeTable.rows().count()), 1);
+  }],
   ['refresh preserves page, ordering, search and one DataTable instance', async (page) => {
     const before = await page.evaluate(() => {
       jobTypeTable.page.len(10).order([[0, 'desc']]).search('FAKE').page(1).draw(false);
