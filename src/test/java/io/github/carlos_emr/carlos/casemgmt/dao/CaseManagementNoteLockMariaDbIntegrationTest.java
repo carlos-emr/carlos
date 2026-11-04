@@ -84,14 +84,14 @@ class CaseManagementNoteLockMariaDbIntegrationTest extends CaseManagementNoteDao
         Long id = persistWithLock(null);
         CaseManagementNote note = caseManagementNoteDAO.getNoteForUpdate(id);
         assertNote(note, id, false);
-        note.setLocked(!locked);
+        note.setLocked(true);
         entityManager.flush();
+        assertThat(rawLock(id)).isEqualTo("1");
         note.setLocked(locked);
         entityManager.flush();
         entityManager.clear();
         assertNote(caseManagementNoteDAO.getNote(id), id, locked);
-        assertThat(entityManager.createNativeQuery("SELECT locked FROM casemgmt_note WHERE note_id=:id")
-                .setParameter("id", id).getSingleResult().toString()).isEqualTo(locked ? "1" : "0");
+        assertThat(rawLock(id)).isEqualTo(locked ? "1" : "0");
     }
 
     private Long persistWithLock(String lock) {
@@ -124,6 +124,11 @@ class CaseManagementNoteLockMariaDbIntegrationTest extends CaseManagementNoteDao
     private List<?> clinicalRows() {
         return entityManager.createNativeQuery("SELECT * FROM casemgmt_note WHERE demographic_no=:patient ORDER BY note_id")
                 .setParameter("patient", PATIENT).getResultList();
+    }
+
+    private String rawLock(Long id) {
+        return entityManager.createNativeQuery("SELECT locked FROM casemgmt_note WHERE note_id=:id")
+                .setParameter("id", id).getSingleResult().toString();
     }
 
     private void assertUnchanged(List<?> before) {
