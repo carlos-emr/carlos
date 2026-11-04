@@ -148,8 +148,12 @@ public final class DocumentSummaryReviewSession implements HttpSessionBindingLis
     }
     private static String configuredValue() {
         // Read once; an unreadable configuration keeps the default rather than failing class loading.
-        try { return CarlosProperties.getInstance().getProperty(MAX_ACTIVE, ""); }
-        catch (RuntimeException unavailable) { return ""; }
+        // hasProperty first: getProperty warns once per JVM about an unset key, and the default
+        // path (no key) must start quietly.
+        try {
+            var properties = CarlosProperties.getInstance();
+            return properties.hasProperty(MAX_ACTIVE) ? properties.getProperty(MAX_ACTIVE, "") : "";
+        } catch (RuntimeException unavailable) { return ""; }
     }
 
     /** Exact source bytes for the authenticated clinician's original-document download. */
