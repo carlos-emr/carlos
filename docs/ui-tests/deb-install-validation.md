@@ -955,7 +955,7 @@ dependencies require an exact version match.
 > select the installed province and record the exact checks and any skips:
 >
 > ```bash
-> node scripts/run-playwright-suite.js --tier core --tier front-door --province ON --residue-audit --junit /tmp/playwright.xml
+> node scripts/run-playwright-suite.js --tier core --tier front-door --province "$suite_province" --residue-audit --junit /tmp/playwright.xml
 > ```
 >
 > See [playwright-coverage-plan-2026.08.md §0](playwright-coverage-plan-2026.08.md).
@@ -986,6 +986,7 @@ Environment contract (one block, exported before every script):
 ```bash
 cd /root/carlos
 export BASE_URL=https://127.0.0.1/carlos
+export EXPECT_FRONT_DOOR=true
 export DOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/document
 export CARLOS_DISPOSABLE_VM=true EXCLUSIVE=1
 # Confirm section 4 enabled the application property and restarted CARLOS.
