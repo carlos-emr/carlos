@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.List;
 import java.util.Locale;
@@ -43,7 +44,7 @@ import static org.mockito.Mockito.*;
  * @since 2026-11-04
  */
 @Tag("unit")
-class ConsultationAttachmentsNotIncludedUnitTest {
+class ConsultationAttachmentsNotIncludedUnitTest extends CarlosUnitTestBase {
     private final ConsultationManager manager = mock(ConsultationManager.class);
     private final LoggedInInfo info = mock(LoggedInInfo.class);
 

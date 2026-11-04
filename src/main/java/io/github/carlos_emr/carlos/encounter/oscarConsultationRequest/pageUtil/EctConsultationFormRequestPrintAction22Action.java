@@ -352,7 +352,19 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             creator.addEmbeddedDocuments(labPdf.toFile(), embedded);
             return new ByteInputStream(embedded.getBytes(), embedded.getCount());
         } finally {
-            Files.deleteIfExists(labPdf);
+            cleanupLabPdf(labPdf);
+        }
+    }
+
+    /** Cleanup is independent of the print result; saveTempFile owns a fresh directory per lab. */
+    private void cleanupLabPdf(Path labPdf) {
+        for (Path artifact : List.of(labPdf, labPdf.getParent())) {
+            try {
+                Files.deleteIfExists(artifact);
+            } catch (IOException | SecurityException cleanupFailure) {
+                logger.warn("Failed to remove consultation lab temporary {}",
+                        artifact.equals(labPdf) ? "file" : "directory", cleanupFailure);
+            }
         }
     }
 

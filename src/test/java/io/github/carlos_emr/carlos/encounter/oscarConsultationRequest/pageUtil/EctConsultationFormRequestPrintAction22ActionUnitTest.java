@@ -482,14 +482,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
                 return file;
             }).when(fileManager).saveTempFile(eq("consultationLab"), any(ByteArrayOutputStream.class));
             registerMock(NioFileManager.class, fileManager);
-            commonLabResultDataConstruction.close();
-            LabResultData lab = new LabResultData(LabResultData.HL7TEXT);
-            lab.setSegmentID("30");
-            commonLabResultDataConstruction = mockConstruction(CommonLabResultData.class, (data, context) ->
-                    when(data.populateLabResultsData(any(), eq("1"), eq("42"), anyBoolean()))
-                            .thenReturn(new ArrayList<>(List.of(lab))));
-            when(patientLabRoutingDao.findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection()))
-                    .thenReturn(List.of(30));
+            listOwnedHl7Lab();
             try (MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class);
                  MockedConstruction<LabPDFCreator> creators = mockConstruction(LabPDFCreator.class, (creator, context) ->
                          doAnswer(invocation -> {
@@ -501,6 +494,7 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
                 assertThat(creators.constructed()).hasSize(1);
                 assertThat(staged).hasSize(1);
                 assertThat(staged.getFirst()).doesNotExist();
+                assertThat(staged.getFirst().getParent()).doesNotExist();
             }
         } finally {
             for (Path file : staged) {
@@ -508,6 +502,57 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
                 Files.deleteIfExists(file.getParent());
             }
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    @DisplayName("should preserve the render result and attempt both deletions when cleanup fails")
+    void shouldPreserveRenderResult_whenLabCleanupFails(boolean renderFails) throws Exception {
+        Path labPdf = new NioFileManagerImpl().saveTempFile("consultationLab", new ByteArrayOutputStream());
+        NioFileManager fileManager = mock(NioFileManager.class);
+        when(fileManager.saveTempFile(eq("consultationLab"), any(ByteArrayOutputStream.class))).thenReturn(labPdf);
+        registerMock(NioFileManager.class, fileManager);
+        listOwnedHl7Lab();
+        String primaryMessage = "synthetic primary lab failure";
+        try (LogCapture logs = LogCapture.forLogger(EctConsultationFormRequestPrintAction22Action.class);
+             MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class);
+             MockedStatic<Files> files = mockStatic(Files.class, invocation -> {
+                 if (invocation.getMethod().getName().equals("deleteIfExists")) {
+                     throw new IOException("synthetic cleanup failure");
+                 }
+                 return invocation.callRealMethod();
+             });
+             MockedConstruction<LabPDFCreator> creators = mockConstruction(LabPDFCreator.class, (creator, context) ->
+                     doAnswer(invocation -> {
+                         if (renderFails) throw new IOException(primaryMessage);
+                         return null;
+                     }).when(creator).printPdf())) {
+            assertThat(action.execute()).isEqualTo(renderFails ? "error" : ActionSupport.NONE);
+            files.verify(() -> Files.deleteIfExists(labPdf));
+            files.verify(() -> Files.deleteIfExists(labPdf.getParent()));
+            assertThat(logs.events()).filteredOn(event -> event.getLevel() == org.apache.logging.log4j.Level.WARN)
+                    .hasSize(2);
+            if (renderFails) {
+                assertThat(logs.events()).anySatisfy(event -> {
+                    assertThat(event.getLevel()).isEqualTo(org.apache.logging.log4j.Level.ERROR);
+                    assertThat(event.getThrown()).isInstanceOf(IOException.class).hasMessage(primaryMessage);
+                });
+            }
+        } finally {
+            Files.deleteIfExists(labPdf);
+            Files.deleteIfExists(labPdf.getParent());
+        }
+    }
+
+    private void listOwnedHl7Lab() {
+        commonLabResultDataConstruction.close();
+        LabResultData lab = new LabResultData(LabResultData.HL7TEXT);
+        lab.setSegmentID("30");
+        commonLabResultDataConstruction = mockConstruction(CommonLabResultData.class, (data, context) ->
+                when(data.populateLabResultsData(any(), eq("1"), eq("42"), anyBoolean()))
+                        .thenReturn(new ArrayList<>(List.of(lab))));
+        when(patientLabRoutingDao.findLabNosForDemographic(eq(1), eq(PatientLabRoutingDao.HL7), anyCollection()))
+                .thenReturn(List.of(30));
     }
 
     @Test
