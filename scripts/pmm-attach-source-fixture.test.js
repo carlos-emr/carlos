@@ -3,8 +3,82 @@
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { assertOwnedPrograms, assertOnlyCopiedNote, assertStagedDefaults, assertCopyLocks, assertCopiedProvenance }
+const { assertOwnedPrograms, assertOnlyCopiedNote, assertStagedDefaults, assertCopyLocks, assertCopiedProvenance,
+    ensureReadOnlyType }
     = require('./lib/pmm-attach-source-context-checks');
+
+function accessTypeFixture({ shared = false, lostInsert = false } = {}) {
+    const marker = 'FAKE-PW0123456789abcdef';
+    const state = { row: shared ? ['71', 'note-read-only', 'access'] : null, links: 0, writes: [] };
+    const cleanups = [];
+    const sql = {
+        rows(query) {
+            if (query.startsWith('SELECT access_id FROM access_type')) return state.row ? [[state.row[0]]] : [];
+            if (query.startsWith('SELECT access_id,name,type FROM access_type')) return state.row ? [[...state.row]] : [];
+            assert.fail(`Unexpected access-type read: ${query}`);
+        },
+        value(query) {
+            if (query.startsWith('INSERT INTO access_type')) {
+                state.row = ['72', `${marker}-pmm-read-only`, 'access'];
+                state.writes.push('insert');
+                if (lostInsert) throw new Error('Lost INSERT acknowledgement');
+                return '72';
+            }
+            if (query.includes('FROM program_access')) return String(state.links);
+            if (query.includes(`name='${marker}-pmm-read-only'`)) return '0';
+            if (query.includes('FROM access_type WHERE access_id=')) return state.row ? '1' : '0';
+            assert.fail(`Unexpected access-type scalar: ${query}`);
+        },
+        execute(query) {
+            if (query.startsWith('UPDATE access_type')) {
+                state.writes.push('rename');
+                state.row[1] = 'note-read-only';
+            } else if (query.startsWith('DELETE FROM access_type')) {
+                state.writes.push('delete');
+                state.row = null;
+            } else assert.fail(`Unexpected access-type mutation: ${query}`);
+        },
+    };
+    return { state, s: { sql, marker, cleanup: fn => cleanups.push(fn) },
+        cleanup: () => { for (const fn of [...cleanups].reverse()) fn(); } };
+}
+
+test('an existing read-only definition is reused without edits or cleanup ownership', () => {
+    const fixture = accessTypeFixture({ shared: true });
+    assert.equal(ensureReadOnlyType(fixture.s), '71');
+    fixture.cleanup();
+    assert.deepEqual(fixture.state.row, ['71', 'note-read-only', 'access']);
+    assert.deepEqual(fixture.state.writes, []);
+});
+
+test('a fresh install gets an owned read-only definition that cleanup removes', () => {
+    const fixture = accessTypeFixture();
+    assert.equal(ensureReadOnlyType(fixture.s), '72');
+    assert.deepEqual(fixture.state.row, ['72', 'note-read-only', 'access']);
+    fixture.cleanup();
+    assert.equal(fixture.state.row, null);
+});
+
+test('a lost definition INSERT acknowledgement is recovered by its marker name', () => {
+    const fixture = accessTypeFixture({ lostInsert: true });
+    assert.throws(() => ensureReadOnlyType(fixture.s), /Lost INSERT acknowledgement/);
+    fixture.cleanup();
+    assert.equal(fixture.state.row, null);
+    assert.deepEqual(fixture.state.writes, ['insert', 'delete']);
+});
+
+for (const drift of ['linked-policy', 'renamed', 'changed-type']) {
+    test(`read-only definition cleanup retains ${drift} ownership drift`, () => {
+        const fixture = accessTypeFixture();
+        ensureReadOnlyType(fixture.s);
+        if (drift === 'linked-policy') fixture.state.links = 1;
+        if (drift === 'renamed') fixture.state.row[1] = 'another policy';
+        if (drift === 'changed-type') fixture.state.row[2] = 'other';
+        assert.throws(fixture.cleanup, /retaining it/);
+        assert.ok(fixture.state.row);
+        assert.ok(!fixture.state.writes.includes('delete'));
+    });
+}
 
 const programs = [{ id: '11', name: 'FAKE-PW-owned-origin' }, { id: '12', name: 'FAKE-PW-owned-readonly' }];
 const ownership = { provider: '899991', facility: '1', patients: ['901', '902'],

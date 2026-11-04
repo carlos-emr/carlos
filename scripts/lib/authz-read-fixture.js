@@ -12,7 +12,8 @@
  * Every row it writes carries a provider number drawn from 800000-899999 and the run marker
  * as the provider's last name; cleanup deletes by those owned keys only and asserts they are
  * gone, including the rows the application itself writes for the login (audit `log`,
- * provider_facility, ProviderPreference*, property, program_provider, providersite).
+ * provider_facility, ProviderPreference*, property, program_provider, provider_default_program,
+ * providersite).
  *
  * Patient locks follow the convention of hrm-report-print-download-playwright-checks.js: a
  * `secObjPrivilege` row (roleUserGroup = the login's provider number, objectName =
@@ -43,7 +44,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { assert, sqlString, SkipCheck } = require('./playwright-harness');
 
-const PROVIDER_LINKED_TABLES = ['provider_facility', 'program_provider', 'providersite', 'property', 'secUserRole'];
+const PROVIDER_LINKED_TABLES = ['provider_facility', 'program_provider', 'provider_default_program',
+  'providersite', 'property', 'secUserRole'];
 const PROVIDER_PREFERENCE_TABLES = ['ProviderPreferenceAppointmentScreenEForm', 'ProviderPreferenceAppointmentScreenForm',
   'ProviderPreferenceAppointmentScreenQuickLink', 'ProviderPreference'];
 
@@ -248,9 +250,11 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
      * sets up staff (PMmodule Staff). Program membership is not a sec object, but the chart files
      * every note under the provider's program (EctProgram.getProgram), and a provider in no
      * program has its note save fail for that reason before any authorization question is asked.
-     * removeLogin() deletes the rows (program_provider is a provider-linked table).
+     * With copyDefaults, also preserve the shared login's default program and signing setting:
+     * the first membership can carry a different reporter role and note-read policy (#5355).
+     * removeLogin() deletes both provider-linked tables, including after a partial setup.
      */
-    joinTestLoginPrograms(login) {
+    joinTestLoginPrograms(login, { copyDefaults = false } = {}) {
       assert(logins.includes(login), 'joinTestLoginPrograms needs a login created by this fixture');
       const p = sqlString(login.providerNo);
       sql.execute(`INSERT INTO program_provider (program_id, provider_no, role_id, team_id)
@@ -258,6 +262,14 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
       const joined = sql.value(`SELECT COUNT(*) FROM program_provider WHERE provider_no=${p}`);
       assert(joined === sql.value(`SELECT COUNT(*) FROM program_provider WHERE provider_no=${sqlString(provider)}`),
         'The login did not join exactly the test login\'s programs');
+      if (copyDefaults) {
+        sql.execute(`INSERT INTO provider_default_program (provider_no, program_id, signnote)
+          SELECT ${p}, program_id, signnote FROM provider_default_program WHERE provider_no=${sqlString(provider)}`);
+        const defaults = owner => sql.rows(`SELECT program_id,signnote FROM provider_default_program
+          WHERE provider_no=${sqlString(owner)} ORDER BY program_id,signnote`);
+        assert(JSON.stringify(defaults(login.providerNo)) === JSON.stringify(defaults(provider)),
+          'The login did not inherit exactly the test login\'s default programs');
+      }
       return Number(joined);
     },
 
