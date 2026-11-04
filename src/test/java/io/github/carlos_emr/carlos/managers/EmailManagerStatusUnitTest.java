@@ -36,8 +36,8 @@ class EmailManagerStatusUnitTest {
     private final LoggedInInfo loggedInInfo = new LoggedInInfo();
 
     @Test
-    @DisplayName("should resolve a failed log while preserving its send time and clearing its error")
-    void shouldResolveFailedEmail_preservingSendTime() {
+    @DisplayName("should return the stored resolution with the latest send time instead of the old snapshot")
+    void shouldReturnStoredResolution_whenSendTimeChanged() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
         EmailLog log = new EmailLog();
         ReflectionTestUtils.setField(log, "id", 7003);
@@ -45,14 +45,22 @@ class EmailManagerStatusUnitTest {
         log.setErrorMessage("FAKE delivery failure");
         Date timestamp = new Date(1760000000000L);
         log.setTimestamp(timestamp);
+        EmailLog stored = new EmailLog();
+        stored.setStatus(EmailStatus.RESOLVED);
+        Date latestTime = new Date(timestamp.getTime() + 60000);
+        stored.setTimestamp(latestTime);
         when(emailLogDao.find(Integer.valueOf(7003))).thenReturn(log);
-        when(emailLogDao.updateEmailStatus(7003, EmailStatus.RESOLVED, null, timestamp)).thenReturn(1);
+        when(emailLogDao.findFresh(7003)).thenReturn(stored);
+        when(emailLogDao.updateEmailStatus(7003, EmailStatus.RESOLVED, null, null)).thenReturn(1);
 
-        assertThat(emailManager.updateEmailStatus(loggedInInfo, 7003, EmailStatus.RESOLVED, null)).isSameAs(log);
+        EmailLog result = emailManager.updateEmailStatus(loggedInInfo, 7003, EmailStatus.RESOLVED, null);
 
-        verify(emailLogDao).updateEmailStatus(7003, EmailStatus.RESOLVED, null, timestamp);
-        assertThat(log.getStatus()).isEqualTo(EmailStatus.RESOLVED);
-        assertThat(log.getErrorMessage()).isNull();
+        verify(emailLogDao).updateEmailStatus(7003, EmailStatus.RESOLVED, null, null);
+        assertThat(result).isSameAs(stored);
+        assertThat(result.getStatus()).isEqualTo(EmailStatus.RESOLVED);
+        assertThat(result.getErrorMessage()).isNull();
+        assertThat(result.getTimestamp()).isEqualTo(latestTime);
+        assertThat(log.getStatus()).isEqualTo(EmailStatus.FAILED);
         assertThat(log.getTimestamp()).isEqualTo(timestamp);
     }
 

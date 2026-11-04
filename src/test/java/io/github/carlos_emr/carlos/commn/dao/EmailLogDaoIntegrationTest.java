@@ -49,6 +49,31 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         assertThat(emailLogDao.findFresh(-1)).isNull();
     }
 
+    @Test
+    @DisplayName("should preserve the stored send time when resolution receives an older snapshot")
+    void shouldPreserveStoredSendTime_whenResolutionSnapshotIsStale() {
+        Date originalTime = new Date(1760000000000L);
+        Date latestTime = new Date(originalTime.getTime() + 60000);
+        EmailLog log = new EmailLog();
+        log.setStatus(EmailLog.EmailStatus.FAILED);
+        log.setTimestamp(originalTime);
+        log.setErrorMessage("FAKE delivery failure");
+        entityManager.persist(log);
+        entityManager.flush();
+        // A transport failure records its time after the resolver loaded the log.
+        entityManager.createQuery("UPDATE EmailLog e SET e.timestamp = :ts WHERE e.id = :id")
+                .setParameter("ts", latestTime).setParameter("id", log.getId()).executeUpdate();
+
+        assertThat(emailLogDao.updateEmailStatus(log.getId(), EmailLog.EmailStatus.RESOLVED, null, originalTime))
+                .isEqualTo(1);
+        entityManager.clear();
+
+        EmailLog stored = entityManager.find(EmailLog.class, log.getId());
+        assertThat(stored.getStatus()).isEqualTo(EmailLog.EmailStatus.RESOLVED);
+        assertThat(stored.getErrorMessage()).isNull();
+        assertThat(stored.getTimestamp().getTime()).isEqualTo(latestTime.getTime());
+    }
+
     @ParameterizedTest
     @EnumSource(EmailLog.EmailStatus.class)
     @DisplayName("should resolve only failed rows, preserving their original send time")
@@ -72,6 +97,25 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
         assertThat(stored.getErrorMessage()).isEqualTo(initialStatus == EmailLog.EmailStatus.FAILED
                 ? null : "FAKE original message");
         assertThat(stored.getTimestamp().getTime()).isEqualTo(timestamp.getTime());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = EmailLog.EmailStatus.class, names = {"SUCCESS", "FAILED"})
+    @DisplayName("should record the supplied send time for actual transport outcomes")
+    void shouldRecordSendTime_whenTransportOutcomeChanges(EmailLog.EmailStatus status) {
+        EmailLog log = new EmailLog();
+        log.setStatus(EmailLog.EmailStatus.FAILED);
+        log.setTimestamp(new Date(1760000000000L));
+        entityManager.persist(log);
+        entityManager.flush();
+        Date latestTime = new Date(1760000060000L);
+
+        assertThat(emailLogDao.updateEmailStatus(log.getId(), status, "FAKE transport result", latestTime)).isEqualTo(1);
+        entityManager.clear();
+
+        EmailLog stored = entityManager.find(EmailLog.class, log.getId());
+        assertThat(stored.getStatus()).isEqualTo(status);
+        assertThat(stored.getTimestamp().getTime()).isEqualTo(latestTime.getTime());
     }
 
     @Test

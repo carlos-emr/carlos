@@ -223,7 +223,7 @@ public class EmailManager {
      * @param emailLogId Integer the unique identifier of the email log entry to update
      * @param emailStatus EmailStatus the new status to set (SUCCESS, FAILED, RESOLVED, etc.)
      * @param errorMessage String the error message to store, empty string if no error
-     * @return EmailLog the updated log, or its current stored state if resolution did not update a row;
+     * @return EmailLog the updated transport log, or the refreshed stored state after resolution;
      *         null if the log is missing
      * @throws SecurityException if user lacks _email WRITE privilege
      */
@@ -242,9 +242,10 @@ public class EmailManager {
     /**
      * Updates the status of an email log entry with new status and error message.
      *
-     * This method updates the email log status in both the database and the in-memory object.
-     * The timestamp is updated to the current time for status changes, but preserved when
-     * resolving an issue (RESOLVED status) to maintain the original send time.
+     * Transport updates change the email log status in both the database and the supplied in-memory object.
+     * The timestamp is updated to the current time for status changes, but left untouched when
+     * resolving an issue (RESOLVED status) to preserve the latest stored send time.
+     * Resolution returns refreshed stored state rather than mutating an earlier snapshot.
      *
      * Common status values:
      * - SUCCESS: Email sent successfully
@@ -255,7 +256,7 @@ public class EmailManager {
      * @param emailLog EmailLog the email log entry to update
      * @param emailStatus EmailStatus the new status to set
      * @param errorMessage String the error message to store, empty string if no error
-     * @return EmailLog the updated log, or its current stored state if resolution did not update a row;
+     * @return EmailLog the updated transport log, or the refreshed stored state after resolution;
      *         null if the log disappeared before resolution
      * @throws SecurityException if user lacks _email WRITE privilege
      */
@@ -264,10 +265,10 @@ public class EmailManager {
             throw new SecurityException("missing required sec object (_email)");
         }
 
-        Date newTimestamp = (!emailStatus.equals(EmailStatus.RESOLVED)) ? new Date() : emailLog.getTimestamp();
+        Date newTimestamp = emailStatus == EmailStatus.RESOLVED ? null : new Date();
 
-        int updated = emailLogDao.updateEmailStatus(emailLog.getId(), emailStatus, errorMessage, newTimestamp);
-        if (emailStatus == EmailStatus.RESOLVED && updated == 0) {
+        emailLogDao.updateEmailStatus(emailLog.getId(), emailStatus, errorMessage, newTimestamp);
+        if (emailStatus == EmailStatus.RESOLVED) {
             return emailLogDao.findFresh(emailLog.getId());
         }
 
