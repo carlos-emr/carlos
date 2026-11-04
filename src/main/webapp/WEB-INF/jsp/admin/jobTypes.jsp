@@ -48,6 +48,7 @@
 <fmt:message key="admin.jobTypes.save" var="jobTypesSaveLabel"/>
 <fmt:message key="admin.jobTypes.cancel" var="jobTypesCancelLabel"/>
 <fmt:message key="admin.jobTypes.saveError" var="jobTypesSaveErrorLabel"/>
+<fmt:message key="admin.jobTypes.saveUnconfirmed" var="jobTypesSaveUnconfirmedLabel"/>
 
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -83,10 +84,17 @@
             const jobTypesSaveLabel = "${carlos:forJavaScript(jobTypesSaveLabel)}";
             const jobTypesCancelLabel = "${carlos:forJavaScript(jobTypesCancelLabel)}";
             const jobTypesSaveErrorLabel = "${carlos:forJavaScript(jobTypesSaveErrorLabel)}";
+            const jobTypesSaveUnconfirmedLabel = "${carlos:forJavaScript(jobTypesSaveUnconfirmedLabel)}";
             let jobTypeTable;
             let jobTypeRefreshGeneration = 0;
             let jobTypeSavePending = false;
+            let jobTypeCreateUnconfirmed = false;
             let jobTypeEditorGeneration = 0;
+
+            function updateJobTypeSaveButton() {
+                var blocked = jobTypeSavePending || (jobTypeCreateUnconfirmed && $('#jobTypeId').val() === '0');
+                $('#new-jobtype').dialog('widget').find('.job-types-save').button(blocked ? 'disable' : 'enable');
+            }
 
             function editJobType(jobTypeId) {
                 jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/jobType/" + jobTypeId, {},
@@ -104,6 +112,7 @@
                             $('#jobTypeClassName').val(job.className);
                             $('#jobTypeEnabled').prop('checked', job.enabled);
                             $('#jobTypeId').val(job.id);
+                            updateJobTypeSaveButton();
                         }
                     });
                 $('#new-jobtype').dialog('open');
@@ -187,6 +196,7 @@
                     modal: true,
                     open: function () {
                         jobTypeEditorGeneration++;
+                        updateJobTypeSaveButton();
                     },
                     buttons: {
                         saveJobType: {
@@ -194,15 +204,19 @@
                                 if (jobTypeSavePending) {
                                     return;
                                 }
+                                if (jobTypeCreateUnconfirmed && $('#jobTypeId').val() === '0') {
+                                    window.alert(jobTypesSaveUnconfirmedLabel);
+                                    return;
+                                }
                                 var $dialog = $(this);
                                 var editorGeneration = jobTypeEditorGeneration;
-                                var $saveButton = $dialog.dialog("widget").find(".job-types-save");
+                                var creating = $('#jobTypeId').val() === '0';
                                 function restoreSaveButton() {
                                     jobTypeSavePending = false;
-                                    $saveButton.button("enable");
+                                    updateJobTypeSaveButton();
                                 }
                                 jobTypeSavePending = true;
-                                $saveButton.button("disable");
+                                updateJobTypeSaveButton();
                                 var saveRequest;
                                 try {
                                     saveRequest = $.post('${pageContext.request.contextPath}/ws/rs/jobs/saveJobType', $('#jobTypeForm').serialize());
@@ -219,7 +233,16 @@
                                         }
                                     })
                                     .fail(function () {
-                                        window.alert(jobTypesSaveErrorLabel);
+                                        if (creating) {
+                                            // A failed response cannot prove the insert rolled back.
+                                            // Never infer ownership from a matching name or retry id=0 here.
+                                            jobTypeCreateUnconfirmed = true;
+                                            updateJobTypeSaveButton();
+                                            listJobs();
+                                            window.alert(jobTypesSaveUnconfirmedLabel);
+                                        } else {
+                                            window.alert(jobTypesSaveErrorLabel);
+                                        }
                                     });
                             }
                         },

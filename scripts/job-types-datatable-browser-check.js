@@ -41,6 +41,7 @@ function renderFixture() {
     .replaceAll('${carlos:forJavaScript(jobTypesSaveLabel)}', 'Save')
     .replaceAll('${carlos:forJavaScript(jobTypesCancelLabel)}', 'Cancel')
     .replaceAll('${carlos:forJavaScript(jobTypesSaveErrorLabel)}', 'FAKE save failed')
+    .replaceAll('${carlos:forJavaScript(jobTypesSaveUnconfirmedLabel)}', 'FAKE create unconfirmed')
     .replaceAll('${pageContext.request.contextPath}', '')
     .replace(/<%=\s*request\.getContextPath\(\)\s*%>/g, '');
   assert.ok(!/<%|\$\{/.test(script), 'A server-side expression remains in the fixture script');
@@ -60,7 +61,7 @@ const jobs = () => Array.from({ length: 30 }, (_, index) => ({
 }));
 
 async function withFixture(browser, exercise) {
-  const state = { rows: jobs(), mode: 'array', saves: [], lists: [], deferLists: false,
+  const state = { rows: jobs(), mode: 'array', saves: [], lists: [], deferLists: false, failLists: false,
     alerts: [], expectedAlerts: [], errors: [] };
   const server = http.createServer((request, response) => {
     try {
@@ -74,11 +75,20 @@ async function withFixture(browser, exercise) {
         response.end(renderFixture());
       } else if (url.pathname === '/ws/rs/jobs/types/all') {
         response.setHeader('Content-Type', 'application/json');
+        if (state.failLists) {
+          response.writeHead(503).end('{}');
+          return;
+        }
         const body = JSON.stringify(state.mode === 'empty' ? {} : {
           types: state.mode === 'single' ? state.rows[0] : state.rows,
         });
         if (state.deferLists) state.lists.push({response, body});
         else response.end(body);
+      } else if (/^\/ws\/rs\/jobs\/jobType\/\d+$/.test(url.pathname)) {
+        response.setHeader('Content-Type', 'application/json');
+        const row = state.rows.find(job => job.id === Number(url.pathname.split('/').pop()));
+        assert.ok(row, 'The requested fixture job type must exist');
+        response.end(JSON.stringify({types: [row]}));
       } else if (url.pathname === '/ws/rs/jobs/saveJobType' && request.method === 'POST') {
         let body = '';
         request.setEncoding('utf8');
@@ -198,20 +208,65 @@ const CASES = [
   }],
   ['failed Save keeps the dialog and inputs; retry succeeds and closes it', async (page, state) => {
     state.expectedAlerts = ['FAKE save failed'];
-    await openNew(page);
+    await page.getByRole('link', {name: 'FAKE job 01', exact: true}).click();
+    await page.waitForFunction(() => jQuery('#jobTypeId').val() === '1' && jQuery.active === 0);
+    await page.locator('#jobTypeName').fill('FAKE edited job');
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await waitForSave(page, state, 1);
     completeSave(state.saves[0], 500);
     await page.waitForFunction(() => jQuery.active === 0);
     assert.equal(await page.evaluate(() => jQuery('#new-jobtype').dialog('isOpen')), true);
-    assert.equal(await page.locator('#jobTypeName').inputValue(), 'FAKE new job');
+    assert.equal(await page.locator('#jobTypeName').inputValue(), 'FAKE edited job');
     assert.deepEqual(state.alerts, ['FAKE save failed']);
     assert.equal(await page.getByRole('button', { name: 'Save', exact: true }).isDisabled(), false);
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await waitForSave(page, state, 2);
-    assert.equal(new URLSearchParams(state.saves[1].body).get('jobType.name'), 'FAKE new job');
+    assert.equal(new URLSearchParams(state.saves[1].body).get('jobType.name'), 'FAKE edited job');
+    assert.equal(new URLSearchParams(state.saves[1].body).get('jobType.id'), '1');
     completeSave(state.saves[1], 200);
     await page.waitForFunction(() => !jQuery('#new-jobtype').dialog('isOpen') && jQuery.active === 0);
+  }],
+  ['a committed create with a failed response refreshes the list and cannot be submitted again', async (page, state) => {
+    state.expectedAlerts = ['FAKE create unconfirmed', 'FAKE create unconfirmed'];
+    await openNew(page);
+    await page.getByRole('button', {name: 'Save', exact: true}).click();
+    await waitForSave(page, state, 1);
+    state.rows.push({...jobs()[0], id: 31, name: 'FAKE new job'});
+    completeSave(state.saves[0], 500);
+    await page.waitForFunction(() => jQuery.active === 0);
+    assert.equal(await page.locator('#jobTypeName').inputValue(), 'FAKE new job');
+    assert.equal(await page.getByRole('button', {name: 'Save', exact: true}).isDisabled(), true);
+    assert.equal(await page.evaluate(() => jobTypeTable.rows().count()), 31);
+    // The handler also refuses programmatic retries, independent of button state.
+    await page.evaluate(() => {
+      const dialog = jQuery('#new-jobtype');
+      dialog.dialog('option', 'buttons').saveJobType.click.call(dialog[0]);
+    });
+    assert.equal(state.saves.length, 1);
+    await page.getByRole('button', {name: 'Cancel', exact: true}).click();
+    await openNew(page);
+    assert.equal(await page.getByRole('button', {name: 'Save', exact: true}).isDisabled(), true);
+    await page.getByRole('button', {name: 'Cancel', exact: true}).click();
+    await page.evaluate(() => jobTypeTable.search('FAKE new job').draw());
+    await page.getByRole('link', {name: 'FAKE new job', exact: true}).click();
+    await page.waitForFunction(() => jQuery('#jobTypeId').val() === '31' && jQuery.active === 0);
+    assert.equal(await page.getByRole('button', {name: 'Save', exact: true}).isDisabled(), false);
+    await page.getByRole('button', {name: 'Save', exact: true}).click();
+    await waitForSave(page, state, 2);
+    assert.equal(new URLSearchParams(state.saves[1].body).get('jobType.id'), '31');
+    completeSave(state.saves[1], 200);
+    await page.waitForFunction(() => !jQuery('#new-jobtype').dialog('isOpen') && jQuery.active === 0);
+  }],
+  ['an unconfirmed create stays blocked when its reconciliation read fails', async (page, state) => {
+    state.expectedAlerts = ['FAKE create unconfirmed'];
+    await openNew(page);
+    await page.getByRole('button', {name: 'Save', exact: true}).click();
+    await waitForSave(page, state, 1);
+    state.failLists = true;
+    completeSave(state.saves[0], 500);
+    await page.waitForFunction(() => jQuery.active === 0);
+    assert.equal(await page.getByRole('button', {name: 'Save', exact: true}).isDisabled(), true);
+    assert.equal(state.saves.length, 1);
   }],
   ['request setup failure restores Save and keeps the dialog open', async (page, state) => {
     state.expectedAlerts = ['FAKE save failed'];
