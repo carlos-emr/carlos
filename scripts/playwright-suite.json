@@ -9092,7 +9092,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "fixtures": "The owned FAKE- patient; every casemgmt_note row of that patient carrying the run marker (with issue links, ext rows, drafts and locks) is deleted and asserted gone. Passes today."
+      "fixtures": "The owned FAKE- patient; every casemgmt_note revision carrying the run marker (with issue links, ext rows, drafts, locks and eChart rows) is deleted and asserted gone. Saves, edits, signs and reopens literal markup and Unicode; editor lookup uses the saved note ID (#5642)."
     },
     {
       "name": "boundary-provider-text",
