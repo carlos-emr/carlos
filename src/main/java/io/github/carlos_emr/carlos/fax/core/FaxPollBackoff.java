@@ -33,6 +33,8 @@ import io.github.carlos_emr.carlos.fax.core.FaxImporter.PollingFailure;
  * Process-local retry state for inbound fax polling. No credentials or provider response
  * text are retained. The importer serializes polls; synchronized access also gives admin
  * requests a consistent, immutable snapshot without waiting for a provider network call.
+ *
+ * @since 2026-11-04
  */
 final class FaxPollBackoff {
     private static final long MAX_DELAY_MINUTES = 60;
