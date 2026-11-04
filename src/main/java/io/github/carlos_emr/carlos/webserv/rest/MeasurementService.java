@@ -65,8 +65,8 @@ import java.util.List;
  *   <li>All endpoints require an authenticated UI session or OAuth 1.0a authentication</li>
  *   <li>Users must have "_measurement" read privileges</li>
  *   <li>Patient-scoped endpoints validate patient demographic access per request</li>
- *   <li>Patient measurement reads are audited; the measurement types list is configuration, not
- *       PHI, and is not audited</li>
+ *   <li>Patient measurement reads are audited when they return data; the measurement types list
+ *       is configuration, not PHI, and is not audited</li>
  * </ul>
  *
  * <p>{@code GET /measurements/types} is not patient-scoped: it lists the configured measurement
