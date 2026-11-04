@@ -186,7 +186,8 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
         item.setLookupListId(3);
         when(lists.findLookupListItemById(login, 7)).thenReturn(item);
 
-        assertThat(new LookupListManager2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(new LookupListManager2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(409);
 
         verify(lists, never()).addLookupListItem(any(), any());
         verify(lists, never()).updateLookupListItemDisplayOrder(any(), anyInt(), anyInt());

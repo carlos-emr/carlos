@@ -56,10 +56,9 @@ public class AppointmentConverter extends AbstractConverter<Appointment, Appoint
      * {@link AppointmentLocationResolver#setLocationText} so a REST edit of the text clears a
      * Location List code that no longer matches it.
      */
-    private static final String[] COPY_IGNORED_PROPERTIES = {
-            "id", "createDateTime", "updateDateTime", "creator", "creatorSecurityId",
-            "lastUpdateUser", "bookingSource", "location", "locationCode"
-    };
+    private static final String[] COPY_IGNORED_PROPERTIES = java.util.stream.Stream.concat(
+            java.util.Arrays.stream(SERVER_MANAGED_PROPERTIES), java.util.stream.Stream.of("location", "locationCode"))
+            .toArray(String[]::new);
 
     private boolean includeDemographic;
     private boolean includeProvider;

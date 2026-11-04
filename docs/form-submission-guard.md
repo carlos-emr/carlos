@@ -43,9 +43,10 @@ still needed after completion: replaying an old create must not start another ep
 Add again issues a fresh token for an intentional later pregnancy.
 
 Appointment Settings > Locations uses `APPOINTMENT_LOCATION_ADD` for its add and paste forms, one
-token each, bound to the form's dispatch (`add`, `addMany`): a paste sent from a rendering whose add
-already saved is refused as stale, never answered with the add's result. A repeat of one form shows
-the first submission's own message (what it added and skipped), rendered from `result()`.
+token each, bound to its own dispatch (`add`, `addMany`): one form's token sent with the other
+dispatch is refused as stale, never answered with the first form's result, and each form saves once
+per rendering on its own. A repeat of one form shows the first submission's own message (what it
+added and skipped), rendered from `result()`.
 
 ### When a token is freed for a retry
 

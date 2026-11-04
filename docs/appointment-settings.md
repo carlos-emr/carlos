@@ -102,7 +102,7 @@ whose text it rewrites. Renaming a Location List item does **not** rewrite past 
 `addappointment.jsp`/`editappointment.jsp` with "Not specified", the active items in booking
 order, on edit the appointment's own item even if deactivated since (marked), and a
 "Legacy: <text>" option for location text that names no item. An edit screen links typed text to
-the active item with the same name (ignoring case and spaces) so it is coded on the next save.
+the active item with the same name (ignoring case and surrounding spaces) so it is coded on the next save.
 `js/appointmentLocationSelect.js` picks the option an appointment type names and the one a
 pasted appointment carries (`ApptData.locationCode`). A pasted location the add screen cannot
 select (typed text, or an item disabled since) is offered as a legacy option with its name, so a
@@ -136,8 +136,8 @@ every booking's text and out through SOAP, REST and HL7. A refused entry is offe
 - Every change runs in one READ COMMITTED transaction that first locks the list row
   (`LookupListDao.findForUpdate`), so two at once (a double click, two administrators) cannot both
   pass the name check. Under MariaDB's default REPEATABLE READ the reads after the lock would
-  still see the snapshot the privilege check took before it; it evicts the lookup-list cache after commit and writes a `LogAction` row with
-  the item id and the field only.
+  still see the snapshot the privilege check took before it. Each change then evicts the
+  lookup-list cache after commit and writes a `LogAction` row with the item id and the field only.
 - Repeats: the add and paste forms each carry a `FormSubmissionGuard` token
   (`Scope.APPOINTMENT_LOCATION_ADD`, bound to the form's dispatch), so a double click or a reload
   shows what the first submission added instead of adding again. Move up/down posts the place the page showed

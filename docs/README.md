@@ -47,6 +47,7 @@ Key testing resources:
 | [Resources Directory](resources-directory.md) | Application resources structure |
 | [Provider-to-Patient Email Operations](email/provider-to-patient-email-operations.md) | Email workflow setup, monitoring, and safety runbook |
 | [GitHub Issue Management](github-issue-management.md) | Issue tracking and workflow |
+| [Appointment Settings](appointment-settings.md) | Statuses (inline styling) and the appointment Location List: write rule, booking screens, settings page (#3982) |
 | [Database Schema Management](database-schema-management.md) | Flyway baseline, forward migrations, where migrations run |
 | [Database Index Review (2026-09-04)](database-index-review-2026-09-04.md) | Index state vs. DAO query patterns; rationale for the V1.0.18/V1.0.19 index migrations |
 | [Testing Exclusions](Testing_Exclusion_of_MCEDT_and_HinValidator_tests.md) | Excluded test documentation |

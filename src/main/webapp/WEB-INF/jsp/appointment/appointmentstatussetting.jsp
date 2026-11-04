@@ -188,7 +188,8 @@
                                 </option>
                             </c:if>
                         </select>
-                        <button class="btn btn-sm btn-outline-primary" type="submit" aria-describedby="status-row-${apptStatus.id}"><fmt:message key="global.btnSave"/></button>
+                        <%-- An unlisted stored icon is a disabled option, which a form does not post: Save waits for a listed icon. --%>
+                        <button class="btn btn-sm btn-outline-primary" type="submit" aria-describedby="status-row-${apptStatus.id}"${iconListed ? '' : ' disabled'}><fmt:message key="global.btnSave"/></button>
                     </form>
                 </td>
                 <td class="text-nowrap"><fmt:message key="${apptStatus.active > 0 ? 'global.yes' : 'global.no'}"/></td>
@@ -236,6 +237,10 @@
                 if (preview && select.value) {
                     preview.src = base + encodeURIComponent(select.value);
                     preview.hidden = false;
+                }
+                const save = select.form.querySelector('button[type="submit"]');
+                if (save && select.value) {
+                    save.disabled = false;
                 }
             });
         });

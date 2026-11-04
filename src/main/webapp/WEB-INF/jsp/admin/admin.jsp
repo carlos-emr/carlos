@@ -48,6 +48,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
@@ -632,7 +633,7 @@
                         <% } %>
                         <%-- The Location List replaces free-text locations only without a site setup; see AppointmentLocationList. --%>
                         <li><a href="#"
-                               onclick="popupPage(700,1000,'${pageContext.request.contextPath}/appointment/apptLocationSetting');return false;"
+                               onclick="popupPage(700,1000,'${carlos:forJavaScriptAttribute(pageContext.request.contextPath)}/appointment/apptLocationSetting');return false;"
                                title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.appointmentLocationSetting"/></a></li>
 
                         <li><a href="#"

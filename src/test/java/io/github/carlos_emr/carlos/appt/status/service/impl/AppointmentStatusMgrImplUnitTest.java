@@ -256,7 +256,8 @@ class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
 
         new AppointmentStatusMgrImpl().reset();
 
-        verify(appointmentStatusDao, never()).modifyStyle(77, "To Do", "#FDFEC7", "starbill.gif");
+        verify(appointmentStatusDao, never()).modifyStyle(org.mockito.ArgumentMatchers.eq(77),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
         verify(appointmentStatusDao).modifyStyle(78, "To Do", "#FDFEC7", "starbill.gif");
     }
 
@@ -284,6 +285,8 @@ class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
                 .extracting("messageKey").isEqualTo("admin.appt.status.mgr.error.descriptionLength");
         assertThat(manager.updateDescription(13, "d".repeat(AppointmentStatusMgr.DESCRIPTION_MAX_LENGTH))).isFalse();
         verify(appointmentStatusDao).modifyStyle(13, "d".repeat(AppointmentStatusMgr.DESCRIPTION_MAX_LENGTH), null, null);
+        // The refused values reached no DAO call at all.
+        verifyNoMoreInteractions(appointmentStatusDao);
     }
 
     @Test

@@ -90,6 +90,10 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
         assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
         assertThat(action.getActionErrors()).hasSize(1);
         verify(appointmentStatusMgr, never()).updateDescription(anyInt(), any());
+        verify(appointmentStatusMgr, never()).updateColour(anyInt(), any());
+        verify(appointmentStatusMgr, never()).updateIcon(anyInt(), any());
+        verify(appointmentStatusMgr, never()).changeStatus(anyInt(), anyInt());
+        verify(appointmentStatusMgr, never()).reset();
         assertThat(mockRequest.getAttribute("allStatus")).isEqualTo(List.of());
     }
 

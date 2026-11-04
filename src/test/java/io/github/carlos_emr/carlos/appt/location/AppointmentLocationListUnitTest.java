@@ -135,8 +135,10 @@ class AppointmentLocationListUnitTest {
     void shouldDrawChip_forItemCodeActiveOrNot() {
         Appointment appointment = new Appointment();
         appointment.setLocationCode(13);
-
         assertThat(list(false).chipItemFor(appointment)).isSameAs(satellite);
+
+        appointment.setLocationCode(12);
+        assertThat(list(false).chipItemFor(appointment)).isSameAs(roomTwo);
     }
 
     @Test

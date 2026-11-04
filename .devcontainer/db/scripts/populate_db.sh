@@ -102,7 +102,7 @@ for REF_MIGRATION in \
     "${MIG}/common/V1.0.33__aacp_provided_revised_reviewed_validation.sql" \
     "${MIG}/on/V1.0.34__add_oma_uninsured_service_fees.sql" \
     "${MIG}/common/V1.0.43__consultation_eform_lab_sources.sql" \
-    "${MIG}/common/V1.0.81__appointment_location_list.sql"; do
+    "${MIG}"/common/V*__appointment_location_list.sql; do
   $SQL carlos < "${REF_MIGRATION}"
 done
 # development.sql also truncate-reloads the security tables (secObjectName,

@@ -44,6 +44,8 @@ import io.github.carlos_emr.carlos.config.CacheConfig;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements LookupListDao {
@@ -79,11 +81,21 @@ public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements Lo
     }
 
     @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public LookupList findForUpdate(Integer id) {
         if (id == null) {
             return null;
         }
-        return entityManager.find(LookupList.class, id, LockModeType.PESSIMISTIC_WRITE);
+        LookupList list = entityManager.find(LookupList.class, id, LockModeType.PESSIMISTIC_WRITE);
+        if (list != null) {
+            // find() returns an entity this persistence context already holds as it was read (an
+            // uncached findByName just before, for example); re-read it and its items under the lock.
+            // This transaction's own pending changes are written first, so the refresh keeps them.
+            entityManager.flush();
+            entityManager.refresh(list);
+            list.getItems().forEach(entityManager::refresh);
+        }
+        return list;
     }
 
     @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)

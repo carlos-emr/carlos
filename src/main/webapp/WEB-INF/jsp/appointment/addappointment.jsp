@@ -1399,11 +1399,13 @@ Ontario, Canada
                                 </select>
                                 <% } else if (locationMode) {
                                     // A re-render (patient search) starts on what the form posted, as an option value.
+                                    // The hidden location field carries a pasted legacy name, which stays offered.
                                     AppointmentLocationList.Choice postedLocation = AppointmentLocationList.Choice.posted(
-                                            bFirstDisp ? null : request.getParameter("locationCode"), null);
+                                            bFirstDisp ? null : request.getParameter("locationCode"),
+                                            bFirstDisp ? null : request.getParameter("location"));
                                 %>
                                 <appt:locationSelect choices="<%= appointmentLocations.getActiveItems() %>"
-                                                     selected="<%= postedLocation.value() %>"
+                                                     selected="<%= postedLocation.value() %>" legacy="<%= postedLocation.legacy() %>"
                                                      selectId="locationCode" labelledBy="apptLocationLabel"
                                                      cssClass="form-select form-select-sm"/>
                                 <% } else { %>

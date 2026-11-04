@@ -471,7 +471,7 @@ Properties oscarVariables = CarlosProperties.getInstance();
 							title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.appointmentStatusSetting"/></a></li>
 					<% } %>
 					<li><a href="javascript:void(0);"
-						class="xlink" rel='${ctx}/appointment/apptLocationSetting'
+						class="xlink" rel='${carlos:forHtmlAttribute(ctx)}/appointment/apptLocationSetting'
 						title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.appointmentLocationSetting"/></a></li>
 		
 					<li><a href="javascript:void(0);" class="xlink" rel='${ctx}/appointment/appointmentTypeAction'><fmt:message key="admin.admin.appointmentTypeList"/></a></li>
