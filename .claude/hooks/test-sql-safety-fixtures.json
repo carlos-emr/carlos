@@ -1005,5 +1005,77 @@
         "content": "logger.debug(sql = \"SELECT * FROM patient WHERE id = \" + rawId);"
       }
     }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "unknown query call nested in logger",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.debug(jdbc.queryForObject(\"SELECT * FROM patient WHERE id = '\" + rawId + \"'\", String.class));"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "query nested in exception",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "throw new IllegalStateException(jdbc.query(\"SELECT * FROM patient WHERE id = '\" + rawId + \"'\"));"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "update nested in logger",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.info(jdbc.update(\"UPDATE patient SET status = \" + userStatus));"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "log callback cannot exempt outer SQL",
+    "expected_exit": 2,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "jdbc.query(\"SELECT * FROM patient WHERE id = '\" + rawId + \"'\", row -> logger.debug(\"from \" + row));"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "formatted SQL-shaped logger message",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "logger.debug(String.format(\"Cannot delete from cache %s\", cacheName));"
+      }
+    }
+  },
+  {
+    "section": "SQL context review regressions (#3847)",
+    "description": "grouped SQL-shaped exception message",
+    "expected_exit": 0,
+    "payload": {
+      "tool_name": "Write",
+      "tool_input": {
+        "file_path": "/path/to/SqlContext.java",
+        "content": "throw new IllegalStateException((\"Cannot delete from cache \" + cacheName));"
+      }
+    }
   }
 ]

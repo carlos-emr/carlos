@@ -556,6 +556,40 @@ def get_file_content_from_input(tool_input: dict, tool_name: str) -> tuple[str, 
     return file_path, content
 
 
+def is_message_literal(statement: str, start: int) -> bool:
+    """True when this literal belongs directly to an exception/logger message.
+
+    Follow enclosing calls, rather than exempting the entire statement: a
+    nested query call (including one whose name we do not know) must retain
+    its own SQL context. Grouping and String.format only wrap the message.
+    """
+    prefix = _ONLY_STRING_LITERAL.sub('""', statement[:start])
+    calls = []
+    for match in re.finditer(r'[()]', prefix):
+        if match.group() == ')':
+            if calls:
+                calls.pop()
+            continue
+        before = prefix[:match.start()]
+        if re.search(
+            r'\bnew\s+(?:[\w$]+\.)*[\w$]*(?:Exception|Error)\s*$|'
+            r'\b(?:log|logger)\s*\.\s*(?:trace|debug|info|warn|error|fatal)\s*$|'
+            r'\bgetLogger\s*\([^)]*\)\s*\.\s*(?:trace|debug|info|warn|error|fatal)\s*$',
+            before, re.IGNORECASE
+        ):
+            calls.append('message')
+        elif re.search(r'\bString\s*\.\s*format\s*$', before):
+            calls.append('format')
+        elif re.search(r'[\w$]\s*$', before):
+            calls.append('other')
+        else:
+            calls.append('group')
+    for call in reversed(calls):
+        if call not in {'group', 'format'}:
+            return call == 'message'
+    return False
+
+
 def has_sql_context(statement: str) -> bool:
     """Require query structure, a query variable, or an actual SQL sink.
 
@@ -572,7 +606,7 @@ def has_sql_context(statement: str) -> bool:
     ):
         return True
 
-    literals = re.findall(r'"((?:[^"\\]|\\.)*)"', statement)
+    literals = re.finditer(r'"((?:[^"\\]|\\.)*)"', statement)
     # Query-named assignments also cover incomplete fragments, e.g.
     # sql = "UPDATE " + table. Names supply context, never safety evidence.
     assignments = re.findall(r'\b([A-Za-z_$][\w$]*)\s*\+?=(?!=)', code)
@@ -583,16 +617,6 @@ def has_sql_context(statement: str) -> bool:
         for name in assignments
     ):
         return True
-
-    # Even SQL-shaped text is prose at an explicit message sink. Check actual
-    # query sinks/assignments first so a nested query cannot use this exemption.
-    if re.search(
-        r'\bnew\s+(?:[\w$]+\.)*[\w$]*(?:Exception|Error)\s*\(|'
-        r'\b(?:log|logger)\s*\.\s*(?:trace|debug|info|warn|error|fatal)\s*\(|'
-        r'\bgetLogger\s*\([^)]*\)\s*\.\s*(?:trace|debug|info|warn|error|fatal)\s*\(',
-        code, re.IGNORECASE
-    ):
-        return False
 
     sql_structure = (
         # A literal containing only a clause starter is a query fragment, not
@@ -608,7 +632,11 @@ def has_sql_context(statement: str) -> bool:
         # id = '\" + raw + "' must remain an always-unsafe quote sandwich.
         r'^\s*\(*\s*[\w.$`]+\s*(?:[=<>!]|LIKE\b|IN\s*\(|IS\b|BETWEEN\b)'
     )
-    return any(re.search(sql_structure, literal, re.IGNORECASE) for literal in literals)
+    return any(
+        re.search(sql_structure, literal.group(1), re.IGNORECASE)
+        and not is_message_literal(statement, literal.start())
+        for literal in literals
+    )
 
 
 def check_sql_injection_patterns(content: str) -> list[str]:
