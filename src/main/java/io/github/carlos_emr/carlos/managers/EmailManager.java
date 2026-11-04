@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
@@ -226,6 +227,7 @@ public class EmailManager {
      * @return EmailLog the updated transport log, or the refreshed stored state after resolution;
      *         null if the log is missing
      * @throws SecurityException if user lacks _email WRITE privilege
+     * @throws NullPointerException if emailStatus is null
      */
     public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, Integer emailLogId, EmailStatus emailStatus, String errorMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
@@ -259,13 +261,15 @@ public class EmailManager {
      * @return EmailLog the updated transport log, or the refreshed stored state after resolution;
      *         null if the log disappeared before resolution
      * @throws SecurityException if user lacks _email WRITE privilege
+     * @throws NullPointerException if emailStatus is null
      */
     public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, EmailLog emailLog, EmailStatus emailStatus, String errorMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_email)");
         }
 
-        Date newTimestamp = emailStatus.equals(EmailStatus.RESOLVED) ? null : new Date();
+        Objects.requireNonNull(emailStatus, "emailStatus");
+        Date newTimestamp = emailStatus == EmailStatus.RESOLVED ? null : new Date();
 
         emailLogDao.updateEmailStatus(emailLog.getId(), emailStatus, errorMessage, newTimestamp);
         if (emailStatus == EmailStatus.RESOLVED) {
