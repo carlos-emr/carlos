@@ -54,12 +54,14 @@ public final class BcBillingCsv {
      * Formats a decimal CAD amount with two places and half-up rounding.
      *
      * @param value String decimal amount without currency symbols or grouping; may be null or blank
-     * @return String formatted amount, empty for a missing amount, or the original malformed text
+     * @return String formatted amount, empty if missing, or source text for malformed/out-of-range values
      */
     public static String money(String value) {
         if (value == null || value.isBlank()) return "";
         try {
-            return new BigDecimal(value).setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
+            BigDecimal amount = new BigDecimal(value);
+            return Double.isFinite(amount.doubleValue())
+                    ? amount.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() : value;
         } catch (NumberFormatException invalid) {
             return value;
         }

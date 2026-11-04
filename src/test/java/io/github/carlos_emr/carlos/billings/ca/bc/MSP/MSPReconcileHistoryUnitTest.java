@@ -213,6 +213,27 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"REP_INVOICE", "REP_ACCOUNT_REC"})
+    void shouldRetainUnknownBalance_whenS00PaymentCannotBeDecoded(String type) throws Exception {
+        var csv = spy(new MSPReconcile(true));
+        doReturn(new Properties()).when(csv).currentC12Records();
+        doReturn("").when(csv).getS00String(anyString());
+        doReturn(new Provider()).when(csv).getProvider(anyString(), anyInt());
+        reportRows("MSP", "Pri");
+        for (String amount : List.of("bad", "12.3")) {
+            var payment = new TeleplanS00(); payment.setPaidAmount(amount);
+            when(teleplanDao.findByOfficeNumber("0000041")).thenReturn(List.of(payment));
+            var result = csv.getBillsByType("ALL", "ALL", "ALL", "", "", false, false, false, false, type);
+            assertThat(result.list).hasSize(2);
+            assertThat(((MSPBill) result.list.getFirst()).getAmtOwing()).isEmpty();
+            assertThat(((MSPBill) result.list.get(1)).getAmtOwing()).isEqualTo("100.0");
+        }
+        when(teleplanDao.findByOfficeNumber("0000041")).thenThrow(new jakarta.persistence.PersistenceException("synthetic read failure"));
+        assertThatThrownBy(() -> csv.getBillsByType("ALL", "ALL", "ALL", "", "", false, false, false, false, type))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Billing export data could not be read").hasNoCause();
+    }
+
+    @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"bad"})
     void shouldKeepPrivatePaymentExports_whenLegacyAmountsAreMissingOrMalformed(String amount) {

@@ -189,4 +189,15 @@ class SpreadsheetExportsUnitTest {
         assertThat(BcBillingCsv.money("12.345")).isEqualTo("12.35");
         assertThat(BcBillingCsv.money("synthetic invalid amount")).isEqualTo("synthetic invalid amount");
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1e309", "-1e309"})
+    void shouldPreserveOutOfRangeSourceText_whenAmountsExceedBalanceRepresentation(String amount) throws Exception {
+        assertThat(BcBillingCsv.money(amount)).isEqualTo(amount);
+        MSPBill b = bill(); b.setAmount(amount);
+        var output = new ByteArrayOutputStream();
+        BcBillingCsv.write(output, "REP_INVOICE", List.of(b));
+        var rows = CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords();
+        assertThat(rows.get(1).get(7)).isEqualTo(amount);
+    }
 }

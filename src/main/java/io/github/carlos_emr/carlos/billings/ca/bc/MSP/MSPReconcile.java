@@ -1332,9 +1332,14 @@ public class MSPReconcile {
                 } else if (MSPReconcile.REP_INVOICE.equals(type)) {
                     b.amtOwing = "";
                     if (canCalculateReportBalance(b.amount)) {
-                        double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype,
-                                paidTotals.getOrDefault(ConversionUtils.fromIntString(b.billMasterNo), 0.0));
-                        b.amtOwing = String.valueOf(dblAmtOwing);
+                        try {
+                            double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype,
+                                    paidTotals.getOrDefault(ConversionUtils.fromIntString(b.billMasterNo), 0.0));
+                            b.amtOwing = String.valueOf(dblAmtOwing);
+                        } catch (NumberFormatException | ArithmeticException invalid) {
+                            if (!failOnReadError) throw invalid;
+                            // An unreadable payment makes the balance unknown, not an unpaid bill.
+                        }
                     }
                     //append the explanatory code to end of reason field
                     String expString = c12.getProperty(b.billing_no) != null ? c12.getProperty(b.billing_no) : "";
@@ -1354,10 +1359,15 @@ public class MSPReconcile {
                 if (type.equals(MSPReconcile.REP_ACCOUNT_REC)) {
                     b.amtOwing = "";
                     if (canCalculateReportBalance(b.amount)) {
-                        double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype,
-                                paidTotals.getOrDefault(ConversionUtils.fromIntString(b.billMasterNo), 0.0));
-                        b.amtOwing = String.valueOf(dblAmtOwing);
-                        skipBill = dblAmtOwing == 0.0;
+                        try {
+                            double dblAmtOwing = this.getAmountOwing(b.billMasterNo, b.amount, b.billingtype,
+                                    paidTotals.getOrDefault(ConversionUtils.fromIntString(b.billMasterNo), 0.0));
+                            b.amtOwing = String.valueOf(dblAmtOwing);
+                            skipBill = dblAmtOwing == 0.0;
+                        } catch (NumberFormatException | ArithmeticException invalid) {
+                            if (!failOnReadError) throw invalid;
+                            // Keep the claim; an unknown balance cannot establish that it is settled.
+                        }
                     }
                 }
 
