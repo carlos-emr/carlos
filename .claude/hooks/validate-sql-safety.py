@@ -28,6 +28,8 @@ Improvements over the original version:
 - Any raw concatenated operand (not a builder var, counter, or class
   metadata) vetoes all allowlisting for its statement
 - No file-wide bypass: setParameter usage elsewhere never whitelists other matches
+- Requires SQL structure or an explicit query context before treating words
+  such as FROM, SET and VALUES as SQL rather than ordinary English
 - For Edit/MultiEdit, reconstructs the full post-edit file before scanning
 
 Exit codes:
@@ -138,21 +140,32 @@ def strip_line_comment(line: str) -> str:
 
 
 
-def get_statement_containing(content: str, start: int, end: int) -> str:
+def mask_literal_statement_delimiters(content: str) -> str:
+    """Hide Java delimiters inside string/char literals without moving offsets."""
+    return _ONLY_STRING_LITERAL.sub(
+        lambda literal: re.sub(r'[;{}]', ' ', literal.group(0)), content
+    )
+
+
+def get_statement_containing(
+    content: str, start: int, end: int, boundaries: str | None = None
+) -> str:
     """Extract the full Java statement containing the given match span.
 
-    Expands backward to the previous statement boundary (';', '{' or '}')
-    and forward to the next ';'. This is the correct scope for safety
-    evidence: placeholders or class metadata in a *different* statement on
-    the same line must never allowlist this one, while evidence in the same
-    statement that a truncated regex match missed still counts.
+    Expands backward to the previous Java statement boundary (';', '{' or '}')
+    and forward to the next ';', ignoring delimiters inside literals.
+    Placeholders or class metadata in a *different* statement on the same line
+    must never allowlist this one, while evidence in the same statement that a
+    truncated regex match missed still counts.
     """
+    if boundaries is None:
+        boundaries = mask_literal_statement_delimiters(content)
     begin = max(
-        content.rfind(';', 0, start),
-        content.rfind('{', 0, start),
-        content.rfind('}', 0, start),
+        boundaries.rfind(';', 0, start),
+        boundaries.rfind('{', 0, start),
+        boundaries.rfind('}', 0, start),
     ) + 1
-    term = content.find(';', end)
+    term = boundaries.find(';', end)
     if term == -1:
         term = len(content)
     return content[begin:term + 1]
@@ -553,6 +566,110 @@ def get_file_content_from_input(tool_input: dict, tool_name: str) -> tuple[str, 
 
     return file_path, content
 
+
+def is_message_literal(statement: str, start: int) -> bool:
+    """True when this literal belongs directly to an exception/logger message.
+
+    Follow enclosing calls, rather than exempting the entire statement: a
+    nested query call (including one whose name we do not know) must retain
+    its own SQL context. Grouping and String.format only wrap the message.
+    """
+    prefix = _ONLY_STRING_LITERAL.sub('""', statement[:start])
+    calls = []
+    logger_ends = set()
+    log_methods = {
+        'trace', 'debug', 'info', 'warn', 'error', 'fatal',
+        'log', 'logp', 'logrb', 'severe', 'warning', 'config', 'fine', 'finer', 'finest',
+        'entering', 'exiting', 'throwing',
+    }
+    for match in re.finditer(r'[()]', prefix):
+        if match.group() == ')':
+            if calls and calls.pop() == 'logger_factory':
+                logger_ends.add(match.start())
+            continue
+        before = prefix[:match.start()]
+        method = re.search(r'([\w$]+)\s*$', before)
+        name = method.group(1).lower() if method else ''
+        receiver = before[:method.start()].rstrip() if method else ''
+        receiver = receiver[:-1].rstrip() if receiver.endswith('.') else ''
+        # Track the factory's matching ')' so nested factory arguments work,
+        # without mistaking wrap(getLogger(...)).query(...) for a logger call.
+        logger_call = name in log_methods and (
+            re.search(r'\b(?:log|logger)$', receiver, re.IGNORECASE)
+            or len(receiver) - 1 in logger_ends
+        )
+        if re.search(
+            r'\bnew\s+(?:[\w$]+\.)*[\w$]*(?:Exception|Error)\s*$',
+            before, re.IGNORECASE
+        ) or logger_call:
+            calls.append('message')
+        elif re.search(r'\bString\s*\.\s*format\s*$', before):
+            calls.append('format')
+        elif name == 'getlogger':
+            calls.append('logger_factory')
+        elif method:
+            calls.append('other')
+        else:
+            calls.append('group')
+    for call in reversed(calls):
+        if call not in {'group', 'format'}:
+            return call == 'message'
+    return False
+
+
+def has_sql_context(statement: str) -> bool:
+    """Require query structure, a query variable, or an actual SQL sink.
+
+    A keyword alone is only a candidate: exception/log messages often contain
+    'from', 'set' or 'values'. Inspect literal contents for SQL clauses, and
+    masked Java code for sinks/assignments so prose cannot invent a sink.
+    Context stays within this statement; a nearby query must not turn an
+    unrelated message into SQL.
+    """
+    code = _mask_string_literals(statement)
+    if re.search(
+        r'\b(?:executeQuery|executeUpdate|execute|createQuery|createNativeQuery|'
+        r'createSQLQuery|prepareStatement|prepareCall)\s*\(', code
+    ):
+        return True
+
+    literals = re.finditer(r'"((?:[^"\\]|\\.)*)"', statement)
+    # Query-named assignments/appends also cover incomplete fragments, e.g.
+    # sql = "UPDATE " + table. Names supply context, never safety evidence.
+    query_names = re.findall(r'\b([A-Za-z_$][\w$]*)\s*\+?=(?!=)', code)
+    query_names.extend(re.findall(r'\b([A-Za-z_$][\w$]*)\s*\.\s*append\s*\(', code))
+    # Generic builder names (sb/buf/conditions) are equally common for prose.
+    if any(
+        QUERY_BUILDER_VARS.fullmatch(name)
+        and name.lower() not in {'sb', 'buf', 'conditions', 'servicecodevalues'}
+        for name in query_names
+    ):
+        return True
+
+    sql_structure = re.compile(
+        # A literal containing only a clause starter is a query fragment, not
+        # a keyword embedded in a sentence ("Error reading XML from ...").
+        r'^\s*(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN)\s*$|'
+        r'\bSELECT\b[^;]*\bFROM\b|'
+        r'\bINSERT\s+INTO\b|\bDELETE\s+FROM\b|'
+        r'\bUPDATE\s+[\w.$`]+\s+SET\b|'
+        r'^\s*FROM\s+[\w.$`]+\b|'
+        r'\b(?:WHERE|SET|ON)\s+[\w.$`]+\s*(?:[=<>!]|LIKE\b|IN\s*\(|IS\b|BETWEEN\b)|'
+        r'\bVALUES\s*\(|\b(?:ORDER|GROUP)\s+BY\b|'
+        # Predicates are often assembled before WHERE is added. In particular,
+        # id = '\" + raw + "' must remain an always-unsafe quote sandwich.
+        r'^\s*,?\s*(?:(?:WHERE|AND|OR|SET|ON)\b\s*)?'
+        r'(?:\(\s*)*(?:NOT\b\s*(?:\(\s*)*)*[\w.$`]+\s*'
+        r'(?:[=<>!]|LIKE\b|IN\s*\(|IS\b|BETWEEN\b)',
+        re.IGNORECASE
+    )
+    return any(
+        sql_structure.search(literal.group(1))
+        and not is_message_literal(statement, literal.start())
+        for literal in literals
+    )
+
+
 def check_sql_injection_patterns(content: str) -> list[str]:
     """def check_sql_injection_patterns(content: str) -> list[str]:
     
@@ -573,9 +690,12 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     # (b) comment text can never provide allowlisting evidence. Offsets are
     # preserved, so reported positions remain valid.
     content = mask_java_comments(content)
+    # Compute this once per file: SQL punctuation is literal data, not a Java
+    # boundary, and rescanning literals for every candidate is needlessly costly.
+    boundaries = mask_literal_statement_delimiters(content)
 
-    # SQL keywords to look for
-    sql_keywords = r'(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN|ORDER\s+BY|GROUP\s+BY)'
+    # Broad candidates are confirmed against statement-local SQL context below.
+    sql_keywords = r'\b(?:SELECT|INSERT|UPDATE|DELETE|FROM|WHERE|INTO|VALUES|SET|JOIN|ORDER\s+BY|GROUP\s+BY)\b'
 
     # Pattern 1: String concatenation with SQL keywords
     concat_pattern = rf'["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+\s*\w+'
@@ -589,12 +709,12 @@ def check_sql_injection_patterns(content: str) -> list[str]:
     builder_pattern = rf'(?:StringBuilder|StringBuffer)\s*\(\s*["\'][^"\']*{sql_keywords}'
     append_pattern = rf'\.append\s*\(\s*["\'][^"\']*{sql_keywords}'
 
-    # Pattern 4: executeQuery/executeUpdate with concatenation
-    execute_concat = rf'(?:executeQuery|executeUpdate|execute)\s*\(\s*["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+'
-    execute_concat2 = r'(?:executeQuery|executeUpdate|execute)\s*\(\s*\w+\s*\+\s*["\']'
+    # Pattern 4: JDBC query sinks with concatenation (even without a keyword)
+    execute_concat = r'(?:executeQuery|executeUpdate|execute|prepareStatement|prepareCall)\s*\(\s*"(?:[^"\\]|\\.)*"\s*\+'
+    execute_concat2 = r'(?:executeQuery|executeUpdate|execute|prepareStatement|prepareCall)\s*\(\s*\w+\s*\+\s*["\']'
 
     # Pattern 5: createQuery/createNativeQuery with concatenation
-    create_query_concat = rf'(?:createQuery|createNativeQuery|createSQLQuery)\s*\(\s*["\'][^"\']*{sql_keywords}[^"\']*["\']\s*\+'
+    create_query_concat = r'(?:createQuery|createNativeQuery|createSQLQuery)\s*\(\s*"(?:[^"\\]|\\.)*"\s*\+'
     create_query_concat2 = r'(?:createQuery|createNativeQuery|createSQLQuery)\s*\(\s*\w+\s*\+\s*["\']'
 
     # Pattern 6: Direct variable in SQL string construction
@@ -635,7 +755,10 @@ def check_sql_injection_patterns(content: str) -> list[str]:
             match_text = match.group(0)
 
             # Get the full statement containing this match
-            statement = get_statement_containing(content, match.start(), match.end())
+            statement = get_statement_containing(content, match.start(), match.end(), boundaries)
+
+            if not has_sql_context(statement):
+                continue
 
             # Skip if match is a safe pattern (never for always-unsafe patterns)
             if not always_unsafe and is_safe_pattern(match_text, statement, content):
@@ -670,7 +793,10 @@ def check_sql_injection_patterns(content: str) -> list[str]:
         matches = re.finditer(pattern, content, re.IGNORECASE)
         for match in matches:
             match_text = match.group(0)
-            statement = get_statement_containing(content, match.start(), match.end())
+            statement = get_statement_containing(content, match.start(), match.end(), boundaries)
+
+            if not has_sql_context(statement):
+                continue
 
             if not always_unsafe and is_safe_pattern(match_text, statement, content):
                 continue
