@@ -11,7 +11,8 @@
  * Last (app-findings-log.md finding 168, fixed by #4424): a login that may save eForms but holds no `_edoc` x
  * presses Add to Documents. The eForm is stored, the eDoc step is then refused, and the answer must not be
  * the replay refusal ("This form can no longer be submitted from this page"): that text tells the
- * clinician nothing failed and that the page was submitted twice.
+ * clinician nothing failed and that the page was submitted twice. Replaying that failed POST must then
+ * get the actual replay refusal, without saving a second instance or filing a document.
  * Fixtures: one owned eForm template (marker name) and the owned FAKE- patient; for finding 168 one owned
  * role holding `_eform` w, `_demographic` r and `_eChart` r (no `_edoc`) and a login holding it; cleanup
  * deletes the instances (eform_values + eform_data) for the owned patient/form and the template, removes the
@@ -157,7 +158,11 @@ async function workflow(s) {
         ]);
         h.assert(initial.status() === 200, `The initial eForm submission answered HTTP ${initial.status()}`);
         h.assert((await initial.finished()) === null, 'The initial eForm submission response did not finish');
-        await form.waitForURL(url => route.test(url.pathname), { waitUntil: 'domcontentloaded' });
+        // Finish the result page's spinner before deliberately unloading it (#5217).
+        // Waiting for decoding also covers a late image request after the page's load event;
+        // a missing or broken image still fails instead of being ignored by the recorder.
+        await form.waitForURL(url => route.test(url.pathname), { waitUntil: 'load' });
+        await form.locator('#img-oscar-spinner').evaluate(image => image.decode());
         await form.reload({ waitUntil: 'domcontentloaded', timeout: 20000 });
       };
       if (mode.key === 'slowResubmit') {
@@ -311,14 +316,17 @@ async function workflow(s) {
   // without `_edoc` x.
   const replayText = bundleMessage('eform.submitUnavailable', "This form can no longer be submitted from this page.")
     .split('. ')[0].replace(/\.$/, '');
+  const noEdocSubject = `${marker}-NOEDOC`;
   let noEdoc;
   await s.step('Add to Documents by a login without _edoc x stores the eForm once and files no document', async () => {
     const fixture = authzReadFixture({ sql, marker, provider, testUser: s.config.testUser });
     s.cleanup(() => fixture.cleanup());
     const role = fixture.addRole({ _eform: 'w', _demographic: 'r', _eChart: 'r' });
     const login = fixture.addLogin(role);
-    const subject = `${marker}-NOEDOC`;
-    const restricted = await signIn(s, login);
+    const subject = noEdocSubject;
+    // This eForm-only role cannot open the schedule reached after login. Qualify that exact
+    // authenticated application refusal without granting unrelated appointment rights.
+    const restricted = await signIn(s, login, { allowForbiddenSchedule: true });
     try {
       const page = await restricted.context.newPage();
       await h.gotoApp(page, s.config.baseUrl, `/eform/efmformadd_data?fid=${fid}&demographic_no=${patient}`);
@@ -329,16 +337,25 @@ async function workflow(s) {
         page.waitForResponse(r => r.request().method() === 'POST' && /\/eform\/addEForm$/i.test(new URL(r.url()).pathname)),
         page.locator('#remoteSaveEdocumentButton').click(),
       ]);
-      noEdoc = { status: response.status(), text: await response.text(), receivedAt: new Date().toISOString() };
+      noEdoc = { status: response.status(), text: await response.text(), headers: await response.allHeaders(),
+        receivedAt: new Date().toISOString() };
+      const stored = await settledCount(sql, `SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
+        AND form_name=${q(formName)} AND subject=${q(subject)}`, { min: 1, quietMs: 1500 });
+      h.assert(stored === 1, `The eForm was stored ${stored} time(s), expected exactly once (HTTP ${noEdoc.status})`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM document WHERE docdesc=${q(subject)}`) === '0',
+        'A document was filed for a login that may not add documents');
+      // Bypass the toolbar's disabled state: a post-save failure must consume the server token too.
+      // Keep the same login, body and CSRF token, so this reaches the submission guard itself.
+      const original = response.request();
+      const repeated = await restricted.context.request.post(original.url(), {
+        data: original.postData(), headers: { 'Content-Type': original.headers()['content-type'] }, maxRedirects: 0,
+      });
+      noEdoc.replay = { status: repeated.status(), text: await repeated.text(), headers: repeated.headers() };
+      await repeated.dispose();
       await page.close();
     } finally {
       await restricted.context.close();
     }
-    const stored = await settledCount(sql, `SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
-      AND form_name=${q(formName)} AND subject=${q(subject)}`, { min: 1, quietMs: 1500 });
-    h.assert(stored === 1, `The eForm was stored ${stored} time(s), expected exactly once (HTTP ${noEdoc.status})`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM document WHERE docdesc=${q(subject)}`) === '0',
-      'A document was filed for a login that may not add documents');
   });
 
   // Holds only the assertion finding 168 broke (fixed by #4424), so a regression fails exactly here.
@@ -361,6 +378,28 @@ async function workflow(s) {
     h.assert(noEdoc.status === 409 && noEdoc.text === savedStepMessage,
       `The saved eForm's refused document step did not return HTTP 409 and its specific recovery guidance (HTTP ${noEdoc.status})`);
     console.log(`    expected post-save denial receipt: ${noEdoc.receivedAt}; HTTP 409; eForm stored once; no document filed; step=ADD_TO_DOCUMENTS`);
+  });
+
+  await s.step('replaying the failed Add to Documents keeps the token consumed and stores no second eForm', async () => {
+    const refusal = bundleMessage('eform.submitUnavailable',
+      "This form can no longer be submitted from this page. Check the patient''s eForms before reopening the form if another change is needed.")
+      .replace(/''/g, "'");
+    h.assert(noEdoc.replay.status === 409 && noEdoc.replay.text === refusal,
+      `Replay of the failed document step did not return the replay refusal (HTTP ${noEdoc.replay.status})`);
+    for (const receipt of [noEdoc, noEdoc.replay]) {
+      h.assert(/^text\/plain\s*;\s*charset=utf-8$/i.test(receipt.headers['content-type'] || '')
+        && receipt.headers['cache-control'] === 'no-store' && receipt.headers['x-content-type-options'] === 'nosniff',
+      'The post-save failure and its replay must have non-cacheable, non-sniffable UTF-8 plain-text responses');
+    }
+    h.assert(sql.value(`SELECT COUNT(*) FROM eform_data WHERE demographic_no=${patient}
+      AND form_name=${q(formName)} AND subject=${q(noEdocSubject)}`) === '1',
+    'Replay of the failed document step stored a second eForm');
+    h.assert(sql.value(`SELECT COUNT(*) FROM eform_values v JOIN eform_data d ON d.fdid=v.fdid
+      WHERE d.demographic_no=${patient} AND d.form_name=${q(formName)} AND d.subject=${q(noEdocSubject)}
+      AND v.var_name='note' AND v.var_value='no document rights'`) === '1',
+    'Replay of the failed document step lost or duplicated its clinical field');
+    h.assert(sql.value(`SELECT COUNT(*) FROM document WHERE docdesc=${q(noEdocSubject)}`) === '0',
+      'Replay of the failed document step filed a document');
   });
 }
 
