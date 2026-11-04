@@ -59,7 +59,7 @@ class CarlosPropertiesModernChartUnitTest {
 
     private void assertModernChart() {
         assertThat(properties.getProperty(KEY)).isEqualTo("true");
-        // All nine remaining readers use this inherited overload with a false fallback.
+        // Existing legacy branches use this inherited overload with a false fallback.
         assertThat(Boolean.parseBoolean(properties.getProperty(KEY, "false"))).isTrue();
         assertThat(properties.isPropertyActive(KEY)).isTrue();
         assertThat(properties.getBooleanProperty(KEY, "yes")).isTrue();

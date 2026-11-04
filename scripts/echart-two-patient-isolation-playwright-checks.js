@@ -38,8 +38,8 @@
  *
  * Issue #4673 adds the bean's other readers, each driven in both directions right after the other
  * chart was entered: the chart print's MRP line (B's MRP is a second named doctor); the legacy
- * encounter save, its Sign, Save and Exit of the chart's own appointment and its refusals; the
- * legacy editor and history prints; the legacy immunization schedule (template add, Save, set
+ * retired encounter writes (410 with no clinical changes), Exit and identity refusals; the
+ * retired editor and history prints retain patient scope with empty clinical fields; the legacy immunization schedule (template add, Save, set
  * delete, the dose window, and a Save, template add or set restore without one valid patient,
  * refused); the author of a template made after a chart was entered from another provider's day
  * sheet; the legacy case-management navigation and its list of the patient's own messages; and the
@@ -1143,49 +1143,55 @@ async function run(s) {
     });
   }
 
+  const retiredButtons = ['Save', 'AutoSave', 'Sign,Save and Exit', 'Sign,Save and Bill', 'Verify and Sign', 'Split Chart'];
   for (const d of directions) {
-    await isolatedWrite(d, 'legacy encounter save', async () => {
+    await s.step(`retired legacy writes for ${d.label} refuse an empty chart without creating clinical data`, async () => {
       const token = await csrfTokenPresent(d.chart);
-      const base = revisionsOf(d.patient).at(-1) || '';
-      const text = `${marker}-${d.label}-legacy-encounter`;
-      const response = await postLegacySave(token, legacyForm(d, text, [['eChartId', base]]));
-      try {
-        h.assert(response.status() === 302, `The legacy save answered HTTP ${response.status()}`);
-        const location = new URL(response.headers().location, h.appUrl(s.config.baseUrl, '/'));
-        h.assert(location.pathname.endsWith('/casemgmt/ViewForward') && location.searchParams.get('demographicNo') === d.patient,
-          'The saved legacy editor reopened another patient\'s chart');
-      } finally { await response.dispose(); }
-      const saved = revisionsOf(d.patient).at(-1);
-      h.assert(saved && saved !== base && sql.value(`SELECT encounter FROM eChart WHERE eChartId=${saved}`) === text
-        && sql.value(`SELECT providerNo FROM eChart WHERE eChartId=${saved}`) === provider,
-      'The legacy save did not write a revision of its own patient');
-      legacy[d.label] = {base, revision: saved};
+      await activateOther(d.otherChart);
+      h.assert(revisionsOf(d.patient).length === 0, 'The new-chart retirement fixture already has legacy rows');
+      const before = {own: snapshot(d.patient), other: snapshot(d.other)};
+      for (const button of retiredButtons) {
+        const response = await postLegacySave(token, legacyForm(d, `${marker}-${d.label}-retired`,
+          [['eChartId', ''], ['appointment_no', appointmentOf[d.label]], ['btnPressed', button]]));
+        try {
+          h.assert(response.status() === 410, `Retired ${button} answered HTTP ${response.status()}`);
+          h.assert(!response.headers().location, 'A retired legacy write returned a success redirect');
+        } finally { await response.dispose(); }
+        assertPatientStateUnchanged(before.own, snapshot(d.patient), `${d.label}'s retired ${button}`);
+        assertPatientStateUnchanged(before.other, snapshot(d.other), `${d.label}'s retired ${button} (other rows)`);
+      }
     });
   }
 
+  // Seed historical-only rows directly: modern writes must neither create nor modify them.
   for (const d of directions) {
-    await isolatedWrite(d, 'legacy Sign, Save and Exit of its own appointment', async () => {
+    const seed = kind => h.insertId(sql, `INSERT INTO eChart (demographicNo, providerNo, timeStamp, subject,
+      socialHistory, familyHistory, medicalHistory, ongoingConcerns, reminders, encounter)
+      VALUES (${patientKey(d.patient)},${q(provider)},NOW(),${q(`${marker}-${d.label}-${kind}`)},
+      ${q(`${marker}-${d.label}-history`)},'','','','',${q(`${marker}-${d.label}-${kind}-encounter`)})`, 'eChart');
+    legacy[d.label] = {base: seed('older'), revision: seed('current')};
+  }
+
+  for (const d of directions) {
+    await s.step(`retired legacy writes for ${d.label} preserve historical charts and appointment statuses`, async () => {
       const token = await csrfTokenPresent(d.chart);
-      const appointment = appointmentOf[d.label];
-      const text = `${marker}-${d.label}-signed-encounter`;
-      const response = await postLegacySave(token, legacyForm(d, text, [['eChartId', legacy[d.label].revision],
-        ['appointment_no', appointment], ['btnPressed', 'Sign,Save and Exit']]));
-      try {
-        h.assert(response.status() === 200, `The legacy sign answered HTTP ${response.status()}`);
-        h.assert((await response.text()).includes('opener.refresh()'),
-          'The legacy sign did not refresh the schedule that opened the chart');
-      } finally { await response.dispose(); }
-      h.assert(JSON.stringify(sql.rows(`SELECT demographic_no,status,lastupdateuser FROM appointment
-        WHERE appointment_no=${appointment}`)) === JSON.stringify([[d.patient, 'tS', provider]]),
-      'The legacy sign did not sign the chart\'s own appointment');
-      h.assert(JSON.stringify(sql.rows(`SELECT demographic_no,status FROM appointmentArchive
-        WHERE appointment_no=${appointment}`)) === JSON.stringify([[d.patient, 't']]),
-      'The legacy sign did not archive the appointment\'s previous status');
-      const saved = revisionsOf(d.patient).at(-1);
-      h.assert(saved !== legacy[d.label].revision
-        && sql.value(`SELECT encounter FROM eChart WHERE eChartId=${saved}`).startsWith(`${text}\n[`),
-      'The legacy sign did not write its own patient\'s signed revision');
-      legacy[d.label].revision = saved;
+      await activateOther(d.otherChart);
+      const before = {own: snapshot(d.patient), other: snapshot(d.other)};
+      for (const button of retiredButtons) {
+        const response = await postLegacySave(token, legacyForm(d, `${marker}-${d.label}-retired`,
+          [['eChartId', legacy[d.label].revision], ['appointment_no', appointmentOf[d.label]], ['btnPressed', button]]));
+        try {
+          h.assert(response.status() === 410, `Retired historical ${button} answered HTTP ${response.status()}`);
+        } finally { await response.dispose(); }
+        assertPatientStateUnchanged(before.own, snapshot(d.patient), `${d.label}'s historical ${button}`);
+        assertPatientStateUnchanged(before.other, snapshot(d.other), `${d.label}'s historical ${button} (other rows)`);
+      }
+      const exit = await postLegacySave(token, legacyForm(d, `${marker}-${d.label}-unsaved-exit`,
+        [['eChartId', undefined], ['btnPressed', 'Exit']]));
+      try { h.assert(exit.status() === 200, `Legacy Exit answered HTTP ${exit.status()}`); }
+      finally { await exit.dispose(); }
+      assertPatientStateUnchanged(before.own, snapshot(d.patient), `${d.label}'s Exit`);
+      assertPatientStateUnchanged(before.other, snapshot(d.other), `${d.label}'s Exit (other rows)`);
     });
   }
 
@@ -1196,23 +1202,22 @@ async function run(s) {
       await activateOther(d.otherChart);
       const before = {own: snapshot(d.patient), other: snapshot(d.other)};
       const text = `${marker}-${d.label}-refused-encounter`;
-      const conflicts = [
+      const retired = [
+        ['another patient\'s revision', [['eChartId', legacy[other].revision]]],
         ['a stale revision', [['eChartId', legacy[d.label].base]]],
         ['no revision field', [['eChartId', undefined]]],
         ['another patient\'s appointment', [['eChartId', legacy[d.label].revision], ['appointment_no', appointmentOf[other]],
           ['btnPressed', 'Sign,Save and Exit']]],
       ];
-      for (const [label, overrides] of conflicts) {
+      for (const [label, overrides] of retired) {
         const response = await postLegacySave(token, legacyForm(d, text, overrides));
         try {
-          h.assert(response.status() === 409, `A legacy save with ${label} answered HTTP ${response.status()}`);
-          const body = norm(await response.text());
-          h.assert(body.includes(text) && !body.includes(`${marker}-${other}-`) && !namesA(body) && !namesB(body),
-            `The refused legacy save with ${label} did not return only its own unsaved text`);
+          h.assert(response.status() === 410, `A retired legacy save with ${label} answered HTTP ${response.status()}`);
+          const body = await response.text();
+          h.assert(!namesA(body) && !namesB(body), `The retired legacy save with ${label} exposed a patient name`);
         } finally { await response.dispose(); }
       }
       const rejected = [
-        ['another patient\'s revision', [['eChartId', legacy[other].revision]]],
         ['a malformed revision', [['eChartId', 'latest']]],
         ['a malformed appointment', [['eChartId', legacy[d.label].revision], ['appointment_no', '7e2']]],
       ];

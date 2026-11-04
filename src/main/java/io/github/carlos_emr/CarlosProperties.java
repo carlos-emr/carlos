@@ -137,9 +137,13 @@ public class CarlosProperties extends Properties {
      * 
      * <p>This method applies validation to detect and ignore deprecated namespace
      * values (org.oscarehr.*, oscar.*), returning configured defaults when applicable.</p>
+     * <p>{@code AbandonOldChart} always returns {@code "true"}, including when absent or
+     * explicitly disabled, because the modern chart is mandatory.</p>
      *
      * @param key the property key
-     * @return the validated property value, or null if not found
+     * @return String the effective property value or configured default, or null if neither exists;
+     *         {@code AbandonOldChart} always returns {@code "true"}
+     * @throws IllegalArgumentException if the key is null or blank
      */
     public String getProperty(String key) {
         if ("FORMS_PROMOTEXT".equals(key)) {

@@ -9,6 +9,7 @@ import io.github.carlos_emr.carlos.casemgmt.service.StaleNoteRevisionException;
 import io.github.carlos_emr.carlos.commn.dao.EChartDao;
 import io.github.carlos_emr.carlos.commn.dao.HashAuditDao;
 import io.github.carlos_emr.carlos.commn.model.HashAudit;
+import io.github.carlos_emr.carlos.commn.model.EChart;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -354,7 +355,22 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
         lookupIds.add(issue.getId());
         CaseManagementNote sibling = createNote(demo, "Untouched sibling", new Date(1000));
         sibling.setPosition(4);
-        if (!existingNote) return new Fixture(null, sibling.getId(), issue, legacyChartState());
+        if (!existingNote) {
+            EChart historical = new EChart();
+            historical.setDemographicNo(Integer.parseInt(demo));
+            historical.setProviderNo("999998");
+            historical.setTimestamp(new Date(1700000000000L));
+            historical.setSubject("Historical-only chart");
+            historical.setSocialHistory("Legacy social history");
+            historical.setFamilyHistory("Legacy family history");
+            historical.setMedicalHistory("Legacy medical history");
+            historical.setOngoingConcerns("Legacy concerns");
+            historical.setReminders("Legacy reminders");
+            historical.setEncounter("Legacy encounter");
+            entityManager.persist(historical);
+            assertThat(cpps.getCPP(demo)).as("the new-CPP branch remains unseeded").isNull();
+            return new Fixture(null, sibling.getId(), issue, legacyChartState());
+        }
         CaseManagementNote original = createNote(demo, "Original signed history", new Date(1000));
         original.setSigned(true);
         original.setSigning_provider_no("999998");

@@ -1048,8 +1048,10 @@ Since #4793, `AbandonOldChart` is forced to `true` in the application, whether t
 property is absent or explicitly set to `false`. Devcontainer and Debian installs
 therefore both use the modern chart and do not mirror modern notes/CPP into `eChart`.
 Existing legacy records are retained. The legacy editor/print path is unsupported:
-its print beans do not load legacy clinical text, and changing this property cannot
-restore it. Use the modern chart and its print workflow. Permanent removal of the
+non-Exit save requests return HTTP 410 before changing clinical data or layout;
+Exit retains its layout-only behavior. The print beans do not load legacy clinical
+text, and changing this property cannot restore it. Use the modern chart and its
+print workflow. Permanent removal of the
 legacy routes and a retrieval plan for historical-only records are tracked in #5599.
 The manual `legacy-encounter-editor-isolation` check's legacy-content expectations
 are historical and cannot be qualified on this forced-modern release. Its entrypoint

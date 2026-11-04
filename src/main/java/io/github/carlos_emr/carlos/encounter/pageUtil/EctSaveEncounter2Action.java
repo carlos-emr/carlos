@@ -71,9 +71,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * Saves the legacy encounter editor ({@code encounter/Index2.jsp}, rendered only with the CAISI
- * module and {@code casetoEncounter}) as a new {@code eChart} revision of the submitting chart's
- * patient.
+ * Retired legacy encounter boundary ({@code encounter/Index2.jsp}). The mandatory modern-chart
+ * policy (#4793) refuses non-Exit writes with HTTP 410 before clinical or layout changes. Exit
+ * keeps its layout-only behavior. The historical save implementation below awaits removal in #5599.
  *
  * <p>Issue #4673: this action used to take the patient, the entry metadata and the revision the
  * editor was opened from out of the login-wide {@code EctSessionBean} and the session's
@@ -207,6 +207,11 @@ public class EctSaveEncounter2Action extends ActionSupport {
 
         Result saved = null;
         if (!EXIT.equals(button)) {
+            if (CarlosProperties.getInstance().isPropertyActive("AbandonOldChart")) {
+                response.sendError(HttpServletResponse.SC_GONE,
+                        "The legacy encounter editor is retired. Use the modern chart to save notes.");
+                return NONE;
+            }
             EChart revision = submittedRevision(request, entry, button);
             if (revisionField == null) {
                 // An editor rendered without its revision (before issue #4673, or a hand-built
