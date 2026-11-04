@@ -59,10 +59,12 @@ test('only the exact synthetic renderer probe is baselined at the AP lookup log 
   const prefix = '2026-11-04 03:00:00,000 ERROR eform.efmformapconfig_005flookup_jsp (efmformapconfig_005flookup_jsp.java:359) - ';
   const message = 'AP config lookup requested an unconfigured key=';
   const baseline = fs.readFileSync(BASELINE, 'utf8');
-  const probe = audit(t, [prefix + message + 'renderer_missing_ap_123456 fid=1'], {baseline});
+  const probe = audit(t, [prefix + message + 'renderer_missing_ap_1793762614845 fid=1'], {baseline});
   assert.equal(probe.status, 0, probe.out);
   assert.match(probe.out, /apcache-key=renderer_missing_ap_\{n\}/);
-  for (const key of ['letterhead', '_ClosingSalutation', '_age', 'gender', 'ageGender', 'unknown', 'renderer_missing_ap_123suffix']) {
+  for (const key of ['letterhead', '_ClosingSalutation', '_age', 'gender', 'ageGender', 'unknown',
+    'renderer_missing_ap_1', 'renderer_missing_ap_123456', 'renderer_missing_ap_179376261484',
+    'renderer_missing_ap_17937626148450', 'renderer_missing_ap_1793762614845suffix']) {
     const real = audit(t, [prefix + message + key + ' fid=1'], {baseline});
     assert.equal(real.status, 1, real.out);
     assert.doesNotMatch(real.out, /^KNOWN /m);

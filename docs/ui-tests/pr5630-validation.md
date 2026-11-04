@@ -69,7 +69,7 @@ adds one `letterhead` error. The log audit leaves these real failures UNKNOWN.
 The fixed resource is restored automatically after the negative control.
 
 The log baseline distinguishes only the exact synthetic
-`renderer_missing_ap_<digits>` probe, with a numeric form id, from other errors
+`renderer_missing_ap_<13-digit timestamp>` probe, with a numeric form id, from other errors
 at the same JSP log site. The timestamp is removed from its signature. Unit
 checks verify that real composite names, arbitrary unknown keys, suffix lookalikes
 and other errors at that site remain unexplained. The recorded packaged probe

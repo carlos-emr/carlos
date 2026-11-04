@@ -172,9 +172,10 @@ awk -v show="$SHOW_MESSAGES" '
         sig = sig " " u
       }
       if (logger ~ /ErrorPageLogger$/ && match(rest, /status=[0-9]+/)) sig = sig " " substr(rest, RSTART, RLENGTH)
-      # Only the exact synthetic renderer key is a known negative control.
+      # Only the exact synthetic renderer key with its 13-digit millisecond
+      # timestamp is a known negative control. Keep this portable to older awk.
       # Do not baseline this JSP location alone: real unconfigured keys log here too.
-      if (logger ~ /efmformapconfig_005flookup_jsp$/ && rest ~ /^AP config lookup requested an unconfigured key=renderer_missing_ap_[0-9]+ fid=[0-9]+$/) {
+      if (logger ~ /efmformapconfig_005flookup_jsp$/ && rest ~ /^AP config lookup requested an unconfigured key=renderer_missing_ap_[0-9]+ fid=[0-9]+$/ && match(rest, /renderer_missing_ap_[0-9]+/) && RLENGTH == length("renderer_missing_ap_") + 13) {
         sig = sig " apcache-key=renderer_missing_ap_{n}"
       }
       # A CSRF rejection is ERROR by design. CSRFGuard logs no request path,

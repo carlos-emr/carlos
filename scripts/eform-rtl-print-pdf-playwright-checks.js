@@ -482,8 +482,9 @@ legacyHarness.runLegacyCheck('eform-rtl-print-pdf',async({cancellation})=>{
         step(`${templateName} requests no composite names from the server`, !lookupKeys.some(key => composites.includes(key)), lookupKeys.join(', '));
         // Closing a template while its signature image is still streaming logs a
         // client-abort ERROR on the server and obscures the lookup log assertion.
-        await page.waitForLoadState('networkidle', {timeout: 30000});
+        const imagesSettled = await page.waitForLoadState('networkidle', {timeout: 30000}).then(() => true, () => false);
         cancellation?.throwIfCancelled();
+        if (!imagesSettled) step(`${templateName} image requests finish before close`, false, 'timed out after 30 seconds');
       }
       await page.close();
       cancellation?.throwIfCancelled();
