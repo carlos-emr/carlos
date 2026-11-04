@@ -82,3 +82,5 @@ common/V1.0.77__one_live_consent_per_type.sql
 common/V1.0.78__add_sms_config.sql
 common/V1.0.79__add_email_log_footer.sql
 common/V1.0.80__email_front_desk_default.sql
+common/V1.0.81__mycarlos_accepted_device_approval.sql
+common/V1.0.82__mycarlos_sender_outbox.sql

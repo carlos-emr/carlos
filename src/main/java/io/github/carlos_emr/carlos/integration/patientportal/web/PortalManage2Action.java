@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.demographic.pageUtil.PatientNavModel;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosStaffApprovalService;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -101,13 +102,17 @@ public final class PortalManage2Action extends ActionSupport {
                 demographicNo);
         boolean readsAccount = allowed(session, PortalStaffContextResolver.OBJECT_ACCOUNT, SecurityInfoManager.READ,
                 demographicNo);
-        if (!readsInvites && !readsAccount) {
+        boolean readsDevices = allowed(session, "_portal.mycarlos.device_approval", SecurityInfoManager.READ, demographicNo);
+        if (!readsInvites && !readsAccount && !readsDevices) {
             throw new SecurityException("missing required sec object (_portal.invite)");
         }
         request.setAttribute(DEMOGRAPHIC_ATTRIBUTE, demographicNo);
         // With the portal switched off every portal action answers that it is not switched on, and the
         // panel says so; the page stays reachable (Manage Emails links here) but offers no action.
         boolean switchedOn = PatientPortalSettings.isConfigured();
+        request.setAttribute("portalCanReadDevices", switchedOn && readsDevices && PortalMyCarlosStaffApprovalService.isEnabled());
+        request.setAttribute("portalCanApproveDevices", switchedOn && readsDevices && PortalMyCarlosStaffApprovalService.isEnabled()
+                && allowed(session, "_portal.mycarlos.device_approval", SecurityInfoManager.WRITE, demographicNo));
         boolean managesInvites = switchedOn
                 && allowed(session, PortalStaffContextResolver.OBJECT_INVITE, SecurityInfoManager.WRITE, demographicNo);
         // The same rules PortalInvite2Action applies, so a button is shown only where it will work.

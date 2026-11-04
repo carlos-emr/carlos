@@ -281,6 +281,44 @@ public final class PDFSigningUtil {
         return loadSigningMaterial(config).signingCertificate();
     }
 
+    /**
+     * Signs frozen myCarlos payload bytes with the actual configured clinic key. The expected
+     * public identity fences configuration/key replacement between preparation and signing.
+     * Private key material stays inside the existing validated keystore loader.
+     */
+    public static byte[] signMyCarlosPayload(byte[] payload, String expectedKid, PDFSigningConfig config)
+            throws IOException {
+        if (payload == null || payload.length == 0 || payload.length > 32768
+                || expectedKid == null || config == null || !config.isEnabled()) {
+            throw new IOException("myCarlos signing is unavailable");
+        }
+        config.validateEnabled();
+        byte[] original = payload.clone();
+        SigningMaterial material = loadSigningMaterial(config);
+        if (!keyId(material.signingCertificate()).equals(expectedKid)
+                || !(material.signingCertificate().getPublicKey() instanceof java.security.interfaces.ECPublicKey publicKey)) {
+            throw new IOException("myCarlos signing identity changed");
+        }
+        try {
+            var parameters = java.security.AlgorithmParameters.getInstance("EC");
+            parameters.init(new java.security.spec.ECGenParameterSpec("secp256r1"));
+            var p256 = parameters.getParameterSpec(java.security.spec.ECParameterSpec.class);
+            var actual = publicKey.getParams();
+            if (!p256.getCurve().equals(actual.getCurve()) || !p256.getGenerator().equals(actual.getGenerator())
+                    || !p256.getOrder().equals(actual.getOrder()) || p256.getCofactor() != actual.getCofactor()) {
+                throw new IOException("myCarlos requires a P-256 signing key");
+            }
+            Signature signature = Signature.getInstance("SHA256withECDSAinP1363Format");
+            signature.initSign(material.privateKey());
+            signature.update(original);
+            byte[] result = signature.sign();
+            if (result.length != 64) throw new IOException("myCarlos signature is invalid");
+            return result;
+        } catch (GeneralSecurityException failure) {
+            throw new IOException("myCarlos signing is unavailable");
+        }
+    }
+
     /** {@code b64url(SHA-256(SubjectPublicKeyInfo DER))}, the clinic key ID myCarlos pins. */
     static String keyId(X509Certificate certificate) throws IOException {
         try {
