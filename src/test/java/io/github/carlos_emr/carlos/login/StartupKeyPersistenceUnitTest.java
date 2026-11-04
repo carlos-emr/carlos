@@ -30,7 +30,12 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.PosixFilePermissions;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -40,10 +45,12 @@ import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 /** Real file loads and fresh singletons model two application startups, including key reuse. */
@@ -64,6 +71,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
     private String originalUserHome;
     private String originalOverride;
     private Path userHome;
+    private boolean configurationCaptured;
 
     @BeforeEach
     void isolateConfiguration() throws Exception {
@@ -75,6 +83,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         originalKeySpec = keySpecField.get(null);
         originalUserHome = System.getProperty("user.home");
         originalOverride = System.getProperty(OVERRIDE);
+        configurationCaptured = true;
         userHome = Files.createDirectory(tempDir.resolve("home"));
         System.setProperty("user.home", userHome.toString());
         System.clearProperty(OVERRIDE);
@@ -82,11 +91,22 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void restoreConfiguration() throws Exception {
-        Files.setPosixFilePermissions(userHome, PosixFilePermissions.fromString("rwx------"));
-        singletonField.set(null, originalProperties);
-        keySpecField.set(null, originalKeySpec);
-        restoreSystemProperty("user.home", originalUserHome);
-        restoreSystemProperty(OVERRIDE, originalOverride);
+        if (!configurationCaptured) {
+            return;
+        }
+        try {
+            singletonField.set(null, originalProperties);
+        } finally {
+            try {
+                keySpecField.set(null, originalKeySpec);
+            } finally {
+                try {
+                    restoreSystemProperty("user.home", originalUserHome);
+                } finally {
+                    restoreSystemProperty(OVERRIDE, originalOverride);
+                }
+            }
+        }
     }
 
     @ParameterizedTest
@@ -95,7 +115,6 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
     void shouldReusePersistedKey_whenOverrideHasMissingOrBlankKey(String key) throws Exception {
         Path override = writeConfiguration(tempDir.resolve("operator.properties"), key);
         System.setProperty(OVERRIDE, override.toString());
-        Files.setPosixFilePermissions(userHome, PosixFilePermissions.fromString("r-x------"));
         CarlosProperties firstBoot = reloadProperties();
 
         startApplication();
@@ -199,13 +218,119 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         assertThat(keySpecField.get(null)).isNull();
     }
 
+    @Test
+    void shouldAbortStartup_whenKeyGenerationFails() throws Exception {
+        Path override = writeConfiguration(tempDir.resolve("operator.properties"), "");
+        String original = Files.readString(override);
+        System.setProperty(OVERRIDE, override.toString());
+        CarlosProperties properties = reloadProperties();
+
+        try (MockedStatic<EncryptionUtils> encryption = mockStatic(EncryptionUtils.class)) {
+            encryption.when(EncryptionUtils::generateSecretKey)
+                    .thenThrow(new NoSuchAlgorithmException("AES unavailable"));
+            assertThatThrownBy(this::startApplication)
+                    .hasCauseInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("AES unavailable");
+            encryption.verify(EncryptionUtils::generateSecretKey);
+        }
+
+        assertThat(Files.readString(override)).isEqualTo(original);
+        assertThat(properties.getProperty(KEY)).isEmpty();
+        assertThat(keySpecField.get(null)).isNull();
+        assertThat(userHome.resolve("carlos.properties")).doesNotExist();
+    }
+
+    @Test
+    void shouldReuseOneKey_whenInstancesInitializeConcurrently() throws Exception {
+        Path override = writeConfiguration(tempDir.resolve("shared.properties"), "");
+        System.setProperty(OVERRIDE, override.toString());
+        CarlosProperties first = reloadProperties();
+        CarlosProperties second = createProperties();
+        CountDownLatch start = new CountDownLatch(1);
+        var workers = Executors.newFixedThreadPool(2);
+        try {
+            var firstKey = workers.submit(() -> {
+                start.await();
+                return first.getOrCreateEncryptionKey();
+            });
+            var secondKey = workers.submit(() -> {
+                start.await();
+                return second.getOrCreateEncryptionKey();
+            });
+            start.countDown();
+            assertThat(firstKey.get(30, TimeUnit.SECONDS)).isEqualTo(secondKey.get(30, TimeUnit.SECONDS));
+            assertThat(Files.readString(override).lines()
+                    .filter(line -> line.startsWith(KEY + "=") && !line.substring(KEY.length() + 1).isBlank()))
+                    .hasSize(1);
+        } finally {
+            workers.shutdownNow();
+            assertThat(workers.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @Test
+    void shouldReuseOneKey_whenProcessesStartConcurrently() throws Exception {
+        Path override = writeConfiguration(tempDir.resolve("shared.properties"), "");
+        Path root = Files.createDirectories(tempDir.resolve("webapps/carlos"));
+        Path start = tempDir.resolve("start");
+        List<Process> workers = new ArrayList<>();
+        List<Path> homes = new ArrayList<>();
+        try {
+            for (int index = 0; index < 2; index++) {
+                Path home = Files.createDirectory(tempDir.resolve("process-" + index));
+                homes.add(home);
+                String classpath = System.getProperty("surefire.test.class.path", System.getProperty("java.class.path"));
+                workers.add(new ProcessBuilder(
+                        Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+                        "-Xmx128m", "-Djava.io.tmpdir=" + home, "-cp", classpath,
+                        StartupKeyPersistenceProcessFixture.class.getName(),
+                        override.toString(), home.toString(), root.toString(),
+                        home.resolve("ready").toString(), start.toString(), home.resolve("ciphertext").toString())
+                        .redirectErrorStream(true).redirectOutput(home.resolve("startup.log").toFile()).start());
+            }
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+            while (homes.stream().anyMatch(home -> !Files.exists(home.resolve("ready")))
+                    && System.nanoTime() < deadline && workers.stream().allMatch(Process::isAlive)) {
+                Thread.sleep(10);
+            }
+            assertThat(homes).allMatch(home -> Files.exists(home.resolve("ready")));
+            Files.createFile(start);
+            for (int index = 0; index < workers.size(); index++) {
+                Process worker = workers.get(index);
+                assertThat(worker.waitFor(45, TimeUnit.SECONDS)).isTrue();
+                assertThat(worker.exitValue()).withFailMessage(Files.readString(homes.get(index).resolve("startup.log")))
+                        .isZero();
+            }
+            System.setProperty(OVERRIDE, override.toString());
+            reloadProperties();
+            startApplication();
+            for (Path home : homes) {
+                assertThat(EncryptionUtils.decrypt(Files.readString(home.resolve("ciphertext"))))
+                        .isEqualTo("concurrent-startup-credential");
+                assertThat(home.resolve("carlos.properties")).doesNotExist();
+            }
+            assertThat(Files.readString(override).lines()
+                    .filter(line -> line.startsWith(KEY + "=") && !line.substring(KEY.length() + 1).isBlank()))
+                    .hasSize(1);
+        } finally {
+            workers.forEach(Process::destroyForcibly);
+            for (Process worker : workers) {
+                assertThat(worker.waitFor(10, TimeUnit.SECONDS)).isTrue();
+            }
+        }
+    }
+
     private CarlosProperties reloadProperties() throws Exception {
-        Constructor<CarlosProperties> constructor = CarlosProperties.class.getDeclaredConstructor();
-        constructor.setAccessible(true);
-        CarlosProperties properties = constructor.newInstance();
+        CarlosProperties properties = createProperties();
         singletonField.set(null, properties);
         keySpecField.set(null, null);
         return properties;
+    }
+
+    private CarlosProperties createProperties() throws Exception {
+        Constructor<CarlosProperties> constructor = CarlosProperties.class.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        return constructor.newInstance();
     }
 
     private Path writeConfiguration(Path path, String key) throws Exception {

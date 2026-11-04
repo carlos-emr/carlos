@@ -8,7 +8,6 @@ import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.security.NoSuchAlgorithmException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
@@ -360,41 +359,6 @@ class StartupUnitTest extends CarlosUnitTestBase {
         // bad-Base64 decode path, through the same Startup catch.
         String wrongLengthKey = Base64.getEncoder().encodeToString(new byte[33]);
         assertStartupAbortsForInvalidKey(wrongLengthKey, tempDir);
-    }
-
-    @Test
-    @Tag("create")
-    @DisplayName("should abort startup when key generation fails")
-    void shouldAbortStartup_whenKeyGenerationFails(@TempDir Path tempDir) throws Exception {
-        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
-        keySpecField.setAccessible(true);
-        Object originalKeySpec = keySpecField.get(null);
-
-        CarlosProperties props = CarlosProperties.getInstance();
-        String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
-        String originalUserHome = System.getProperty("user.home");
-
-        ServletContextEvent event = newStartupEvent(tempDir);
-
-        try (MockedStatic<EncryptionUtils> encryption = mockStatic(EncryptionUtils.class)) {
-            System.setProperty("user.home", tempDir.toString());
-            // A blank key forces Startup into the generate-and-persist branch.
-            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "   ");
-            keySpecField.set(null, null);
-            encryption.when(EncryptionUtils::generateSecretKey)
-                    .thenThrow(new NoSuchAlgorithmException("AES unavailable"));
-
-            // Generation failure must abort startup rather than booting with no key. The
-            // IllegalStateException is re-wrapped by contextInitialized's outer catch, so it is
-            // reachable only as the cause of the propagated RuntimeException.
-            assertThatThrownBy(() -> new Startup().contextInitialized(event))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasCauseInstanceOf(IllegalStateException.class);
-        } finally {
-            restoreUserHome(originalUserHome);
-            restoreProperty(props, originalProp);
-            keySpecField.set(null, originalKeySpec);
-        }
     }
 
     @Test
