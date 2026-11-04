@@ -63,6 +63,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * @since 2026-01-24
  */
 public class ManageEmails2Action extends ActionSupport {
+    private static final String EMAIL_SECURITY_OBJECT = "_email";
+    private static final String ERROR_MESSAGE_KEY = "errorMessage";
+    private static final String INVALID_EMAIL_LOG_ID_MESSAGE = "Invalid email log id";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
     private static final Logger logger = MiscUtils.getLogger();
@@ -94,7 +98,7 @@ public class ManageEmails2Action extends ActionSupport {
      */
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, EMAIL_SECURITY_OBJECT, SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_email)");
         }
         String mtd = request.getParameter("method");
@@ -201,7 +205,7 @@ public class ManageEmails2Action extends ActionSupport {
      */
     public void setResolved() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, EMAIL_SECURITY_OBJECT, SecurityInfoManager.WRITE, null)) {
             throw new SecurityException("missing required sec object (_email)");
         }
         if (!"POST".equals(request.getMethod())) {
@@ -211,16 +215,16 @@ public class ManageEmails2Action extends ActionSupport {
         }
         String emailLogId = request.getParameter("logId");
         if (!StringUtils.isInteger(emailLogId)) {
-            JSONUtil.errorResponse(response, "errorMessage", "Invalid email log id");
+            JSONUtil.errorResponse(response, ERROR_MESSAGE_KEY, INVALID_EMAIL_LOG_ID_MESSAGE);
             return;
         }
         EmailLog emailLog = emailManager.updateEmailStatus(loggedInInfo, Integer.parseInt(emailLogId), EmailStatus.RESOLVED, null);
         if (emailLog == null) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            JSONUtil.jsonResponse(response, "errorMessage", "Email log not found");
+            JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, "Email log not found");
         } else if (emailLog.getStatus() != EmailStatus.RESOLVED) {
             response.setStatus(HttpServletResponse.SC_CONFLICT);
-            JSONUtil.jsonResponse(response, "errorMessage", "Only failed emails can be resolved");
+            JSONUtil.jsonResponse(response, ERROR_MESSAGE_KEY, "Only failed emails can be resolved");
         }
     }
 
@@ -261,7 +265,7 @@ public class ManageEmails2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String emailLogId = request.getParameter("logId");
         if (!StringUtils.isInteger(emailLogId)) {
-            JSONUtil.errorResponse(response, "errorMessage", "Invalid email log id");
+            JSONUtil.errorResponse(response, ERROR_MESSAGE_KEY, INVALID_EMAIL_LOG_ID_MESSAGE);
             return null;
         }
 
@@ -270,7 +274,7 @@ public class ManageEmails2Action extends ActionSupport {
          */
         EmailLog emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
         if (emailLog == null) {
-            JSONUtil.errorResponse(response, "errorMessage", "Invalid email log id");
+            JSONUtil.errorResponse(response, ERROR_MESSAGE_KEY, INVALID_EMAIL_LOG_ID_MESSAGE);
             return null;
         }
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
@@ -368,7 +372,7 @@ public class ManageEmails2Action extends ActionSupport {
      */
     private List<EmailAttachment> refreshEmailAttachments(HttpServletRequest request, HttpServletResponse response, EmailLog emailLog) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, EMAIL_SECURITY_OBJECT, SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_email)");
         }
 

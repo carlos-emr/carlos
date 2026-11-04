@@ -113,7 +113,8 @@ class EmailManagerStatusUnitTest {
     void shouldRejectNullStatus_beforeUpdatingLog() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
 
-        assertThatThrownBy(() -> emailManager.updateEmailStatus(loggedInInfo, new EmailLog(), null, null))
+        EmailLog log = new EmailLog();
+        assertThatThrownBy(() -> emailManager.updateEmailStatus(loggedInInfo, log, null, null))
                 .isInstanceOf(NullPointerException.class);
 
         verifyNoInteractions(emailLogDao);
@@ -122,9 +123,10 @@ class EmailManagerStatusUnitTest {
     @Test
     @DisplayName("should deny both status-update entry points before accessing the database when write privilege is missing")
     void shouldDenyStatusUpdates_whenWritePrivilegeMissing() {
+        EmailLog log = new EmailLog();
         assertThatThrownBy(() -> emailManager.updateEmailStatus(loggedInInfo, 7003, EmailStatus.RESOLVED, null))
                 .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_email)");
-        assertThatThrownBy(() -> emailManager.updateEmailStatus(loggedInInfo, new EmailLog(), EmailStatus.RESOLVED, null))
+        assertThatThrownBy(() -> emailManager.updateEmailStatus(loggedInInfo, log, EmailStatus.RESOLVED, null))
                 .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_email)");
         verifyNoInteractions(emailLogDao);
     }

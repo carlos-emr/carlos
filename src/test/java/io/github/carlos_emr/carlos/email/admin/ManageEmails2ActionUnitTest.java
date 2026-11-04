@@ -178,7 +178,8 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
     void shouldDenyResolve_whenActionWritePrivilegeMissing() {
         when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq(SecurityInfoManager.WRITE), any())).thenReturn(false);
 
-        assertThatThrownBy(() -> resolve("7003", new LoggedInInfo()))
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        assertThatThrownBy(() -> resolve("7003", loggedInInfo))
                 .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_email)");
         verifyNoInteractions(emailManager);
     }
@@ -188,7 +189,8 @@ class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
     void shouldDenyDispatch_whenActionReadPrivilegeMissing() {
         when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq(SecurityInfoManager.READ), any())).thenReturn(false);
 
-        assertThatThrownBy(() -> resolve("7003", new LoggedInInfo()))
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        assertThatThrownBy(() -> resolve("7003", loggedInInfo))
                 .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_email)");
         verifyNoInteractions(emailManager, emailComposeManager);
     }
