@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
 import java.util.Locale;
+import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 import java.util.UUID;
 import org.apache.struts2.ActionSupport;
@@ -453,6 +454,18 @@ class AiReviewedDocumentSummaryActionUnitTest {
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
         verify(request).setAttribute("documentSummaryError", ResourceBundle.getBundle("oscarResources", Locale.CANADA_FRENCH)
                 .getString(AiReviewedDocumentSummary2Action.REVIEW_UNAVAILABLE_KEY));
+    }
+    @Test void clinicianMessagesReadInEnglishForALocaleWithoutABundleAndStillFailOnAMissingKey() {
+        when(request.getLocale()).thenReturn(Locale.GERMAN);
+        assertThat(DocumentSummaryMessages.text(request, AiReviewedDocumentSummary2Action.CORRECTION_NOT_SAVED_KEY))
+                .isEqualTo(message(AiReviewedDocumentSummary2Action.CORRECTION_NOT_SAVED_KEY));
+        assertThat(DocumentSummaryMessages.text(request, AiReviewedDocumentSummary2Action.REVIEW_UNAVAILABLE_KEY))
+                .isEqualTo(message(AiReviewedDocumentSummary2Action.REVIEW_UNAVAILABLE_KEY));
+        for (Locale locale : List.of(Locale.GERMAN, Locale.CANADA_FRENCH, Locale.ENGLISH)) {
+            when(request.getLocale()).thenReturn(locale);
+            assertThatThrownBy(() -> DocumentSummaryMessages.text(request, "documentSummary.review.FAKE-missing-key"))
+                    .as("%s", locale).isInstanceOf(MissingResourceException.class);
+        }
     }
     private DocumentSummaryReviewSession generateTwoPoints() throws Exception {
         var two = mock(DocumentSummary.class);

@@ -140,6 +140,36 @@ class AiDocumentSummaryJspRegressionTest {
                 "Discard this draft", "Remove point ${", ">Point ${", ">Overview<", "Generated: ", "Clinician text revision: ");
     }
 
+    /** Bundle text inside an attribute must not close it, and {0} keys are exactly the ones given a fmt:param. */
+    @Test
+    @DisplayName("should keep attribute-bound values quote-free and parameterised keys matched to fmt:param")
+    void shouldKeepAttributeValuesQuoteFree_andParameterisedKeysMatchedToFmtParam() throws IOException {
+        String source = Files.readString(AI_DOCUMENT_SUMMARY_JSP, StandardCharsets.UTF_8);
+        java.util.Set<String> attributeKeys = new java.util.LinkedHashSet<>();
+        java.util.regex.Matcher inAttribute = java.util.regex.Pattern
+                .compile("=\"<fmt:message\\b[^>]*\\bkey=\"([^\"$]+)\"\\s*/>\"").matcher(source);
+        while (inAttribute.find()) attributeKeys.add(inAttribute.group(1));
+        assertThat(attributeKeys).contains("documentSummary.review.noticeLabel", "documentSummary.pending");
+        java.util.Set<String> parameterised = new java.util.LinkedHashSet<>();
+        java.util.regex.Matcher withParam = java.util.regex.Pattern
+                .compile("<fmt:message\\b[^>]*\\bkey=\"([^\"$]+)\"\\s*>\\s*<fmt:param\\b").matcher(source);
+        while (withParam.find()) parameterised.add(withParam.group(1));
+        assertThat(parameterised).containsExactlyInAnyOrder("documentSummary.review.point", "documentSummary.review.removePoint");
+        for (String locale : new String[] {"en", "fr", "es", "pl", "pt_BR"}) {
+            java.util.Properties bundle = bundle(locale);
+            for (String key : attributeKeys) {
+                assertThat(bundle.getProperty(key)).as("%s in oscarResources_%s.properties", key, locale)
+                        .isNotBlank().doesNotContain("\"");
+            }
+            java.util.Set<String> placeholderKeys = new java.util.TreeSet<>();
+            for (String name : bundle.stringPropertyNames()) {
+                if (name.startsWith("documentSummary.") && bundle.getProperty(name).contains("{0}")) placeholderKeys.add(name);
+            }
+            assertThat(placeholderKeys).as("documentSummary keys with {0} in %s", locale)
+                    .containsExactlyInAnyOrderElementsOf(parameterised);
+        }
+    }
+
     private static java.util.Properties bundle(String locale) throws IOException {
         java.util.Properties properties = new java.util.Properties();
         try (var in = Files.newInputStream(resolveProjectPath(Path.of("src", "main", "resources",
