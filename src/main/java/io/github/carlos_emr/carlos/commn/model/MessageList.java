@@ -30,6 +30,8 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import io.github.carlos_emr.carlos.commn.model.converter.LegacyFacilityIdConverter;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -59,9 +61,11 @@ public class MessageList extends AbstractModel<Integer> {
 
     private int remoteLocation;
 
+    @Convert(converter = LegacyFacilityIdConverter.class)
     @Column(name = "destinationFacilityId")
     private int destinationFacilityId;
 
+    @Convert(converter = LegacyFacilityIdConverter.class)
     @Column(name = "sourceFacilityId")
     private int sourceFacilityId;
 

@@ -67,7 +67,8 @@
 <%
 
     String color = "", colorflag = "";
-    BillingViewBean bean = (BillingViewBean) pageContext.findAttribute("billingViewBean");
+    // This request's invoice (BillingView2Action), never the one viewed last in any window (#4673).
+    BillingViewBean bean = (BillingViewBean) request.getAttribute("billingViewBean");
     DemographicData demoData = new DemographicData();
     Demographic demo = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), bean.getPatientNo());
 

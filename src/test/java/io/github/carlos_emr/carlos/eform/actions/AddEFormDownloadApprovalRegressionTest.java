@@ -49,29 +49,21 @@ class AddEFormDownloadApprovalRegressionTest {
     void shouldCatchIncompleteRender_beforeItsSuperclass() throws IOException {
         String source = Files.readString(ADD_EFORM_ACTION, StandardCharsets.UTF_8);
 
-        // Both download branches — the new-save path and the update path — must offer the approval.
+        // A submission now has one save path. Replays are rejected before rendering; the
+        // historical prev_fdid branch was unreachable and is no longer part of the action.
         assertThat(source.split("offerDownloadApproval\\(", -1).length - 1)
-                .as("both download branches plus the helper declaration")
-                .isGreaterThanOrEqualTo(3);
-
-        // Ordering itself is enforced by javac: declaring the superclass first makes the subclass
-        // catch unreachable and the build fails. What a future edit CAN silently do is delete the
-        // specific catch entirely, which compiles cleanly and restores the dead end. So assert it is
-        // present on each of the two download branches, next to the render call it guards.
-        for (String fdidVariable : new String[] {"fdid", "prev_fdid"}) {
-            // The trailing flag carries the "Submit & PDF" auto-close intent through the approval page.
-            String branch = "offerDownloadApproval(loggedInInfo, e, " + fdidVariable + ", demographic_no, submitAndPdf)";
-            assertThat(source)
-                    .as("download branch keyed on %s must offer the approval", fdidVariable)
-                    .contains(branch);
-        }
-        // Both save-as-eDoc branches too: that path is refused by the same gate.
-        assertThat(source.split("offerEDocApproval\\(", -1).length - 1)
-                .as("both eDoc branches plus the helper declaration")
-                .isGreaterThanOrEqualTo(3);
+                .as("the save-and-download branch plus its helper declaration")
+                .isEqualTo(2);
         assertThat(source)
-                .as("the specific catch must guard the refusable renders")
-                .contains("catch (EformContentUnavailableException e)");
+                .as("the saved form must still offer incomplete-download approval")
+                .contains("offerDownloadApproval(loggedInInfo, e, fdid, demographic_no, submitAndPdf)");
+        assertThat(source.split("offerEDocApproval\\(", -1).length - 1)
+                .as("the save-as-eDoc branch plus its helper declaration")
+                .isEqualTo(2);
+        assertThat(source)
+                .as("the saved form must still handle incomplete renders and offer eDoc approval")
+                .contains("offerEDocApproval(loggedInInfo, e, (String) request.getAttribute(\"fdid\"), demographic_no)",
+                        "catch (EformContentUnavailableException e)");
     }
 
     @Test
@@ -102,5 +94,28 @@ class AddEFormDownloadApprovalRegressionTest {
                 .contains("containedInteractions")
                 .contains("stabilizationCapped")
                 .contains("labDecisionSupportStubbed");
+    }
+
+    @Test
+    @DisplayName("should send the template id and patient in the approval action's query string")
+    void shouldCarryFormIdentity_inApprovalActionQueryString() throws IOException {
+        // The eForm view an approved download returns is shown at the approval form's action URL, and
+        // APCache.js reads the form id from that page's query string: without it every lookup there
+        // answered "Invalid fid" and the APCache fields stayed blank (#4979).
+        String approvalPage = Files.readString(Path.of("src", "main", "webapp", "WEB-INF", "jsp",
+                "eform", "EFormRenderMissingContent.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(approvalPage).contains("action=\"${pageContext.request.contextPath}/${approvalAction}"
+                + "<c:if test=\"${not empty approvalFormId}\">"
+                + "?efmfid=${carlos:forUriComponent(approvalFormId)}"
+                + "&amp;efmdemographic_no=${carlos:forUriComponent(demographicNo)}</c:if>\"");
+    }
+
+    @Test
+    @DisplayName("should pass the submission's template id to the approval page")
+    void shouldPassTemplateId_toApprovalPage() throws IOException {
+        String source = Files.readString(ADD_EFORM_ACTION, StandardCharsets.UTF_8);
+
+        assertThat(source).contains("requestFdid, demographicNo, request.getParameter(\"efmfid\"), operation, null, false,");
     }
 }

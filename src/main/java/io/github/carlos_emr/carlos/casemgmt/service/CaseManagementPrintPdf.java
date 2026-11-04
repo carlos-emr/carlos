@@ -28,6 +28,8 @@
 
 package io.github.carlos_emr.carlos.casemgmt.service;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 
 import java.awt.Color;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
@@ -163,7 +165,7 @@ public class CaseManagementPrintPdf {
         document.open();
 
         //Create the font we are going to print to
-        bf = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+        bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
         font = new Font(bf, FONTSIZE, Font.NORMAL);
 
 
@@ -202,8 +204,8 @@ public class CaseManagementPrintPdf {
                 };
             }
         }
-        //Header will be printed at top of every page beginning with p2
-        Phrase headerPhrase = new Phrase(LEADING, title, font);
+        // Document.addHeader stores metadata; visible page content is rendered separately below.
+        Phrase headerPhrase = PdfFonts.phrase(LEADING, title, font);
         document.addHeader("", headerPhrase.getContent());
 
         //Write title with top and bottom borders on p1
@@ -218,10 +220,11 @@ public class CaseManagementPrintPdf {
 
         upperYcoord = document.top() - (font.getCalculatedLeading(LINESPACING) * 2f);
 
+        Font headerFont = new Font(bf, 12, Font.NORMAL);
         ColumnText ct = new ColumnText(cb);
-        Paragraph p = new Paragraph();
+        Paragraph p = new Paragraph("", headerFont);
         p.setAlignment(Paragraph.ALIGN_LEFT);
-        Phrase phrase = new Phrase();
+        Phrase phrase = PdfFonts.phrase("", headerFont);
 
         float rowCount = Math.max(info.length, clinic.length);
         // Calculates header height based on the leading line space * rowCount
@@ -230,8 +233,8 @@ public class CaseManagementPrintPdf {
         String del = "";
         for (int idx = 0; idx < clinic.length; ++idx) {
             String clinicItem = del + StringUtils.trimToEmpty(clinic[idx]);
-            p.add(clinicItem);
-            phrase.add(del + StringUtils.trimToEmpty(clinic[idx]));
+            PdfFonts.addText(p, clinicItem, p.getFont());
+            PdfFonts.addText(phrase, del + StringUtils.trimToEmpty(clinic[idx]), phrase.getFont());
             del = "\n";
         }
         ct.setSimpleColumn(document.left(), upperYcoord, document.right() / 2f, document.top());
@@ -241,16 +244,16 @@ public class CaseManagementPrintPdf {
         // Create and fill a dummy phrase with only new lines to keep the left column the
         // appropriate size in relation to the right column in the event the right column is larger.
         // rowCount has + 1 to account for the blank line created by the getCalculatedLeading above.
-        List dummyphrase = Collections.nCopies((int) rowCount + 1, new Phrase("\n"));
+        List dummyphrase = Collections.nCopies((int) rowCount + 1, PdfFonts.phrase("\n", headerFont));
         p.addAll(dummyphrase);
         document.add(p);
 
         //add patient info
-        phrase = new Phrase();
-        p = new Paragraph();
+        phrase = PdfFonts.phrase("", headerFont);
+        p = new Paragraph("", headerFont);
         p.setAlignment(Paragraph.ALIGN_RIGHT);
         for (int idx = 0; idx < info.length; ++idx) {
-            phrase.add(info[idx]);
+            PdfFonts.addText(phrase, info[idx], phrase.getFont());
         }
 
         ct.setSimpleColumn(document.right() / 2f, upperYcoord, document.right(), document.top());
@@ -285,9 +288,9 @@ public class CaseManagementPrintPdf {
 
         Paragraph p = new Paragraph();
         Font obsfont = new Font(bf, FONTSIZE, Font.UNDERLINE);
-        Phrase phrase = new Phrase(LEADING, "", obsfont);
+        Phrase phrase = PdfFonts.phrase(LEADING, "", obsfont);
         p.setAlignment(Paragraph.ALIGN_CENTER);
-        phrase.add("Patient Preventions History");
+        PdfFonts.addText(phrase, "Patient Preventions History", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
@@ -299,11 +302,11 @@ public class CaseManagementPrintPdf {
             p.setAlignment(Paragraph.ALIGN_LEFT);
             if (!prevention.isDeleted()) {
                 curFont = normal;
-                phrase = new Phrase(LEADING, "", curFont);
+                phrase = PdfFonts.phrase(LEADING, "", curFont);
                 String refused = prevention.isRefused() ? " (Refused)" : "";
                  String preventionDate = prevention.getPreventionDate() == null ? "Unknown" : formatter.format(prevention.getPreventionDate());
-                 phrase.add(preventionDate + " - ");
-                phrase.add(prevention.getPreventionType() + refused);
+                 PdfFonts.addText(phrase, preventionDate + " - ", phrase.getFont());
+                PdfFonts.addText(phrase, prevention.getPreventionType() + refused, phrase.getFont());
                 p.add(phrase);
                 document.add(p);
             }
@@ -311,8 +314,8 @@ public class CaseManagementPrintPdf {
         if (preventions.isEmpty()) {
             p = new Paragraph();
             p.setAlignment(Paragraph.ALIGN_LEFT);
-            Phrase noPreventionsPhrase = new Phrase(LEADING, "", normal);
-            noPreventionsPhrase.add("No preventions found");
+            Phrase noPreventionsPhrase = PdfFonts.phrase(LEADING, "", normal);
+            PdfFonts.addText(noPreventionsPhrase, "No preventions found", noPreventionsPhrase.getFont());
             p.add(noPreventionsPhrase);
             document.add(p);
         }
@@ -337,9 +340,9 @@ public class CaseManagementPrintPdf {
 
         Paragraph p = new Paragraph();
         Font obsfont = new Font(bf, FONTSIZE, Font.UNDERLINE);
-        Phrase phrase = new Phrase(LEADING, "", obsfont);
+        Phrase phrase = PdfFonts.phrase(LEADING, "", obsfont);
         p.setAlignment(Paragraph.ALIGN_CENTER);
-        phrase.add("Patient Allergies");
+        PdfFonts.addText(phrase, "Patient Allergies", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
@@ -351,8 +354,8 @@ public class CaseManagementPrintPdf {
             // Print allergen name (bold)
             p = new Paragraph();
             p.setAlignment(Paragraph.ALIGN_LEFT);
-            phrase = new Phrase(LEADING, "", obsfont);
-            phrase.add(StringUtils.defaultIfBlank(allergy.getDescription(), "Unknown"));
+            phrase = PdfFonts.phrase(LEADING, "", obsfont);
+            PdfFonts.addText(phrase, StringUtils.defaultIfBlank(allergy.getDescription(), "Unknown"), phrase.getFont());
             p.add(phrase);
             document.add(p);
             curFont = normal;
@@ -360,8 +363,8 @@ public class CaseManagementPrintPdf {
             if (allergy.getStartDate() != null) {
                 p = new Paragraph();
                 p.setAlignment(Paragraph.ALIGN_LEFT);
-                phrase = new Phrase(LEADING, "Start Date: ", curFont);
-                phrase.add(formatter.format(allergy.getStartDate()));
+                phrase = PdfFonts.phrase(LEADING, "Start Date: ", curFont);
+                PdfFonts.addText(phrase, formatter.format(allergy.getStartDate()), phrase.getFont());
                 p.add(phrase);
                 document.add(p);
             }
@@ -369,8 +372,8 @@ public class CaseManagementPrintPdf {
             if (allergy.getReaction() != null && !allergy.getReaction().trim().isEmpty()) {
                 p = new Paragraph();
                 p.setAlignment(Paragraph.ALIGN_LEFT);
-                phrase = new Phrase(LEADING, "Reaction: ", curFont);
-                phrase.add(allergy.getReaction());
+                phrase = PdfFonts.phrase(LEADING, "Reaction: ", curFont);
+                PdfFonts.addText(phrase, allergy.getReaction(), phrase.getFont());
                 p.add(phrase);
                 document.add(p);
             }
@@ -378,8 +381,8 @@ public class CaseManagementPrintPdf {
             if (allergy.getSeverityOfReaction() != null) {
                 p = new Paragraph();
                 p.setAlignment(Paragraph.ALIGN_LEFT);
-                phrase = new Phrase(LEADING, "Severity: ", curFont);
-                phrase.add(allergy.getSeverityOfReactionDesc());
+                phrase = PdfFonts.phrase(LEADING, "Severity: ", curFont);
+                PdfFonts.addText(phrase, allergy.getSeverityOfReactionDesc(), phrase.getFont());
                 p.add(phrase);
                 document.add(p);
             }
@@ -387,8 +390,8 @@ public class CaseManagementPrintPdf {
             if (allergy.getOnsetOfReaction() != null) {
                 p = new Paragraph();
                 p.setAlignment(Paragraph.ALIGN_LEFT);
-                phrase = new Phrase(LEADING, "Onset: ", curFont);
-                phrase.add(allergy.getOnSetOfReactionDesc());
+                phrase = PdfFonts.phrase(LEADING, "Onset: ", curFont);
+                PdfFonts.addText(phrase, allergy.getOnSetOfReactionDesc(), phrase.getFont());
                 p.add(phrase);
                 document.add(p);
             }
@@ -396,8 +399,8 @@ public class CaseManagementPrintPdf {
             if (allergy.getLifeStage() != null) {
                 p = new Paragraph();
                 p.setAlignment(Paragraph.ALIGN_LEFT);
-                phrase = new Phrase(LEADING, "Life Stage: ", curFont);
-                phrase.add(allergy.getLifeStageDesc());
+                phrase = PdfFonts.phrase(LEADING, "Life Stage: ", curFont);
+                PdfFonts.addText(phrase, allergy.getLifeStageDesc(), phrase.getFont());
                 p.add(phrase);
                 document.add(p);
             }
@@ -405,18 +408,18 @@ public class CaseManagementPrintPdf {
             if (allergy.getAgeOfOnset() != null && !allergy.getAgeOfOnset().trim().isEmpty()) {
                 p = new Paragraph();
                 p.setAlignment(Paragraph.ALIGN_LEFT);
-                phrase = new Phrase(LEADING, "Age of Onset: ", curFont);
-                phrase.add(allergy.getAgeOfOnset());
+                phrase = PdfFonts.phrase(LEADING, "Age of Onset: ", curFont);
+                PdfFonts.addText(phrase, allergy.getAgeOfOnset(), phrase.getFont());
                 p.add(phrase);
                 document.add(p);
             }
-            document.add(new Phrase("\n", curFont));
+            document.add(PdfFonts.phrase("\n", curFont));
         }
         if (allergies.isEmpty()) {
             p = new Paragraph();
             p.setAlignment(Paragraph.ALIGN_LEFT);
-            Phrase noAllergiesPhrase = new Phrase(LEADING, "", normal);
-            noAllergiesPhrase.add("No allergies found");
+            Phrase noAllergiesPhrase = PdfFonts.phrase(LEADING, "", normal);
+            PdfFonts.addText(noAllergiesPhrase, "No allergies found", noAllergiesPhrase.getFont());
             p.add(noAllergiesPhrase);
             document.add(p);
         }
@@ -451,9 +454,9 @@ public class CaseManagementPrintPdf {
 
         Paragraph p = new Paragraph();
         Font obsfont = new Font(bf, FONTSIZE, Font.UNDERLINE);
-        Phrase phrase = new Phrase(LEADING, "", obsfont);
+        Phrase phrase = PdfFonts.phrase(LEADING, "", obsfont);
         p.setAlignment(Paragraph.ALIGN_CENTER);
-        phrase.add("Patient Rx History");
+        PdfFonts.addText(phrase, "Patient Rx History", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
@@ -471,9 +474,9 @@ public class CaseManagementPrintPdf {
             p.setAlignment(Paragraph.ALIGN_LEFT);
             if (drug.isCurrent() && !drug.isArchived()) {
                 curFont = normal;
-                phrase = new Phrase(LEADING, "", curFont);
-                phrase.add(formatter.format(drug.getRxDate()) + " - ");
-                phrase.add(drug.getFullOutLine().replaceAll(";", " "));
+                phrase = PdfFonts.phrase(LEADING, "", curFont);
+                PdfFonts.addText(phrase, formatter.format(drug.getRxDate()) + " - ", phrase.getFont());
+                PdfFonts.addText(phrase, drug.getFullOutLine().replaceAll(";", " "), phrase.getFont());
                 p.add(phrase);
                 document.add(p);
             }
@@ -484,7 +487,7 @@ public class CaseManagementPrintPdf {
             if (notes != null && notes.size() > 0) {
                 p = new Paragraph();
                 p.setAlignment(Paragraph.ALIGN_LEFT);
-                phrase = new Phrase(LEADING, "\nOther Meds\n", obsfont); //TODO:Needs to be i18n
+                phrase = PdfFonts.phrase(LEADING, "\nOther Meds\n", obsfont); //TODO:Needs to be i18n
                 p.add(phrase);
                 document.add(p);
                 newPage = false;
@@ -517,9 +520,9 @@ public class CaseManagementPrintPdf {
 
         Paragraph p = new Paragraph();
         p.setAlignment(Paragraph.ALIGN_CENTER);
-        Phrase phrase = new Phrase(LEADING, "\n\n", font);
+        Phrase phrase = PdfFonts.phrase(LEADING, "\n\n", font);
         p.add(phrase);
-        phrase = new Phrase(LEADING, "Patient CPP", obsfont);
+        phrase = PdfFonts.phrase(LEADING, "Patient CPP", obsfont);
         p.add(phrase);
         document.add(p);
         //upperYcoord -= p.leading() * 2f;
@@ -532,7 +535,7 @@ public class CaseManagementPrintPdf {
         for (int idx = 0; idx < headings.length; ++idx) {
             p = new Paragraph();
             p.setAlignment(Paragraph.ALIGN_LEFT);
-            phrase = new Phrase(LEADING, headings[idx], obsfont);
+            phrase = PdfFonts.phrase(LEADING, headings[idx], obsfont);
             p.add(phrase);
             document.add(p);
             newPage = false;
@@ -553,7 +556,6 @@ public class CaseManagementPrintPdf {
         Font obsfont = new Font(bf, FONTSIZE, Font.UNDERLINE);
         Paragraph p;
         Phrase phrase;
-        Chunk chunk;
 
         if (newPage)
             document.newPage();
@@ -565,10 +567,9 @@ public class CaseManagementPrintPdf {
             note = notes.get(idx);
             p = new Paragraph();
             //p.setSpacingBefore(font.leading(LINESPACING)*2f);
-            phrase = new Phrase(LEADING, "", font);
-            chunk = new Chunk("Documentation Date: " + formatter.format(note.getObservation_date()) + "\n", obsfont);
-            phrase.add(chunk);
-            phrase.add(note.getNote() + "\n\n");
+            phrase = PdfFonts.phrase(LEADING, "", font);
+            PdfFonts.addText(phrase, "Documentation Date: " + formatter.format(note.getObservation_date()) + "\n", obsfont);
+            PdfFonts.addText(phrase, note.getNote() + "\n\n", phrase.getFont());
             p.add(phrase);
             document.add(p);
         }

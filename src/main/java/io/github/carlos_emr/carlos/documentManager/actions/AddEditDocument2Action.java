@@ -41,9 +41,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Date;
-import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.ResourceBundle;
 
@@ -69,6 +70,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.SecRole;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
+import io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
@@ -333,7 +335,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
      * @throws SecurityException if the user lacks _edoc write privilege
      */
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
-    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
+    @SuppressFBWarnings(value = {"UNVALIDATED_REDIRECT", "IMPROPER_UNICODE"}, justification = "Redirects are same-origin application paths; Locale.ROOT module folding uses a closed ASCII allowlist and rejects all non-matching tokens")
     public String execute2() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -341,13 +343,24 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
         if (this.getMode().equals("") && this.getFunction().equals("") && this.getFunctionId().equals("")) {
             // file size exceeds the upload limit
-            Hashtable errors = new Hashtable();
+            Map<String, String> errors = new HashMap<>();
             errors.put("uploaderror", "dms.error.uploadError");
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", "");
             return "failEdit";
         } else if (this.getMode().equals("add")) {
-            // if add/edit success then send redirect, if failed send a forward (need the formdata and errors hashtables while trying to avoid POSTDATA messages)
+            // Match the report's closed module allowlist, preventing database
+            // collation aliases from bypassing the demographic authorization branch.
+            String module = this.getFunction() == null ? "" : this.getFunction().trim().toLowerCase(Locale.ROOT);
+            if (!List.of("demographic", "provider", "providers").contains(module)) {
+                throw new SecurityException("Invalid document target module");
+            }
+            this.setFunction(module);
+            if ("demographic".equals(module)) {
+                IncomingDocumentCapacityResponse.requirePatientDocumentWriteAccess(securityInfoManager,
+                        LoggedInInfo.getLoggedInInfoFromSession(request), this.getFunctionId() == null ? null : this.getFunctionId().trim());
+            }
+            // if add/edit success then send redirect, if failed send a forward (need the formdata and errors maps while trying to avoid POSTDATA messages)
             if (addDocument(request)) { // if success
                 try {
                     response.sendRedirect(buildAddSuccessRedirect());
@@ -409,8 +422,11 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private boolean addDocument(HttpServletRequest request) {
+        if (rejectOverlongDescription()) {
+            return false;
+        }
 
-        Hashtable errors = new Hashtable();
+        Map<String, String> errors = new HashMap<>();
         try {
             if ((this.getDocDesc().length() == 0) || (this.getDocDesc().equals("Enter Title"))) {
                 errors.put("descmissing", "dms.error.descriptionInvalid");
@@ -586,10 +602,18 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String editDocument(HttpServletRequest request) {
-        Hashtable errors = new Hashtable();
+        Map<String, String> errors = new HashMap<>();
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
+        }
+        // Outside the form-error catch: a denied source must never render its edit
+        // JSP or reach content, reviewer, audit or metadata mutations.
+        IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(securityInfoManager,
+                LoggedInInfo.getLoggedInInfoFromSession(request), this.getMode());
+        if (rejectOverlongDescription()) {
+            request.setAttribute("editDocumentNo", this.getMode());
+            return "failEdit";
         }
 
         try {
@@ -1121,6 +1145,20 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
     private String docType = "";
     private String docClass = "";
     private String docSubClass = "";
+    private static final int MAX_DESCRIPTION_LENGTH = 255;
+
+    /** Refuse before file, metadata, reviewer, note or audit writes; SQL VARCHAR counts code points. */
+    private boolean rejectOverlongDescription() {
+        if (docDesc == null || docDesc.codePointCount(0, docDesc.length()) <= MAX_DESCRIPTION_LENGTH) {
+            return false;
+        }
+        Map<String, String> errors = new HashMap<>();
+        errors.put("descmissing", "dms.error.descriptionTooLong");
+        request.setAttribute("docerrors", errors);
+        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+        return true;
+    }
+
     private String docDesc = "";
     private String docCreator = "";
     private String responsibleId = "";
@@ -1426,7 +1464,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     private String docFileFileName;
     private String docFileContentType;
-    /** Error hashtable key set when filename validation fails during bind; checked by execute methods. */
+    /** Error map key set when filename validation fails during bind; checked by execute methods. */
     private String docFileBindErrorKey;
 
     public String getDocFileFileName() {

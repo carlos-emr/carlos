@@ -120,8 +120,9 @@ public class CreateBillingReport2Action extends ActionSupport {
                 } else if (repType.equals(MSPReconcile.REP_WO)) {
                     Provider payeeProv = msp.getProvider(payee, 1);
                     Provider provProv = msp.getProvider(provider, 0);
-                    reportParams.put("providers", provider.equals("ALL") ? "ALL" : payeeProv.getFullName());
-                    reportParams.put("payee", payee.equals("ALL") ? "ALL" : provProv.getFullName());
+                    // Each label from its own lookup; the templates print $P{provider} and $P{payee}.
+                    reportParams.put("provider", provider.equals("ALL") ? "ALL" : provProv.getFullName());
+                    reportParams.put("payee", payee.equals("ALL") ? "ALL" : payeeProv.getFullName());
                 }
 
                 Provider acctProv = msp.getProvider(account, 0);
@@ -145,7 +146,8 @@ public class CreateBillingReport2Action extends ActionSupport {
                 Provider payeeProv = msp.getProvider(provider, 1);
                 reportParams.put("mspBean", msp);
                 //set parameters for payee of providers
-                reportParams.put("providers", payeeProv.equals("ALL") ? "ALL" : payeeProv.getInitials());
+                // "ALL" is the requested value, as the other reports compare it; a Provider never equals a String.
+                reportParams.put("provider", "ALL".equals(provider) ? "ALL" : payeeProv.getInitials());
                 reportParams.put("providerNo", payeeProv.getProviderNo());
                 //set parameters for S21 report header
                 reportParams.put("payeeName", s21.getPayeeName());
@@ -171,13 +173,6 @@ public class CreateBillingReport2Action extends ActionSupport {
                     reportParams.put("adj", osc.getJasperReport(subS23));
                 } finally {
                     IOUtils.closeQuietly(subS23);
-                }
-
-                InputStream subS23orphan = osc.getDocumentStream(REPORTS_PATH + this.reportCfg.getProperty("REP_MSPREMSUM_S23_ORPHAN"));
-                try {
-                    reportParams.put("orphanAdj", osc.getJasperReport(subS23orphan));
-                } finally {
-                    IOUtils.closeQuietly(subS23orphan);
                 }
 
                 //This is the broadcast messages subreport stream
@@ -218,7 +213,7 @@ public class CreateBillingReport2Action extends ActionSupport {
 
                 reportParams.put("account", account.equals("ALL") ? "ALL" : acctProv.getFullName());
 
-                reportParams.put("providers", provider.equals("ALL") ? "ALL" : provProv.getInitials());
+                reportParams.put("provider", provider.equals("ALL") ? "ALL" : provProv.getInitials());
                 reportParams.put("payee", payee.equals("ALL") ? "ALL" : payeeProv.getInitials());
                 reportParams.put("startDate", startDate);
                 reportParams.put("endDate", endDate);
@@ -286,7 +281,6 @@ public class CreateBillingReport2Action extends ActionSupport {
         this.reportCfg.setProperty(MSPReconcile.REP_MSPREMSUM, "rep_mspremsum.jrxml");
         this.reportCfg.setProperty(MSPReconcile.REP_MSPREMSUM_PRACTSUM, "msppremsum.practsum.jrxml");
         this.reportCfg.setProperty(MSPReconcile.REP_MSPREMSUM_S23, "msppremsum.s23.jrxml");
-        this.reportCfg.setProperty(MSPReconcile.REP_MSPREMSUM_S23_ORPHAN, "msppremsum.s23_orphan.jrxml");
         this.reportCfg.setProperty("MSGS", "broadcastmessages.jrxml");
     }
 

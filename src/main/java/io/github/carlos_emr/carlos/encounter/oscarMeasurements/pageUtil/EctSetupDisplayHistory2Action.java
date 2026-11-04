@@ -36,10 +36,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -55,23 +56,23 @@ public final class EctSetupDisplayHistory2Action extends ActionSupport {
     public String execute()
             throws Exception {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "w", null)) {
-            throw new SecurityException("missing required sec object (_measurement)");
+        String demographicNo;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
         }
+        PatientRecordAccess.require(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                demographicNo, "_measurement", "r");
 
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-        request.getSession().setAttribute("EctSessionBean", bean); // nosemgrep: tainted-session-from-http-request -- re-storing existing session bean retrieved from session; no new tainted data added
         String type = request.getParameter("type");
         MiscUtils.getLogger().debug("Type: " + type);
-        if (bean != null) {
-            Integer demo = Integer.valueOf(bean.getDemographicNo());
-            request.setAttribute("demographicNo", demo);
-            if (type != null) {
-                measurementsData = new EctMeasurementsDataBeanHandler(demo, type);
-                request.setAttribute("type", type);
-            }
-        } else {
-            MiscUtils.getLogger().debug("cannot get the EctSessionBean");
+        Integer demo = Integer.valueOf(demographicNo);
+        request.setAttribute("demographicNo", demo);
+        if (type != null) {
+            measurementsData = new EctMeasurementsDataBeanHandler(demo, type);
+            request.setAttribute("type", type);
         }
         return "continue";
     }

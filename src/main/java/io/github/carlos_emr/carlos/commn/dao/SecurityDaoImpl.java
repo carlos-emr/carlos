@@ -46,6 +46,17 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Security findForUpdate(Integer id) {
+        Security security = entityManager.find(Security.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (security != null) {
+            entityManager.refresh(security, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        }
+        return security;
+    }
+
+    @Override
     public List<Security> findAllOrderBy(String propertyName) {
         String hql;
         if ("userName".equals(propertyName)) {
@@ -140,8 +151,10 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
 
     @Override
     public List<Security> findByProviderSite(String providerNo) {
-        String queryStr = "select * from security s inner join providersite p on s.provider_no = p.provider_no " +
-                "where p.site_id in(select site_id from providersite where provider_no=?1)";
+        // Select only security columns and return each account once, even across shared sites.
+        String queryStr = "select s.* from security s where s.provider_no in " +
+                "(select p.provider_no from providersite p where p.site_id in " +
+                "(select site_id from providersite where provider_no=?1))";
         Query query = entityManager.createNativeQuery(queryStr, modelClass);
         query.setParameter(1, providerNo);
         @SuppressWarnings("unchecked")

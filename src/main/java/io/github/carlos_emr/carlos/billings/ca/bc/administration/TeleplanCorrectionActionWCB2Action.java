@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.billings.ca.bc.administration;
 import java.io.IOException;
 import java.util.Date;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -75,6 +76,12 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
+    /** The correction page's Settle button posts this fixed value as {@code submit}. */
+    static final String SUBMIT_SETTLE = "Settle Bill";
+
+    /** A billingmaster or billing number the correction page and the save parse as an int. */
+    private static final Pattern BILL_NUMBER = Pattern.compile("\\d{1,9}");
+
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     HttpServletRequest request = ServletActionContext.getRequest();
@@ -95,10 +102,40 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin.billing)");
         }
 
+        // A GET opens the correction page, as the simulation's claim links do; Submit and Settle Bill post it
+        // (the reprocessBill model, #4343). The page posts its bill as id and billingNo, and its buttons as submit.
+        boolean save = request.getParameter("id") != null || request.getParameter("billingNo") != null
+                || request.getParameter("submit") != null;
+        if (!save) {
+            // The page loads its own data from billing_no.
+            String opened = request.getParameter("billing_no");
+            if (opened != null && BILL_NUMBER.matcher(opened).matches()) {
+                return SUCCESS;
+            }
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        // HTTP method names are case-sensitive (RFC 9110), so only an exact POST may save.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        String savedId = request.getParameter("id");
+        String savedBillingNo = request.getParameter("billingNo");
+        if (savedId == null || !BILL_NUMBER.matcher(savedId).matches()
+                || request.getParameterValues("id").length != 1
+                || savedBillingNo == null || !BILL_NUMBER.matcher(savedBillingNo).matches()
+                || request.getParameterValues("billingNo").length != 1) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
 
-        String where = "success";
-
-        //TeleplanCorrectionFormWCB data = (TeleplanCorrectionFormWCB) form;
+        // Use the same canonical numeric values for persistence and redirect. Struts can otherwise
+        // bind repeated parameters differently from HttpServletRequest.getParameter's first value.
+        int savedBillId = Integer.parseInt(savedId);
+        setId(Integer.toString(savedBillId));
+        setBillingNo(Integer.toString(Integer.parseInt(savedBillingNo)));
 
         try {
 
@@ -106,12 +143,12 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
             String status = this.getStatus();
 
             log.debug("adj amount " + this.getAdjAmount());
-            if (request.getParameter("settle") != null && request.getParameter("settle").equals("Settle Bill")) {
+            if (SUBMIT_SETTLE.equals(request.getParameter("submit"))) {
                 status = "S";
             }
 
             if (!StringUtils.isNullOrEmpty(status)) {
-                status = MSPReconcile.NOTSUBMITTED.equals(this.getStatus()) ? MSPReconcile.WCB : status;
+                status = MSPReconcile.NOTSUBMITTED.equals(status) ? MSPReconcile.WCB : status;
                 msp.updateBillingStatusWCB(this.getBillingNo(), status, this.getId());
             }
             BillingHistoryDAO dao = new BillingHistoryDAO();
@@ -135,8 +172,10 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
 
             Billing billing = billingDao.find(Integer.parseInt(this.getBillingNo()));
             if (billing != null) {
-                billing.setStatus(this.getStatus());
-                billingDao.merge(billing);
+                if (!StringUtils.isNullOrEmpty(status)) {
+                    billing.setStatus(status);
+                    billingDao.merge(billing);
+                }
             }
 
             String feeItem = this.getW_feeitem();
@@ -215,14 +254,12 @@ public class TeleplanCorrectionActionWCB2Action extends ActionSupport {
             }
 
         } catch (Exception ex) {
-            log.error("WCB Teleplan Correction Query Error: " + ex.getMessage() + " - ", ex);
+            log.error("WCB Teleplan Correction Query Error", ex);
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
         }
 
-        String newURL = "/billing/CA/BC/billingTeleplanCorrectionWCB";
-        newURL = newURL + "?billing_no=" + this.getId();
-        MiscUtils.getLogger().debug(newURL);
-
-        response.sendRedirect(newURL);
+        response.sendRedirect(request.getContextPath() + "/billing/CA/BC/billingTeleplanCorrectionWCB?billing_no=" + savedBillId);
         return NONE;
     }
 

@@ -54,6 +54,24 @@ public class GroupNoteAction {
     private static DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
 
     public static int saveGroupNote(LoggedInInfo loggedInInfo, CaseManagementEntryFormBean cform, String programId) {
+        return saveGroupNote(loggedInInfo, cform, programId, membersForSave(cform.getNoteId()));
+    }
+
+    /** The actual rows used by a replacement; authorize this plan before its first mutation. */
+    static List<ExistingMember> membersForSave(String noteId) {
+        List<ExistingMember> members = new ArrayList<>();
+        for (GroupNoteLink link : groupNoteDao.findLinksByNoteId(Integer.parseInt(noteId))) {
+            members.add(new ExistingMember(link, link.isAnonymous()
+                    ? admissionManager.getAdmissions(link.getDemographicNo()) : List.of()));
+        }
+        return members;
+    }
+
+    record ExistingMember(GroupNoteLink link, List<Admission> admissions) { }
+
+    /** Uses only the supplied, authorized snapshot; never re-queries additional recipients. */
+    static int saveGroupNote(LoggedInInfo loggedInInfo, CaseManagementEntryFormBean cform, String programId,
+                             List<ExistingMember> currentMembers) {
         logger.info("saving group note");
 
         String ids[] = cform.getGroupNoteClientIds();
@@ -62,16 +80,15 @@ public class GroupNoteAction {
         //logger.info("group note will have " + ids.length + " clients, and " + totalAnonymous + " anonymous clients");
 
 
-        List<GroupNoteLink> currentLinks = groupNoteDao.findLinksByNoteId(Integer.parseInt(cform.getNoteId()));
-        if (currentLinks.size() > 0) {
-            for (GroupNoteLink link : currentLinks) {
+        if (currentMembers.size() > 0) {
+            for (ExistingMember member : currentMembers) {
+                GroupNoteLink link = member.link();
                 if (link.isAnonymous()) {
                     Demographic d = demographicDao.getDemographic(String.valueOf(link.getDemographicNo()));
                     if (d != null) {
                         d.setPatientStatus("DL");
                     }
-                    List<Admission> admissions = admissionManager.getAdmissions(link.getDemographicNo());
-                    for (Admission admission : admissions) {
+                    for (Admission admission : member.admissions()) {
                         admission.setDischargeDate(new Date());
                         admission.setDischargeNotes("Auto-Discharge");
                         admission.setAdmissionStatus(Admission.STATUS_DISCHARGED);

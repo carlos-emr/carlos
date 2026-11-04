@@ -86,10 +86,11 @@ public class BillingClaimsErrorReportImportService {
                                  List<BillingClaimsErrorReportRecordDto> records) {
         String nextline;
         BillingClaimsErrorReportRecordDto record = new BillingClaimsErrorReportRecordDto();
-        boolean isNewHin = false;
+        BillingClaimsErrorReportRecordDto pendingClaim = null;
 
         BillingErrorReportDto erObj = null;
         String claimError = "";
+        boolean pendingTransaction = false;
         try (InputStreamReader reader = new InputStreamReader(file);
              BufferedReader input = new BufferedReader(reader)) {
             while ((nextline = input.readLine()) != null) {
@@ -106,7 +107,14 @@ public class BillingClaimsErrorReportImportService {
                             IMPORT_FAILURE_MSG_PREFIX + filename + " (malformed short line)",
                             new IllegalArgumentException("claims-error-report line shorter than 3 characters"));
                 }
+                // HX8 explanations belong to the preceding HXT. Persist that item only
+                // when its explanation records are complete, before reusing the DTO.
+                if (pendingTransaction && !"8".equals(headerCount)) {
+                    persistCompletedItem(erObj, filename);
+                    pendingTransaction = false;
+                }
                 if (headerCount.compareTo("1") == 0) {
+                    pendingClaim = null;
                     erObj = new BillingErrorReportDto();
                     record = new BillingClaimsErrorReportRecordDto();
                     record.setTechSpec(nextline.substring(3, 6));
@@ -133,7 +141,6 @@ public class BillingClaimsErrorReportImportService {
                 }
 
                 if (headerCount.compareTo("H") == 0) {
-                    isNewHin = true;
                     record = new BillingClaimsErrorReportRecordDto();
                     record.setHin(nextline.substring(3, 13));
                     record.setVer(nextline.substring(13, 15));
@@ -151,6 +158,7 @@ public class BillingClaimsErrorReportImportService {
                     record.setHeCode3(nextline.substring(70, 73));
                     record.setHeCode4(nextline.substring(73, 76));
                     record.setHeCode5(nextline.substring(76, 79));
+                    pendingClaim = record;
 
                     erObj.setHin(nextline.substring(3, 13));
                     erObj.setVer(nextline.substring(13, 15));
@@ -185,17 +193,16 @@ public class BillingClaimsErrorReportImportService {
                     record.setReCode5(nextline.substring(76, 79));
                     records.add(record);
 
-                    claimError += nextline.substring(64, 67).trim() + " " + nextline.substring(67, 70).trim() + " "
+                    claimError = claimError.stripTrailing() + " " + nextline.substring(64, 67).trim() + " " + nextline.substring(67, 70).trim() + " "
                             + nextline.substring(70, 73).trim() + " " + nextline.substring(73, 76).trim() + " "
                             + nextline.substring(76, 79);
                 }
 
                 if (headerCount.compareTo("T") == 0) {
-                    if (!isNewHin) {
-                        record = new BillingClaimsErrorReportRecordDto();
-                    } else {
-                        isNewHin = false;
-                    }
+                    // A registration row between HXH and HXT must not replace
+                    // the claim identity or become aliased as a transaction row.
+                    record = pendingClaim != null ? pendingClaim : new BillingClaimsErrorReportRecordDto();
+                    pendingClaim = null;
                     record.setServicecode(nextline.substring(3, 8));
                     record.setAmountsubmitStoredCents(nextline.substring(10, 16));
                     record.setServiceno(nextline.substring(16, 18));
@@ -229,15 +236,14 @@ public class BillingClaimsErrorReportImportService {
                     record.setError(nextline.substring(5, 60));
                     records.add(record);
 
-                    erObj.setExp(nextline.substring(3, 5) + "|" + nextline.substring(5, 60));
+                    // MOH permits up to four HX8 messages per item. Retain each
+                    // description in order instead of overwriting earlier messages.
+                    String explanation = nextline.substring(3, 5) + "|" + nextline.substring(5, 60).stripTrailing();
+                    erObj.setExp((erObj.getExp() == null || erObj.getExp().isEmpty()) ? explanation : erObj.getExp() + "; " + explanation);
                 }
 
                 if (headerCount.compareTo("T") == 0) {
-                    // save the record
-                    erObj.setReport_name(filename);
-                    erObj.setStatus("N");
-                    erObj.setComment("");
-                    erRepObj.addErrorReportRecord(erObj);
+                    pendingTransaction = true;
                 }
 
                 if (headerCount.compareTo("9") == 0) {
@@ -250,6 +256,7 @@ public class BillingClaimsErrorReportImportService {
                 }
 
             }
+            if (pendingTransaction) persistCompletedItem(erObj, filename);
         } catch (IOException ioe) {
             // Throw so the surrounding @Transactional rolls back every per-line
             // delete/insert performed before this point — leaving partial
@@ -264,6 +271,13 @@ public class BillingClaimsErrorReportImportService {
             throw new BillingFileImportException(
                     IMPORT_FAILURE_MSG_PREFIX + filename + " (invalid amount)", validationFailure);
         }
+    }
+
+    private void persistCompletedItem(BillingErrorReportDto record, String filename) {
+        record.setReport_name(filename);
+        record.setStatus("N");
+        record.setComment("");
+        erRepObj.addErrorReportRecord(record);
     }
 
     private static void requireHeader(BillingErrorReportDto erObj, String filename, String headerCount) {

@@ -87,14 +87,14 @@ class DSGuidelineDroolsUnitTest {
         }
 
         @Test
-        @DisplayName("should use title when entity has no ID")
-        void shouldUseTitle_whenEntityHasNoId() {
+        @DisplayName("should use a safe preview rule name when entity has no ID")
+        void shouldUsePreviewName_whenEntityHasNoId() {
             guideline.setId(null);
-            guideline.setTitle("Diabetes Screening");
+            guideline.setTitle("Diabetes \"Screening\"\nFollow-up");
 
             String key = guideline.getRuleBaseFactoryKey();
 
-            assertThat(key).isEqualTo("DSGuidelineDrools:Diabetes Screening");
+            assertThat(key).isEqualTo("DSGuidelineDrools:preview");
         }
     }
 

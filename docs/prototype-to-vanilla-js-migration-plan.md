@@ -157,7 +157,7 @@ const CarlosAjax = {
 
 #### Chained Request Patterns
 
-Some code nests Ajax.Request calls inside `onSuccess` callbacks (e.g., SearchDrug3.jsp line 1631-1643: `findInteractingDrugList` then `UpdateInteractingDrugs`). These are naturally sequential — the inner request fires only after the outer completes. With `fetch()`, this pattern becomes:
+Some code nests Ajax.Request calls inside `onSuccess` callbacks (SearchDrug3.jsp once chained `findInteractingDrugList` into `UpdateInteractingDrugs`; that pair is gone, and the interaction markers now come from one `fetch()` of `rx/interactionWarnings`, #4506). These are naturally sequential — the inner request fires only after the outer completes. With `fetch()`, this pattern becomes:
 ```javascript
 // Prototype chained pattern:
 new Ajax.Request(url1, { onSuccess: function(t1) {

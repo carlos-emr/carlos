@@ -30,11 +30,14 @@
 
 package io.github.carlos_emr.carlos.dxresearch.pageUtil;
 
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.commn.dao.QuickListDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -57,18 +60,15 @@ public final class dxSetupResearch2Action extends ActionSupport {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_dxresearch", "r", null)) {
-            throw new RuntimeException("missing required sec object (_dxresearch)");
+            throw new SecurityException("missing required sec object (_dxresearch)");
         }
 
-        // Validate demographicNo is a non-negative integer before crossing the trust boundary
-        String demographicNoParam = request.getParameter("demographicNo");
-        if (demographicNoParam == null || !demographicNoParam.matches("\\d{1,9}")) {
+        String demographicNo = canonicalPatientNo(request.getParameter("demographicNo"));
+        if (demographicNo == null) {
             return ERROR;
         }
-        // Parse and re-stringify to produce a canonical integer string that breaks the CodeQL
-        // taint chain: CodeQL does not treat regex matching alone as a sanitizer, but passing
-        // through Integer.parseInt() confirms the value is a safe integer before session storage.
-        String demographicNo = String.valueOf(Integer.parseInt(demographicNoParam));
+        PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_dxresearch", "r");
+        PatientRecordAccess.require(securityInfoManager, loggedInInfo, demographicNo, "_demographic", "r");
 
         // Validate providerNo is numeric if supplied from the request
         String providerNo = request.getParameter("providerNo");
@@ -76,17 +76,20 @@ public final class dxSetupResearch2Action extends ActionSupport {
             return ERROR;
         }
 
-        // Validate quickList is numeric if supplied and non-empty
-        String selectedQuickList = request.getParameter("quickList");
-        if (selectedQuickList == null) {
-            selectedQuickList = "";
-        }
-        if (!selectedQuickList.isEmpty() && !selectedQuickList.matches("\\d+")) {
-            return ERROR;
+        // The selector carries a list name, not a numeric identifier. Resolve it
+        // against stored names before loading items or recording the last-used list.
+        String requestedQuickList = request.getParameter("quickList");
+        String selectedQuickList = "";
+        if (requestedQuickList != null && !requestedQuickList.isEmpty()) {
+            selectedQuickList = SpringUtils.getBean(QuickListDao.class).findDistinct().stream()
+                    .filter(String.class::isInstance).map(String.class::cast)
+                    .filter(requestedQuickList::equals).findFirst().orElse(null);
+            if (selectedQuickList == null) {
+                return ERROR;
+            }
         }
 
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
-        dxResearchBeanHandler hd = new dxResearchBeanHandler(demographicNo);
 
         dxQuickListBeanHandler quicklistHd;
         dxQuickListItemsHandler quicklistItemsHd;
@@ -107,10 +110,36 @@ public final class dxSetupResearch2Action extends ActionSupport {
         session.setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         session.setAttribute("allQuickLists", quicklistHd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         session.setAttribute("allQuickListItems", quicklistItemsHd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("allDiagnostics", hd); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("demographicNo", demographicNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-        session.setAttribute("providerNo", providerNo); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
+        // The patient and its diagnoses belong to this request. In the session they were the
+        // registry opened last in any window, and dxResearch.jsp's ${demographicNo} also leaked
+        // into every other page that resolves that name from session scope (issue #4673).
+        publishPatient(request, demographicNo, providerNo);
 
         return SUCCESS;
+    }
+
+    /** Returns the canonical positive Integer patient key, or null for absent or invalid input. */
+    static String canonicalPatientNo(String value) {
+        if (value == null || !value.matches("[0-9]{1,10}")) return null;
+        try {
+            int patient = Integer.parseInt(value);
+            return patient > 0 ? Integer.toString(patient) : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Publishes the registry page's patient, its diagnosis list and the provider as request
+     * attributes, which is where {@code dxResearch.jsp} and its quick-list include read them.
+     *
+     * @param request the request rendering the registry page
+     * @param demographicNo the canonical patient number the page is for
+     * @param providerNo the provider the page acts for
+     */
+    static void publishPatient(HttpServletRequest request, String demographicNo, String providerNo) {
+        request.setAttribute("demographicNo", demographicNo);
+        request.setAttribute("allDiagnostics", new dxResearchBeanHandler(demographicNo));
+        request.setAttribute("providerNo", providerNo);
     }
 }

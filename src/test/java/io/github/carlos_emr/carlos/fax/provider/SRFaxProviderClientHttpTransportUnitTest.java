@@ -62,6 +62,47 @@ import org.junit.jupiter.params.provider.ValueSource;
 @DisplayName("SRFaxProviderClient HTTP transport")
 class SRFaxProviderClientHttpTransportUnitTest extends CarlosUnitTestBase {
 
+    @Test
+    void shouldStreamFormPayload_whenSendingFromFile(@org.junit.jupiter.api.io.TempDir java.nio.file.Path directory)
+            throws Exception {
+        byte[] bytes = new byte[8193];
+        new java.util.Random(3512).nextBytes(bytes);
+        var file = java.nio.file.Files.write(directory.resolve("fax.pdf"), bytes);
+        when(config.getFaxNumber()).thenReturn("9055551234");
+        when(config.getSenderEmail()).thenReturn("fax@example.invalid");
+        FaxJob fax = new FaxJob();
+        fax.setFile_name("fax.pdf");
+        fax.setDestination("9055559999");
+        responseBody = "{\"Status\":\"Success\",\"Result\":\"3512\"}";
+
+        FaxJob sent = client.sendFax(config, fax, file);
+
+        String encoded = java.net.URLEncoder.encode(java.util.Base64.getEncoder().encodeToString(bytes),
+                StandardCharsets.UTF_8);
+        assertThat(recordedBody).endsWith("&sFileContent_1=" + encoded);
+        assertThat(recordedContentType).contains("application/x-www-form-urlencoded");
+        assertThat(sent.getJobId()).isEqualTo(3512L);
+        assertThat(fax.getDocument()).isNull();
+    }
+
+    @Test
+    void shouldStreamDownload_withResultBeforeStatus() throws Exception {
+        responseBody = "{\"Result\":\"SGVsbG8=\",\"Status\":\"Success\"}";
+        FaxJob fax = new FaxJob();
+        fax.setFile_name("remote|3512");
+
+        FaxJob downloaded = client.downloadFax(config, fax);
+
+        try {
+            assertThat(java.nio.file.Files.readString(downloaded.getDocumentPath())).isEqualTo("Hello");
+            assertThat(downloaded.getDocument()).isNull();
+            assertThat(downloaded.getStatus()).isEqualTo(FaxJob.STATUS.RECEIVED);
+            assertThat(recordedBody).contains("action=Retrieve_Fax").doesNotContain("sMarkasViewed");
+        } finally {
+            java.nio.file.Files.deleteIfExists(downloaded.getDocumentPath());
+        }
+    }
+
     private static final String DUMMY_ACCESS_ID = "test-access-id";
     private static final String DUMMY_ACCESS_PWD = "test-access-pwd";
 

@@ -53,6 +53,8 @@
  * Request Attributes:
  * - Attachment: XML string containing structured attachment data
  * - attId: Attachment ID for form processing and AR form links
+ * - MsgAttachmentStaging.KEY_ATTRIBUTE: the forwarding key of the message view that opened this
+ *   window; "Save Attachments" stages the ticked items under it (issue #4673)
  *
  * Session Dependencies:
  * - msgSessionBean: Required for attachment management context
@@ -86,6 +88,7 @@
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentStaging" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -380,10 +383,10 @@
             <span class="text-muted small">
                 <fmt:message key="messenger.generatePreviewPDF.attachDocFor"/>
             </span>
-            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')" class="small text-decoration-none">
+            <a href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener" class="small text-decoration-none">
                 <fmt:message key="global.about"/>
             </a>
-            <a href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')" class="small text-decoration-none">
+            <a href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener" class="small text-decoration-none">
                 <fmt:message key="global.license"/>
             </a>
         </div>
@@ -404,6 +407,11 @@
                     type="hidden" name="xmlDoc"
                     value="<%= SafeEncode.forHtmlAttribute(MsgCommxml.encode64(MsgCommxml.toXML(root))) %>"/> <input
                     type="hidden" name="id" value="<%= SafeEncode.forHtmlAttribute((String) request.getAttribute("attId")) %>"/>
+            <%-- The forwarding key of the message this window was opened from; the items are
+                 staged for the compose page its view's Compose link, Reply, Reply All or Forward
+                 opens (issue #4673). --%>
+            <input type="hidden" name="attachmentKey"
+                   value="<%= SafeEncode.forHtmlAttribute((String) request.getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)) %>"/>
 
 <table class="MainTable" id="scrollNumber1" name="encounterTable">
 

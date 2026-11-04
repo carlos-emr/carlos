@@ -196,6 +196,20 @@ public class BillingFormData {
         return result.toArray(new BillingForm[result.size()]);
     }
 
+    /** Use a configured form when available, otherwise the first form offered by the selector. */
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "ASCII billing form identifiers; not an authorization decision")
+    public String resolveBillingForm(String preferred) {
+        BillingForm[] available = getFormList();
+        for (BillingForm form : available) {
+            if (preferred != null && form.getFormCode().equalsIgnoreCase(preferred.trim())) {
+                return form.getFormCode();
+            }
+        }
+        // A fresh install or a new physician may have no default_view/provider preference.
+        // Keep the selected form and its service lists consistent with what the browser offers.
+        return available.length == 0 ? "" : available[0].getFormCode();
+    }
+
     public class BillingService {
 
         String service_code;

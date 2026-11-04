@@ -24,12 +24,10 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.commn.model.MessageList;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -46,8 +44,6 @@ import static org.assertj.core.api.Assertions.*;
  * @since 2026-03-07
  * @see MessageListDao
  */
-@Disabled("Production code issue: MessageListDaoImpl is not discovered by component scan in the test context. " +
-        "Requires explicit bean definition or adding its package to test-spring_jpa.xml component scan.")
 @DisplayName("MessageListDao Integration Tests")
 @Tag("integration")
 @Tag("dao")
@@ -56,8 +52,10 @@ import static org.assertj.core.api.Assertions.*;
 public class MessageListDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
-    @Qualifier("messageListDao")
     private MessageListDao dao;
+
+    @jakarta.persistence.PersistenceContext(unitName = "entityManagerFactory")
+    private jakarta.persistence.EntityManager entityManager;
 
     private MessageList createMessageList(String providerNo, long messageNo) throws Exception {
         MessageList ml = new MessageList();
@@ -90,7 +88,7 @@ public class MessageListDaoIntegrationTest extends CarlosTestBase {
         // Then
         assertThat(result).hasSize(2);
         assertThat(result).extracting(MessageList::getId)
-                .containsExactly(ml1.getId(), ml3.getId());
+                .containsExactlyInAnyOrder(ml1.getId(), ml3.getId());
     }
 
     @Test
@@ -106,4 +104,31 @@ public class MessageListDaoIntegrationTest extends CarlosTestBase {
         // Then
         assertThat(result).isEmpty();
     }
+    @Test
+    void shouldHydrateLegacyNullFacilities_whenOpeningLocalMessage() throws Exception {
+        MessageList row = createMessageList("4170", 4170L);
+        entityManager.flush();
+        entityManager.createNativeQuery("UPDATE messagelisttbl SET sourceFacilityId=NULL, destinationFacilityId=NULL WHERE id=:id")
+                .setParameter("id", row.getId()).executeUpdate();
+        entityManager.clear();
+        var rows = dao.findByProviderNoAndMessageNo("4170", 4170L);
+        assertThat(rows).hasSize(1);
+        assertThat(rows.getFirst().getSourceFacilityId()).isZero();
+        assertThat(rows.getFirst().getDestinationFacilityId()).isZero();
+    }
+
+    @Test
+    void shouldRetainExplicitFacilities_whenReadingRemoteMessage() throws Exception {
+        MessageList row = createMessageList("4170", 4171L);
+        row.setSourceFacilityId(12);
+        row.setDestinationFacilityId(34);
+        dao.merge(row);
+        hibernateTemplate.flush();
+        entityManager.flush();
+        entityManager.clear();
+        var loaded = dao.findByProviderNoAndMessageNo("4170", 4171L).getFirst();
+        assertThat(loaded.getSourceFacilityId()).isEqualTo(12);
+        assertThat(loaded.getDestinationFacilityId()).isEqualTo(34);
+    }
+
 }

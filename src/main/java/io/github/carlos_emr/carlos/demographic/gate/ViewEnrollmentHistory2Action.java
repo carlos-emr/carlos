@@ -12,7 +12,9 @@
  */
 package io.github.carlos_emr.carlos.demographic.gate;
 
+import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -51,6 +53,17 @@ public final class ViewEnrollmentHistory2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
+        final int patient;
+        try {
+            patient = PatientReadAccess.requestedPatient(request, true);
+        } catch (IllegalArgumentException invalid) {
+            ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        if (patient > 0) {
+            PatientReadAccess.requirePatient(securityInfoManager, loggedInInfo, patient, "_demographic", SecurityInfoManager.READ);
+            request.setAttribute(PatientReadAccess.AUTHORIZED_PATIENT_ATTRIBUTE, Integer.toString(patient));
+        }
         return SUCCESS;
     }
 }

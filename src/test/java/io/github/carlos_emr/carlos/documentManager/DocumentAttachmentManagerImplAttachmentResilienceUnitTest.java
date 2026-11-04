@@ -1,0 +1,1111 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.documentManager;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import java.io.ByteArrayOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
+
+import jakarta.servlet.http.HttpServletRequest;
+
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDataDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
+import io.github.carlos_emr.carlos.commn.dao.QueueDocumentLinkDao;
+import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
+import io.github.carlos_emr.carlos.commn.model.ConsultationRequest;
+import io.github.carlos_emr.carlos.commn.model.CtlDocument;
+import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
+import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.commn.model.EFormData;
+import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.eform.EFormUtil;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
+import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.hospitalReportManager.HRMReportParser;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
+import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
+import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
+import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
+import io.github.carlos_emr.carlos.managers.ConsultationManager;
+import io.github.carlos_emr.carlos.managers.DocumentManager;
+import io.github.carlos_emr.carlos.managers.EformDataManager;
+import io.github.carlos_emr.carlos.managers.FormsManager;
+import io.github.carlos_emr.carlos.managers.LabManager;
+import io.github.carlos_emr.carlos.managers.NioFileManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
+
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
+import org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
+import org.mockito.MockedConstruction;
+import org.mockito.MockedStatic;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
+
+@DisplayName("DocumentAttachmentManagerImpl")
+@Tag("unit")
+class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUnitTestBase {
+
+    /** A synthetic, schema-valid HRM report shipped with the dev database. */
+    private static final Path DEMO_HRM_REPORT = Path.of(".devcontainer/db/db_data/hrm/demo-hrm-diagnostic-imaging.xml");
+    /** A missing, unmatched or rematched HRM report: found by the database check. */
+    private static final String HRM_12_UNAVAILABLE = "H:12 UNAVAILABLE";
+    /** An HRM report whose file is missing or unreadable: found by parsing it. */
+    private static final String HRM_12_FILE_UNAVAILABLE = "H:12 FILE_UNAVAILABLE";
+
+    @TempDir
+    Path documentDir;
+
+    private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
+    private LoggedInInfo loggedInInfo;
+    private LabManager labManager;
+    private ConsultDocsDao consultDocsDao;
+    private ConsultationRequestDao consultationRequestDao;
+    private DocumentDao selectionDocuments;
+    private EFormDataDao selectionEForms;
+    private ConsultationManager consultationManager;
+    private DocumentManager documentManager;
+    private EformDataManager eformDataManager;
+    private FormsManager formsManager;
+    private NioFileManager nioFileManager;
+    private SecurityInfoManager securityInfoManager;
+    private HRMDocumentDao hrmDocumentDao;
+    private DocumentAttachmentManagerImpl manager;
+    private Path basePdf;
+    private Path outputPdf;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        request = new MockHttpServletRequest("POST", "/encounter/RequestConsultation");
+        response = new MockHttpServletResponse();
+        loggedInInfo = mock(LoggedInInfo.class);
+        labManager = mock(LabManager.class);
+        consultDocsDao = mock(ConsultDocsDao.class);
+        consultationRequestDao = mock(ConsultationRequestDao.class);
+        consultationManager = mock(ConsultationManager.class);
+        documentManager = mock(DocumentManager.class);
+        eformDataManager = mock(EformDataManager.class);
+        formsManager = mock(FormsManager.class);
+        nioFileManager = mock(NioFileManager.class);
+        securityInfoManager = mock(SecurityInfoManager.class);
+        hrmDocumentDao = mock(HRMDocumentDao.class);
+
+        registerMock(HRMDocumentDao.class, hrmDocumentDao);
+        registerMock(PatientLabRoutingDao.class, mock(PatientLabRoutingDao.class));
+        registerMock(ProviderLabRoutingDao.class, mock(ProviderLabRoutingDao.class));
+        registerMock(QueueDocumentLinkDao.class, mock(QueueDocumentLinkDao.class));
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+
+        manager = new DocumentAttachmentManagerImpl(labManager);
+        ReflectionTestUtils.setField(manager, "consultDocsDao", consultDocsDao);
+        ReflectionTestUtils.setField(manager, "consultationRequestDao", consultationRequestDao);
+        ReflectionTestUtils.setField(manager, "eFormDocsDao", mock(EFormDocsDao.class));
+        ReflectionTestUtils.setField(manager, "consultationManager", consultationManager);
+        ReflectionTestUtils.setField(manager, "documentManager", documentManager);
+        ReflectionTestUtils.setField(manager, "eformDataManager", eformDataManager);
+        ReflectionTestUtils.setField(manager, "formsManager", formsManager);
+        ReflectionTestUtils.setField(manager, "nioFileManager", nioFileManager);
+        ReflectionTestUtils.setField(manager, "securityInfoManager", securityInfoManager);
+
+        basePdf = createPdf("consult-base");
+        outputPdf = createPdf("consult-output");
+
+        ConsultationRequest consultationRequest = new ConsultationRequest();
+        consultationRequest.setDemographicId(1);
+        when(consultationRequestDao.find(9)).thenReturn(consultationRequest);
+        when(consultationManager.renderConsultationForm(request)).thenReturn(basePdf);
+        when(consultationManager.getAttachedEForms("9")).thenReturn(List.of());
+        when(consultationManager.getAttachedHRMDocuments(loggedInInfo, "1", "9"))
+                .thenReturn(new ArrayList<HashMap<String, ? extends Object>>());
+        when(consultationManager.getAttachedForms(loggedInInfo, 9, 1)).thenReturn(List.<EctFormData.PatientForm>of());
+        when(nioFileManager.saveTempFile(anyString(), any(ByteArrayOutputStream.class))).thenReturn(outputPdf);
+
+        // develop's checks (#3867): a render authorizes the consult's own patient and keeps only that
+        // patient's attachments, and a save syncs rows under the locked parent in a transaction.
+        // Lenient: each test reaches only some of them.
+        org.mockito.Mockito.lenient().when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, 1))
+                .thenReturn(true);
+        org.mockito.Mockito.lenient().when(securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, 1)).thenReturn(true);
+        org.mockito.Mockito.lenient().when(consultationManager.getRequest(loggedInInfo, 9)).thenReturn(consultationRequest);
+        AttachmentOwnershipService ownership = mock(AttachmentOwnershipService.class);
+        org.mockito.Mockito.lenient().when(ownership.retainOwned(any(), any(), any(), any()))
+                .thenAnswer(call -> call.getArgument(2) == null ? List.of() : call.getArgument(2));
+        ReflectionTestUtils.setField(manager, "attachmentOwnershipService", ownership);
+        org.springframework.transaction.PlatformTransactionManager transactions =
+                createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
+        org.mockito.Mockito.lenient().when(transactions.getTransaction(any()))
+                .thenReturn(new org.springframework.transaction.support.SimpleTransactionStatus());
+        org.mockito.Mockito.lenient().when(consultationRequestDao.lockForAttachmentSync(9)).thenReturn(consultationRequest);
+        registerMock(ConsultationRequestDao.class, consultationRequestDao);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (basePdf != null) {
+            Files.deleteIfExists(basePdf);
+        }
+        if (outputPdf != null) {
+            Files.deleteIfExists(outputPdf);
+        }
+    }
+
+    @Test
+    @DisplayName("coerces request attributes before resolving the consultation patient")
+    void shouldCoerceRequestAttributes_whenRenderingConsultationWithAttachments() throws Exception {
+        request.setAttribute("reqId", Integer.valueOf(9));
+        // The consultation's own patient, as an Integer: it is stored back as the String "1".
+        request.setAttribute("demographicId", Integer.valueOf(1));
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> commonLabResultDataMock = mockCommonLabResultData(List.of())) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>());
+
+            Path result = manager.renderConsultationFormWithAttachments(request, response);
+
+            assertThat(result).isEqualTo(outputPdf);
+            assertThat(request.getAttribute("demographicId")).isEqualTo("1");
+            assertThat(commonLabResultDataMock.constructed()).hasSize(1);
+        }
+    }
+
+    @Test
+    @DisplayName("refuses to render when the request attribute names another patient than the consultation's")
+    void shouldRefuseRender_whenRequestAttributeDoesNotMatchConsultationDemographic() throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "999");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedConstruction<CommonLabResultData> commonLabResultDataMock = mockCommonLabResultData(List.of())) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+
+            assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request, response))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_con)");
+
+            verify(consultationRequestDao).find(9);
+            verify(consultationManager, never()).renderConsultationForm(any());
+            assertThat(commonLabResultDataMock.constructed()).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("warns and skips malformed lab segment ids")
+    void shouldWarnAndSkipLab_whenSegmentIdIsMalformed() throws Exception {
+        // An HL7 lab, so the source check passes and the segment id is what fails.
+        LabResultData malformedLab = new LabResultData(LabResultData.HL7TEXT);
+        malformedLab.setSegmentID("BAD");
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of(malformedLab))) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>());
+
+            Path result = manager.renderConsultationFormWithAttachments(request, response);
+
+            assertThat(result).isEqualTo(outputPdf);
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("L:BAD NOT_RENDERED");
+            verify(labManager, never()).renderLab(any(LoggedInInfo.class), any());
+        }
+    }
+
+    @Test
+    @DisplayName("rejects an eForm packet when an attached lab segment id is malformed")
+    void shouldRejectEformPacket_whenAttachedLabSegmentIdIsMalformed() throws Exception {
+        // An HL7 lab, so the source check passes and the segment id is what fails.
+        LabResultData malformedLab = new LabResultData(LabResultData.HL7TEXT);
+        malformedLab.setSegmentID("BAD");
+        EFormData storedEform = mock(EFormData.class);
+        when(storedEform.getDemographicId()).thenReturn(1);
+        request.setAttribute("fdid", "7");
+        request.setAttribute("demographicId", "1");
+        when(eformDataManager.findByFdid(loggedInInfo, 7)).thenReturn(storedEform);
+        when(eformDataManager.createEformPdfWithCompleteness(loggedInInfo, 7, null))
+                .thenReturn(new EformDataManager.EformPdfRender(
+                        basePdf, EFormRenderCompletenessReport.complete()));
+        when(eformDataManager.getHRMDocumentsAttachedToEForm(loggedInInfo, "7", "1"))
+                .thenReturn(new ArrayList<HashMap<String, ? extends Object>>());
+        when(eformDataManager.getFormsAttachedToEForm(loggedInInfo, "7", "1"))
+                .thenReturn(List.of());
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EFormUtil> eFormUtilMock = mockStatic(EFormUtil.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> ignored =
+                        mockEformCommonLabResultData(List.of(malformedLab))) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eFormUtilMock.when(() -> EFormUtil.listPatientEformsCurrentAttachedToEForm("7"))
+                    .thenReturn(List.of());
+            eDocUtilMock.when(() -> EDocUtil.listDocsAttachedToEForm(
+                            loggedInInfo, "1", "7", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>());
+
+            assertThatThrownBy(() -> manager.renderEFormWithAttachments(request, response))
+                    .isInstanceOf(PDFGenerationException.class)
+                    .hasMessage("Attached lab could not be rendered because its segment id is invalid.")
+                    .hasCauseInstanceOf(NumberFormatException.class);
+            verify(labManager, never()).renderLab(any(LoggedInInfo.class), any());
+        }
+    }
+
+    @Test
+    @DisplayName("lists unavailable attachment warnings without rendering anything")
+    void shouldListUnavailableWarnings_withoutRendering() {
+        when(consultDocsDao.findUnavailableActiveConsultAttachments(9))
+                .thenReturn(List.of(consultDoc(80, "D"), consultDoc(915, "E")));
+
+        assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9)))
+                .containsExactly("D:80 UNAVAILABLE", "E:915 UNAVAILABLE");
+        assertThat(manager.getUnavailableConsultAttachmentWarnings(null)).isEmpty();
+        assertThat(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)).isNull();
+        verifyNoInteractions(consultationManager);
+    }
+
+    @Test
+    @DisplayName("warns for unavailable consultdoc rows filtered before rendering")
+    void shouldWarnForUnavailableConsultDocs_whenRowsAreFilteredBeforeRendering() throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        when(consultDocsDao.findUnavailableActiveConsultAttachments(9))
+                .thenReturn(List.of(
+                        consultDoc(80, "D"),
+                        consultDoc(915, "E")));
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of())) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>());
+
+            Path result = manager.renderConsultationFormWithAttachments(request, response);
+
+            assertThat(result).isEqualTo(outputPdf);
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("D:80 UNAVAILABLE", "E:915 UNAVAILABLE");
+            verify(consultDocsDao).findUnavailableActiveConsultAttachments(9);
+        }
+    }
+
+    @Test
+    @DisplayName("warns and skips form attachments that cannot be rendered")
+    void shouldWarnAndSkipForm_whenFormRenderingFails() throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
+        EctFormData.PatientForm form = new EctFormData.PatientForm("Annual", 3, 1, null, null);
+        when(consultationManager.getAttachedForms(loggedInInfo, 9, 1)).thenReturn(List.of(form));
+        when(formsManager.renderForm(request, response, form))
+                .thenThrow(new PDFGenerationException("form route unavailable"));
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of())) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>());
+
+            Path result = manager.renderConsultationFormWithAttachments(request, response);
+
+            assertThat(result).isEqualTo(outputPdf);
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("F:3 NOT_RENDERED");
+            verify(formsManager).renderForm(request, response, form);
+        }
+    }
+
+    @Test
+    @DisplayName("fails the whole render, for print and fax, when an attachment cannot be rendered")
+    void shouldFailRender_whenAttachmentFailsAndSkippingIsNotAllowed() throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        EctFormData.PatientForm form = new EctFormData.PatientForm("Annual", 3, 1, null, null);
+        when(consultationManager.getAttachedForms(loggedInInfo, 9, 1)).thenReturn(List.of(form));
+        when(formsManager.renderForm(request, response, form))
+                .thenThrow(new PDFGenerationException("form route unavailable"));
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of())) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>());
+
+            // A faxed or printed consult must never go out silently missing an attachment it lists.
+            assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request, response))
+                    .isInstanceOf(PDFGenerationException.class)
+                    .hasMessage("One or more consultation attachments could not be rendered");
+            verify(formsManager).renderForm(request, response, form);
+            // The caller names it in the error staff see.
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("F:3 NOT_RENDERED");
+        }
+    }
+
+    @Test
+    @DisplayName("leaves a damaged PDF document out of the preview, naming it, instead of failing the whole preview")
+    void shouldSkipDamagedPdfDocument_whenPreviewMaySkip() throws Exception {
+        Path damaged = Files.createTempFile("damaged-document", ".pdf");
+        Files.writeString(damaged, "not a PDF at all");
+        request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
+        try {
+            assertThat(renderWithDocument(41, damaged)).isEqualTo(outputPdf);
+
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("D:41 NOT_RENDERED");
+            // A stored document, outside CARLOS's temp subtree, is never deleted.
+            assertThat(damaged).exists();
+        } finally {
+            Files.deleteIfExists(damaged);
+        }
+    }
+
+    @Test
+    @DisplayName("deletes a PDF made for this render when it is left out, as it holds patient data")
+    void shouldDeleteLeftOutTemporaryPdf_whenPreviewSkipsIt() throws Exception {
+        // An image document's PDF is made in CARLOS's own temp subtree for each render.
+        Path applicationTemp = Files.createDirectories(Path.of(System.getProperty("java.io.tmpdir"),
+                io.github.carlos_emr.carlos.utility.PathValidationUtils.APPLICATION_TEMP_ROOT_NAME));
+        Path madeForRender = Files.createTempFile(applicationTemp, "consult-image-document-", ".pdf");
+        Files.writeString(madeForRender, "not a PDF at all");
+        request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
+        try {
+            assertThat(renderWithDocument(44, madeForRender)).isEqualTo(outputPdf);
+
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("D:44 NOT_RENDERED");
+            assertThat(madeForRender).doesNotExist();
+        } finally {
+            Files.deleteIfExists(madeForRender);
+        }
+    }
+
+    @Test
+    @DisplayName("leaves a password-protected PDF document out of the preview, naming it")
+    void shouldSkipPasswordProtectedPdfDocument_whenPreviewMaySkip() throws Exception {
+        Path locked = Files.createTempFile("locked-document", ".pdf");
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new PDPage(PDRectangle.LETTER));
+            StandardProtectionPolicy policy = new StandardProtectionPolicy("FAKE-owner", "FAKE-user", new AccessPermission());
+            document.protect(policy);
+            document.save(locked.toFile());
+        }
+        request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
+        try {
+            assertThat(renderWithDocument(42, locked)).isEqualTo(outputPdf);
+
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("D:42 NOT_RENDERED");
+        } finally {
+            Files.deleteIfExists(locked);
+        }
+    }
+
+    @Test
+    @DisplayName("fails print and fax on a damaged PDF document, naming it for the error")
+    void shouldFailRender_whenPdfDocumentIsDamagedAndSkippingIsNotAllowed() throws Exception {
+        Path damaged = Files.createTempFile("damaged-document", ".pdf");
+        Files.writeString(damaged, "not a PDF at all");
+        try {
+            assertThatThrownBy(() -> renderWithDocument(41, damaged))
+                    .isInstanceOf(PDFGenerationException.class)
+                    .hasMessage("One or more consultation attachments could not be rendered");
+
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("D:41 NOT_RENDERED");
+        } finally {
+            Files.deleteIfExists(damaged);
+        }
+    }
+
+    @Test
+    @DisplayName("passes a readable PDF document through, with no warning")
+    void shouldIncludePdfDocument_whenItOpens() throws Exception {
+        Path readable = createPdf("readable-document");
+        try {
+            assertThat(renderWithDocument(43, readable)).isEqualTo(outputPdf);
+
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE))).isEmpty();
+            // The consult page and the document both went into the merged packet.
+            ArgumentCaptor<ByteArrayOutputStream> merged = ArgumentCaptor.forClass(ByteArrayOutputStream.class);
+            verify(nioFileManager).saveTempFile(anyString(), merged.capture());
+            try (PDDocument packet = Loader.loadPDF(merged.getValue().toByteArray())) {
+                assertThat(packet.getNumberOfPages()).isEqualTo(2);
+            }
+        } finally {
+            Files.deleteIfExists(readable);
+        }
+    }
+
+    @Test
+    @DisplayName("warns, without rendering, for an attached HRM report whose file is missing")
+    void shouldWarnForHrmAttachment_whenReportFileIsMissing() {
+        attachHrmReport(12, "missing-report.xml");
+
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir)) {
+            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_FILE_UNAVAILABLE);
+        }
+        verify(hrmDocumentDao).find(Integer.valueOf(12));
+        verifyNoInteractions(consultationManager);
+    }
+
+    @Test
+    @DisplayName("warns for an attached HRM report whose file is not a readable HRM report")
+    void shouldWarnForHrmAttachment_whenReportFileCannotBeParsed() throws Exception {
+        Files.writeString(documentDir.resolve("corrupt-report.xml"), "<not-an-hrm-report/>");
+        attachHrmReport(12, "corrupt-report.xml");
+
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir)) {
+            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_FILE_UNAVAILABLE);
+        }
+    }
+
+    @Test
+    @DisplayName("logs why an attached HRM report was left out when its file is missing")
+    void shouldLogReadFailureReason_whenHrmReportFileIsMissing() {
+        attachHrmReport(12, "missing-report.xml");
+
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir);
+                LogCapture log = LogCapture.forLogger(DocumentAttachmentManagerImpl.class)) {
+            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_FILE_UNAVAILABLE);
+
+            assertThat(log.messages()).anySatisfy(message -> assertThat(message)
+                    .contains("Left out consultation attachment H:12 FILE_UNAVAILABLE")
+                    .endsWith("missing or unreadable HRM report file"));
+            // A report whose file is gone is worth a warning, unlike a deleted or moved one.
+            assertThat(log.events()).anySatisfy(event -> {
+                assertThat(event.getMessage().getFormattedMessage()).contains("H:12 FILE_UNAVAILABLE");
+                assertThat(event.getLevel()).isEqualTo(org.apache.logging.log4j.Level.WARN);
+            });
+        }
+    }
+
+    @Test
+    @DisplayName("logs only the exception class when reading an attached HRM report fails unexpectedly")
+    void shouldLogExceptionClassOnly_whenHrmParserThrows() {
+        when(consultDocsDao.findByRequestIdDocType(9, ConsultDocs.DOCTYPE_HRM)).thenReturn(List.of(consultDoc(12, "H")));
+
+        try (MockedStatic<HRMReportParser> hrmReportParserMock = mockStatic(HRMReportParser.class);
+                LogCapture log = LogCapture.forLogger(DocumentAttachmentManagerImpl.class)) {
+            // The message stands for one that quotes a file path; it must not reach the log.
+            hrmReportParserMock.when(() -> HRMReportParser.isReportReadable(Integer.valueOf(12)))
+                    .thenThrow(new IllegalStateException("cannot read /documents/FAKE-hrm-path.xml"));
+
+            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_FILE_UNAVAILABLE);
+
+            assertThat(log.messages()).anySatisfy(message -> assertThat(message)
+                    .contains("Left out consultation attachment H:12 FILE_UNAVAILABLE")
+                    .endsWith("IllegalStateException"));
+            assertThat(log.messages()).noneSatisfy(message -> assertThat(message).contains("FAKE-hrm-path"));
+        }
+    }
+
+    @Test
+    @DisplayName("checks a malformed HRM report's availability without logging its location or parser detail")
+    void shouldLogNothingButId_whenAvailabilityCheckMeetsMalformedReport() throws Exception {
+        Files.writeString(documentDir.resolve("FAKE-malformed-hrm.xml"),
+                "<omdCds><patientRecord>FAKE-Patient, Malformed</patientRecord>");
+        attachHrmReport(12, "FAKE-malformed-hrm.xml");
+
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir);
+                LogCapture parserLog = LogCapture.forLogger(HRMReportParser.class)) {
+            assertThat(HRMReportParser.isReportReadable(12)).isFalse();
+
+            // Only the fixed debug line with the id: no path, file name, report content or XML detail.
+            assertThat(parserLog.messages()).containsExactly("HRM report availability check: not readable, id=12");
+            assertThat(parserLog.events()).allMatch(event -> event.getThrown() == null);
+        }
+    }
+
+    @Test
+    @DisplayName("checks a readable HRM report's availability as the full parse does, logging nothing")
+    void shouldReportReadable_whenHrmReportParses() throws Exception {
+        Files.copy(DEMO_HRM_REPORT, documentDir.resolve("readable-hrm.xml"));
+        attachHrmReport(12, "readable-hrm.xml");
+
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir);
+                LogCapture parserLog = LogCapture.forLogger(HRMReportParser.class)) {
+            assertThat(HRMReportParser.isReportReadable(12)).isTrue();
+            assertThat(parserLog.messages()).isEmpty();
+        }
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir)) {
+            // The full parse agrees.
+            assertThat(HRMReportParser.parseReport(null, Integer.valueOf(12))).isNotNull();
+        }
+    }
+
+    @Test
+    @DisplayName("warns once, from the database check, for an attached HRM report whose record is gone")
+    void shouldWarnOnceForHrmAttachment_whenHrmRecordIsMissing() {
+        ConsultDocs missingRecord = consultDoc(990006, "H");
+        ConsultDocs duplicate = consultDoc(990006, "H");
+        when(consultDocsDao.findUnavailableActiveConsultAttachments(9)).thenReturn(List.of(missingRecord, duplicate));
+        when(consultDocsDao.findByRequestIdDocType(9, ConsultDocs.DOCTYPE_HRM)).thenReturn(List.of(missingRecord, duplicate));
+
+        try (LogCapture log = LogCapture.forLogger(DocumentAttachmentManagerImpl.class)) {
+            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9)))
+                    .containsExactly("H:990006 UNAVAILABLE");
+            // A record that is gone is expected (deleted or moved) and named to staff: INFO, not WARN.
+            assertThat(log.events()).anySatisfy(event -> {
+                assertThat(event.getMessage().getFormattedMessage()).contains("H:990006 UNAVAILABLE");
+                assertThat(event.getLevel()).isEqualTo(org.apache.logging.log4j.Level.INFO);
+            });
+        }
+        // The database check already named it; its report file is not looked for as well.
+        verifyNoInteractions(hrmDocumentDao);
+    }
+
+    @Test
+    @DisplayName("names attached HRM reports whose files are missing in id order, whatever order they were attached in")
+    void shouldListUnreadableHrmReportsById_whenAttachedOutOfOrder() {
+        HRMDocument second = new HRMDocument();
+        second.setReportFile("FAKE-missing-13.xml");
+        HRMDocument first = new HRMDocument();
+        first.setReportFile("FAKE-missing-12.xml");
+        when(hrmDocumentDao.find(Integer.valueOf(13))).thenReturn(second);
+        when(hrmDocumentDao.find(Integer.valueOf(12))).thenReturn(first);
+        when(consultDocsDao.findByRequestIdDocType(9, ConsultDocs.DOCTYPE_HRM))
+                .thenReturn(List.of(consultDoc(13, "H"), consultDoc(12, "H")));
+
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir)) {
+            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9)))
+                    .containsExactly("H:12 FILE_UNAVAILABLE", "H:13 FILE_UNAVAILABLE");
+        }
+    }
+
+    @Test
+    @DisplayName("does not warn for an attached HRM report that is on file and readable")
+    void shouldNotWarnForHrmAttachment_whenReportIsPresentAndReadable() throws Exception {
+        Files.copy(DEMO_HRM_REPORT, documentDir.resolve("demo-hrm.xml"));
+        attachHrmReport(12, "demo-hrm.xml");
+
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir)) {
+            assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).isEmpty();
+        }
+        verify(hrmDocumentDao).find(Integer.valueOf(12));
+    }
+
+    @Test
+    @DisplayName("keeps a print or fax render going, with a warning, when an attached HRM report cannot be read")
+    void shouldKeepRenderingWithWarning_whenAttachedHrmReportCannotBeRead() throws Exception {
+        // No ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE: this is the fail-closed print and fax render.
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        when(consultDocsDao.findByRequestIdDocType(9, ConsultDocs.DOCTYPE_HRM)).thenReturn(List.of(consultDoc(12, "H")));
+        // setUp's empty HRM list stands for HRMUtil.listHRMDocuments, which leaves out a report it cannot parse.
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedStatic<HRMReportParser> hrmReportParserMock = mockStatic(HRMReportParser.class);
+                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of())) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>());
+            hrmReportParserMock.when(() -> HRMReportParser.isReportReadable(Integer.valueOf(12)))
+                    .thenReturn(false);
+
+            Path result = manager.renderConsultationFormWithAttachments(request, response);
+
+            assertThat(result).isEqualTo(outputPdf);
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly(HRM_12_FILE_UNAVAILABLE);
+        }
+    }
+
+    /** Attaches HRM report 12 (or another id) to consult 9, with its record naming the given file. */
+    private void attachHrmReport(int hrmId, String reportFile) {
+        HRMDocument hrmDocument = new HRMDocument();
+        hrmDocument.setReportFile(reportFile);
+        // Integer, not int: the parser calls find(Object), and find(int) is a different overload.
+        when(hrmDocumentDao.find(Integer.valueOf(hrmId))).thenReturn(hrmDocument);
+        when(consultDocsDao.findByRequestIdDocType(9, ConsultDocs.DOCTYPE_HRM))
+                .thenReturn(List.of(consultDoc(hrmId, "H")));
+    }
+
+    private MockedStatic<CarlosProperties> documentDirectoryAt(Path directory) {
+        MockedStatic<CarlosProperties> propertiesMock = mockStatic(CarlosProperties.class);
+        CarlosProperties properties = mock(CarlosProperties.class);
+        propertiesMock.when(CarlosProperties::getInstance).thenReturn(properties);
+        when(properties.getProperty("DOCUMENT_DIR")).thenReturn(directory.toString());
+        return propertiesMock;
+    }
+
+    @Test
+    @DisplayName("keeps an unavailable attachment a reopened form no longer lists, and the print and fax still warn")
+    void shouldKeepUnavailableAttachmentAttached_whenUpdateOmitsIt() throws Exception {
+        ConsultDocs deletedDocument = attachedRow(1, 80, ConsultDocs.DOCTYPE_DOC);
+        stubConsultAttachments(List.of(deletedDocument), List.of(deletedDocument));
+        // The real selection check refuses a deleted document; the kept one must not reach it.
+        deletedDocument(80);
+
+        // The form was opened after document 80 was deleted, so it lists, and submits, no documents.
+        manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[0], "999998", 9, 1);
+
+        assertThat(deletedDocument.getDeleted()).isNull();
+        verify(consultDocsDao, never()).merge(any());
+        String warning = "D:80 UNAVAILABLE";
+        // The fax cover page and the "Update And Print Preview" render read the same active row.
+        assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(warning);
+        assertThat(warnings(renderConsultationWarnings())).containsExactly(warning);
+    }
+
+    @Test
+    @DisplayName("still detaches an available attachment the user removed, with no warning")
+    void shouldDetachRemovedAvailableAttachment_withoutWarning() throws Exception {
+        ConsultDocs removedDocument = attachedRow(2, 81, ConsultDocs.DOCTYPE_DOC);
+        stubConsultAttachments(List.of(removedDocument), List.of());
+        ownDocument(81);
+
+        manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[0], "999998", 9, 1);
+
+        assertThat(removedDocument.getDeleted()).isEqualTo("Y");
+        verify(consultDocsDao).merge(removedDocument);
+        assertThat(manager.getUnavailableConsultAttachmentWarnings(9)).isEmpty();
+        assertThat(warnings(renderConsultationWarnings())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("keeps and warns for unavailable documents and eForms while detaching removed available ones in the same save")
+    void shouldKeepUnavailableAndDetachRemovedAttachments_withMixedUpdate() throws Exception {
+        ConsultDocs deletedDocument = attachedRow(1, 80, ConsultDocs.DOCTYPE_DOC);
+        ConsultDocs removedDocument = attachedRow(2, 81, ConsultDocs.DOCTYPE_DOC);
+        ConsultDocs keptDocument = attachedRow(3, 82, ConsultDocs.DOCTYPE_DOC);
+        // Shares its number with the unavailable document 80, but is an available lab: detached.
+        // Labs are never in the unavailable lookup: the form lists an unavailable lab itself.
+        ConsultDocs removedLab = attachedRow(5, 80, ConsultDocs.DOCTYPE_LAB);
+        ConsultDocs movedEform = attachedRow(6, 915, ConsultDocs.DOCTYPE_EFORM);
+        stubConsultAttachments(
+                List.of(deletedDocument, removedDocument, keptDocument, removedLab, movedEform),
+                List.of(deletedDocument, movedEform));
+        // Real selection check: 82 is the patient's own; 80 is deleted and eForm 915 is another
+        // patient's, so either would be refused if it reached the check.
+        ownDocument(82);
+        ownDocument(81);
+        deletedDocument(80);
+        otherPatientsEForm(915);
+
+        // The reopened form lists document 82 only; the user unticked document 81 and lab 80.
+        manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[] {"82"}, "999998", 9, 1);
+        manager.attachToConsult(loggedInInfo, DocumentType.LAB, new String[0], "999998", 9, 1);
+        manager.attachToConsult(loggedInInfo, DocumentType.EFORM, new String[0], "999998", 9, 1);
+
+        assertThat(deletedDocument.getDeleted()).isNull();
+        assertThat(keptDocument.getDeleted()).isNull();
+        assertThat(movedEform.getDeleted()).isNull();
+        assertThat(removedDocument.getDeleted()).isEqualTo("Y");
+        assertThat(removedLab.getDeleted()).isEqualTo("Y");
+        verify(consultDocsDao, never()).persist(any());
+        List<String> expectedWarnings = List.of("D:80 UNAVAILABLE", "E:915 UNAVAILABLE");
+        assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactlyElementsOf(expectedWarnings);
+        assertThat(warnings(renderConsultationWarnings())).containsExactlyElementsOf(expectedWarnings);
+    }
+
+    @Test
+    @DisplayName("keeps a missing or rematched HRM attached when a reopened consultation omits it")
+    void shouldKeepUnavailableHrmAttached_whenUpdateOmitsIt() throws Exception {
+        ConsultDocs missingReport = attachedRow(1, 12, ConsultDocs.DOCTYPE_HRM);
+        stubConsultAttachments(List.of(missingReport), List.of(missingReport));
+
+        manager.attachToConsult(loggedInInfo, DocumentType.HRM, new String[0], "999998", 9, 1);
+
+        assertThat(missingReport.getDeleted()).isNull();
+        verify(consultDocsDao, never()).merge(any());
+        assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_UNAVAILABLE);
+        assertThat(warnings(renderConsultationWarnings())).containsExactly(HRM_12_UNAVAILABLE);
+        verifyNoInteractions(hrmDocumentDao);
+    }
+
+    @Test
+    @DisplayName("keeps an unreadable HRM attached but detaches a readable report the user removed")
+    void shouldKeepUnreadableHrmAndDetachReadableHrm_whenUpdateOmitsBoth() throws Exception {
+        Files.copy(DEMO_HRM_REPORT, documentDir.resolve("readable-hrm.xml"));
+        HRMDocument readable = new HRMDocument();
+        readable.setReportFile("readable-hrm.xml");
+        when(hrmDocumentDao.find(Integer.valueOf(13))).thenReturn(readable);
+        HRMDocument unreadable = new HRMDocument();
+        unreadable.setReportFile("missing-hrm.xml");
+        when(hrmDocumentDao.find(Integer.valueOf(12))).thenReturn(unreadable);
+        ConsultDocs missingFile = attachedRow(1, 12, ConsultDocs.DOCTYPE_HRM);
+        ConsultDocs removedReport = attachedRow(2, 13, ConsultDocs.DOCTYPE_HRM);
+        stubConsultAttachments(List.of(missingFile, removedReport), List.of());
+
+        try (MockedStatic<CarlosProperties> ignored = documentDirectoryAt(documentDir)) {
+            manager.attachToConsult(loggedInInfo, DocumentType.HRM, new String[0], "999998", 9, 1);
+
+            assertThat(missingFile.getDeleted()).isNull();
+            assertThat(removedReport.getDeleted()).isEqualTo("Y");
+            verify(consultDocsDao).merge(removedReport);
+            assertThat(warnings(manager.getUnavailableConsultAttachmentWarnings(9))).containsExactly(HRM_12_FILE_UNAVAILABLE);
+            assertThat(warnings(renderConsultationWarnings())).containsExactly(HRM_12_FILE_UNAVAILABLE);
+        }
+    }
+
+    @Test
+    @DisplayName("still refuses a newly selected document of another patient while an unavailable one is kept")
+    void shouldRefuseNewForeignDocument_whileKeepingUnavailableAttachment() {
+        ConsultDocs deletedDocument = attachedRow(1, 80, ConsultDocs.DOCTYPE_DOC);
+        stubConsultAttachments(List.of(deletedDocument), List.of(deletedDocument));
+        deletedDocument(80);
+        foreignDocument(83);
+
+        assertThatThrownBy(() -> manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[] {"83"}, "999998", 9, 1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Attachment does not belong to this patient");
+
+        assertThat(deletedDocument.getDeleted()).isNull();
+        verify(consultDocsDao, never()).merge(any());
+        verify(consultDocsDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("keeps an unavailable attachment a form opened before it became unavailable submits again")
+    void shouldKeepUnavailableAttachment_whenStaleFormResubmitsIt() {
+        ConsultDocs deletedDocument = attachedRow(1, 80, ConsultDocs.DOCTYPE_DOC);
+        stubConsultAttachments(List.of(deletedDocument), List.of(deletedDocument));
+        deletedDocument(80);
+
+        manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[] {"80"}, "999998", 9, 1);
+
+        assertThat(deletedDocument.getDeleted()).isNull();
+        verify(consultDocsDao, never()).merge(any());
+        verify(consultDocsDao, never()).persist(any());
+    }
+
+    @Test
+    @DisplayName("lets a user who may not read documents update a consult with an unavailable one, changing nothing")
+    void shouldAllowUpdateWithoutDocumentRead_whenOnlyUnavailableAttachmentIsOmitted() {
+        ConsultDocs deletedDocument = attachedRow(1, 80, ConsultDocs.DOCTYPE_DOC);
+        stubConsultAttachments(List.of(deletedDocument), List.of(deletedDocument));
+        deletedDocument(80);
+        org.mockito.Mockito.lenient().when(securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, "1"))
+                .thenReturn(false);
+        // The preflight looks the parent up through find(Object), not the find(int) the render uses.
+        ConsultationRequest parent = new ConsultationRequest();
+        parent.setDemographicId(1);
+        org.mockito.Mockito.lenient().when(consultationRequestDao.find((Object) Integer.valueOf(9))).thenReturn(parent);
+
+        // The form lists no documents, which is the stored set less the unavailable one: unchanged.
+        manager.verifyConsultAttachments(loggedInInfo, 9, 1, java.util.Map.of(DocumentType.DOC, new String[0]));
+        manager.attachToConsult(loggedInInfo, DocumentType.DOC, new String[0], "999998", 9, 1);
+
+        assertThat(deletedDocument.getDeleted()).isNull();
+        verify(consultDocsDao, never()).merge(any());
+        verify(consultDocsDao, never()).persist(any());
+    }
+
+    /**
+     * Serves {@code rows} the way the DAO does: only rows not yet detached, so a row this save
+     * detaches drops out of every later lookup, the unavailable-attachment one included.
+     */
+    private void stubConsultAttachments(List<ConsultDocs> rows, List<ConsultDocs> unavailableRows) {
+        registerMock(ConsultDocsDao.class, consultDocsDao);
+        registerMock(EFormDocsDao.class, mock(EFormDocsDao.class));
+        OutboundEmailArchiveDao outboundEmailArchiveDao = mock(OutboundEmailArchiveDao.class);
+        when(outboundEmailArchiveDao.findExistingDocumentNos(any())).thenReturn(Set.of());
+        ReflectionTestUtils.setField(manager, "outboundEmailArchiveDao", outboundEmailArchiveDao);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, 1)).thenReturn(true);
+        // develop's real per-selection read and ownership check, over mocked lookups.
+        selectionDocuments = mock(DocumentDao.class);
+        selectionEForms = mock(EFormDataDao.class);
+        registerMock(AttachmentSelectionAccess.class, new AttachmentSelectionAccess(securityInfoManager, selectionDocuments,
+                selectionEForms, mock(HRMDocumentToDemographicDao.class), mock(FormsManager.class)));
+        for (String privilege : List.of("_edoc", "_eform", "_lab", "_hrm")) {
+            org.mockito.Mockito.lenient().when(securityInfoManager.hasPrivilege(loggedInInfo, privilege, SecurityInfoManager.READ, "1"))
+                    .thenReturn(true);
+        }
+
+        when(consultDocsDao.findByRequestIdDocType(eq(9), anyString())).thenAnswer(invocation -> rows.stream()
+                .filter(row -> row.getDeleted() == null && row.getDocType().equals(invocation.getArgument(1)))
+                .toList());
+        // develop's sync reads the same rows under the parent lock.
+        org.mockito.Mockito.lenient().when(consultDocsDao.findByRequestIdDocTypeForUpdate(eq(9), anyString()))
+                .thenAnswer(invocation -> rows.stream()
+                        .filter(row -> row.getDeleted() == null && row.getDocType().equals(invocation.getArgument(1)))
+                        .toList());
+        when(consultDocsDao.findByRequestIdDocNoDocType(eq(9), any(Integer.class), anyString()))
+                .thenAnswer(invocation -> rows.stream()
+                        .filter(row -> row.getDeleted() == null
+                                && row.getDocumentNo() == (Integer) invocation.getArgument(1)
+                                && row.getDocType().equals(invocation.getArgument(2)))
+                        .toList());
+        when(consultDocsDao.findUnavailableActiveConsultAttachments(9)).thenAnswer(invocation -> rows.stream()
+                .filter(row -> row.getDeleted() == null
+                        && unavailableRows.stream().anyMatch(unavailable -> unavailable == row))
+                .toList());
+    }
+
+    /** A live document filed to the consultation's patient (1). */
+    private void ownDocument(int documentNo) {
+        CtlDocument link = new CtlDocument();
+        link.setId(new CtlDocumentPK("demographic", 1, documentNo));
+        link.setStatus("A");
+        Document document = new Document();
+        document.setStatus('A');
+        org.mockito.Mockito.lenient().when(selectionDocuments.findCtlDocsAndDocsByDocNo(documentNo))
+                .thenReturn(java.util.Collections.singletonList(new Object[] {document, link}));
+    }
+
+    /** A document of the consultation's patient that was deleted (document.status 'D'). */
+    private void deletedDocument(int documentNo) {
+        CtlDocument link = new CtlDocument();
+        link.setId(new CtlDocumentPK("demographic", 1, documentNo));
+        link.setStatus("A");
+        Document document = new Document();
+        document.setStatus('D');
+        org.mockito.Mockito.lenient().when(selectionDocuments.findCtlDocsAndDocsByDocNo(documentNo))
+                .thenReturn(java.util.Collections.singletonList(new Object[] {document, link}));
+    }
+
+    /** A live document filed to another patient (2). */
+    private void foreignDocument(int documentNo) {
+        CtlDocument link = new CtlDocument();
+        link.setId(new CtlDocumentPK("demographic", 2, documentNo));
+        link.setStatus("A");
+        Document document = new Document();
+        document.setStatus('A');
+        org.mockito.Mockito.lenient().when(selectionDocuments.findCtlDocsAndDocsByDocNo(documentNo))
+                .thenReturn(java.util.Collections.singletonList(new Object[] {document, link}));
+    }
+
+    /** An eForm filed to another patient (2). */
+    private void otherPatientsEForm(int fdid) {
+        EFormData eForm = new EFormData();
+        eForm.setDemographicId(2);
+        org.mockito.Mockito.lenient().when(selectionEForms.find(fdid)).thenReturn(eForm);
+    }
+
+    private Object renderConsultationWarnings() throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of())) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>());
+
+            // Without the preview's skip permission: the print and fax render.
+            assertThat(manager.renderConsultationFormWithAttachments(request, response)).isEqualTo(outputPdf);
+        }
+        return request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE);
+    }
+
+    /** Each warning as "type:id REASON", so the tests read the warning, not its wording. */
+    private static List<String> warnings(Object warnings) {
+        assertThat(warnings).isInstanceOf(List.class);
+        return ((List<?>) warnings).stream()
+                .map(warning -> (ConsultAttachmentWarning) warning)
+                .map(warning -> warning.getKey() + " " + warning.getReason())
+                .toList();
+    }
+
+    /** Renders consult 9 for patient 1 with one attached document whose stored file is {@code file}. */
+    private Path renderWithDocument(int documentId, Path file) throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        EDoc document = new EDoc();
+        document.setDocId(String.valueOf(documentId));
+        when(documentManager.renderDocument(loggedInInfo, document)).thenReturn(file);
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> ignored = mockCommonLabResultData(List.of())) {
+            loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                    .thenReturn(loggedInInfo);
+            eDocUtilMock.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED))
+                    .thenReturn(new ArrayList<>(List.of(document)));
+            return manager.renderConsultationFormWithAttachments(request, response);
+        }
+    }
+
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"damaged", "empty", "busy"})
+    void shouldValidateGeneratedForm_beforeMergingPacket(String condition) throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
+        EctFormData.PatientForm form = new EctFormData.PatientForm("Annual", 3, 1, null, null);
+        when(consultationManager.getAttachedForms(loggedInInfo, 9, 1)).thenReturn(List.of(form));
+        Path generated = Files.createTempFile("form-validation-", ".pdf");
+        if ("empty".equals(condition)) {
+            try (PDDocument document = new PDDocument()) { document.save(generated.toFile()); }
+        } else {
+            Files.writeString(generated, "not a valid PDF");
+        }
+        if ("busy".equals(condition)) {
+            when(formsManager.renderForm(request, response, form)).thenThrow(new PDFGenerationException("capacity", true));
+        } else {
+            when(formsManager.renderForm(request, response, form)).thenReturn(generated);
+        }
+        try (MockedStatic<LoggedInInfo> logged = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> docs = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> labs = mockCommonLabResultData(List.of())) {
+            logged.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(loggedInInfo);
+            docs.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED)).thenReturn(new ArrayList<>());
+            if ("busy".equals(condition)) {
+                assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request, response))
+                        .isInstanceOfSatisfying(PDFGenerationException.class, error -> assertThat(error.isRetryable()).isTrue());
+                assertThat(ConsultAttachmentWarning.fromRequest(request)).isEmpty();
+                verify(nioFileManager, never()).saveTempFile(anyString(), any(ByteArrayOutputStream.class));
+            } else {
+                assertThat(manager.renderConsultationFormWithAttachments(request, response)).isEqualTo(outputPdf);
+                assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                        .containsExactly("F:3 NOT_RENDERED");
+            }
+        } finally { Files.deleteIfExists(generated); }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"CML", "MDS", "BCP"})
+    void shouldNameUnsupportedLabSource_beforeFilteringFromPacket(String source) throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        request.setAttribute(DocumentAttachmentManager.ALLOW_SKIPPED_ATTACHMENTS_ATTRIBUTE, Boolean.TRUE);
+        LabResultData lab = new LabResultData(source);
+        lab.setSegmentID("77");
+        try (MockedStatic<LoggedInInfo> logged = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> docs = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> labs = mockCommonLabResultData(List.of(lab))) {
+            logged.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(loggedInInfo);
+            docs.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED)).thenReturn(new ArrayList<>());
+            assertThat(manager.renderConsultationFormWithAttachments(request, response)).isEqualTo(outputPdf);
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("L:" + source + "-77 UNSUPPORTED");
+            verifyNoInteractions(labManager);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"CML", "MDS", "BCP"})
+    void shouldRefuseUnsupportedLabOmission_withoutExplicitApproval(String source) throws Exception {
+        request.setAttribute("reqId", "9");
+        request.setAttribute("demographicId", "1");
+        LabResultData lab = new LabResultData(source);
+        lab.setSegmentID("77");
+        try (MockedStatic<LoggedInInfo> logged = mockStatic(LoggedInInfo.class);
+                MockedStatic<EDocUtil> docs = mockStatic(EDocUtil.class);
+                MockedConstruction<CommonLabResultData> labs = mockCommonLabResultData(List.of(lab))) {
+            logged.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(loggedInInfo);
+            docs.when(() -> EDocUtil.listDocs(loggedInInfo, "1", "9", EDocUtil.ATTACHED)).thenReturn(new ArrayList<>());
+
+            assertThatThrownBy(() -> manager.renderConsultationFormWithAttachments(request, response))
+                    .isInstanceOf(PDFGenerationException.class);
+            assertThat(warnings(request.getAttribute(DocumentAttachmentManager.ATTACHMENT_WARNINGS_ATTRIBUTE)))
+                    .containsExactly("L:" + source + "-77 UNSUPPORTED");
+            verifyNoInteractions(labManager);
+            verify(nioFileManager, never()).saveTempFile(anyString(), any(ByteArrayOutputStream.class));
+        }
+    }
+
+    private ConsultDocs attachedRow(int id, int documentNo, String docType) {
+        ConsultDocs row = new ConsultDocs(9, documentNo, docType, "999998");
+        row.setId(id);
+        return row;
+    }
+
+    private MockedConstruction<CommonLabResultData> mockCommonLabResultData(List<LabResultData> labs) {
+        return mockConstruction(CommonLabResultData.class,
+                (mock, context) -> when(mock.populateLabResultsData(any(LoggedInInfo.class), anyString(), anyString(), eq(true)))
+                        .thenReturn(new ArrayList<>(labs)));
+    }
+
+    private MockedConstruction<CommonLabResultData> mockEformCommonLabResultData(List<LabResultData> labs) {
+        return mockConstruction(CommonLabResultData.class,
+                (mock, context) -> when(mock.populateLabResultsDataEForm(
+                                any(LoggedInInfo.class), anyString(), anyString(), eq(true)))
+                        .thenReturn(new ArrayList<>(labs)));
+    }
+
+    private Path createPdf(String prefix) throws Exception {
+        Path path = Files.createTempFile(prefix, ".pdf");
+        try (PDDocument document = new PDDocument()) {
+            document.addPage(new PDPage(PDRectangle.LETTER));
+            document.save(path.toFile());
+        }
+        return path;
+    }
+
+    private io.github.carlos_emr.carlos.commn.model.ConsultDocs consultDoc(int documentNo, String docType) {
+        io.github.carlos_emr.carlos.commn.model.ConsultDocs consultDoc = new io.github.carlos_emr.carlos.commn.model.ConsultDocs();
+        consultDoc.setDocumentNo(documentNo);
+        consultDoc.setDocType(docType);
+        return consultDoc;
+    }
+}

@@ -26,7 +26,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import io.github.carlos_emr.carlos.billings.ca.on.validator.BillingValidationException;
 import io.github.carlos_emr.carlos.commn.dao.RaDetailDao;
 import io.github.carlos_emr.carlos.commn.dao.RaHeaderDao;
 import io.github.carlos_emr.carlos.commn.model.RaDetail;
@@ -148,19 +147,21 @@ public class OnRaSettlementService {
             }
         }
 
-        List<String> failedStatusUpdates = new ArrayList<>();
+        // OSCAR 19 contract: an RA line whose claim number has no billing_on_cheader1
+        // row (a claim billed from a predecessor system, or an account the MOH
+        // reported as blank) is skipped and the rest of the RA still settles.
+        // Refusing the whole RA for one unknown claim left every other bill
+        // unsettled and the RA header unmarked.
+        List<String> unmatchedAccounts = new ArrayList<>();
         for (String account : noErrorBills) {
             if (!billingRAReportService.updateBillingStatus(account, "S")) {
-                failedStatusUpdates.add(account);
+                unmatchedAccounts.add(account);
             }
         }
-        if (!failedStatusUpdates.isEmpty()) {
+        if (!unmatchedAccounts.isEmpty()) {
             MiscUtils.getLogger().warn(
-                    "RA settlement: {} billing status update(s) failed for raNo={}",
-                    failedStatusUpdates.size(), raNo);
-            throw new BillingValidationException(
-                    "RA settlement failed for " + failedStatusUpdates.size()
-                            + " bill(s): " + LogSafe.sanitize(String.join(", ", failedStatusUpdates)));
+                    "RA settlement: {} RA line(s) for raNo={} had no matching claim and were skipped: {}",
+                    unmatchedAccounts.size(), raNo, LogSafe.sanitize(String.join(", ", unmatchedAccounts)));
         }
 
         RaHeader raHeader = raHeaderDao.find(raNo);

@@ -40,12 +40,15 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -61,8 +64,32 @@ public class EctDeleteData2Action extends ActionSupport {
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
     public String execute() throws ServletException, IOException {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "d", null)) {
+        // Deleting is a mutation: every caller (DisplayHistory.jsp, newHistoryIndex.jsp,
+        // AddMeasurementData.jsp and the Health Tracker's fetch) posts, and CSRFGuard only
+        // protects POST/PUT/DELETE/PATCH, so a GET here would let a link or an image tag in a
+        // logged-in session tombstone and delete a measurement without any token. Refuse it
+        // before any lookup, as HealthTrackerUpdate2Action does. HTTP method names are
+        // case-sensitive (RFC 9110 section 9.1), so compare exactly.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "d", null)) {
             throw new SecurityException("missing required sec object (_measurement)");
+        }
+
+        String expectedPatient = null;
+        if (getType() != null || request.getParameter("demographicNo") != null
+                || request.getParameter("demographic_no") != null) {
+            try {
+                expectedPatient = EncounterPatientContext.requireDemographicNo(request);
+            } catch (IllegalArgumentException invalidPatient) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+                return NONE;
+            }
         }
 
         MeasurementsDeletedDao measurementsDeletedDao = (MeasurementsDeletedDao) SpringUtils.getBean(MeasurementsDeletedDao.class);
@@ -70,14 +97,36 @@ public class EctDeleteData2Action extends ActionSupport {
         if (deleteCheckbox != null) {
 
             MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
+
+            // Authorize every row before removing any of them. The ids are
+            // client-supplied and name rows directly, so the chart-wide privilege
+            // above does not say whether this caller may touch THESE patients'
+            // charts; the owning demographic comes off each row itself, which means
+            // nothing has to be passed in and every caller of this endpoint is
+            // covered. Checking inside the delete loop would let a batch that mixes
+            // an authorized id with another patient's delete the first and then
+            // refuse the second, which is a partial delete nobody asked for.
+            List<Measurement> authorized = new ArrayList<>();
             for (int i = 0; i < deleteCheckbox.length; i++) {
                 MiscUtils.getLogger().debug(deleteCheckbox[i]);
 
                 Measurement m = dao.find(ConversionUtils.fromIntString(deleteCheckbox[i]));
-                if (m != null) {
-                    measurementsDeletedDao.persist(new MeasurementsDeleted(m));
-                    measurementDao.remove(Integer.parseInt(deleteCheckbox[i]));
+                if (m == null) {
+                    continue;
                 }
+                if (expectedPatient != null && !expectedPatient.equals(String.valueOf(m.getDemographicId()))) {
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Measurement does not belong to the requested patient");
+                    return NONE;
+                }
+                if (!isAllowedToDelete(loggedInInfo, m.getDemographicId())) {
+                    throw new SecurityException("missing required sec object (_measurement)");
+                }
+                authorized.add(m);
+            }
+
+            for (Measurement m : authorized) {
+                measurementsDeletedDao.persist(new MeasurementsDeleted(m));
+                measurementDao.remove(m.getId());
             }
         }
 
@@ -85,10 +134,25 @@ public class EctDeleteData2Action extends ActionSupport {
             response.sendRedirect(
                 request.getContextPath()
                     + "/encounter/oscarMeasurements/SetupDisplayHistory?type="
-                    + URLEncoder.encode(this.getType(), StandardCharsets.UTF_8.name()));
+                    + URLEncoder.encode(this.getType(), StandardCharsets.UTF_8.name())
+                    + "&demographicNo=" + expectedPatient);
             return NONE;
         }
         return SUCCESS;
+    }
+
+    /**
+     * Whether the logged-in provider may delete a measurement belonging to
+     * {@code demographicNo}.
+     *
+     * <p>Package-private so the contract can be driven directly from a test.
+     */
+    boolean isAllowedToDelete(LoggedInInfo loggedInInfo, Integer demographicNo) {
+        if (demographicNo == null) {
+            return false;
+        }
+        return securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "d", String.valueOf(demographicNo))
+                && securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo);
     }
 
     private String[] deleteCheckbox;

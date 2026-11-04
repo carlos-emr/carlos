@@ -102,6 +102,21 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
         }
 
         @Test
+        @Tag("create")
+        @DisplayName("should write the legacy uid column explicitly so a strict database accepts the row")
+        void shouldWriteLegacyUid_whenPharmacyIsPersisted() {
+            PharmacyInfo info = createPharmacy("Uid Pharmacy", "Ottawa", '1');
+            entityManager.flush();
+
+            // pharmacyInfo.uid is NOT NULL with no default in MariaDB. A strict sql_mode refuses an insert that
+            // omits it (issue #3151: Add Pharmacy failed with error 1364). The query also fails if the column is
+            // not mapped at all, since the test schema is generated from the entities.
+            Object uid = entityManager.createNativeQuery("SELECT uid FROM pharmacyInfo WHERE recordID = :id")
+                    .setParameter("id", info.getId()).getSingleResult();
+            assertThat(((Number) uid).intValue()).isZero();
+        }
+
+        @Test
         @Tag("read")
         @DisplayName("should find pharmacy by ID")
         void shouldFindPharmacy_whenValidIdProvided() {
@@ -150,6 +165,27 @@ public class PharmacyInfoDaoIntegrationTest extends CarlosTestBase {
             List<PharmacyInfo> all = pharmacyInfoDao.getAllPharmacies();
             assertThat(all).isNotEmpty();
             assertThat(all).extracting(PharmacyInfo::getName).contains("New Pharmacy");
+        }
+
+        @Test
+        @Tag("update")
+        @DisplayName("should leave a stored legacy uid untouched when a pharmacy is edited")
+        void shouldKeepLegacyUid_whenPharmacyIsUpdated() {
+            PharmacyInfo info = createPharmacy("Uid Keeper", "Ottawa", '1');
+            entityManager.flush();
+            entityManager.createNativeQuery("UPDATE pharmacyInfo SET uid = 5 WHERE recordID = :id")
+                    .setParameter("id", info.getId()).executeUpdate();
+            entityManager.clear();
+
+            // updatePharmacy merges a detached PharmacyInfo built without a uid, so it carries the default 0.
+            pharmacyInfoDao.updatePharmacy(info.getId(), "Uid Keeper Renamed", "1 Main St", "Ottawa", "ON",
+                    "K1A0B1", "613-555-0100", "613-555-0101", "613-555-0102", "keeper@pharmacy.ca", "SLI", "edited");
+            entityManager.flush();
+            entityManager.clear();
+
+            Object uid = entityManager.createNativeQuery("SELECT uid FROM pharmacyInfo WHERE recordID = :id")
+                    .setParameter("id", info.getId()).getSingleResult();
+            assertThat(((Number) uid).intValue()).isEqualTo(5);
         }
     }
 

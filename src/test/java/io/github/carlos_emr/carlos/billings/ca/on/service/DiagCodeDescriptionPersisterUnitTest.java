@@ -61,6 +61,47 @@ class DiagCodeDescriptionPersisterUnitTest {
     }
 
     @Test
+    @DisplayName("should update the full four-character code named after the button label's last space")
+    void shouldUpdateFullCode_whenButtonLabelNamesFourCharacterCode() {
+        DiagnosticCodeDao dao = mock(DiagnosticCodeDao.class);
+        DiagCodeDescriptionPersister persister = new DiagCodeDescriptionPersister(dao);
+        DiagnosticCode code = new DiagnosticCode();
+        when(dao.findByDiagnosticCode("2740")).thenReturn(List.of(code));
+
+        boolean updated = persister.updateDescription("Update 2740", "Gout");
+
+        assertThat(updated).isTrue();
+        assertThat(code.getDescription()).isEqualTo("Gout");
+        verify(dao).merge(code);
+        verify(dao, never()).findByDiagnosticCode("740");
+    }
+
+    @Test
+    @DisplayName("should refuse a missing description instead of blanking the stored text")
+    void shouldThrowTypedException_whenDescriptionIsMissing() {
+        DiagnosticCodeDao dao = mock(DiagnosticCodeDao.class);
+        DiagCodeDescriptionPersister persister = new DiagCodeDescriptionPersister(dao);
+
+        assertThatThrownBy(() -> persister.updateDescription("Update 250", null))
+                .isInstanceOf(DiagDescriptionUpdateException.class)
+                .hasMessageContaining("missing description");
+
+        verify(dao, never()).findByDiagnosticCode(any());
+        verify(dao, never()).merge(any(DiagnosticCode.class));
+    }
+
+    @Test
+    @DisplayName("should read the code after the last space, or the legacy last three characters")
+    void shouldExtractCode_fromSubmitValueForms() {
+        assertThat(DiagCodeDescriptionPersister.codeFromSubmitValue("Update 250")).isEqualTo("250");
+        assertThat(DiagCodeDescriptionPersister.codeFromSubmitValue("Mettre à jour 2740")).isEqualTo("2740");
+        assertThat(DiagCodeDescriptionPersister.codeFromSubmitValue("update001")).isEqualTo("001");
+        assertThat(DiagCodeDescriptionPersister.codeFromSubmitValue("Update ")).isNull();
+        assertThat(DiagCodeDescriptionPersister.codeFromSubmitValue("x")).isNull();
+        assertThat(DiagCodeDescriptionPersister.codeFromSubmitValue(null)).isNull();
+    }
+
+    @Test
     void shouldThrowTypedException_whenSubmitValueCannotCarryCode() {
         DiagnosticCodeDao dao = mock(DiagnosticCodeDao.class);
         DiagCodeDescriptionPersister persister = new DiagCodeDescriptionPersister(dao);

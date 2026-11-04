@@ -30,6 +30,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 //import jakarta.xml.bind.annotation.XmlElement;
 import jakarta.xml.bind.annotation.XmlRootElement;
 import jakarta.xml.bind.annotation.XmlSeeAlso;
@@ -64,6 +66,7 @@ public class SummaryItemTo1 {
     String type;
     String displayName;
     String action;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     Date date;
     String classification;
     String editor;

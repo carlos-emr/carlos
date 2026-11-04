@@ -97,7 +97,7 @@ public class FrmInternetAccessRecord extends FrmRecord {
                         String value;
                         MiscUtils.getLogger().debug("name = {} type = {} scale = {}",
                                 LogSafe.sanitize(name), md.getColumnTypeName(i), md.getScale(i));
-                        if (md.getColumnTypeName(i).equalsIgnoreCase("TINY")) {
+                        if (FrmRecordHelp.isBooleanColumnType(md.getColumnTypeName(i))) {
 
                             if (rs.getInt(i) == 1) {
                                 value = "checked='checked'";

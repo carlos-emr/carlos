@@ -58,6 +58,11 @@ public class MockSecurityInfoManager implements SecurityInfoManager {
     }
 
     @Override
+    public boolean hasPrivilegeReadOnly(LoggedInInfo loggedInInfo, String objectName, String privilege, String demographicNo) {
+        return true;
+    }
+
+    @Override
     public boolean isAllowedAccessToPatientRecord(LoggedInInfo loggedInInfo, Integer demographicNo) {
         // Always grant access in tests
         return true;

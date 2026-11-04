@@ -28,6 +28,24 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    oscarMDS/SelectProvider.jsp - the lab Forward provider picker (route oscarMDS/ViewSelectProvider).
+
+    Purpose: choose the providers a lab or document is forwarded to, from a provider search
+    (the Forward List) and the sender's forwarding favourites (the Favorites list, edited with
+    the >> and << buttons and a double click).
+
+    Two ways in:
+      - a popup (window.open) from the CML, MDS and PathNet lab pages and the patient lab list;
+        its Forward button (#submitButton) posts the choice through the opener's reassignForm;
+      - the Inbox's Forward dialog, which loads this page by AJAX and has its own Forward button.
+
+    Parameters: forwardList (the Inbox's selection, echoed into #forwardList). The docId parameter
+    the pre-#4558 page read is no longer used: nothing opens the picker with one, and the document
+    viewers forward through the Inbox's dialog.
+
+    @since 2026-08-04
+--%>
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
@@ -36,8 +54,11 @@
 <%@ page
         import="io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingFavoritesDao, io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingFavorite" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao, io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.RequestNegotiation" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
+<fmt:message key="oscarMDS.selectProvider.msgOpenerGone" var="msgOpenerGone"/>
+<fmt:message key="oscarMDS.selectProvider.msgChooseProvider" var="msgChooseProvider"/>
+<fmt:message key="oscarMDS.index.msgSelectOneLab" var="msgSelectOneLab"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <html>
@@ -54,64 +75,123 @@
 
 </head>
 
+<%--
+    Forward from a lab page or the patient lab list (issue #4558).
+
+    Those pages open this picker with window.open and keep the lab selection in a form named
+    reassignForm with a real action: one hidden flaggedLabs per lab page, or the list's flaggedLabs
+    checkboxes. prepSubmit() posts that selection, the Forward List and the Favorites list to the
+    form's own action, from the opener window, in the one contract ReportReassign2Action reads (the
+    one the Inbox already sends):
+      flaggedLabs       {"files":["<id>:<TYPE>", ...]}
+      selectedProviders {"providers":[...]}
+      selectedFavorites {"favorites":[...]}   the list as shown, so its edits are kept
+    A lab's TYPE is its control's data-lab-type, else the form's labType field. The opener then
+    follows the action's redirect back to its own page.
+
+    The form is built in the opener's document so that the opener's CSRFGuard client, which hooks
+    form.submit() there, adds the token, and so the result loads in the opener.
+
+    The Inbox does not call prepSubmit(): it loads this page into its own dialog
+    (oscarMDSIndex.js ForwardSelectedRows), whose Forward button posts by AJAX, and this page
+    renders no Forward button for that request. The helpers stay local to prepSubmit() because the
+    dialog re-runs these inline scripts in the Inbox window's global scope.
+--%>
 <script type="text/javascript">
     function prepSubmit() {
+        var msgOpenerGone = '<carlos:encode value='${msgOpenerGone}' context="javaScriptBlock"/>';
+        var msgChooseProvider = '<carlos:encode value='${msgChooseProvider}' context="javaScriptBlock"/>';
+        var msgSelectOneLab = '<carlos:encode value='${msgSelectOneLab}' context="javaScriptBlock"/>';
 
-        var fwdProviders = "";
-        var fwdFavorites = "";
+        function optionValues(id) {
+            var el = document.getElementById(id);
+            var values = [];
+            if (el) {
+                for (var i = 0; i < el.options.length; i++) {
+                    values.push(el.options[i].value);
+                }
+            }
+            return values;
+        }
+
+        function openerForm() {
+            try {
+                var opener = window.opener;
+                if (!opener || opener.closed) {
+                    return null;
+                }
+                var form = opener.document.forms["reassignForm"];
+                // A reassignForm without an action has nowhere to post the selection.
+                return form && form.getAttribute("action") ? form : null;
+            } catch (e) {
+                // A cross-origin or navigated-away opener cannot be read.
+                return null;
+            }
+        }
+
+        function selectedLabs(form) {
+            var defaultType = form.elements["labType"] ? form.elements["labType"].value : "";
+            var files = [];
+            for (var i = 0; i < form.elements.length; i++) {
+                var el = form.elements[i];
+                if (el.name !== "flaggedLabs" || (el.type === "checkbox" && !el.checked) || el.value === "") {
+                    continue;
+                }
+                var type = el.getAttribute("data-lab-type") || defaultType;
+                files.push(el.value + ":" + type);
+            }
+            return files;
+        }
 
         var fwdProvidersEl = document.getElementById("fwdProviders");
-        var favoritesEl = document.getElementById("favorites");
-
-        if (fwdProvidersEl) {
-            for (i = 0; i < fwdProvidersEl.options.length; i++) {
-                if (fwdProviders != "") {
-                    fwdProviders = fwdProviders + ",";
-                }
-                fwdProviders = fwdProviders + fwdProvidersEl.options[i].value;
-            }
+        var providers = optionValues("fwdProviders");
+        var favorites = optionValues("favorites");
+        var source = openerForm();
+        if (!source) {
+            alert(msgOpenerGone);
+            return false;
+        }
+        var files = selectedLabs(source);
+        if (files.length === 0) {
+            alert(msgSelectOneLab);
+            return false;
+        }
+        if (providers.length === 0) {
+            if (fwdProvidersEl) fwdProvidersEl.classList.add("input-error");
+            alert(msgChooseProvider);
+            var search = document.getElementById("autocompleteprov");
+            if (search) search.focus();
+            return false;
         }
 
-        if (favoritesEl) {
-            for (i = 0; i < favoritesEl.options.length; i++) {
-                if (fwdFavorites != "") {
-                    fwdFavorites = fwdFavorites + ",";
-                }
-                fwdFavorites = fwdFavorites + favoritesEl.options[i].value;
+        var doc = source.ownerDocument;
+        var post = doc.createElement("form");
+        post.setAttribute("method", "post");
+        post.setAttribute("action", source.getAttribute("action"));
+        post.style.display = "none";
+        var fields = {
+            flaggedLabs: JSON.stringify({files: files}),
+            selectedProviders: JSON.stringify({providers: providers}),
+            selectedFavorites: JSON.stringify({favorites: favorites})
+        };
+        // The filters the page posts back to itself (ReportReassign2Action builds the return URL from them).
+        ["providerNo", "searchProviderNo", "status", "lname", "fname", "hnum"].forEach(function (name) {
+            var field = source.elements[name];
+            if (field && typeof field.value === "string" && field.value !== "") {
+                fields[name] = field.value;
             }
-        }
-
-        var isListView = '<carlos:encode value='<%= StringUtils.noNull(request.getParameter("isListView")) %>' context="javaScriptBlock"/>';
-        var docId = '<carlos:encode value='<%= StringUtils.noNull(request.getParameter("docId")) %>' context="javaScriptBlock"/>';
-        var labDisplay = '<carlos:encode value='<%= StringUtils.noNull(request.getParameter("labDisplay")) %>' context="javaScriptBlock"/>';
-        var frm = "reassignForm";
-
-        if (docId != "" && labDisplay == "") {
-            frm += "_" + docId;
-            var form = self.opener.document.forms[frm];
-            if (form) {
-                if (form.selectedProviders) form.selectedProviders.value = fwdProviders;
-                if (form.favorites) form.favorites.value = fwdFavorites;
-            }
-            self.opener.forwardDocument(docId);
-            self.close();
-        } else if (isListView === 'true') {
-            var forwardListEl = document.getElementById("forwardList");
-            if (forwardListEl) {
-                forwardLabs(forwardListEl.value, fwdProviders);
-            }
-        } else {
-            frm += "_" + docId;
-            var form = self.opener.document.forms[frm];
-            if (form) {
-                if (form.selectedProviders) form.selectedProviders.value = fwdProviders;
-                if (form.favorites) form.favorites.value = fwdFavorites;
-                form.submit();
-            }
-            self.close();
-        }
-
-
+        });
+        Object.keys(fields).forEach(function (name) {
+            var input = doc.createElement("input");
+            input.type = "hidden";
+            input.name = name;
+            input.value = fields[name];
+            post.appendChild(input);
+        });
+        doc.body.appendChild(post);
+        post.submit();
+        window.close();
+        return false;
     }
 
 </script>
@@ -166,7 +246,10 @@
     </div>
     <div>
         <p><fmt:message key="oscarMDS.forward.msgInstruction2"/></p>
-        <!-- <input type="button" id="submitButton" value="Submit" onclick="prepSubmit();return false;"> -->
+        <%-- Popup only: the Inbox loads this page by AJAX into a dialog that has its own Forward button. --%>
+        <% if (!RequestNegotiation.isAjax(request)) { %>
+        <button type="button" id="submitButton" class="btn btn-primary btn-sm" onclick="prepSubmit(); return false;"><fmt:message key="oscarMDS.index.btnForward"/></button>
+        <% } %>
     </div>
 </form>
 <script type="text/javascript">

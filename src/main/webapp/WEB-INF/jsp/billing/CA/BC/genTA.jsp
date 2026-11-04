@@ -666,7 +666,9 @@
 //
     }
 
-
+    // ProcessRemittance (GenTa2Action) reads the uploaded file's name from this request attribute, as
+    // ManageTeleplan2Action sets it; it finds the rows stored above and does not store them again.
+    request.setAttribute("filename", filename);
 %>
 
 <jsp:forward page="<%=forwardPage%>"/>

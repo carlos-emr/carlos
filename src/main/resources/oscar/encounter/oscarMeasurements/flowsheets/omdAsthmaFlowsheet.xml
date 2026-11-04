@@ -109,7 +109,7 @@
 			</rule>
 		</ruleset>
 	</item>	
-	<item measurement_type="AACP" display_name="Action Plan" guideline="" graphable="yes" value_name="Provided/Revised/Reviewed" />
+	<item measurement_type="AACP" display_name="Action Plan" guideline="" graphable="yes" value_name="Plan" />
 	<item measurement_type="ARMA" display_name="Medication Adherence" guideline="" graphable="yes" value_name="Reviewed" />
 	<item measurement_type="SMCS" display_name="Smoking Cessation" guideline="" graphable="yes" value_name="Reviewed" />
 	<item measurement_type="ARDT" display_name="Device Technique Optimal" guideline="" graphable="no" value_name="Reviewed" />

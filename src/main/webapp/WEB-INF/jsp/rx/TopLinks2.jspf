@@ -22,6 +22,7 @@
  */%>
 
 <%@ page import="java.io.StringWriter" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.PharmacyInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.*" %>
@@ -115,7 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
     <span class="navbar-brand"><fmt:message key="oscarRx.header.title"/></span>
           <%
             RxPatientData.Patient patient2 =
-              (RxPatientData.Patient) request.getSession().getAttribute("Patient");
+              RxSessionBeanResolver.resolvePatient(request);
           %>
           <span class="text-nowrap"><b><fmt:message key="SearchDrug.nameText"/></b>
           <carlos:encode value='<%= patient2.getFirstName() %>' context="html"/> <carlos:encode value='<%= patient2.getSurname() %>' context="html"/>

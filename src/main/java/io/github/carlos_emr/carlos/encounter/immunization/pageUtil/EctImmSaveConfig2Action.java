@@ -37,6 +37,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.commn.model.Immunizations;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -47,7 +48,7 @@ import org.w3c.dom.NodeList;
 
 import io.github.carlos_emr.carlos.encounter.immunization.config.data.EctImmImmunizationSetData;
 import io.github.carlos_emr.carlos.encounter.immunization.data.EctImmImmunizationData;
-import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.util.UtilXML;
 
 import org.apache.struts2.ActionSupport;
@@ -67,21 +68,42 @@ public final class EctImmSaveConfig2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
-        EctSessionBean bean = null;
-        bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
+        // The patient this form names (ScheduleConfig.jsp posts demographic_no), never the login-wide
+        // EctSessionBean: that bean follows whichever chart was entered last in any window, so the
+        // template used to be added to another patient's schedule (issue #4673).
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String demographicNo;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demographicNo))) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
+        String providerNo = loggedInInfo.getLoggedInProviderNo();
         try {
             //String sCfgDoc = UtilMisc.decode64(request.getParameter("xmlDoc"));
             //Document cfgDoc = UtilXML.parseXML(sCfgDoc);
             //NodeList cfgSets = cfgDoc.getElementsByTagName("immunizationSet");
 
             EctImmImmunizationData imm = new EctImmImmunizationData();
-            String sDoc = imm.getImmunizations(bean.demographicNo);
+            Immunizations current = imm.getCurrentSchedule(demographicNo);
+            int expectedVersion = current == null ? 0 : current.getId();
             Document doc;
             Element root;
-            try {
-                doc = UtilXML.parseXML(sDoc);
+            if (current != null) {
+                doc = UtilXML.parseXML(current.getImmunizations());
                 root = doc.getDocumentElement();
-            } catch (Exception ex) {
+            } else {
                 doc = UtilXML.newDocument();
                 root = UtilXML.addNode(doc, "immunizations");
             }
@@ -110,7 +132,10 @@ public final class EctImmSaveConfig2Action extends ActionSupport {
  */
             if (doc != null) {
                 String sXML = UtilXML.toXML(doc);
-                imm.saveImmunizations(bean.demographicNo, bean.providerNo, sXML);
+                if (!imm.saveImmunizations(demographicNo, providerNo, sXML, expectedVersion)) {
+                    response.sendError(HttpServletResponse.SC_CONFLICT, "The immunization schedule changed. Reload it before saving, deleting, or restoring.");
+                    return NONE;
+                }
             }
 
         } catch (Exception ex) {

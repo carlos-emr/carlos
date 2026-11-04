@@ -60,6 +60,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assert,
   assertNoPageErrors,
@@ -336,7 +337,7 @@ async function assertFixtureIsReportedDue(report) {
     seedFixture();
 
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    context = await browser.newContext({ ignoreHTTPSErrors: true });
+    context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
 
     await login(context, config, recorder);
 

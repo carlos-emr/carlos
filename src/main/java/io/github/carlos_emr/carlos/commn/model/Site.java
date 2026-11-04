@@ -24,6 +24,7 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -197,6 +198,19 @@ public class Site extends AbstractModel<Integer> implements java.io.Serializable
 
     public void setBgColor(String bgColor) {
         this.bgColor = bgColor;
+    }
+
+    /** A #hex colour or a colour name: the only theme colours a style attribute receives. */
+    private static final Pattern CSS_COLOUR = Pattern.compile("#[0-9A-Fa-f]{3,8}|[A-Za-z]{1,30}");
+
+    /**
+     * The theme colour for a {@code style} attribute: the stored value when it is a #hex colour or a colour
+     * name, otherwise an empty string, so a stored value can only ever set the colour.
+     *
+     * @return the theme colour, or an empty string
+     */
+    public String getCssBgColor() {
+        return bgColor != null && CSS_COLOUR.matcher(bgColor.trim()).matches() ? bgColor.trim() : "";
     }
 
     public String getAddress() {

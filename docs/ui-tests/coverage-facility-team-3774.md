@@ -1,0 +1,9 @@
+# Facility and patient-team coverage (#3774)
+
+The facility workflow clones only an existing facility's configuration into a uniquely named owned row and grants only the configured test provider membership. It checks literal punctuation/markup in the displayed name, GET and tokenless POST rejection, selection through the actual CSRF-protected form and the precise successful audit, and rejection of a stale selector after membership is revoked. The browser closes before the owned membership/facility are removed. Existing facilities and memberships are untouched.
+
+The patient-team workflow owns a new patient. With `DEMOGRAPHIC_PATIENT_HEALTH_CARE_TEAM=true`, it adds the selected internal provider, reopens display/edit views, and removes the membership without deleting the provider. Cleanup is restricted to exact association IDs matching the owned patient, provider, type and category. Unexpected rows are retained with the parent for recovery. The detached editor is used; this does not claim coverage of every parent-panel navigation path or external provider editing.
+
+All four facility steps and three configured patient-team steps passed in the Ubuntu 26.04 VM against installed validation13 DEBs. The initial team run without its feature flag exposed a missing prerequisite, so the script now reports that condition as a skip. Feature configuration was backed up for restoration after the configured validation batch. Both workflows are in the extended suite with npm aliases.
+
+The release already contains `contact-lifecycle-playwright-checks.js`: it covers personal/external/internal contact search, reciprocal relationships, professional flags, cancelled edits, deletion and category tampering. Those assertions are retained rather than duplicated here. These tests supplement the demographic route gates in #3788.

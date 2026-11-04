@@ -34,6 +34,7 @@
 %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
     String groupName = (String) session.getAttribute("groupName");
@@ -63,7 +64,8 @@
 
     </script>
 
-    <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/styles.css">
+    <%-- No stylesheet: this page only shows "Processing..." while it submits itself, and the
+         /styles.css it used to link does not exist (a 404 on every group save). --%>
     <body topmargin="0" leftmargin="0" vlink="#0000FF">
     <% 
     java.util.List<String> actionErrors = (java.util.List<String>) request.getAttribute("actionErrors");
@@ -78,9 +80,12 @@
     </div>
 <% } %>
     <table>
+        <%-- GET on purpose: SetupAddMeasurementGroup only renders the type-selection page, and
+             nothing is stored until types are chosen there (issue #3335). --%>
         <form action="encounter/oscarMeasurements/SetupAddMeasurementGroup">
             <tr>
-                <input type="hidden" name="groupName" value="<%= groupName %>"/>
+                <input type="hidden" name="groupName" value="<carlos:encode value='<%= groupName %>' context="htmlAttribute"/>"/>
+                <input type="hidden" name="styleSheet" value="<carlos:encode value='${styleSheet}' context="htmlAttribute"/>"/>
                 <td>Processing...</td>
                 <script>
                     submitForm();

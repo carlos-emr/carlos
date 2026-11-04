@@ -42,6 +42,7 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtils" %>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="${pageContext.request.locale.language}" lang="${pageContext.request.locale.language}">
 <head>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
     <meta http-equiv="Content-type" content="text/html; charset=utf-8"/>
     <title>MCEDT</title>
@@ -141,12 +142,43 @@
             return false;
         }
 
+        // Undo the busy state a click set up when the helper could not obtain a
+        // CSRF token: nothing was sent and the page is not navigating (#4130).
+        function restoreAfterUnsent(control) {
+            if (control) {
+                control.disabled = false;
+            }
+            if (typeof HideSpin === 'function') {
+                HideSpin();
+            }
+        }
+
         function autoDownload(control) {
+            // Without the token helper the POST would only be refused (403): say so,
+            // and undo any busy state the click set, so the button is not left stuck (#4130).
+            if (typeof carlosSubmitForm !== 'function') {
+                alert('This page did not finish loading. Please reload it and try again.');
+                if (control) {
+                    control.disabled = false;
+                }
+                if (typeof HideSpin === 'function') {
+                    HideSpin();
+                }
+                return false;
+            }
+            // As in submitSelected: no second request while the token loads.
+            if (control) {
+                control.disabled = true;
+            }
             var form = document.createElement('form');
             form.method = 'post';
             form.action = '<%= request.getContextPath() %>/mcedt/kaiautodl';
             document.body.appendChild(form);
-            form.submit();
+            // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
+            // into a runtime-built form in time (#4130).
+            carlosSubmitForm(form).catch(function () {
+                restoreAfterUnsent(control);
+            });
             return false;
         }
 
@@ -155,11 +187,32 @@
         }
 
         function submitSelected(control) {
+            // Without the token helper the POST would only be refused (403): say so,
+            // and undo any busy state the click set, so the button is not left stuck (#4130).
+            if (typeof carlosSubmitForm !== 'function') {
+                alert('This page did not finish loading. Please reload it and try again.');
+                if (control) {
+                    control.disabled = false;
+                }
+                if (typeof HideSpin === 'function') {
+                    HideSpin();
+                }
+                return false;
+            }
+            // Disabled until the POST is sent or refused, so repeated clicks
+            // while the token loads cannot queue several uploads.
+            if (control) {
+                control.disabled = true;
+            }
             var form = document.createElement('form');
             form.method = 'post';
             form.action = '<%= request.getContextPath() %>/mcedt/autoUpload';
             document.body.appendChild(form);
-            form.submit();
+            // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
+            // into a runtime-built form in time (#4130).
+            carlosSubmitForm(form).catch(function () {
+                restoreAfterUnsent(control);
+            });
             return false;
         }
 
@@ -235,7 +288,7 @@
                             <div class="container-fluid"
                                  style="vertical-align: middle !important; width: 65%; float: left;">
                                 <button class="green flatLink font14" style="width:45%; padding:20px; margin-right:2%;"
-                                        onclick="this.disabled=true;ShowSpin(true); return autoDownload();">
+                                        onclick="this.disabled=true;ShowSpin(true); return autoDownload(this);">
                                     <img src="mailbox/img/download.png" style="float:left;"/>
                                     Download new files (EDT >> Oscar)
                                 </button>

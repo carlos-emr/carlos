@@ -76,7 +76,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
 
             //set link for lefthand module title
             String winName = "measurements" + bean.demographicNo;
-            Dao.setLeftPopup(600, 1000, winName, request.getContextPath() + "/encounter/oscarMeasurements/SetupHistoryIndex");
+            Dao.setLeftPopup(600, 1000, winName, request.getContextPath() + "/encounter/oscarMeasurements/SetupHistoryIndex?demographicNo=" + bean.demographicNo);
 
             String url;
 
@@ -95,6 +95,34 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
             }
 
             int hash;
+            // Health Tracker: a single nav entry for the "tracker" flowsheet, which is
+            // deliberately not registered as universal or dx-triggered so it never shows
+            // up in the flowsheet loops below. It is added FIRST so it heads the module,
+            // as in OSCAR 19: flowsheet items carry no date, and the stable DATESORT_ASC
+            // sort at the end keeps undated items at the top in insertion order.
+            // Shown unless the health_tracker property is turned off.
+            // getBooleanProperty's second argument is the value to MATCH, not a default:
+            // "true" means "the property is set to an active value", so an absent property
+            // leaves the tracker off. Passing "false" would invert the switch.
+            if (CarlosProperties.getInstance().getBooleanProperty("health_tracker", "true")
+                    && securityMgr.hasReadAccess("_flowsheet.tracker", roleName$)) {
+                NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
+                String dispname = getText("encounter.LeftNavBar.Tracker");
+
+                winName = "viewTracker" + bean.demographicNo;
+                // Mask the sign bit rather than Math.abs: hashCode() can return
+                // Integer.MIN_VALUE, which survives Math.abs as a negative number.
+                hash = winName.hashCode() & Integer.MAX_VALUE;
+                url = "popupPage(700,1000,'" + hash + "','" + request.getContextPath()
+                        + "/encounter/oscarMeasurements/ViewHealthTracker?demographic_no="
+                        + Encode.forUriComponent(bean.demographicNo) + "&template=tracker');return false;";
+                item.setLinkTitle(dispname);
+                dispname = StringUtils.maxLenString(dispname, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
+                item.setTitle(dispname);
+                item.setURL(url);
+                Dao.addItem(item);
+            }
+
             for (int f = 0; f < flowsheets.size(); f++) {
                 NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
                 String flowsheetName = flowsheets.get(f);
@@ -217,7 +245,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
             }
 
             //if there are none, we tell user
-            if (bean.measurementGroupNames.size() == 0) {
+            if (groups.isEmpty()) {
                 // Use addPopUpUrl("") so this no-op entry renders as an empty onclick (not popupPage(0,0,'',''))
                 Dao.addPopUpUrl("");
                 Dao.addPopUpText("None");
@@ -257,7 +285,7 @@ public class EctDisplayMeasurements2Action extends EctDisplayAction {
                     //tmp += "<span class=\"measureCol3\">" + formattedDate + "</span><br style=\"clear:both\">";
                     item.setTitle(tmp);
                     item.setDate(date);
-                    item.setURL("popupPage(300,800,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/SetupDisplayHistory?type=" + type + "'); return false;");
+                    item.setURL("popupPage(300,800,'" + hash + "','" + request.getContextPath() + "/encounter/oscarMeasurements/SetupDisplayHistory?type=" + type + "&demographicNo=" + bean.demographicNo + "'); return false;");
                     Dao.addItem(item);
                 }
 

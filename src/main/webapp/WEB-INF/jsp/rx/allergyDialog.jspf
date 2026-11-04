@@ -1,0 +1,70 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+
+    Localized messages for share/javascript/rx-allergy-dialog.js (#3355, #3488).
+
+    Publishes window.CarlosAllergyDialogMessages: the alerts the allergy page and the reaction form
+    show when a dialogue request fails or a save is not confirmed, in the page's own locale. The
+    script reads the object when it reports a failure, so this fragment may come before or after
+    it, and it falls back to its built-in English for any message that is missing here.
+
+    Usage: statically include once in the <head> of a page that loads rx-allergy-dialog.js:
+        <%@ include file="allergyDialog.jspf" %>
+    ShowAllergies2.jsp includes it for the AJAX-injected form (nothing from AddReaction2.jsp's
+    head survives the injection) and AddReaction2.jsp for its standalone page.
+
+    The messages are read without MessageFormat (fmt:message with no fmt:param), so "{0}" reaches
+    the script intact and the script substitutes the HTTP status or the failure reason into it.
+    Every value is encoded for a JavaScript string literal.
+
+    @since 2026-10-08
+--%>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
+<fmt:message key="rx.allergyDialog.msgReasonUnreachable" var="rxAllergyMsgReasonUnreachable"/>
+<fmt:message key="rx.allergyDialog.msgReasonUnexpectedPage" var="rxAllergyMsgReasonUnexpectedPage"/>
+<fmt:message key="rx.allergyDialog.msgReasonRefused" var="rxAllergyMsgReasonRefused"/>
+<fmt:message key="rx.allergyDialog.msgReasonHttpStatus" var="rxAllergyMsgReasonHttpStatus"/>
+<fmt:message key="rx.allergyDialog.msgOpenFormFailed" var="rxAllergyMsgOpenFormFailed"/>
+<fmt:message key="rx.allergyDialog.msgInactivateFailed" var="rxAllergyMsgInactivateFailed"/>
+<fmt:message key="rx.allergyDialog.msgSearchFailed" var="rxAllergyMsgSearchFailed"/>
+<fmt:message key="rx.allergyDialog.msgRequestFailed" var="rxAllergyMsgRequestFailed"/>
+<fmt:message key="rx.allergyDialog.msgRequestFailedReload" var="rxAllergyMsgRequestFailedReload"/>
+<fmt:message key="rx.allergyDialog.msgSaveRefused" var="rxAllergyMsgSaveRefused"/>
+<fmt:message key="rx.allergyDialog.msgSaveUnconfirmed" var="rxAllergyMsgSaveUnconfirmed"/>
+<fmt:message key="rx.allergyDialog.msgSaveConflict" var="rxAllergyMsgSaveConflict"/>
+<script type="text/javascript">
+    window.CarlosAllergyDialogMessages = {
+        msgReasonUnreachable: '${carlos:forJavaScript(rxAllergyMsgReasonUnreachable)}',
+        msgReasonUnexpectedPage: '${carlos:forJavaScript(rxAllergyMsgReasonUnexpectedPage)}',
+        msgReasonRefused: '${carlos:forJavaScript(rxAllergyMsgReasonRefused)}',
+        msgReasonHttpStatus: '${carlos:forJavaScript(rxAllergyMsgReasonHttpStatus)}',
+        msgOpenFormFailed: '${carlos:forJavaScript(rxAllergyMsgOpenFormFailed)}',
+        msgInactivateFailed: '${carlos:forJavaScript(rxAllergyMsgInactivateFailed)}',
+        msgSearchFailed: '${carlos:forJavaScript(rxAllergyMsgSearchFailed)}',
+        msgRequestFailed: '${carlos:forJavaScript(rxAllergyMsgRequestFailed)}',
+        msgRequestFailedReload: '${carlos:forJavaScript(rxAllergyMsgRequestFailedReload)}',
+        msgSaveRefused: '${carlos:forJavaScript(rxAllergyMsgSaveRefused)}',
+        msgSaveUnconfirmed: '${carlos:forJavaScript(rxAllergyMsgSaveUnconfirmed)}',
+        msgSaveConflict: '${carlos:forJavaScript(rxAllergyMsgSaveConflict)}'
+    };
+</script>

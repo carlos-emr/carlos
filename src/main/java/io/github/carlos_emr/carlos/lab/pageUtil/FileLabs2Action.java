@@ -30,19 +30,15 @@
 
 package io.github.carlos_emr.carlos.lab.pageUtil;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.ArrayList;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -57,80 +53,91 @@ public class FileLabs2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private ObjectMapper objectMapper = new ObjectMapper();
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public FileLabs2Action() {
     }
 
-    // FindSecBugs XSS_SERVLET: response is JSON/encoded/static/binary/text content, not an HTML XSS sink.
-    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "response is JSON/encoded/static/binary/text content, not an HTML XSS sink")
     public String execute() {
-        if ("fileLabAjax".equals(request.getParameter("method"))) {
-            return fileLabAjax();
-        }
-
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "w", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
-        }
-
-        String flaggedLabs = request.getParameter("flaggedLabs");
-
-        ArrayNode jsonArray = null;
-        ArrayList<String[]> listFlaggedLabs = new ArrayList<>();
-
-        if (flaggedLabs != null && !flaggedLabs.isEmpty()) {
-            try {
-                ObjectNode jsonObject = (ObjectNode) objectMapper.readTree(flaggedLabs);
-                jsonArray = (ArrayNode) jsonObject.get("files");
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Failed to parse flaggedLabs JSON", e);
-            }
-        }
-
-        if (jsonArray != null) {
-            String[] labid;
-            for (int i = 0; i < jsonArray.size(); i++) {
-                labid = jsonArray.get(i).asText().split(":");
-                listFlaggedLabs.add(labid);
-            }
-        }
-
-        boolean success = CommonLabResultData.fileLabs(listFlaggedLabs, loggedInInfo);
-
-        ObjectNode jsonResponse = objectMapper.createObjectNode();
-        jsonResponse.put("success", success);
-        jsonResponse.set("files", jsonArray);
-
+        if ("fileLabAjax".equals(request.getParameter("method"))) return fileLabAjax();
+        if (!requirePost()) return NONE;
+        ArrayNode files;
+        ArrayList<String[]> selection = new ArrayList<>();
         try {
-            PrintWriter out = response.getWriter();
-            response.setContentType("application/json");
-            response.setCharacterEncoding("UTF-8");
-            out.print(jsonResponse);
-            out.flush();
-        } catch (IOException e) {
-            MiscUtils.getLogger().error("Error with JSON response ", e);
+            String payload = singleParameter("flaggedLabs");
+            var input = payload == null ? null : objectMapper.readTree(payload);
+            if (input == null || !input.isObject() || !input.path("files").isArray() || input.path("files").isEmpty()) {
+                throw new IllegalArgumentException("Missing filing selection");
+            }
+            files = (ArrayNode) input.path("files");
+            for (var entry : files) {
+                if (!entry.isTextual()) throw new IllegalArgumentException("Invalid filing selection");
+                selection.add(entry.asText().split(":", -1));
+            }
+        } catch (IOException | RuntimeException invalid) {
+            writeOutcome(400, false, false, null, null); return NONE;
         }
-        return null;
+        boolean success;
+        try {
+            success = CommonLabResultData.fileLabs(selection, LoggedInInfo.getLoggedInInfoFromSession(request));
+        } catch (RuntimeException failure) { writeFailure(failure, null); return NONE; }
+        writeOutcome(success ? 200 : 500, success, true, null, files);
+        return NONE;
     }
 
-    @SuppressWarnings("unused")
     public String fileLabAjax() {
+        if (!requirePost()) return NONE;
+        Integer document = null;
+        boolean success;
+        try {
+            String id = singleParameter("flaggedLabId");
+            String type = singleParameter("labType");
+            if (!io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse.positiveId(id)) {
+                throw new IllegalArgumentException("Invalid filing selection");
+            }
+            if ("DOC".equals(type)) document = Integer.valueOf(id);
+            ArrayList<String[]> selection = new ArrayList<>();
+            selection.add(new String[]{id, type});
+            success = CommonLabResultData.fileLabs(selection, LoggedInInfo.getLoggedInInfoFromSession(request));
+        } catch (RuntimeException failure) { writeFailure(failure, document); return NONE; }
+        writeOutcome(success ? 200 : 500, success, true, document, null);
+        return NONE;
+    }
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_lab", "w", null)) {
-            throw new SecurityException("missing required sec object (_lab)");
+    private String singleParameter(String name) {
+        String[] values = request.getParameterValues(name);
+        if (values == null || values.length != 1) throw new IllegalArgumentException("Missing or ambiguous filing selection");
+        return values[0];
+    }
+
+    private boolean requirePost() {
+        if ("POST".equals(request.getMethod())) return true;
+        response.setHeader("Allow", "POST");
+        writeOutcome(405, false, false, null, null);
+        return false;
+    }
+
+    private void writeFailure(RuntimeException failure, Integer document) {
+        boolean accepted = failure instanceof CommonLabResultData.FilingFailure filing && filing.accepted();
+        Throwable cause = failure;
+        while (cause instanceof CommonLabResultData.FilingFailure && cause.getCause() != null) cause = cause.getCause();
+        int status = accepted ? 500 : cause instanceof SecurityException ? 403 : cause instanceof IllegalArgumentException ? 400 : 500;
+        MiscUtils.getLogger().warn("Inbox filing was not confirmed", failure);
+        writeOutcome(status, false, accepted, document, null);
+    }
+
+    // Response errors never turn an already accepted filing into a safely retryable operation.
+    private void writeOutcome(int status, boolean success, boolean accepted, Integer document, ArrayNode files) {
+        ObjectNode result = objectMapper.createObjectNode().put("success", success).put("accepted", accepted).put("retryable", false);
+        if (document != null) result.put("document", document);
+        if (files != null) result.set("files", files);
+        if (!success) result.put("error", accepted ? "Filing outcome is unconfirmed; do not submit again" : "Filing was refused");
+        response.setStatus(status); response.setContentType("application/json;charset=UTF-8");
+        response.setHeader("Cache-Control", "no-store");
+        // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- application/json response serialized by Jackson; numeric IDs, validated filing references and fixed status/error fields, never HTML
+        try { response.getOutputStream().write(result.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)); }
+        catch (IOException failure) {
+            MiscUtils.getLogger().error("Could not report inbox filing outcome", failure);
+            if (!response.isCommitted()) response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
-
-        String providerNo = (String) request.getSession().getAttribute("user");
-        String flaggedLab = request.getParameter("flaggedLabId").trim();
-        String labType = request.getParameter("labType").trim();
-
-        ArrayList<String[]> listFlaggedLabs = new ArrayList<String[]>();
-        String[] la = new String[]{flaggedLab, labType};
-        listFlaggedLabs.add(la);
-        CommonLabResultData.fileLabs(listFlaggedLabs, providerNo);
-
-        return null;
     }
 }

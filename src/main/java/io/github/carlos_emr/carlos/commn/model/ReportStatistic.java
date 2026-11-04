@@ -29,15 +29,22 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import java.text.NumberFormat;
 
-import org.apache.commons.lang3.math.Fraction;
-
+/**
+ * A count out of a population size, shown as a percentage on the CAISI Population Report.
+ *
+ * <p>A population size of 0 is a real state: a site with no active patient admitted to an
+ * active Service program. The share is then 0%, rather than the division by zero that made the
+ * report answer HTTP 500 (issue #4855).</p>
+ */
 public class ReportStatistic implements Comparable<ReportStatistic> {
 
     private String label;
-    private Fraction fraction;
+    private int count;
+    private int size;
 
     public ReportStatistic(int count, int size) {
-        fraction = Fraction.getFraction(count, size);
+        this.count = count;
+        this.size = size;
     }
 
     public String getLabel() {
@@ -45,15 +52,15 @@ public class ReportStatistic implements Comparable<ReportStatistic> {
     }
 
     public int getCount() {
-        return fraction.getNumerator();
+        return count;
     }
 
     public int getSize() {
-        return fraction.getDenominator();
+        return size;
     }
 
     public void setSize(int size) {
-        fraction = Fraction.getFraction(getCount(), size);
+        this.size = size;
     }
 
     public String getPercent() {
@@ -61,7 +68,7 @@ public class ReportStatistic implements Comparable<ReportStatistic> {
         percentInstance.setMinimumFractionDigits(0);
         percentInstance.setMaximumFractionDigits(2);
 
-        return percentInstance.format(fraction.floatValue());
+        return percentInstance.format(share());
     }
 
     public void setLabel(String label) {
@@ -75,11 +82,16 @@ public class ReportStatistic implements Comparable<ReportStatistic> {
             compareTo = label.compareTo(rhs.label);
         }
 
-        if (compareTo == 0 && fraction != null) {
-            compareTo = fraction.compareTo(rhs.fraction);
+        if (compareTo == 0) {
+            compareTo = Float.compare(share(), rhs.share());
         }
 
         return compareTo;
+    }
+
+    /** count / size, or 0 when the size is 0. */
+    private float share() {
+        return size == 0 ? 0f : (float) count / size;
     }
 
 }

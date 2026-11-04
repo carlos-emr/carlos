@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.MessageListDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao;
 import io.github.carlos_emr.carlos.commn.model.MessageList;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.ProviderManager2;
@@ -68,6 +69,7 @@ class MsgDisplayMessages2ActionTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(ProviderManager2.class, mockProviderManager);
         replaceSpringUtilsBean(MessageListDao.class, mockMessageListDao);
+        replaceSpringUtilsBean(OscarCommLocationsDao.class, mock(OscarCommLocationsDao.class));
 
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
         String loggedInInfoKey = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";

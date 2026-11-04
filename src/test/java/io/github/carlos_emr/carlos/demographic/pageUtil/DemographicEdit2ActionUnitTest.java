@@ -39,6 +39,8 @@ import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.ProviderPreference;
+import io.github.carlos_emr.carlos.commn.model.WaitingListName;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -49,6 +51,7 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SessionConstants;
+import io.github.carlos_emr.carlos.waitinglist.WaitingListAvailabilityService;
 
 import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.*;
@@ -104,6 +107,20 @@ class DemographicEdit2ActionUnitTest extends CarlosWebTestBase {
     @Nested
     @DisplayName("Security Enforcement")
     class SecurityEnforcement {
+
+        @Test
+        void shouldRestoreSecurityServiceAndRefuseRead_whenTransientReferenceIsAbsent() throws Exception {
+            java.lang.reflect.Field field = DemographicEdit2Action.class.getDeclaredField("securityInfoManager");
+            field.setAccessible(true);
+            field.set(action, null);
+            denyPrivilege("_demographic", "r");
+
+            assertThatThrownBy(() -> executeAction(action))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("missing required sec object (_demographic)");
+            verifySecurityCheck("_demographic", "r");
+            verify(mockDemographicDao, never()).getDemographic(anyString());
+        }
 
         @Test
         @DisplayName("should throw SecurityException when session is null")
@@ -273,6 +290,7 @@ class DemographicEdit2ActionUnitTest extends CarlosWebTestBase {
         @Mock private ProgramManager mockProgramManager;
         @Mock private ProgramDao mockProgramDao;
         @Mock private OscarLogDao mockOscarLogDao;
+        @Mock private WaitingListAvailabilityService mockWaitingListAvailability;
 
         private MockedStatic<LogAction> logActionMock;
 
@@ -320,6 +338,7 @@ class DemographicEdit2ActionUnitTest extends CarlosWebTestBase {
             replaceSpringUtilsBean(DemographicManager.class, mockDemographicManager);
             replaceSpringUtilsBean(ProgramManager.class, mockProgramManager);
             replaceSpringUtilsBean(ProgramDao.class, mockProgramDao);
+            replaceSpringUtilsBean(WaitingListAvailabilityService.class, mockWaitingListAvailability);
         }
 
         /** Stubs default return values for DAO/manager calls and creates test fixture. */
@@ -368,12 +387,67 @@ class DemographicEdit2ActionUnitTest extends CarlosWebTestBase {
         }
 
         @Test
+        @DisplayName("should publish the waiting lists the provider may use for the Master Record (issue #4229)")
+        void shouldPublishWaitingListAvailability_forMasterRecord() throws Exception {
+            ProviderPreference preference = new ProviderPreference();
+            preference.setMyGroupNo("clinicA");
+            setSessionAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE, preference);
+            WaitingListName physio = new WaitingListName();
+            physio.setId(7);
+            physio.setName("Physio");
+            when(mockWaitingListAvailability.hasCurrentLists()).thenReturn(true);
+            when(mockWaitingListAvailability.findSelectableLists(preference)).thenReturn(List.of(physio));
+
+            io.github.carlos_emr.CarlosProperties properties = io.github.carlos_emr.CarlosProperties.getInstance();
+            String previous = properties.getProperty(WaitingListAvailabilityService.FEATURE_PROPERTY);
+            try {
+                properties.setProperty(WaitingListAvailabilityService.FEATURE_PROPERTY, "true");
+                executeAction(action);
+
+                assertThat(mockRequest.getAttribute("waitingListLinkVisible")).isEqualTo(Boolean.TRUE);
+                assertThat(mockRequest.getAttribute("selectableWaitingLists")).isEqualTo(List.of(physio));
+                assertThat(mockRequest.getAttribute(PatientNavModel.REQUEST_ATTRIBUTE))
+                        .isInstanceOfSatisfying(PatientNavModel.class, nav -> assertThat(nav.isWaitingListShown()).isTrue());
+                verify(mockWaitingListAvailability).hasCurrentLists();
+            } finally {
+                if (previous == null) properties.remove(WaitingListAvailabilityService.FEATURE_PROPERTY);
+                else properties.setProperty(WaitingListAvailabilityService.FEATURE_PROPERTY, previous);
+            }
+        }
+
+        @Test
+        @DisplayName("should publish no waiting lists and hide the link when none are available")
+        void shouldPublishNoWaitingLists_whenNoneAvailable() throws Exception {
+            when(mockWaitingListAvailability.hasCurrentLists()).thenReturn(false);
+            when(mockWaitingListAvailability.findSelectableLists(any())).thenReturn(List.of());
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute("waitingListLinkVisible")).isEqualTo(Boolean.FALSE);
+            assertThat((List<?>) mockRequest.getAttribute("selectableWaitingLists")).isEmpty();
+        }
+
+        @Test
         @DisplayName("should set prov attribute from billregion configuration")
         void shouldSetProvAttribute_fromBillregionConfiguration() throws Exception {
             executeAction(action);
 
             // billregion=ON is set in the test carlos.properties
             assertThat(mockRequest.getAttribute("prov")).isEqualTo("ON");
+        }
+
+        @Test
+        @DisplayName("should give the record its patient navigation")
+        void shouldSetPatientNavigation_onSuccess() throws Exception {
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute(PatientNavModel.REQUEST_ATTRIBUTE))
+                    .isInstanceOfSatisfying(PatientNavModel.class, nav -> {
+                        assertThat(nav.getDemographicNo()).isEqualTo(12345);
+                        assertThat(nav.isOnPortalPage()).isFalse();
+                        assertThat(nav.isOntarioBilling()).isTrue();
+                        assertThat(nav.getRecordUrl()).endsWith("/demographic/DemographicEdit?demographic_no=12345");
+                    });
         }
 
         @Test
@@ -486,6 +560,48 @@ class DemographicEdit2ActionUnitTest extends CarlosWebTestBase {
             verify(mockPatientConsentManager).getActiveConsentTypes();
             verify(mockPatientConsentManager).getAllConsentsByDemographic(
                     any(LoggedInInfo.class), eq(12345));
+        }
+
+        @Test
+        @DisplayName("should name the consent types whose consent change the save refused")
+        void shouldSetConsentNotSavedNames_whenSaveRefusedConsent() throws Exception {
+            io.github.carlos_emr.carlos.commn.model.ConsentType email =
+                    new io.github.carlos_emr.carlos.commn.model.ConsentType();
+            email.setId(7);
+            email.setType("email_consent");
+            email.setName("Email <b>consent</b>");
+            when(mockPatientConsentManager.getActiveConsentTypes()).thenReturn(List.of(email));
+            addRequestParameter("consentNotSaved", "7,99");
+
+            executeAction(action);
+
+            // The name is stored raw and encoded by the page; an id the page does not show is dropped.
+            assertThat(mockRequest.getAttribute("consentNotSavedNames"))
+                    .isEqualTo(List.of("Email <b>consent</b>"));
+        }
+
+        @Test
+        @DisplayName("should ignore a consentNotSaved value that is not digits and commas")
+        void shouldNotSetConsentNotSavedNames_whenParameterIsMalformed() throws Exception {
+            io.github.carlos_emr.carlos.commn.model.ConsentType email =
+                    new io.github.carlos_emr.carlos.commn.model.ConsentType();
+            email.setId(7);
+            email.setType("email_consent");
+            email.setName("Email consent");
+            when(mockPatientConsentManager.getActiveConsentTypes()).thenReturn(List.of(email));
+            addRequestParameter("consentNotSaved", "7<script>");
+
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute("consentNotSavedNames")).isNull();
+        }
+
+        @Test
+        @DisplayName("should set no warning on an ordinary page load")
+        void shouldNotSetConsentNotSavedNames_whenParameterIsAbsent() throws Exception {
+            executeAction(action);
+
+            assertThat(mockRequest.getAttribute("consentNotSavedNames")).isNull();
         }
 
         @Test

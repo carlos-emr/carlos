@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.xml.bind.annotation.XmlRootElement;
 
 @XmlRootElement(name = "OscarJobType")
@@ -48,10 +50,12 @@ public class OscarJobTypeTo1 implements Serializable {
 
     private boolean enabled;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date updated;
 
     private boolean currentlyValid;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date nextPlannedExecutionDate;
 
 

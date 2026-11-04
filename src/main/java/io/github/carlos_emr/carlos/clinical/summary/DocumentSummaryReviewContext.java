@@ -29,7 +29,11 @@ public class DocumentSummaryReviewContext {
     private final DemographicManager demographics;
 
     public record Snapshot(DocumentSummaryReviewBinding.Scope scope,
-            DocumentSummaryReviewBinding.Metadata metadata) {
+            DocumentSummaryReviewBinding.Metadata metadata, String noticeLanguage) {
+        /** English notice, for callers that have no patient language. */
+        public Snapshot(DocumentSummaryReviewBinding.Scope scope, DocumentSummaryReviewBinding.Metadata metadata) {
+            this(scope, metadata, "en");
+        }
         @Override public String toString() { return "SummaryReviewSnapshot[REDACTED]"; }
     }
 
@@ -79,7 +83,9 @@ public class DocumentSummaryReviewContext {
         }
         return new Snapshot(new DocumentSummaryReviewBinding.Scope(clinic, patient, documentId),
                 new DocumentSummaryReviewBinding.Metadata(document.getDocfilename(), document.getContenttype(),
-                        document.getDocdesc(), document.getUpdatedatetime() == null ? null : document.getUpdatedatetime().getTime()));
+                        document.getDocdesc(), document.getUpdatedatetime() == null ? null : document.getUpdatedatetime().getTime()),
+                // The patient notice follows the patient's language on file, never the sender's choice.
+                DocumentSummaryReviewBinding.noticeLanguage(demographic.getOfficialLanguage()));
     }
 
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "stored filename is one component; existing canonical path must remain in DOCUMENT_DIR")

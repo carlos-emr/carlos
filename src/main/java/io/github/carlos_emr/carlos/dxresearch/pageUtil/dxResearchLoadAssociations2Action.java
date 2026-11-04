@@ -59,16 +59,18 @@ import org.apache.commons.csv.CSVRecord;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-public class dxResearchLoadAssociations2Action extends ActionSupport {
+public class dxResearchLoadAssociations2Action extends ActionSupport implements UploadedFilesAware {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
     private DxDao dxDao = (DxDao) SpringUtils.getBean(DxDao.class);
-    private static SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private static final String PRIVILEGE_READ = "r";
     private static final String PRIVILEGE_UPDATE = "u";
@@ -97,21 +99,19 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
             }
         }
 
-        if ("getAllAssociations".equals(method)) {
-            getAllAssociations();
-        } else if ("clearAssociations".equals(method)) {
-            clearAssociations();
-        } else if ("addAssociation".equals(method)) {
-            addAssociation();
-        } else if ("export".equals(method)) {
-            export();
-        } else if ("uploadFile".equals(method)) {
-            uploadFile();
-        } else if ("autoPopulateAssociations".equals(method)) {
-            autoPopulateAssociations();
-        }
-
-        return SUCCESS;
+        // JSON/CSV handlers own the response and must not dispatch a JSP afterwards.
+        return switch (method) {
+            case "getAllAssociations" -> getAllAssociations();
+            case "clearAssociations" -> clearAssociations();
+            case "addAssociation" -> addAssociation();
+            case "export" -> export();
+            case "uploadFile" -> uploadFile();
+            case "autoPopulateAssociations" -> autoPopulateAssociations();
+            default -> {
+                checkPrivilege(request, PRIVILEGE_READ);
+                yield SUCCESS;
+            }
+        };
      }
 
     public String getAllAssociations() throws IOException {
@@ -126,7 +126,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         }
 
         JsonResponseWriter.write(response, associations);
-        return null;
+        return NONE;
     }
 
     private String getDescription(String dxCodeType, String dxCode) {
@@ -144,7 +144,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         Map<String, Integer> map = new HashMap<String, Integer>();
         map.put("recordsUpdated", recordsUpdated);
         JsonResponseWriter.write(response, map);
-        return null;
+        return NONE;
     }
 
     public String addAssociation() throws IOException {
@@ -161,7 +161,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         Map<String, String> map = new HashMap<String, String>();
         map.put("result", "success");
         JsonResponseWriter.write(response, map);
-        return null;
+        return NONE;
     }
 
     public String export() throws IOException {
@@ -182,7 +182,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         printer.flush();
         printer.close();
 
-        return null;
+        return NONE;
     }
 
     public String uploadFile() throws IOException {
@@ -217,8 +217,6 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
             }
         }
 
-        int rowsInserted = 0;
-
         if (this.isReplace()) {
             dxDao.removeAssociations();
         }
@@ -234,13 +232,10 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
             assoc.setDxCode(data[x][3]);
 
             dxDao.persist(assoc);
-            rowsInserted++;
         }
 
-        Map<String, Integer> map = new HashMap<String, Integer>();
-        map.put("recordsAdded", rowsInserted);
-        JsonResponseWriter.write(response, map);
-
+        // The multipart form is a normal page submission, not an AJAX request.
+        // Render the refreshed list without prefixing its HTML with JSON.
         return SUCCESS;
     }
 
@@ -275,7 +270,7 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
         map.put("recordsAdded", recordsAdded);
         JsonResponseWriter.write(response, map);
 
-        return null;
+        return NONE;
     }
 
 
@@ -310,13 +305,15 @@ public class dxResearchLoadAssociations2Action extends ActionSupport {
     private File file; // Uploaded file
     private boolean replace = true; // Flag for replacement
 
-    public File getFile() {
-        return file;
-    }
-
-    @StrutsParameter
-    public void setFile(File file) {
-        this.file = file;
+    @Override
+    public void withUploadedFiles(List<UploadedFile> uploadedFiles) {
+        file = null;
+        if (uploadedFiles != null && uploadedFiles.size() == 1) {
+            UploadedFile uploaded = uploadedFiles.get(0);
+            if (uploaded != null && "file".equals(uploaded.getInputName())) {
+                file = PathValidationUtils.validateUploadContent(uploaded.getContent());
+            }
+        }
     }
 
     public boolean isReplace() {

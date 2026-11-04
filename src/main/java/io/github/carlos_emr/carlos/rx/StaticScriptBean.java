@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.rx;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
@@ -72,6 +73,7 @@ public class StaticScriptBean {
         public String writtenDate = null;
         public String prescriptionDetails = null;
         public String genericName = null;
+        public String regionalIdentifier = null;
         public String customName = null;
         public String brandName = null;
         public boolean isArchived = false;
@@ -126,6 +128,7 @@ public class StaticScriptBean {
         drugDisplayData.nonAuthoritative = drug.isNonAuthoritative();
 
         drugDisplayData.genericName = drug.getGenericName();
+        drugDisplayData.regionalIdentifier = drug.getRegionalIdentifier();
 
         drugDisplayData.customName = drug.getCustomName();
 
@@ -135,7 +138,11 @@ public class StaticScriptBean {
 
         drugDisplayData.pickupDate = RxUtil.DateToString(drug.getPickUpDateTime(), "yyyy-MM-dd");
 
-        drugDisplayData.pickupTime = RxUtil.DateToString(drug.getPickUpDateTime(), "hh:mm aa");
+        // A pick-up date saved without a time is stored at midnight, and shows no time. Decided on the stored
+        // value: the formatted text depends on the locale ("12:00 AM", or "12:00 a.m." under en_CA).
+        drugDisplayData.pickupTime = hasPickupTime(drug.getPickUpDateTime())
+                ? RxUtil.DateToString(drug.getPickUpDateTime(), "hh:mm aa")
+                : "";
 
         drugDisplayData.eTreatmentType = drug.getETreatmentType();
 
@@ -148,5 +155,22 @@ public class StaticScriptBean {
         drugDisplayData.refillQuantity = drug.getRefillQuantity();
 
         return (drugDisplayData);
+    }
+
+    /**
+     * Whether a pick-up date-time carries a time of day. A pick-up date saved without a time is stored at
+     * midnight, so midnight counts as no time. The static script and the drug record view
+     * ({@code DisplayRxRecord.jsp}) both use it, so they agree.
+     *
+     * @param pickUp Date the stored pick-up date-time, or null
+     * @return boolean true when there is a pick-up time other than midnight
+     */
+    public static boolean hasPickupTime(Date pickUp) {
+        if (pickUp == null) {
+            return false;
+        }
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(pickUp);
+        return calendar.get(Calendar.HOUR_OF_DAY) != 0 || calendar.get(Calendar.MINUTE) != 0;
     }
 }

@@ -99,6 +99,10 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
             }
             var snapshot = context.load(actor, documentId);
             request.setAttribute("documentSummaryId", documentId);
+            if (!"en".equals(snapshot.noticeLanguage())) {
+                request.setAttribute("documentSummaryNotice",
+                        io.github.carlos_emr.carlos.clinical.summary.DocumentSummaryReviewBinding.unreviewedNotice(snapshot.noticeLanguage()));
+            }
             request.setAttribute("documentSummaryTitle", snapshot.metadata().title());
             request.setAttribute("documentSummaryReviewWorkflow", true);
             // The sender stack is an explicit integration dependency, never implied by review.
@@ -119,7 +123,7 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
                 }
                 audit(actor, "DocumentSummary.reviewGenerate", snapshot.scope());
                 pending = DocumentSummaryReviewSession.generate(snapshot.scope(), snapshot.metadata(),
-                        () -> context.read(snapshot), generator, model, actor);
+                        () -> context.read(snapshot), generator, model, actor, snapshot.noticeLanguage());
                 var freshActor = LoggedInInfo.getLoggedInInfoFromSession(request);
                 var fresh = context.load(freshActor, documentId);
                 var source = context.currentSource(fresh);

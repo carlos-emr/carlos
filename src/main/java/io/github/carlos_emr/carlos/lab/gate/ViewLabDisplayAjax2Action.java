@@ -13,6 +13,9 @@
 package io.github.carlos_emr.carlos.lab.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.lab.service.LabPatientAccess;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -42,6 +45,16 @@ public final class ViewLabDisplayAjax2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
+
+        String segment = request.getParameter("segmentID");
+        if (segment != null) segment = segment.trim();
+        Integer labNo = LabPatientAccess.positiveIdentity(segment);
+        if (labNo == null) {
+            ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        PatientLabRoutingDao routings = SpringUtils.getBean(PatientLabRoutingDao.class);
+        LabPatientAccess.requireLab(securityInfoManager, routings, loggedInInfo, labNo, "HL7");
 
         return SUCCESS;
     }

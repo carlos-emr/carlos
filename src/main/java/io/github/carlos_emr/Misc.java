@@ -37,7 +37,6 @@ import java.util.Vector;
 
 import org.owasp.encoder.Encode;
 import org.apache.commons.lang3.StringUtils;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Miscellaneous utility class providing various string manipulation, formatting,
@@ -122,32 +121,26 @@ public final class Misc {
      * Removes all non-digit characters and returns everything after the first 3 digits.
      * 
      * @param num the phone number string
-     * @return the phone number portion (7 digits for standard North American format)
+     * @return the phone number portion (7 digits for standard North American format),
+     *         or the original value when fewer than 3 digits are available
      */
     public static String phoneNumber(String num) {
-        String retval = num;
-        try {
-            retval = cleanNumber(num).substring(3);
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
-        return retval;
+        String cleaned = cleanNumber(num);
+        // Optional demographic phone fields may be empty. Keep the legacy fallback
+        // without treating a missing or incomplete phone number as a server error.
+        return cleaned.length() < 3 ? num : cleaned.substring(3);
     }
 
     /**
      * Extracts the area code (first 3 digits) from a phone number string.
      * 
      * @param num the phone number string
-     * @return the area code (first 3 digits after cleaning)
+     * @return the area code (first 3 digits after cleaning), or the original value
+     *         when fewer than 3 digits are available
      */
     public static String areaCode(String num) {
-        String retval = num;
-        try {
-            retval = cleanNumber(num).substring(0, 3);
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
-        return retval;
+        String cleaned = cleanNumber(num);
+        return cleaned.length() < 3 ? num : cleaned.substring(0, 3);
     }
 
     /**
