@@ -63,12 +63,14 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * <p>Style edits apply to every status, including the core statuses seeded with
  * {@code editable=0}: in CARLOS that flag gates only enabling and disabling (#3888).</p>
  *
- * <p>Reads need {@code _admin.schedule} read; every change needs {@code _admin.schedule} write, must
+ * <p>Reads need read and every change write on {@code _admin.schedule} or {@code _admin}, as on the
+ * Locations tab; every change must
  * be posted (GET and HEAD answer 405 before anything is changed) and writes an audit row that names
  * the status id and the field, never patient data.</p>
  */
 public class AppointmentStatus2Action extends ActionSupport {
     private static final String SCHEDULE_ADMIN_SECURITY_OBJECT = "_admin.schedule";
+    private static final String ADMIN_SECURITY_OBJECT = "_admin";
     private static final String READ = "r";
     private static final String WRITE = "w";
     private static final Set<String> MUTATIONS = Set.of(
@@ -89,7 +91,8 @@ public class AppointmentStatus2Action extends ActionSupport {
      * Renders the status list, or applies the change named by {@code dispatch}.
      *
      * @return String {@code success} to render the list, or {@code none} after answering 405
-     * @throws SecurityException if the user lacks {@code _admin.schedule} read, or write for a change
+     * @throws SecurityException if the user lacks read (or write, for a change) on both
+     *         {@code _admin.schedule} and {@code _admin}
      */
     @Override
     public String execute() {
@@ -97,8 +100,8 @@ public class AppointmentStatus2Action extends ActionSupport {
         boolean mutation = dispatch != null && MUTATIONS.contains(dispatch);
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String requiredPrivilege = mutation ? WRITE : READ;
-        if (!securityInfoManager.hasPrivilege(
-                loggedInInfo, SCHEDULE_ADMIN_SECURITY_OBJECT, requiredPrivilege, null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, SCHEDULE_ADMIN_SECURITY_OBJECT, requiredPrivilege, null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, ADMIN_SECURITY_OBJECT, requiredPrivilege, null)) {
             throw new SecurityException("missing required sec object (_admin.schedule)");
         }
 

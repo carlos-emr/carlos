@@ -26,7 +26,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
 const {appointmentMonitorCleanup} = require('./lib/appointment-page-monitor-cleanup');
-const {openAdminSection, frameNavigation} = require('./schedule-admin-settings-playwright-checks');
+const {openAdminSection, frameNavigation, dismissedConfirmSendsNothing} = require('./schedule-admin-settings-playwright-checks');
 
 const LIST_NAME = 'appointmentLocationCode';
 
@@ -103,6 +103,7 @@ async function workflow(s) {
     await submit(frame.locator('#addLocationForm button[type="submit"]'));
     h.assert(items().length === 3, 'A duplicate active name was added');
     h.assert(await frame.locator('.alert-danger').count() === 1, 'The duplicate name showed no reason');
+    h.assert(await frame.locator('#newLocationName').inputValue() === virtual.toUpperCase(), 'The refused name was not offered again');
     const id = itemId(virtual);
     const status = await frame.locator(`#colour-${id}`).evaluate(async input => {
       const data = new URLSearchParams(new FormData(input.form));
@@ -112,6 +113,23 @@ async function workflow(s) {
     });
     h.assert(status.status === 200 && status.text.includes('alert-danger'), `An invalid colour was not refused: HTTP ${status.status}`);
     h.assert(items().find(r => r[0] === id)[4] === '', 'An invalid colour was stored');
+  });
+
+  await s.step('one rendering of the add form saves once, however often it is sent (FormSubmissionGuard)', async () => {
+    const twice = `${marker} Twice`;
+    await frame.locator('#newLocationName').fill(twice);
+    const responses = await frame.locator('#addLocationForm').evaluate(async form => {
+      const data = new URLSearchParams(new FormData(form));
+      const send = () => fetch(form.action, {method: 'POST', body: data, credentials: 'same-origin'})
+        .then(async response => ({status: response.status, text: await response.text()}));
+      return [await send(), await send()];
+    });
+    h.assert(responses.every(r => r.status === 200 && r.text.includes('alert-success') && !r.text.includes('alert-danger')),
+      `A repeated add did not end as the first did: ${responses.map(r => r.status).join(', ')}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM LookupListItem WHERE lookupListId=${Number(listId)} AND label=${q(twice)}`) === '1',
+      'A repeated add of one rendering stored the location twice');
+    sql.execute(`DELETE FROM LookupListItem WHERE lookupListId=${Number(listId)} AND label=${q(twice)}`);
+    await reopen();
   });
 
   await s.step('colour and icon style the chip; the order and the name change from their own forms', async () => {
@@ -127,6 +145,23 @@ async function workflow(s) {
     h.assert((await chip.evaluate(el => getComputedStyle(el).backgroundColor)) === 'rgb(47, 204, 207)', 'The chip is not drawn in the chosen colour');
     await submit(row(virtual).locator('form:has(input[value="moveUp"]) button'));
     h.assert(items()[0][1] === virtual, 'Move up did not put the location first');
+    // A Move button sent twice from one rendering moves the location once: the second names a place it has left.
+    const repeated = await row(virtual).locator('form:has(input[value="moveDown"])').evaluate(async form => {
+      const send = data => fetch(form.action, {method: 'POST', body: data, credentials: 'same-origin'})
+        .then(async response => ({status: response.status, text: await response.text()}));
+      const down = new URLSearchParams(new FormData(form));
+      const results = [await send(down), await send(down)];
+      const up = new URLSearchParams(down);
+      up.set('dispatch', 'moveUp');
+      up.set('position', '2');
+      results.push(await send(up));
+      return results;
+    });
+    h.assert(repeated[0].text.includes('alert-success') && repeated[1].text.includes('alert-danger'),
+      'A repeated Move down was not refused');
+    h.assert(repeated[2].text.includes('alert-success') && items()[0][1] === virtual,
+      `Moving back up did not restore the order: ${JSON.stringify(items().map(r => r[1]))}`);
+    await reopen();
     const annexId = itemId(annex);
     await frame.locator(`#name-${annexId}`).fill(`${annex} 2`);
     await submit(frame.locator(`form:has(#name-${annexId}) button[type="submit"]`));
@@ -136,7 +171,7 @@ async function workflow(s) {
   await s.step('Disable asks first: cancelling sends nothing, confirming takes the location out of booking', async () => {
     const annexId = itemId(`${annex} 2`);
     const disable = frame.locator(`#location-${annexId} form:has(input[value="deactivate"]) button`);
-    const dismissed = await h.withExpectedDialogs(admin, () => disable.click(), {accept: false});
+    const dismissed = await dismissedConfirmSendsNothing(admin, frame, '/appointment/apptLocationSetting', () => disable.click());
     h.assert(dismissed.length === 1 && dismissed[0].type === 'confirm', 'Disable did not ask for confirmation');
     await expectValue(sql, `SELECT active FROM LookupListItem WHERE id=${Number(annexId)}`, '1', 'A cancelled Disable deactivated the location');
     const confirmed = await h.withExpectedDialogs(admin, () => submit(disable));
@@ -164,6 +199,11 @@ async function workflow(s) {
   });
 
   await s.step('the Statuses tab restyles a core status inline and confirms before Reset', async () => {
+    // The tab exists only while status editing is switched on (ENABLE_EDIT_APPT_STATUS).
+    if (await frame.locator('a[href$="/appointment/apptStatusSetting"]').count() === 0) {
+      console.log('  (status editing is switched off on this install; the Statuses tab is not offered)');
+      return;
+    }
     const statusFrame = await openAdminSection(admin, '/appointment/apptStatusSetting?dispatch=view', '#statusTable');
     const desc = `PW ${marker.slice(-8)}`;
     await statusFrame.locator(`#desc-${statusId}`).fill(desc);
@@ -175,7 +215,7 @@ async function workflow(s) {
     h.assert(await statusFrame.locator(`#status-${statusId} form:has(input[value="changestatus"])`).count() === 0,
       'A core status offers Disable');
     const reset = statusFrame.locator('form:has(input[value="reset"]) button');
-    const dismissed = await h.withExpectedDialogs(admin, () => reset.click(), {accept: false});
+    const dismissed = await dismissedConfirmSendsNothing(admin, statusFrame, '/appointment/apptStatusSetting', () => reset.click());
     h.assert(dismissed.length === 1, 'Reset did not ask for confirmation');
     h.assert(sql.value(`SELECT description FROM appointment_status WHERE id=${Number(statusId)}`) === desc, 'A cancelled Reset still reset');
   });

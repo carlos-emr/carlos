@@ -80,13 +80,16 @@ public class RecurringAppointmentService {
         if (anchor != null) {
             if (!values.containsKey("style")) template.setStyle(anchor.getStyle());
             if (!values.containsKey("billing")) template.setBilling(anchor.getBilling());
-            // A form without the Location List dropdown keeps the saved item while its text is
-            // unchanged, as AppointmentLocationResolver.setLocationText does for a single booking.
-            if (!values.containsKey(AppointmentLocationResolver.LOCATION_CODE_PARAM)
-                    && equalText(anchor.getLocation(), template.getLocation())) {
-                template.setLocationCode(anchor.getLocationCode());
-            }
         }
+        // Resolved against the saved appointment, as a single booking's edit is: its own item stays
+        // bookable even if deactivated since, and a form without the dropdown keeps it while the text
+        // is unchanged (AppointmentLocationResolver, #3982).
+        if (anchor != null) {
+            template.setLocation(anchor.getLocation());
+            template.setLocationCode(anchor.getLocationCode());
+        }
+        locations.applyPostedLocation(template, values.get(AppointmentLocationResolver.LOCATION_CODE_PARAM),
+                values.getOrDefault(AppointmentLocationResolver.LOCATION_PARAM, ""));
         if (adding && anchor != null && !sameDetails(anchor, template)) {
             throw new IllegalArgumentException("Save changes to the appointment before creating repeats.");
         }
@@ -144,7 +147,7 @@ public class RecurringAppointmentService {
         }
     }
 
-    private Appointment template(Map<String, String> v, int programId, String creator) {
+    private static Appointment template(Map<String, String> v, int programId, String creator) {
         Appointment a = new Appointment();
         try {
             a.setAppointmentDate(Date.valueOf(LocalDate.parse(v.getOrDefault("appointment_date", ""))));
@@ -165,9 +168,7 @@ public class RecurringAppointmentService {
         a.setName(v.getOrDefault("keyword", ""));
         a.setNotes(v.getOrDefault("notes", ""));
         a.setReason(v.getOrDefault("reason", ""));
-        // The Location List item and its label together, or the posted free text (#3982).
-        locations.applyPostedLocation(a, v.get(AppointmentLocationResolver.LOCATION_CODE_PARAM),
-                v.getOrDefault(AppointmentLocationResolver.LOCATION_PARAM, ""));
+        // The location is resolved in apply(), once the saved appointment it may keep is known.
         a.setResources(v.getOrDefault("resources", ""));
         a.setType(v.getOrDefault("type", ""));
         a.setStyle(v.getOrDefault("style", ""));
@@ -204,7 +205,7 @@ public class RecurringAppointmentService {
                 && equalText(a.getName(), b.getName())
                 && equalText(Appointment.normalizeLineEndings(a.getNotes()), Appointment.normalizeLineEndings(b.getNotes()))
                 && equalText(Appointment.normalizeLineEndings(a.getReason()), Appointment.normalizeLineEndings(b.getReason()))
-                && equalText(a.getLocation(), b.getLocation()) && Objects.equals(a.getLocationCode(), b.getLocationCode())
+                && AppointmentLocationResolver.isSameLocation(a, b)
                 && equalText(a.getResources(), b.getResources()) && equalText(a.getType(), b.getType())
                 && equalText(a.getStyle(), b.getStyle()) && equalText(a.getBilling(), b.getBilling())
                 && equalText(a.getStatus(), b.getStatus()) && equalText(a.getRemarks(), b.getRemarks())

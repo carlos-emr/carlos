@@ -104,12 +104,21 @@ public class AppointmentLocationResolver {
      *       is unchanged (as when the list was switched off after the booking was made).</li>
      *   <li>{@link AppointmentLocationList#LEGACY_VALUE}: the code is cleared and the posted text,
      *       the legacy location the edit screen offered, is kept.</li>
-     *   <li>An item of the Location List, active or not: its id becomes the code and its label the
-     *       text. Ids of any other lookup list are not items of this one and save no location.</li>
-     *   <li>Blank ("Not specified") or anything else: the code and the text are cleared.</li>
+     *   <li>The appointment's own code: nothing changes. Its saved label stays even if the item
+     *       has been renamed or deactivated since, so saving an edit unchanged never rewrites a
+     *       past booking.</li>
+     *   <li>Another active item, while the list is in location mode: its id becomes the code and
+     *       its label the text.</li>
+     *   <li>Blank ("Not specified") or not a number: in location mode the code and the text are
+     *       cleared. Outside it no dropdown was offered (the patient-search pages pass a blank code
+     *       through), so the text is saved through {@link #setLocationText}.</li>
+     *   <li>Any other id: a deactivated item, an id of another lookup list, or an item while the
+     *       list is not in location mode. Only a hand-made request, or a form opened before the
+     *       item was disabled, can post one; it is refused and the saved location is left as it
+     *       is, so a disabled location is refused on the server too.</li>
      * </ul>
      *
-     * @param appointment Appointment the appointment about to be saved
+     * @param appointment Appointment the appointment about to be saved, holding its saved location
      * @param postedCode String the posted {@code locationCode}, or null when the form had none
      * @param postedText String the posted {@code location} text, or null
      */
@@ -123,9 +132,29 @@ public class AppointmentLocationResolver {
             appointment.setLocation(postedText);
             return;
         }
-        LookupListItem item = load().find(AppointmentLocationList.parseCode(postedCode));
-        appointment.setLocationCode(item == null ? null : item.getId());
-        appointment.setLocation(item == null ? "" : StringUtils.left(item.getLabel(), LABEL_MAX_LENGTH));
+        Integer chosen = AppointmentLocationList.parseCode(postedCode);
+        if (chosen != null && chosen.equals(appointment.getLocationCode())) {
+            return;
+        }
+        AppointmentLocationList locations = load();
+        if (chosen == null) {
+            if (locations.isLocationMode()) {
+                appointment.setLocationCode(null);
+                appointment.setLocation("");
+            } else {
+                setLocationText(appointment, postedText);
+            }
+            return;
+        }
+        LookupListItem item = locations.isLocationMode() ? locations.find(chosen) : null;
+        if (item == null || !item.isActive()) {
+            if (appointment.getLocation() == null) {
+                appointment.setLocation("");
+            }
+            return;
+        }
+        appointment.setLocationCode(item.getId());
+        appointment.setLocation(StringUtils.left(item.getLabel(), LABEL_MAX_LENGTH));
     }
 
     /**
@@ -158,6 +187,26 @@ public class AppointmentLocationResolver {
             appointment.setLocationCode(null);
         }
         appointment.setLocation(text);
+    }
+
+    /**
+     * Whether a location resolved from a booking form says the same as the saved one: the same
+     * text and code, or the saved typed text linked to the active item with that name, which the
+     * edit screen offers in its place (see {@link AppointmentLocationList#choiceFor}).
+     *
+     * @param saved Appointment the saved appointment
+     * @param resolved Appointment the same appointment with the posted location applied
+     * @return boolean true if saving the form would not move the appointment to another location
+     */
+    public static boolean isSameLocation(Appointment saved, Appointment resolved) {
+        String savedText = StringUtils.defaultString(saved.getLocation());
+        if (savedText.equals(StringUtils.defaultString(resolved.getLocation()))
+                && java.util.Objects.equals(saved.getLocationCode(), resolved.getLocationCode())) {
+            return true;
+        }
+        String savedName = AppointmentLocationList.normaliseName(savedText);
+        return saved.getLocationCode() == null && resolved.getLocationCode() != null && !savedName.isEmpty()
+                && savedName.equals(AppointmentLocationList.normaliseName(resolved.getLocation()));
     }
 
     /**

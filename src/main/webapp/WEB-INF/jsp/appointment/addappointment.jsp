@@ -1343,7 +1343,9 @@ Ontario, Canada
                                     : bMoreAddr ? ApptUtil.getColorFromLocation(props.getProperty("scheduleSiteID", ""), props.getProperty("scheduleSiteColor", ""), loc) : "white";
                         %>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label" for="location" id="apptLocationLabel"><fmt:message key="Appointment.formLocation"/>:</label>
+                            <%-- The label names whichever location control this clinic's setup shows. --%>
+                            <label class="col-sm-4 col-form-label" for="<%= bMultisites ? "location" : locationEnabled ? "locationSite" : locationMode ? "locationCode" : "locationText" %>"
+                                   id="apptLocationLabel"><fmt:message key="Appointment.formLocation"/>:</label>
                             <div class="col-sm-8">
                                 <% if (bMultisites) { %>
                                 <%

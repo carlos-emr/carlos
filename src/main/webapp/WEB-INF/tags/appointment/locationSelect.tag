@@ -57,6 +57,8 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%-- A tag file cannot see the page's fmt:setLocale, so it picks the bundle the same way the page does. --%>
+<fmt:setLocale value="<%= io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <c:set var="legacyValue" value="<%= AppointmentLocationList.LEGACY_VALUE %>"/>
 <select name="locationCode" id="${carlos:forHtmlAttribute(empty selectId ? 'locationCode' : selectId)}"

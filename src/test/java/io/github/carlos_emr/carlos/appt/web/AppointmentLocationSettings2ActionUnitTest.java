@@ -11,6 +11,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -28,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationChangeRefusedException;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationList;
@@ -35,6 +38,7 @@ import io.github.carlos_emr.carlos.appt.location.AppointmentLocationService;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationStyle;
 import io.github.carlos_emr.carlos.commn.model.LookupListItem;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 
 /**
  * Covers the Locations tab action (#3982): privileges on {@code _admin.schedule} or {@code _admin},
@@ -54,7 +58,7 @@ class AppointmentLocationSettings2ActionUnitTest extends CarlosWebTestBase {
     private static final class TestAction extends AppointmentLocationSettings2Action {
         TestAction(io.github.carlos_emr.carlos.managers.SecurityInfoManager securityInfoManager,
                    AppointmentLocationService locationService) {
-            super(securityInfoManager, locationService);
+            super(securityInfoManager, locationService, mock(PlatformTransactionManager.class));
         }
 
         @Override
@@ -151,7 +155,9 @@ class AppointmentLocationSettings2ActionUnitTest extends CarlosWebTestBase {
     @CsvSource({
             "GET, add", "GET, addMany", "GET, rename", "GET, updateColour", "GET, updateIcon",
             "GET, moveUp", "GET, moveDown", "GET, deactivate", "GET, restore",
-            "HEAD, add", "HEAD, deactivate", "HEAD, rename"
+            "HEAD, add", "HEAD, deactivate", "HEAD, rename",
+            // The page opens without a dispatch, so one that names no change is refused too.
+            "GET, view", "GET, Ajouter"
     })
     void shouldAnswer405WithoutChanging_whenChangeIsNotPosted(String method, String dispatch) throws Exception {
         mockRequest.setMethod(method);
@@ -194,21 +200,22 @@ class AppointmentLocationSettings2ActionUnitTest extends CarlosWebTestBase {
     @ParameterizedTest
     @ValueSource(strings = {"rename", "updateColour", "updateIcon", "moveUp", "moveDown", "deactivate", "restore"})
     void shouldRouteChange_toService(String dispatch) throws Exception {
-        when(locationService.move(any(), anyInt(), anyBoolean())).thenReturn(true);
+        when(locationService.move(any(), anyInt(), anyBoolean(), any())).thenReturn(true);
         mockRequest.setMethod("POST");
         addRequestParameter("dispatch", dispatch);
         action.setId(11);
         action.setName("Telehealth");
         action.setColour("#123456");
         action.setIcon("fa-video");
+        action.setPosition(2);
 
         assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
         switch (dispatch) {
             case "rename" -> verify(locationService).rename(mockLoggedInInfo, 11, "Telehealth");
             case "updateColour" -> verify(locationService).updateColour(mockLoggedInInfo, 11, "#123456");
             case "updateIcon" -> verify(locationService).updateIcon(mockLoggedInInfo, 11, "fa-video");
-            case "moveUp" -> verify(locationService).move(mockLoggedInInfo, 11, true);
-            case "moveDown" -> verify(locationService).move(mockLoggedInInfo, 11, false);
+            case "moveUp" -> verify(locationService).move(mockLoggedInInfo, 11, true, 2);
+            case "moveDown" -> verify(locationService).move(mockLoggedInInfo, 11, false, 2);
             case "deactivate" -> verify(locationService).deactivate(mockLoggedInInfo, 11);
             default -> verify(locationService).restore(mockLoggedInInfo, 11);
         }
@@ -228,6 +235,50 @@ class AppointmentLocationSettings2ActionUnitTest extends CarlosWebTestBase {
         assertThat(action.getActionErrors()).containsExactly("admin.appt.location.msg.nameInUse[virtual]");
         assertThat(action.getActionMessages()).isEmpty();
         assertThat(mockRequest.getAttribute("locations")).isEqualTo(List.of(virtual));
+        // The page offers the refused name again.
+        assertThat(mockRequest.getAttribute("refusedDispatch")).isEqualTo("add");
+    }
+
+    @Test
+    void shouldIssueAddToken_forUserWhoCanChange() throws Exception {
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat((String) mockRequest.getAttribute("locationAddToken")).isNotBlank();
+        assertThat(mockRequest.getAttribute("defaultLocationIcon")).isEqualTo(AppointmentLocationStyle.DEFAULT_ICON);
+    }
+
+    @Test
+    void shouldAddOnce_whenSameRenderingIsPostedTwice() throws Exception {
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        String token = (String) mockRequest.getAttribute("locationAddToken");
+        when(locationService.addLocations(mockLoggedInInfo, "A\nB"))
+                .thenReturn(new AppointmentLocationService.AddResult(2, 0));
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "addMany");
+        addRequestParameter(FormSubmissionGuard.PARAMETER, token);
+        action.setNames("A\nB");
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+        TestAction repeat = new TestAction(mockSecurityInfoManager, locationService);
+        repeat.setNames("A\nB");
+        assertThat(executeAction(repeat)).isEqualTo(ActionSupport.SUCCESS);
+
+        verify(locationService, times(1)).addLocations(mockLoggedInInfo, "A\nB");
+        // The repeat ends as the first did, rather than reporting the names as already taken.
+        assertThat(repeat.getActionMessages()).containsExactly("admin.appt.location.msg.addedMany[2, 0]");
+        assertThat(repeat.getActionErrors()).isEmpty();
+    }
+
+    @Test
+    void shouldRefuseAdd_whenTokenWasNotIssuedBySession() throws Exception {
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "add");
+        addRequestParameter(FormSubmissionGuard.PARAMETER, "not-a-token-this-session-issued");
+        action.setName("Room 5");
+
+        assertThat(executeAction(action)).isEqualTo(FormSubmissionGuard.REFUSED_RESULT);
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_CONFLICT);
+        verify(locationService, never()).addLocation(any(), any());
     }
 
     @Test

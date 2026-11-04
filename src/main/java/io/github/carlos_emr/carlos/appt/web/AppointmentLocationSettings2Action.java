@@ -29,6 +29,9 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionOperations;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationChangeRefusedException;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationList;
@@ -36,6 +39,7 @@ import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationService;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationStyle;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 /**
@@ -64,19 +68,26 @@ public class AppointmentLocationSettings2Action extends ActionSupport {
     private static final Set<String> MUTATIONS = Set.of(
             "add", "addMany", "rename", "updateColour", "updateIcon", "moveUp", "moveDown", "deactivate", "restore");
 
+    private static final String ADDED_ONE = "add";
+    private static final String ADDED_MANY = "addMany:";
+
     private final SecurityInfoManager securityInfoManager;
     private final AppointmentLocationService locationService;
+    private final TransactionOperations transactions;
 
     private Integer id;
+    private Integer position;
     private String name;
     private String names;
     private String colour;
     private String icon;
 
     public AppointmentLocationSettings2Action(SecurityInfoManager securityInfoManager,
-                                              AppointmentLocationService locationService) {
+                                              AppointmentLocationService locationService,
+                                              PlatformTransactionManager transactionManager) {
         this.securityInfoManager = securityInfoManager;
         this.locationService = locationService;
+        this.transactions = new TransactionTemplate(transactionManager);
     }
 
     /**
@@ -92,50 +103,60 @@ public class AppointmentLocationSettings2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         String dispatch = request.getParameter("dispatch");
-        boolean mutation = dispatch != null && MUTATIONS.contains(dispatch);
-        String privilege = !mutation ? SecurityInfoManager.READ
+        // The page is opened without a dispatch, so any dispatch asks for a change: it needs write
+        // and a POST even when it names none (HttpMethodGuardFilter lists the route by it).
+        boolean writeIntent = dispatch != null;
+        boolean mutation = writeIntent && MUTATIONS.contains(dispatch);
+        String privilege = !writeIntent ? SecurityInfoManager.READ
                 : "deactivate".equals(dispatch) ? SecurityInfoManager.DELETE
                 : SecurityInfoManager.WRITE;
         if (!AppointmentLocationService.hasLocationPrivilege(securityInfoManager, loggedInInfo, privilege)) {
             throw new SecurityException("missing required sec object (_admin.schedule)");
         }
 
-        if (mutation && !"POST".equals(request.getMethod())) {
+        if (writeIntent && !"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
 
         if (mutation) {
-            apply(loggedInInfo, dispatch);
+            String refused = apply(loggedInInfo, request, response, dispatch);
+            if (refused != null) {
+                return refused;
+            }
         }
 
         AppointmentLocationList locations = locationService.load(loggedInInfo);
         request.setAttribute("locations", locations.getItemsActiveFirst());
         request.setAttribute("activeLocationCount", locations.getActiveItems().size());
         request.setAttribute("siteSetup", locations.isSiteSetup());
-        request.setAttribute("canChange",
-                AppointmentLocationService.hasLocationPrivilege(securityInfoManager, loggedInInfo, SecurityInfoManager.WRITE));
+        boolean canChange = AppointmentLocationService.hasLocationPrivilege(securityInfoManager, loggedInInfo,
+                SecurityInfoManager.WRITE);
+        request.setAttribute("canChange", canChange);
+        if (canChange) {
+            // One token per rendering, shared by the add and paste forms: only one of them is sent.
+            request.setAttribute("locationAddToken", FormSubmissionGuard.issue(request.getSession(),
+                    FormSubmissionGuard.Scope.APPOINTMENT_LOCATION_ADD, null));
+        }
         request.setAttribute("canDeactivate",
                 AppointmentLocationService.hasLocationPrivilege(securityInfoManager, loggedInInfo, SecurityInfoManager.DELETE));
         request.setAttribute("locationIcons", AppointmentLocationStyle.ICONS);
         request.setAttribute("defaultLocationColour", AppointmentLocationStyle.DEFAULT_COLOUR);
+        request.setAttribute("defaultLocationIcon", AppointmentLocationStyle.DEFAULT_ICON);
         request.setAttribute("nameMaxLength", AppointmentLocationResolver.LABEL_MAX_LENGTH);
         request.setAttribute("pasteMaxLines", AppointmentLocationService.PASTE_MAX_LINES);
+        request.setAttribute("pasteMaxLength", AppointmentLocationService.PASTE_MAX_LENGTH);
         return SUCCESS;
     }
 
-    private void apply(LoggedInInfo loggedInInfo, String dispatch) {
+    /* Applies one change; returns the result to end on instead of the page, or null to render it. */
+    private String apply(LoggedInInfo loggedInInfo, HttpServletRequest request, HttpServletResponse response,
+                         String dispatch) {
         try {
             switch (dispatch) {
-                case "add" -> {
-                    locationService.addLocation(loggedInInfo, name);
-                    addActionMessage(getText("admin.appt.location.msg.added"));
-                }
-                case "addMany" -> {
-                    AppointmentLocationService.AddResult result = locationService.addLocations(loggedInInfo, names);
-                    addActionMessage(getText("admin.appt.location.msg.addedMany",
-                            new String[]{String.valueOf(result.added()), String.valueOf(result.skipped())}));
+                case "add", "addMany" -> {
+                    return add(loggedInInfo, request, response, "addMany".equals(dispatch));
                 }
                 case "rename" -> {
                     locationService.rename(loggedInInfo, requireId(), name);
@@ -150,7 +171,7 @@ public class AppointmentLocationSettings2Action extends ActionSupport {
                     addActionMessage(getText("admin.appt.location.msg.saved"));
                 }
                 case "moveUp", "moveDown" -> {
-                    if (locationService.move(loggedInInfo, requireId(), "moveUp".equals(dispatch))) {
+                    if (locationService.move(loggedInInfo, requireId(), "moveUp".equals(dispatch), position)) {
                         addActionMessage(getText("admin.appt.location.msg.saved"));
                     }
                 }
@@ -166,7 +187,70 @@ public class AppointmentLocationSettings2Action extends ActionSupport {
         } catch (AppointmentLocationChangeRefusedException e) {
             addActionError(e.getMessageParam() == null ? getText(e.getMessageKey())
                     : getText(e.getMessageKey(), new String[]{e.getMessageParam()}));
+            // The page offers the refused entry again, so a long paste is not lost.
+            request.setAttribute("refusedDispatch", dispatch);
+            request.setAttribute("refusedId", id);
         }
+        return null;
+    }
+
+    /*
+     * Adds one location or a pasted list once per rendering of the page (FormSubmissionGuard,
+     * #4225): a double click, a re-click while the first is saving or a reload of the result shows
+     * what the first submission added instead of adding again or reporting the name as taken.
+     */
+    private String add(LoggedInInfo loggedInInfo, HttpServletRequest request, HttpServletResponse response,
+                       boolean many) {
+        FormSubmissionGuard.Attempt attempt = FormSubmissionGuard.attempt(request.getSession(),
+                request.getParameter(FormSubmissionGuard.PARAMETER), FormSubmissionGuard.Scope.APPOINTMENT_LOCATION_ADD,
+                null, FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
+        switch (attempt.verdict()) {
+            case ABSENT, PROCEED -> { }
+            case ALREADY_SAVED -> {
+                if (!addSavedMessage(attempt.result())) {
+                    return FormSubmissionGuard.refuse(request, response, FormSubmissionGuard.Verdict.UNCONFIRMED);
+                }
+                return null;
+            }
+            default -> {
+                return FormSubmissionGuard.refuse(request, response, attempt.verdict());
+            }
+        }
+        try (FormSubmissionGuard.Claim claim = attempt.claim()) {
+            // The add commits in a transaction the claim observes: a refused add rolls back and
+            // frees the token for a corrected retry.
+            String saved = transactions.execute(status -> {
+                if (claim != null) {
+                    claim.storageStarted();
+                }
+                if (!many) {
+                    locationService.addLocation(loggedInInfo, name);
+                    return ADDED_ONE;
+                }
+                AppointmentLocationService.AddResult result = locationService.addLocations(loggedInInfo, names);
+                return ADDED_MANY + result.added() + ":" + result.skipped();
+            });
+            if (claim != null) {
+                claim.saved(saved);
+            }
+            addSavedMessage(saved);
+        }
+        return null;
+    }
+
+    /* Reports what an add saved, from what it recorded; false if the record cannot be read. */
+    private boolean addSavedMessage(String saved) {
+        if (ADDED_ONE.equals(saved)) {
+            addActionMessage(getText("admin.appt.location.msg.added"));
+            return true;
+        }
+        String[] counts = saved == null || !saved.startsWith(ADDED_MANY) ? new String[0]
+                : saved.substring(ADDED_MANY.length()).split(":");
+        if (counts.length != 2) {
+            return false;
+        }
+        addActionMessage(getText("admin.appt.location.msg.addedMany", counts));
+        return true;
     }
 
     private int requireId() {
@@ -183,6 +267,15 @@ public class AppointmentLocationSettings2Action extends ActionSupport {
     @StrutsParameter
     public void setId(Integer id) {
         this.id = id;
+    }
+
+    public Integer getPosition() {
+        return position;
+    }
+
+    @StrutsParameter
+    public void setPosition(Integer position) {
+        this.position = position;
     }
 
     public String getName() {

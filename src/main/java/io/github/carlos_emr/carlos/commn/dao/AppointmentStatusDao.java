@@ -43,7 +43,6 @@ public interface AppointmentStatusDao extends AbstractDao<AppointmentStatus> {
 
     public AppointmentStatus findByStatus(String status);
 
-    public void modifyStatus(int ID, String strDesc, String strColor);
 
     public void changeStatus(int ID, int iActive);
 

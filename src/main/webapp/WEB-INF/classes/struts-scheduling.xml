@@ -141,6 +141,7 @@
         </action>
         <action name="appointment/apptLocationSetting" class="io.github.carlos_emr.carlos.appt.web.AppointmentLocationSettings2Action" method="execute">
             <result name="success">/WEB-INF/jsp/appointment/appointmentLocationSetting.jsp</result>
+            <result name="submissionRefused">/WEB-INF/jsp/common/formSubmissionRefused.jsp</result>
         </action>
         <action name="appointment/appointmentTypeAction" class="io.github.carlos_emr.carlos.appt.web.AppointmentType2Action">
             <result name="edit">/appointment/appointmentTypeAction?oper=edit</result>

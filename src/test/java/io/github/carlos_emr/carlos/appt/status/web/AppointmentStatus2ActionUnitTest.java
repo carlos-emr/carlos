@@ -83,6 +83,7 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     @Test
     void shouldRequireScheduleAdminReadPrivilege_forViews() {
         denyPrivilege("_admin.schedule", "r");
+        denyPrivilege("_admin", "r");
         allowPrivilege("_appointment", "w");
         addRequestParameter("dispatch", "view");
 
@@ -91,10 +92,19 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
                 .hasMessage("missing required sec object (_admin.schedule)");
     }
 
+    @Test
+    void shouldAllowView_withAdminReadInsteadOfScheduleRead() throws Exception {
+        denyPrivilege("_admin.schedule", "r");
+        addRequestParameter("dispatch", "view");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"reset", "changestatus", "updateDescription", "updateColour", "updateIcon"})
     void shouldRequireScheduleAdminWritePrivilege_forMutations(String dispatch) {
         denyPrivilege("_admin.schedule", "w");
+        denyPrivilege("_admin", "w");
         allowPrivilege("_appointment", "w");
         mockRequest.setMethod("POST");
         addRequestParameter("dispatch", dispatch);

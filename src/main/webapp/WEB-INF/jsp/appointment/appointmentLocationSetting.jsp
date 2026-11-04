@@ -111,22 +111,26 @@
         <div class="col-md-6">
             <form action="${carlos:forHtmlAttribute(locationAction)}" method="post" class="d-flex gap-2" id="addLocationForm">
                 <input type="hidden" name="dispatch" value="add"/>
+                <input type="hidden" name="carlosFormSubmission" value="${carlos:forHtmlAttribute(locationAddToken)}"/>
                 <label class="visually-hidden" for="newLocationName"><fmt:message key="admin.appt.location.label.newName"/></label>
                 <fmt:message key="admin.appt.location.label.newName" var="newNamePlaceholder"/>
                 <input class="form-control form-control-sm" type="text" id="newLocationName" name="name" maxlength="${nameMaxLength}"
+                       value="${refusedDispatch eq 'add' ? carlos:forHtmlAttribute(param.name) : ''}"
                        placeholder="${carlos:forHtmlAttribute(newNamePlaceholder)}" required>
                 <button class="btn btn-sm btn-primary text-nowrap" type="submit"><fmt:message key="admin.appt.location.btn.add"/></button>
             </form>
         </div>
         <div class="col-md-6">
-            <details>
+            <details${refusedDispatch eq 'addMany' ? ' open' : ''}>
                 <summary class="small"><fmt:message key="admin.appt.location.label.paste"/></summary>
                 <form action="${carlos:forHtmlAttribute(locationAction)}" method="post" class="mt-2" id="pasteLocationsForm">
                     <input type="hidden" name="dispatch" value="addMany"/>
+                    <input type="hidden" name="carlosFormSubmission" value="${carlos:forHtmlAttribute(locationAddToken)}"/>
                     <label class="form-label small" for="pastedLocationNames">
                         <fmt:message key="admin.appt.location.msg.pasteHelp"><fmt:param value="${pasteMaxLines}"/></fmt:message>
                     </label>
-                    <textarea class="form-control form-control-sm mb-2" id="pastedLocationNames" name="names" rows="4" required></textarea>
+                    <textarea class="form-control form-control-sm mb-2" id="pastedLocationNames" name="names" rows="4"
+                              maxlength="${pasteMaxLength}" required><c:if test="${refusedDispatch eq 'addMany'}"><carlos:encode value="${param.names}"/></c:if></textarea>
                     <button class="btn btn-sm btn-outline-primary" type="submit"><fmt:message key="admin.appt.location.btn.addMany"/></button>
                 </form>
             </details>
@@ -157,15 +161,18 @@
                 <c:forEach items="${locations}" var="item" varStatus="loop">
                     <tr id="location-${item.id}" data-location-id="${item.id}" class="${item.active ? '' : 'text-body-secondary'}">
                         <td>
+                            <span class="visually-hidden" id="row-${item.id}"><carlos:encode value="${item.label}"/></span>
                             <c:choose>
                                 <c:when test="${canChange}">
                                     <form class="d-flex gap-1" action="${carlos:forHtmlAttribute(locationAction)}" method="post">
                                         <input type="hidden" name="dispatch" value="rename"/>
                                         <input type="hidden" name="id" value="${item.id}"/>
                                         <label class="visually-hidden" for="name-${item.id}"><fmt:message key="admin.appt.location.label.name"/></label>
+                                        <c:set var="shownName" value="${refusedDispatch eq 'rename' and refusedId eq item.id ? param.name : item.label}"/>
                                         <input class="form-control form-control-sm location-name" type="text" id="name-${item.id}" name="name"
-                                               value="<carlos:encode value='${item.label}' context='htmlAttribute'/>" maxlength="${nameMaxLength}" required>
-                                        <button class="btn btn-sm btn-outline-primary" type="submit"><fmt:message key="global.btnSave"/></button>
+                                               aria-describedby="row-${item.id}"
+                                               value="<carlos:encode value='${shownName}' context='htmlAttribute'/>" maxlength="${nameMaxLength}" required>
+                                        <button class="btn btn-sm btn-outline-primary" type="submit" aria-describedby="row-${item.id}"><fmt:message key="global.btnSave"/></button>
                                     </form>
                                 </c:when>
                                 <c:otherwise><carlos:encode value="${item.label}"/></c:otherwise>
@@ -180,15 +187,16 @@
                                         <input type="hidden" name="id" value="${item.id}"/>
                                         <label class="visually-hidden" for="colour-${item.id}"><fmt:message key="admin.appt.location.label.colour"/></label>
                                         <input class="form-control form-control-sm form-control-color location-colour" type="color" id="colour-${item.id}" name="colour"
+                                               aria-describedby="row-${item.id}"
                                                value="${carlos:forHtmlAttribute(hasColour ? item.colour : defaultLocationColour)}">
-                                        <button class="btn btn-sm btn-outline-primary" type="submit"><fmt:message key="global.btnSave"/></button>
+                                        <button class="btn btn-sm btn-outline-primary" type="submit" aria-describedby="row-${item.id}"><fmt:message key="global.btnSave"/></button>
                                     </form>
                                     <c:if test="${not empty item.colour}">
                                         <form class="d-inline" action="${carlos:forHtmlAttribute(locationAction)}" method="post">
                                             <input type="hidden" name="dispatch" value="updateColour"/>
                                             <input type="hidden" name="id" value="${item.id}"/>
                                             <input type="hidden" name="colour" value=""/>
-                                            <button class="btn btn-sm btn-link" type="submit"><fmt:message key="admin.appt.location.btn.useDefault"/></button>
+                                            <button class="btn btn-sm btn-link" type="submit" aria-describedby="row-${item.id}"><fmt:message key="admin.appt.location.btn.useDefault"/></button>
                                         </form>
                                     </c:if>
                                 </c:when>
@@ -203,13 +211,17 @@
                                         <input type="hidden" name="dispatch" value="updateIcon"/>
                                         <input type="hidden" name="id" value="${item.id}"/>
                                         <label class="visually-hidden" for="icon-${item.id}"><fmt:message key="admin.appt.location.label.icon"/></label>
-                                        <select class="form-select form-select-sm location-icon" id="icon-${item.id}" name="icon">
+                                        <%-- Only whitelisted icons reach the class attribute, as in the chip. --%>
+                                        <c:set var="shownIcon" value="${locationIcons.contains(item.icon) ? item.icon : defaultLocationIcon}"/>
+                                        <i class="fa-solid ${carlos:forHtmlAttribute(shownIcon)} location-icon-preview" aria-hidden="true"
+                                           data-current="${carlos:forHtmlAttribute(shownIcon)}" data-default-icon="${carlos:forHtmlAttribute(defaultLocationIcon)}"></i>
+                                        <select class="form-select form-select-sm location-icon" id="icon-${item.id}" name="icon" aria-describedby="row-${item.id}">
                                             <option value=""${empty item.icon ? ' selected' : ''}><carlos:encode value="${defaultStyleLabel}"/></option>
                                             <c:forEach items="${locationIcons}" var="iconClass">
                                                 <option value="${carlos:forHtmlAttribute(iconClass)}"${iconClass == item.icon ? ' selected' : ''}><carlos:encode value="${fn:replace(fn:substringAfter(iconClass, 'fa-'), '-', ' ')}"/></option>
                                             </c:forEach>
                                         </select>
-                                        <button class="btn btn-sm btn-outline-primary" type="submit"><fmt:message key="global.btnSave"/></button>
+                                        <button class="btn btn-sm btn-outline-primary" type="submit" aria-describedby="row-${item.id}"><fmt:message key="global.btnSave"/></button>
                                     </form>
                                 </c:when>
                                 <c:when test="${not empty item.icon}"><carlos:encode value="${item.icon}"/></c:when>
@@ -227,16 +239,18 @@
                                             <form class="d-inline" action="${carlos:forHtmlAttribute(locationAction)}" method="post">
                                                 <input type="hidden" name="dispatch" value="moveUp"/>
                                                 <input type="hidden" name="id" value="${item.id}"/>
+                                                <input type="hidden" name="position" value="${loop.count}"/>
                                                 <fmt:message key="admin.appt.location.btn.moveUp" var="moveUpLabel"/>
                                                 <button class="btn btn-sm btn-outline-secondary" type="submit" title="${carlos:forHtmlAttribute(moveUpLabel)}"
-                                                        aria-label="${carlos:forHtmlAttribute(moveUpLabel)}"${loop.first ? ' disabled' : ''}><i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
+                                                        aria-label="${carlos:forHtmlAttribute(moveUpLabel)}" aria-describedby="row-${item.id}"${loop.first ? ' disabled' : ''}><i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
                                             </form>
                                             <form class="d-inline" action="${carlos:forHtmlAttribute(locationAction)}" method="post">
                                                 <input type="hidden" name="dispatch" value="moveDown"/>
                                                 <input type="hidden" name="id" value="${item.id}"/>
+                                                <input type="hidden" name="position" value="${loop.count}"/>
                                                 <fmt:message key="admin.appt.location.btn.moveDown" var="moveDownLabel"/>
                                                 <button class="btn btn-sm btn-outline-secondary" type="submit" title="${carlos:forHtmlAttribute(moveDownLabel)}"
-                                                        aria-label="${carlos:forHtmlAttribute(moveDownLabel)}"${loop.index == activeLocationCount - 1 ? ' disabled' : ''}><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+                                                        aria-label="${carlos:forHtmlAttribute(moveDownLabel)}" aria-describedby="row-${item.id}"${loop.index == activeLocationCount - 1 ? ' disabled' : ''}><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
                                             </form>
                                         </c:if>
                                         <c:if test="${canDeactivate}">
@@ -244,7 +258,7 @@
                                                   data-confirm="${carlos:forHtmlAttribute(activeLocationCount == 1 ? confirmLastDisable : confirmDisable)}">
                                                 <input type="hidden" name="dispatch" value="deactivate"/>
                                                 <input type="hidden" name="id" value="${item.id}"/>
-                                                <button class="btn btn-sm btn-outline-danger" type="submit"><fmt:message key="admin.appt.location.btn.disable"/></button>
+                                                <button class="btn btn-sm btn-outline-danger" type="submit" aria-describedby="row-${item.id}"><fmt:message key="admin.appt.location.btn.disable"/></button>
                                             </form>
                                         </c:if>
                                     </c:when>
@@ -252,7 +266,7 @@
                                         <form class="d-inline" action="${carlos:forHtmlAttribute(locationAction)}" method="post">
                                             <input type="hidden" name="dispatch" value="restore"/>
                                             <input type="hidden" name="id" value="${item.id}"/>
-                                            <button class="btn btn-sm btn-outline-success" type="submit"><fmt:message key="admin.appt.location.btn.enable"/></button>
+                                            <button class="btn btn-sm btn-outline-success" type="submit" aria-describedby="row-${item.id}"><fmt:message key="admin.appt.location.btn.enable"/></button>
                                         </form>
                                     </c:otherwise>
                                 </c:choose>
@@ -270,6 +284,20 @@
 <script>
     (function () {
         // Disabling takes the location out of every booking screen, so it asks first; cancelling sends nothing.
+        // The icon picker shows the chosen icon before it is saved.
+        document.querySelectorAll('select.location-icon').forEach(function (select) {
+            var preview = select.parentElement.querySelector('.location-icon-preview');
+            if (!preview) {
+                return;
+            }
+            select.addEventListener('change', function () {
+                var current = preview.dataset.current || preview.dataset.defaultIcon;
+                preview.classList.remove(current);
+                var chosen = select.value || preview.dataset.defaultIcon;
+                preview.classList.add(chosen);
+                preview.dataset.current = chosen;
+            });
+        });
         document.querySelectorAll('form[data-confirm]').forEach(function (form) {
             form.addEventListener('submit', function (event) {
                 if (!window.confirm(form.dataset.confirm)) {

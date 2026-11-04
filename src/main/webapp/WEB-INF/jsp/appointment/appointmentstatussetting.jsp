@@ -59,7 +59,7 @@
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
 %>
 <security:oscarSec roleName="<%=roleName$%>"
-                   objectName="_admin,_admin.userAdmin,_admin.schedule" rights="r" reverse="<%=true%>">
+                   objectName="_admin,_admin.schedule" rights="r" reverse="<%=true%>">
     <%response.sendRedirect(request.getContextPath() + "/logoutPage");%>
 </security:oscarSec>
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
@@ -127,7 +127,9 @@
             <%-- A legacy colour (a name saved by an older release) cannot be shown by the picker. --%>
             <c:set var="legacyColour" value="${empty statusColour or not statusColour.matches('#[0-9A-Fa-f]{6}')}"/>
             <tr id="status-${apptStatus.id}" data-status-code="${carlos:forHtmlAttribute(apptStatus.status)}">
-                <th scope="row" class="text-nowrap"><code><carlos:encode value="${apptStatus.status}"/></code></th>
+                <%-- The row header (code and description) gives each row's repeated controls their context. --%>
+                <th scope="row" class="text-nowrap" id="status-row-${apptStatus.id}"><code><carlos:encode value="${apptStatus.status}"/></code><span
+                        class="visually-hidden"> <carlos:encode value="${apptStatus.description}"/></span></th>
                 <td>
                     <form class="d-flex gap-1" action="${carlos:forHtmlAttribute(statusAction)}" method="post">
                         <input type="hidden" name="dispatch" value="updateDescription"/>
@@ -135,8 +137,8 @@
                         <label class="visually-hidden" for="desc-${apptStatus.id}"><fmt:message key="admin.appt.status.mgr.label.desc"/></label>
                         <input class="form-control form-control-sm status-desc" type="text" id="desc-${apptStatus.id}" name="apptDesc"
                                value="<carlos:encode value='${apptStatus.description}' context='htmlAttribute'/>"
-                               maxlength="${descriptionMaxLength}" required>
-                        <button class="btn btn-sm btn-outline-primary" type="submit"><fmt:message key="global.btnSave"/></button>
+                               maxlength="${descriptionMaxLength}" aria-describedby="status-row-${apptStatus.id}" required>
+                        <button class="btn btn-sm btn-outline-primary" type="submit" aria-describedby="status-row-${apptStatus.id}"><fmt:message key="global.btnSave"/></button>
                     </form>
                 </td>
                 <td>
@@ -147,8 +149,9 @@
                         <span class="status-swatch"<c:if test="${not legacyColour}"> style="background-color: ${carlos:forCssString(statusColour)}"</c:if>></span>
                         <label class="visually-hidden" for="colour-${apptStatus.id}"><fmt:message key="admin.appt.status.mgr.label.color"/></label>
                         <input class="form-control form-control-sm form-control-color status-colour" type="color" id="colour-${apptStatus.id}"
-                               name="apptColor" value="${legacyColour ? '#ffffff' : carlos:forHtmlAttribute(statusColour)}">
-                        <button class="btn btn-sm btn-outline-primary" type="submit"><fmt:message key="global.btnSave"/></button>
+                               name="apptColor" value="${legacyColour ? '#ffffff' : carlos:forHtmlAttribute(statusColour)}"
+                               aria-describedby="status-row-${apptStatus.id}">
+                        <button class="btn btn-sm btn-outline-primary" type="submit" aria-describedby="status-row-${apptStatus.id}"><fmt:message key="global.btnSave"/></button>
                     </form>
                     <c:if test="${legacyColour}">
                         <div class="form-text text-warning-emphasis">
@@ -162,9 +165,11 @@
                     <form class="d-flex align-items-center gap-1" action="${carlos:forHtmlAttribute(statusAction)}" method="post">
                         <input type="hidden" name="dispatch" value="updateIcon"/>
                         <input type="hidden" name="id" value="${apptStatus.id}"/>
-                        <img class="status-icon-preview" alt="" src="${carlos:forHtmlAttribute(ctx)}/images/${carlos:forUriComponent(apptStatus.icon)}">
+                        <%-- No icon saved: no image request until one is chosen. --%>
+                        <img class="status-icon-preview" alt=""<c:choose><c:when test="${empty apptStatus.icon}"> hidden</c:when><c:otherwise> src="${carlos:forHtmlAttribute(ctx)}/images/${carlos:forUriComponent(apptStatus.icon)}"</c:otherwise></c:choose>>
                         <label class="visually-hidden" for="icon-${apptStatus.id}"><fmt:message key="admin.appt.status.mgr.label.icon"/></label>
-                        <select class="form-select form-select-sm status-icon" id="icon-${apptStatus.id}" name="apptIcon">
+                        <select class="form-select form-select-sm status-icon" id="icon-${apptStatus.id}" name="apptIcon"
+                                aria-describedby="status-row-${apptStatus.id}">
                             <c:set var="iconListed" value="false"/>
                             <c:forEach items="${iconSet}" var="icon">
                                 <c:if test="${icon == apptStatus.icon}"><c:set var="iconListed" value="true"/></c:if>
@@ -179,7 +184,7 @@
                                 </option>
                             </c:if>
                         </select>
-                        <button class="btn btn-sm btn-outline-primary" type="submit"><fmt:message key="global.btnSave"/></button>
+                        <button class="btn btn-sm btn-outline-primary" type="submit" aria-describedby="status-row-${apptStatus.id}"><fmt:message key="global.btnSave"/></button>
                     </form>
                 </td>
                 <td class="text-nowrap"><fmt:message key="${apptStatus.active > 0 ? 'global.yes' : 'global.no'}"/></td>
@@ -190,7 +195,8 @@
                                 <input type="hidden" name="dispatch" value="changestatus"/>
                                 <input type="hidden" name="id" value="${apptStatus.id}"/>
                                 <input type="hidden" name="active" value="${apptStatus.active > 0 ? 0 : 1}"/>
-                                <button class="btn btn-sm ${apptStatus.active > 0 ? 'btn-outline-danger' : 'btn-outline-success'}" type="submit">
+                                <button class="btn btn-sm ${apptStatus.active > 0 ? 'btn-outline-danger' : 'btn-outline-success'}" type="submit"
+                                        aria-describedby="status-row-${apptStatus.id}">
                                     <fmt:message key="${apptStatus.active > 0 ? 'admin.appt.status.mgr.label.disable' : 'admin.appt.status.mgr.label.enableAction'}"/>
                                 </button>
                             </form>
@@ -225,6 +231,7 @@
                 const preview = select.form.querySelector('.status-icon-preview');
                 if (preview && select.value) {
                     preview.src = base + encodeURIComponent(select.value);
+                    preview.hidden = false;
                 }
             });
         });

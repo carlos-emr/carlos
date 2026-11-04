@@ -153,7 +153,7 @@ class AppointmentLocationIntegrationTest extends CarlosTestBase {
         AppointmentLocationService.AddResult pasted = service.addLocations(loggedInInfo, "Room 2\nvirtual\nAnnex");
         service.updateColour(loggedInInfo, virtual.getId(), "#2FCCCF");
         service.updateIcon(loggedInInfo, virtual.getId(), "fa-video");
-        service.move(loggedInInfo, virtual.getId(), false);
+        service.move(loggedInInfo, virtual.getId(), false, null);
         LookupListItem annex = lookupListItemDao.findByLookupListIdAndValue(list.getId(), "Annex");
         service.deactivate(loggedInInfo, annex.getId());
         entityManager.flush();

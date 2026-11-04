@@ -200,7 +200,7 @@ class AppointmentLocationServiceUnitTest {
 
         @ParameterizedTest
         @ValueSource(strings = {"", "   "})
-        void shouldRefuseBlankName(String name) {
+        void shouldRefuseName_whenBlank(String name) {
             assertThatThrownBy(() -> service.addLocation(loggedInInfo, name))
                     .isInstanceOf(AppointmentLocationChangeRefusedException.class)
                     .extracting("messageKey").isEqualTo("admin.appt.location.msg.nameRequired");
@@ -249,8 +249,37 @@ class AppointmentLocationServiceUnitTest {
                     .extracting("messageKey").isEqualTo("admin.appt.location.msg.pasteTooLong");
         }
 
+        @ParameterizedTest
+        @ValueSource(strings = {"Room\t5", "Room\u202e5", "Room\u200b5", "Room\u00005"})
+        void shouldRefuseName_withControlOrFormatCharacters(String name) {
+            assertThatThrownBy(() -> service.addLocation(loggedInInfo, name))
+                    .isInstanceOf(AppointmentLocationChangeRefusedException.class)
+                    .extracting("messageKey").isEqualTo("admin.appt.location.msg.nameInvalid");
+            verify(lookupListItemDao, never()).persist(any());
+        }
+
         @Test
-        void shouldRefuseEmptyPaste() {
+        void shouldRefusePaste_longerThanItCouldEverNeedBeforeSplitting() {
+            String pasted = "a\n".repeat(AppointmentLocationService.PASTE_MAX_LENGTH);
+
+            assertThatThrownBy(() -> service.addLocations(loggedInInfo, pasted))
+                    .isInstanceOf(AppointmentLocationChangeRefusedException.class)
+                    .extracting("messageKey").isEqualTo("admin.appt.location.msg.pasteTooLong");
+            verify(lookupListItemDao, never()).persist(any());
+        }
+
+        @Test
+        void shouldAcceptPaste_ofEveryLineAtTheNameLimit() {
+            String pasted = String.join("\r\n", java.util.stream.IntStream
+                    .rangeClosed(1, AppointmentLocationService.PASTE_MAX_LINES)
+                    .mapToObj(i -> String.format("%03d", i) + "x".repeat(AppointmentLocationResolver.LABEL_MAX_LENGTH - 3)).toList());
+
+            assertThat(pasted.length()).isLessThanOrEqualTo(AppointmentLocationService.PASTE_MAX_LENGTH);
+            assertThat(service.addLocations(loggedInInfo, pasted).added()).isEqualTo(AppointmentLocationService.PASTE_MAX_LINES);
+        }
+
+        @Test
+        void shouldRefusePaste_whenEmpty() {
             assertThatThrownBy(() -> service.addLocations(loggedInInfo, "\n \n"))
                     .isInstanceOf(AppointmentLocationChangeRefusedException.class)
                     .extracting("messageKey").isEqualTo("admin.appt.location.msg.nameRequired");
@@ -341,7 +370,7 @@ class AppointmentLocationServiceUnitTest {
 
         @Test
         void shouldMoveDown_renumberingRepeatedOrders() {
-            assertThat(service.move(loggedInInfo, 11, false)).isTrue();
+            assertThat(service.move(loggedInInfo, 11, false, 1)).isTrue();
 
             assertThat(items.get(1).getDisplayOrder()).isEqualTo(1);
             assertThat(items.get(0).getDisplayOrder()).isEqualTo(2);
@@ -350,14 +379,26 @@ class AppointmentLocationServiceUnitTest {
 
         @Test
         void shouldNotMove_pastEitherEnd() {
-            assertThat(service.move(loggedInInfo, 11, true)).isFalse();
-            assertThat(service.move(loggedInInfo, 12, false)).isFalse();
+            assertThat(service.move(loggedInInfo, 11, true, null)).isFalse();
+            assertThat(service.move(loggedInInfo, 12, false, null)).isFalse();
             assertThat(service.audited).isEmpty();
         }
 
         @Test
+        void shouldRefuseMove_whenNoLongerAtShownPosition() {
+            // A repeated click posts the place the page showed; the first click already moved it.
+            assertThat(service.move(loggedInInfo, 11, false, 1)).isTrue();
+
+            assertThatThrownBy(() -> service.move(loggedInInfo, 11, false, 1))
+                    .isInstanceOf(AppointmentLocationChangeRefusedException.class)
+                    .extracting("messageKey").isEqualTo("admin.appt.location.msg.listChanged");
+            assertThat(items.get(0).getDisplayOrder()).isEqualTo(2);
+            assertThat(service.audited).hasSize(1);
+        }
+
+        @Test
         void shouldRefuseMove_ofInactiveLocation() {
-            assertThatThrownBy(() -> service.move(loggedInInfo, 13, true))
+            assertThatThrownBy(() -> service.move(loggedInInfo, 13, true, null))
                     .isInstanceOf(AppointmentLocationChangeRefusedException.class);
         }
 

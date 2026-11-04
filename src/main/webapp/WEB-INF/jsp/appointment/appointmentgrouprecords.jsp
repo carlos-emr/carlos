@@ -221,8 +221,10 @@
                 }
 
                 if (request.getParameter("groupappt").equals("Group Update")) {
+                    Appointment replaced = null;
                     if (request.getParameter("appointment_no" + datano) != null) {
                         Appointment appt = appointmentDao.find(Integer.parseInt(request.getParameter("appointment_no" + datano)));
+                        replaced = appt;
                         if (appt != null) {
                             appointmentArchiveDao.archiveAppointment(appt);
                             appointmentDao.remove(appt.getId());
@@ -260,6 +262,12 @@
                     a.setName(request.getParameter("keyword"));
                     a.setNotes(request.getParameter("notes"));
                     a.setReason(request.getParameter("reason"));
+                    // The new row replaces a saved one: start from its location, so the posted
+                    // choice is resolved as an edit of it (#3982).
+                    if (replaced != null) {
+                        a.setLocation(replaced.getLocation());
+                        a.setLocationCode(replaced.getLocationCode());
+                    }
                     AppointmentLocationResolver.applyPostedLocation(a, request);
                     a.setResources(request.getParameter("resources"));
                     a.setType(request.getParameter("type"));

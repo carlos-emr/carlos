@@ -27,7 +27,9 @@
  */
 package io.github.carlos_emr.carlos.appt.status.service.impl;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
@@ -43,6 +45,8 @@ import io.github.carlos_emr.carlos.appt.status.service.AppointmentStatusStyleExc
 import org.springframework.beans.BeansException;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -259,14 +263,25 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
     @Override
     public void reset() {
         AppointmentStatusDao appointmentStatusDao = getAppointmentStatusDao();
-        for (StatusDefault statusDefault : STATUS_DEFAULTS) {
-            AppointmentStatus status = appointmentStatusDao.findByStatus(statusDefault.status);
-            // findByStatus matches the first letter only; never restyle a two-letter custom code.
-            if (status != null && statusDefault.status.equals(StringUtils.trim(status.getStatus()))) {
-                appointmentStatusDao.modifyStyle(status.getId(), statusDefault.description,
-                        statusDefault.color, statusDefault.icon);
+        // One transaction, so a failure part-way leaves every style as it was rather than half reset.
+        new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class)).executeWithoutResult(tx -> {
+            // Matched by exact code: findByStatus goes by the first letter, so a custom "tx" listed
+            // before "t" would hide it.
+            Map<String, AppointmentStatus> byCode = new HashMap<>();
+            for (AppointmentStatus status : appointmentStatusDao.findAll()) {
+                String code = StringUtils.trim(status.getStatus());
+                if (code != null) {
+                    byCode.putIfAbsent(code, status);
+                }
             }
-        }
+            for (StatusDefault statusDefault : STATUS_DEFAULTS) {
+                AppointmentStatus status = byCode.get(statusDefault.status);
+                if (status != null) {
+                    appointmentStatusDao.modifyStyle(status.getId(), statusDefault.description,
+                            statusDefault.color, statusDefault.icon);
+                }
+            }
+        });
     }
 
     private record StatusDefault(String status, String description, String color, String icon) {

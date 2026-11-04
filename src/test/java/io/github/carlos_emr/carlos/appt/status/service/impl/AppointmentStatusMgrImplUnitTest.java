@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
@@ -64,11 +65,13 @@ class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
 
     private AppointmentStatusDao appointmentStatusDao;
     private CacheManager cacheManager;
+    private PlatformTransactionManager transactionManager;
 
     @BeforeEach
     void setUp() {
         appointmentStatusDao = createAndRegisterMock(AppointmentStatusDao.class);
         cacheManager = createAndRegisterMock(CacheManager.class);
+        transactionManager = createAndRegisterMock(PlatformTransactionManager.class);
     }
 
     @AfterEach
@@ -226,31 +229,35 @@ class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
         defaults.put("B", new ResetExpectation("Billed", "#3ea4e1", "billed.gif"));
 
         Map<String, Integer> ids = new LinkedHashMap<>();
+        List<AppointmentStatus> stored = new java.util.ArrayList<>();
         int nextId = 301;
         for (String code : defaults.keySet()) {
             ids.put(code, nextId);
-            when(appointmentStatusDao.findByStatus(code)).thenReturn(status(nextId, code));
+            stored.add(status(nextId, code));
             nextId++;
         }
+        when(appointmentStatusDao.findAll()).thenReturn(stored);
 
         new AppointmentStatusMgrImpl().reset();
 
-        defaults.forEach((code, expectation) -> {
-            verify(appointmentStatusDao).findByStatus(code);
-            verify(appointmentStatusDao).modifyStyle(
-                    ids.get(code), expectation.description(), expectation.colour(), expectation.icon());
-        });
+        verify(appointmentStatusDao).findAll();
+        defaults.forEach((code, expectation) -> verify(appointmentStatusDao).modifyStyle(
+                ids.get(code), expectation.description(), expectation.colour(), expectation.icon()));
         verifyNoMoreInteractions(appointmentStatusDao);
+        // Every restyle in one transaction.
+        verify(transactionManager).getTransaction(org.mockito.ArgumentMatchers.any());
+        verify(transactionManager).commit(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
-    @DisplayName("should not restyle a different code that only shares the first letter")
-    void shouldSkipReset_whenLookupReturnsDifferentCode() {
-        when(appointmentStatusDao.findByStatus("t")).thenReturn(status(77, "tX"));
+    @DisplayName("should reset the exact code when a custom code shares its first letter")
+    void shouldResetExactCode_whenCustomCodeSharesFirstLetter() {
+        when(appointmentStatusDao.findAll()).thenReturn(List.of(status(77, "tX"), status(78, "t")));
 
         new AppointmentStatusMgrImpl().reset();
 
         verify(appointmentStatusDao, never()).modifyStyle(77, "To Do", "#FDFEC7", "starbill.gif");
+        verify(appointmentStatusDao).modifyStyle(78, "To Do", "#FDFEC7", "starbill.gif");
     }
 
     @Test

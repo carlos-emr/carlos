@@ -72,6 +72,33 @@ async function frameNavigation(admin, frame, action) {
   await frame.waitForLoadState('domcontentloaded', {timeout: 20000}).catch(() => {});
 }
 
+/**
+ * Clicks something whose confirmation is then dismissed, and proves the click sent nothing: no POST
+ * to `route` from any frame during the click or a short settle time after it, and no navigation of
+ * the frame. Reading the database alone passes while a leaked POST is still in flight.
+ */
+async function dismissedConfirmSendsNothing(page, frame, route, click, settleMs = 750) {
+  const posts = [];
+  const watch = request => {
+    if (request.method() === 'POST' && request.url().includes(route)) posts.push(request.url());
+  };
+  let navigated = false;
+  const onNavigated = candidate => { if (candidate === frame) navigated = true; };
+  page.on('request', watch);
+  page.on('framenavigated', onNavigated);
+  let dialogs;
+  try {
+    dialogs = await h.withExpectedDialogs(page, click, {accept: false});
+    await page.waitForTimeout(settleMs);
+  } finally {
+    page.off('request', watch);
+    page.off('framenavigated', onNavigated);
+  }
+  h.assert(posts.length === 0, `A cancelled confirmation still posted to ${route}: ${posts.join(', ')}`);
+  h.assert(!navigated, 'A cancelled confirmation navigated the page');
+  return dialogs;
+}
+
 async function navigates(page, action) {
   await Promise.all([page.waitForEvent('domcontentloaded', {timeout: 20000}), action()]);
   await h.assertNotErrorPage(page, 'popup after submit');
@@ -388,7 +415,8 @@ async function workflow(s) {
     const toggle = label => frame.locator(
       `form:has(input[name="dispatch"][value="changestatus"]):has(input[name="id"][value="${statusId}"]) button`, {hasText: label});
     // Cancelling the confirmation sends nothing.
-    const dismissed = await h.withExpectedDialogs(admin, () => toggle(LABEL.disable).click(), {accept: false});
+    const dismissed = await dismissedConfirmSendsNothing(admin, frame, '/appointment/apptStatusSetting',
+      () => toggle(LABEL.disable).click());
     h.assert(dismissed.length === 1 && dismissed[0].type === 'confirm', 'Disable did not ask for confirmation first');
     await expectValue(sql, `SELECT active FROM appointment_status WHERE id=${Number(statusId)}`, '1', 'A cancelled Disable still deactivated the status');
     const confirmed = await h.withExpectedDialogs(admin, () => frameNavigation(admin, frame, () => toggle(LABEL.disable).click()));
@@ -499,4 +527,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('schedule-admin-settings', workflow, {openPatient: false});
-module.exports = {workflow, openAdminSection, frameNavigation, navigates};
+module.exports = {workflow, openAdminSection, frameNavigation, navigates, dismissedConfirmSendsNothing};

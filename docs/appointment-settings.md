@@ -31,10 +31,13 @@ set to a non-active value), because otherwise the schedule ignores the statuses 
   copies the day sheet uses for signed and verified appointments (`Sthumb.png`/`Vthumb.png` were
   added for Confirmed's `thumb.png`); `AppointmentStatusMgrImplUnitTest` checks the files exist.
 - Disabling a status, and Reset, ask for confirmation first; cancelling sends no request.
-- Reset restores description, colour **and icon** of every seeded status by status code, not row id.
-- Privileges: `_admin.schedule` read to view, write for every change, which must be posted
-  (GET/HEAD answer 405 first). Each saved change writes a `LogAction` row naming the status id and
-  the field, never patient data.
+- Reset restores description, colour **and icon** of every seeded status by its exact status code,
+  not row id (a custom `tx` never stands in for `t`), in one transaction.
+- Privileges: read to view and write for every change, on `_admin.schedule` or `_admin` (the same
+  rule as the Locations tab). Every change must be posted (GET/HEAD answer 405 first). Each saved
+  change writes a `LogAction` row naming the status id and the field, never patient data. The
+  route is not in `HttpMethodGuardFilter.MUTATION_INTENT_PARAMS_BY_ROUTE`, because its menu link
+  and old bookmarks open it with `dispatch=view|modify`; the action refuses GET by value.
 
 ## Locations: the appointment Location List
 
@@ -65,12 +68,24 @@ disabling the last active location turns the dropdown off again (the page warns 
 A code is only ever saved together with its item's label, and is cleared whenever the text
 changes for any other reason (`AppointmentLocationResolver`):
 
+The writer first loads the appointment as saved (a new booking has none), so each rule below is an
+edit of what is stored:
+
 | Posted by the booking form | Saved |
 |---|---|
 | no `locationCode` (free text, site or program control) | the text; the code is kept only while the text is unchanged (`setLocationText`) |
 | `locationCode=legacy` | the legacy text the edit screen offered; code cleared |
-| an item id of the Location List (active or not) | the item id and its label |
-| blank ("Not specified"), or an id that is not an item of this list | no location, no code |
+| the appointment's own code | nothing changes: the saved label stays even if the item was renamed or disabled since |
+| another active item, in location mode | the item id and its label |
+| blank ("Not specified") | location mode: no location, no code. Otherwise the text, through `setLocationText` (the patient-search pages pass a blank code through) |
+| a disabled item, an id of another list, or any item outside location mode | refused: the saved location stays as it was |
+
+Only a hand-made request, or a form opened before an item was disabled, can post the last row, so
+a disabled location is refused on the server as well as hidden from the dropdown. The Repeat page
+seeds its template from the saved appointment the same way, and treats typed text linked to the item
+with that name (see below) as unchanged, so "Save changes first" is not asked for a form nobody
+changed. Group Update (`appointmentgrouprecords.jsp`) recreates each appointment, so it copies the
+location of the one it replaces before applying the form.
 
 Every booking-form writer goes through `AppointmentLocationResolver.applyPostedLocation`:
 `AppointmentAddRecord2Action`, `AppointmentUpdateRecord2Action`, `RecurringAppointmentService`,
@@ -96,21 +111,37 @@ add-patient detour (`demographicsearch2apptresults.jsp`, `add-form-personal.jsp`
 ### Day schedule
 
 `appointmentprovideradminday.jsp` loads the list once per page and draws a chip
-(`WEB-INF/tags/appointment/locationChip.tag`) in the item's colour with its icon, naming the
-location on hover and to screen readers. Site setups draw their own marker and no chip. Colours
+(`WEB-INF/tags/appointment/locationChip.tag`) in the item's colour with its icon, naming on hover
+and to screen readers the location the appointment was booked with (its saved label, which a later
+rename leaves alone). Site setups draw their own marker and no chip. Colours
 and icons go through `AppointmentLocationStyle`, which falls back to the defaults for any stored
 value that is not `#rrggbb` or whitelisted.
 
 ### Settings page
 
-Add one location or paste a list (one per line, at most 100; active names are skipped), rename,
-set colour (or back to default) and icon, move up/down the booking order, disable and enable.
-Names are unique among active locations, ignoring case and surrounding spaces. Privileges, checked
-by both the action and `AppointmentLocationService`: read, write, and for disabling delete, on
-`_admin.schedule` or `_admin`. Every change is POST-only (GET/HEAD answer 405 before any change),
-runs in one transaction, evicts the lookup-list cache and writes a `LogAction` row with the item id
-and the field only. Locations are never deleted, so a code on a past appointment always names an
-item. The list is also an ordinary Look-Up List in the generic Look-Up List manager.
+Add one location or paste a list (one per line, at most 100 lines and 100 × 257 characters, read
+before it is split; active names are skipped), rename, set colour (or back to default) and icon
+(previewed before saving), move up/down the booking order, disable and enable. Names are unique
+among active locations, ignoring case and surrounding spaces, and may not contain control or
+format characters (line breaks, tabs, bidi overrides, zero-width marks), which would travel into
+every booking's text and out through SOAP, REST and HL7. A refused entry is offered again.
+
+- Privileges, checked by both the action and `AppointmentLocationService`: read, write, and for
+  disabling delete, on `_admin.schedule` or `_admin`.
+- Every change is POST-only. The page opens without a `dispatch`, so any `dispatch` is a change:
+  GET/HEAD answer 405 before anything is read or written, and the route is listed in
+  `HttpMethodGuardFilter.MUTATION_INTENT_PARAMS_BY_ROUTE` by it.
+- Every change runs in one transaction that first locks the list row
+  (`LookupListDao.findForUpdate`), so two at once (a double click, two administrators) cannot both
+  pass the name check; it evicts the lookup-list cache after commit and writes a `LogAction` row with
+  the item id and the field only.
+- Repeats: the add and paste forms carry a `FormSubmissionGuard` token
+  (`Scope.APPOINTMENT_LOCATION_ADD`, one per rendering), so a double click or a reload shows what the
+  first submission added instead of adding again. Move up/down posts the place the page showed
+  (`position`); a repeat finds the location gone from there and is refused with "The list changed".
+- Locations are never deleted, so a code on a past appointment always names an item. The list is
+  also an ordinary Look-Up List in the generic Look-Up List manager, which applies none of these
+  rules; use the Locations tab.
 
 ## Tests
 
@@ -119,6 +150,8 @@ item. The list is also an ordinary Look-Up List in the generic Look-Up List mana
   `AppointmentLocationResolverUnitTest`, `AppointmentLocationStyleUnitTest`,
   `AppointmentLocationServiceUnitTest`, `AppointmentLocationSettings2ActionUnitTest`,
   `AppointmentLocationIntegrationTest` (H2 round trip, archive copy, service through real DAOs),
+  `AppointmentLocationServiceCacheIntegrationTest` (the service through a Spring proxy: transaction
+  and cache eviction), `AppointmentStatusDaoCacheIntegrationTest` (`modifyStyle` eviction),
   `RecurringAppointmentServiceIntegrationTest`, `SiteDaoImplRenameUnitTest`, and both actions'
   dispatches in `MutatorActionGetRejectionContractUnitTest`.
 - Node: `scripts/appointment-location-select.test.js`.

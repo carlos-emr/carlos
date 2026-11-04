@@ -234,6 +234,45 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
         });
     }
 
+    @Test void shouldCreateRepeats_whenDropdownOffersTypedLocationAsItsItem() {
+        offerLocation(501, "Virtual");
+        values.put("endDate", "31/01/2027");
+        values.put("location", "virtual");
+        service.apply(user, values, 10016);
+        values.put("appointment_no", rows().getFirst().getId().toString());
+        values.put("endDate", "14/02/2027");
+        // The edit screen starts on the item the typed text names; saving it unchanged is no change.
+        values.put("locationCode", "501");
+        values.put("location", "");
+
+        assertThat(service.apply(user, values, 10016)).isEqualTo(2);
+        em.flush();
+        em.clear();
+        assertThat(rows()).hasSize(3).allSatisfy(a -> {
+            assertThat(a.getLocation()).isEqualTo("virtual");
+            assertThat(a.getLocationCode()).isNull();
+        });
+    }
+
+    @Test void shouldKeepBookedName_whenItemRenamedBeforeGroupUpdate() {
+        offerLocation(501, "Room A");
+        values.put("locationCode", "501");
+        values.put("location", "");
+        service.apply(user, values, 10016);
+        offerLocation(501, "Room 1");
+        values.put("appointment_no", rows().getFirst().getId().toString());
+        values.put("groupappt", "Group Update");
+        values.put("reason", "Renamed room");
+
+        assertThat(service.apply(user, values, 10016)).isEqualTo(3);
+        em.flush();
+        em.clear();
+        assertThat(rows()).hasSize(3).allSatisfy(a -> {
+            assertThat(a.getLocation()).isEqualTo("Room A");
+            assertThat(a.getLocationCode()).isEqualTo(501);
+        });
+    }
+
     @Test void preservesUnsubmittedStyleAndBillingWhenCreatingSavedRepeats() {
         values.put("endDate", "31/01/2027");
         values.put("style", "legacy");

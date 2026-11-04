@@ -2099,7 +2099,7 @@
                                                               style="background-color:<carlos:encode value='<%= io.github.carlos_emr.carlos.commn.SiteChoice.cssColor(siteBgColor.get(sitename), "") %>' context="htmlAttribute"/>;">&nbsp;</span>|
                                                         <%} else if (appointmentLocations.chipItemFor(appointment) != null) {%>
                                                         <%-- The Location List chip (#3982): no chip in a site setup, which marks its own. --%>
-                                                        <appt:locationChip item="<%= appointmentLocations.chipItemFor(appointment) %>"/>
+                                                        <appt:locationChip item="<%= appointmentLocations.chipItemFor(appointment) %>" label="<%= appointment.getLocation() %>"/>
                                                         <%} %>
 
                                                         <%

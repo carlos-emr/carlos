@@ -106,6 +106,75 @@ class AppointmentLocationResolverUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRefuseDeactivatedItem_whenNewBookingPostsIt() {
+        // Only a hand-made request can post a disabled location for a booking that never had it.
+        Appointment appointment = new Appointment();
+
+        resolver.applyPostedLocation(appointment, "13", "Satellite office");
+
+        assertThat(appointment.getLocationCode()).isNull();
+        assertThat(appointment.getLocation()).isEmpty();
+    }
+
+    @Test
+    void shouldKeepSavedLocation_whenAnotherBookingPostsDeactivatedItem() {
+        // A form opened before the location was disabled changes nothing rather than losing the
+        // booking's location.
+        Appointment appointment = booked("Virtual", 11);
+
+        resolver.applyPostedLocation(appointment, "13", "");
+
+        assertThat(appointment.getLocationCode()).isEqualTo(11);
+        assertThat(appointment.getLocation()).isEqualTo("Virtual");
+    }
+
+    @Test
+    void shouldKeepSavedLabel_whenOwnItemRenamedSinceBooking() {
+        // Item 11 is now called "Virtual"; the booking keeps the name it was made with.
+        Appointment appointment = booked("Room A", 11);
+
+        resolver.applyPostedLocation(appointment, "11", "");
+
+        assertThat(appointment.getLocationCode()).isEqualTo(11);
+        assertThat(appointment.getLocation()).isEqualTo("Room A");
+        verify(lookupListDao, never()).findByName(anyString());
+    }
+
+    @Test
+    void shouldRefusePostedItem_whenSiteSetupConfigured() {
+        AppointmentLocationResolver siteResolver = new AppointmentLocationResolver(lookupListDao, () -> true);
+        Appointment appointment = new Appointment();
+
+        siteResolver.applyPostedLocation(appointment, "11", "Main site");
+
+        assertThat(appointment.getLocationCode()).isNull();
+        assertThat(appointment.getLocation()).isEmpty();
+    }
+
+    @Test
+    void shouldSaveSiteText_whenBlankCodePassedThroughInSiteSetup() {
+        // The patient-search pages post locationCode="" even when the form offered sites.
+        AppointmentLocationResolver siteResolver = new AppointmentLocationResolver(lookupListDao, () -> true);
+        Appointment appointment = booked("Main site", null);
+
+        siteResolver.applyPostedLocation(appointment, "", "North site");
+
+        assertThat(appointment.getLocationCode()).isNull();
+        assertThat(appointment.getLocation()).isEqualTo("North site");
+    }
+
+    @Test
+    void shouldLeaveSavedLocation_whenStaleFormRepostsItsCodeOutsideLocationMode() {
+        AppointmentLocationResolver siteResolver = new AppointmentLocationResolver(lookupListDao, () -> true);
+        Appointment appointment = booked("Virtual", 11);
+
+        siteResolver.applyPostedLocation(appointment, "11", "");
+
+        assertThat(appointment.getLocationCode()).isEqualTo(11);
+        assertThat(appointment.getLocation()).isEqualTo("Virtual");
+    }
+
+    @Test
     void shouldCutLabelSnapshot_toLocationColumnWidth() {
         Appointment appointment = new Appointment();
 
@@ -137,14 +206,14 @@ class AppointmentLocationResolverUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldSaveNoLocation_whenPostedIdIsNotAnItemOfTheList() {
+    void shouldKeepSavedLocation_whenPostedIdIsNotAnItemOfTheList() {
         // An id from another lookup list (or one made up) never becomes a location code.
-        Appointment appointment = booked("Virtual", 11);
+        Appointment appointment = booked("Basement", null);
 
         resolver.applyPostedLocation(appointment, "4242", "Virtual");
 
         assertThat(appointment.getLocationCode()).isNull();
-        assertThat(appointment.getLocation()).isEmpty();
+        assertThat(appointment.getLocation()).isEqualTo("Basement");
     }
 
     @Test
@@ -184,6 +253,25 @@ class AppointmentLocationResolverUnitTest extends CarlosUnitTestBase {
 
         assertThat(appointment.getLocationCode()).isNull();
         assertThat(appointment.getLocation()).isEqualTo("Room from HL7");
+    }
+
+    @Test
+    void shouldTreatSameTextAndCode_asSameLocation() {
+        assertThat(AppointmentLocationResolver.isSameLocation(booked("Virtual", 11), booked("Virtual", 11))).isTrue();
+        assertThat(AppointmentLocationResolver.isSameLocation(booked(null, null), booked("", null))).isTrue();
+    }
+
+    @Test
+    void shouldTreatTypedTextLinkedToItsItem_asSameLocation() {
+        assertThat(AppointmentLocationResolver.isSameLocation(booked(" virtual ", null), booked("Virtual", 11))).isTrue();
+    }
+
+    @Test
+    void shouldTreatAnotherPlace_asChangedLocation() {
+        assertThat(AppointmentLocationResolver.isSameLocation(booked("Room 9", null), booked("Virtual", 11))).isFalse();
+        assertThat(AppointmentLocationResolver.isSameLocation(booked("Virtual", 11), booked("Virtual", 15))).isFalse();
+        assertThat(AppointmentLocationResolver.isSameLocation(booked("", null), booked("Virtual", 11))).isFalse();
+        assertThat(AppointmentLocationResolver.isSameLocation(booked("Virtual", 11), booked("Virtual", null))).isFalse();
     }
 
     @Test

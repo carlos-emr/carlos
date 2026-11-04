@@ -188,7 +188,11 @@ public class HttpMethodGuardFilter implements Filter {
             "/form/select", Set.of("forward"),
             // Generate Teleplan File: providers (the Create Report form's physician) writes an MSP batch; the menu
             // item and the year archive links open the page without it (#4439 D3).
-            "/billing/CA/BC/GenerateTeleplanFile", Set.of("providers")
+            "/billing/CA/BC/GenerateTeleplanFile", Set.of("providers"),
+            // Appointment Settings > Locations: every change names its dispatch; the page opens without one
+            // (#3982). The Statuses tab is not listed: its menu link and old bookmarks open it with
+            // dispatch=view|modify, so AppointmentStatus2Action refuses GET for its writes by value.
+            "/appointment/apptLocationSetting", Set.of("dispatch")
     );
 
     /** {@link #MUTATION_INTENT_PARAMS_BY_ROUTE} with every path and name lowercased, for lookup. */

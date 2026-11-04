@@ -45,7 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Cache invalidation regression tests for {@link AppointmentStatusDao}.
  *
- * <p>Verifies that write paths (persist/merge/remove/saveEntity/modifyStatus/changeStatus)
+ * <p>Verifies that write paths (persist/merge/remove/saveEntity/modifyStyle/changeStatus)
  * correctly evict the {@code appointmentStatuses} cache after commit. A refactor that
  * dropped one of these {@code @CacheEvict} annotations would otherwise ship silently.</p>
  */
@@ -110,19 +110,23 @@ class AppointmentStatusDaoCacheIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    @DisplayName("should evict appointmentStatuses cache when modifyStatus commits")
-    void shouldEvictAppointmentStatusesCache_whenModifyStatusCommits() {
+    @DisplayName("should evict appointmentStatuses cache when modifyStyle commits")
+    void shouldEvictAppointmentStatusesCache_whenModifyStyleCommits() {
         AppointmentStatus seeded = persistSeed("Y", "original");
 
-        transactionTemplate.executeWithoutResult(status -> appointmentStatusDao.findAll());
+        transactionTemplate.executeWithoutResult(status -> appointmentStatusDao.findActive());
         assertThat(cacheEntryCount()).isPositive();
 
         transactionTemplate.executeWithoutResult(status ->
-                appointmentStatusDao.modifyStatus(seeded.getId(), "modified", "#abcdef"));
+                assertThat(appointmentStatusDao.modifyStyle(seeded.getId(), "modified", "#abcdef", "here.gif")).isTrue());
 
         assertThat(cacheEntryCount())
-                .as("modifyStatus must evict the appointmentStatuses cache after commit")
+                .as("modifyStyle must evict the appointmentStatuses cache after commit")
                 .isZero();
+        AppointmentStatus saved = transactionTemplate.execute(status -> appointmentStatusDao.find(seeded.getId()));
+        assertThat(saved.getDescription()).isEqualTo("modified");
+        assertThat(saved.getColor()).isEqualTo("#abcdef");
+        assertThat(saved.getIcon()).isEqualTo("here.gif");
     }
 
     @Test

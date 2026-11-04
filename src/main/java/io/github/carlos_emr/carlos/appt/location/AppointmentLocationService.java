@@ -26,6 +26,7 @@ import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.cache.annotation.CacheEvict;
@@ -71,6 +72,16 @@ public class AppointmentLocationService {
 
     /** The most lines one paste may add, so a mistaken paste cannot flood the list. */
     public static final int PASTE_MAX_LINES = 100;
+
+    /** The longest paste read at all: every line at the name limit plus its line break. */
+    public static final int PASTE_MAX_LENGTH = PASTE_MAX_LINES * (AppointmentLocationResolver.LABEL_MAX_LENGTH + 2);
+
+    /*
+     * Control and format characters (line breaks, bidi overrides, zero-width marks) in a name would
+     * travel into every booking's location text and out through SOAP, REST and HL7, and could make
+     * two names look alike; ApptUtil already refuses them when an appointment is copied.
+     */
+    private static final Pattern INVALID_NAME_CHARACTER = Pattern.compile("[\\p{Cc}\\p{Cf}]");
 
     private static final String SCHEDULE_ADMIN = "_admin.schedule";
     private static final String ADMIN = "_admin";
@@ -153,23 +164,24 @@ public class AppointmentLocationService {
     @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
     public AddResult addLocations(LoggedInInfo loggedInInfo, String pasted) {
         requirePrivilege(loggedInInfo, SecurityInfoManager.WRITE);
+        String text = StringUtils.defaultString(pasted);
+        // Measured before splitting, so an oversized request is refused without being broken up.
+        if (text.length() > PASTE_MAX_LENGTH) {
+            throw new AppointmentLocationChangeRefusedException("admin.appt.location.msg.pasteTooLong",
+                    String.valueOf(PASTE_MAX_LINES));
+        }
         List<String> names = new ArrayList<>();
-        for (String line : StringUtils.defaultString(pasted).split("\\R")) {
-            String label = line.trim();
-            if (!label.isEmpty()) {
-                if (label.length() > AppointmentLocationResolver.LABEL_MAX_LENGTH) {
-                    throw new AppointmentLocationChangeRefusedException("admin.appt.location.msg.nameTooLong",
-                            String.valueOf(AppointmentLocationResolver.LABEL_MAX_LENGTH));
+        for (String line : text.split("\\R")) {
+            if (!line.isBlank()) {
+                names.add(requireValidName(line));
+                if (names.size() > PASTE_MAX_LINES) {
+                    throw new AppointmentLocationChangeRefusedException("admin.appt.location.msg.pasteTooLong",
+                            String.valueOf(PASTE_MAX_LINES));
                 }
-                names.add(label);
             }
         }
         if (names.isEmpty()) {
             throw new AppointmentLocationChangeRefusedException("admin.appt.location.msg.nameRequired", null);
-        }
-        if (names.size() > PASTE_MAX_LINES) {
-            throw new AppointmentLocationChangeRefusedException("admin.appt.location.msg.pasteTooLong",
-                    String.valueOf(PASTE_MAX_LINES));
         }
 
         LookupList list = findOrCreateList(loggedInInfo);
@@ -273,13 +285,17 @@ public class AppointmentLocationService {
      * @param loggedInInfo LoggedInInfo the current user, who needs write
      * @param id int the location's LookupListItem id
      * @param up boolean true to move it towards the top of the dropdown
+     * @param shownPosition Integer the 1-based place among the active locations the page showed it
+     *                      at, or null to move it from wherever it is now
      * @return boolean true if it moved, false if it is already at that end
      * @throws SecurityException if the user lacks write
-     * @throws AppointmentLocationChangeRefusedException if there is no such active location
+     * @throws AppointmentLocationChangeRefusedException if there is no such active location, or it
+     *         is no longer at {@code shownPosition} (a repeated click, or another change since the
+     *         page was opened), so one click never moves it twice
      */
     @Transactional
     @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)
-    public boolean move(LoggedInInfo loggedInInfo, int id, boolean up) {
+    public boolean move(LoggedInInfo loggedInInfo, int id, boolean up, Integer shownPosition) {
         requirePrivilege(loggedInInfo, SecurityInfoManager.WRITE);
         LookupList list = requireList();
         LookupListItem item = requireItem(list, id);
@@ -293,6 +309,9 @@ public class AppointmentLocationService {
                 from = i;
                 break;
             }
+        }
+        if (shownPosition != null && shownPosition != from + 1) {
+            throw new AppointmentLocationChangeRefusedException("admin.appt.location.msg.listChanged", null);
         }
         int to = up ? from - 1 : from + 1;
         if (from < 0 || to < 0 || to >= ordered.size()) {
@@ -395,6 +414,9 @@ public class AppointmentLocationService {
             throw new AppointmentLocationChangeRefusedException("admin.appt.location.msg.nameTooLong",
                     String.valueOf(AppointmentLocationResolver.LABEL_MAX_LENGTH));
         }
+        if (INVALID_NAME_CHARACTER.matcher(label).find()) {
+            throw new AppointmentLocationChangeRefusedException("admin.appt.location.msg.nameInvalid", null);
+        }
         return label;
     }
 
@@ -409,13 +431,24 @@ public class AppointmentLocationService {
         if (list == null) {
             throw new AppointmentLocationChangeRefusedException("admin.appt.location.msg.notFound", null);
         }
+        lockList(list);
         return list;
+    }
+
+    /*
+     * Every change locks the list row first, so two at once (a double click, two administrators)
+     * run one after the other: the second sees the first's items before it checks a name or
+     * renumbers the order.
+     */
+    private void lockList(LookupList list) {
+        lookupListDao.findForUpdate(list.getId());
     }
 
     /* The migration seeds the list; a database that lost the row gets it back on the first add. */
     private LookupList findOrCreateList(LoggedInInfo loggedInInfo) {
         LookupList list = lookupListDao.findByName(AppointmentLocationResolver.LIST_NAME);
         if (list != null) {
+            lockList(list);
             return list;
         }
         list = new LookupList();

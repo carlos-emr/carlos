@@ -870,7 +870,8 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action", new String[]{"_admin", "r"},
         "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action", new String[]{"_msg", "r"},
         "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action", new String[]{"_form", "w"},
-        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action", new String[]{"_billing", "w"});
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action", new String[]{"_billing", "w"},
+        "io.github.carlos_emr.carlos.appt.web.AppointmentLocationSettings2Action", new String[]{"_admin.schedule", "w"});
 
     /**
      * One case per route and write parameter in {@link HttpMethodGuardFilter#MUTATION_INTENT_PARAMS_BY_ROUTE},
@@ -1129,7 +1130,8 @@ class MutatorActionGetRejectionContractUnitTest {
             // The shared granting SecurityInfoManager, so the declared privilege tuple is checked on it.
             return new AppointmentLocationSettings2Action(SpringUtils.getBean(SecurityInfoManager.class),
                     (AppointmentLocationService) autoMocks.computeIfAbsent(
-                            AppointmentLocationService.class, Mockito::mock));
+                            AppointmentLocationService.class, Mockito::mock),
+                    mock(org.springframework.transaction.PlatformTransactionManager.class));
         }
         if (actionClass.equals(DelEForm2Action.class)) {
             return new DelEForm2Action(mock(SecurityInfoManager.class));

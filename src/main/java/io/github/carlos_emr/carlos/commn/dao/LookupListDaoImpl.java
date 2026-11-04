@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
@@ -68,12 +69,21 @@ public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements Lo
                unless = "#result == null")
     @Override
     public LookupList findByName(String name) {
-        Query q = entityManager.createQuery("select l from LookupList l where l.name=?1");
+        // Ordered so that, should two lists ever share a name, every caller gets the same one.
+        Query q = entityManager.createQuery("select l from LookupList l where l.name=?1 order by l.id");
         q.setParameter(1, name);
 
         LookupList ll = this.getSingleResultOrNull(q);
 
         return ll;
+    }
+
+    @Override
+    public LookupList findForUpdate(Integer id) {
+        if (id == null) {
+            return null;
+        }
+        return entityManager.find(LookupList.class, id, LockModeType.PESSIMISTIC_WRITE);
     }
 
     @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)

@@ -95,7 +95,9 @@ public final class FormSubmissionGuard {
         /** {@code encounter/AddService} from Consultation configuration &gt; Add Service. */
         CONSULTATION_SERVICE_ADD,
         /** {@code Pregnancy} from the patient-bound Add pregnancy form. */
-        PREGNANCY_CREATE
+        PREGNANCY_CREATE,
+        /** {@code appointment/apptLocationSetting} add and paste forms on the Locations tab. */
+        APPOINTMENT_LOCATION_ADD
     }
 
     private enum State { ISSUED, SAVING, SAVED }

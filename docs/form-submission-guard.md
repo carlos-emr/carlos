@@ -42,6 +42,10 @@ lock also prevents two different forms from creating concurrent current episodes
 still needed after completion: replaying an old create must not start another episode. Opening
 Add again issues a fresh token for an intentional later pregnancy.
 
+Appointment Settings > Locations uses `APPOINTMENT_LOCATION_ADD` for its add and paste forms. One
+token per rendering serves both, because only one of them can be sent from that rendering. A repeat
+shows the first submission's own message (what it added and skipped), rendered from `result()`.
+
 ### When a token is freed for a retry
 
 The claim frees the token only when the attempt provably wrote nothing:
