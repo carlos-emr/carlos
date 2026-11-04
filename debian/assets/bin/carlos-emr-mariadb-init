@@ -296,7 +296,7 @@ def initialize(accept_empty_datadir=False):
             sql.write("USE mysql;\n" + zones.stdout)
             sql.flush()
             os.fchmod(sql.fileno(), 0o644)
-            say(f"Initializing missing MariaDB system tables in {datadir}; existing files are retained.")
+            say(f"Initializing missing MariaDB system tables in {datadir}; existing files are passed to MariaDB.")
             # timeout also terminates the initializer's bootstrap-server children.
             # Match the distribution's workaround for libpam-tmpdir (#1022994).
             result = run(["timeout", "--kill-after=10", "180"] + context + ["mariadb-install-db",
@@ -306,7 +306,7 @@ def initialize(accept_empty_datadir=False):
                           "--extra-file=" + sql.name], timeout=200,
                          env=COMMAND_ENV, cwd="/")
         if result.returncode != 0 or not (datadir / "mysql" / "db.frm").is_file():
-            say("MariaDB system-table initialization failed; no files were removed. "
+            say("MariaDB system-table initialization failed; the helper removed no existing files. "
                 "See the initializer output below and README.Debian.")
             print(result.stdout + result.stderr, file=sys.stderr, end="")
             return 1
@@ -322,7 +322,7 @@ def main(argv=None):
     try:
         return initialize(options.accept_empty_datadir)
     except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
-        say(f"MariaDB initialization could not finish: {exc}. No files were removed.")
+        say(f"MariaDB initialization could not finish: {exc}. The helper removed no existing files.")
         return 1
 
 

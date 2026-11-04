@@ -45,7 +45,12 @@ function searchFixture(found = true) {
     rows: () => ({data: () => ({toArray: () => rows})}),
   };
   const window = {jQuery: () => ({DataTable: () => table})};
-  const document = {querySelector: () => ({value: input})};
+  const document = {
+    querySelector(selector) {
+      assert.equal(selector, '#ticklerResults_filter input[type="search"]');
+      return {value: input};
+    },
+  };
   const evaluate = (callback, argument) => vm.runInNewContext('(' + callback.toString() + ')(argument)',
     {window, document, argument});
   const page = {

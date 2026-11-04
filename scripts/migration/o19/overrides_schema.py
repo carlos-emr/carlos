@@ -40,7 +40,7 @@ ran those updates they surface through preflight's unknown-table flow (B2,
 archive-by-default).
 """
 
-# Nullable Program flags no longer need primitive coercion during import.
+# Consent value expressions now retire undecided records and duplicate history.
 # Refuse resuming a partially applied import under the previous conversion rules.
 SCHEMA_MAP_VERSION = "o19map-6"
 

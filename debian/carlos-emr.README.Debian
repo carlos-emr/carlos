@@ -489,8 +489,12 @@ other than the distribution's optional empty wsrep files, or an unsupported
 service context require manual recovery. A datadir configured normally under
 /etc/mysql is supported. The probe and bootstrap both run as mysql with a
 clean environment, so root's .my.cnf cannot redirect them to another database.
-The helper keeps existing files, uses socket authentication for root, and
-creates no test database. During initialization it also loads the operating
+The helper passes existing startup files to the vendor initializer without
+deleting or rewriting them itself. MariaDB's bootstrap server can update engine
+files or recreate scratch files; byte-for-byte preservation of these unfinished
+startup artifacts is not promised. Existing application schemas are refused.
+It uses socket authentication for root and creates no test database.
+During initialization it also loads the operating
 system's timezone data into the new mysql schema, so the configured named
 timezone can be used at normal service startup. It refuses existing schemas,
 upgrade-info files, unrecognized files, a partial mysql schema, running
@@ -991,6 +995,10 @@ and in backup.env, to your own obligations.
 11. Troubleshooting
 -------------------
 
+MariaDB reports "Table 'mysql.db' doesn't exist"
+  See "Missing MariaDB system tables" in section 6 for first-initialization
+  recovery, retained-data refusal checks, and matching-backup guidance.
+
   sudo carlos-ctl check                start here; it names the failure
   sudo carlos-ctl logs -n 200          application server log
   sudo carlos-ctl logs -f              follow it live
@@ -1157,8 +1165,12 @@ nginx will not start: port 80 or 443 is already in use
   installed it: a Debian package (apache2, lighttpd, haproxy, ...), a snap (the
   Nextcloud snap Ubuntu Server's installer offers serves 80/443) or a unit you
   wrote. An interactive install ASKS first (carlos-emr/stop-port-conflicts,
-  listing each service); a non-interactive one takes the default and goes
-  ahead. Each one stopped is disabled, or masked when it cannot be disabled,
+  listing each service), with a default of no. A non-interactive install
+  leaves other services running unless explicitly preseeded true:
+
+      echo 'carlos-emr carlos-emr/stop-port-conflicts boolean true' | sudo debconf-set-selections
+
+  If accepted, each service stopped is disabled, or masked when it cannot be disabled,
   and a note names it; nothing is uninstalled, and the note gives the command
   that brings it back once it has been moved to other ports. What was stopped,
   or declined, is in the install output, /var/log/apt/term.log and the

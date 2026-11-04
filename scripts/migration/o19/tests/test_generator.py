@@ -87,6 +87,15 @@ class TestExplicitSourceCommit(unittest.TestCase):
         self.assertEqual(list(schema.tables["sample"]), ["value", "id", "tail"])
         self.assertEqual(schema.tables["sample"]["value"], "MEDIUMTEXT NULL")
 
+    def test_modify_preserves_quoted_identifiers_and_unescapes_backticks(self):
+        schema = load_generator().Schema()
+        schema.feed("CREATE TABLE sample (`Fee Item` VARCHAR(1), `legacy``name` VARCHAR(1), tail INT);"
+                    "ALTER TABLE sample MODIFY COLUMN `FEE ITEM` MEDIUMTEXT NULL FIRST,"
+                    " MODIFY `legacy``name` TEXT NOT NULL AFTER tail;")
+        self.assertEqual(list(schema.tables["sample"]), ["Fee Item", "tail", "legacy`name"])
+        self.assertEqual(schema.tables["sample"]["Fee Item"], "MEDIUMTEXT NULL")
+        self.assertEqual(schema.tables["sample"]["legacy`name"], "TEXT NOT NULL")
+
     def test_empty_or_malformed_source_commit_is_refused_before_generation(self):
         generator = load_generator()
         for commit in ("", "abc", "A" * 40):

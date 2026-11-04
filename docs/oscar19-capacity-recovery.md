@@ -80,6 +80,12 @@ records pre-existing normalization/duplicate retirement in
 Consent_migration_audit (including standard system attribution and update dates),
 retains every row, and enforces one live record with
 a generated-column unique key. Both application lookups exclude retired rows.
+In the published `V1.0.59.30` migration, `null_flag` audit rows record flags
+before normalization. `duplicate_retired` rows record flags after null
+normalization but before retirement. For a duplicate whose flags included
+NULL, its `null_flag` row retains the original values; its
+`duplicate_retired` row explains the later retirement. The published migration
+is unchanged so existing Flyway checksums remain valid.
 An older unmodified manifest is diagnosed as an incompatible package pair;
 file tampering is not assumed. Host preflight checks this mapping structurally.
 
