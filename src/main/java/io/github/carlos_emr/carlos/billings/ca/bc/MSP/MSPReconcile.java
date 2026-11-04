@@ -152,9 +152,9 @@ public class MSPReconcile {
     /**
      * Decodes Teleplan cents while keeping corrupt fields out of summary arithmetic.
      *
-     * @param value encoded cents from one payment row
-     * @param summary whether malformed input contributes zero instead of visible source text
-     * @return decoded dollars, or the report-specific malformed-field representation
+     * @param value String encoded cents from one payment row
+     * @param summary boolean whether malformed input contributes zero instead of visible source text
+     * @return String decoded dollars, or the report-specific malformed-field representation
      */
     private String csvPaymentAmount(String value, boolean summary) {
         try {
@@ -172,9 +172,9 @@ public class MSPReconcile {
     /**
      * Sums usable adjustment components without hiding malformed source text in detail exports.
      *
-     * @param row payment row containing seven encoded adjustment components
-     * @param summary whether to return the known subtotal even when a component is invalid
-     * @return dollar total, or all decoded/raw components separated by a vertical bar
+     * @param row PaymentRow containing seven encoded adjustment components
+     * @param summary boolean whether to return the known subtotal even when a component is invalid
+     * @return String dollar total, or all decoded/raw components separated by a vertical bar
      */
     private String csvAdjustmentAmount(PaymentRow row, boolean summary) {
         String[] components = {row.tAja1(), row.tAja2(), row.tAja3(), row.tAja4(), row.tAja5(), row.tAja6(), row.tAja7()};
@@ -198,8 +198,8 @@ public class MSPReconcile {
     /**
      * Classifies usable payments and retains unknown amounts for later CSV reconciliation.
      *
-     * @param bill report row whose payment type is populated; null amounts become empty text
-     * @return true for unknown/nonzero payments or zero payments carrying adjustments
+     * @param bill MSPBill whose payment type is populated; null amounts become empty text
+     * @return boolean true for unknown/nonzero payments or zero payments carrying adjustments
      */
     private boolean keepCsvPayment(MSPBill bill) {
         if (bill.amount == null) bill.amount = "";
@@ -1378,8 +1378,8 @@ public class MSPReconcile {
     /**
      * Protects CSV balance arithmetic from missing, malformed or non-finite billed values.
      *
-     * @param amount billed decimal dollars
-     * @return true for legacy PDF callers, or when CSV can use the double-based calculation
+     * @param amount String billed decimal dollars
+     * @return boolean true for legacy PDF callers, or when CSV can use the double-based calculation
      */
     private boolean canCalculateReportBalance(String amount) {
         if (!failOnReadError) return true;
@@ -1506,17 +1506,19 @@ public class MSPReconcile {
      * Reads payment rows for a detail or summary report. CSV summaries sum usable adjustment
      * components; detail rows retain malformed component text so it can be reconciled.
      *
-     * @param account account filter
-     * @param payeeNo payee filter
-     * @param providerNo provider filter
-     * @param startDate inclusive payment-date lower bound
-     * @param endDate inclusive payment-date upper bound
-     * @param excludeWCB whether to exclude WCB bills
-     * @param excludeMSP whether to exclude MSP bills
-     * @param excludePrivate whether to exclude private bills
-     * @param exludeICBC whether to exclude ICBC bills
-     * @param reportType REP_PAYREF or REP_PAYREF_SUM
+     * @param account String account filter
+     * @param payeeNo String payee filter
+     * @param providerNo String provider filter
+     * @param startDate String inclusive payment-date lower bound
+     * @param endDate String inclusive payment-date upper bound
+     * @param excludeWCB boolean whether to exclude WCB bills
+     * @param excludeMSP boolean whether to exclude MSP bills
+     * @param excludePrivate boolean whether to exclude private bills
+     * @param exludeICBC boolean whether to exclude ICBC bills
+     * @param reportType String REP_PAYREF or REP_PAYREF_SUM
      * @return BillSearch payment rows in report order
+     * @throws MissingBcPaymentProviderException if a provider lookup fails in legacy PDF mode
+     * @throws IllegalStateException if strict CSV mode cannot read billing data
      */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal billing type; not a security decision")
     public MSPReconcile.BillSearch getPayments(String account, String payeeNo, String providerNo, String startDate, String endDate,
