@@ -29,7 +29,7 @@
 const net = require('node:net');
 const h = require('./lib/playwright-harness');
 const { ensureClinicEmailFooter } = require('./lib/clinic-email-footer-fixture');
-const { createEmailArchiveCleanup } = require('./lib/email-archive-fixture');
+const { createEmailArchiveCleanup, preflightEmailArchives } = require('./lib/email-archive-fixture');
 const { runWorkflow } = require('./lib/workflow-session');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
@@ -343,5 +343,5 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('eform-email-attachment-binding', workflow, { openPatient: true });
+if (require.main === module) runWorkflow('eform-email-attachment-binding', workflow, { openPatient: true, preflightConfig: preflightEmailArchives });
 module.exports = { workflow };
