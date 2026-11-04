@@ -25,7 +25,7 @@ public final class RenalDosingInput {
             // hexadecimal literals and float/double suffixes.
             double value = new BigDecimal(observation.trim()).doubleValue();
             return Double.isFinite(value) && value > 0 ? value : Double.NaN;
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return Double.NaN;
         }
     }
@@ -43,13 +43,10 @@ public final class RenalDosingInput {
             return false;
         }
         try {
-            int birthYear = Integer.parseInt(year.trim());
-            if (birthYear < 1 || birthYear > 9999) {
-                return false;
-            }
-            LocalDate.of(birthYear, Integer.parseInt(month.trim()), Integer.parseInt(day.trim()));
-            return true;
-        } catch (NumberFormatException | DateTimeException e) {
+            LocalDate birthDate = LocalDate.of(Integer.parseInt(year.trim()),
+                    Integer.parseInt(month.trim()), Integer.parseInt(day.trim()));
+            return birthDate.getYear() >= 1 && birthDate.getYear() <= 9999;
+        } catch (NumberFormatException | DateTimeException _) {
             return false;
         }
     }

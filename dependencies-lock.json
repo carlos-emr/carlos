@@ -619,27 +619,27 @@
   }, {
     "groupId" : "io.opentelemetry",
     "artifactId" : "opentelemetry-api",
-    "version" : "1.62.0",
+    "version" : "1.67.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:mWGAiDvrP+uie/dWgCGsje4WCd0n0bc0oMTSaBlJ+uKnftYfEBlpEkFXMUghTIsVOYYiKhL0/Pf8qT7HQFsxkg=="
+    "integrity" : "sha512:yARYukVnACAn9E/LjBHAGUIZGh1Zonw2CsxVL1hvxWPp4xcytfPPBcfm2iC0ll3gv4NpideBiBsCBT6X5iIGrw=="
   }, {
     "groupId" : "io.opentelemetry",
     "artifactId" : "opentelemetry-common",
-    "version" : "1.62.0",
+    "version" : "1.67.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:xjCdNbXOtUrjOw1NPt0/f0uAydFynMGlvRo8rsP5IROdydITJVvkKhEx0l2j+s5lC6T5myEIYSrbQwuBGCa+Xw=="
+    "integrity" : "sha512:KZfv/rh7bfu+5A5G1mEKu1zOLjzlo0fL0zZQLkfuzFaI9MSRVargBJQHMOtMjE5cnmqsavSikXKpNj1eT+ofKQ=="
   }, {
     "groupId" : "io.opentelemetry",
     "artifactId" : "opentelemetry-context",
-    "version" : "1.62.0",
+    "version" : "1.67.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:51Vr7YMwmzpOPtd6Dpihu4xd5sXKS1CH3zPDsQqmJ5F8MHe1NJh1ZEfGPnBVpT4l5suux76oWuEcQMNpV/WNrg=="
+    "integrity" : "sha512:hc+0zrZT/Yvg9AlQhsjfDgvMD0nDwiR1f471qOpp9k2lFCF8u0xHO68vXDm5lTw0jSoNYyCCd6thGw2HQ0vpfw=="
   }, {
     "groupId" : "jakarta.activation",
     "artifactId" : "jakarta.activation-api",

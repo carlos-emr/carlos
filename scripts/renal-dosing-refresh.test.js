@@ -4,9 +4,9 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const source=fs.readFileSync(require('node:path').join(__dirname,'../src/main/webapp/WEB-INF/jsp/rx/SearchDrug3.jsp'),'utf8');
 const refresh=source.slice(source.indexOf('function getRenalDosingInformation(divId,atcCode)'),source.indexOf('function getLUC(',source.indexOf('function getRenalDosingInformation(divId,atcCode)')));
 function harness(initial='previous calculation') {
-  const link={},panel={innerHTML:initial,querySelector:selector=>{
-    assert.equal(selector,'a');
-    return /<a\b[^>]*>[^<]*Refresh<\/a>/.test(panel.innerHTML)?link:null;
+  const button={},panel={innerHTML:initial,querySelector:selector=>{
+    assert.equal(selector,'button');
+    return /<button\b[^>]*\btype="button"[^>]*>[^<]*Refresh<\/button>/.test(panel.innerHTML)?button:null;
   }},requests=[];
   let current=panel;
   const context={document:{getElementById:id=>id==='renalDosing_7'?current:null,createElement:tag=>{
@@ -19,7 +19,7 @@ function harness(initial='previous calculation') {
     return fragment;
   }},CarlosAjax:{request:(url,options)=>requests.push({url,...options})},Math,encodeURIComponent};
   vm.runInNewContext(refresh,context);
-  return {panel,link,requests,context,replace:value=>{current=value;}};
+  return {panel,button,requests,context,replace:value=>{current=value;}};
 }
 for(const status of [200,400])test(`only the latest renal refresh can replace a panel, including HTTP ${status}`,()=>{
   const {panel,requests,context}=harness();
@@ -70,7 +70,7 @@ for(const initial of ['', '<table><tr class="selected">old dose</tr></table>'])f
     assert.ok(h.panel.innerHTML.includes('N/A')&&h.panel.innerHTML.includes('Refresh'));
     assert.ok(!h.panel.innerHTML.includes('old dose'));
     if(body)assert.ok(!h.panel.innerHTML.includes(body));
-    assert.equal(h.link.onclick(),false,'Retry must prevent the default link navigation');
+    h.button.onclick();
     assert.equal(h.requests.length,2);
     const parameters=new URLSearchParams(h.requests[1].parameters);
     assert.equal(parameters.get('divId'),'renalDosing_7');

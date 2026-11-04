@@ -212,8 +212,8 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
     }
 </style>
 <div data-renal-dosing-panel style="float:left; margin-left:10px; margin-right: 10px;">
-    <h3>Dosing Information <small><a href="#"
-        onclick="getRenalDosingInformation('<carlos:encode value='<%= divId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= atc %>' context="javaScriptAttribute"/>'); return false;">Refresh</a></small></h3>
+    <h3>Dosing Information <small><button type="button" class="btn btn-link"
+        onclick="getRenalDosingInformation('<carlos:encode value='<%= divId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= atc %>' context="javaScriptAttribute"/>');">Refresh</button></small></h3>
     <table class="sofT">
         <tr class="heading">
             <th>Clcr</th>
