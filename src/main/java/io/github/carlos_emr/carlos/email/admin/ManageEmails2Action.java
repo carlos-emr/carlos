@@ -64,6 +64,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class ManageEmails2Action extends ActionSupport {
     private static final String EMAIL_SECURITY_OBJECT = "_email";
+    private static final String MISSING_EMAIL_PRIVILEGE_MESSAGE =
+            "missing required sec object (" + EMAIL_SECURITY_OBJECT + ")";
     private static final String ERROR_MESSAGE_KEY = "errorMessage";
     private static final String INVALID_EMAIL_LOG_ID_MESSAGE = "Invalid email log id";
 
@@ -99,7 +101,7 @@ public class ManageEmails2Action extends ActionSupport {
     public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, EMAIL_SECURITY_OBJECT, SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_email)");
+            throw new SecurityException(MISSING_EMAIL_PRIVILEGE_MESSAGE);
         }
         String mtd = request.getParameter("method");
         if ("fetchEmails".equals(mtd)) {
@@ -206,7 +208,7 @@ public class ManageEmails2Action extends ActionSupport {
     public void setResolved() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, EMAIL_SECURITY_OBJECT, SecurityInfoManager.WRITE, null)) {
-            throw new SecurityException("missing required sec object (_email)");
+            throw new SecurityException(MISSING_EMAIL_PRIVILEGE_MESSAGE);
         }
         if (!"POST".equals(request.getMethod())) {
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
@@ -373,7 +375,7 @@ public class ManageEmails2Action extends ActionSupport {
     private List<EmailAttachment> refreshEmailAttachments(HttpServletRequest request, HttpServletResponse response, EmailLog emailLog) throws PDFGenerationException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, EMAIL_SECURITY_OBJECT, SecurityInfoManager.READ, null)) {
-            throw new SecurityException("missing required sec object (_email)");
+            throw new SecurityException(MISSING_EMAIL_PRIVILEGE_MESSAGE);
         }
 
         List<EmailAttachment> emailAttachmentList = emailLog.getEmailAttachments();
