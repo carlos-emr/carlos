@@ -46,7 +46,7 @@ permissions:
 jobs:
   semgrep:
     name: Semgrep SAST Analysis
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: ${{ github.event_name == 'pull_request' && 20 || 90 }}
     container:
       image: semgrep/semgrep@sha256:7810f1d7884974ab6dda7bef8f4a2c8e165ea2142fd8260515d380e4f1407263
