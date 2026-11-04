@@ -341,6 +341,10 @@
             pageContext.setAttribute("attachedForms", attachedForms);
             pageContext.setAttribute("attachedEForms", attachedEForms);
             pageContext.setAttribute("attachedHRMDocuments", attachedHRMDocuments);
+            request.setAttribute(io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachmentsNotIncluded.REQUEST_ATTRIBUTE,
+                io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachmentsNotIncluded.describe(
+                    consultationManager, loggedInInfo, Integer.parseInt(requestId), attachedForms, attachedHRMDocuments,
+                    io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request)));
 
         }
     %>
@@ -2552,6 +2556,7 @@ if (userAgent != null) {
                     </div>
 
                     <div class="card mb-2 consult-attachments">
+                        <%@ include file="/WEB-INF/jsp/encounter/oscarConsultationRequest/attachmentsNotIncludedNotice.jspf" %>
                         <div class="card-body p-2">
                                 <table id="attachedDocumentTable" style="border:none;background:transparent;">
                                     <tr>
