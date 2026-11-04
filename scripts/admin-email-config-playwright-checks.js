@@ -19,6 +19,7 @@
 const net = require('node:net');
 const h = require('./lib/playwright-harness');
 const { ensureClinicEmailFooter } = require('./lib/clinic-email-footer-fixture');
+const { createEmailArchiveCleanup } = require('./lib/email-archive-fixture');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {runWorkflow, expectValue} = require('./lib/workflow-session');
@@ -96,6 +97,7 @@ async function workflow(s) {
   }
   // Send stays disabled until a clinic email footer is saved (#3981).
   ensureClinicEmailFooter(s);
+  const removeArchives = createEmailArchiveCleanup(sql);
   const hex = marker.slice(-16);
   const sender = `sender-${hex}@example.com`;
   const recipient = `patient-${hex}@example.com`;
@@ -117,6 +119,7 @@ async function workflow(s) {
     await sink.close();
     const logs = sql.rows(ownedLogs).map(row => row[0]);
     for (const id of logs) h.assert(/^[1-9]\d*$/.test(id), 'Owned email log id is invalid');
+    removeArchives({patient, marker, logIds: logs});
     if (logs.length) {
       sql.execute(`DELETE FROM casemgmt_note_link WHERE table_name=12 AND table_id IN (${logs.join(',')});
         DELETE FROM emailAttachment WHERE logId IN (${logs.join(',')});
@@ -251,7 +254,8 @@ async function workflow(s) {
     h.assert(await compose.locator('.attachmentName').count() === 1, 'The saved eForm is not attached');
     sentCredentials = await fillAndSend(compose, subject, `${marker} body line`);
     const errors = await compose.locator('.alert-danger:visible').allTextContents();
-    h.assert(errors.length === 0, `The encrypted send was refused: ${errors.join(' ')}`);
+    h.assert(await compose.locator('#isEmailSuccessful').inputValue() === 'true',
+      `The encrypted send was refused: ${errors.join(' ')}`);
     await compose.locator('#successMessage').waitFor({timeout: TIMEOUT});
     h.assert((await compose.locator('#successMessage').innerText()).includes(recipient), 'The confirmation does not name the recipient');
     await compose.waitForEvent('close', {timeout: TIMEOUT});

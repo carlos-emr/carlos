@@ -27,6 +27,7 @@
 const net = require('node:net');
 const h = require('./lib/playwright-harness');
 const { ensureClinicEmailFooter } = require('./lib/clinic-email-footer-fixture');
+const { createEmailArchiveCleanup } = require('./lib/email-archive-fixture');
 const { runWorkflow } = require('./lib/workflow-session');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
@@ -103,6 +104,7 @@ async function workflow(s) {
   }
   // Send stays disabled until a clinic email footer is saved (#3981).
   ensureClinicEmailFooter(s);
+  const removeArchives = createEmailArchiveCleanup(sql);
   const hex = marker.slice(-16);
   const sender = `sender-${hex}@example.com`;
   const lastNameY = `${marker}Y`;
@@ -114,11 +116,13 @@ async function workflow(s) {
   const sink = startSmtpSink();
   let configId;
   let fid;
+  let childCleanupComplete = false;
 
   // Registered first so it runs last, after every child row below has been removed.
   s.cleanup(() => {
     const y = patients.y.demographicNo;
     if (!y) return;
+    h.assert(childCleanupComplete, 'Patient Y retained because email child cleanup did not finish');
     h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${y} AND last_name=${q(lastNameY)}`) === '1',
       'Patient Y fixture ownership changed');
     const support = [['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no'],
@@ -133,6 +137,7 @@ async function workflow(s) {
       if (!demo) continue;
       const logs = sql.rows(`SELECT id FROM emailLog WHERE demographicNo=${demo}`).map(row => row[0]);
       for (const id of logs) h.assert(/^[1-9]\d*$/.test(id), 'Owned email log id is invalid');
+      removeArchives({patient: demo, marker: demo === patients.x.demographicNo ? marker : lastNameY, logIds: logs});
       if (logs.length) {
         sql.execute(`DELETE FROM casemgmt_note_link WHERE table_name=12 AND table_id IN (${logs.join(',')});
           DELETE FROM emailAttachment WHERE logId IN (${logs.join(',')});
@@ -158,6 +163,7 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM eform WHERE form_name=${q(formName)})
       + (SELECT COUNT(*) FROM emailConfig WHERE senderEmail=${q(sender)})`) === '0',
     'The owned eForm template or sender account was not removed');
+    childCleanupComplete = true;
   });
 
   patients.y.demographicNo = sql.value(`INSERT INTO demographic
@@ -207,7 +213,8 @@ async function workflow(s) {
     await composer.locator('#doNotAddAsNoteOption').check();
     await Promise.all([composer.waitForURL(/\/email\/emailSendAction/, { timeout: TIMEOUT }), composer.locator('#btnSend').click()]);
     const errors = await composer.locator('.alert-danger:visible').allTextContents();
-    h.assert(errors.length === 0, `The ${label} send was refused: ${errors.join(' ')}`);
+    h.assert(await composer.locator('#isEmailSuccessful').inputValue() === 'true',
+      `The ${label} send was refused: ${errors.join(' ')}`);
     await composer.locator('#successMessage').waitFor({ timeout: TIMEOUT });
     h.assert((await composer.locator('#successMessage').innerText()).includes(entry.address),
       `The ${label} confirmation does not name its patient's address`);
