@@ -149,6 +149,13 @@ public class MSPReconcile {
                 : convCurValue(value);
     }
 
+    /**
+     * Decodes Teleplan cents while keeping corrupt fields out of summary arithmetic.
+     *
+     * @param value encoded cents from one payment row
+     * @param summary whether malformed input contributes zero instead of visible source text
+     * @return decoded dollars, or the report-specific malformed-field representation
+     */
     private String csvPaymentAmount(String value, boolean summary) {
         try {
             return convertReportAmount(value);
@@ -162,6 +169,13 @@ public class MSPReconcile {
         }
     }
 
+    /**
+     * Sums usable adjustment components without hiding malformed source text in detail exports.
+     *
+     * @param row payment row containing seven encoded adjustment components
+     * @param summary whether to return the known subtotal even when a component is invalid
+     * @return dollar total, or all decoded/raw components separated by a vertical bar
+     */
     private String csvAdjustmentAmount(PaymentRow row, boolean summary) {
         String[] components = {row.tAja1(), row.tAja2(), row.tAja3(), row.tAja4(), row.tAja5(), row.tAja6(), row.tAja7()};
         BigDecimal total = BigDecimal.ZERO;
@@ -181,6 +195,12 @@ public class MSPReconcile {
         return summary || !malformed ? total.toPlainString() : String.join(" | ", details);
     }
 
+    /**
+     * Classifies usable payments and retains unknown amounts for later CSV reconciliation.
+     *
+     * @param bill report row whose payment type is populated; null amounts become empty text
+     * @return true for unknown/nonzero payments or zero payments carrying adjustments
+     */
     private boolean keepCsvPayment(MSPBill bill) {
         if (bill.amount == null) bill.amount = "";
         try {
@@ -1239,7 +1259,7 @@ public class MSPReconcile {
                     b.amount = row.billAmount();
                     b.code = row.billingCode();
                     b.dx1 = row.dxCode1();
-                    b.serviceDate = row.serviceDate().equals("") ? "00000000" : row.serviceDate();
+                    b.serviceDate = "".equals(row.serviceDate()) ? "00000000" : row.serviceDate();
                     b.mvaCode = row.mvaClaimCode();
                     b.hin = row.phn();
                     b.serviceLocation = row.serviceLocation();
@@ -1355,6 +1375,12 @@ public class MSPReconcile {
         return billSearch;
     }
 
+    /**
+     * Protects CSV balance arithmetic from missing, malformed or non-finite billed values.
+     *
+     * @param amount billed decimal dollars
+     * @return true for legacy PDF callers, or when CSV can use the double-based calculation
+     */
     private boolean canCalculateReportBalance(String amount) {
         if (!failOnReadError) return true;
         if (amount == null || amount.isBlank()) return false;

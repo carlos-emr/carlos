@@ -156,7 +156,7 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         doReturn(new Provider()).when(csv).getProvider(anyString(), anyInt());
         for (String amount : Arrays.asList(null, "", " ", "bad amount", "NaN", "1e309")) {
             var malformed = new BillRow("Pri", "41", "1", "1", "FAKE-Patient", "", "O", "", "", "", "41",
-                    amount, "00100", "", "", "", "", "", "", "", "12345", "12345", "", "");
+                    amount, "00100", "", null, "", "", "", "", "", "12345", "12345", "", "");
             var valid = new BillRow("Pri", "42", "1", "1", "FAKE-Patient", "", "O", "", "", "", "42",
                     "100.00", "00100", "", "20261001", "", "", "", "", "", "12345", "12345", "", "");
             when(billingmasterDao.findBcBills(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any()))
@@ -164,6 +164,7 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
             var result = csv.getBillsByType("ALL", "ALL", "ALL", "", "", false, false, false, false, type);
             assertThat(result.list).hasSize(2);
             assertThat(((MSPBill) result.list.getFirst()).getAmount()).isEqualTo(amount);
+            assertThat(((MSPBill) result.list.getFirst()).getServiceDate()).isNull();
             assertThat(((MSPBill) result.list.getFirst()).getAmtOwing()).isEmpty();
             assertThat(((MSPBill) result.list.get(1)).getAmtOwing()).isEqualTo("100.0");
         }

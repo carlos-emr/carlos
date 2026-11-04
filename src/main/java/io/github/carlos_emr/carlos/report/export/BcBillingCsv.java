@@ -140,6 +140,13 @@ public final class BcBillingCsv {
         }
     }
 
+    /**
+     * Keeps unageable claims separate from the four known service-date ranges.
+     *
+     * @param serviceDate compact service date, possibly missing or malformed
+     * @param reportDate fixed server-local date for this export
+     * @return legacy bucket 1 through 4, or unknown when no usable service date exists
+     */
     private static String ageBucket(String serviceDate, LocalDate reportDate) {
         if (serviceDate == null || serviceDate.isBlank() || "00000000".equals(serviceDate)) {
             return "unknown";
@@ -162,6 +169,13 @@ public final class BcBillingCsv {
         return value == null || value.isEmpty() ? "" : value.substring(0, 1);
     }
 
+    /**
+     * Writes net payments and the refund subset, with adjustments in the Electronic category.
+     *
+     * @param output destination owned by the CSV writer
+     * @param bills payment rows, including any malformed legacy fields
+     * @throws IOException if writing or closing the CSV fails
+     */
     private static void writePaymentSummary(OutputStream output, List<MSPBill> bills) throws IOException {
         // Payments includes refunds; Refunds is the negative subset, matching the PDF.
         BigDecimal[] payments = new BigDecimal[8];
@@ -190,6 +204,12 @@ public final class BcBillingCsv {
         }
     }
 
+    /**
+     * Applies the summary's zero fallback without changing detail-export source text.
+     *
+     * @param value decimal dollars, possibly missing or malformed
+     * @return parsed amount, or zero when no usable amount exists
+     */
     private static BigDecimal summaryAmount(String value) {
         if (value == null || value.isBlank()) return BigDecimal.ZERO;
         try {
