@@ -166,29 +166,54 @@ async function workflow(s) {
     await browser.locator('#doclist').waitFor({ state: 'attached' });
   }
 
-  if(process.env.DIALOG_CONFIRMATION_TARGET==='document') await s.step('dismissing document Delete confirms once and leaves both document rows unchanged',async()=>{
+  if (process.env.DIALOG_CONFIRMATION_TARGET === 'document') await s.step('dismissing document Delete confirms once and leaves both document rows unchanged', async () => {
     await browser.locator('#doclist').selectOption(`${docA.id}-application/pdf`);
-    const responses=[];
-    const listener=response=>{if(new URL(response.url()).pathname.endsWith('/casemgmt/NoteBrowserDocumentDelete'))responses.push(response);};
-    browser.on('response',listener);
+    const documentRows = () => sql.rows(`SELECT * FROM document WHERE document_no IN (${docA.id},${docB.id}) ORDER BY document_no`);
+    const before = JSON.stringify(documentRows());
+    const formState = () => browser.locator('form[name="DisplayDoc"]').evaluate(form => ({
+      action: form.action,
+      values: [...new FormData(form).entries()],
+      selectedDocuments: [...form.querySelector('#doclist').selectedOptions].map(option => option.value),
+    }));
+    const formBefore = JSON.stringify(await formState());
+    const responses = [];
+    const requests = [];
+    const isDelete = url => new URL(url).pathname.endsWith('/casemgmt/NoteBrowserDocumentDelete');
+    const onResponse = response => { if (isDelete(response.url())) responses.push(response); };
+    const onRequest = request => { if (isDelete(request.url())) requests.push(request); };
+    browser.on('response', onResponse);
+    browser.on('request', onRequest);
     try {
-      const dialogs=await h.withExpectedDialogs(browser,()=>browser.locator('#docbuttons input[type="button"][value="Delete"]').click(),{accept:false});
-      if(!dialogs.length) {
-        // A missing prompt may already have accepted a native write; drain it
-        // before asserting the unchanged contract and tearing down fixtures.
-        await browser.waitForLoadState('networkidle',{timeout:30000}).catch(error=>{
-          if(error.name!=='TimeoutError')throw error;
+      const dialogs = await h.withExpectedDialogs(browser,
+        () => browser.locator('#docbuttons input[type="button"][value="Delete"]').click(), { accept: false });
+      if (!dialogs.length) {
+        // Drain a write from a missing prompt before failing and cleaning up fixtures.
+        await browser.waitForLoadState('networkidle', { timeout: 30000 }).catch(error => {
+          if (error.name !== 'TimeoutError') throw error;
           console.error('Document Delete did not offer cancellable confirmation; background traffic did not settle before teardown');
         });
-        for(const response of responses)await response.finished();
+        for (const response of responses) await response.finished();
       }
-      h.assert(dialogs.length===1&&dialogs[0].type==='confirm'&&status(docA)==='A'&&status(docB)==='A','Document Delete did not offer cancellable confirmation or changed a row after dismissal');
-    } finally {browser.off('response',listener);}
+      h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm'
+        && dialogs[0].text === `Are you sure you want to delete ${docA.label}`,
+      'Document Delete did not offer the localized selected document confirmation');
+      h.assert(requests.length === 0, 'Cancel sent a document Delete request');
+      h.assert(JSON.stringify(await formState()) === formBefore, 'Cancel changed the document selection or form fields');
+      h.assert(JSON.stringify(documentRows()) === before, 'Cancel changed a document row');
+      h.assert(await listed(docA) === 1 && await listed(docB) === 1, 'Cancel changed the published document list');
+    } finally {
+      browser.off('response', onResponse);
+      browser.off('request', onRequest);
+    }
   });
 
   await s.step('Delete marks the selected document D and drops it from the published list', async () => {
     await browser.locator('#doclist').selectOption(`${docA.id}-application/pdf`);
-    await submitFrom(browser.locator('#docbuttons input[type="button"][value="Delete"]'), 'NoteBrowserDocumentDelete');
+    const dialogs = await h.withExpectedDialogs(browser,
+      () => submitFrom(browser.locator('#docbuttons input[type="button"][value="Delete"]'), 'NoteBrowserDocumentDelete'));
+    h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm'
+      && dialogs[0].text === `Are you sure you want to delete ${docA.label}`,
+      'Delete did not confirm exactly the selected document');
     h.assert(status(docA) === 'D' && status(docB) === 'A', 'Delete did not mark exactly the selected document deleted');
     h.assert(await listed(docA) === 0 && await listed(docB) === 1, 'The published list did not follow the delete');
   });
@@ -485,5 +510,7 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('note-browser-documents', workflow, { openPatient: true, preflight: () => requirePoppler('pdftotext') });
+if (require.main === module) runWorkflow('note-browser-documents', workflow, {
+  openPatient: true, contextOptions: { locale: 'en-CA' }, preflight: () => requirePoppler('pdftotext'),
+});
 module.exports = { workflow };

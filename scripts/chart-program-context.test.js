@@ -240,7 +240,9 @@ for (const [handler, operation, documentField] of [
             const end = jsp.indexOf('        function setQueue(', start);
             assert.ok(start > 0 && end > start, 'native document mutation handlers exist');
             const page = {document: {DisplayDoc: fields}, docid: '42',
-                case_program_id: '8', window: {carlosChartContext: 'another-window-program8'}};
+                case_program_id: '8', window: {carlosChartContext: 'another-window-program8'},
+                confirm: () => true, getSelected: () => [{title: 'Owned document'}]};
+            page.document.getElementById = () => ({});
             vm.runInNewContext(jsp.slice(start, end).replaceAll('<%= request.getContextPath() %>', '/carlos'), page);
             page[handler]();
             assert.equal(fields.action, `/carlos/casemgmt/NoteBrowserDocument${operation}`);
@@ -250,4 +252,39 @@ for (const [handler, operation, documentField] of [
             assert.deepEqual(submitted.getAll('chartContext'), token === null ? [] : [token]);
         });
     }
+}
+
+for (const accepted of [false, true]) {
+    test(`Browse Notes Delete ${accepted ? 'accepts' : 'cancels'} confirmation before changing its form`, () => {
+        const jsp = fs.readFileSync(path.join(__dirname,
+            '../src/main/webapp/WEB-INF/jsp/casemgmt/noteBrowser.jsp'), 'utf8');
+        const start = jsp.indexOf('        function DeleteDoc(');
+        const end = jsp.indexOf('        function UnDeleteDoc(', start);
+        let submissions = 0;
+        const fields = {action: '/original', delDocumentNo: {value: ''}, viewstatus: {value: 'all'},
+            selviewstatus: {selectedIndex: 0, options: [{value: 'active'}]},
+            submit() { submissions++; }};
+        const before = JSON.stringify(fields);
+        const dialogs = [];
+        assert.match(jsp, /<fmt:message key="encounter\.noteBrowser\.confirmDeleteDocument" var="deleteDocumentPrompt"\/>/);
+        const promptExpression = '<%= SafeEncode.forJavaScript((String)pageContext.getAttribute("deleteDocumentPrompt")) %>';
+        const handler = jsp.slice(start, end);
+        assert.ok(handler.includes(promptExpression), 'Delete must use the JavaScript-encoded localized prompt');
+        const prompt = 'Czy na pewno chcesz usunąć {0}';
+        const page = {docid: '42', document: {DisplayDoc: fields, getElementById: () => ({})},
+            getSelected: () => [{title: "Patient's document <2026>"}],
+            confirm(message) { dialogs.push(message); return accepted; }};
+        vm.runInNewContext(handler.replace(promptExpression, prompt)
+            .replaceAll('<%= request.getContextPath() %>', '/carlos'), page);
+        page.DeleteDoc();
+        assert.equal(dialogs.length, 1, 'Delete must offer exactly one cancellable confirmation');
+        assert.equal(dialogs[0], "Czy na pewno chcesz usunąć Patient's document <2026>");
+        assert.equal(submissions, accepted ? 1 : 0);
+        if (accepted) {
+            assert.equal(fields.action, '/carlos/casemgmt/NoteBrowserDocumentDelete');
+            assert.equal(fields.delDocumentNo.value, '42');
+        } else {
+            assert.equal(JSON.stringify(fields), before, 'Cancel must leave every form value unchanged');
+        }
+    });
 }
