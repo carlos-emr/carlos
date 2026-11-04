@@ -30,8 +30,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 /**
  * Owns the legacy extract's log rows and billing status changes in one REQUIRED transaction.
- * Use the Spring-managed proxy so writes join that boundary. The caller publishes HTML after
- * this service returns and the report filename has been assigned.
+ * Use the Spring-managed proxy so writes join that boundary. The caller assigns the report
+ * filename and explicitly writes HTML; generation performs no file I/O.
  *
  * @since 2026-11-02
  */

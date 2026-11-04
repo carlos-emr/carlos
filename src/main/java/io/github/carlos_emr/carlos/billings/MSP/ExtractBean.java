@@ -261,6 +261,12 @@ public class ExtractBean extends Object implements Serializable {
         }
     }
 
+    /**
+     * Writes the report after the caller assigns its HTML filename.
+     *
+     * @param htmlvalue1 HTML report content
+     * @throws IllegalStateException if the HTML filename is null or blank
+     */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeHtml(String htmlvalue1) {
