@@ -124,7 +124,7 @@ public class RxSummary implements Summary {
     private static WebApplicationException importedMedicationUnsupported(Integer demographicNo) {
         return new WebApplicationException(Response.status(Response.Status.CONFLICT)
                 .type(MediaType.TEXT_PLAIN_TYPE).entity(new CdsMedicationCompatibilityException().getMessage()
-                        + " (/form/cdsSourceFields?demographicNo=" + demographicNo
+                        + " (/demographic/cdsSourceFields?demographicNo=" + demographicNo
                         + "&category=MedicationsAndTreatments)")
                 .header("Cache-Control", "no-store").build());
     }

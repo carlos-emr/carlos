@@ -1,3 +1,24 @@
+carlos-emr (2026.09.0~snapshot28) resolute; urgency=medium
+
+  * Proactively preserve OSCAR 19 character and text capacities in the
+    common, Ontario and BC schemas, including utf8mb4 expansion. Keep
+    legacy demographic text visible and preserve full Rx favourites and
+    prevention configuration values.
+  * Reconcile the Consent one-live-record schema, audited flag/history
+    normalization, generated import rules and active-record lookups.
+  * Restore the native BCAR 2007 urine-culture text field used by the
+    existing form UI and OSCAR source; avoid unnecessary archived twins
+    on this wide legacy table without relaxing SQL warning checks.
+  * Keep development and additive demo Consent inserts compatible with
+    the generated live-record key by naming their original columns.
+  * Classify the Consent audit history for read-only reporting and retain
+    standard audit metadata. Verify all emitted target columns against
+    independent physical contracts, including guarded dynamic migrations.
+  * Ship the pre-fix physical contracts for verified pre-copy recovery and
+    require the fixed carlos-ctl package pair (issue #5503).
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sun, 01 Nov 2026 16:01:03 -0500
+
 carlos-emr (2026.09.0~snapshot27) resolute; urgency=medium
 
   * Keep immutable import input snapshots out of routine backups and remove

@@ -2,7 +2,7 @@
  "format": 1,
  "kind": "o19map-schema",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "SCHEMA_MAP_VERSION": "o19map-5+9e7bc615",
+ "SCHEMA_MAP_VERSION": "o19map-6+cccc8801",
  "O19_PROFILE": "on",
  "O19_SOURCE_COMMIT": "a7900d569d3faf741993e5e1da8c14021bbefede",
  "TABLES": {
@@ -94,8 +94,13 @@
     "last_entered_by",
     "consent_date",
     "optout_date",
-    "edit_date"
+    "edit_date",
+    "deleted"
    ],
+   "value_exprs": {
+    "optout": "COALESCE(s.`optout`, 1)",
+    "deleted": "COALESCE((SELECT r.`deleted` FROM {archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)"
+   },
    "fk_remap": {
     "consent_type_id": "consentType"
    }
@@ -12677,7 +12682,8 @@
    "consent_date",
    "optout_date",
    "edit_date",
-   "deleted"
+   "deleted",
+   "live_demographic_no"
   ],
   "Contact": [
    "id",
@@ -24764,7 +24770,7 @@
  },
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-5+ccf44f43",
+   "SCHEMA_MAP_VERSION": "o19map-6+e44c15d5",
    "O19_PROFILE": "bc",
    "TABLES": {
     "AppDefinition": {
@@ -24855,8 +24861,13 @@
       "last_entered_by",
       "consent_date",
       "optout_date",
-      "edit_date"
+      "edit_date",
+      "deleted"
      ],
+     "value_exprs": {
+      "optout": "COALESCE(s.`optout`, 1)",
+      "deleted": "COALESCE((SELECT r.`deleted` FROM {archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)"
+     },
      "fk_remap": {
       "consent_type_id": "consentType"
      }
@@ -29610,13 +29621,9 @@
       "ar2_tweakW",
       "ar2_tweakE",
       "ar2_tweakA",
-      "ar2_tweakK"
-     ],
-     "dropped": {
-      "ar2_urineCStxt": {
-       "nondefault": "s.`ar2_urineCStxt` IS NOT NULL AND s.`ar2_urineCStxt` <> ''"
-      }
-     }
+      "ar2_tweakK",
+      "ar2_urineCStxt"
+     ]
     },
     "formBCAR2012": {
      "class": "copy",
@@ -42732,7 +42739,8 @@
      "consent_date",
      "optout_date",
      "edit_date",
-     "deleted"
+     "deleted",
+     "live_demographic_no"
     ],
     "Contact": [
      "id",
@@ -46711,7 +46719,8 @@
      "ar2_tweakW",
      "ar2_tweakE",
      "ar2_tweakA",
-     "ar2_tweakK"
+     "ar2_tweakK",
+     "ar2_urineCStxt"
     ],
     "formBCAR2012": [
      "ID",
