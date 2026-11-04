@@ -117,11 +117,6 @@ public class ExtractBean extends Object implements Serializable {
         SpringUtils.getBean(BcBillingService.class).generateExtract(this);
     }
 
-    /** Publishes the assembled report after the owning transaction commits. */
-    public void publishExtract() {
-        if ("1".equals(eFlag)) writeHtml(htmlCode);
-    }
-
     /** Called by the Spring service inside one transaction; failures roll back all claim/status writes. */
     public void buildExtract() {
         initializeBatchHeader();
@@ -269,6 +264,9 @@ public class ExtractBean extends Object implements Serializable {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeHtml(String htmlvalue1) {
+        if (htmlFilename == null) {
+            throw new IllegalStateException("HTML filename must be set before writing a Teleplan report");
+        }
         try {
             String home_dir1;
             String userHomePath1 = System.getProperty("user.home", "user.dir");

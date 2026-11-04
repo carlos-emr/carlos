@@ -115,6 +115,13 @@ class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectMissingHtmlFilename_beforeReadingConfiguration() {
+        assertThatThrownBy(() -> new ExtractBean().writeHtml("<html/>"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("HTML filename must be set before writing a Teleplan report");
+    }
+
+    @Test
     void shouldRejectBlankClaimFees_insteadOfSendingZeroValueClaims() {
         when(billingmasterDao.findBcExtractBills(anyString(), anyString(), any()))
                 .thenReturn(List.of(new ExtractBillRow(1001, "FAKE")));

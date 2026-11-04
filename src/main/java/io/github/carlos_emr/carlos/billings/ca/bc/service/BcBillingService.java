@@ -26,12 +26,12 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * Owns the legacy extract's log rows and billing status changes in one REQUIRED transaction.
- * Use the Spring-managed proxy so writes join that boundary and HTML publication occurs after commit.
+ * Use the Spring-managed proxy so writes join that boundary. The caller publishes HTML after
+ * this service returns and the report filename has been assigned.
  *
  * @since 2026-11-02
  */
@@ -52,8 +52,8 @@ public class BcBillingService {
     /**
      * Starts or joins the class-level Spring transaction and builds the extract within it.
      * Requires an actual transaction and synchronization before any build work can write rows.
-     * Build failures roll back log rows and status updates. HTML publication is registered
-     * only after a successful build and runs after the owning transaction commits.
+     * Build failures roll back log rows and status updates. HTML remains in memory so the caller
+     * can assign a filename before explicitly writing the report.
      *
      * @param extract ExtractBean containing the prepared provider/date/export selection
      * @throws RuntimeException if building the extract fails; participating writes are rolled back
@@ -65,12 +65,6 @@ public class BcBillingService {
             throw new IllegalStateException("A transaction is required to generate a BC billing extract");
         }
         extract.buildExtract();
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
-                extract.publishExtract();
-            }
-        });
     }
 
     /**

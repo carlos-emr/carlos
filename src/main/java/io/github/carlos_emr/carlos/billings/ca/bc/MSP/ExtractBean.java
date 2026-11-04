@@ -269,8 +269,6 @@ public class ExtractBean extends Object implements Serializable {
             htmlFooter = HtmlTeleplanHelper.htmlFooter(providerNo, pCount, BigTotal) + HtmlTeleplanHelper.htmlBottom();
             htmlCode = htmlContentHeader + htmlContent + htmlFooter;
 
-            writeHtml(htmlCode);
-
             ohipReciprocal = String.valueOf(hcCount);
             ohipRecord = String.valueOf(rCount);
             ohipClaim = String.valueOf(pCount);
@@ -351,6 +349,9 @@ public class ExtractBean extends Object implements Serializable {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeHtml(String htmlvalue1) {
         if (eFlag.equals("1")) {
+            if (htmlFilename == null) {
+                throw new IllegalStateException("HTML filename must be set before writing a Teleplan report");
+            }
             try {
                 String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
                 File homeDir = new File(home_dir);
