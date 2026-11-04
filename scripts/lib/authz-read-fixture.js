@@ -263,11 +263,13 @@ function authzReadFixture({ sql, marker, provider, testUser }) {
       assert(joined === sql.value(`SELECT COUNT(*) FROM program_provider WHERE provider_no=${sqlString(provider)}`),
         'The login did not join exactly the test login\'s programs');
       if (copyDefaults) {
-        sql.execute(`INSERT INTO provider_default_program (provider_no, program_id, signnote)
-          SELECT ${p}, program_id, signnote FROM provider_default_program WHERE provider_no=${sqlString(provider)}`);
         const defaults = owner => sql.rows(`SELECT program_id,signnote FROM provider_default_program
           WHERE provider_no=${sqlString(owner)} ORDER BY program_id,signnote`);
-        assert(JSON.stringify(defaults(login.providerNo)) === JSON.stringify(defaults(provider)),
+        const expectedDefaults = defaults(provider);
+        assert(expectedDefaults.length > 0, 'The test login has no default program to inherit');
+        sql.execute(`INSERT INTO provider_default_program (provider_no, program_id, signnote)
+          SELECT ${p}, program_id, signnote FROM provider_default_program WHERE provider_no=${sqlString(provider)}`);
+        assert(JSON.stringify(defaults(login.providerNo)) === JSON.stringify(expectedDefaults),
           'The login did not inherit exactly the test login\'s default programs');
       }
       return Number(joined);
