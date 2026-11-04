@@ -203,6 +203,10 @@ public class FrmBCAR2020Record extends FrmRecord {
     }
 
     public Boolean isGlobalField(String fieldName) {
+        return isGlobalFieldName(fieldName);
+    }
+
+    static boolean isGlobalFieldName(String fieldName) {
         return globalFields.contains(fieldName);
     }
 
