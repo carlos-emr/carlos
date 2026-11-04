@@ -282,7 +282,14 @@ class ReadingAidArtifactUnitTest {
         assertThat(ReadingAidArtifact.noticeLanguage(DocumentSummaryReviewBinding.NOTICE_VERSION_PT_BR)).isEqualTo("pt");
         assertThat(ReadingAidArtifact.noticeLanguage(DocumentSummaryReviewBinding.NOTICE_VERSION_ES)).isEqualTo("es");
         assertThat(ReadingAidArtifact.noticeLanguage(DocumentSummaryReviewBinding.NOTICE_VERSION_PL)).isEqualTo("pl");
-        for (String bad : List.of("carlos-5537-pt-br-1", "carlos-5537-pt-BRA-1", "carlos-5537-pt-B-1", "carlos-5537-PT-1")) {
+        // A lower-case "br" is a language of its own, not a region: scheme "carlos-5537-pt", tag "br".
+        assertThat(ReadingAidArtifact.noticeLanguage("carlos-5537-pt-br-1")).isEqualTo("br");
+        // So a pt-BR aid carrying that version fails the equality with its primary subtag "pt": the
+        // tag reads "br" (Breton), never "pt". (of() derives the version from the language, so the
+        // mismatch cannot be built through the public API; this is the guard's own comparison.)
+        assertThat("pt-BR".split("-", 2)[0]).isNotEqualTo(ReadingAidArtifact.noticeLanguage("carlos-5537-pt-br-1"));
+        assertThat("pt-BR".split("-", 2)[0]).isEqualTo(ReadingAidArtifact.noticeLanguage(DocumentSummaryReviewBinding.noticeVersion("pt-BR")));
+        for (String bad : List.of("carlos-5537-pt-BRA-1", "carlos-5537-pt-B-1", "carlos-5537-PT-1")) {
             assertThat(ReadingAidArtifact.noticeLanguage(bad)).as(bad).isNull();
         }
         for (String bad : List.of("carlos-5537-1", "carlos-5537-en", "CARLOS-5537-en-1", "en-1", "", "carlos-5537-english-1")) {
