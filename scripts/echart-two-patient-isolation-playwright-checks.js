@@ -1241,16 +1241,22 @@ async function run(s) {
   }
 
   for (const d of directions) {
-    await s.step(`the legacy encounter prints for ${d.label} print only ${d.label}'s revisions`, async () => {
+    await s.step(`the retired legacy prints for ${d.label} retain patient scope without loading old chart text`, async () => {
       const other = otherLabelOf(d);
       await activateOther(d.otherChart);
       const before = snapshot(d.other);
-      const own = text => d.ownName(text) && !d.otherName(text) && text.includes(`${marker}-${d.label}-signed-encounter`)
-        && !text.includes(`${marker}-${other}-`);
+      // #4793 forces the modern path even with an old false override. These unsupported
+      // routes remain until #5599: keep their patient-scope/refusal coverage, and require
+      // every legacy clinical field to stay empty rather than claiming a working print.
+      const own = text => d.ownName(text) && !d.otherName(text) && !text.includes(marker)
+        && ['sh', 'fh', 'mh', 'oc', 're', 'en'].every(name => {
+          const field = text.match(new RegExp(`<pre\\b[^>]*\\bname=['"]${name}Textarea['"][^>]*>([\\s\\S]*?)</pre>`, 'i'));
+          return field && field[1].replace(/&nbsp;|\s/g, '') === '';
+        });
       const editor = await read(`/encounter/ViewEncounterPrint?demographicNo=${d.patient}&echartid=${legacy[d.label].revision}`);
-      h.assert(editor.status === 200 && own(editor.body), `${d.label}'s legacy editor print is not ${d.label}'s chart alone`);
+      h.assert(editor.status === 200 && own(editor.body), `${d.label}'s retired editor print loaded legacy text or lost patient scope`);
       const history = await read(`/encounter/ViewEcharthistoryprint?echartid=${legacy[d.label].revision}&demographic_no=${d.patient}`);
-      h.assert(history.status === 200 && own(history.body), `${d.label}'s chart history print is not ${d.label}'s revision alone`);
+      h.assert(history.status === 200 && own(history.body), `${d.label}'s retired history print loaded legacy text or lost patient scope`);
       const foreign = await read(`/encounter/ViewEcharthistoryprint?echartid=${legacy[other].revision}&demographic_no=${d.patient}`);
       h.assert(foreign.status === 200 && d.ownName(foreign.body) && !d.otherName(foreign.body)
         && !foreign.body.includes(`${marker}-${other}-`), `${d.label}'s history print showed the other patient's revision`);

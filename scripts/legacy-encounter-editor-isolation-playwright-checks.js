@@ -4,6 +4,10 @@
  * The legacy encounter editor saves, signs and prints only the patient its own window was
  * opened for (issue #4673).
  *
+ * HISTORICAL CHECK: since #4793 AbandonOldChart is forced true in code. The legacy
+ * content expectations below cannot be qualified on that release; neither caisi=on
+ * nor an AbandonOldChart=false override restores them. Kept pending removal in #5599.
+ *
  * The legacy editor (encounter/Index2.jsp) renders only with the CAISI module (caisi=on in
  * carlos.properties) and only for an IncomingEncounter request carrying casetoEncounter. Nothing in
  * the application links there; once open, the editor re-renders itself after each save through its
