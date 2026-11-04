@@ -151,5 +151,14 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('eform-email-error', workflow, { openPatient: true });
+function preflightConfig({ config }) {
+  if (process.env.EXCLUSIVE !== '1') {
+    throw new h.SkipCheck('Requires an exclusive disposable run (live wrapper: EXCLUSIVE=1)');
+  }
+  if (!['localhost', '127.0.0.1', '::1', '[::1]'].includes(config.baseUrl.hostname.toLowerCase())) {
+    throw new h.SkipCheck('The SMTP sink binds the runner\'s loopback, which CARLOS can reach only when BASE_URL is loopback');
+  }
+}
+
+if (require.main === module) runWorkflow('eform-email-error', workflow, { openPatient: true, preflightConfig });
 module.exports = { workflow };
