@@ -44,10 +44,10 @@ class ReadingAidArtifactUnitTest {
     // --- canonical JSON ---------------------------------------------------------------------------
     @Test
     void canonicalBytesOfTheContractsReadingAidMatchTheVectorByteForByte() {
-        byte[] expected = Base64.getUrlDecoder().decode(VECTORS.get("reading_aid_b64url").asText());
+        // The vector's SHA-256 is over its exact canonical bytes, so equal hashes mean equal bytes.
         byte[] actual = ReadingAidArtifact.canonical(plain(VECTORS.get("reading_aid")));
-        assertThat(actual).isEqualTo(expected);
         assertThat(ReadingAidArtifact.sha256Hex(actual)).isEqualTo(VECTORS.get("reading_aid_sha256").asText());
+        assertThat(actual).hasSize(VECTORS.get("manifest_claims").get("reading_aid").get("size").asInt());
         assertThat(ReadingAidArtifact.canonical(plain(VECTORS.get("manifest_claims"))))
                 .asString(StandardCharsets.UTF_8).startsWith("{\"approval\":{\"id\":\"apr-FAKE0001-9d2e\"")
                 .contains("\"revised_at\":null").contains("\"created_at\":1792450800,\"delivery_id\":");
@@ -113,7 +113,7 @@ class ReadingAidArtifactUnitTest {
         assertThat(approvalClaim).containsOnlyKeys("id", "reviewer_role", "reviewed_at")
                 .containsEntry("reviewer_role", "clinician").containsEntry("reviewed_at", REVIEWED.getEpochSecond());
         assertThat(new String(ReadingAidArtifact.canonical(claims), StandardCharsets.UTF_8))
-                .doesNotContain("FAKE-Reviewer", "FAKE-model", "reviewer_name", "model");
+                .doesNotContain("FAKE-Reviewer", "FAKE-model", "reviewer_name", "model", approval.reviewerId());
     }
 
     @Test
@@ -164,6 +164,27 @@ class ReadingAidArtifactUnitTest {
         assertThatThrownBy(() -> ReadingAidArtifact.of(approval, edited, "apr-1")).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> ReadingAidArtifact.of(approval, null, "apr-1")).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> ReadingAidArtifact.of(approval, ORIGINAL, " ")).isInstanceOf(IllegalArgumentException.class);
+        // The approval id is opaque: one that carries the reviewer's provider number is refused.
+        assertThatThrownBy(() -> ReadingAidArtifact.of(approval, ORIGINAL, "apr-" + approval.reviewerId() + "-9d2e"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(ReadingAidArtifact.of(approval, ORIGINAL, "apr-FAKE0001-9d2e").size()).isPositive();
+    }
+
+    @Test
+    void refusesALanguageWithoutAPatientNoticeAndALifetimeBeyondSevenDays() {
+        // The notice version is carlos-5537-en-1, and the review binding already refuses a draft in a
+        // language without a notice, so no French approval can exist yet; the artifact's own check of
+        // the notice tag against the language is a guard for the day a second notice version lands.
+        assertThatThrownBy(() -> approval(summary(VECTORS.get("reading_aid")), "fr"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("language");
+        var artifact = ReadingAidArtifact.of(approval(summary(VECTORS.get("reading_aid"))), ORIGINAL, "apr-1");
+        JsonNode v = VECTORS.get("manifest_claims");
+        var routing = routing(v);
+        var pair = new ReadingAidArtifact.Pair(v.get("pair").get("pair_id").asText(), v.get("pair").get("original_delivery_id").asText());
+        long created = v.get("created_at").asLong();
+        assertThat(artifact.manifestClaims(pair, routing, created, created + ReadingAidArtifact.MAX_LIFETIME_SECONDS, "k")).isNotEmpty();
+        assertThatThrownBy(() -> artifact.manifestClaims(pair, routing, created, created + ReadingAidArtifact.MAX_LIFETIME_SECONDS + 1, "k"))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -218,9 +239,11 @@ class ReadingAidArtifactUnitTest {
         return new DocumentSummary(output);
     }
 
-    private static DocumentSummaryReviewBinding.Approval approval(DocumentSummary summary) {
+    private static DocumentSummaryReviewBinding.Approval approval(DocumentSummary summary) { return approval(summary, "en"); }
+
+    private static DocumentSummaryReviewBinding.Approval approval(DocumentSummary summary, String language) {
         var source = DocumentSummaryReviewBinding.capture(SCOPE, META, ORIGINAL);
-        var draft = new DocumentSummaryReviewBinding(Clock.fixed(GENERATED, ZoneOffset.UTC)).prepare(source, summary, "FAKE-model", "en");
+        var draft = new DocumentSummaryReviewBinding(Clock.fixed(GENERATED, ZoneOffset.UTC)).prepare(source, summary, "FAKE-model", language);
         var provider = mock(Provider.class);
         when(provider.getProviderNo()).thenReturn("4242");
         when(provider.getFormattedName()).thenReturn("FAKE-Reviewer, Demo");
