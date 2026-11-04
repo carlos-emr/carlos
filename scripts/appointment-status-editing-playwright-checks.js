@@ -176,7 +176,8 @@ async function checkEditPopup(context, daySheet, booked, statuses) {
 async function assertStatusEditor(root, statuses, surface) {
   const cells = root.locator('#statusTable tbody th[scope="row"]');
   await cells.first().waitFor({ state: 'attached', timeout: 30000 });
-  const listed = await cells.evaluateAll((nodes) => nodes.map((cell) => cell.textContent.trim()));
+  // The header also carries the description for screen readers; the code is its <code> element.
+  const listed = await cells.evaluateAll((nodes) => nodes.map((cell) => (cell.querySelector('code') || cell).textContent.trim()));
   for (const code of ['t', 'C']) {
     assert(listed.includes(code), `${surface}: status editor does not list ${code}: ${JSON.stringify(listed)}`);
   }

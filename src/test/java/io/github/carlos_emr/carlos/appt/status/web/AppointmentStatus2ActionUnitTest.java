@@ -81,6 +81,19 @@ class AppointmentStatus2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @Test
+    void shouldSayChangeWasNotSaved_whenRetiredEditPagePosts() throws Exception {
+        mockRequest.setMethod("POST");
+        addRequestParameter("dispatch", "update");
+        action.setId(13);
+        action.setApptDesc("Missed");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(action.getActionErrors()).hasSize(1);
+        verify(appointmentStatusMgr, never()).updateDescription(anyInt(), any());
+        assertThat(mockRequest.getAttribute("allStatus")).isEqualTo(List.of());
+    }
+
+    @Test
     void shouldRenderControlsDisabled_forUserWhoCanOnlyRead() throws Exception {
         assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
         assertThat(mockRequest.getAttribute("canChange")).isEqualTo(true);

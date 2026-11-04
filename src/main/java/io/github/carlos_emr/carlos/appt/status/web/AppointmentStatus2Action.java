@@ -112,6 +112,11 @@ public class AppointmentStatus2Action extends ActionSupport {
         }
 
         if (!mutation) {
+            // The retired edit page saved with dispatch=update; a tab left open on it is told its
+            // change was not saved rather than shown the list as if it had been.
+            if ("update".equals(dispatch) && "POST".equals(request.getMethod())) {
+                addActionError(getText("admin.appt.status.mgr.error.retiredEditor"));
+            }
             return view();
         }
         switch (dispatch) {

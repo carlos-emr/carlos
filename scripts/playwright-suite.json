@@ -4790,8 +4790,12 @@
       ],
       "timeoutSec": 600,
       "env": [],
+      "mutates": [
+        "LookupListItem",
+        "appointment_status"
+      ],
       "notes": "Issue #3982: the Location List tab (add, paste, style, reorder, rename, confirm-before-disable), inline styling of a core status, GET/HEAD 405 probes, and a booking that keeps its location across the patient search and stores code plus label; the booking half skips in a site setup (multisites, scheduleSiteID or CAISI program locations).",
-      "fixtures": "Changes the clinic-wide appointment Location List and the No Show status, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Locations the clinic already enabled are disabled for the run and re-enabled in cleanup; marker locations, the marker appointment (2028-02-15) and its archive rows are deleted, and the status description, colour and icon are restored."
+      "fixtures": "Changes the clinic-wide appointment Location List and the No Show status, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Locations the clinic already enabled are disabled for the run and re-enabled before the browser closes, and the status description, colour and icon are restored then too, followed by one no-op change through each page so the server's lookup-list and status caches drop the SQL edits; cleanup deletes the marker locations, the marker appointment (2028-02-15) and its archive rows."
     },
     {
       "name": "schedule-admin-settings",
