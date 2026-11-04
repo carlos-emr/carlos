@@ -15,6 +15,9 @@ carlos-emr (2026.09.0~snapshot27) resolute; urgency=medium
     verification and schema/index checks during OSCAR 19 imports.
   * Explicitly pin the MariaDB connection collation independently of
     distribution character-set default mappings.
+  * Require carlos-ctl 1.2.2 for the consent-ranking helper the shipped
+    OSCAR 19 manifests use, and drop the pre-release fallback commit from the
+    carlos-ctl pin now that tag 1.2.2 is published.
 
  -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Mon, 26 Oct 2026 03:30:00 +0000
 
