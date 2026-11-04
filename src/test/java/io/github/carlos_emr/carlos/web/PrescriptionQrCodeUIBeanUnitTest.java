@@ -135,6 +135,7 @@ public class PrescriptionQrCodeUIBeanUnitTest extends CarlosUnitTestBase {
         Date date = Date.from(Instant.parse("2000-01-02T00:00:00Z"));
         clinic.setClinicName("SYNTHETIC5322CLINIC");
         provider.setProviderNo("999990");
+        demographic.setDemographicNo(1);
         demographic.setLastName(PATIENT);
         demographic.setFirstName("FAKE");
         demographic.setYearOfBirth("1980");
@@ -173,7 +174,7 @@ public class PrescriptionQrCodeUIBeanUnitTest extends CarlosUnitTestBase {
             assertThat(render(uiLogs) + render(rendererLogs) + render(builderLogs))
                     .doesNotContain(PATIENT, MEDICATION, "SYNTHETIC5322GENDER", decoded);
             if (!"F".equals(gender)) {
-                assertThat(render(builderLogs)).contains("using unknown gender");
+                assertThat(render(builderLogs)).contains("using unknown gender", "demographicNo=1");
             }
         }
     }
