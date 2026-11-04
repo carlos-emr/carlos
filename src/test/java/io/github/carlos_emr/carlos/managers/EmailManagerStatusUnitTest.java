@@ -45,7 +45,7 @@ class EmailManagerStatusUnitTest {
         log.setErrorMessage("FAKE delivery failure");
         Date timestamp = new Date(1760000000000L);
         log.setTimestamp(timestamp);
-        when(emailLogDao.find(7003)).thenReturn(log);
+        when(emailLogDao.find(Integer.valueOf(7003))).thenReturn(log);
         when(emailLogDao.updateEmailStatus(7003, EmailStatus.RESOLVED, null, timestamp)).thenReturn(1);
 
         assertThat(emailManager.updateEmailStatus(loggedInInfo, 7003, EmailStatus.RESOLVED, null)).isSameAs(log);
@@ -63,7 +63,7 @@ class EmailManagerStatusUnitTest {
         EmailLog log = new EmailLog();
         log.setStatus(EmailStatus.SUCCESS);
         log.setErrorMessage("FAKE original message");
-        when(emailLogDao.find(7003)).thenReturn(log);
+        when(emailLogDao.find(Integer.valueOf(7003))).thenReturn(log);
 
         assertThat(emailManager.updateEmailStatus(loggedInInfo, 7003, EmailStatus.RESOLVED, null)).isSameAs(log);
 
@@ -78,7 +78,7 @@ class EmailManagerStatusUnitTest {
 
         assertThat(emailManager.updateEmailStatus(loggedInInfo, 7004, EmailStatus.RESOLVED, null)).isNull();
 
-        verify(emailLogDao).find(7004);
+        verify(emailLogDao).find(Integer.valueOf(7004));
         verifyNoMoreInteractions(emailLogDao);
     }
 

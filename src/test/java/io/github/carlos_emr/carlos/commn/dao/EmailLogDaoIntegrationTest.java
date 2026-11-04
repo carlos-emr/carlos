@@ -56,7 +56,7 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
                 ? EmailLog.EmailStatus.RESOLVED : initialStatus);
         assertThat(stored.getErrorMessage()).isEqualTo(initialStatus == EmailLog.EmailStatus.FAILED
                 ? null : "FAKE original message");
-        assertThat(stored.getTimestamp()).isEqualTo(timestamp);
+        assertThat(stored.getTimestamp().getTime()).isEqualTo(timestamp.getTime());
     }
 
     @Test
