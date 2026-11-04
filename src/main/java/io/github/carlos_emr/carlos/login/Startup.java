@@ -146,7 +146,7 @@ public class Startup implements ServletContextListener {
 				try {
 					secretKey = p.getOrCreateEncryptionKey();
 					p.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
-					logger.info("Secret Key loaded from persisted configuration...");
+					logger.info("Secret Key initialized in persisted configuration...");
 				} catch (IOException | NoSuchAlgorithmException e) {
 					/*
 					 * A usable encryption key is mandatory: it protects stored PHI and provider

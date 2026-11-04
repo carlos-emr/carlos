@@ -316,7 +316,8 @@ public class CarlosProperties extends Properties {
                 String key = persisted.getProperty(keyName);
                 if (key == null || key.isBlank()) {
                     key = EncryptionUtils.generateSecretKey();
-                    ByteBuffer entry = StandardCharsets.ISO_8859_1.encode("\n" + keyName + "=" + key + "\n");
+                    // A trailing continuation may consume the first line terminator.
+                    ByteBuffer entry = StandardCharsets.ISO_8859_1.encode("\n\n" + keyName + "=" + key + "\n");
                     channel.position(channel.size());
                     while (entry.hasRemaining()) {
                         channel.write(entry);

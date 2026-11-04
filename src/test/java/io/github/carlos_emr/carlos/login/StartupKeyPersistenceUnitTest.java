@@ -136,6 +136,29 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         assertThat(userHome.resolve("carlos.properties")).doesNotExist();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"\\", "\\\n", "\\\r", "\\\r\n"})
+    void shouldReusePersistedKey_whenConfigurationEndsWithContinuation(String ending) throws Exception {
+        Path override = writeConfiguration(tempDir.resolve("continued.properties"), "");
+        Files.writeString(override, Files.readString(override) + "continued=preserve" + ending);
+        System.setProperty(OVERRIDE, override.toString());
+        CarlosProperties firstBoot = reloadProperties();
+        assertThat(firstBoot.getProperty("continued")).isEqualTo("preserve");
+        startApplication();
+        String key = firstBoot.getProperty(KEY);
+        String ciphertext = EncryptionUtils.encrypt("continued-configuration");
+        String savedConfiguration = Files.readString(override);
+
+        CarlosProperties secondBoot = reloadProperties();
+        startApplication();
+
+        assertThat(secondBoot.getProperty(KEY)).isEqualTo(key);
+        assertThat(secondBoot.getProperty("continued")).isEqualTo("preserve");
+        assertThat(EncryptionUtils.decrypt(ciphertext)).isEqualTo("continued-configuration");
+        assertThat(Files.readString(override)).isEqualTo(savedConfiguration);
+        assertThat(userHome.resolve("carlos.properties")).doesNotExist();
+    }
+
     @Test
     void shouldNameLoadedOverride_whenConfigurationCannotBeUpdated() throws Exception {
         Path override = writeConfiguration(tempDir.resolve("readonly.properties"), "");
