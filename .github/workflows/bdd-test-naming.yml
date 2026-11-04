@@ -55,7 +55,8 @@ permissions:
 jobs:
   bdd-test-naming:
     name: BDD Test Naming
-    runs-on: ubuntu-latest
+    # Match the runner already serving Script Regressions while ubuntu-latest is queued.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Checkout code
