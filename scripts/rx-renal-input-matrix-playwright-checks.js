@@ -7,11 +7,11 @@ const {stageFromSearch} = require('./rx-edit-discontinue-playwright-checks');
 const {masterRecordLink} = require('./lib/master-record-link');
 const {CASES, renalInputFixture} = require('./lib/renal-input-fixture');
 const {failureMark, consumeExpectedFailure} = require('./lib/concurrency-support');
-async function consumeRenalRefusal(s,rx,response,mark) {
+async function consumeRenalRefusal(s,rx,response,mark,status=400) {
   await rx.waitForLoadState('networkidle');
   h.assert(s.recorder.badResponses.slice(mark.responses).every(entry=>entry.url===response.url()),
     'The expected renal refusal cannot account for another failing request');
-  consumeExpectedFailure(s.recorder,mark,{status:400,method:'GET',path:/\/rx\/ViewRenalDosing$/});
+  consumeExpectedFailure(s.recorder,mark,{status,method:'GET',path:/\/rx\/ViewRenalDosing$/});
 }
 async function workflow(s) {
   const name = process.env.RX_RENAL_CASE || 'male-valid';
@@ -22,16 +22,27 @@ async function workflow(s) {
   const rx = await s.popup(s.master,masterRecordLink(s.master,'/rx/choosePatient').first(),'renal-matrix-rx');
   let card,panel,originalAtc;
   await s.step('renal inputs render through the native drug card without a server error',async()=>{
-    const mark=testCase.status===400?failureMark(s.recorder):null;
+    const initialFailure=name==='male-valid';
+    const mark=(initialFailure||testCase.status===400)?failureMark(s.recorder):null;
+    if(initialFailure)await rx.route(url=>url.pathname.endsWith('/rx/ViewRenalDosing'),
+      route=>route.fulfill({status:503,contentType:'text/html',body:'<p>Unexpected renal transport failure</p>'}),{times:1});
     const [response,staged]=await Promise.all([
       rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')&&new URL(r.url()).searchParams.get('demographicNo')===s.patient),
       stageFromSearch(rx,'CIPRO 500','CIPRO 500MG'),
     ]);
     card=staged;panel=rx.locator(`#renalDosing_${card}`);originalAtc=new URL(response.url()).searchParams.get('atcCode');
     h.assert(originalAtc?.split(',').includes('J01MA02'),'The staged renal product is not ciprofloxacin (J01MA02)');
-    h.assert(response.status()===(testCase.status||200),`Renal rendering returned HTTP ${response.status()}, expected ${testCase.status||200}`);await response.finished();
+    h.assert(response.status()===(initialFailure?503:testCase.status||200),`Renal rendering returned HTTP ${response.status()}, expected ${initialFailure?503:testCase.status||200}`);await response.finished();
+    if(initialFailure) {
+      await panel.locator('[data-renal-dosing-unavailable]').waitFor({state:'visible'});
+      h.assert(!(await panel.innerText()).includes('Unexpected renal transport failure'),'The renal panel displayed an error response body');
+      await consumeRenalRefusal(s,rx,response,mark,503);
+      const [retry]=await Promise.all([rx.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/rx/ViewRenalDosing')),
+        panel.getByRole('link',{name:'Refresh',exact:true}).click()]);
+      h.assert(retry.status()===200,'The initial renal failure could not be retried');await retry.finished();
+    }
     await panel.locator('table.equation').waitFor({state:'visible'});
-    if(mark)await consumeRenalRefusal(s,rx,response,mark);
+    if(mark&&!initialFailure)await consumeRenalRefusal(s,rx,response,mark);
   });
   await s.step('render independent clinical inputs and exact inclusive recommendation boundaries',async()=>{
     const text=(await panel.innerText()).replace(/\s+/g,' '), selected=panel.locator('table.sofT tr.selected');
@@ -61,10 +72,14 @@ async function workflow(s) {
     h.assert(await panel.locator('table.equation').count()===1 && await panel.locator('tr.selected').count()===0,
       'Refused refresh retained a stale recommendation or appended a duplicate panel');
     await consumeRenalRefusal(s,rx,refusal,mark);
-    fixture.apply({age:0,weight:'80',cr:'100'});
+    const infantInput={age:0,weight:'80',cr:'100'};
+    fixture.apply(infantInput);
     const [infant]=await refresh();
     h.assert(infant.status()===200,'An age below one year should render N/A without rejecting valid observations');await infant.finished();
-    await rx.waitForFunction(id=>document.querySelector(id)?.textContent.includes('N/A'),`#renalDosing_${card}`);
+    await rx.waitForFunction(({id,weight,cr})=>{
+      const text=document.querySelector(`${id} table.equation`)?.textContent;
+      return text?.includes(weight)&&text.includes(cr)&&text.includes('N/A');
+    },{id:`#renalDosing_${card}`,weight:Number(infantInput.weight).toFixed(1),cr:`${Number(infantInput.cr).toFixed(1)} sCr`});
     h.assert(await panel.locator('tr.selected').count()===0,'An age below one year selected an adult dose');
   });
   await s.step('restoring valid observations refreshes the same panel without retaining stale input',async()=>{

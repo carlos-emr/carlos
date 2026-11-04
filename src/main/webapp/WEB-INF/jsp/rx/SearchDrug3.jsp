@@ -2847,7 +2847,22 @@ function updateQty(element){
                CarlosAjax.request(url, {method:'get',parameters:params,onComplete:function(transport) {
                    // A slow earlier response must not replace more recently requested guidance.
                    if (panel.renalDosingRequest === requestNumber && document.getElementById(divId) === panel) {
-                       panel.innerHTML = transport.responseText;
+                       var renderable = transport.status >= 200 && transport.status < 300;
+                       if (transport.status === 400) {
+                           var fragment = document.createElement('template');
+                           fragment.innerHTML = transport.responseText || '';
+                           renderable = !!fragment.content.querySelector('[data-renal-dosing-panel]');
+                       }
+                       if (renderable) {
+                           panel.innerHTML = transport.responseText;
+                       } else {
+                           // Clear stale guidance, including on an initial failure, and keep a retry.
+                           panel.innerHTML = '<div data-renal-dosing-unavailable role="status"><h3>Dosing Information <small><a href="#">Refresh</a></small></h3><span>N/A</span></div>';
+                           panel.querySelector('a').onclick = function() {
+                               getRenalDosingInformation(divId, atcCode);
+                               return false;
+                           };
+                       }
                    }
                }});
          }

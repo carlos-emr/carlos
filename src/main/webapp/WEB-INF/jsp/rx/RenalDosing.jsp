@@ -210,7 +210,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
         font-size: 11px;
     }
 </style>
-<div style="float:left; margin-left:10px; margin-right: 10px;">
+<div data-renal-dosing-panel style="float:left; margin-left:10px; margin-right: 10px;">
     <h3>Dosing Information <small><a href="#"
         onclick="getRenalDosingInformation('<carlos:encode value='<%= divId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= atc %>' context="javaScriptAttribute"/>'); return false;">Refresh</a></small></h3>
     <table class="sofT">
@@ -271,10 +271,6 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
 
     <div style="clear:left"><carlos:encode value='<%= rd.getMoreinfo() %>' context="html"/>
     </div>
-    <%if (request.getParameter("divId") != null) { %>
-    <div style="float:right"><a href="javascript:void(0);" onclick="jQuery('#<carlos:encode value='<%= StringUtils.noNull(request.getParameter("divId")) %>' context="javaScriptAttribute"/>').toggle();">hide</a>
-    </div>
-    <%}%>
 </div>
 <%--
   -Right now only works for CML
