@@ -10,6 +10,7 @@ const {signIn} = require('./lib/authz-read-probe');
 const {openMasterRecord} = require('./master-record-tabs-playwright-checks');
 const {openChart, waitForNavbars} = require('./echart-navbar-modules-playwright-checks');
 const {readPatientState} = require('./echart-two-patient-isolation-playwright-checks');
+const {serverLogFromEnvironment, splitLogEvents} = require('./lib/server-log');
 
 function assertSharedHistoryText(text, {shared, privateText, future, cumulative}) {
   h.assert(text.includes(shared), 'Linked group history omitted the explicitly shared revision');
@@ -22,8 +23,16 @@ function assertDeniedHistory(status, text, clinicalTexts) {
   h.assert(clinicalTexts.every(value => !text.includes(value)), 'A refused history request disclosed clinical text');
 }
 
+function assertNoGroupIssueQueryFailure(text) {
+  h.assert(!splitLogEvents(text).some(event => event.text.includes('org.hibernate.query.PathException')
+    && /\bCaseManagementIssue(?:DAOImpl)?\b/.test(event.text)),
+  'Current Issues logged a group-note issue PathException');
+}
+
 async function workflow(s) {
   const {sql, patient, provider, marker, config} = s;
+  const serverLog = serverLogFromEnvironment();
+  if (!serverLog.configured) throw new h.SkipCheck('A readable LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG is required for the group-note issue query assertion');
   const q = h.sqlString;
   const fixture = authzReadFixture({sql, marker, provider, testUser: config.testUser});
   const texts = {shared: `${marker} SHARED`, privateText: `${marker} PRIVATE`, future: `${marker} FUTURE`, cumulative: `${marker} CUMULATIVE`};
@@ -128,14 +137,15 @@ async function workflow(s) {
     const catalog = sql.rows("SELECT issue_id FROM issue WHERE type='system' ORDER BY issue_id LIMIT 2");
     h.assert(catalog.length === 2 && catalog.every(([id]) => /^[1-9]\d*$/.test(id)), 'The issue catalog fixtures are missing');
     function seedIssue(demographic, issue) {
-      const id = sql.value(`INSERT INTO casemgmt_issue (demographic_no,issue_id,acute,certain,major,resolved,update_date)
-        VALUES (${demographic},${issue},0,1,0,0,NOW()); SELECT LAST_INSERT_ID()`);
+      const id = sql.insertId(`INSERT INTO casemgmt_issue (demographic_no,issue_id,acute,certain,major,resolved,update_date)
+        VALUES (?, ?, 0, 1, 0, 0, NOW())`, [demographic, issue]);
       h.assert(/^[1-9]\d*$/.test(id), 'The owned patient issue was not created');
       return id;
     }
     ownerIssue = seedIssue(owner, catalog[0][0]);
     recipientIssue = seedIssue(patient, catalog[1][0]);
-    sql.execute(`INSERT INTO casemgmt_issue_notes (id,note_id) VALUES (${ownerIssue},${sharedId}),(${ownerIssue},${privateId})`);
+    sql.execute('INSERT INTO casemgmt_issue_notes (id,note_id) VALUES (?, ?), (?, ?)',
+      [ownerIssue, sharedId, ownerIssue, privateId]);
     const ownerBeforeChart = JSON.stringify(readPatientState(sql, owner));
     readerSession = await loginAs(reader);
     readerSession.context.on('page', page => h.wireStrictPage(page, 'group-history', recorder));
@@ -156,6 +166,7 @@ async function workflow(s) {
     links: sql.rows(`SELECT * FROM GroupNoteLink WHERE demographicNo IN (${patient},${owner}) ORDER BY id`)});
   await s.step('reopening Current Issues preserves both patient states and keeps group-owner issues out of recipient controls', async () => {
     const before = snapshot();
+    const logMark = serverLog.mark();
     // Keep the first document alive: reloading it interrupts its lock-release beacon.
     // Free the named popup target, then enter again through the patient's E-Chart control.
     await chart.evaluate(name => { window.name = name; }, `${marker}-initial-group-chart`);
@@ -169,6 +180,10 @@ async function workflow(s) {
       'Current Issues added an issue from the group-note owner');
     h.assert(snapshot() === before, 'Reopening Current Issues changed a patient record or group link');
     await chart.locator('#notesFilterToggle').click();
+    // The journal can lag the HTTP response. Inspect only this reopening window,
+    // without printing log messages that may contain clinical text.
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    assertNoGroupIssueQueryFailure(serverLog.since(logMark));
   });
   const address = (id, target = patient) => h.appUrl(config.baseUrl,
     `/CaseManagementEntry?method=notehistory&demographicNo=${target}&noteId=${id}`);
@@ -225,5 +240,5 @@ async function workflow(s) {
   });
 }
 
-module.exports = {workflow, assertSharedHistoryText, assertDeniedHistory};
+module.exports = {workflow, assertSharedHistoryText, assertDeniedHistory, assertNoGroupIssueQueryFailure};
 if (require.main === module) runWorkflow('echart-group-note-history', workflow, {openPatient: true});
