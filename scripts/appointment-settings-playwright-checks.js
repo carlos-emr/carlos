@@ -76,6 +76,7 @@ async function workflow(s) {
   const annex = `${marker} Annex`;
 
   let statusChanged = false;
+  let failure = null;
   // Before the browser closes: put the clinic's list and the status back, then make one change
   // that alters nothing through each page, so the server's 30-minute lookup-list and status caches
   // drop what the SQL changed behind them. Cleanup then deletes the marker rows.
@@ -88,20 +89,29 @@ async function workflow(s) {
       WHERE id=${Number(statusId)}`);
     const target = sql.rows(`SELECT id,IFNULL(colour,'') FROM LookupListItem WHERE lookupListId=${Number(listId)}
       ORDER BY active DESC, id LIMIT 1`)[0];
-    const locations = await reopen();
-    const answers = await locations.evaluate(async ({target, status}) => {
-      const token = document.querySelector('input[name="CSRF-TOKEN"]')?.value || '';
-      const action = document.querySelector('form[action*="apptLocationSetting"]').action;
-      const post = (url, fields) => fetch(url, {method: 'POST', credentials: 'same-origin',
-        body: new URLSearchParams({...fields, 'CSRF-TOKEN': token})}).then(response => response.status);
-      const results = [];
-      if (target) results.push(await post(action, {dispatch: 'updateColour', id: target[0], colour: target[1]}));
-      if (status) {
-        results.push(await post(action.replace('apptLocationSetting', 'apptStatusSetting'),
-          {dispatch: 'updateDescription', id: status.id, apptDesc: status.description}));
-      }
-      return results;
-    }, {target, status: statusChanged ? {id: statusId, description: statusDesc} : null});
+    // A page of its own: the booking steps may have navigated the admin page away.
+    const page = await context.newPage();
+    let answers;
+    try {
+      await page.goto(h.appUrl(s.config.baseUrl, '/appointment/apptLocationSetting'), {waitUntil: 'domcontentloaded'});
+      await page.locator('form[action*="apptLocationSetting"] input[name="CSRF-TOKEN"]').first()
+        .waitFor({state: 'attached', timeout: 20000});
+      answers = await page.evaluate(async ({target, status}) => {
+        const token = document.querySelector('input[name="CSRF-TOKEN"]')?.value || '';
+        const action = document.querySelector('form[action*="apptLocationSetting"]').action;
+        const post = (url, fields) => fetch(url, {method: 'POST', credentials: 'same-origin',
+          body: new URLSearchParams({...fields, 'CSRF-TOKEN': token})}).then(response => response.status);
+        const results = [];
+        if (target) results.push(await post(action, {dispatch: 'updateColour', id: target[0], colour: target[1]}));
+        if (status) {
+          results.push(await post(action.replace('apptLocationSetting', 'apptStatusSetting'),
+            {dispatch: 'updateDescription', id: status.id, apptDesc: status.description}));
+        }
+        return results;
+      }, {target, status: statusChanged ? {id: statusId, description: statusDesc} : null});
+    } finally {
+      await page.close().catch(() => {});
+    }
     h.assert(answers.every(code => code === 200), `Restoring through the app answered HTTP ${answers.join(', ')}`);
   }
 
@@ -281,11 +291,20 @@ async function workflow(s) {
       await popup.locator('select#locationCode').waitFor({timeout: 20000});
       h.assert(await popup.locator('select#locationCode').inputValue() === virtualId, 'The patient search dropped the location choice');
       await popup.locator('#reason').fill(`${marker} booked`);
+      // Saving closes the popup and the day sheet reloads itself (popup-opener-day-sheet); a manual
+      // reload here would race that one and abort.
+      const sentinel = await ui.markOpener(schedule);
+      const closed = popup.waitForEvent('close', {timeout: 30000}).then(() => true, () => false);
+      const reloaded = schedule.waitForEvent('load', {timeout: 30000}).then(() => true, () => false);
       const [response] = await Promise.all([
         popup.waitForResponse(r => r.request().method() === 'POST' && /\/appointment\/AddRecord$/.test(new URL(r.url()).pathname)),
         popup.locator('#addButton').click(),
       ]);
       h.assert(response.status() < 400, `AddRecord answered HTTP ${response.status()}`);
+      h.assert(await closed, 'The booking popup did not close after saving');
+      h.assert(await reloaded
+        && await schedule.evaluate(name => window[name], sentinel.marker).catch(() => undefined) !== sentinel.token,
+        'The day sheet did not refresh itself after the booking');
       const saved = sql.rows(`SELECT appointment_no,location,locationCode FROM appointment WHERE reason LIKE ${q(`${marker}%`)}`);
       h.assert(saved.length === 1 && saved[0][1] === virtual && saved[0][2] === virtualId,
         `The booking stored ${JSON.stringify(saved)}`);
@@ -294,7 +313,7 @@ async function workflow(s) {
     });
 
     await s.step('the day sheet draws the location chip, and the edit popup keeps saved and legacy locations', async () => {
-      await schedule.reload({waitUntil: 'domcontentloaded'});
+      await schedule.waitForLoadState('domcontentloaded');
       const chip = schedule.locator(`.appt-location-chip[data-location-code="${virtualId}"]`);
       await chip.first().waitFor({timeout: 20000});
       h.assert(await chip.first().getAttribute('aria-label') === virtual, 'The day sheet chip does not name the location');
@@ -319,8 +338,17 @@ async function workflow(s) {
       h.assert(JSON.stringify(kept) === JSON.stringify([[`${marker} Basement`, '']]), `Saving the legacy location stored ${JSON.stringify(kept)}`);
       await popup.close().catch(() => {});
     });
+  } catch (error) {
+    failure = error;
+    throw error;
   } finally {
-    await restoreThroughApp();
+    try {
+      await restoreThroughApp();
+    } catch (restoreError) {
+      // Never hide the step that failed behind a failed restore; cleanup still runs the SQL.
+      if (!failure) throw restoreError;
+      console.error(`  (restoring through the app also failed: ${restoreError.message})`);
+    }
   }
 }
 
