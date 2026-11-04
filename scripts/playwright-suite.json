@@ -5127,7 +5127,7 @@
         "TEST_PIN",
         "MYSQL_PASSWORD"
       ],
-      "notes": "Fails on 2026.08: clicking a job name raises a page error (javascript:void() link); later steps would fail on the schedule dialog, stored XSS in job names and a DataTables reinitialise alert.",
+      "notes": "Checks job editing, cron scheduling, literal-text job names and disabled job type create/edit through Administration, including one searchable copy of the refreshed type and no unexpected browser dialogs (#5640).",
       "fixtures": "Seeds one DISABLED OscarJobType whose class name is a nonexistent class in the CARLOS package (never schedulable). Creates a disabled job and a disabled type through the UI, all marker-named; no job is ever enabled. Removes marker rows above the pre-run id high-water marks."
     },
     {

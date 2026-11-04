@@ -125,3 +125,5 @@ jobs:
         run: node scripts/messenger-reply-form-browser-check.js
       - name: Check Messenger inbox sort headers in Chromium
         run: node scripts/search-sort-messenger-inbox-browser-check.js
+      - name: Check job type table refresh and save lifecycle in Chromium
+        run: node scripts/job-types-datatable-browser-check.js

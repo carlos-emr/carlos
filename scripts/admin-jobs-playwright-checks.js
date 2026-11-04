@@ -7,8 +7,8 @@
  * Asserted: an invalid-class type is listed invalid+disabled and reloads in its
  * editor; the job editor's required-field alert posts nothing; the unusable type is
  * offered "(N/A)"; a disabled job round-trips to OscarJob with no planned run;
- * Schedule Job stores the chosen cron without enabling the job. Last (each now
- * fails on an app defect): edit-by-name without a page error, the schedule dialog
+ * Schedule Job stores the chosen cron without enabling the job. Also checks
+ * edit-by-name without a page error, the schedule dialog
  * reopening with the stored choice, a job name listed as text, and the Job Type
  * editor saving without alerts (OscarJobType round trip).
  * Fixtures: a DISABLED type seeded with a nonexistent CARLOS-package class (never
@@ -76,9 +76,8 @@ async function workflow(s) {
     await frame.locator('#jobTypeTable tbody tr').first().waitFor({timeout: TIMEOUT});
     await frame.waitForFunction(() => window.jQuery && window.jQuery.active === 0, null, {timeout: TIMEOUT});
   };
-  // Seeded rather than created here: saving in the Job Type editor raises a
-  // DataTables re-initialisation alert (reported), so the UI create/edit is the
-  // last step and every Jobs Management step is proven first.
+  // Keep UI create/edit last so a table-refresh regression does not hide the
+  // independent Jobs Management checks.
   const seedName = `${marker} seeded type`;
   const typeId = sql.value(`INSERT INTO OscarJobType(name,description,className,enabled,updated)
     VALUES(${h.sqlString(seedName)},${h.sqlString(`${marker} never runs`)},${h.sqlString(className)},0,NOW());
@@ -240,6 +239,20 @@ async function workflow(s) {
       'The job type edit did not update the stored row');
     h.assert(sql.value(`SELECT CONCAT(COUNT(*),'|',SUM(enabled)) FROM OscarJobType WHERE ${ownedType}`) === '2|0',
       'Editing created another job type or enabled one');
+    await types.waitForFunction(() => window.jQuery && window.jQuery.active === 0, null, {timeout: TIMEOUT});
+    h.assert((await row().locator('td').nth(1).innerText()).trim() === `${marker} edited never runs`,
+      'The refreshed table does not show the edited description');
+    const tableState = await types.evaluate(name => {
+      const table = jQuery('#jobTypeTable').DataTable();
+      table.search(name).draw();
+      return {
+        instances: jQuery.fn.dataTable.settings.filter(setting => setting.nTable.id === 'jobTypeTable').length,
+        matches: table.rows({search: 'applied'}).count(),
+      };
+    }, typeName);
+    h.assert(tableState.instances === 1 && tableState.matches === 1,
+      'The refreshed DataTable must keep one instance and exactly one searchable copy of the saved type');
+    h.assertStrictPage(s.recorder);
   });
 }
 
