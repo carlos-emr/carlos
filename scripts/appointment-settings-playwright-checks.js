@@ -321,21 +321,15 @@ async function workflow(s) {
 
 /** Runs the steps, then the restore, and never lets a failed restore hide the step that failed. */
 async function thenRestore(steps, restore) {
-  let failed = false;
   try {
     await steps();
   } catch (error) {
-    failed = true;
+    // Cleanup still runs the SQL; the step's own error is the one to report.
+    await restore().catch(restoreError =>
+      console.error(`  (restoring through the app also failed: ${restoreError.message})`));
     throw error;
-  } finally {
-    try {
-      await restore();
-    } catch (restoreError) {
-      // Cleanup still runs the SQL; the step's own error is the one to report.
-      if (!failed) throw restoreError;
-      console.error(`  (restoring through the app also failed: ${restoreError.message})`);
-    }
   }
+  await restore();
 }
 
 /**
