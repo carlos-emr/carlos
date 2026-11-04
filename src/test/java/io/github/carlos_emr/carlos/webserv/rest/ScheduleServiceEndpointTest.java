@@ -137,8 +137,7 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
             return null;
         }).when(appointments).flush();
 
-        try (var audit = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.log.LogAction.class);
-                Response response = request().path(path).post("{\"id\":42," + versionField
+        try (Response response = request().path(path).post("{\"id\":42," + versionField
                         + "\"status\":\"new\",\"type\":\"new\",\"urgency\":\"new\","
                         + "\"reason\":\"FAKE-edit\",\"creator\":\"over-posted\"}")) {
             assertThat(response.getStatus()).isEqualTo(200);

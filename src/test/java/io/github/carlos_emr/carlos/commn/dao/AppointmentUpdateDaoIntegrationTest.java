@@ -313,17 +313,17 @@ class AppointmentUpdateDaoIntegrationTest {
         assertThat(read().getEditVersion()).isEqualTo(version);
     }
 
-    @Test
-    void shouldRequireReadToken_andSupportLegacyNullTimestamps() {
-        assertThatThrownBy(() -> save(clientA, null, row -> row.setReason("FAKE-rejected")))
-                .isInstanceOf(AppointmentUpdateException.class);
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"unversioned", " "})
+    void shouldSupportLegacyNullTimestamps_withOptionalVersion(String version) {
         tx(em -> {
             em.createNativeQuery("update appointment set updatedatetime=null where appointment_no=:id")
                     .setParameter("id", id).executeUpdate();
             return null;
         });
         assertThat(read().getEditVersion()).isEqualTo("unversioned");
-        save(clientA, "unversioned", row -> row.setReason("FAKE-upgraded"));
+        save(clientA, version, row -> row.setReason("FAKE-upgraded"));
         assertState("FAKE-upgraded", 1);
         assertThatThrownBy(() -> save(clientB, "unversioned", row -> row.setReason("FAKE-stale")))
                 .isInstanceOf(AppointmentUpdateException.class);
