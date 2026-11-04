@@ -80,15 +80,19 @@ class AiDocumentSummaryJspRegressionTest {
         assertThat(form).contains("method=\"post\"", "<csrf:tokenname/>", "<csrf:tokenvalue/>", "name=\"draftId\"",
                 "name=\"removePoint\"", "maxlength=\"4000\"", "maxlength=\"2000\"");
         assertThat(form).contains(
-                "required><carlos:encode value=\"${documentSummaryOverview}\"/></textarea>",
-                "class=\"form-control\"><carlos:encode value=\"${point.text}\"/></textarea>");
+                "required><carlos:encode value=\"${documentSummaryCorrectionPending ? documentSummaryCorrectionOverview : documentSummaryOverview}\"/></textarea>",
+                "class=\"form-control\"><carlos:encode value=\"${documentSummaryCorrectionPending ? documentSummaryCorrectionPoints[position.index] : point.text}\"/></textarea>",
+                "value=\"${position.index}\"<c:if test=\"${documentSummaryCorrectionPending and documentSummaryCorrectionRemoved[position.index]}\"> checked</c:if>>");
+        // Posted edits come back only through carlos:encode, and a tick is pre-set only from the server-side echo.
+        assertThat(form).doesNotContain("${documentSummaryCorrectionOverview}", "${documentSummaryCorrectionPoints");
+        assertThat(form.indexOf("checked")).isEqualTo(form.lastIndexOf("checked"));
         // A removed point's text may be cleared; the server validates kept points instead.
         assertThat(form).doesNotContain("name=\"pointText\" maxlength=\"2000\" rows=\"3\" class=\"form-control\" required");
         String notSaved = "<carlos:encode value=\"${documentSummaryCorrectionError}\"/>";
         assertThat(source.indexOf(notSaved)).isPositive().isLessThan(route);
         assertThat(source).contains("<c:if test=\"${not empty documentSummaryCorrectionError}\">",
                 "<p class=\"alert alert-warning\" role=\"alert\">" + notSaved + "</p>");
-        assertThat(form).doesNotContain("name=\"affirmReview\"", "name=\"evidence\"", "contenteditable", "checked");
+        assertThat(form).doesNotContain("name=\"affirmReview\"", "name=\"evidence\"", "contenteditable", " checked>");
         assertThat(source).contains("<p class=\"document-summary-text\"><carlos:encode value=\"${documentSummaryOverview}\"/></p>",
                 "name=\"affirmReview\" value=\"true\" required aria-describedby=\"summary-confirm-saved\"",
                 "Unsaved corrections and removal selections do not apply.",

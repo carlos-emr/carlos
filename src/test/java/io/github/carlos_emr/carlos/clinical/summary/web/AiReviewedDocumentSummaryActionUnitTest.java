@@ -384,6 +384,10 @@ class AiReviewedDocumentSummaryActionUnitTest {
             assertThat(after.approved()).isTrue();
             assertThat(after.revisedAt()).isNull();
             verify(request).setAttribute("documentSummaryCorrectionError", AiReviewedDocumentSummary2Action.CORRECTION_NOT_SAVED);
+            verify(request).setAttribute("documentSummaryCorrectionPending", true);
+            verify(request).setAttribute("documentSummaryCorrectionOverview", attempt[0].strip());
+            verify(request).setAttribute("documentSummaryCorrectionPoints", List.of(attempt[1].strip()));
+            verify(request).setAttribute("documentSummaryCorrectionRemoved", List.of(false));
             verify(request, never()).setAttribute(eq("documentSummaryError"), any());
             verify(request).setAttribute("documentSummaryGenerated", true);
             verify(request).setAttribute("documentSummaryDraftId", before.draftId().toString());
@@ -399,6 +403,35 @@ class AiReviewedDocumentSummaryActionUnitTest {
         assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS);
         assertThat(current()).isSameAs(duplicate);
         verify(request).setAttribute("documentSummaryCorrectionError", AiReviewedDocumentSummary2Action.CORRECTION_NOT_SAVED);
+        verify(request).setAttribute("documentSummaryCorrectionRemoved", List.of(false, false));
+    }
+    @Test void rejectedCorrectionReturnsPostedEditsAndRemovalTicksWhileTheSessionDraftStays() throws Exception {
+        var review = generateTwoPoints();
+        var before = review.view(actor, SCOPE, source());
+        String typed = "Totally unrelated zebra paragraph\r\nthat took a long time to type. ";
+        correction(review, "  FAKE document.", typed, "Blood work planned.");
+        when(request.getParameterValues("removePoint")).thenReturn(new String[]{"1"});
+        clearInvocations(request);
+        assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(current()).isSameAs(review);
+        var after = review.view(actor, SCOPE, source());
+        assertThat(after.version()).isEqualTo(before.version());
+        assertThat(after.summary().points()).isEqualTo(before.summary().points());
+        verify(request).setAttribute("documentSummaryCorrectionPending", true);
+        verify(request).setAttribute("documentSummaryCorrectionOverview", "FAKE document.");
+        verify(request).setAttribute("documentSummaryCorrectionPoints",
+                List.of("Totally unrelated zebra paragraph\nthat took a long time to type.", "Blood work planned."));
+        verify(request).setAttribute("documentSummaryCorrectionRemoved", List.of(false, true));
+        verify(request).setAttribute("documentSummaryOverview", before.summary().overview());
+        verify(request).setAttribute("documentSummaryPoints", before.summary().points());
+        verify(request).setAttribute("documentSummaryDraftId", before.draftId().toString());
+        // Keeping the removal tick and fixing the text then saves normally.
+        correction(review, "FAKE document.", "Blood work was planned.", "Blood work planned.");
+        clearInvocations(request);
+        assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(review.view(actor, SCOPE, source()).summary().points()).hasSize(1);
+        verify(request, never()).setAttribute(eq("documentSummaryCorrectionPending"), any());
+        verify(request, never()).setAttribute(eq("documentSummaryCorrectionError"), any());
     }
     private DocumentSummaryReviewSession generateTwoPoints() throws Exception {
         var two = mock(DocumentSummary.class);
@@ -428,6 +461,9 @@ class AiReviewedDocumentSummaryActionUnitTest {
         review = generate(); correction(review, "FAKE document.", "Blood work planned.");
         when(request.getParameterValues("removePoint")).thenReturn(new String[]{"0", "0"});
         assertThat(action.revise()).isEqualTo(ActionSupport.SUCCESS); assertThat(current()).isNull();
+        verify(request, never()).setAttribute(eq("documentSummaryCorrectionPending"), any());
+        verify(request, never()).setAttribute(eq("documentSummaryCorrectionPoints"), any());
+        verify(request, never()).setAttribute(eq("documentSummaryCorrectionOverview"), any());
     }
     @Test void correctionNormalizesBrowserLineEndingsAndKeepsMarkupAsPlainText() throws Exception {
         var review = generate();

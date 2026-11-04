@@ -25,9 +25,10 @@ import org.apache.struts2.ServletActionContext;
 public final class AiReviewedDocumentSummary2Action extends ActionSupport {
     private static final String GENERATION_KEY = AiReviewedDocumentSummary2Action.class.getName() + ".generation";
     /** Shown when an honest correction fails provenance validation; the saved draft stays available. */
-    static final String CORRECTION_NOT_SAVED = "Your corrections were not saved. Edited point text must keep words from its"
+    static final String CORRECTION_NOT_SAVED = "Your corrections were not saved and the saved draft above is unchanged."
+            + " Your edits are shown in the form below so you can correct them. Edited point text must keep words from its"
             + " supporting excerpts, the overview must keep words from the document, text cannot be blank, and two points"
-            + " cannot say the same thing. The current saved draft is shown below.";
+            + " cannot say the same thing.";
     private final DocumentSummaryReviewContext context;
     private final DocumentSummaryService suppliedGenerator;
     private final String suppliedModelIdentity;
@@ -188,7 +189,17 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
                     } catch (IllegalArgumentException unsupported) {
                         // Well-formed input that fails provenance validation keeps the saved draft; the
                         // review session rejects it atomically. Only shape-forged input above discards.
+                        // This catch would also absorb the binding's own shape rejections (pointTexts size,
+                        // removedPoints range); they are unreachable here only because the checks above
+                        // pre-validate against the same draft under the same session lock.
+                        // The posted edits go back into the form (encoded by the page) so no typing is lost.
                         request.setAttribute("documentSummaryCorrectionError", CORRECTION_NOT_SAVED);
+                        request.setAttribute("documentSummaryCorrectionPending", true);
+                        request.setAttribute("documentSummaryCorrectionOverview", overview);
+                        request.setAttribute("documentSummaryCorrectionPoints", List.copyOf(corrected));
+                        var ticks = new ArrayList<Boolean>(count);
+                        for (int index = 0; index < count; index++) ticks.add(removed.contains(index));
+                        request.setAttribute("documentSummaryCorrectionRemoved", List.copyOf(ticks));
                     }
                     // Ignore any submitted affirmation: only the separately rendered existing form may approve.
                 }
