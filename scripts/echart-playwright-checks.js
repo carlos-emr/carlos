@@ -615,7 +615,9 @@ async function workflow(s) {
           AND link.id=${pendingIssueId}`, '1', 'the queued Save lost the pending encounter assignment');
     } finally {
       gates.forEach(gate => gate.release());
-      await echart.unroute(matcher, handler);
+      // Finish released response handlers before workflow cleanup closes the page,
+      // so a negative-control assertion is not masked by a late route.fulfill error.
+      await echart.unrouteAll({ behavior: 'wait' });
       echart.off('request', observe);
     }
   });
