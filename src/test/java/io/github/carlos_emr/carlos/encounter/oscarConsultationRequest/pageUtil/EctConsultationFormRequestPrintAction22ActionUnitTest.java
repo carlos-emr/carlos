@@ -271,6 +271,36 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     }
 
     @Test
+    void shouldStreamOmissionNoticeBeforeAttachments_whenStoredFormAndHrmAreUnavailable() throws Exception {
+        var formRow = new io.github.carlos_emr.carlos.commn.model.ConsultDocs(42, 701, "F", "999998");
+        var hrmRow = new io.github.carlos_emr.carlos.commn.model.ConsultDocs(42, 801, "H", "999998");
+        when(consultationManager.getAttachedDocumentsByType(loggedInInfo, 42, "F")).thenReturn(List.of(formRow));
+        when(consultationManager.getAttachedDocumentsByType(loggedInInfo, 42, "H")).thenReturn(List.of(hrmRow));
+        Path attachedForm = createRenderedPdf();
+        EFormData eform = mock(EFormData.class);
+        when(eform.getId()).thenReturn(7);
+        when(eform.getDemographicId()).thenReturn(1);
+        when(consultationManager.getAttachedEForms("42")).thenReturn(List.of(eform));
+        when(faxManager.renderFaxDocument(loggedInInfo, FaxManager.TransactionType.EFORM, 7, 1)).thenReturn(attachedForm);
+        try (MockedStatic<ConcatPDF> concat = mockStatic(ConcatPDF.class)) {
+            concat.when(() -> ConcatPDF.concat(org.mockito.ArgumentMatchers.<List<Object>>any(), any(java.io.OutputStream.class))).thenAnswer(invocation -> {
+                List<?> parts = invocation.getArgument(0);
+                assertThat(parts).hasSize(3);
+                try (var notice = org.apache.pdfbox.Loader.loadPDF(((InputStream) parts.get(1)).readAllBytes())) {
+                    String text = new org.apache.pdfbox.text.PDFTextStripper().getText(notice);
+                    assertThat(text).contains("Attachments not included", "clinical form", "An attachment is unavailable")
+                            .doesNotContain("701", "801", "HRM");
+                }
+                return 0;
+            });
+            assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getContentType()).isEqualTo("application/pdf");
+        } finally {
+            Files.deleteIfExists(attachedForm);
+        }
+    }
+
+    @Test
     @DisplayName("should return error when an attached form has no metadata")
     void shouldReturnError_whenAttachedFormMetadataIsMissing() throws Exception {
         when(consultationManager.getAttachedForms(loggedInInfo, 42, 1))

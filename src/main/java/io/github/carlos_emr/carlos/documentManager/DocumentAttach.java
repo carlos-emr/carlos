@@ -138,10 +138,18 @@ public class DocumentAttach {
         if (requestId == null || existing.isEmpty() || (type != DocumentType.FORM && type != DocumentType.HRM)) {
             return validateSelection(type, patient, selected, existing);
         }
+        // No additions or removals: preserve the stored relationship without parsing every HRM.
+        // New selections still pass the normal privilege/ownership checks below.
+        if (new LinkedHashSet<>(selected).equals(new LinkedHashSet<>(existing))) return false;
         var manager = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.ConsultationManager.class);
         Set<String> available = new LinkedHashSet<>();
         if (type == DocumentType.FORM) {
-            for (var form : manager.getAttachedForms(loggedInInfo, requestId, patient)) available.add(form.getFormId());
+            // FormsManager rejects denied reads instead of returning an empty listing. Preserve
+            // existing rows in that case; validateSelection below still rejects new form IDs.
+            if (SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class)
+                    .hasPrivilege(loggedInInfo, "_form", "r", Integer.toString(patient))) {
+                for (var form : manager.getAttachedForms(loggedInInfo, requestId, patient)) available.add(form.getFormId());
+            }
         } else {
             for (var hrm : manager.getAttachedHRMDocuments(loggedInInfo, Integer.toString(patient), requestId.toString())) {
                 available.add(String.valueOf(hrm.get("id")));

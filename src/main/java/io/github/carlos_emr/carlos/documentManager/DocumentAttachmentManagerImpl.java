@@ -703,13 +703,13 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         request.setAttribute(ConsultationLabsNotIncluded.REQUEST_ATTRIBUTE, labsNotIncluded);
         ArrayList<HashMap<String, ? extends Object>> attachedHRMs = consultationManager.getAttachedHRMDocuments(loggedInInfo, demographicId, requestId);
         List<EctFormData.PatientForm> attachedForms = consultationManager.getAttachedForms(loggedInInfo, Integer.parseInt(requestId), Integer.parseInt(demographicId));
-        List<String> attachmentsNotIncluded = ConsultationAttachmentsNotIncluded.describe(consultationManager,
-                loggedInInfo, Integer.parseInt(requestId), attachedForms, attachedHRMs, readerLocale);
-        request.setAttribute(ConsultationAttachmentsNotIncluded.REQUEST_ATTRIBUTE, attachmentsNotIncluded);
 
         ArrayList<Object> pdfDocumentList = new ArrayList<>();
         try {
             pdfDocumentList.add(consultationFormPDFPath.toString());
+            List<String> attachmentsNotIncluded = ConsultationAttachmentsNotIncluded.describe(consultationManager,
+                    loggedInInfo, Integer.parseInt(requestId), attachedForms, attachedHRMs, readerLocale);
+            request.setAttribute(ConsultationAttachmentsNotIncluded.REQUEST_ATTRIBUTE, attachmentsNotIncluded);
             attachLabsNotIncludedNotice(labsNotIncluded, readerLocale, pdfDocumentList);
             if (!attachmentsNotIncluded.isEmpty()) {
                 try (ByteArrayOutputStream notice = new ByteArrayOutputStream()) {

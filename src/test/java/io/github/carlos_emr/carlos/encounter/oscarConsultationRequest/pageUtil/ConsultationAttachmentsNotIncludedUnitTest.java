@@ -37,6 +37,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
+/**
+ * Generic consultation omission warnings and their rendered PDF notices.
+ *
+ * @since 2026-11-04
+ */
 @Tag("unit")
 class ConsultationAttachmentsNotIncludedUnitTest {
     private final ConsultationManager manager = mock(ConsultationManager.class);
@@ -53,7 +58,7 @@ class ConsultationAttachmentsNotIncludedUnitTest {
                 List.of(), List.of(), Locale.ENGLISH);
         assertThat(warnings).hasSize(2);
         assertThat(warnings.get(0)).contains("clinical form");
-        assertThat(warnings.get(1)).isEqualTo("An attachment is unavailable in this session and has not been included.");
+        assertThat(warnings.get(1)).isEqualTo("An attachment is unavailable and has not been included.");
         try (var pdf = Loader.loadPDF(ConsultationAttachmentsNotIncluded.noticePage(warnings, Locale.ENGLISH))) {
             assertThat(new PDFTextStripper().getText(pdf)).contains("Attachments not included", "contact the sender")
                     .doesNotContain("7001", "8001", "8002", "HRM", "report");
@@ -75,7 +80,7 @@ class ConsultationAttachmentsNotIncludedUnitTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"en", "fr", "es", "pl", "pt-BR"})
-    void shouldRenderTranslatedNotice_whenLocaleIsSupported(String language) throws Exception {
+    void shouldRenderBundleNotice_whenLocaleIsSupported(String language) throws Exception {
         when(manager.getAttachedDocumentsByType(info, 42, ConsultDocs.DOCTYPE_HRM))
                 .thenReturn(List.of(new ConsultDocs(42, 8, ConsultDocs.DOCTYPE_HRM, "999998")));
         Locale locale = Locale.forLanguageTag(language);

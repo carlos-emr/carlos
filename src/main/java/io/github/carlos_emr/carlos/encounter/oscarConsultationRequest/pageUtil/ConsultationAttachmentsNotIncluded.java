@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -38,6 +39,8 @@ import org.openpdf.text.DocumentException;
 /**
  * Discloses unavailable forms and HRMs without exposing a hidden report's type, ID or title.
  * Callers authorize the consultation and its stored patient before looking up attachments.
+ *
+ * @since 2026-11-04
  */
 public final class ConsultationAttachmentsNotIncluded {
     public static final String REQUEST_ATTRIBUTE = "consultAttachmentsNotIncluded";
@@ -46,10 +49,20 @@ public final class ConsultationAttachmentsNotIncluded {
     private ConsultationAttachmentsNotIncluded() {
     }
 
-    /** Compares persisted attachments with the patient-scoped lists used by the renderers. */
+    /**
+     * Compares persisted attachments with the patient-scoped lists used by the renderers.
+     *
+     * @param manager ConsultationManager used to read the stored attachment relationships
+     * @param info LoggedInInfo for the authorized consultation user
+     * @param requestId int ID of the verified consultation
+     * @param forms List of clinical forms available to the renderer
+     * @param hrms List of HRM maps available to the renderer
+     * @param locale Locale negotiated for the reader, or null for English
+     * @return List of localized omission warnings, empty when every attachment is available
+     */
     public static List<String> describe(ConsultationManager manager, LoggedInInfo info, int requestId,
             List<EctFormData.PatientForm> forms, List<? extends Map<String, ?>> hrms, Locale locale) {
-        ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", locale == null ? Locale.ENGLISH : locale);
+        ResourceBundle bundle = ConsultationLabsNotIncluded.bundle(locale == null ? Locale.ENGLISH : locale);
         Set<String> formIds = forms.stream().filter(Objects::nonNull).map(EctFormData.PatientForm::getFormId).collect(Collectors.toSet());
         Set<String> hrmIds = hrms.stream().filter(Objects::nonNull).map(row -> String.valueOf(row.get("id"))).collect(Collectors.toSet());
         List<String> warnings = new ArrayList<>();
@@ -68,14 +81,30 @@ public final class ConsultationAttachmentsNotIncluded {
         return stored.stream().anyMatch(row -> !available.contains(Integer.toString(row.getDocumentNo())));
     }
 
-    /** Adds a visible page to preview, print and fax packets rather than silently omitting content. */
+    /**
+     * Creates the notice page included in preview, print and fax packets.
+     *
+     * @param warnings List of localized omission warnings; must not be empty
+     * @param locale Locale negotiated for the reader, or null for English
+     * @return byte[] containing the PDF notice page
+     * @throws IllegalArgumentException when warnings is null or empty
+     * @throws DocumentException when the PDF notice cannot be rendered
+     */
     public static byte[] noticePage(List<String> warnings, Locale locale) throws DocumentException {
         if (warnings == null || warnings.isEmpty()) throw new IllegalArgumentException("An attachment notice needs a warning");
         return ConsultationLabsNotIncluded.noticePage(warnings, locale, PREFIX + "title", PREFIX + "explanation");
     }
 
+    /**
+     * Formats the preview alert using one translatable message template.
+     *
+     * @param warnings List of localized omission warnings
+     * @param locale Locale negotiated for the reader, or null for English
+     * @return String containing the localized alert heading and warning list
+     */
     public static String previewWarning(List<String> warnings, Locale locale) {
-        ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", locale == null ? Locale.ENGLISH : locale);
-        return bundle.getString(PREFIX + "title") + "\n" + String.join("\n", warnings);
+        ResourceBundle bundle = ConsultationLabsNotIncluded.bundle(locale == null ? Locale.ENGLISH : locale);
+        return new MessageFormat(bundle.getString(PREFIX + "preview"), locale == null ? Locale.ENGLISH : locale)
+                .format(new Object[]{String.join("\n", warnings)});
     }
 }

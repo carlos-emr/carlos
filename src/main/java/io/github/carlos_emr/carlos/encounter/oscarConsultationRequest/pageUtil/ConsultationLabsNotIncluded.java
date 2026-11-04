@@ -242,7 +242,7 @@ public final class ConsultationLabsNotIncluded {
      * The message bundle for the locale. Callers pass a negotiated locale, which always has a bundle;
      * any other locale falls back to English rather than to the server's default locale.
      */
-    private static ResourceBundle bundle(Locale locale) {
+    static ResourceBundle bundle(Locale locale) {
         try {
             return ResourceBundle.getBundle(BUNDLE, locale,
                     ResourceBundle.Control.getNoFallbackControl(ResourceBundle.Control.FORMAT_PROPERTIES));

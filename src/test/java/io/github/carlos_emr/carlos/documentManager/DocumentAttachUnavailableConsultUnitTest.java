@@ -51,6 +51,11 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * Preservation of omitted consultation attachments under the parent lock.
+ *
+ * @since 2026-11-04
+ */
 @Tag("unit")
 class DocumentAttachUnavailableConsultUnitTest extends CarlosUnitTestBase {
     private ConsultDocsDao docs;
@@ -64,7 +69,7 @@ class DocumentAttachUnavailableConsultUnitTest extends CarlosUnitTestBase {
         docs = createAndRegisterMock(ConsultDocsDao.class);
         createAndRegisterMock(EFormDocsDao.class);
         manager = createAndRegisterMock(ConsultationManager.class);
-        security = mock(SecurityInfoManager.class);
+        security = createAndRegisterMock(SecurityInfoManager.class);
         info = mock(LoggedInInfo.class);
         when(security.hasPrivilege(eq(info), anyString(), eq("r"), eq("1"))).thenReturn(true);
         registerMock(AttachmentSelectionAccess.class, new AttachmentSelectionAccess(security,
@@ -123,6 +128,30 @@ class DocumentAttachUnavailableConsultUnitTest extends CarlosUnitTestBase {
         attach.attachToConsult(new String[0], type, "999998", 42);
         verify(docs).merge(row);
         assertThat(row.getDeleted()).isEqualTo("Y");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = DocumentType.class, names = {"FORM", "HRM"})
+    void shouldAvoidAvailabilityLookup_whenSelectionIsUnchanged(DocumentType type) {
+        stored(type);
+        attach.verifyConsultAttachments(new String[]{"7"}, type, 42);
+        attach.attachToConsult(new String[]{"7"}, type, "999998", 42);
+        verifyNoInteractions(manager);
+        verify(docs, never()).merge(any());
+        verify(docs, never()).persist(any());
+    }
+
+    @Test
+    void shouldRetainFormsAndRejectAdditions_whenFormReadIsDenied() {
+        stored(DocumentType.FORM);
+        when(security.hasPrivilege(info, "_form", "r", "1")).thenReturn(false);
+        attach.verifyConsultAttachments(new String[0], DocumentType.FORM, 42);
+        attach.attachToConsult(new String[0], DocumentType.FORM, "999998", 42);
+        assertThatThrownBy(() -> attach.verifyConsultAttachments(new String[]{"8"}, DocumentType.FORM, 42))
+                .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(manager);
+        verify(docs, never()).merge(any());
+        verify(docs, never()).persist(any());
     }
 
     @Test
