@@ -71,6 +71,16 @@ Each of these is much easier to fix now than mid-install:
 - **Network**: the front door needs inbound **443** (HTTPS) from the clinic,
   and inbound **80** (HTTP) from the internet only if you plan to use Let's
   Encrypt. Keep **22** (SSH) for yourself. Nothing else listens externally.
+- **Ports 80 and 443 on this host**: nginx must own them. If another service
+  already listens there — a Debian package (apache2, lighttpd, haproxy, …), a
+  snap (such as the Nextcloud snap Ubuntu Server's installer offers) or a unit
+  you wrote — the installer **asks** whether to stop it (see
+  [question 9](#the-installers-questions)); a non-interactive install goes
+  ahead. Nothing is uninstalled. It leaves containers, container engines and
+  programs started by hand running, and the install then stops short of
+  ready. Check first with
+  `sudo ss -ltnp '( sport = :80 or sport = :443 )'` (without `sudo` the owner
+  column is blank).
 - **Disk**: the packages themselves are small; the growth is the database,
   the document store under `/var/lib/carlos-emr`, and the local backup tier.
   Start with at least 50 GB free and monitor.
@@ -240,7 +250,21 @@ no way to remove it short of destroying the database. See
 
 ![Demonstration data question](images/install/08-install-demo-data.png)
 
-**9. Done (only if you accepted the seeded-admin replacement)** — a final
+**9. Stop the other services using ports 80 and 443** — asked only when
+another service already listens on the front-door ports, and it lists exactly
+which ones. Accept (the default) to stop each one and, where possible, keep it
+from starting at boot (disabled, or masked when it cannot be disabled); a
+following note shows what was done to each and the command that brings it back
+once it has been moved to other ports.
+Decline and nothing is changed, but CARLOS is not reachable until you free the
+ports yourself and run `sudo carlos-ctl finish-install`. A non-interactive
+install takes the default and goes ahead. Every service stopped (or a refusal)
+is printed in the install output, kept in `/var/log/apt/term.log`, and logged
+to the journal: `journalctl -t carlos-emr`. To keep the installer hands-off on
+every run, preseed
+`echo 'carlos-emr carlos-emr/stop-port-conflicts boolean false' | sudo debconf-set-selections`.
+
+**10. Done (only if you accepted the seeded-admin replacement)** — a final
 note tells you where the initial credentials were written and points you at
 `carlos-ctl check` and `README.Debian`. If you declined at step 7 — or the
 replacement failed, which the install log warns about loudly — no completion
@@ -530,6 +554,8 @@ sudo carlos-ctl check
 | Symptom | Where to look | Usual cause |
 |---|---|---|
 | Install reported no error, but `carlos-ctl check` says the installation never finished, or that the database has **no tables** | `sudo carlos-ctl finish-install`, then `journalctl -u mariadb` | One or more provisioning steps failed or did not run; read the recorded reason and installation output. Those steps are deliberately non-fatal (a database problem must not leave dpkg half-configured), so apt still reports success. `finish-install` completes the install — schema, accounts, administrator credential, demo data if you asked for it — and returns nonzero while any requested step is unfinished. Boot retries require the marker and never migrate a populated invalid schema. If the DrugRef database is empty, also run `sudo dpkg-reconfigure carlos-emr-drugref`, then `sudo carlos-ctl check`. Existing DrugRef tables without a completion marker need a backup and administrator review before any reload |
+| Install ends with "NOT ready to use", and nginx logged `bind() to 0.0.0.0:80 failed (98: Address already in use)` | The "What failed" line of that dialog; `sudo /usr/lib/carlos-emr/carlos-emr-host-conflicts front-door --report 0.0.0.0` | Another program held port 80 or 443. The installer offers to stop any other system service there (a Debian package such as apache2, a snap such as Nextcloud, or your own unit), and does so without asking on a non-interactive install; `journalctl -t carlos-emr` lists what it stopped or what you declined. It names a container or a program started by hand and leaves it running. Stop that program, then `sudo carlos-ctl finish-install` |
+| The install says MariaDB "refuses the system root user", or that it could not reach MariaDB as root | `sudo /usr/lib/carlos-emr/carlos-emr-host-conflicts mariadb` | MariaDB is stopped or failed (the helper names what holds port 3306, or quotes its last error), or a MariaDB set up before CARLOS gave root a password. For the password case follow "MariaDB root access" in `README.Debian` section 6, then `sudo carlos-ctl finish-install` |
 | Drug lookups silent **and** the EMR is stopped | `sudo carlos-ctl check` | One failure, not two: DrugRef is a second webapp in the EMR's Tomcat, so it answers nothing while the EMR is not running. Fix the EMR first |
 | Browser cannot connect at all | `sudo journalctl -u nginx -n 50` | nginx not running, or the listen address is `127.0.0.1` while you are connecting remotely |
 | Certificate warning in the browser | `sudo carlos-ctl cert status` | Expected with the default self-signed certificate — the connection is still encrypted; switch with `sudo carlos-ctl cert acme <email>` |

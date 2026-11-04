@@ -155,6 +155,7 @@ INSERT INTO carlos_report_tables (table_name, access, excluded_columns, reason) 
 ('clinic_nbr', 'reportable', NULL, NULL),
 ('config_Immunization', 'reportable', NULL, NULL),
 ('Consent', 'reportable', NULL, NULL),
+('Consent_migration_audit', 'reportable', NULL, NULL),
 ('consentType', 'reportable', NULL, NULL),
 ('consultationRequestExt', 'reportable', NULL, NULL),
 ('consultationRequestExtArchive', 'reportable', NULL, NULL),
