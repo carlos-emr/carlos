@@ -7,9 +7,11 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** The retired chart mode cannot be re-enabled by a deployment override (#4793). */
 @Tag("unit")
@@ -43,7 +45,16 @@ class CarlosPropertiesModernChartUnitTest {
         properties.setProperty(KEY, value);
 
         assertModernChart();
-        assertThat(properties.get(KEY)).as("the stored operator setting is not rewritten").isEqualTo(value);
+        assertThat(properties).as("the stored operator setting is not rewritten").containsEntry(KEY, value);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t"})
+    void shouldRejectBlankKey_whenPropertyIsRequested(String key) {
+        assertThatThrownBy(() -> properties.getProperty(key))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Property key cannot be blank.");
     }
 
     private void assertModernChart() {

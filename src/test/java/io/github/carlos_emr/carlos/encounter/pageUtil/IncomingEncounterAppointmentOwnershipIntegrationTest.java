@@ -266,7 +266,8 @@ class IncomingEncounterAppointmentOwnershipIntegrationTest extends CarlosTestBas
         when(security.isAllowedAccessToPatientRecord(login, a)).thenReturn(false);
         clearInvocations(security, demographics);
 
-        assertThatThrownBy(() -> execute(request, new MockHttpServletResponse()))
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        assertThatThrownBy(() -> execute(request, response))
                 .isInstanceOf(SecurityException.class).hasMessage("Patient record access denied");
 
         verify(security).isAllowedAccessToPatientRecord(login, a);

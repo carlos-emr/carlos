@@ -142,7 +142,7 @@ public class CarlosProperties extends Properties {
      * @return the validated property value, or null if not found
      */
     public String getProperty(String key) {
-        if (key.equals("FORMS_PROMOTEXT")) {
+        if ("FORMS_PROMOTEXT".equals(key)) {
             return "";
         }
 
@@ -232,7 +232,9 @@ public class CarlosProperties extends Properties {
 
             String overrideProperties = System.getProperty("carlos_override_properties");
             if (overrideProperties != null) {
-                MiscUtils.getLogger().info("Applying override properties : " + overrideProperties);
+                if (MiscUtils.getLogger().isInfoEnabled()) {
+                    MiscUtils.getLogger().info("Applying override properties : {}", LogSafe.sanitize(overrideProperties));
+                }
                 readFromFile(overrideProperties);
             }
         } catch (IOException e) {
