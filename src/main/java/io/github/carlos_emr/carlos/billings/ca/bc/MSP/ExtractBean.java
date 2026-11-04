@@ -349,7 +349,7 @@ public class ExtractBean extends Object implements Serializable {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void writeHtml(String htmlvalue1) {
         if (eFlag.equals("1")) {
-            if (htmlFilename == null) {
+            if (htmlFilename == null || htmlFilename.isBlank()) {
                 throw new IllegalStateException("HTML filename must be set before writing a Teleplan report");
             }
             try {

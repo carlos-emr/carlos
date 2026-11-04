@@ -38,6 +38,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -99,10 +102,13 @@ class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
-    void shouldRejectMissingHtmlFilename_whenPublishingAnExport() {
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t\r\n"})
+    void shouldRejectMissingHtmlFilename_whenPublishingAnExport(String filename) {
         ExtractBean bean = new ExtractBean();
         bean.seteFlag("1");
+        bean.setHtmlFilename(filename);
         assertThatThrownBy(() -> bean.writeHtml("<html/>"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("HTML filename must be set before writing a Teleplan report");
