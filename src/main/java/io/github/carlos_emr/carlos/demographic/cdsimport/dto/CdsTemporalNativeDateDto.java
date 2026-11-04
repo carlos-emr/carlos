@@ -101,12 +101,25 @@ public final class CdsTemporalNativeDateDto implements Serializable {
 
     /** JAXB construction stays separate from the immutable, validated application value. */
     public static final class JaxbAdapter extends XmlAdapter<JaxbValue, CdsTemporalNativeDateDto> {
+        /**
+         * Reconstructs the immutable date using the same validation as the JSON creator.
+         *
+         * @param value the {@link JaxbValue} carrier, or {@code null}
+         * @return the validated date value, or {@code null} for a null carrier
+         * @throws CdsTemporalPrecisionException if the precision, value, or interval is inconsistent
+         */
         @Override
         public CdsTemporalNativeDateDto unmarshal(JaxbValue value) {
             return value == null ? null : fromJson(value.precision, value.value,
                     value.intervalStart, value.intervalEnd);
         }
 
+        /**
+         * Preserves the four-field date representation used by XML and JAXB-aware JSON mappers.
+         *
+         * @param value the immutable date value, or {@code null}
+         * @return a {@link JaxbValue} carrier, or {@code null} for a null date
+         */
         @Override
         public JaxbValue marshal(CdsTemporalNativeDateDto value) {
             if (value == null) return null;

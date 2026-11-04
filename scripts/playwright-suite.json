@@ -2521,7 +2521,7 @@
       ],
       "timeoutSec": 180,
       "env": [],
-      "fixtures": "Owns and removes a synthetic patient; checks demographic, provider-list and provider XML including wildcard Accept, plus legacy and precision-aware allergy and prevention JSON."
+      "fixtures": "Owns and removes a synthetic patient, allergy and prevention; checks demographic, provider-list and provider XML including wildcard Accept, plus populated legacy and precision-aware clinical JSON."
     },
     {
       "name": "rest-birth-date",

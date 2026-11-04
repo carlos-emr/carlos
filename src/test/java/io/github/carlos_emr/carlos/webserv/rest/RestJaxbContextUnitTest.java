@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.PreventionTo1;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.ProviderTransfer;
 import jakarta.xml.bind.JAXBContext;
+import jakarta.ws.rs.core.MediaType;
 import org.apache.cxf.bus.extension.ExtensionManagerBus;
 import org.apache.cxf.jaxrs.JAXRSServiceFactoryBean;
 import org.apache.cxf.jaxrs.provider.JAXBElementProvider;
@@ -70,6 +71,7 @@ class RestJaxbContextUnitTest extends CarlosUnitTestBase {
             "{\"precision\":\"FULL_DATE\",\"value\":\"2020-02-29\",\"intervalStart\":\"2020-02-29\",\"intervalEnd\":\"2020-02-29\"}"
     };
 
+    /** A per-type fallback must not conceal failure of the deployed provider's shared context. */
     @ParameterizedTest
     @ValueSource(strings = {"org.eclipse.persistence.jaxb.JAXBContextFactory",
             "org.glassfish.jaxb.runtime.v2.JAXBContextFactory"})
@@ -108,12 +110,23 @@ class RestJaxbContextUnitTest extends CarlosUnitTestBase {
             // A failed init can silently fall back to per-type contexts. That must fail this guard.
             assertThat(provider.getJAXBContext(DemographicTo1.class, DemographicTo1.class)).isSameAs(context);
             assertThat(provider.getJAXBContext(ProviderTransfer.class, ProviderTransfer.class)).isSameAs(context);
+            assertThat(provider.isWriteable(ProviderTransfer.class, ProviderTransfer.class,
+                    new java.lang.annotation.Annotation[0], MediaType.APPLICATION_XML_TYPE)).isTrue();
+            var providerDto = new ProviderTransfer();
+            providerDto.setProviderNo("999998");
+            var writer = new StringWriter();
+            context.createMarshaller().marshal(providerDto, writer);
+            Document providerXml = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(
+                    new ByteArrayInputStream(writer.toString().getBytes(StandardCharsets.UTF_8)));
+            assertThat(providerXml.getDocumentElement().getNodeName()).isEqualTo("providerTransfer");
+            assertThat(providerXml.getElementsByTagName("providerNo").item(0).getTextContent()).isEqualTo("999998");
         } finally {
             factory.destroySingletons();
             bus.shutdown(true);
         }
     }
 
+    /** Both installed JAXB runtimes must round-trip every native precision without inventing dates. */
     @ParameterizedTest
     @ValueSource(strings = {"org.eclipse.persistence.jaxb.JAXBContextFactory",
             "org.glassfish.jaxb.runtime.v2.JAXBContextFactory"})
@@ -156,6 +169,7 @@ class RestJaxbContextUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    /** Load the actual mapper beans so JAXB annotation handling cannot silently change JSON. */
     @ParameterizedTest
     @ValueSource(strings = {"spring_ws.xml", "applicationContextREST.xml"})
     void shouldKeepClinicalDateJsonUnchanged_withProductionMapper(String resource) throws Exception {
@@ -186,6 +200,9 @@ class RestJaxbContextUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> mapper.readValue(JSON_DATES[2].replace("2020-02-29", "2020-02-28"),
                     CdsTemporalNativeDateDto.class)).isInstanceOf(
                             io.github.carlos_emr.carlos.commn.model.CdsTemporalPrecisionException.class);
+            var provider = new ProviderTransfer();
+            provider.setProviderNo("999998");
+            assertThat(mapper.writeValueAsString(provider)).isEqualTo(new ObjectMapper().writeValueAsString(provider));
         } finally {
             factory.destroySingletons();
         }
@@ -195,6 +212,7 @@ class RestJaxbContextUnitTest extends CarlosUnitTestBase {
         return allergyJson.replace("\"value\":", "\"originalValue\":").replace("\"MONTH\"", "\"YEAR_MONTH\"");
     }
 
+    /** Read service and mapper definitions without initializing the application or its database. */
     private static Document configuration(String resource) throws Exception {
         var parser = XmlUtils.createSecureDocumentBuilderFactory();
         parser.setNamespaceAware(true);
@@ -203,6 +221,7 @@ class RestJaxbContextUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    /** Keep the deployed bean definitions while excluding unrelated services and component scans. */
     private static DefaultListableBeanFactory selectedBeans(String resource, String... ids) throws Exception {
         Document document = configuration(resource);
         Element root = document.getDocumentElement();

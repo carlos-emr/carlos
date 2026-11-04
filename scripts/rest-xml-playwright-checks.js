@@ -7,6 +7,7 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 
+/** Check installed XML resources and clinical JSON using patient-owned fixtures and cleanup. */
 async function workflow(session) {
   const { context, config, patient, provider, schedule, sql, marker } = session;
   const probes = [
@@ -49,6 +50,7 @@ async function workflow(session) {
       deleted,refused,never,creator,lastUpdateDate)
     VALUES (${patient},NOW(),'2020-02-29 00:00:00',${h.sqlString(provider)},'Inf','0','0','0',${h.sqlString(provider)},NOW())`);
 
+  /** The allergy and prevention protocols use distinct value names in the same four-field shape. */
   function assertDateInfo(info, valueKey) {
     h.assert(info && info.precision === 'FULL_DATE' && info[valueKey] === '2020-02-29'
       && info.intervalStart === '2020-02-29' && info.intervalEnd === '2020-02-29',

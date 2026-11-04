@@ -107,12 +107,25 @@ public final class PreventionDateDTO implements Serializable {
 
     /** JAXB uses a transport carrier without weakening the application's immutable date value. */
     public static final class JaxbAdapter extends XmlAdapter<JaxbValue, PreventionDateDTO> {
+        /**
+         * Reconstructs a prevention date through the existing JSON construction path.
+         *
+         * @param value the {@link JaxbValue} carrier, or {@code null}
+         * @return the immutable prevention date, or {@code null} for a null carrier
+         * @throws java.time.format.DateTimeParseException if a non-null interval bound is not an ISO date
+         */
         @Override
         public PreventionDateDTO unmarshal(JaxbValue value) {
             return value == null ? null : fromJson(value.precision, value.originalValue,
                     value.intervalStart, value.intervalEnd);
         }
 
+        /**
+         * Preserves the prevention date's precision, original value, and inclusive interval bounds.
+         *
+         * @param value the immutable prevention date, or {@code null}
+         * @return a {@link JaxbValue} carrier, or {@code null} for a null date
+         */
         @Override
         public JaxbValue marshal(PreventionDateDTO value) {
             if (value == null) return null;
