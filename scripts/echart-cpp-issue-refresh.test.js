@@ -7,6 +7,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { chartActionUrlSource } = require('./lib/chart-action-url-source');
 const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
+const ajaxSource = fs.readFileSync(path.join(__dirname, '../src/main/webapp/share/javascript/carlos-ajax.js'), 'utf8');
 const chartHelper = chartActionUrlSource(source);
 
 // Run the production CPP save and its two-stage issue refresh, including the
@@ -83,7 +84,7 @@ for (const [name, checked, changed] of [
       let saves = 0;
       assert.equal(h.context.deferNoteSaveUntilIssues(() => saves++), true);
       h.updates[0].options.onSuccess({ status: 200 });
-      h.updates[0].options.onComplete({ status: 200 });
+      h.updates[0].options.onComplete({ updateSucceeded: true, status: 200 });
       assert.equal(saves, 0, 'wait for Unresolved Issues too');
       assert.equal(h.requests.length, 2);
       const refresh = h.requests[1];
@@ -128,7 +129,7 @@ test('CPP refresh preserves the latest unsaved selections by issue id before a q
   checkboxes = [checkbox('43', false), checkbox('42', true), checkbox('41', false)];
   let saved;
   h.context.deferNoteSaveUntilIssues(() => { saved = checkboxes.map(box => box.checked); });
-  h.updates[0].options.onComplete({ status: 200 });
+  h.updates[0].options.onComplete({ updateSucceeded: true, status: 200 });
   assert.deepEqual(checkboxes.map(box => box.checked), [false, false, true]);
   assert.equal(saved, undefined);
   h.requests[1].options.onSuccess({ status: 200, responseText: '' });
@@ -143,7 +144,7 @@ test('ordinary editor loads use persisted selections without preserving another 
   };
   h.context.ajaxUpdateIssues('edit', 'sig01');
   h.updates[0].options.onSuccess({ status: 200 });
-  h.updates[0].options.onComplete({ status: 200 });
+  h.updates[0].options.onComplete({ updateSucceeded: true, status: 200 });
   assert.equal(h.requests.length, 1);
   h.requests[0].options.onSuccess({ status: 200, responseText: '' });
   h.requests[0].options.onComplete({ status: 200 });
@@ -165,7 +166,7 @@ test('an encounter save requested before the CPP response waits for both refresh
   assert.equal(h.context.issueUpdatesPending, 1, 'transfer the existing slot to the refresh');
   h.updates[0].options.onSuccess({ status: 200 });
   boxes = [checkbox('42', true), checkbox('43', false), checkbox('41', false)];
-  h.updates[0].options.onComplete({ status: 200 });
+  h.updates[0].options.onComplete({ updateSucceeded: true, status: 200 });
   assert.deepEqual(saves, []);
   h.requests[1].options.onSuccess({ status: 200, responseText: '' });
   h.requests[1].options.onComplete({ status: 200 });
@@ -198,7 +199,7 @@ for (const phase of ['CPP POST', 'note refresh', 'Unresolved Issues', 'panel ren
           if (phase === 'selection restore') {
             h.context.document.forms.caseManagementEntryForm.querySelectorAll = () => { throw new Error('restore failed'); };
           }
-          h.updates[0].options.onComplete({ status: phase === 'note refresh' ? 500 : 200 });
+          h.updates[0].options.onComplete({ updateSucceeded: true, status: phase === 'note refresh' ? 500 : 200 });
           if (['Unresolved Issues', 'panel rendering'].includes(phase)) {
             if (phase === 'panel rendering') {
               h.fields.unresolvedIssueslist.update = () => { throw new Error('render failed'); };
@@ -218,7 +219,7 @@ for (const phase of ['CPP POST', 'note refresh', 'Unresolved Issues', 'panel ren
     h.context.CarlosAjax.updater = (target, url, options) => h.updates.push({ target, url, options });
     h.context.loadDiv = (div, url, limit, complete) => complete(true);
     h.context.ajaxUpdateIssues('edit', 'sig01');
-    h.updates.at(-1).options.onComplete({ status: 200 });
+    h.updates.at(-1).options.onComplete({ updateSucceeded: true, status: 200 });
     assert.equal(h.context.issueUpdatesPending, 0);
     assert.equal(h.context.issueUpdateFailed, false);
     assert.equal(saves, 0);
@@ -247,7 +248,7 @@ test('a CPP refresh waits behind an older editor refresh so its new issues canno
   h.requests[0].options.onSuccess({ status: 200, responseText: '' });
   assert.equal(h.updates.length, 1, 'do not send the CPP refresh while the old editor request is pending');
   h.updates[0].options.onSuccess({ status: 200 });
-  h.updates[0].options.onComplete({ status: 200 });
+  h.updates[0].options.onComplete({ updateSucceeded: true, status: 200 });
   assert.equal(h.updates.length, 1, 'also wait for the old Unresolved Issues request');
   h.requests[1].options.onSuccess({ status: 200, responseText: 'old issues' });
   h.requests[1].options.onComplete({ status: 200 });
@@ -255,7 +256,7 @@ test('a CPP refresh waits behind an older editor refresh so its new issues canno
   assert.equal(saved, undefined);
   h.updates[1].options.onSuccess({ status: 200 });
   boxes = [checkbox('43', false), checkbox('42', true), checkbox('41', false)];
-  h.updates[1].options.onComplete({ status: 200 });
+  h.updates[1].options.onComplete({ updateSucceeded: true, status: 200 });
   assert.equal(saved, undefined);
   h.requests[2].options.onSuccess({ status: 200, responseText: 'CPP-created issues' });
   h.requests[2].options.onComplete({ status: 200 });
@@ -264,3 +265,46 @@ test('a CPP refresh waits behind an older editor refresh so its new issues canno
   assert.equal(h.context.issueUpdatesPending, 0);
   assert.equal(h.context.issueRefreshPending, false);
 });
+
+for (const rendering of ['success', 'throws', 'missing target']) {
+  test(`the real AJAX adapter ${rendering === 'success' ? 'releases a save after rendering both fragments' : `blocks a save when note rendering ${rendering}`}`, () => {
+    const h = harness(); const xhrs = [];
+    h.context.document.querySelector = () => null;
+    h.context.document.getElementById = id => h.fields[id] || null;
+    if (rendering !== 'missing target') h.fields.sig01 = {
+      set innerHTML(value) {
+        if (rendering === 'throws') throw new Error('synthetic DOM installation failure');
+        h.fields.noteFragment = value;
+      },
+    };
+    h.context.XMLHttpRequest = class {
+      constructor() { xhrs.push(this); }
+      open(method, url) { this.responseURL = url; }
+      setRequestHeader() {}
+      send() {}
+      respond(responseText) { this.status = 200; this.responseText = responseText; this.onload(); }
+    };
+    vm.runInContext(ajaxSource, h.context);
+    let saves = 0;
+    h.context.updateCPPNote();
+    h.context.deferNoteSaveUntilIssues(() => saves++);
+    xhrs[0].respond('');
+    xhrs[1].respond('<p>current note issues</p>');
+    assert.equal(saves, 0);
+    if (rendering === 'success') {
+      assert.equal(h.fields.noteFragment, '<p>current note issues</p>');
+      assert.equal(h.context.issueUpdatesPending, 1);
+      xhrs[2].respond('<p>current unresolved issues</p>');
+      assert.equal(saves, 1);
+      assert.equal(h.context.issueUpdateFailed, false);
+    } else {
+      assert.equal(xhrs.length, 2, 'failed note rendering cannot advance to a successful sidebar completion');
+      assert.equal(h.context.issueUpdateFailed, true);
+      assert.equal(h.context.deferNoteSaveUntilIssues(() => saves++), true);
+      assert.deepEqual(h.alerts, ['issue refresh failed', 'issue refresh failed']);
+    }
+    assert.equal(h.context.issueUpdatesPending, 0);
+    assert.equal(h.context.issueRefreshPending, false);
+    assert.equal(h.context.queuedNoteSave, null);
+  });
+}

@@ -3455,7 +3455,7 @@ function updateCPPNote() {
                     // onComplete runs after the updater installs the new issue fields.
                     onComplete: function (response) {
                         try {
-                            if (captured && response.status >= 200 && response.status < 300) {
+                            if (captured && response.updateSucceeded === true && response.status >= 200 && response.status < 300) {
                                 if (selectedIssues) {
                                     frm.querySelectorAll('input[type="checkbox"][data-issue-id]').forEach(function (checkbox) {
                                         var id = checkbox.getAttribute('data-issue-id');
@@ -3463,7 +3463,10 @@ function updateCPPNote() {
                                     });
                                 }
                                 onIssueUpdate(refreshed);
-                            } else refreshed(false);
+                            } else {
+                                if (captured && response.status >= 200 && response.status < 300) alert(updateIssueError);
+                                refreshed(false);
+                            }
                         } catch (e) {
                             refreshed(false);
                             alert(updateIssueError);

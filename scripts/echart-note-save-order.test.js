@@ -34,7 +34,7 @@ test('save waits for both issue fragments and repeated clicks submit once', () =
   assert.equal(h.context.deferNoteSaveUntilIssues(() => saves++), true);
   assert.equal(h.context.deferNoteSaveUntilIssues(() => saves++), true);
   assert.equal(saves, 0);
-  h.updates[0].onComplete({ status: 200 });
+  h.updates[0].onComplete({ updateSucceeded: true, status: 200 });
   assert.equal(saves, 0);
   assert.equal(h.fields.newIssueId.value, '');
   h.panels[0](true);
@@ -48,12 +48,12 @@ test('all outstanding issue updates complete before a save resumes', () => {
   h.context.ajaxUpdateIssues('edit', 'sig1'); h.context.ajaxUpdateIssues('edit', 'sig1');
   h.context.deferNoteSaveUntilIssues(() => saves++);
   assert.equal(h.updates.length, 1, 'the second refresh must wait for the first pair');
-  h.updates[0].onComplete({ status: 200 });
+  h.updates[0].onComplete({ updateSucceeded: true, status: 200 });
   assert.equal(h.updates.length, 1, 'wait for the sidebar too');
   h.panels[0](true);
   assert.equal(saves, 0);
   assert.equal(h.updates.length, 2);
-  h.updates[1].onComplete({ status: 200 }); h.panels[1](true);
+  h.updates[1].onComplete({ updateSucceeded: true, status: 200 }); h.panels[1](true);
   assert.equal(saves, 1);
 });
 
@@ -62,13 +62,13 @@ for (const phase of ['issue list', 'panel']) {
     const h = harness(); let saves = 0;
     h.context.ajaxUpdateIssues('edit', 'sig1'); h.context.deferNoteSaveUntilIssues(() => saves++);
     if (phase === 'issue list') {
-      h.updates[0].onFailure({ status: 500 }); h.updates[0].onComplete({ status: 500 });
+      h.updates[0].onFailure({ status: 500 }); h.updates[0].onComplete({ updateSucceeded: true, status: 500 });
     } else {
-      h.updates[0].onComplete({ status: 200 }); h.panels[0](false);
+      h.updates[0].onComplete({ updateSucceeded: true, status: 200 }); h.panels[0](false);
     }
     assert.equal(saves, 0); assert.equal(h.alerts.length, 1);
     assert.equal(h.context.deferNoteSaveUntilIssues(() => saves++), true);
-    h.context.ajaxUpdateIssues('edit', 'sig1'); h.updates[1].onComplete({ status: 200 });
+    h.context.ajaxUpdateIssues('edit', 'sig1'); h.updates[1].onComplete({ updateSucceeded: true, status: 200 });
     h.panels.at(-1)(true);
     assert.equal(saves, 0, 'failed save must require a new user request');
     assert.equal(h.context.deferNoteSaveUntilIssues(() => saves++), false);
@@ -79,14 +79,14 @@ test('a queued save never saves a different editor after navigation', () => {
   const h = harness(); let saves = 0;
   h.context.ajaxUpdateIssues('edit', 'sig1'); h.context.deferNoteSaveUntilIssues(() => saves++);
   h.context.caseNote = 'editor2';
-  h.updates[0].onComplete({ status: 200 }); h.panels[0](true);
+  h.updates[0].onComplete({ updateSucceeded: true, status: 200 }); h.panels[0](true);
   assert.equal(saves, 0); assert.deepEqual(h.alerts, ['save failed']);
 });
 
 test('a replaced editor does not cause null field errors during issue completion', () => {
   const h = harness(); delete h.fields.newIssueId; delete h.fields.issueAutocomplete;
   h.context.ajaxUpdateIssues('edit', 'sig1');
-  assert.doesNotThrow(() => h.updates[0].onComplete({ status: 200 }));
+  assert.doesNotThrow(() => h.updates[0].onComplete({ updateSucceeded: true, status: 200 }));
   h.panels[0](true);
 });
 
@@ -95,7 +95,7 @@ for (const choices of [['save', 'saveAndExit'], ['saveAndExit', 'save']]) {
     const h = harness(); const saved = [];
     h.context.ajaxUpdateIssues('edit', 'sig1');
     for (const choice of choices) h.context.deferNoteSaveUntilIssues(() => saved.push(choice));
-    h.updates[0].onComplete({ status: 200 });
+    h.updates[0].onComplete({ updateSucceeded: true, status: 200 });
     assert.deepEqual(saved, []);
     h.panels[0](true);
     assert.deepEqual(saved, [choices[1]]);
@@ -122,7 +122,7 @@ for (const [name, argument, boundary] of [
       h.context.ajaxUpdateIssues('edit', 'sig1');
       assert.equal(h.context[name](argument), false);
       assert.ok(!events.includes('teardown'));
-      h.updates[0].onComplete({ status: 200 });
+      h.updates[0].onComplete({ updateSucceeded: true, status: 200 });
       assert.ok(!events.includes('teardown'));
       h.panels[0](succeeded);
       assert.equal(events.filter(event => event === 'teardown').length, succeeded ? 1 : 0);
@@ -211,7 +211,7 @@ test('save-on-switch serializes before disabling controls and tears down only af
   assert.equal(navigations, 0);
   h.updates[0].onSuccess({ status: 200, responseText: 'confirmed fixture fragment' });
   assert.ok(!h.effects.includes('teardown'));
-  h.updates[0].onComplete({ status: 200 });
+  h.updates[0].onComplete({ updateSucceeded: true, status: 200 });
   assert.equal(h.effects.filter(effect => effect === 'teardown').length, 1);
   assert.equal(navigations, 1);
   assert.equal(h.editor.disabled, false);
