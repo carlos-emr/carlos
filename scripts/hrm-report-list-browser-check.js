@@ -4,12 +4,14 @@
 const assert = require('node:assert/strict');
 const { chromium } = require('playwright');
 const { hrmReportLink } = require('./lib/hrm-report-list');
+const { getLaunchOptions } = require('./lib/playwright-harness');
 
 // ViewDocList's popup links include the patient context added in #5065. Exercise
 // the shared locator in Chromium, including IDs that start with the owned ID.
 (async () => {
-  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'],
-    ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}) });
+  const chromePath = process.env.CHROME_PATH || process.env.CHROMIUM_PATH
+    || process.env.CHROME_BIN || process.env.CARLOS_SMOKE_CHROMIUM;
+  const browser = await chromium.launch(getLaunchOptions(chromePath));
   try {
     const context = await browser.newContext();
     await context.route('https://hrm.invalid/**', route => route.fulfill({
