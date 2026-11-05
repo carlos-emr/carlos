@@ -11,6 +11,11 @@ flushes it to disk. Existing keys, comments and historical values are preserved;
 Java properties readers use the final value for duplicate keys. An already true
 setting requires read permission only. The encryption key uses the same locking
 protocol and is neither replaced nor rewritten by the cutover.
+The guard examines the final loaded external configuration, including any
+Tomcat-user home override loaded after singleton construction. If that loaded
+value disables the modern chart, it logs one sanitized warning before persisting
+the true setting. The warning instructs operators to retain that external true
+setting on rollback; already true configuration produces no cutover warning.
 
 If the external file cannot be updated, startup fails with the source location
 and remediation. An administrator can set `AbandonOldChart=true` in that file

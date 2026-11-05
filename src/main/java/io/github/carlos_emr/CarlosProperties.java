@@ -97,8 +97,7 @@ public class CarlosProperties extends Properties {
     // Keep file descriptors and their locks serialized among instances in this class loader.
     // The filesystem locks additionally coordinate separate application processes.
     private static final Object CONFIGURATION_FILE_LOCK = new Object();
-    // Declared before the singleton: its constructor reads the loaded file and compares the stored
-    // AbandonOldChart value against these markers, and static initializers run in textual order.
+    // Keep shared boolean markers available before any singleton startup initialization.
     private static final Set<String> activeMarkers = new HashSet<String>(Arrays.asList(new String[]{"true", "yes", "on"}));
     private static CarlosProperties carlosProperties = new CarlosProperties();
     /**
@@ -265,13 +264,12 @@ public class CarlosProperties extends Properties {
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
         }
-        warnIfLegacyChartSettingIgnored();
     }
 
     /**
-     * Reports, once at startup, a loaded {@code AbandonOldChart} value that the mandatory modern
-     * chart policy (#4793) ignores. The stored value is left as written so the operator's file is
-     * not rewritten, but an old {@code false} override must not read as the active mode.
+     * Reports a final loaded {@code AbandonOldChart} value ignored by the mandatory modern-chart
+     * policy (#4793), immediately before the startup cutover guard persists the safe setting.
+     * The guard runs after all configuration sources, including the Tomcat-user home file, load.
      *
      * @return String the ignored stored value, or null when the setting is absent or agrees with the policy
      */
@@ -283,7 +281,8 @@ public class CarlosProperties extends Properties {
             return null;
         }
         MiscUtils.getLogger().warn("AbandonOldChart={} in the loaded configuration is ignored: the modern chart is"
-                + " mandatory (#4793) and the legacy eChart editor is retired. Remove the obsolete setting.",
+                + " mandatory (#4793) and the legacy eChart editor is retired. Set AbandonOldChart=true in the"
+                + " external configuration and retain it on rollback.",
                 LogSafe.sanitize(stored));
         return stored;
     }
@@ -389,6 +388,7 @@ public class CarlosProperties extends Properties {
                         + "-Dcarlos_override_properties=/path/to/carlos.properties; refusing to start. "
                         + "See docs/modern-chart-cutover.md.");
             }
+            warnIfLegacyChartSettingIgnored();
             try {
                 // Read-only deployments with an explicit true setting need no write permission.
                 try (FileInputStream input = new FileInputStream(loadedPropertiesFile);

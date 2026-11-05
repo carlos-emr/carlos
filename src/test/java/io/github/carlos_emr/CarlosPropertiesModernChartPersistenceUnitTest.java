@@ -4,6 +4,8 @@
  */
 package io.github.carlos_emr;
 
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import java.io.StringReader;
 import java.lang.reflect.Constructor;
 import java.nio.file.Files;
@@ -17,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -27,6 +30,7 @@ import static org.junit.jupiter.api.Assumptions.assumeFalse;
 /** Verifies durable cutover with ordinary Properties, modeling a rollback binary's reader. */
 @Tag("unit")
 @Tag("create")
+@Isolated
 class CarlosPropertiesModernChartPersistenceUnitTest {
     @TempDir
     Path tempDir;
@@ -53,6 +57,32 @@ class CarlosPropertiesModernChartPersistenceUnitTest {
         assertThat(Files.readString(file)).isEqualTo(persisted);
     }
 
+    @Test
+    void shouldWarnOnceBeforeCutover_whenExternalOverrideLoadsAfterConstruction() throws Exception {
+        CarlosProperties configuration = configuration(null);
+        Path file = tempDir.resolve("late-home.properties");
+        String ignored = "false\r\nFORGED";
+        Files.writeString(file, "AbandonOldChart=false\\r\\nFORGED\nother=preserved\n");
+
+        try (LogCapture logs = LogCapture.forLogger(CarlosProperties.class)) {
+            // Startup can load the home configuration after the singleton constructor.
+            configuration.readFromFile(file.toString());
+            assertThat(configuration.get("AbandonOldChart")).isEqualTo(ignored);
+            assertThat(logs.messages()).isEmpty();
+            assertThat(read(file).getProperty("AbandonOldChart")).isEqualTo(ignored);
+
+            configuration.ensureModernChartRollbackSafety();
+
+            assertThat(logs.messages()).singleElement().asString()
+                    .contains("AbandonOldChart=" + LogSafe.sanitize(ignored), "ignored",
+                            "Set AbandonOldChart=true", "retain it on rollback")
+                    .doesNotContain("\r", "\n", "Remove the obsolete setting");
+            assertThat(read(file).getProperty("AbandonOldChart")).isEqualTo("true");
+            configuration.ensureModernChartRollbackSafety();
+            assertThat(logs.messages()).hasSize(1);
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"\\", "\\\n", "\\\r", "\\\r\n"})
     void shouldPreserveUnrelatedValue_whenFileEndsWithContinuation(String ending) throws Exception {
@@ -75,7 +105,10 @@ class CarlosPropertiesModernChartPersistenceUnitTest {
         Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(file);
         try {
             Files.setPosixFilePermissions(file, Set.of(PosixFilePermission.OWNER_READ));
-            configuration.ensureModernChartRollbackSafety();
+            try (LogCapture logs = LogCapture.forLogger(CarlosProperties.class)) {
+                configuration.ensureModernChartRollbackSafety();
+                assertThat(logs.messages()).isEmpty();
+            }
             assertThat(Files.readString(file)).isEqualTo(original);
         } finally {
             Files.setPosixFilePermissions(file, permissions);

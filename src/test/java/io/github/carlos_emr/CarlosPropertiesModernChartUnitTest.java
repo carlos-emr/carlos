@@ -101,9 +101,9 @@ class CarlosPropertiesModernChartUnitTest {
     }
 
     /**
-     * The singleton is built while the class initializes, so the startup warning must not read a
-     * static field declared after it. With a stored setting this once failed the static
-     * initializer, which left the class unloadable and the application unable to start.
+     * The singleton is built while the class initializes. Loading a stored override must remain
+     * safe before the later startup cutover guard handles warnings and persistence. A previous
+     * constructor warning accessed an uninitialized static field and left the class unloadable.
      */
     @Test
     void shouldInitializeSingleton_whenStoredSettingIsPresentAtStartup() throws Exception {
