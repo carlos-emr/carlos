@@ -256,10 +256,9 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             dataset.addSeries(newSeries);
         }
 
-        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Time", "Value", dataset);
-        chart.withReferenceRanges(dataItems);
-        chart.withPointLabels(2147483647, 2147483647, true);
-        return chart;
+        // The former chart was a high-low chart built from its "DREFERENCE RANGE" dataset, titled by a
+        // leftover demo string; kept as it was, since this change replaces the library, not the chart.
+        return MeasurementChart.highLow("HighLowChartDemo2", "Time", "Value", dataset, "DREFERENCE RANGE", dataItems);
     }
 
     MeasurementChart rxAndLabChart(Integer demographicNo, String typeIdName, String typeIdName2, String patientName, String chartTitle) {
@@ -305,10 +304,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             dataset.addSeries(newSeries);
         }
 
-        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset);
-        chart.withMedications(getDrugDataSet(demographicNo, request.getParameterValues("drug")));
-        chart.withPointLabels(2147483647, 2147483647, true);
-        return chart;
+        // The former chart replaced its title with "MED + LAB CHART" when it combined the panels.
+        return MeasurementChart.lines("MED + LAB CHART", "Days", typeYAxisName, dataset)
+                .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.2).withPlotBackground("#ffffff")
+                .withShapes().withItemLabels("{1} \n {2}", "0.00", 8)
+                .withMedications(getDrugDataSet(demographicNo, request.getParameterValues("drug")));
     }
 
 
@@ -351,9 +351,9 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             dataset.addSeries(newSeries);
         }
 
-        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset);
-        chart.withPointLabels(2147483647, 2147483647, true);
-        return chart;
+        return MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset)
+                .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground("#ffffff")
+                .withShapes().withItemLabels("{1} \n {2}", "0.00", 8);
     }
 
 
@@ -414,10 +414,10 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         }
         dataset.addSeries(newSeries);
 
-        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset);
-        chart.withReferenceRanges(dataItems);
-        chart.withPointLabels(10, 30, false);
-        return chart;
+        return MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset)
+                .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground("#ffffff").withGridlines("#c0c0c0")
+                .withShapes().withItemLabels(MeasurementChart.labItemLabels(newSeries.getItemCount()))
+                .withReferenceRanges("Normal Reference Range", dataItems);
     }
 
 
@@ -504,11 +504,11 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         }
         dataset.addSeries(newSeries);
 
-        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset);
-        chart.withReferenceRanges(dataItems);
-        chart.withMedications(getDrugDataSet(demographicNo, drugs));
-        chart.withPointLabels(6, 18, false);
-        return chart;
+        return MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset)
+                .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground("#ffffff").withGridlines("#c0c0c0")
+                .withShapes().withItemLabels(MeasurementChart.labItemLabels(newSeries.getItemCount()))
+                .withReferenceRanges("Normal Reference Range", dataItems)
+                .withMedications(getDrugDataSet(demographicNo, drugs));
     }
 
 
@@ -567,10 +567,10 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         }
 
 
-        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset);
-        chart.withReferenceRanges(dataItems);
-        chart.withPointLabels(2147483647, 2147483647, true);
-        return chart;
+        return MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset)
+                .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground("#ffffff")
+                .withShapes().withItemLabels("{1} \n {2}", "0.00", 12)
+                .withGreenReferenceRanges("Reference Range", dataItems);
     }
 
     MeasurementChart defaultChart(Integer demographicNo, String typeIdName,

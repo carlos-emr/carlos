@@ -16,22 +16,37 @@ does not supply it; the existing WAR packaging check also requires the API and i
   its sheet name, eleven string columns, frozen header and 22-character column widths.
   Rows are serialized one at a time, without adding a runtime POI dependency.
 * Measurement endpoints still return PNG/JPEG at their existing dimensions, so image, print and
-  document callers keep working. Chart.js supplies the visual styling. Series values, daily
-  replacement semantics, separate blood-pressure series, reference bounds, secondary axes and
-  medication intervals are represented explicitly. The obsolete `rxincl` example overlay with
-  hardcoded 2007–2009 drugs is replaced by the selected patient's medication intervals.
+  document callers keep working. The draw script reproduces the JFreeChart charts: the "JFree"
+  theme and the plain `new JFreeChart` look of the combined medication charts, the series paint
+  sequence, JFreeChart's auto ranges (margins, the include-zero and sticky-zero rules, the symbol
+  axis), its 1-2-5 number units and standard date units with their formats (`d-MMM`, `MMM-yyyy`,
+  `yyyy`, `HH:mm`), chosen by its two-pass label-size estimate in Java's integer font metrics and
+  anchored as `DateAxis.previousStandardDate` anchors them, 1px lines, 6x6 squares, item labels,
+  high-low range bars, flat bars with their 4px gray shadow, and the bottom legend with each
+  renderer's graphic. `MeasurementChart` describes each chart's look as the former action
+  configured it (margins, zero, plot background, gridlines, shapes, item-label rules, green or
+  sequence-coloured reference ranges). `scripts/fixtures/chart/jfreechart` holds recordings made
+  with JFreeChart 1.5.6 from the former code paths, and `scripts/chart-draw-playwright-checks.js`
+  requires the same ranges, ticks, labels, colours, fonts, legend and bar geometry. Kept as they
+  were, because this change replaces the library and not the charts: the reference range chart's
+  "HighLowChartDemo2" title and "DREFERENCE RANGE" legend entry, the `rxincl` chart's
+  "MED + LAB CHART" title, and the green value axis of `labRef` when ranges exist. Two
+  departures: `labRef` drew that green axis twice (one axis object at two indices) and it is
+  drawn once here, and a date axis with a single instant gets half a day of margin instead of
+  JFreeChart's two milliseconds. Series values, daily replacement semantics, separate
+  blood-pressure series, reference bounds, secondary axes and medication intervals are
+  represented explicitly. The obsolete `rxincl` example overlay with hardcoded 2007–2009 drugs
+  is replaced by the selected patient's medication intervals.
 * Chart rendering now needs the already-running local browser service, like eForm PDF rendering.
   Charts and eForm PDFs share the two-browser limit; a chart request queues for a slot for the
   renderer's slot wait (up to sixteen waiting at once) before reporting the renderer busy, and the
   bundled Chart.js and draw script (`library/chartjs/carlos-chart-draw.js`) are read from the WAR
   once. The measurement graph action answers HTTP 503 with no image when the renderer is
-  unavailable, like the scatter servlet. A medication-only chart (ChartMeds) is drawn as a single
-  medication panel with each drug in its own colour and legend entry and the first drug at the
-  bottom, as the former symbol axis had it; long product names are shortened on its axis as
-  before; an interval that starts and ends the same day keeps a one-day extent. Date axes keep a
-  margin on both sides and tick on calendar boundaries in the chart's zone (hours, days, weeks,
-  months or years by span), labelled by that unit. The devcontainer installs and starts the
-  matching chromedriver (`server start`), so graphs and eForm PDFs render there without setup.
+  unavailable, like the scatter servlet. A medication-only chart (ChartMeds) is the single
+  medication panel of the former combined plot, with long product names shortened on its axis
+  as before and a prescription that starts and ends the same day drawn as a one pixel line with
+  its shadow, as JFreeChart drew it. The devcontainer installs and starts the matching
+  chromedriver (`server start`), so graphs and eForm PDFs render there without setup.
 * Former displaytag tables use encoded JSTL rows (`${carlos:forHtml(...)}`), with the shared
   assets included once per rendered page (`CarlosTableAssetsJspRegressionTest`). Pages whose
   backing attribute was a lone placeholder bean under displaytag (the Disease Registry results)

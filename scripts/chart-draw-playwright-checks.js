@@ -1,20 +1,18 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * The chart draw script the renderer runs inside headless Chromium (library/chartjs/carlos-chart-draw.js),
- * exercised with the bundled Chart.js in a Playwright browser, without the driver service:
+ * exercised with the bundled Chart.js in a Playwright browser, without the driver service, against
+ * recordings of the JFreeChart 1.5.6 charts it replaced.
  *
- *   1. A medication-only chart (ChartMeds) fills the whole image with the medication panel; there
- *      is no empty measurement axis above it.
- *   2. A chart with measurement series and medications keeps the two aligned panels.
- *   3. Long medication names are shortened for the category axis, as the former chart did.
- *   4. A series observed within one day labels its date axis with the time, not the same date on
- *      every tick.
- *   5. A medication started and stopped on the same day still draws a visible bar.
- *   6. Date axes keep a margin beyond the first and last value, so a bar never sits on the axis
- *      line or runs off the plot, and their ticks fall on calendar boundaries (midnight, the first
- *      of a month) in the chart's time zone rather than on round numbers of milliseconds.
- *   7. Each medication keeps its own colour and a legend entry; the first medication listed is
- *      drawn at the bottom, as the former chart's symbol axis did.
+ * scripts/fixtures/chart/jfreechart/*.json were produced by JfcReference.java in the same directory:
+ * it builds each chart exactly as the former MeasurementGraphAction22Action and ScatterPlotChartServlet
+ * did, with synthetic data, and records what JFreeChart chose: the axis ranges after its margins and
+ * zero rules, the tick unit, every tick position and label, the series paints and strokes, the legend
+ * items, and the fonts and colours of its theme. Each fixture also carries the renderer input in the
+ * shape MeasurementChart.toConfig() produces. For every fixture this check draws the input and
+ * requires the same ranges, ticks, labels, colours, fonts, legend and bar geometry, plus the
+ * JFreeChart drawing details a reader notices: the plot background and outline, the bar shadows, a
+ * zero-length medication drawn as a line, item labels and reference-range bars.
  */
 'use strict';
 const assert = require('node:assert/strict');
@@ -24,27 +22,174 @@ const { chromium } = require('playwright');
 const { getLaunchOptions } = require('./lib/playwright-harness');
 
 const LIBRARY = path.join(__dirname, '../src/main/webapp/library/chartjs');
+const FIXTURES = path.join(__dirname, 'fixtures/chart/jfreechart');
+const SECOND = 1000;
 
-async function draw(page, spec, width, height) {
-    return page.evaluate(([spec, width, height]) => {
-        const charts = window.carlosDrawChart(spec, width, height);
+/** What JFreeChart's legend graphic was for an item: a line, a shape, or both. */
+function legendGraphic(item) {
+    if (item.lineVisible && item.shapeVisible) return 'lineAndShape';
+    if (item.lineVisible) return 'line';
+    return `shape${item.shape[2]}x${item.shape[3]}`;
+}
+
+function fontSize(javaFont) {
+    return Number(javaFont.split(' ').pop());
+}
+
+function isBold(javaFont) {
+    return javaFont.includes('bold');
+}
+
+async function draw(page, input, width, height) {
+    return page.evaluate(([input, width, height]) => {
+        const charts = window.carlosDrawChart(input, width, height);
+        const scale = s => s && ({ min: s.min, max: s.max, ticks: s.ticks.map(t => ({ value: t.value, label: String(t.label ?? '') })),
+            tickDisplay: s.options.ticks.display !== false, tickFont: s.options.ticks.font, tickColor: s.options.ticks.color,
+            titleFont: s.options.title.font, titleColor: s.options.title.color });
+        const pixel = (chart, x, y) => {
+            const d = chart.ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data;
+            return '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join('');
+        };
         return {
             canvases: [...document.querySelectorAll('canvas')].map(c => ({ width: c.width, height: c.height })),
-            xRange: charts.map(chart => ({ min: chart.scales.x.min, max: chart.scales.x.max })),
-            xTicks: charts.map(chart => chart.scales.x.ticks.map(tick => tick.value)),
-            legend: charts.length ? charts[charts.length - 1].legend.legendItems.map(item => ({ text: item.text, fill: item.fillStyle })) : [],
-            colours: charts.length ? [].concat(charts[charts.length - 1].data.datasets[0].backgroundColor) : [],
-            rowPixels: charts.length ? charts[charts.length - 1].data.labels.map((_, i) => charts[charts.length - 1].scales.y.getPixelForValue(i)) : [],
-            barWidths: charts.length ? charts[charts.length - 1].getDatasetMeta(0).data.map(bar => Math.abs(bar.x - bar.base)) : [],
-            labels: charts.map(chart => Object.values(chart.scales).map(scale => ({
-                id: scale.id, ticks: scale.ticks.map(tick => String(tick.label ?? tick.value)) }))),
+            charts: charts.map(chart => ({
+                area: { ...chart.chartArea },
+                title: chart.options.plugins.title,
+                x: scale(chart.scales.x), y: scale(chart.scales.y), y2: scale(chart.scales.y2),
+                datasets: chart.data.datasets.map((ds, i) => ({ label: ds.label, kind: ds.carlosKind, borderColor: ds.borderColor, backgroundColor: ds.backgroundColor,
+                    borderWidth: ds.borderWidth, shapes: ds.carlosShapes === true, showLine: ds.showLine,
+                    bars: chart.config.type === 'bar' ? chart.getDatasetMeta(i).data.map(b => ({ x: b.x, base: b.base, y: b.y, height: b.height })) : undefined })),
+                legend: chart.carlosLegend, itemLabels: chart.carlosItemLabels, ranges: chart.carlosRanges, shadows: chart.carlosShadows,
+                plotPixel: pixel(chart, chart.chartArea.left + 3, chart.chartArea.top + 3),
+                pixelAt: (() => null)(),
+            })),
+            pixelAt: null,
         };
-    }, [spec, width, height]);
+    }, [input, width, height]);
+}
+
+async function pixelAt(page, chartIndex, x, y) {
+    return page.evaluate(([chartIndex, x, y]) => {
+        const canvas = document.querySelectorAll('canvas')[chartIndex];
+        const d = canvas.getContext('2d').getImageData(Math.round(x), Math.round(y), 1, 1).data;
+        return '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join('');
+    }, [chartIndex, x, y]);
+}
+
+function expectAxis(name, actual, expected, dateAxis) {
+    assert.ok(actual, `${name}: the axis is missing`);
+    const tolerance = dateAxis ? SECOND : Math.max(1e-6, Math.abs(expected.upper - expected.lower) * 1e-6);
+    assert.ok(Math.abs(actual.min - expected.lower) <= tolerance, `${name}: lower bound ${actual.min} should be ${expected.lower}`);
+    assert.ok(Math.abs(actual.max - expected.upper) <= tolerance, `${name}: upper bound ${actual.max} should be ${expected.upper}`);
+    const major = expected.ticks.filter(t => t.label !== '');
+    assert.deepEqual(actual.ticks.map(t => t.label), major.map(t => t.label), `${name}: tick labels`);
+    major.forEach((tick, i) => assert.ok(Math.abs(actual.ticks[i].value - tick.value) <= tolerance,
+        `${name}: tick ${i} at ${actual.ticks[i].value} should be at ${tick.value} (${tick.label})`));
+    assert.equal(actual.tickFont.size, fontSize(expected.tickLabelFont), `${name}: tick label size`);
+    assert.equal(actual.tickColor, expected.tickLabelPaint, `${name}: tick label colour`);
+    assert.equal(actual.titleFont.size, fontSize(expected.labelFont), `${name}: axis label size`);
+    assert.equal(actual.titleFont.weight, isBold(expected.labelFont) ? 'bold' : 'normal', `${name}: axis label weight`);
+    assert.equal(actual.titleColor, expected.labelPaint, `${name}: axis label colour`);
+}
+
+function checkFixture(fixture, result) {
+    const name = fixture.name;
+    const combined = fixture.combined === true;
+    const charts = result.charts;
+    assert.equal(result.canvases.length, fixture.subplots.length, `${name}: one canvas per JFreeChart subplot`);
+    assert.equal(result.canvases.reduce((sum, c) => sum + c.height, 0), fixture.height, `${name}: the canvases share the image height`);
+    result.canvases.forEach(c => assert.equal(c.width, fixture.width, `${name}: canvas width`));
+
+    // Title on the first canvas, in JFreeChart's font and colour.
+    const title = charts[0].title;
+    assert.equal(title.display, true, `${name}: title shown`);
+    assert.equal(title.text, fixture.title, `${name}: title text`);
+    assert.equal(title.font.size, fontSize(fixture.titleFont), `${name}: title size`);
+    assert.equal(title.font.weight, 'bold', `${name}: title weight`);
+    assert.equal(title.color, '#000000', `${name}: title colour`);
+    charts.slice(1).forEach(chart => assert.equal(chart.title.display, false, `${name}: a lower panel repeats no title`));
+
+    // The shared or single domain axis, read from the bottom panel.
+    const bottom = charts[charts.length - 1];
+    const domain = combined ? fixture.domain : fixture.subplots[0].domain;
+    expectAxis(`${name} x`, bottom.x, domain, domain.type === 'DateAxis');
+    if (combined && charts.length > 1) {
+        assert.equal(charts[0].x.tickDisplay, false, `${name}: the upper panel shows no x tick labels`);
+        const heights = charts.map(c => c.area.bottom - c.area.top);
+        assert.ok(Math.abs(heights[0] - heights[1]) <= 2, `${name}: subplots share the height equally (${heights})`);
+        assert.ok(Math.abs(charts[0].area.left - charts[1].area.left) <= 1 && Math.abs(charts[0].area.right - charts[1].area.right) <= 1,
+            `${name}: panel plot rectangles align`);
+    }
+
+    fixture.subplots.forEach((subplot, i) => {
+        const chart = charts[i];
+        const symbol = subplot.ranges[0].type === 'SymbolAxis';
+        if (symbol) {
+            assert.deepEqual(chart.y.ticks.map(t => t.label), subplot.ranges[0].symbols, `${name}: medication rows`);
+            assert.equal(chart.y.tickFont.size, fontSize(subplot.ranges[0].tickLabelFont), `${name}: row label size`);
+        } else {
+            expectAxis(`${name} y`, chart.y, subplot.ranges[0], false);
+            if (fixture.input.secondAxis) expectAxis(`${name} y2`, chart.y2, subplot.ranges[1], false);
+        }
+        assert.equal(chart.plotPixel, subplot.background, `${name}: plot background`);
+        const lines = subplot.datasets.filter(d => d.renderer !== 'XYBarRenderer' && d.renderer !== 'HighLowRenderer' || d.key === 'ALT' && d.renderer === 'HighLowRenderer');
+        subplot.datasets.forEach(expected => {
+            if (expected.renderer === 'XYBarRenderer') return;
+            const actual = chart.datasets.find(d => d.label === expected.key);
+            assert.ok(actual, `${name}: series ${expected.key} drawn`);
+            if (expected.renderer === 'HighLowRenderer' && fixture.input.datasets.find(d => d.label === expected.key).kind === 'range') {
+                assert.equal(actual.kind, 'range', `${name}: ${expected.key} is a reference range`);
+                assert.equal(actual.borderColor, expected.paint, `${name}: range colour`);
+                return;
+            }
+            assert.equal(actual.borderColor, expected.paint, `${name}: ${expected.key} colour`);
+            assert.equal(actual.borderWidth, expected.stroke.width, `${name}: ${expected.key} stroke`);
+            assert.equal(actual.shapes, expected.shapes === true, `${name}: ${expected.key} shapes (6x6 squares drawn by the renderer)`);
+            assert.equal(actual.showLine, expected.lines !== false, `${name}: ${expected.key} line`);
+        });
+        void lines;
+        if (symbol) {
+            const barDatasets = subplot.datasets;
+            const bars = chart.datasets[0].bars;
+            assert.equal(bars.length, fixture.input.medications.length, `${name}: one bar per prescription`);
+            const spacing = (chart.area.bottom - chart.area.top) / subplot.ranges[0].symbols.length;
+            bars.forEach(bar => assert.ok(Math.abs(bar.height / spacing - 0.6) < 0.03, `${name}: bar thickness ${bar.height / spacing} should be 0.6 of the row`));
+            const colours = [].concat(chart.datasets[0].backgroundColor);
+            fixture.input.medications.forEach((m, j) => {
+                const series = barDatasets.find(d => d.key === m.name);
+                assert.equal(colours[j], series.paint, `${name}: ${m.name} bar colour`);
+            });
+            assert.ok(chart.shadows && chart.shadows.length === bars.length, `${name}: every bar has a shadow`);
+            assert.ok(chart.shadows.every(s => s.colour === '#808080' && s.dx === 4 && s.dy === 4), `${name}: shadows are gray and offset 4px`);
+        }
+        // Only the line-and-shape renderer draws item labels; the high-low renderer ignores its generator.
+        const labelled = subplot.datasets.filter(d => d.itemLabels && d.itemLabel0 && d.renderer === 'XYLineAndShapeRenderer');
+        if (labelled.length) {
+            const first = labelled[0];
+            assert.ok(chart.itemLabels && chart.itemLabels.length > 0, `${name}: item labels drawn`);
+            assert.equal(chart.itemLabels[0].text, first.itemLabel0.replace('\n', ''), `${name}: first item label`);
+            assert.equal(chart.itemLabels[0].fontSize, fontSize(first.itemLabelFont), `${name}: item label size`);
+        } else {
+            assert.ok(!chart.itemLabels || chart.itemLabels.length === 0, `${name}: no item labels`);
+        }
+        if (!symbol) {
+            const ranges = fixture.input.datasets.filter(d => d.kind === 'range').flatMap(d => d.data);
+            assert.equal((chart.ranges || []).length, ranges.length, `${name}: reference range bars`);
+        }
+    });
+
+    // The legend lists JFreeChart's items in order, with its graphics, on the bottom panel.
+    const legend = bottom.legend;
+    assert.ok(legend, `${name}: legend drawn`);
+    assert.deepEqual(legend.map(l => l.label), fixture.legend.map(l => l.label), `${name}: legend labels`);
+    assert.deepEqual(legend.map(l => l.graphic), fixture.legend.map(legendGraphic), `${name}: legend graphics`);
+    assert.deepEqual(legend.map(l => l.colour), fixture.legend.map(l => l.fill), `${name}: legend colours`);
+    assert.equal(legend[0].fontSize, fontSize(fixture.legendFont), `${name}: legend font size`);
+    assert.equal(legend[0].textColour, fixture.legendPaint, `${name}: legend text colour`);
+    charts.slice(0, -1).forEach(chart => assert.ok(!chart.legend || chart.legend.length === 0, `${name}: only the bottom panel has a legend`));
 }
 
 async function main() {
-    const day = 86_400_000;
-    const t0 = Date.UTC(2024, 0, 15, 9, 30);
     let browser;
     try {
         browser = await chromium.launch(getLaunchOptions(
@@ -56,54 +201,34 @@ async function main() {
         for (const file of ['chart.umd.min.js', 'carlos-chart-draw.js']) {
             await page.addScriptTag({ path: path.join(LIBRARY, file) });
         }
-        const longName = 'SYNTHETIC MEDICATION WITH A VERY LONG PRODUCT NAME 500MG TABLET';
-        const medications = Array.from({ length: 12 }, (_, i) => ({
-            name: i === 0 ? longName : `SYNTHETIC MEDICATION ${i + 1}`, start: t0 + i * 10 * day, end: t0 + (i + 20) * day }));
-        const base = { title: 'Synthetic', xLabel: 'Days', yLabel: 'MEDS', datasets: [], medications,
-            dateAxis: true, timeZone: 'UTC', pointLabels: 'none', fixedDecimals: false };
+        const names = fs.readdirSync(FIXTURES).filter(f => f.endsWith('.json')).sort();
+        assert.ok(names.length >= 10, 'the JFreeChart fixtures are present');
+        for (const file of names) {
+            const fixture = JSON.parse(fs.readFileSync(path.join(FIXTURES, file), 'utf8'));
+            const result = await draw(page, fixture.input, fixture.width, fixture.height);
+            checkFixture(fixture, result);
+            assert.deepEqual(errors, [], `${fixture.name}: page errors`);
+        }
 
-        const medsOnly = await draw(page, base, 1000, 360);
-        assert.equal(medsOnly.canvases.length, 1, 'a medication-only chart draws one panel');
-        assert.deepEqual(medsOnly.canvases[0], { width: 1000, height: 360 }, 'the medication panel fills the image');
-        const names = medsOnly.labels[0].find(scale => scale.id === 'y').ticks;
-        assert.equal(names.length, 12, 'every medication keeps its row label');
-        assert.ok(names.every(label => label.length <= 33), `long names are shortened for the axis: ${names[0]}`);
-        assert.ok(names[0].endsWith('...') && longName.startsWith(names[0].slice(0, -3)), 'a shortened name keeps its prefix');
+        // A zero-length prescription is still visible: JFreeChart drew it as a one pixel line with its shadow.
+        const thirteen = JSON.parse(fs.readFileSync(path.join(FIXTURES, 'chartmeds-13.json'), 'utf8'));
+        const result = await draw(page, thirteen.input, thirteen.width, thirteen.height);
+        const bars = result.charts[0].datasets[0].bars;
+        const single = bars[bars.length - 1];
+        assert.ok(Math.abs(single.x - single.base) <= 1, 'a same-day prescription keeps its zero-length interval');
+        const colour = await pixelAt(page, 0, single.base, single.y);
+        assert.equal(colour, '#c000c0', `a same-day prescription is drawn as a line in its colour (saw ${colour})`);
+        const shadow = await pixelAt(page, 0, single.base + 4, single.y + single.height / 2 + 2);
+        assert.equal(shadow, '#808080', `its shadow is drawn (saw ${shadow})`);
 
-        const series = { label: 'Weight', data: [{ x: t0, y: 61 }, { x: t0 + 3 * 3_600_000, y: 63 }],
-            showLine: true, yAxisID: 'y', borderColor: 'red', pointRadius: 3 };
-        const mixed = await draw(page, { ...base, datasets: [series] }, 1000, 600);
-        assert.equal(mixed.canvases.length, 2, 'series plus medications draw two aligned panels');
-        assert.equal(mixed.canvases[0].height + mixed.canvases[1].height, 600, 'the panels share the image height');
-        const sameDay = await draw(page, { ...base, datasets: [series], medications: [] }, 1000, 600);
-        const dateTicks = sameDay.labels[0].find(scale => scale.id === 'x').ticks;
-        assert.ok(dateTicks.some(label => /\d{2}:\d{2}/.test(label)), `a same-day series shows times on its date axis: ${dateTicks}`);
-        assert.ok(dateTicks.every(label => label.includes(',')), `hourly ticks carry the date and the time on separate lines: ${dateTicks}`);
-
-        const oneDay = await draw(page, { ...base, medications: [
-            { name: 'SYNTHETIC LONG COURSE', start: t0, end: t0 + 90 * day },
-            { name: 'SYNTHETIC SINGLE DOSE', start: t0 + 30 * day, end: t0 + 30 * day }] }, 1000, 360);
-        assert.ok(oneDay.barWidths[1] >= 2, `a same-day medication interval still draws a visible bar: widths ${oneDay.barWidths}`);
-
-        const first = Math.min(...medications.flatMap(m => [m.start, m.end]));
-        const last = Math.max(...medications.flatMap(m => [m.start, m.end]));
-        const range = medsOnly.xRange[0];
-        assert.ok(range.min < first && range.max > last, `the date axis keeps a margin around the data: ${JSON.stringify(range)} vs ${first}..${last}`);
-        assert.ok(medsOnly.xTicks[0].every(value => value % day === 0), `ticks over four months fall on midnight boundaries (UTC zone): ${medsOnly.xTicks[0]}`);
-        assert.ok(medsOnly.xTicks[0].length >= 4, 'the axis still shows several ticks');
-        assert.equal(new Set(medsOnly.colours).size, 12, 'each medication keeps its own colour');
-        assert.deepEqual(medsOnly.legend.map(item => item.text.length <= 33), Array(12).fill(true), 'the legend lists every medication with a shortened name');
-        assert.ok(medsOnly.rowPixels[0] > medsOnly.rowPixels[11], 'the first medication listed is drawn at the bottom');
-
-        const twoYears = { ...base, datasets: [{ ...series, data: [{ x: t0, y: 61 }, { x: t0 + 700 * day, y: 63 }] }], medications: [] };
-        const long = await draw(page, twoYears, 1000, 600);
-        const longTicks = long.labels[0].find(scale => scale.id === 'x').ticks;
-        assert.ok(longTicks.every(label => /^\d{4}-\d{2}$/.test(label)), `a multi-year series ticks on months: ${longTicks}`);
-        assert.ok(long.xTicks[0].every(value => new Date(value).getUTCDate() === 1 && value % day === 0), `month ticks fall on the first of the month: ${long.xTicks[0]}`);
-        const seriesRange = long.xRange[0];
-        assert.ok(seriesRange.min < t0 && seriesRange.max > t0 + 700 * day && seriesRange.min > t0 - 60 * day, `a series axis keeps a modest margin: ${JSON.stringify(seriesRange)}`);
+        // A series observed within one day falls back to hourly ticks with the time on each label.
+        const t0 = Date.UTC(2024, 0, 15, 9, 30);
+        const hourly = { ...thirteen.input, medications: [], datasets: [{ label: 'Weight', kind: 'line', yAxisID: 'y', paint: null, lines: true, shapes: false,
+            data: [{ x: t0, y: 61 }, { x: t0 + 3 * 3_600_000, y: 63 }] }], timeZone: 'UTC' };
+        const sameDay = await draw(page, hourly, 1000, 600);
+        assert.ok(sameDay.charts[0].x.ticks.some(t => /\d{2}:\d{2}/.test(t.label)), `a same-day series shows times on its date axis: ${sameDay.charts[0].x.ticks.map(t => t.label)}`);
         assert.deepEqual(errors, []);
-        console.log('PASS: medication-only layout, aligned panels, shortened names, calendar ticks with margins, per-drug colours and legend, visible same-day intervals');
+        console.log(`PASS: ${names.length} JFreeChart fixtures matched (ranges, ticks, labels, colours, fonts, legend, bars with shadows, item labels, reference ranges)`);
     } finally {
         if (browser) await browser.close();
     }

@@ -24,7 +24,7 @@ class MeasurementChartDataUnitTest {
         collection.addSeries(series);
         var chart = MeasurementChart.lines("Synthetic", "Days", "kg", collection)
                 .withSecondAxis("Secondary units", collection)
-                .withReferenceRanges(List.of(new MeasurementChart.ReferenceRange(day.getStart(), 55, 70)));
+                .withReferenceRanges("Normal Reference Range", List.of(new MeasurementChart.ReferenceRange(day.getStart(), 55, 70)));
         var datasets = (List<Map<String, Object>>) chart.toConfig().get("datasets");
         var primary = (List<Map<String, Object>>) datasets.get(0).get("data");
         assertThat(primary).hasSize(1);
@@ -32,7 +32,7 @@ class MeasurementChartDataUnitTest {
         assertThat(datasets.get(1).get("yAxisID")).isEqualTo("y2");
         assertThat(chart.toConfig().get("secondAxis")).isEqualTo("Secondary units");
         var bounds = (List<Map<String, Object>>) datasets.get(2).get("data");
-        assertThat(bounds).extracting(value -> value.get("y")).containsExactly(55.0, 70.0);
+        assertThat(bounds).singleElement().satisfies(range -> assertThat(range).containsEntry("low", 55.0).containsEntry("high", 70.0));
     }
 
     @Test
@@ -58,5 +58,124 @@ class MeasurementChartDataUnitTest {
         assertThat(MeasurementChart.browserTimeZone(java.time.ZoneId.of("GMT-5"))).isEqualTo("-05:00");
         assertThat(MeasurementChart.browserTimeZone(java.time.ZoneId.of("GMT"))).isEqualTo("UTC");
         assertThat(MeasurementChart.browserTimeZone(java.time.ZoneId.of("Etc/UTC"))).isEqualTo("UTC");
+    }
+
+    /** ChartFactory's time series chart: gray plot, white dashed grid, 2% date margins, no forced zero. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldDescribeTheTimeSeriesChartLook_byDefault() {
+        var chart = MeasurementChart.lines("Synthetic", "Days", "kg", collection("Weight", 61));
+        var style = (Map<String, Object>) chart.toConfig().get("style");
+        assertThat(style).containsEntry("theme", "jfree").containsEntry("plotBackground", "#c0c0c0").containsEntry("gridlines", "#ffffff")
+                .containsEntry("domainMargins", List.of(0.02, 0.02)).containsEntry("rangeMargins", List.of(0.05, 0.05))
+                .containsEntry("rangeIncludesZero", false).containsEntry("domainIncludesZero", false);
+        assertThat(style.get("rangeAxisPaint")).isNull();
+        assertThat(style.get("itemLabels")).isNull();
+        var dataset = ((List<Map<String, Object>>) chart.toConfig().get("datasets")).getFirst();
+        assertThat(dataset).containsEntry("kind", "line").containsEntry("lines", true).containsEntry("shapes", false).containsEntry("yAxisID", "y");
+        assertThat(dataset.get("paint")).as("the renderer applies JFreeChart's series palette by index").isNull();
+        assertThat(chart.toConfig()).doesNotContainKeys("pointLabels", "fixedDecimals");
+    }
+
+    /** The reference range chart was a high-low chart: its range dataset came first, in red, with zero on the axis. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldDescribeTheHighLowChartLook_forReferenceRangeCharts() {
+        var day = new MeasurementChart.Day(new Date(1_700_000_000_000L));
+        var ranges = List.of(new MeasurementChart.ReferenceRange(day.getStart(), 7, 40));
+        var chart = MeasurementChart.highLow("HighLowChartDemo2", "Time", "Value", collection("ALT", 23), "DREFERENCE RANGE", ranges);
+        var style = (Map<String, Object>) chart.toConfig().get("style");
+        assertThat(style).containsEntry("plotBackground", "#ffffff").containsEntry("gridlines", "#ffffff")
+                .containsEntry("domainMargins", List.of(0.9, 0.9)).containsEntry("rangeMargins", List.of(0.05, 0.2)).containsEntry("rangeIncludesZero", true);
+        var datasets = (List<Map<String, Object>>) chart.toConfig().get("datasets");
+        assertThat(datasets.get(0)).containsEntry("label", "DREFERENCE RANGE").containsEntry("kind", "range").containsEntry("paint", "#ff5555").containsEntry("widensAxis", true);
+        assertThat((List<Map<String, Object>>) datasets.get(0).get("data")).singleElement()
+                .satisfies(point -> assertThat(point).containsEntry("x", day.getStart().getTime()).containsEntry("low", 7.0).containsEntry("high", 40.0));
+        assertThat(datasets.get(1)).containsEntry("label", "ALT").containsEntry("kind", "line").containsEntry("lines", true).containsEntry("shapes", false)
+                .as("drawn by the same renderer as the range dataset, so it shares its first series paint").containsEntry("paint", "#ff5555")
+                .containsEntry("highLow", true);
+    }
+
+    /** labChartRef painted its ranges and, through the shared axis object, the value axis green; the actual-lab charts let the plot's paint sequence colour them. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldColourTheRangeAxisGreen_onlyForGreenReferenceRanges() {
+        var day = new MeasurementChart.Day(new Date(1_700_000_000_000L));
+        var ranges = List.of(new MeasurementChart.ReferenceRange(day.getStart(), 120, 160));
+        var green = MeasurementChart.lines("Synthetic", "Days", "g/L", collection("Hemoglobin", 132)).withGreenReferenceRanges("Reference Range", ranges);
+        var datasets = (List<Map<String, Object>>) green.toConfig().get("datasets");
+        assertThat(datasets.get(1)).containsEntry("label", "Reference Range").containsEntry("kind", "range").containsEntry("paint", "#00ff00").containsEntry("widensAxis", false);
+        assertThat((Map<String, Object>) green.toConfig().get("style")).containsEntry("rangeAxisPaint", "#00ff00");
+
+        var sequence = MeasurementChart.lines("Synthetic", "Days", "g/L", collection("Hemoglobin", 132)).withReferenceRanges("Normal Reference Range", ranges);
+        var sequenceDatasets = (List<Map<String, Object>>) sequence.toConfig().get("datasets");
+        assertThat(sequenceDatasets.get(1)).containsEntry("label", "Normal Reference Range").containsEntry("kind", "range").containsEntry("widensAxis", true);
+        assertThat(sequenceDatasets.get(1).get("paint")).as("the next paint of the sequence, after the series").isNull();
+        assertThat(((Map<String, Object>) sequence.toConfig().get("style")).get("rangeAxisPaint")).isNull();
+
+        var none = MeasurementChart.lines("Synthetic", "Days", "g/L", collection("Hemoglobin", 132)).withGreenReferenceRanges("Reference Range", List.of());
+        assertThat((List<?>) none.toConfig().get("datasets")).hasSize(1);
+        assertThat(((Map<String, Object>) none.toConfig().get("style")).get("rangeAxisPaint")).isNull();
+    }
+
+    /** The lab charts chose their item labels by tens of points: date and value, value, value in 8pt, none. */
+    @Test
+    void shouldChooseLabItemLabels_byTensOfPoints() {
+        assertThat(MeasurementChart.labItemLabels(5)).containsEntry("format", "{1} \n {2}").containsEntry("decimals", "0.###").containsEntry("fontSize", 12);
+        assertThat(MeasurementChart.labItemLabels(15)).containsEntry("format", "{2}").containsEntry("decimals", "0.###").containsEntry("fontSize", 12);
+        assertThat(MeasurementChart.labItemLabels(25)).containsEntry("format", "{2}").containsEntry("fontSize", 8);
+        assertThat(MeasurementChart.labItemLabels(35)).isNull();
+    }
+
+    /** The other lab charts overrode the factory look: wide date margins, a taller range, white plot, shapes, labels. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldOverrideTheLook_forLabCharts() {
+        var chart = MeasurementChart.lines("Synthetic", "Days", "kg", collection("Weight", 61))
+                .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground("#ffffff").withGridlines("#c0c0c0")
+                .withShapes().withItemLabels("{1} \n {2}", "0.00", 8);
+        var style = (Map<String, Object>) chart.toConfig().get("style");
+        assertThat(style).containsEntry("domainMargins", List.of(0.9, 0.9)).containsEntry("rangeMargins", List.of(0.05, 0.34))
+                .containsEntry("plotBackground", "#ffffff").containsEntry("gridlines", "#c0c0c0");
+        assertThat((Map<String, Object>) style.get("itemLabels")).containsEntry("format", "{1} \n {2}").containsEntry("decimals", "0.00").containsEntry("fontSize", 8);
+        assertThat(((List<Map<String, Object>>) chart.toConfig().get("datasets")).getFirst()).containsEntry("shapes", true);
+    }
+
+    /** The scatter servlet: themed scatter in pure red squares; blood pressure as red and blue lines with squares, zero on the axis. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldDescribeTheScatterLook_withTheServletsSeriesColours() {
+        var series = new MeasurementChart.Series("ALT-in U/L"); series.add(0, 23); series.add(549, 37);
+        var scatter = MeasurementChart.scatter("ALT-in U/L", "Day", "Test Results", List.of(series), false);
+        var style = (Map<String, Object>) scatter.toConfig().get("style");
+        assertThat(style).containsEntry("plotBackground", "#c0c0c0").containsEntry("domainMargins", List.of(0.05, 0.05))
+                .containsEntry("rangeMargins", List.of(0.05, 0.05)).containsEntry("rangeIncludesZero", false).containsEntry("domainIncludesZero", false);
+        var dataset = ((List<Map<String, Object>>) scatter.toConfig().get("datasets")).getFirst();
+        assertThat(dataset).containsEntry("paint", "#ff0000").containsEntry("lines", false).containsEntry("shapes", true);
+
+        var systolic = new MeasurementChart.Series("Systolic"); systolic.add(1, 120);
+        var diastolic = new MeasurementChart.Series("Diastolic"); diastolic.add(1, 80);
+        var pressure = MeasurementChart.scatter("BP", "Tests", "Hgmm", List.of(systolic, diastolic), true);
+        assertThat((Map<String, Object>) pressure.toConfig().get("style")).containsEntry("rangeIncludesZero", true);
+        var datasets = (List<Map<String, Object>>) pressure.toConfig().get("datasets");
+        assertThat(datasets.get(0)).containsEntry("paint", "#ff0000").containsEntry("lines", true).containsEntry("shapes", true);
+        assertThat(datasets.get(1)).containsEntry("paint", "#0000ff");
+    }
+
+    /** A second measurement type was drawn by a plain renderer in black, without shapes, on its own axis. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldDrawTheSecondType_inBlackWithoutShapes() {
+        var chart = MeasurementChart.lines("Synthetic", "Days", "kg", collection("Weight", 61)).withSecondAxis("cm", collection("Height", 170));
+        var second = ((List<Map<String, Object>>) chart.toConfig().get("datasets")).get(1);
+        assertThat(second).containsEntry("yAxisID", "y2").containsEntry("paint", "#000000").containsEntry("lines", true).containsEntry("shapes", false);
+    }
+
+    private static MeasurementChart.SeriesCollection collection(String name, double value) {
+        var series = new MeasurementChart.Series(name);
+        series.addOrUpdate(new MeasurementChart.Day(new Date(1_700_000_000_000L)), value);
+        var collection = new MeasurementChart.SeriesCollection();
+        collection.addSeries(series);
+        return collection;
     }
 }

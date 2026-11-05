@@ -42,7 +42,7 @@ class MeasurementChartSmokeIntegrationTest {
         secondaryCollection.addSeries(secondary);
         MeasurementChart chart = MeasurementChart.lines("Synthetic chart", "Days", "kg", collection)
                 .withSecondAxis("C", secondaryCollection)
-                .withReferenceRanges(List.of(new MeasurementChart.ReferenceRange(new Date(1_700_000_000_000L), 55, 70)))
+                .withGreenReferenceRanges("Reference Range", List.of(new MeasurementChart.ReferenceRange(new Date(1_700_000_000_000L), 55, 70)))
                 .withMedications(List.of(Map.of("name", "Synthetic medication", "start", 1_699_900_000_000L, "end", 1_700_100_000_000L)));
         Path project = projectRoot();
         var context = new MockServletContext(project.resolve("src/main/webapp").toUri().toString(), new FileSystemResourceLoader());
@@ -51,6 +51,8 @@ class MeasurementChartSmokeIntegrationTest {
             for (String format : List.of("png", "jpeg")) {
                 ByteArrayOutputStream output = new ByteArrayOutputStream();
                 BrowserChartRenderer.write(context, output, chart, 1000, 600, format);
+                // Written before the assertions, so a failing render leaves its image behind for inspection.
+                Files.write(project.resolve("target/measurement-chart-smoke." + format), output.toByteArray());
                 var image = ImageIO.read(new ByteArrayInputStream(output.toByteArray()));
                 assertThat(image).isNotNull();
                 assertThat(image.getWidth()).isEqualTo(1000);
@@ -66,7 +68,6 @@ class MeasurementChartSmokeIntegrationTest {
                 assertThat(seriesPixels).as("measurement series in %s", format).isGreaterThan(20);
                 assertThat(referencePixels).as("reference range in %s", format).isGreaterThan(20);
                 assertThat(medicationPixels).as("medication interval in %s", format).isGreaterThan(1000);
-                Files.write(project.resolve("target/measurement-chart-smoke." + format), output.toByteArray());
             }
         }
     }
