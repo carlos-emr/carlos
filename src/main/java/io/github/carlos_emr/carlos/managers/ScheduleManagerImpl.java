@@ -261,6 +261,12 @@ public class ScheduleManagerImpl implements ScheduleManager {
         oscarAppointmentDao.merge(appointment);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Legacy edits retain the privilege check, row lock and transactional archive;
+     * a supplied token additionally requires the client's read version to match.</p>
+     */
     @Override
     @Transactional
     public Appointment updateAppointment(LoggedInInfo loggedInInfo, Integer appointmentId,
@@ -268,15 +274,19 @@ public class ScheduleManagerImpl implements ScheduleManager {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
             throw new SecurityException("missing required sec object (_appointment)");
         }
-        if (expectedVersion == null || expectedVersion.isBlank()) {
-            throw new AppointmentUpdateException(AppointmentUpdateException.Reason.MISSING_VERSION);
-        }
+        // Legacy REST clients do not send a version. Keep their last-writer-wins
+        // contract while using the same locked, audited update path as versioned clients.
+        boolean hasVersion = expectedVersion != null && !expectedVersion.isBlank();
         Appointment current = oscarAppointmentDao.findForUpdate(appointmentId);
         if (current == null) {
             throw new AppointmentUpdateException(AppointmentUpdateException.Reason.NOT_FOUND);
         }
-        if (!current.getEditVersion().equals(expectedVersion)) {
+        if (hasVersion && !current.getEditVersion().equals(expectedVersion)) {
             throw new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION);
+        }
+        if (!hasVersion) {
+            logger.warn("Appointment update without editVersion uses legacy last-writer-wins behavior; "
+                    + "clients should echo editVersion to enable conflict detection");
         }
         // Archive the unmodified locked row. Validation, archive and mutation share this
         // transaction: a rejected edit or failed flush cannot leave a stray archive behind.
