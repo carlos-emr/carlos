@@ -21,6 +21,7 @@ import static org.mockito.Mockito.when;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -343,6 +344,80 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
     void shouldNotExpose_caisiStatement() {
         assertThat(LegacyJdbcQuery.CaisiResult.class.getMethods())
                 .noneMatch(method -> "statement".equals(method.getName()));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"MySQL,-2147483648", "MariaDB,-2147483648", "H2,100"})
+    void shouldSetStreamingReportBudgets_beforeExecutingAndReleaseResources(String product, int fetchSize) throws Exception {
+        DataSource source = mock(DataSource.class);
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet rs = mock(ResultSet.class);
+        registerMock(DataSource.class, source);
+        when(source.getConnection()).thenReturn(connection);
+        DatabaseMetaData metadata = mock(DatabaseMetaData.class);
+        when(connection.getMetaData()).thenReturn(metadata);
+        when(metadata.getDatabaseProductName()).thenReturn(product);
+        when(connection.prepareStatement("select ?", ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY))
+                .thenReturn(statement);
+        when(statement.executeQuery()).thenReturn(rs);
+
+        try (ResultSet owned = LegacyJdbcQuery.getBoundedReportResultSet(
+                new ParameterizedSql("select ?", List.of("synthetic")), 101, System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(7))) {
+            assertThat(owned.next()).isFalse();
+            InOrder order = inOrder(statement);
+            order.verify(statement).setMaxRows(101);
+            order.verify(statement).setFetchSize(fetchSize);
+            order.verify(statement).setObject(1, "synthetic");
+            order.verify(statement).setQueryTimeout(7);
+            order.verify(statement).executeQuery();
+        }
+        verify(rs).close();
+        verify(statement).close();
+        verify(connection).close();
+    }
+
+    @Test
+    void shouldCancelAndReleaseReportQuery_afterExecutionTimeout() throws Exception {
+        DataSource source = mock(DataSource.class);
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        registerMock(DataSource.class, source);
+        when(source.getConnection()).thenReturn(connection);
+        DatabaseMetaData metadata = mock(DatabaseMetaData.class);
+        when(connection.getMetaData()).thenReturn(metadata);
+        when(metadata.getDatabaseProductName()).thenReturn("MySQL");
+        when(connection.prepareStatement("select 1", ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY))
+                .thenReturn(statement);
+        when(statement.executeQuery()).thenThrow(new java.sql.SQLTimeoutException("synthetic timeout"));
+        assertThatThrownBy(() -> LegacyJdbcQuery.getBoundedReportResultSet(
+                new ParameterizedSql("select 1", List.of()), 10, System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(1)))
+                .isInstanceOf(java.sql.SQLTimeoutException.class);
+        verify(connection, org.mockito.Mockito.timeout(1000)).abort(org.mockito.ArgumentMatchers.any());
+        verify(connection, org.mockito.Mockito.timeout(1000)).close();
+        verify(statement).close();
+        verify(statement, never()).cancel();
+    }
+
+    @Test
+    void shouldRefuseExpiredReport_beforeAcquiringConnection() throws Exception {
+        DataSource source = mock(DataSource.class);
+        registerMock(DataSource.class, source);
+        assertThatThrownBy(() -> LegacyJdbcQuery.getBoundedReportResultSet(
+                new ParameterizedSql("select 1", List.of()), 10, System.nanoTime() - 1))
+                .isInstanceOf(java.sql.SQLTimeoutException.class);
+        verify(source, never()).getConnection();
+    }
+
+    @Test
+    void shouldRejectUnsafeBoundedReport_beforeAcquiringConnection() throws Exception {
+        DataSource source = mock(DataSource.class);
+        registerMock(DataSource.class, source);
+        assertThatThrownBy(() -> LegacyJdbcQuery.getBoundedReportResultSet(
+                new ParameterizedSql("select 1; delete from synthetic", List.of()), 10,
+                System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(30)))
+                .isInstanceOf(SQLException.class).hasMessageContaining("Unsafe SQL detected");
+        verify(source, never()).getConnection();
     }
 
     private List<Connection> mockConnections(int count) {
