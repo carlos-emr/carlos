@@ -159,9 +159,10 @@ public final class LegacyJdbcQuery {
             ps.setMaxRows(maxRows);
             // The negative streaming sentinel is specific to Connector/J. Other
             // JDBC drivers (including H2) require a non-negative fetch size.
-            String product = connection.getMetaData().getDatabaseProductName();
-            ps.setFetchSize("MySQL".equals(product) || "MariaDB".equals(product)
-                    ? Integer.MIN_VALUE : Math.min(100, maxRows));
+            ps.setFetchSize(switch (connection.getMetaData().getDatabaseProductName()) {
+                case "MySQL", "MariaDB" -> Integer.MIN_VALUE;
+                case null, default -> Math.min(100, maxRows);
+            });
             bindParams(ps, sql.getParamsArray());
             long remainingNanos = deadlineNanos - System.nanoTime();
             if (remainingNanos <= 0) {
