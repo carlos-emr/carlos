@@ -33,7 +33,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page
-        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*" %>
+        import="java.util.*, io.github.carlos_emr.*, java.lang.*" %>
 <%@ page import="io.github.carlos_emr.DateInMonthTable" %>
 <%
     //to prepare calendar display

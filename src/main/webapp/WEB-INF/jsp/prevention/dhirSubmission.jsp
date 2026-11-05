@@ -48,7 +48,7 @@
 <%@page import="org.apache.hc.core5.ssl.SSLContexts" %>
 <%@page import="org.apache.hc.core5.util.Timeout" %>
 <%@page import="java.util.UUID" %>
-<%@page import="java.util.Random" %>
+
 <%@page import="java.util.List" %>
 <%@page import="java.util.ArrayList" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DHIRSubmissionLog" %>
@@ -61,26 +61,26 @@
 <%@page import="io.github.carlos_emr.carlos.integration.fhir.builder.AbstractFhirMessageBuilder" %>
 <%@page import="org.hl7.fhir.dstu3.model.Bundle" %>
 <%@page import="java.util.Map" %>
-<%@page import="java.io.InputStream" %>
-<%@page import="org.apache.commons.io.IOUtils" %>
+
+
 <%@page import="org.apache.hc.core5.http.io.entity.ByteArrayEntity" %>
 <%@page import="org.apache.hc.core5.http.HttpEntity" %>
 <%@page import="org.apache.hc.client5.http.classic.methods.HttpPost" %>
 <%@page import="org.apache.hc.core5.http.ContentType" %>
 <%@page import="org.apache.logging.log4j.Logger" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="java.io.UnsupportedEncodingException" %>
+
 <%@page import="java.io.IOException" %>
-<%@page import="java.text.SimpleDateFormat" %>
+
 <%@page import="org.apache.hc.core5.http.io.entity.EntityUtils" %>
-<%@page import="javax.net.ssl.TrustManager" %>
-<%@page import="java.security.SecureRandom" %>
+
+
 
 <%@page import="javax.net.ssl.SSLContext" %>
 <%@page import="java.security.KeyManagementException" %>
 <%@page import="java.security.NoSuchAlgorithmException" %>
-<%@page import="org.apache.hc.client5.http.classic.methods.HttpGet" %>
-<%@page import="jakarta.servlet.http.Cookie" %>
+
+
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="org.apache.hc.client5.http.classic.HttpClient" %>
 <%@page import="com.fasterxml.jackson.databind.ObjectMapper" %>

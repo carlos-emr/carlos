@@ -37,7 +37,7 @@
 <%@ page import="io.github.carlos_emr.carlos.db.LegacyJdbcQuery" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler" %>
 <%@ page import="org.slf4j.Logger, org.slf4j.LoggerFactory" %>

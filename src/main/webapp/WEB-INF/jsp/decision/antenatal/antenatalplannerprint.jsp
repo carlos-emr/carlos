@@ -36,7 +36,7 @@
     String curUser_no = (String) session.getAttribute("user");
 %>
 <%@ page
-        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*,java.io.*"
+        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.lang.*, java.io.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <jsp:useBean id="riskDataBean" class="java.util.Properties" scope="page"/>
 <jsp:useBean id="risks"
@@ -50,7 +50,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DesapriskDao" %>
 <%@ page import="io.github.carlos_emr.carlos.db.LegacyJdbcQuery" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     DesapriskDao desapriskDao = SpringUtils.getBean(DesapriskDao.class);

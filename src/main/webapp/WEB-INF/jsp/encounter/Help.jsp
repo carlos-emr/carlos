@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
 
 
 <link rel="stylesheet" type="text/css" href="encounterStyles.css">

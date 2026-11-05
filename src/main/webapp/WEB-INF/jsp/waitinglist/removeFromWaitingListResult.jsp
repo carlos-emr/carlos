@@ -21,9 +21,9 @@
     https://github.com/carlos-emr/carlos
 
 --%>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
+
 <fmt:setBundle basename="oscarResources"/>
 <%--
     Purpose:

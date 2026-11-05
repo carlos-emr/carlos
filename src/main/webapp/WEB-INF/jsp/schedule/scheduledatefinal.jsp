@@ -35,7 +35,7 @@
     String creator = (String) session.getAttribute("userlastname") + "," + (String) session.getAttribute("userfirstname");
 %>
 <%@ page
-        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
+        import="java.util.*, java.lang.*, java.net.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -54,7 +54,7 @@
 
 %>
 
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
 <html>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>

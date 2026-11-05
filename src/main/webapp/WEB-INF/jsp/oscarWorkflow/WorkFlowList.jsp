@@ -39,7 +39,7 @@
 "http://www.w3.org/TR/html4/loose.dtd">
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page
-        import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.ClinicalReports.*,io.github.carlos_emr.carlos.workflow.*" %>
+        import="io.github.carlos_emr.carlos.demographic.data.*, java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.report.ClinicalReports.*, io.github.carlos_emr.carlos.workflow.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
 <%@ page import="io.github.carlos_emr.carlos.workflow.WorkFlowDS" %>
 <%@ page import="io.github.carlos_emr.carlos.workflow.WorkFlowFactory" %>
@@ -51,7 +51,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 

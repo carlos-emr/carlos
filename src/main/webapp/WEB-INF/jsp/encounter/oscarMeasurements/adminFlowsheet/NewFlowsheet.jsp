@@ -30,8 +30,8 @@
 --%>
 
 <%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<%@page import="java.util.*,io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*,java.net.*" %>
-<%@page import="org.jdom2.Element,io.github.carlos_emr.carlos.encounter.oscarMeasurements.data.*,org.jdom2.output.Format,org.jdom2.output.XMLOutputter,io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.*" %>
+<%@page import="java.util.*, java.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetUserCreatedDao,io.github.carlos_emr.carlos.commn.model.FlowSheetUserCreated,io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%
     FlowSheetUserCreatedDao flowSheetUserCreatedDao = (FlowSheetUserCreatedDao) SpringUtils.getBean(FlowSheetUserCreatedDao.class);

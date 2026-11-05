@@ -43,13 +43,13 @@
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="org.apache.logging.log4j.Logger" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction" %>
+
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.CaseManagementViewFormBean" %>
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementCPP" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     Logger logger = MiscUtils.getLogger();
 

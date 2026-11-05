@@ -38,7 +38,7 @@
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
 
 <%
@@ -54,7 +54,7 @@
     <%isSiteAccessPrivacy = true; %>
 </security:oscarSec>
 
-<%@ page import="java.util.*,java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="java.util.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <!DOCTYPE html>
 <html>

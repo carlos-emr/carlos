@@ -32,7 +32,7 @@
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -41,7 +41,7 @@
 %>
 
 <%@ page
-        import="java.lang.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>
+        import="java.lang.*" %>
 
 <html>
 

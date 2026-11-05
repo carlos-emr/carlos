@@ -47,12 +47,12 @@
     }
 %>
 
-<%@page import="io.github.carlos_emr.carlos.util.SqlUtils" %>
+
 <%@page import="io.github.carlos_emr.carlos.web.ProviderServiceReportUIBean" %>
 <%@page import="java.util.*" %>
-<%@page import="org.caisi.model.*" %>
+
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.*" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.web.*" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.*" %>
 <%@page import="java.text.*" %>

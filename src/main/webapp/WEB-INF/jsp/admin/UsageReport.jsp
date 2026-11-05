@@ -37,7 +37,7 @@
 --%>
 <%@ page import="io.github.carlos_emr.carlos.report.UsageReportSupport" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -67,10 +67,10 @@
 <%@page import="java.util.Date" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.BillingDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Drug" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderInboxRoutingDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderInboxItem" %>
+
 <%@page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.CustomFilter" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DocumentDao" %>

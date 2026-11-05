@@ -31,7 +31,7 @@
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -58,7 +58,7 @@
     if (request.getParameter("startDate") != null) startDate = request.getParameter("startDate");
     if (request.getParameter("endDate") != null) endDate = request.getParameter("endDate");
 %>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*"
+<%@ page import="java.util.*, io.github.carlos_emr.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <jsp:useBean id="providerNameBean" class="io.github.carlos_emr.Dict" scope="page"/>
@@ -68,7 +68,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Form" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FormDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>

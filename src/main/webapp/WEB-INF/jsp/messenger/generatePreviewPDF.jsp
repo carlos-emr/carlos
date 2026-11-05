@@ -58,17 +58,17 @@
   @since 2003
 --%>
 
-<%@ page import="java.util.*" %>
-<%@ page import="org.w3c.dom.*" %>
-<%@ page import="java.sql.*" %>
-<%@ page import="io.github.carlos_emr.*" %>
-<%@ page import="java.text.*" %>
+
+
+
+
+
 <%@ page import="java.lang.*" %>
-<%@ page import="java.net.*" %>
+
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.send.*" %>
-<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.data.*" %>
+
+
+
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgAttachmentStaging" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

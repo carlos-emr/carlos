@@ -58,7 +58,7 @@
 %>
 
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
+
 
 <%@ taglib prefix="s" uri="/struts-tags" %>
 <%@ taglib uri="carlos" prefix="carlos" %>

@@ -45,7 +45,7 @@
     }
 %>
 
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.carlos.billing.ca.bc.MSP.*,io.github.carlos_emr.*" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*" %>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

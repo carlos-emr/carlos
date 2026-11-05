@@ -70,11 +70,11 @@
  */
 --%>
 
-<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.send.*" %>
-<%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="java.util.*" %>
-<%@ page import="org.w3c.dom.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.Doc2PDF" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

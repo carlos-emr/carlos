@@ -45,7 +45,7 @@ Parameters: id identifies the form row; the hidden association ID starts at zero
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DemographicContact" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String id = request.getParameter("id");

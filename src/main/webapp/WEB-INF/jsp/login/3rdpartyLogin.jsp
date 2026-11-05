@@ -30,14 +30,14 @@
 
 --%>
 
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="java.util.*" %>
-<%@ page import="jakarta.servlet.http.*" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
+
+
 <%@ page import="io.github.carlos_emr.carlos.login.OAuthData" %>
 <%@ page import="io.github.carlos_emr.carlos.login.OOBAuthorizationResponse" %>
 

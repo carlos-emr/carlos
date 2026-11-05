@@ -37,11 +37,11 @@
   fragment behavior; upload/delete forms submit their image fields to paired actions.
   @since 2026-09-17
 --%>
-<%@page import="java.net.URLEncoder" %>
-<%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
+
+<%@ page import="io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="eform.uploadimages.imgDelete" var="imageDeleteConfirm"/>
@@ -194,8 +194,8 @@
             </td>
 
             <td>
-                <a href="javascript:void(0);" onclick="deleteImg('<carlos:encode value='<%= curimage %>' context="javaScriptAttribute"/>');"
-                   class="contentLink"><fmt:message key="eform.uploadimages.btnDelete"/></a>
+                <button type="button" onclick="deleteImg('<carlos:encode value='<%= curimage %>' context="javaScriptAttribute"/>');"
+                   class="btn btn-link p-0 border-0 align-baseline contentLink"><fmt:message key="eform.uploadimages.btnDelete"/></button>
             </td>
         </tr>
         <% } %>

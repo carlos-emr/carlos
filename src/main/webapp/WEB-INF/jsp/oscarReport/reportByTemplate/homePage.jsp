@@ -36,7 +36,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.RBTGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

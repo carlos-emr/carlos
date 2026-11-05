@@ -40,16 +40,16 @@
 
 <!-- add by caisi -->
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+
 <!-- add by caisi end<style>* {border:1px solid black;}</style> -->
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
 <%@ page import="io.github.carlos_emr.carlos.providers.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.providers.pageUtil.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProSignatureData" %>
 
 <%

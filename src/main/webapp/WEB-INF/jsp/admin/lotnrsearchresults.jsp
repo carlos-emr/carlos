@@ -31,25 +31,25 @@
 
 <%@page import="java.net.URLEncoder" %>
 <%@page import="java.nio.charset.StandardCharsets" %>
-<%@page import="java.text.SimpleDateFormat, java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.util.*" %>
-<%@page import="org.owasp.encoder.Encode" %>
+<%@page import="java.util.*" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
+
+
 <%
     String orderby = request.getParameter("orderby") != null ? request.getParameter("orderby") : "prevention_type";
     String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF";
 %>
-<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.*" buffer="none"
+<%@ page import="java.util.*, io.github.carlos_emr.*" buffer="none"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <jsp:useBean id="apptMainBean" class="io.github.carlos_emr.AppointmentMainBean"

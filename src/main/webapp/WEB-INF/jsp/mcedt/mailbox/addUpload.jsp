@@ -30,15 +30,16 @@
 --%>
 
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <!DOCTYPE html>
 
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
-<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
+
+
+
+
 
 
 <%@ taglib prefix="s" uri="/struts-tags" %>
@@ -75,7 +76,7 @@
 
         <title>MCEDT: Upload</title>
 
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <base href="<%= SafeEncode.forHtmlAttribute(request.getContextPath() + "/") %>">
     </head>
 
     <body>

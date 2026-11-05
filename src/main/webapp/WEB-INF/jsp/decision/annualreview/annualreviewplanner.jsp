@@ -68,7 +68,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DesAnnualReviewPlanDao" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.XmlUtils" %>
 <%@ page import="java.io.StringReader" %>
 <%@ page import="org.xml.sax.InputSource" %>
@@ -78,7 +78,7 @@
 <%@ page import="org.w3c.dom.Node" %>
 <%@ page import="org.w3c.dom.NodeList" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     DesAnnualReviewPlanDao desAnnualReviewPlanDao = SpringUtils.getBean(DesAnnualReviewPlanDao.class);

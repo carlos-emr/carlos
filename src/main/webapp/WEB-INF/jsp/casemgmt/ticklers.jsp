@@ -45,13 +45,7 @@
 %>
 
 <%@ page
-        import="java.util.Date,
-                org.caisi.model.*,
-                io.github.carlos_emr.carlos.casemgmt.model.*,
-                io.github.carlos_emr.carlos.commn.model.*,
-                io.github.carlos_emr.carlos.PMmodule.model.*,
-                org.springframework.context.*,
-                org.springframework.web.context.support.*" %>
+        import="java.util.Date, io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
 <%@ taglib uri="carlos" prefix="carlos" %>

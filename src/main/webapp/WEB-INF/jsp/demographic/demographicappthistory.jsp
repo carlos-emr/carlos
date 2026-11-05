@@ -46,11 +46,11 @@
     }
 %>
 
-<%@ page import="java.net.*" %>
-<%@ page import="java.sql.*" %>
+
+
 <%@ page import="java.util.*" %>
 
-<%@ page import="io.github.carlos_emr.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
@@ -64,23 +64,23 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.LookupListItem" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Site" %>
-<%@ page import="io.github.carlos_emr.carlos.db.*"%>
+
 <%@ page import="io.github.carlos_emr.carlos.managers.AppointmentManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="org.springframework.beans.BeanUtils" %>
-<%@ page import="org.springframework.web.context.WebApplicationContext" %>
+
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 
 
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
+
+
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>

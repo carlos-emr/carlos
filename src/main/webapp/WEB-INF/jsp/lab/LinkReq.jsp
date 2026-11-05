@@ -41,7 +41,7 @@
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.LabRequestReportLinkDao" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -63,12 +63,7 @@
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.forms.FormsDao" %>
-<%@page import="
-		java.util.Date,
-                java.util.Hashtable,
-                java.util.Vector,
-                io.github.carlos_emr.carlos.lab.LabRequestReportLink,
-                io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+<%@page import="java.util.Date, java.util.Vector, io.github.carlos_emr.carlos.lab.LabRequestReportLink, io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%
     LabRequestReportLinkDao linkDao = SpringUtils.getBean(LabRequestReportLinkDao.class);
     EFormGroupDao eformGroupDao = SpringUtils.getBean(EFormGroupDao.class);
@@ -208,7 +203,7 @@
 %>
 
 
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
 <html>
 <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>

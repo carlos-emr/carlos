@@ -401,9 +401,11 @@ jobs:
 
       - name: Compile JSPs
         run: |
-          docker exec carlos-tomcat-dev bash -c "
+          docker exec carlos-tomcat-dev bash -ec "
             echo '========================================='
             echo 'Compiling JSPs (jspc profile)'
             echo '========================================='
             make jspc
+            mvn -B -ntp dependency:build-classpath -DincludeScope=compile -Dmdep.outputFile=target/jsp-classpath.txt
+            python3 scripts/check-jsp-directives.py --classpath-file target/jsp-classpath.txt
           "

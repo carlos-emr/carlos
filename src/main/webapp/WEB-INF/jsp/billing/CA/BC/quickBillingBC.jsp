@@ -52,12 +52,9 @@
 %>
 
 
-<%@page import="java.util.*,
-                io.github.carlos_emr.carlos.util.*,
-                org.springframework.web.context.support.WebApplicationContextUtils,
-                org.springframework.web.context.WebApplicationContext" %>
+<%@page import="java.util.*" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>

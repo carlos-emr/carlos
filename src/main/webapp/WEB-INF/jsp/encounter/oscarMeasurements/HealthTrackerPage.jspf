@@ -69,7 +69,7 @@
 
     @since 2026-09-20
 --%>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.prevention.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
@@ -78,7 +78,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDropdownOptions" %>
 <%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowsheetDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Flowsheet" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Validations" %>
@@ -96,7 +96,7 @@
 <%@ page import="java.util.*" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>

@@ -94,17 +94,17 @@
 
 <%@ page import="com.fasterxml.jackson.databind.JsonNode" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
-<%@ page import="com.fasterxml.jackson.databind.node.ArrayNode" %>
-<%@ page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
+
+
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Hl7TextInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Hl7TextMessage" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MeasurementMap" %>
@@ -120,7 +120,7 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.*" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionComparator"%>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.web.LabDisplayHelper" %>
+
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
@@ -141,7 +141,7 @@
 <%@ page import="java.util.*" %>
 <%@ page import="javax.swing.text.rtf.RTFEditorKit" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
-<%@ page import="org.apache.commons.lang3.builder.ReflectionToStringBuilder" %>
+
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="org.w3c.dom.Document" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
@@ -150,14 +150,14 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.service.LabPdfPreviewSettingsService" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="session"/>
 
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProperties" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%

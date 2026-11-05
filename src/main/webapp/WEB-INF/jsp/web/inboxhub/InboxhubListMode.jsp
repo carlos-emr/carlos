@@ -1,19 +1,19 @@
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 
-<%@ page import="org.apache.logging.log4j.Logger" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.inboxhub.query.InboxhubQuery" %>
-<%@ page import="io.github.carlos_emr.carlos.mds.data.CategoryData" %>
+
+
+
+
+
+
+
 
 <% pageContext.setAttribute("currentUser", session.getAttribute("user")); %>
 
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>

@@ -224,7 +224,7 @@ if (config.baseUrl.protocol !== 'https:') {
           await dialog.accept();
         });
         const row = managerPage.locator('#tblImage tbody tr', {hasText: imageName}).first();
-        const deleteLink = row.locator('a[onclick^="deleteImg"]').first();
+        const deleteLink = row.locator('button[type="button"][onclick^="deleteImg"]').first();
         await deleteLink.waitFor({state: 'visible'});
     cancellation?.throwIfCancelled();
         let deletePosts = 0;

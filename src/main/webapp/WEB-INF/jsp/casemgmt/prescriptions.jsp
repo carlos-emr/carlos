@@ -47,9 +47,9 @@
     }
 %>
 
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
+
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 Prescriptions
 <div><source:cdsSourceFields demographicNo="${requestScope.demographicNo}" category="MedicationsAndTreatments"/></div>

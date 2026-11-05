@@ -29,7 +29,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -45,7 +45,7 @@
     }
 %>
 
-<%@page import="java.util.Calendar" %>
+
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
@@ -55,8 +55,8 @@
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.FunctionalCentre" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="java.util.GregorianCalendar" %>
-<%@page import="java.text.DateFormatSymbols" %>
+
+
 <%@page import="io.github.carlos_emr.carlos.utility.RequestNegotiation" %>
 <%@ include file="/taglibs.jsp" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}"

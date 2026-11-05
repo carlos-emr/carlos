@@ -34,6 +34,55 @@ function section(start, end) {
 }
 const searchSource = section('async function searchTicklerList(', 'async function openDemoTicklerList(');
 const refreshSource = section('async function waitForTicklerDraw(', 'async function setTicklerListStatus(');
+const statusSource = section('async function waitForTicklerStatus(', 'function getCommentRows(');
+const createSource = section('async function createTickler(', 'async function editTicklerFromList(');
+
+for (const commitDelay of [0, 1250]) {
+  test(`tickler creation waits for persistence ${commitDelay}ms after iframe acknowledgement`, async () => {
+    let now = 0, acknowledged = false, closedAt = null;
+    const row = { id: '42', status: 'A', priority: 'High', serviceDate: '2026-02-18', assignee: '999998' };
+    const field = {
+      async waitFor() {}, async fill() {}, async selectOption() {},
+      first() { return this; }, async click() {},
+    };
+    const page = {
+      locator: () => field,
+      async waitForFunction() { acknowledged = true; },
+      async waitForTimeout(delay) { now += delay; },
+      async close() {
+        assert(acknowledged);
+        closedAt = now;
+      },
+    };
+    const sandbox = {
+      assert: (condition, message) => assert(condition, message),
+      Date: { now: () => now },
+      setTimeout(resolve, delay) { now += delay; resolve(); },
+      getTicklerRows() {
+        assert(acknowledged, 'Persistence must be checked after the save acknowledgement');
+        return now >= commitDelay ? [row] : [];
+      },
+      wirePage() {}, async gotoApp() {}, async selectTicklerAssignee() {},
+      demographicNo: '1', providerNo: row.assignee, createdMessage: 'owned tickler',
+    };
+    vm.runInNewContext(statusSource + createSource + '\nthis.create = createTickler;', sandbox);
+    assert.equal(await sandbox.create({ newPage: async () => page }), row.id);
+    assert(closedAt !== null && closedAt >= commitDelay, 'Page closed before the created row was committed');
+  });
+}
+
+test('tickler persistence polling rejects a missing, duplicate, or wrong-status row', async () => {
+  for (const rows of [[], [{status: 'C'}], [{status: 'A'}, {status: 'A'}]]) {
+    let now = 0;
+    const sandbox = {
+      Date: { now: () => now },
+      setTimeout(resolve, delay) { now += delay; resolve(); },
+      getTicklerRows: () => rows,
+    };
+    vm.runInNewContext(statusSource + '\nthis.wait = waitForTicklerStatus;', sandbox);
+    await assert.rejects(sandbox.wait('A', 1000), /tickler did not reach status A/);
+  }
+});
 
 function searchFixture(found = true) {
   const events = [], requests = [], scheduled = [];

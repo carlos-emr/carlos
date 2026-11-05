@@ -57,33 +57,33 @@
     @since 2018-06-01 (BIS transfer work), popupLink.js About/License fix 2026-08-31
 --%>
 
-<%@page import="io.github.carlos_emr.carlos.commn.model.Consent" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
+
+
 <%@page import="io.github.carlos_emr.carlos.commn.model.CVCMapping" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CVCMedicationLotNumber" %>
-<%@page import="org.apache.commons.lang3.StringUtils" %>
+
+
 <%@page import="io.github.carlos_emr.carlos.commn.model.CVCImmunization" %>
-<%@page import="io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
+
 <%@ page
-        import="io.github.carlos_emr.carlos.demographic.data.DemographicData,java.text.SimpleDateFormat, java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+        import="io.github.carlos_emr.carlos.demographic.data.DemographicData, java.text.SimpleDateFormat, java.util.*, io.github.carlos_emr.carlos.prevention.*, io.github.carlos_emr.carlos.util.*" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
+
+
+
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

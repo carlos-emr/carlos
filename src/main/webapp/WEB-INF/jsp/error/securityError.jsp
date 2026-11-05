@@ -41,7 +41,7 @@
     sees instead of the container's default error page.
 --%>
 <% response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN); %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>

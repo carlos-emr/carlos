@@ -45,7 +45,7 @@
 %>
 
 <%@ page
-        import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*, io.github.carlos_emr.carlos.dxresearch.bean.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.dxresearch.bean.*" %>
 <%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBean" %>
 <%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.dxResearchBeanHandler" %>
 <ul

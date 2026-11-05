@@ -53,7 +53,7 @@
 </head>
 <body>
 <%@ page
-        import="java.io.*, java.sql.*, java.util.*,java.net.*, io.github.carlos_emr.*, java.math.*"
+        import="java.util.*, io.github.carlos_emr.*, java.math.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

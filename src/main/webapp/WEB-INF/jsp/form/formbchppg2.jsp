@@ -28,7 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -46,7 +46,7 @@
 %>
 
 <%@ page
-        import="java.util.*, io.github.carlos_emr.carlos.util.UtilDateUtilities, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*, io.github.carlos_emr.carlos.prevention.PreventionData,io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+        import="java.util.*, io.github.carlos_emr.carlos.util.UtilDateUtilities, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.prevention.PreventionData, io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>

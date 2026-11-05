@@ -43,11 +43,11 @@
     }
 %>
 
-<%@page import="io.github.carlos_emr.CarlosProperties" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.web.utils.UserRoleUtils" %>
+
 <%@page import="java.util.*" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>

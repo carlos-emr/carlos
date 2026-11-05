@@ -59,7 +59,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.SystemPreferences" %>
 <fmt:setBundle basename="oscarResources"/>
 

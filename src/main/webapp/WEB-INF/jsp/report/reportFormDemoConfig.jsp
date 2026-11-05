@@ -14,13 +14,13 @@
 %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
-<%@ page import="io.github.carlos_emr.carlos.login.*" %>
+
 <%@ page import="org.apache.commons.lang3.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportConfigData" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptTableFieldNameCaption" %>
 <%@ page import="java.util.ResourceBundle" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%
     String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
@@ -82,7 +82,7 @@
     vecTableField = tableObj.getTableNameCaption(tableName);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <fmt:setBundle basename="oscarResources"/>

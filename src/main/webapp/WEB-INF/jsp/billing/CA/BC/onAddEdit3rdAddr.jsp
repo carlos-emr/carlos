@@ -49,9 +49,9 @@
 
 %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
-         import="java.util.*,java.sql.*,io.github.carlos_emr.*,java.text.*,java.net.*" %>
-<%@ page import="io.github.carlos_emr.carlos.billing.ca.on.data.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+         import="java.util.*" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.service.BillingThirdPartyService" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -169,7 +169,7 @@
 
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 

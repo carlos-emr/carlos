@@ -29,7 +29,7 @@
 
 --%>
 
-<%@page import="io.github.carlos_emr.carlos.appt.ApptData" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -100,7 +100,7 @@
     }
 %>
 <%@ page
-        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
+        import="java.util.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <jsp:useBean id="DateTimeCodeBean" class="java.util.Hashtable"
@@ -116,7 +116,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <!DOCTYPE html>
 <html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">

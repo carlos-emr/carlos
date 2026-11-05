@@ -47,7 +47,7 @@ demographicAudit.jsp
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@page import="org.owasp.encoder.Encode" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");

@@ -35,7 +35,7 @@
 <%@page import="org.hl7.fhir.dstu3.model.Coding" %>
 <%@page import="org.hl7.fhir.dstu3.model.CodeableConcept" %>
 <%@page import="org.hl7.fhir.dstu3.model.Practitioner.PractitionerQualificationComponent" %>
-<%@page import="org.hl7.fhir.dstu3.model.codesystems.PractitionerSpecialty" %>
+
 <%@page import="org.hl7.fhir.dstu3.model.ContactPoint" %>
 <%@page import="org.hl7.fhir.dstu3.model.Identifier" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
@@ -50,29 +50,29 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CVCMapping" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CVCMedicationLotNumber" %>
+
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.CVCImmunization" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
+
 <%@ page
-        import="io.github.carlos_emr.carlos.demographic.data.DemographicData,java.text.SimpleDateFormat, java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+        import="java.util.*, io.github.carlos_emr.carlos.prevention.*, io.github.carlos_emr.carlos.util.*" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
+
+
 <%@page import="org.hl7.fhir.dstu3.model.Bundle" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

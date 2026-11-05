@@ -45,9 +45,9 @@
 %>
 
 <%@ page
-        import="io.github.carlos_emr.carlos.encounter.immunization.data.*,io.github.carlos_emr.carlos.util.UtilXML" %>
+        import="io.github.carlos_emr.carlos.util.UtilXML" %>
 <%@ page
-        import="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.*, java.util.*, org.w3c.dom.*" %>
+        import="org.w3c.dom.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 

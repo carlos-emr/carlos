@@ -37,9 +37,9 @@
 
 <%@ page import="java.util.List" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup, io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroupPrimaryKey" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.CtlBillingService, io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.CtlBillingServiceDao" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.dto.UniqueServiceTypeRow" %>
 
 <%

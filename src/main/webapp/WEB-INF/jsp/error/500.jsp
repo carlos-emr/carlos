@@ -28,7 +28,7 @@
 
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="java.util.Enumeration" %>
+
 
 <%@page isErrorPage="true" %>
 <%@include file="/WEB-INF/jsp/layouts/caisi_html_top.jspf" %>

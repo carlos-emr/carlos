@@ -29,7 +29,7 @@
 
 --%>
 
-<%@ page import="java.util.*, org.w3c.dom.*, io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="org.w3c.dom.*, io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.config.data.EctImmImmunizationSetData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

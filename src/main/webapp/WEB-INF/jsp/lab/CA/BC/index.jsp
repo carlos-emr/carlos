@@ -48,8 +48,8 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obr" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Pid" %>
-<%@page import="java.util.List" %>
-<%@page import="java.sql.ResultSet" %>
+
+
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7LinkDao" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Link" %>
@@ -61,7 +61,7 @@
     Hl7LinkDao linkDao = SpringUtils.getBean(Hl7LinkDao.class);
 
 %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
 <html>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>

@@ -38,7 +38,7 @@
 <%@page import="java.util.ArrayList" %>
 <%@page import="java.util.Date" %>
 <%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
-<%@page import="java.text.SimpleDateFormat" %>
+
 <%@ include file="/taglibs.jsp" %>
 
 <%

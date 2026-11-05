@@ -33,7 +33,7 @@
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="java.sql.*, java.util.*, java.net.*, io.github.carlos_emr.*"
+<%@ page import="java.util.*, java.net.*, io.github.carlos_emr.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicAccessoryDao" %>

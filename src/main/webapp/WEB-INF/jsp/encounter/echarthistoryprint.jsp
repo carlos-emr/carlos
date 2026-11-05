@@ -47,7 +47,7 @@
 
 
 <%@page
-        import="io.github.carlos_emr.carlos.encounter.data.*,io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean, java.net.*" %>
+        import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <jsp:useBean id="providerBean" class="java.util.Properties"
              scope="session"/>
 <%

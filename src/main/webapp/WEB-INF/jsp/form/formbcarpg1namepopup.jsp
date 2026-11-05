@@ -20,7 +20,7 @@
     String fieldName = request.getParameter("fieldname") != null ? request.getParameter("fieldname") : "pg1_priCare";
 %>
 
-<%@ page import="java.sql.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page  errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <jsp:useBean id="providerNameBean" class="java.util.Properties" scope="page"/>
@@ -28,12 +28,12 @@
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <html>

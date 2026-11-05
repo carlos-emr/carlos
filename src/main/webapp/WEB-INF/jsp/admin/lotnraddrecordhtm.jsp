@@ -28,18 +28,18 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@page import="java.text.SimpleDateFormat, java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.util.*" %>
+<%@page import="java.util.*, io.github.carlos_emr.carlos.prevention.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig" %>
 <%
     String curProvider_no, userfirstname, userlastname;
