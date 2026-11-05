@@ -56,6 +56,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -181,7 +182,7 @@ class LogoutBroadcastFilterUnitTest {
             org.assertj.core.api.Assertions.assertThatThrownBy(res::resetBuffer)
                     .isInstanceOf(IllegalStateException.class);
         });
-        verify(response, org.mockito.Mockito.never()).setHeader("Content-Length", null);
+        verify(response, never()).setHeader("Content-Length", null);
         assertThat(response.getContentLength()).isEqualTo(4);
     }
 

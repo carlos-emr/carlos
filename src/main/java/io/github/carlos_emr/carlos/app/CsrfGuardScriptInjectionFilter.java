@@ -412,6 +412,8 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
      */
     private static class CaptureResponseWrapper extends HttpServletResponseWrapper {
 
+        private static final String CONTENT_LENGTH = "Content-Length";
+
         private CharArrayWriter captureWriter;
         private PrintWriter writer;
         private boolean usingOutputStream;
@@ -420,6 +422,8 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         private boolean committed;
         private Integer deferredContentLength;
         private Long deferredContentLengthLong;
+        /** Whether this wrapper passed a Content-Length down for a passthrough channel. */
+        private boolean contentLengthPublished;
         private final String requestUri;
 
         public CaptureResponseWrapper(HttpServletResponse response, String requestUri) {
@@ -465,11 +469,11 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
          *
          * <p>Every CARLOS wrapper applies one rule to an accepted {@code resetBuffer()}: a length that
          * predates the reset, pending or published, described the discarded body and is dropped. A
-         * forward always replaces the body, so a pre-forward length is stale by definition. This
-         * wrapper only ever holds a pending length: in stream and writer-passthrough modes a length
-         * was already handed to the delegate, and the privacy or logout wrapper beneath this
-         * FORWARD-only wrapper retracts a published one. A rejected reset (the delegate throws)
-         * leaves the capture and the pending length as they were.</p>
+         * forward always replaces the body, so a pre-forward length is stale by definition. A length
+         * still pending is cleared; one this wrapper already passed through on a stream or
+         * non-HTML writer channel is removed from the delegate, so the wrappers beneath this
+         * FORWARD-only one never see it again. A rejected reset (the delegate throws) leaves the
+         * capture and both kinds of length as they were.</p>
          */
         @Override
         public void resetBuffer() {
@@ -479,6 +483,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             }
             deferredContentLength = null;
             deferredContentLengthLong = null;
+            if (contentLengthPublished) {
+                super.setHeader(CONTENT_LENGTH, null);
+                contentLengthPublished = false;
+            }
         }
 
         /** Reset channel/capture state only after the underlying response accepts the full reset. */
@@ -493,17 +501,15 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             committed = false;
             deferredContentLength = null;
             deferredContentLengthLong = null;
+            contentLengthPublished = false;
         }
 
         @Override
         public void setContentLength(int len) {
-            if (usingOutputStream) {
-                // Output-stream passthrough: the real response owns the content, so pass through
+            if (usingOutputStream || writerPassthrough) {
+                // Passthrough: the real response owns the content, so pass the length through
                 super.setContentLength(len);
-                return;
-            }
-            if (writerPassthrough) {
-                super.setContentLength(len);
+                contentLengthPublished = true;
                 return;
             }
             if (usingWriter) {
@@ -516,13 +522,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         @Override
         public void setContentLengthLong(long len) {
-            if (usingOutputStream) {
-                // Output-stream passthrough: the real response owns the content, so pass through
+            if (usingOutputStream || writerPassthrough) {
+                // Passthrough: the real response owns the content, so pass the length through
                 super.setContentLengthLong(len);
-                return;
-            }
-            if (writerPassthrough) {
-                super.setContentLengthLong(len);
+                contentLengthPublished = true;
                 return;
             }
             if (usingWriter) {
@@ -738,10 +741,12 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             if (deferredContentLength != null) {
                 super.setContentLength(deferredContentLength);
                 deferredContentLength = null;
+                contentLengthPublished = true;
             }
             if (deferredContentLengthLong != null) {
                 super.setContentLengthLong(deferredContentLengthLong);
                 deferredContentLengthLong = null;
+                contentLengthPublished = true;
             }
         }
 
@@ -749,7 +754,8 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             if (value == null) {
                 deferredContentLength = null;
                 deferredContentLengthLong = null;
-                super.setHeader("Content-Length", null);
+                contentLengthPublished = false;
+                super.setHeader(CONTENT_LENGTH, null);
                 return;
             }
             try {
@@ -763,7 +769,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
         @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
         private boolean isContentLengthHeader(String name) {
-            return "Content-Length".equalsIgnoreCase(name);
+            return CONTENT_LENGTH.equalsIgnoreCase(name);
         }
 
         /**
