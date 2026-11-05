@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
@@ -64,7 +65,7 @@ class BillingDigSearchJspRegressionTest {
                 "onclick=\"CodeAttach('<%=" + ENCODE + "forJavaScriptAttribute(Dcode2)%>|<%="
                         + ENCODE + "forJavaScriptAttribute(DcodeDesc2)%>'); return false;\">");
         assertThat(Pattern.compile("<button\\b[\\s\\S]*?</button>").matcher(jsp)
-                .results().map(match -> match.group()).toList())
+                .results().map(MatchResult::group).toList())
                 .hasSize(3)
                 .allSatisfy(button -> assertThat(button)
                         .containsPattern("<button\\s+type=\"button\"")
