@@ -25,11 +25,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.text.MessageFormat;
 import java.time.LocalDate;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -114,6 +120,108 @@ class PortalEmailFooterAuditUnitTest {
         assertThat(saved.statusAt()).isBefore(saved.preparedAt());
         assertThat(saved.status()).isEqualTo("accepted");
         assertThat(saved.footerText()).isEqualTo(TEXT);
+    }
+    /** A sign-in code or password reset the Portal prepared without the footer (portal #27, D138). */
+    private ObjectNode skipped(String kind, String reason) {
+        var p = page();
+        var a = attempt(p);
+        a.put("kind", kind);
+        a.put("status", "accepted");
+        a.put("status_at", "2026-10-09T01:00:01.123456Z");
+        a.putNull("revision");
+        a.putNull("footer_text");
+        a.putNull("logo_sha256");
+        a.put("footer_skipped", reason);
+        return p;
+    }
+    @Test void shouldKeepSkippedAttempt_withItsReasonAndNoFooter() {
+        for (String kind : List.of("mfa", "password_reset")) {
+            for (String reason : List.of("config", "transport", "http_status", "response", "unknown_key",
+                    "signature", "claims", "freshness", "content")) {
+                var saved = parse(skipped(kind, reason)).attempts().get(0);
+                assertThat(saved.footerSkipped()).isEqualTo(reason);
+                assertThat(saved.revision()).isNull();
+                assertThat(saved.footerText()).isNull();
+                assertThat(saved.logoSha256()).isNull();
+                assertThat(saved.status()).isEqualTo("accepted");
+            }
+        }
+        // An ordinary attempt never carries a reason.
+        assertThat(parse(page()).attempts().get(0).footerSkipped()).isNull();
+    }
+    @Test void shouldKeepSkippedAttempt_whilePreparedWithoutOutcome() {
+        // The Portal records a skipped send as prepared before SMTP answers, and it stays so if
+        // the outcome can't be written: it must still be listed, with its reason.
+        var p = skipped("password_reset", "transport");
+        attempt(p).put("status", "prepared");
+        attempt(p).putNull("status_at");
+        var saved = parse(p).attempts().get(0);
+        assertThat(saved.status()).isEqualTo("prepared");
+        assertThat(saved.statusAt()).isNull();
+        assertThat(saved.footerSkipped()).isEqualTo("transport");
+        assertThat(saved.footerText()).isNull();
+    }
+    @Test void shouldKeepSkippedAttempt_whenItFailedOrItsOutcomeIsUnknown() {
+        // A skipped attempt is recorded before SMTP answers, so it can end like any other.
+        for (String status : List.of("failed", "unknown")) {
+            var p = skipped("mfa", "http_status");
+            attempt(p).put("status", status);
+            var saved = parse(p).attempts().get(0);
+            assertThat(saved.status()).isEqualTo(status);
+            assertThat(saved.footerSkipped()).isEqualTo("http_status");
+            assertThat(saved.footerText()).isNull();
+        }
+    }
+    @Test void shouldNotClaimAnOutcome_inTheSkippedSentence() throws Exception {
+        // The sentence is shown under every status: prepared, accepted, failed and unknown. The
+        // summary line above it says how the attempt ended, so the sentence must not.
+        Map<String, List<String>> outcomeWords = Map.of(
+                "en", List.of("sent", "delivered", "accepted", "failed"),
+                "fr", List.of("envoy", "livr", "accept", "chou", "\u00e9chec"),
+                "es", List.of("enviad", "envi\u00f3", "entregad", "aceptad", "fall"),
+                "pl", List.of("wys\u0142an", "dostarczon", "zaakceptowan", "przyj\u0119t", "nieudan", "niepowodz"),
+                "pt_BR", List.of("enviad", "entregue", "aceit", "falh"));
+        for (var locale : outcomeWords.entrySet()) {
+            Properties bundle = new Properties();
+            try (Reader reader = Files.newBufferedReader(Path.of(
+                    "src/main/resources/oscarResources_" + locale.getKey() + ".properties"), StandardCharsets.ISO_8859_1)) {
+                bundle.load(reader);
+            }
+            String sentence = bundle.getProperty("admin.configureEmail.portalFooter.skipped").toLowerCase(Locale.ROOT);
+            for (String word : locale.getValue())
+                assertThat(sentence).as(locale.getKey()).doesNotContain(word);
+        }
+    }
+    @Test void shouldLabelEverySkipReason_inEveryLocale() throws Exception {
+        // The footer history shows a label, never the raw reason; a reason without one would
+        // show the bundle's missing-key marker instead.
+        for (String locale : List.of("en", "fr", "es", "pl", "pt_BR")) {
+            Properties bundle = new Properties();
+            try (Reader reader = Files.newBufferedReader(
+                    Path.of("src/main/resources/oscarResources_" + locale + ".properties"), StandardCharsets.ISO_8859_1)) {
+                bundle.load(reader);
+            }
+            String sentence = bundle.getProperty("admin.configureEmail.portalFooter.skipped");
+            assertThat(sentence).as(locale).contains("{0}").doesNotContain("'");
+            for (String reason : PortalEmailFooterAuditPage.SKIP_REASONS) {
+                String label = bundle.getProperty("admin.configureEmail.portalFooter.skippedReason." + reason);
+                assertThat(label).as(locale + " " + reason).isNotBlank().isNotEqualTo(reason).doesNotContain("'", "{", "<");
+                assertThat(new MessageFormat(sentence, Locale.ROOT).format(new Object[] {label})).contains(label);
+            }
+        }
+    }
+    @Test void shouldRefuseSkippedAttempt_outsideItsContract() {
+        List<Consumer<ObjectNode>> invalid = List.of(
+                a->a.put("revision","a".repeat(64)), a->a.put("footer_text",TEXT), a->a.put("logo_sha256","b".repeat(64)),
+                a->a.put("footer_skipped","outage"), a->a.put("footer_skipped",""), a->a.putNull("footer_skipped"),
+                a->a.put("footer_skipped",1), a->a.put("kind","contact_change"), a->a.put("kind","booking_prompt"),
+                a->a.remove("logo_sha256"), a->a.put("recipient","fake@example.test"),
+                a->{ a.put("status","prepared"); });
+        for (Consumer<ObjectNode> mutation : invalid) {
+            var p = skipped("mfa", "freshness");
+            mutation.accept(attempt(p));
+            assertThatThrownBy(()->parse(p)).isInstanceOf(PortalContractException.class);
+        }
     }
     @Test void shouldRefuseInvalidSavedAttemptContract() {
         List<Consumer<ObjectNode>> invalid = List.of(
