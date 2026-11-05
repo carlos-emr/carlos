@@ -59,11 +59,12 @@ opened while the status is still successful is also pass-through; if it later
 fails, the sanitizer can replace only bytes that remain uncommitted (the `/ws`
 buffer is enlarged for that reason). A writer decides once, when it crosses the
 limit: if the status is still successful then, its output passes through and is
-not re-checked. A later error status replaces nothing, even where a buffer raised
-above the limit (the `/ws` buffer property) left those bytes uncommitted. At the
-default sizes, crossing the limit fills the buffer and commits the response
-first. Already-committed bytes cannot be retracted. This is the existing
-bounded-capture guarantee, not whole-response buffering.
+not re-checked. For a writer, a later error status replaces nothing, even where a
+buffer raised above the limit (the `/ws` buffer property) left those bytes
+uncommitted. At the default sizes, crossing the limit fills the buffer and
+commits the writer's response first. Already-committed bytes cannot be
+retracted. This is the existing bounded-capture guarantee, not whole-response
+buffering.
 
 ## Proven corrections
 
