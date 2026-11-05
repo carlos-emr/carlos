@@ -79,7 +79,7 @@ public final class FormListPageCalculator {
         try {
             int parsed = Integer.parseInt(value.trim());
             return parsed >= minimum ? parsed : fallback;
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return fallback;
         }
     }

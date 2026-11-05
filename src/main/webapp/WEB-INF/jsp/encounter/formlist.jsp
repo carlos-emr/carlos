@@ -220,9 +220,9 @@
 
                     <carlos:encode value='<%= frm.getFormName() + (yellow ? " (current)" : "") %>' context="html"/>
                 </a></td>
-                <td align='center'><carlos:encode value='<%= created %>' context="html"/>
+                <td style='text-align: center'><carlos:encode value='<%= created %>' context="html"/>
                 </td>
-                <td align='center'><carlos:encode value='<%= edited %>' context="html"/>
+                <td style='text-align: center'><carlos:encode value='<%= edited %>' context="html"/>
                 </td>
             </tr>
             <%
@@ -233,7 +233,7 @@
                 if (formListPage.hasPrevious() || formListPage.hasNext()) {
             %>
             <tr>
-                <td colspan=3 align='center'>
+                <td colspan=3 style='text-align: center'>
                     <% if (formListPage.hasPrevious()) { %>
                     <a href="<carlos:encode value='<%= formListPreviousUrl %>' context="htmlAttribute"/>"><fmt:message key="encounter.formlist.formLastpage"/></a>
                     <% } %>
