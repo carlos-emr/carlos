@@ -46,6 +46,7 @@ function removeFromRemoteQueue(remoteReferralId) {
 	</table>
 </div>
 <!--  show current clients -->
+<c:if test="${not empty queue}">
 <table class="simple" cellspacing="2" cellpadding="3" id="queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -74,6 +75,7 @@ function removeFromRemoteQueue(remoteReferralId) {
     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.notes))}" data-sort-type="${carlos:tableSortType(queue_entry.notes)}">${carlos:forHtml(queue_entry.notes)}</td>
 </tr></c:forEach></tbody>
 </table>
+</c:if>
 <c:if test="${empty queue}"><p class="table-empty">Queue is empty.</p></c:if>
 
 <c:if test="${remoteQueue!=null}">
@@ -89,6 +91,7 @@ function removeFromRemoteQueue(remoteReferralId) {
 		</table>
 	</div>
 	<!--  show current clients -->
+    <c:if test="${not empty remoteQueue}">
     <table class="simple" cellspacing="2" cellpadding="3" id="remote_queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -111,5 +114,6 @@ function removeFromRemoteQueue(remoteReferralId) {
         <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.remoteReferral.reasonForReferral))}" data-sort-type="${carlos:tableSortType(queue_entry.remoteReferral.reasonForReferral)}">${carlos:forHtml(queue_entry.remoteReferral.reasonForReferral)}</td>
     </tr></c:forEach></tbody>
 </table>
+    </c:if>
 <c:if test="${empty remoteQueue}"><p class="table-empty">Queue is empty.</p></c:if>
 </c:if>

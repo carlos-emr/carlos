@@ -175,7 +175,8 @@ async function checkDiseaseRegistry(admin) {
     `<c:if test="\${radiostatus == ...}"> checked ${JSON.stringify(checked)}; the search form says ${status}`);
   // The JSTL code table is always rendered, with its empty-list message below it when no code has
   // been added, and the results table follows it: the page reached the end of both <c:forEach> loops.
-  assert(await frame.locator('table#codeSearch').count() === 1, 'the registry did not render its code table (table#codeSearch)');
+  // The JSTL code table renders only with rows; with none, its empty-list message stands alone.
+  // The DataTables results table is always rendered and shows its own empty row.
   assert(await frame.locator('table#listview').count() === 1, 'the registry did not render its results table (table#listview)');
   const codeRows = await frame.locator('table#codeSearch tbody tr').count();
   const text = await frame.locator('body').innerText();
@@ -189,18 +190,18 @@ async function checkFacilityManager(context, recorder, config, contextPath) {
   const { page, response } = await openPage(context, recorder, config, label, '/FacilityManager');
   await assertRendered(page, response, label);
   const table = page.locator('table#facility');
-  assert(await table.count() === 1, 'the facility page rendered no facility table (table#facility)');
+  // The JSTL table renders only with rows; with none, the empty-list message
+  // (${noFacilitiesMessage}) stands in its place as <p class="table-empty">.
+  const emptyMessage = (await page.locator('p.table-empty').allInnerTexts()).join(' ').trim();
+  assert(await table.count() === 1 || emptyMessage, 'the facility page rendered neither its table (table#facility) nor an empty-list message');
   const headers = await table.locator('thead th').evaluateAll(ths => ths.map(th => th.innerText.trim()));
-  assert(headers.length >= 2 && headers[0] && headers[1],
+  assert(headers.length === 0 || (headers.length >= 2 && headers[0] && headers[1]),
     `column headers from <fmt:message> keys are blank: ${JSON.stringify(headers)}`);
   const rows = await table.locator('tbody tr').evaluateAll(trs => trs.map(tr => ({
     cells: tr.cells.length,
     text: tr.innerText.trim(),
     edit: (tr.querySelector('a[href*="method=edit"]') || {}).getAttribute?.('href') || '',
   })));
-  // The JSTL table renders its rows; with none, the empty-list message (${noFacilitiesMessage})
-  // follows the table as <p class="table-empty">.
-  const emptyMessage = (await page.locator('p.table-empty').allInnerTexts()).join(' ').trim();
   assert(rows.length > 0 || emptyMessage, 'The facility table has no row and no empty-list message');
   if (rows.length === 0) {
     console.log(`  ${label}: no facility; empty-list message "${emptyMessage}"`);

@@ -131,6 +131,7 @@ String reason ="";
 	HashSet<Long> ageConflict=(HashSet<Long>)request.getAttribute("ageConflict");
 %>
 <!--  show current clients -->
+<c:if test="${not empty queue}">
 <table class="simple" cellspacing="2" cellpadding="3" id="queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -226,6 +227,7 @@ String reason ="";
     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.headRecord))}" data-sort-type="${carlos:tableSortType(queue_entry.headRecord)}">${carlos:forHtml(queue_entry.headRecord)}</td>
 </tr></c:forEach></tbody>
 </table>
+</c:if>
 <c:if test="${empty queue}"><p class="table-empty">Queue is empty.</p></c:if>
 <br />
 <br />
@@ -318,6 +320,7 @@ String reason ="";
 	</table>
 	</div>
 	<!--  show current clients -->
+    <c:if test="${not empty remoteQueue}">
     <table class="simple" cellspacing="2" cellpadding="3" id="remote_queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -346,5 +349,6 @@ String reason ="";
         <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.referral.presentingProblem))}" data-sort-type="${carlos:tableSortType(queue_entry.referral.presentingProblem)}">${carlos:forHtml(queue_entry.referral.presentingProblem)}</td>
     </tr></c:forEach></tbody>
 </table>
+    </c:if>
 <c:if test="${empty remoteQueue}"><p class="table-empty">Queue is empty.</p></c:if>
 </c:if>

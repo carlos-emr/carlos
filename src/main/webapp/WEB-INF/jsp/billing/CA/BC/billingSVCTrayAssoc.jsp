@@ -109,7 +109,8 @@
                    onclick="setMode('edit');"/> <input type="reset" value="Clear"/></fieldset>
     </form>
     <%-- Paging is local; rejected save fields are never repeated into navigation URLs. --%>
-    <p/><table class="displayGrid" data-carlos-table data-page-size="50" data-default-sort="1" data-default-order="descending">
+    <p/><c:if test="${not empty list}">
+<table class="displayGrid" data-carlos-table data-page-size="50" data-default-sort="1" data-default-order="descending">
 <thead><tr>
         <th scope="col">Procedure Fee Code</th>
         <th scope="col">Tray Fee Code</th>
@@ -121,6 +122,7 @@
         <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.associationStatus))}" data-sort-type="${carlos:tableSortType(tableRow.associationStatus)}"><a href="#" onclick="editAssociation('${carlos:forJavaScriptAttribute(tableRow.billingServiceNo)}','${carlos:forJavaScriptAttribute(tableRow.billingServiceTrayNo)}'); return false;">Edit</a><br><a href="#" onclick="deleteAssociation('${carlos:forJavaScriptAttribute(tableRow.id)}'); return false;">Delete</a></td>
     </tr></c:forEach></tbody>
 </table>
+</c:if>
 <c:if test="${empty list}"><p class="table-empty">Nothing found to display.</p></c:if>
     </body>
 </html>

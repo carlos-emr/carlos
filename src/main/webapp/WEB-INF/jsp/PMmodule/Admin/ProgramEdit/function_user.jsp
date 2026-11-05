@@ -74,6 +74,7 @@
 </div>
 <input type="hidden" name="function.id" id="function.id" value="${carlos:forHtmlAttribute(function.id)}"/>
 <input type="hidden" name="function.providerNo" id="function.providerNo" value="${carlos:forHtmlAttribute(function.providerNo)}"/>
+<c:if test="${not empty functional_users}">
 <table class="simple" cellspacing="2" cellpadding="3" id="functional" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -93,6 +94,7 @@
     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(functional.provider.formattedName))}" data-sort-type="${carlos:tableSortType(functional.provider.formattedName)}">${carlos:forHtml(functional.provider.formattedName)}</td>
 </tr></c:forEach></tbody>
 </table>
+</c:if>
 <c:if test="${empty functional_users}"><p class="table-empty">No functional users defined for this program</p></c:if>
 <br/>
 <br/>

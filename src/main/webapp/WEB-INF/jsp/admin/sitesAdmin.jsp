@@ -86,6 +86,7 @@
                     <input type="submit" style="border:1px solid #666666;" value="<fmt:message key='admin.sitesAdmin.btnAddNewSite'/>" />
                 </form>
 
+                <c:if test="${not empty sites}">
                 <table class="its" style="border:1px solid #666666; width:99%;margin-top:2px;" id="site" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
                     <th scope="col"><fmt:message key='admin.sitesAdmin.col.active'/></th>
@@ -127,6 +128,7 @@
                     <% } %>
                 </tr></c:forEach></tbody>
 </table>
+                </c:if>
 <c:if test="${empty sites}"><p class="table-empty"><fmt:message key="admin.sitesAdmin.empty"/></p></c:if>
 
 

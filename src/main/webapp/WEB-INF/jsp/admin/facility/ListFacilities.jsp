@@ -71,6 +71,7 @@
     <body>
     <h1><fmt:message key="admin.facility.list.heading"/></h1>
     <form action="${pageContext.request.contextPath}/FacilityManager" method="post">
+        <c:if test="${not empty facilities}">
         <table class="simple" cellspacing="2" cellpadding="3" id="facility" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -114,6 +115,7 @@
             -->
         </tr></c:forEach></tbody>
 </table>
+        </c:if>
 <c:if test="${empty facilities}"><p class="table-empty">${carlos:forHtml(noFacilitiesMessage)}</p></c:if>
     </form>
     <!--

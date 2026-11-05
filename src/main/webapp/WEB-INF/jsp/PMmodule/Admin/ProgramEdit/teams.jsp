@@ -58,6 +58,7 @@ function add_team(form) {
 </table>
 </div>
 <!--  show current staff -->
+<c:if test="${not empty teams}">
 <table class="simple" cellspacing="2" cellpadding="3" id="team" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -90,6 +91,7 @@ function add_team(form) {
     </td>
 </tr></c:forEach></tbody>
 </table>
+</c:if>
 <c:if test="${empty teams}"><p class="table-empty">No teams are currently defined for this program.</p></c:if>
 <br />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">

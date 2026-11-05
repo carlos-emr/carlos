@@ -89,6 +89,7 @@
                     arrow = "&darr;";
                 }
         %> <% request.setAttribute("test", list); %>
+        <c:if test="${not empty test}">
         <table class="table table-hover table-striped" data-carlos-table data-page-size="0" data-default-sort="1" data-default-order="descending">
 <thead><tr>
             <th scope="col" class="sortable"><span data-table-sort>Service Code</span></th>
@@ -103,6 +104,7 @@
             <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingserviceNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingserviceNo)}"><a href="ViewBillingEditCode?codeId=${carlos:forUriComponent(tableRow.billingserviceNo)}&amp;code=${carlos:forUriComponent(tableRow.serviceCode)}&amp;desc=${carlos:forUriComponent(tableRow.description)}&amp;value=${carlos:forUriComponent(tableRow.value)}&amp;whereTo=private">Edit</a><br><a href="#" onclick="deletePrivateCode('${carlos:forJavaScriptAttribute(tableRow.billingserviceNo)}'); return false;">Delete</a></td>
         </tr></c:forEach></tbody>
 </table>
+        </c:if>
 <c:if test="${empty test}"><p class="table-empty">Nothing found to display.</p></c:if>
         <%}%>
     </div>

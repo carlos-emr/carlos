@@ -86,6 +86,7 @@
     </table>
 </div>
 <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+<c:if test="${not empty associatedPrograms}">
 <table class="simple" cellspacing="2" cellpadding="3" id="program" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -107,6 +108,7 @@
     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.queueSize))}" data-sort-type="${carlos:tableSortType(program.queueSize)}">${carlos:forHtml(program.queueSize)}</td>
 </tr></c:forEach></tbody>
 </table>
+</c:if>
 <c:if test="${empty associatedPrograms}"><p class="table-empty">No programs.</p></c:if>
 
 <br/>

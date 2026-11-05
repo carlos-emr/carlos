@@ -45,6 +45,7 @@
 </head>
     <body>
 
+    <c:if test="${not empty programSignatures}">
     <table cellspacing="2" cellpadding="9" id="ps" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -59,6 +60,7 @@
         <td style="white-space: nowrap;" data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(ps.updateDate))}" data-sort-type="${carlos:tableSortType(ps.updateDate)}">${carlos:forHtml(ps.updateDate)}</td>
     </tr></c:forEach></tbody>
 </table>
+    </c:if>
 <c:if test="${empty programSignatures}"><p class="table-empty">Nothing found to display.</p></c:if>
 
     </body>

@@ -211,6 +211,7 @@
         <form action="<%=formAction%>" method="post" class="d-flex flex-wrap align-items-center gap-2" accept-charset="UTF-8">
 
             <div class="row">
+                <c:if test="${not empty codeSearch}">
                 <table class="table table-sm table-striped" id="codeSearch" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
                     <th scope="col"><span data-table-sort>Code System</span></th>
@@ -223,6 +224,7 @@
                     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(codeSearch.description))}" data-sort-type="${carlos:tableSortType(codeSearch.description)}">${carlos:forHtml(codeSearch.description)}</td>
                 </tr></c:forEach></tbody>
 </table>
+                </c:if>
 <c:if test="${empty codeSearch}"><p class="table-empty">Nothing found to display.</p></c:if>
             </div>
             <div class="row">
@@ -333,7 +335,6 @@
                     <td>${carlos:forHtml(listview.strStatus)}</td>
                 </tr></c:forEach></tbody>
 </table>
-<c:if test="${empty listview}"><p class="table-empty">Nothing found to display.</p></c:if>
             </div>
 
 

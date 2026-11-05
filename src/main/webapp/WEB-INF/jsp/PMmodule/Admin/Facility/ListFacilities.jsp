@@ -48,6 +48,7 @@
 </div>
 <form action="${pageContext.request.contextPath}/PMmodule/FacilityManager" method="post">
     <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+<c:if test="${not empty facilities}">
 <table class="simple" cellspacing="2" cellpadding="3" id="facility" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -100,6 +101,7 @@
         <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.hic))}" data-sort-type="${carlos:tableSortType(facility.hic)}">${carlos:forHtml(facility.hic)}</td>
     </tr></c:forEach></tbody>
 </table>
+</c:if>
 <c:if test="${empty facilities}"><p class="table-empty">No facilities found.</p></c:if>
 </form>
 <div>

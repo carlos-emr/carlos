@@ -26,13 +26,17 @@ does not supply it; the existing WAR packaging check also requires the API and i
   bundled Chart.js and draw script (`library/chartjs/carlos-chart-draw.js`) are read from the WAR
   once. The measurement graph action answers HTTP 503 with no image when the renderer is
   unavailable, like the scatter servlet. A medication-only chart (ChartMeds) is drawn as a single
-  medication panel; long product names are shortened on its axis as before; a series observed
-  within two days labels its date axis with times. The devcontainer installs and starts the
+  medication panel with each drug in its own colour and legend entry and the first drug at the
+  bottom, as the former symbol axis had it; long product names are shortened on its axis as
+  before; an interval that starts and ends the same day keeps a one-day extent. Date axes keep a
+  margin on both sides and tick on calendar boundaries in the chart's zone (hours, days, weeks,
+  months or years by span), labelled by that unit. The devcontainer installs and starts the
   matching chromedriver (`server start`), so graphs and eForm PDFs render there without setup.
 * Former displaytag tables use encoded JSTL rows (`${carlos:forHtml(...)}`), with the shared
   assets included once per rendered page (`CarlosTableAssetsJspRegressionTest`). Pages whose
   backing attribute was a lone placeholder bean under displaytag (the Disease Registry results)
-  now seed an empty list, since `<c:forEach>` iterates collections only. Sorting and paging run locally, with typed
+  now seed an empty list, since `<c:forEach>` iterates collections only. An empty list renders
+  only its message, not a header row (`JstlTableEmptyStateJspRegressionTest`), as displaytag did. Sorting and paging run locally, with typed
   numeric/date keys and case/accent-insensitive text collation, numbered pages and keyboard
   controls. Without JavaScript all rows remain readable; sort controls are added only when the enhancement script runs. Sorting no longer navigates or repeats
   search parameters, CSRF tokens or rejected form values into URLs. Existing row actions remain

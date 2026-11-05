@@ -191,6 +191,7 @@
                 <%
                 } else {
                 %>
+                <c:if test="${not empty referrals}">
                 <table class="its" style="border:1px solid #666666; width:99%;margin-top:2px;" id="referral" data-carlos-table data-page-size="15" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -231,6 +232,7 @@
                     <td><c:url var="tableColumnUrl" value="/printReferralLabelAction"><c:param name="billingreferralNo" value="${referral.id}"/></c:url><a href="${carlos:forHtmlAttribute(tableColumnUrl)}"><fmt:message key="admin.billingreferralAdmin.label.link"/></a></td>
                 </tr></c:forEach></tbody>
 </table>
+                </c:if>
 <c:if test="${empty referrals}"><p class="table-empty"><fmt:message key="admin.billingreferralAdmin.msgNoResults"/></p></c:if>
             </td>
         </tr>

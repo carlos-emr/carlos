@@ -31,6 +31,7 @@
 	</tr>
 </table>
 </div>
+<c:if test="${not empty service_restrictions}">
 <table class="simple" cellspacing="2" cellpadding="3" id="restriction" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -53,4 +54,5 @@
     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.endDate))}" data-sort-type="${carlos:tableSortType(restriction.endDate)}">${carlos:forHtml(restriction.endDate)}</td>
 </tr></c:forEach></tbody>
 </table>
+</c:if>
 <c:if test="${empty service_restrictions}"><p class="table-empty">No service restrictions currently in place for this program.</p></c:if>

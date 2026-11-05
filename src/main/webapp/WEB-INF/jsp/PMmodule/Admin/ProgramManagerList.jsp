@@ -104,6 +104,7 @@
 </form>
 
 <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+<c:if test="${not empty programs}">
 <table class="simple" cellspacing="2" cellpadding="3" id="program" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -153,6 +154,7 @@
     </td>
 </tr></c:forEach></tbody>
 </table>
+</c:if>
 <c:if test="${empty programs}"><p class="table-empty">No programs found.</p></c:if>
 
 <div>

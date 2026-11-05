@@ -115,4 +115,13 @@ class OscarReportDxRegJspRegressionTest {
         assertThat(page).doesNotContain("not empty listview.strCode");
         assertThat(page).contains("test=\"${not empty listview}\"");
     }
+
+    /** The results table is a DataTable, which shows its own empty row; a second JSTL message under it is noise. */
+    @Test
+    @DisplayName("should leave the DataTables results table its own empty state")
+    void shouldNotDuplicateEmptyState_underResultsTable() throws IOException {
+        String page = Files.readString(REPORT_JSP, StandardCharsets.UTF_8);
+
+        assertThat(page).doesNotContain("test=\"${empty listview}\"");
+    }
 }
