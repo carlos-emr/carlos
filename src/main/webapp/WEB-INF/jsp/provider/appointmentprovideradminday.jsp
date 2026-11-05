@@ -402,7 +402,7 @@
         java.util.ResourceBundle prop = ResourceBundle.getBundle("oscarResources", request.getLocale());
         formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), prop.getString("date.EEEyyyyMMdd"), request.getLocale());
     } catch (Exception e) {
-        MiscUtils.getLogger().error("appointmentprovideradminday: missing 'date.EEEyyyyMMdd' bundle key for locale {}; falling back to default format",
+        MiscUtils.getLogger().error("appointmentprovideradminday: missing or invalid 'date.EEEyyyyMMdd' date pattern for locale {}; falling back to default format",
                 request.getLocale(), e);
         // The fallback parse can itself throw ParseException (same parser, same input).
         // Use the literal strDate as a final fallback so the page still renders
@@ -1632,7 +1632,7 @@
                                     try {
                                         formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), wdProp.getString("date.EEEyyyyMMdd"), request.getLocale());
                                     } catch (Exception e) {
-                                        MiscUtils.getLogger().error("appointmentprovideradminday weekday loop: missing 'date.EEEyyyyMMdd' bundle key for locale {}; falling back to default format",
+                                        MiscUtils.getLogger().error("appointmentprovideradminday weekday loop: missing or invalid 'date.EEEyyyyMMdd' date pattern for locale {}; falling back to default format",
                                                 request.getLocale(), e);
                                         try {
                                             formatDate = UtilDateUtilities.DateToString(inform.parse(strDate), "EEE, yyyy-MM-dd");

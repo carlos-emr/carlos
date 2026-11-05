@@ -29,11 +29,15 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.ResourceBundle;
+import java.util.TimeZone;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -90,6 +94,63 @@ class OscarResourcesBundleParseTest {
             "mfa.registration.instruct.2",
             "mfa.registration.qr.alt"
     };
+
+    /**
+     * Discovers shipped bundles and validates every effective date pattern, reporting
+     * the bundle, key and value when a translated pattern cannot compile.
+     */
+    @Test
+    @DisplayName("should compile every date pattern in every shipped bundle")
+    void shouldCompileDatePatterns_inEveryBundle() throws Exception {
+        try (var files = Files.newDirectoryStream(RESOURCE_DIR, "oscarResources*.properties")) {
+            for (Path file : files) {
+                Properties bundle = new Properties();
+                try (var reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+                    bundle.load(reader);
+                }
+                for (String key : bundle.stringPropertyNames()) {
+                    if (key.startsWith("date.")) {
+                        String pattern = bundle.getProperty(key);
+                        assertThat(pattern).as("%s: %s", file, key).isNotBlank();
+                        assertThatCode(() -> new SimpleDateFormat(pattern, Locale.ROOT))
+                                .as("%s: %s=%s", file, key, pattern).doesNotThrowAnyException();
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Verifies localized calendar and time fields in UTC near a year boundary, where
+     * valid but incorrect pattern letters can silently render the wrong values.
+     */
+    @Test
+    @DisplayName("should preserve calendar fields in localized date patterns")
+    void shouldFormatCalendarFields_inEveryLocale() throws Exception {
+        // Late December catches day-of-year and week-year substitutions; minutes differ from months.
+        Date date = Date.from(Instant.parse("2025-12-29T17:43:56Z"));
+        for (String localeName : LOCALES) {
+            Locale locale = Locale.forLanguageTag(localeName.replace('_', '-'));
+            Properties bundle = loadBundle(localeName);
+            String day = localeName.equals("pt_BR") ? "29-12-2025" : "2025-12-29";
+            for (String key : new String[]{"date.yyyy-MM-dd", "date.EEEyyyyMMdd",
+                    "date.yyyyMMddHHmm", "date.yyyyMMddHHmmss"}) {
+                SimpleDateFormat formatter =
+                        new SimpleDateFormat(bundle.getProperty(key), locale);
+                formatter.setTimeZone(TimeZone.getTimeZone("UTC"));
+                SimpleDateFormat weekday = new SimpleDateFormat("EEE", locale);
+                weekday.setTimeZone(TimeZone.getTimeZone("UTC"));
+                String expected = key.equals("date.EEEyyyyMMdd") ? weekday.format(date) + ", " + day : day;
+                if (key.equals("date.yyyyMMddHHmm")) {
+                    expected += " 17:43";
+                }
+                if (key.equals("date.yyyyMMddHHmmss")) {
+                    expected += " 17:43:56";
+                }
+                assertThat(formatter.format(date)).as("%s: %s", localeName, key).isEqualTo(expected);
+            }
+        }
+    }
 
     @Test
     @DisplayName("should parse every oscarResources locale file without IllegalArgumentException")
