@@ -234,8 +234,9 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
         int moduleLoc = -1;
         // Every query shape below selects the document's own description (document.docdesc) at
         // descriptionLoc. The Inbox Hub list, the legacy Inbox page and the REST inbox all show it
-        // as a document row's description; six shapes once read document.doctype here, so a
-        // patient or name search showed the type ("others") instead of the saved description.
+        // as a document row's description. Six shapes once read document.doctype here (every
+        // mixed labs-and-documents shape, and the separate shapes for one patient or a name
+        // search), so those views showed the type ("others") instead of the saved description.
         int descriptionLoc = -1;
         int updateDateLoc = -1;
         try {
