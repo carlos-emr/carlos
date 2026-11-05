@@ -88,7 +88,13 @@ frame the completed response. On an accepted `resetBuffer()` every decorator
 drops a pending length and removes one it published: both described the
 discarded body, and a forward always replaces the body. A rejected reset leaves
 all state unchanged; `reset()` clears everything. This is stricter than the bare
-container, which keeps the header. A writer
+container, which keeps the header. These rules live in one place,
+`RequestNegotiation`'s sibling `DeferredContentLength`: each decorator owns one
+instance and hands it only its two delegate calls (publish a length, remove the
+header), so the pending/published transitions, the `resetBuffer()`/`reset()`
+behaviour and the handling of a `null` or malformed header value are identical
+in the CSRF, logout and privacy wrappers. A malformed string value is ignored
+with a warning in all three; it never reaches the container. A writer
 initially captured before its Content-Type
 was known still uses the existing CSRF writer replay contract: the container may
 choose chunked framing instead of a supplied length. Exact byte integrity remains

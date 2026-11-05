@@ -33,6 +33,7 @@ import java.io.PrintWriter;
 import java.io.Writer;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import jakarta.servlet.Filter;
@@ -47,7 +48,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.DeferredContentLength;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -309,14 +314,16 @@ public class PrivacyStatementAppendingFilter implements Filter {
      */
     private static class DelegatingServletResponse extends HttpServletResponseWrapper {
 
-        private static final String CONTENT_LENGTH = "Content-Length";
+        private static final Logger logger = LoggerFactory.getLogger(DelegatingServletResponse.class);
 
         private boolean responseWriterObtained;
         private boolean responseOutputStreamObtained;
 
         private DelegatingWriter writer;
-        private Long deferredContentLength;
-        private Long publishedContentLength;
+        /** The shared defer/publish/retract rules; the two lambdas are its only delegate calls. */
+        private final DeferredContentLength contentLength = new DeferredContentLength(
+                length -> super.setContentLengthLong(length),
+                () -> super.setHeader(DeferredContentLength.HEADER, null));
 
         public DelegatingServletResponse(HttpServletResponse response) {
             super(response);
@@ -335,7 +342,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
             // Publish before acquiring the delegate: an outer wrapper may itself defer the
             // length and replay it only when its output stream is first acquired.
             if (isKnownNonHtml()) {
-                applyDeferredContentLength();
+                contentLength.publishPending();
             }
             ServletOutputStream stream = super.getOutputStream();
             responseOutputStreamObtained = true;
@@ -348,7 +355,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 writer = new DelegatingWriter(super.getWriter());
             responseWriterObtained = true;
             if (isKnownNonHtml()) {
-                applyDeferredContentLength();
+                contentLength.publishPending();
             }
             return writer;
         }
@@ -362,7 +369,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
         }
 
         public void completeWithoutStatement() {
-            applyDeferredContentLength();
+            contentLength.publishPending();
             if (writer != null) {
                 writer.flushDelegate();
             }
@@ -375,13 +382,13 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         @Override
         public void setContentLengthLong(long length) {
-            deferredContentLength = length;
+            contentLength.defer(length);
             updateContentLengthForType();
         }
 
         @Override
         public void setIntHeader(String name, int value) {
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
                 setContentLength(value);
             } else {
                 super.setIntHeader(name, value);
@@ -390,7 +397,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         @Override
         public void addIntHeader(String name, int value) {
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
                 setContentLength(value);
             } else {
                 super.addIntHeader(name, value);
@@ -399,17 +406,9 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         @Override
         public void setHeader(String name, String value) {
-            if (isContentLengthHeader(name) && value != null) {
-                try {
-                    setContentLengthLong(Long.parseLong(value));
-                    return;
-                } catch (NumberFormatException _) {
-                    // Preserve the container's handling of malformed header values.
-                }
-            }
-            if (isContentLengthHeader(name)) {
-                deferredContentLength = null;
-                publishedContentLength = null;
+            if (DeferredContentLength.isContentLengthHeader(name)) {
+                deferContentLengthHeader(value);
+                return;
             }
             super.setHeader(name, value);
             updateContentLengthForType();
@@ -417,14 +416,32 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
         @Override
         public void addHeader(String name, String value) {
-            if (isContentLengthHeader(name)) {
-                if (value == null) {
-                    return;
+            if (DeferredContentLength.isContentLengthHeader(name)) {
+                // Servlet 6.1: adding a null value is a no-op; setting one removes the header.
+                if (value != null) {
+                    deferContentLengthHeader(value);
                 }
-                setHeader(name, value);
+                return;
+            }
+            super.addHeader(name, value);
+            updateContentLengthForType();
+        }
+
+        /**
+         * Routes a string Content-Length through the shared rules. A malformed value is ignored
+         * with a warning, never handed to the container, so every CARLOS wrapper treats it alike.
+         */
+        private void deferContentLengthHeader(String value) {
+            if (value == null) {
+                contentLength.remove();
+                return;
+            }
+            OptionalLong parsed = DeferredContentLength.parse(value);
+            if (parsed.isPresent()) {
+                setContentLengthLong(parsed.getAsLong());
             } else {
-                super.addHeader(name, value);
-                updateContentLengthForType();
+                logger.warn("Ignoring malformed Content-Length header value before the privacy notice: {}",
+                        LogSafe.sanitize(value));
             }
         }
 
@@ -435,53 +452,31 @@ public class PrivacyStatementAppendingFilter implements Filter {
         }
 
         private void updateContentLengthForType() {
-            if (publishedContentLength != null && !isCommitted()
-                    && RequestNegotiation.isHtmlContentType(getContentType())) {
-                // A type change before writing makes the previously published length unsafe.
-                // Keep it deferred in case the response ultimately needs no decoration.
-                if (deferredContentLength == null) {
-                    deferredContentLength = publishedContentLength;
-                }
-                super.setHeader(CONTENT_LENGTH, null);
-                publishedContentLength = null;
+            if (!isCommitted() && RequestNegotiation.isHtmlContentType(getContentType())) {
+                // A type change before writing makes a previously published length unsafe.
+                // Keep it pending in case the response ultimately needs no decoration.
+                contentLength.retractToPending();
             }
             // Content-Type can arrive through any header API after channel selection.
             if ((responseOutputStreamObtained || responseWriterObtained) && isKnownNonHtml()) {
-                applyDeferredContentLength();
+                contentLength.publishPending();
             }
         }
 
+        /** The delegate resets first, so a rejected reset leaves the shared length state as it was. */
         @Override
         public void resetBuffer() {
             super.resetBuffer();
-            // Every CARLOS wrapper applies one rule to an accepted resetBuffer(): a length that
-            // predates the reset, pending or published, described the discarded body and is
-            // dropped. A forward always replaces the body, so a pre-forward length is stale by
-            // definition; replaying it would frame (and truncate) the replacement. This is
-            // stricter than the bare container, which keeps the header. A rejected reset (the
-            // delegate throws above) leaves this state as it was.
-            deferredContentLength = null;
-            if (publishedContentLength != null) {
-                super.setHeader(CONTENT_LENGTH, null);
-                publishedContentLength = null;
-            }
+            contentLength.onBufferReset();
         }
 
         @Override
         public void reset() {
             super.reset();
-            deferredContentLength = null;
-            publishedContentLength = null;
+            contentLength.onReset();
             writer = null;
             responseWriterObtained = false;
             responseOutputStreamObtained = false;
-        }
-
-        // HTTP field names are case insensitive (RFC 9110); this is response framing, not an identity check.
-        @SuppressFBWarnings(value = "IMPROPER_UNICODE",
-                justification = "HTTP header names require case-insensitive comparison; no authentication or authorization decision")
-        private static boolean isContentLengthHeader(String name) {
-            return CONTENT_LENGTH.equalsIgnoreCase(name);
         }
 
         private boolean isKnownNonHtml() {
@@ -489,16 +484,9 @@ public class PrivacyStatementAppendingFilter implements Filter {
             return type != null && !RequestNegotiation.isHtmlContentType(type);
         }
 
-        private void applyDeferredContentLength() {
-            if (deferredContentLength != null) {
-                super.setContentLengthLong(deferredContentLength);
-                publishedContentLength = deferredContentLength;
-                deferredContentLength = null;
-            }
-        }
-
+        /** The appended notice changes the body, so a declared length no longer applies. */
         private void discardDeferredContentLength() {
-            deferredContentLength = null;
+            contentLength.discardPending();
         }
 
         @Override

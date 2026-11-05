@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.app;
 
 import io.github.carlos_emr.carlos.web.eform.EformViewForPdfGenerationServlet;
 
+import io.github.carlos_emr.carlos.utility.DeferredContentLength;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import org.owasp.csrfguard.CsrfGuard;
@@ -412,18 +413,16 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
      */
     private static class CaptureResponseWrapper extends HttpServletResponseWrapper {
 
-        private static final String CONTENT_LENGTH = "Content-Length";
-
         private CharArrayWriter captureWriter;
         private PrintWriter writer;
         private boolean usingOutputStream;
         private boolean usingWriter;
         private boolean writerPassthrough;
         private boolean committed;
-        private Integer deferredContentLength;
-        private Long deferredContentLengthLong;
-        /** Whether this wrapper passed a Content-Length down for a passthrough channel. */
-        private boolean contentLengthPublished;
+        /** The shared defer/publish/retract rules; the two lambdas are its only delegate calls. */
+        private final DeferredContentLength contentLength = new DeferredContentLength(
+                length -> super.setContentLengthLong(length),
+                () -> super.setHeader(DeferredContentLength.HEADER, null));
         private final String requestUri;
 
         public CaptureResponseWrapper(HttpServletResponse response, String requestUri) {
@@ -481,12 +480,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             if (captureWriter != null) {
                 captureWriter.reset();
             }
-            deferredContentLength = null;
-            deferredContentLengthLong = null;
-            if (contentLengthPublished) {
-                super.setHeader(CONTENT_LENGTH, null);
-                contentLengthPublished = false;
-            }
+            contentLength.onBufferReset();
         }
 
         /** Reset channel/capture state only after the underlying response accepts the full reset. */
@@ -499,33 +493,19 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             usingWriter = false;
             writerPassthrough = false;
             committed = false;
-            deferredContentLength = null;
-            deferredContentLengthLong = null;
-            contentLengthPublished = false;
+            contentLength.onReset();
         }
 
         @Override
         public void setContentLength(int len) {
-            if (usingOutputStream || writerPassthrough) {
-                // Passthrough: the real response owns the content, so pass the length through
-                super.setContentLength(len);
-                contentLengthPublished = true;
-                return;
-            }
-            if (usingWriter) {
-                // Writer-capture path: suppress — final length is recomputed in writeToResponse()
-                return;
-            }
-            // Mode not yet determined — defer until getOutputStream() or getWriter() is called
-            deferredContentLength = len;
+            setContentLengthLong(len);
         }
 
         @Override
         public void setContentLengthLong(long len) {
             if (usingOutputStream || writerPassthrough) {
                 // Passthrough: the real response owns the content, so pass the length through
-                super.setContentLengthLong(len);
-                contentLengthPublished = true;
+                contentLength.publishNow(len);
                 return;
             }
             if (usingWriter) {
@@ -533,12 +513,12 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 return;
             }
             // Mode not yet determined — defer until getOutputStream() or getWriter() is called
-            deferredContentLengthLong = len;
+            contentLength.defer(len);
         }
 
         @Override
         public void setHeader(String name, String value) {
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
                 deferContentLengthHeader(value);
                 return;
             }
@@ -547,7 +527,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         @Override
         public void addHeader(String name, String value) {
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
                 if (value == null) {
                     return;
                 }
@@ -559,7 +539,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         @Override
         public void setIntHeader(String name, int value) {
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
                 setContentLength(value);
                 return;
             }
@@ -568,7 +548,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         @Override
         public void addIntHeader(String name, int value) {
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
                 setContentLength(value);
                 return;
             }
@@ -738,38 +718,21 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
          * Applies Content-Length values deferred while the response mode was still unknown.
          */
         private void applyDeferredContentLength() {
-            if (deferredContentLength != null) {
-                super.setContentLength(deferredContentLength);
-                deferredContentLength = null;
-                contentLengthPublished = true;
-            }
-            if (deferredContentLengthLong != null) {
-                super.setContentLengthLong(deferredContentLengthLong);
-                deferredContentLengthLong = null;
-                contentLengthPublished = true;
-            }
+            contentLength.publishPending();
         }
 
         private void deferContentLengthHeader(String value) {
             if (value == null) {
-                deferredContentLength = null;
-                deferredContentLengthLong = null;
-                contentLengthPublished = false;
-                super.setHeader(CONTENT_LENGTH, null);
+                contentLength.remove();
                 return;
             }
-            try {
-                setContentLengthLong(Long.parseLong(value));
-            } catch (NumberFormatException e) {
+            java.util.OptionalLong parsed = DeferredContentLength.parse(value);
+            if (parsed.isPresent()) {
+                setContentLengthLong(parsed.getAsLong());
+            } else {
                 LOGGER.warn("Ignoring malformed Content-Length header value during CSRF capture: uri={}, value={}",
-                        requestUri, LogSafe.sanitize(value), e);
+                        requestUri, LogSafe.sanitize(value));
             }
-        }
-
-        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-        private boolean isContentLengthHeader(String name) {
-            return CONTENT_LENGTH.equalsIgnoreCase(name);
         }
 
         /**

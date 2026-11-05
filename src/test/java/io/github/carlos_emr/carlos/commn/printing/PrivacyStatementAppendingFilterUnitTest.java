@@ -186,6 +186,19 @@ class PrivacyStatementAppendingFilterUnitTest {
     }
 
     @Test
+    void shouldIgnoreMalformedLengthHeader_andKeepTheBodyUnframed() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("application/octet-stream");
+            ((jakarta.servlet.http.HttpServletResponse) res).setHeader("Content-Length", "not-a-number");
+            res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+        });
+        assertThat(response.getHeader("Content-Length")).isNull();
+        assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+    }
+
+    @Test
     void shouldAppendNotice_whenContentTypeIsUpperCaseHtml() throws Exception {
         var properties = io.github.carlos_emr.CarlosProperties.getInstance();
         Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic case notice.");
