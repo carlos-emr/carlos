@@ -46,7 +46,6 @@ import javax.xml.datatype.XMLGregorianCalendar;
  * {@code xs:dateTime}. Calendar is required by the existing DTO signatures and its field-set
  * state is part of the compatibility contract; java.time values cannot carry that state.
  */
-@SuppressWarnings("java:S2143")
 public final class CalendarXmlAdapter extends XmlCompatibilityAdapter<String, Calendar> {
     /** Immutable and thread-safe; created once instead of once per marshalled value. */
     private static final DatatypeFactory DATATYPE_FACTORY = DatatypeFactory.newDefaultInstance();

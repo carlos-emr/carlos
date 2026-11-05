@@ -119,8 +119,10 @@ class CalendarXmlAdapterUnitTest {
         JAXBContext context = JAXBContext.newInstance(AppointmentTransfer.class);
         Unmarshaller reader = context.createUnmarshaller();
         reader.setEventHandler(event -> false);
-        String input = "<value><appointmentStartDateTime> \t\n2026-07-15T09:30:00-04:00\r\n "
-                + "</appointmentStartDateTime></value>";
+        String input = """
+                <value><appointmentStartDateTime>\s\t
+                2026-07-15T09:30:00-04:00\r
+                \s</appointmentStartDateTime></value>""";
         AppointmentTransfer appointment = reader.unmarshal(new StreamSource(new StringReader(input)),
                 AppointmentTransfer.class).getValue();
         assertThat(appointment.getAppointmentStartDateTime()).isNotNull();
