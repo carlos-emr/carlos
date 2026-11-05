@@ -2026,14 +2026,6 @@
     "optional" : false,
     "integrity" : "sha512:gWQtt2NY+/Ex3+nC8dnCgPwjtr/eahai022sxJChoq9OD7Srtc14AFcYux0VikL9aDTNK/5hbsWWJd8BlR8keA=="
   }, {
-    "groupId" : "org.jetbrains",
-    "artifactId" : "annotations",
-    "version" : "26.1.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:8czeWBQ7OM59BksemADNhMQ40/mScnYgoTboYVH+KDnhCnf9KhQk/U51FqpEZcrhaSucwNV/01xBZRyQxZGtAA=="
-  }, {
     "groupId" : "org.jfree",
     "artifactId" : "jfreechart",
     "version" : "1.5.6",
@@ -2466,14 +2458,6 @@
     "optional" : false,
     "integrity" : "sha512:xfsNZo5Jmw2eZhwUMmjcUkjmR7SvBsFxeLsKnaieezipyZq4CJJpEbl7m01Ay57OH5kXE2kwFFuZWUslrjtFqg=="
   }, {
-    "groupId" : "org.seleniumhq.selenium",
-    "artifactId" : "selenium-support",
-    "version" : "4.46.0",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:7mFxae8aUON9CKjyTM0pTFtUZtrR0BikGrgDVCmYIXismOuVtzX+rsm5V4bPRz0IyNpCv0TctCLFgXFMuuc88A=="
-  }, {
     "groupId" : "org.slf4j",
     "artifactId" : "slf4j-api",
     "version" : "2.0.20",
@@ -2513,14 +2497,6 @@
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:V20v+aST+XJEq3tS1ba/4UcPMGSAMwlJcjqtcxoYiCrm+wSjc2JCuIVxXggSPPO9CDnCyLjitNfaMaGaZNr34w=="
-  }, {
-    "groupId" : "org.springframework",
-    "artifactId" : "spring-aspects",
-    "version" : "7.0.10",
-    "scope" : "compile",
-    "type" : "jar",
-    "optional" : false,
-    "integrity" : "sha512:EBqZyvA5Of58NDv/HIHXgdT2v+OenG1xtYkeGA1zzokpoHU2H9RXti081TYg4TtDl+cply+TSfrPkqNqcR9/mQ=="
   }, {
     "groupId" : "org.springframework",
     "artifactId" : "spring-beans",
