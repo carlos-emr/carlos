@@ -153,6 +153,15 @@ public class EctSaveEncounter2Action extends ActionSupport {
         return defaultValue;
     }
 
+    /**
+     * Validates the submitted patient and permissions before enforcing legacy-editor retirement.
+     * Non-Exit requests receive HTTP 410 without clinical or layout writes; Exit may persist only
+     * the authenticated provider's layout. Historical revision printing uses separate read routes.
+     *
+     * @return {@code NONE} for a direct refusal, or {@code close} for an accepted Exit
+     * @throws IOException if the servlet response cannot be written
+     * @throws ServletException if forwarding a retained historical response fails
+     */
     @Override
     public String execute() throws IOException, ServletException {
         HttpServletRequest request = ServletActionContext.getRequest();

@@ -116,9 +116,24 @@ for snapshot in "$PRE" "$POST"; do
     esac
   done
 done
+# Older format-2 PRE receipts predate this field. Require it only in the
+# freshly captured POST; old preservation digests already include all prior bytes.
+if ! cutover_status=$(g "$POST" cfg.modernChartCutover) || [ -z "$cutover_status" ]; then
+  echo 'ERROR: missing, duplicate or empty required snapshot field: cfg.modernChartCutover' >&2
+  exit 2
+fi
 echo "== pre/post diff (changed non-credential keys) =="
 diff <(grep -v '^admin\.' "$PRE" | sort) <(grep -v '^admin\.' "$POST" | sort) | grep -E "^[<>]" | sed 's/^</  before: /;s/^>/  after:  /' || true
 echo "== assertions =="
+# The postinst always appends this exact final entry after init-config. Its
+# presence proves older Properties readers see true without ignoring or
+# rewriting any prior operator definitions. Preservation hashes omit only
+# that exact suffix, retaining all original chart flags and comments.
+if [ "$cutover_status" = ready ]; then
+  ok "mandatory modern-chart cutover is durably configured for rollback"
+else
+  bad "mandatory AbandonOldChart=true cutover is missing from the external configuration"
+fi
 [ "$(g "$POST" service.active)" = active ] && ok "carlos-emr service active" || bad "service is $(g "$POST" service.active)"
 [ "$(g "$POST" flyway.count)" = "$EXPECT_FLYWAY" ] && [ "$(g "$POST" flyway.failed)" = 0 ] && ok "Flyway at $EXPECT_FLYWAY applied, 0 failed" || bad "flyway count=$(g "$POST" flyway.count) failed=$(g "$POST" flyway.failed)"
 newv=$(comm -13 <(g "$PRE" flyway.versions | tr , '\n' | sort) <(g "$POST" flyway.versions | tr , '\n' | sort) | sort -V | tr '\n' ' ' | sed 's/ $//')
@@ -137,7 +152,9 @@ for k in cfg.carlos-emr.env.sha cfg.backup.env.sha cfg.tls.cert.sha cfg.province
 # difference is layout alone -- the same active settings, with keys commented
 # out and re-appended unchanged -- which the cfg.carlos.properties.active.sha
 # digest isolates. Any other changed, added or removed active setting is still
-# a failure. Keep the pairs in step with debian/carlos-emr.postinst.
+# a failure. The exact mandatory-modern-chart suffix is also excluded from
+# preservation hashes, with its presence checked above. Prior chart values and
+# comments remain compared. Keep the pairs in step with debian/carlos-emr.postinst.
 OSCAR_DEFAULT_MIGRATIONS=(
   'new_flowsheet_enabled=false|new_flowsheet_enabled=true'
   'workflow_enhance=false|workflow_enhance=true'

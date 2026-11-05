@@ -63,8 +63,21 @@ function setup(t) {
     fs.writeFileSync(path.join(root, 'bin', name), fake, { mode: 0o755 });
   }
   env.PATH = `${path.join(root, 'bin')}:${process.env.PATH}`;
-  const run = (script, overrides = {}) => spawnSync('bash', [path.join(__dirname, script)],
-    { env: { ...env, ...overrides }, encoding: 'utf8', timeout: 30000 });
+  const run = (script, overrides = {}) => {
+    // Model the real package configure between PRE and verification, using the
+    // shipped migration rather than duplicating its configuration writer.
+    if (script === 'deb-upgrade-verify.sh' && !overrides.TEST_SKIP_CUTOVER) {
+      const postinst = fs.readFileSync(path.join(__dirname, '../debian/carlos-emr.postinst'), 'utf8');
+      const block = postinst.match(/^        # BEGIN MODERN_CHART_CUTOVER\n[\s\S]*?^        # END MODERN_CHART_CUTOVER\n/m);
+      assert.ok(block, 'mandatory cutover block exists');
+      const migration = spawnSync('sh', ['-c', 'set -e\n' + block[0]], {
+        env: { ...env, PROVISION_LOCK_HELD: '1',
+          PROPERTIES: path.join(env.CARLOS_ETC_DIR, 'carlos.properties') }, encoding: 'utf8' });
+      assert.equal(migration.status, 0, migration.stderr);
+    }
+    return spawnSync('bash', [path.join(__dirname, script)],
+      { env: { ...env, ...overrides }, encoding: 'utf8', timeout: 30000 });
+  };
   const baseline = () => {
     const result = run('deb-upgrade-baseline.sh');
     assert.ifError(result.error); assert.equal(result.status, 0, result.stderr);
@@ -624,3 +637,42 @@ exit 0
     if (phase === 'baseline') assert.ok(!transactions.includes('new.deb'));
   });
 }
+
+
+test('upgrade verifier accepts only the mandatory appended cutover while preserving prior chart flags', t => {
+  const fixture = setup(t);
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  const original = '# Operator history stays intact\nAbandonOldChart=false\nother=kept\n';
+  fs.writeFileSync(props, original);
+  const before = fixture.baseline();
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /mandatory modern-chart cutover is durably configured/);
+  assert.ok(fs.readFileSync(props, 'utf8').startsWith(original));
+  const after = fs.readFileSync(fixture.env.POST, 'utf8');
+  const otherHash = text => text.match(/^cfg\.carlos\.properties\.otherKeys\.sha=(.*)$/m)[1];
+  assert.equal(otherHash(after), otherHash(before));
+  // Rewriting an original clinical/configuration key is not sanctioned merely
+  // because the mandatory suffix is present.
+  fs.writeFileSync(props, fs.readFileSync(props, 'utf8').replace('AbandonOldChart=false', 'AbandonOldChart=no'));
+  const changed = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(changed.status, 1, changed.stdout + changed.stderr);
+  assert.match(changed.stdout, /FAIL cfg.carlos.properties.sha changed/);
+});
+
+test('upgrade verifier refuses a missing mandatory cutover even when other configuration is unchanged', t => {
+  const fixture = setup(t); fixture.baseline();
+  const result = fixture.run('deb-upgrade-verify.sh', { TEST_SKIP_CUTOVER: '1' });
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  assert.match(result.stdout, /FAIL mandatory AbandonOldChart=true cutover is missing/);
+});
+
+
+test('upgrade verifier accepts an older format-2 PRE receipt without cutover metadata', t => {
+  const fixture = setup(t);
+  const before = fixture.baseline();
+  fs.writeFileSync(fixture.env.PRE, before.replace(/^cfg\.modernChartCutover=.*\n/m, ''));
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /mandatory modern-chart cutover is durably configured/);
+});

@@ -35,6 +35,24 @@ file_hash() {
     value=$(sha256sum < "$2") || return 1
     emit "$1" "${value:0:16}"
 }
+# Remove only the exact appended mandatory-cutover entry for preservation hashes.
+# Original AbandonOldChart lines and every prior comment/byte remain in the
+# comparison; this does not broadly exempt that key from configuration checks.
+properties_without_cutover() {
+    python3 - "$CARLOS_ETC_DIR/carlos.properties" "${1:-content}" <<'PYCUTOVER'
+import pathlib
+import sys
+
+content = pathlib.Path(sys.argv[1]).read_bytes()
+entry = (b"\n\n# Mandatory modern-chart cutover; retain this on rollback (#4793).\n"
+         b"AbandonOldChart=true\n")
+ready = content.endswith(entry)
+if sys.argv[2] == "status":
+    print("ready" if ready else "absent")
+else:
+    sys.stdout.buffer.write(content[:-len(entry)] if ready else content)
+PYCUTOVER
+}
 admin_count=$(db_query "SELECT COUNT(*) FROM security WHERE user_name=$ADMIN_SQL")
 [[ $admin_count == 1 ]] || { echo 'ERROR: expected exactly one selected administrator row.' >&2; exit 1; }
 emit baseline.format 2
@@ -141,7 +159,8 @@ else
     value=$(printf '%s' "$value" | sha256sum); emit cfg.reportingPassword "${value:0:16}"
 fi
 emit cfg.reportingGrantList "$([ -r "$CARLOS_SHARE_DIR/webapp/carlos/WEB-INF/classes/db/reporting/carlos_report_grants.sql" ] && echo present || echo absent)"
-value=$(grep -vE "$migrated_keys_re" "$CARLOS_ETC_DIR/carlos.properties" | { grep -vE "$reporting_keys_re" || true; } | sha256sum) || exit 1
+value=$(properties_without_cutover status); emit cfg.modernChartCutover "$value"
+value=$(properties_without_cutover | grep -vE "$migrated_keys_re" | { grep -vE "$reporting_keys_re" || true; } | sha256sum) || exit 1
 emit cfg.carlos.properties.otherKeys.sha "${value:0:16}"
 # The ACTIVE settings, independent of layout: comments and blank lines dropped,
 # whitespace around '=' normalised, sorted. carlos-ctl's prop_comment/prop_set
@@ -151,7 +170,7 @@ emit cfg.carlos.properties.otherKeys.sha "${value:0:16}"
 # and deb-upgrade-verify.sh must not mistake that for a changed setting. The
 # sanctioned one-time migrations are left out here too; the verifier checks
 # those keys one by one.
-value=$(sed -E -e 's/^[[:space:]]+//' -e 's/[[:space:]]+$//' "$CARLOS_ETC_DIR/carlos.properties" \
+value=$(properties_without_cutover | sed -E -e 's/^[[:space:]]+//' -e 's/[[:space:]]+$//' \
     | grep -vE '^([#!]|$)' | sed -E 's/^([^=:[:space:]]+)[[:space:]]*[=:][[:space:]]*/\1=/' \
     | grep -vE "$migrated_keys_re" | { grep -vE "$reporting_keys_re" || true; } | LC_ALL=C sort | sha256sum) || exit 1
 emit cfg.carlos.properties.active.sha "${value:0:16}"

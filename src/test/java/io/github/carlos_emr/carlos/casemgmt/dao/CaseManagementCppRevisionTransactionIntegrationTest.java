@@ -63,6 +63,7 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
     private String previousAbandonOldChart;
     private final List<Long> lookupIds = new ArrayList<>();
 
+    /** Preserve the stored operator override while exercising the forced-modern write policy. */
     @BeforeEach
     void prepareTransactionFixture() {
         tx = new TransactionTemplate(transactionManager);
@@ -345,6 +346,11 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
         }
     }
 
+    /**
+     * Seeds a populated legacy baseline for both new-CPP and existing-CPP transaction paths.
+     * The new-CPP branch deliberately has historical chart data but no CPP projection, so a
+     * preservation assertion cannot pass merely because there was nothing legacy to overwrite.
+     */
     private Fixture fixture(boolean existingNote) {
         Issue issue = new Issue();
         issue.setCode("SocHistory");
@@ -474,11 +480,13 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
         assertThat(links.getLinkByNote(saved.getId())).extracting(CaseManagementNoteLink::getTableId).containsExactly(77L);
     }
 
+    /** Compare every retained revision with its baseline after either a save or injected rollback. */
     private void assertLegacyChartUnchanged(Fixture fixture) {
         assertThat(legacyChartState()).as("modern saves leave every legacy revision unchanged")
                 .isEqualTo(fixture.legacyCharts());
     }
 
+    /** Snapshot revision identity, metadata and all six legacy clinical fields for exact comparison. */
     private List<String> legacyChartState() {
         return charts.getChartsForDemographic(Integer.parseInt(demo)).stream()
                 .map(c -> c.getId() + ":" + c.getTimestamp().getTime() + ":" + c.getDemographicNo()
@@ -497,6 +505,7 @@ class CaseManagementCppRevisionTransactionIntegrationTest extends CaseManagement
                 .setParameter("demo", Integer.valueOf(demo)).getSingleResult();
     }
 
+    /** Capture the complete owned note/CPP state used to prove failed transactions leave no writes. */
     private Snapshot snapshot() {
         List<String> notes = entityManager.createQuery("from CaseManagementNote n where n.demographic_no = :demo order by n.id", CaseManagementNote.class)
                 .setParameter("demo", demo).getResultList().stream().map(n -> n.getId() + ":" + n.getUuid() + ":" + n.getNote()

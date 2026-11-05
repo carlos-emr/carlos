@@ -169,6 +169,12 @@ function observeLegacyExit(page, recorder, { base, patient, chartContext, timeou
   };
 }
 
+/**
+ * Historical editor interaction matrix retained for legacy-removal reference (#5599).
+ * The executable entrypoint skips before setup on releases enforcing the modern chart policy.
+ * @param {object} s Initialized synthetic-patient workflow session for historical deployments.
+ * @returns {Promise<void>} Resolves after the historical interaction assertions complete.
+ */
 async function run(s) {
   const { sql, patient: A, provider, marker, context, recorder, schedule } = s;
   const q = h.sqlString;
@@ -655,6 +661,7 @@ async function run(s) {
 if (require.main === module) runWorkflow('legacy-encounter-editor-isolation', run, {
   openPatient: true,
   openMaster: false,
+  /** Reject obsolete editor expectations before creating fixtures or opening a browser. */
   preflightConfig() {
     throw new h.SkipCheck('mandatory modern-chart policy (#4793) retires this legacy editor check; removal is tracked in #5599');
   },

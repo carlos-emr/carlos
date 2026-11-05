@@ -349,6 +349,63 @@ public class CarlosProperties extends Properties {
         }
     }
 
+    /**
+     * Persists the mandatory modern-chart setting before this deployment accepts writes.
+     * Older binaries must read the same external configuration on rollback, because modern
+     * saves no longer mirror into historical eChart rows. Existing true settings need only
+     * read access; otherwise a final entry is appended without rewriting operator content.
+     *
+     * @throws IOException if durable external configuration cannot be verified or updated
+     */
+    public void ensureModernChartRollbackSafety() throws IOException {
+        synchronized (CONFIGURATION_FILE_LOCK) {
+            if (loadedPropertiesFile == null) {
+                throw new IOException("Configuration source " + loadedPropertiesLocation
+                        + " is not a durable external properties file. Set AbandonOldChart=true in an external "
+                        + "configuration loaded by both this release and any rollback release, using "
+                        + "-Dcarlos_override_properties=/path/to/carlos.properties; refusing to start. "
+                        + "See docs/modern-chart-cutover.md.");
+            }
+            try {
+                // Read-only deployments with an explicit true setting need no write permission.
+                try (FileInputStream input = new FileInputStream(loadedPropertiesFile);
+                     FileChannel channel = input.getChannel();
+                     FileLock _ = channel.lock(0, Long.MAX_VALUE, true)) {
+                    Properties persisted = new Properties();
+                    persisted.load(input);
+                    if (Boolean.parseBoolean(persisted.getProperty("AbandonOldChart"))) {
+                        super.setProperty("AbandonOldChart", "true");
+                        return;
+                    }
+                }
+                // Re-read under the exclusive lock: another process may have completed the
+                // cutover or initialized the encryption key since the read-only check.
+                try (FileChannel channel = FileChannel.open(loadedPropertiesFile.toPath(),
+                             StandardOpenOption.READ, StandardOpenOption.WRITE);
+                     Reader reader = Channels.newReader(channel, StandardCharsets.ISO_8859_1);
+                     FileLock _ = channel.lock()) {
+                    Properties persisted = new Properties();
+                    persisted.load(reader);
+                    if (!Boolean.parseBoolean(persisted.getProperty("AbandonOldChart"))) {
+                        // Two terminators safely end a trailing properties continuation.
+                        ByteBuffer entry = StandardCharsets.ISO_8859_1.encode(
+                                "\n\n# Mandatory modern-chart cutover; retain this on rollback (#4793).\nAbandonOldChart=true\n");
+                        channel.position(channel.size());
+                        while (entry.hasRemaining()) {
+                            channel.write(entry);
+                        }
+                        channel.force(true);
+                    }
+                }
+                super.setProperty("AbandonOldChart", "true");
+            } catch (IOException e) {
+                throw new IOException("Unable to persist AbandonOldChart=true in loaded configuration file "
+                        + loadedPropertiesFile + ". Set that property in this external file before restarting "
+                        + "and retain it when rolling back; refusing to start. See docs/modern-chart-cutover.md.", e);
+            }
+        }
+    }
+
     /*
      * Check to see if the properties to see if that property exists.
      */

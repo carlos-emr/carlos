@@ -40,7 +40,7 @@
  * Issue #4673 adds the bean's other readers, each driven in both directions right after the other
  * chart was entered: the chart print's MRP line (B's MRP is a second named doctor); the legacy
  * retired encounter writes (410 with no clinical changes), Exit and identity refusals; the
- * retired editor and history prints retain patient scope with empty clinical fields; the legacy immunization schedule (template add, Save, set
+ * historical revision prints retain patient scope and read-only access; the legacy immunization schedule (template add, Save, set
  * delete, the dose window, and a Save, template add or set restore without one valid patient,
  * refused); the author of a template made after a chart was entered from another provider's day
  * sheet; the legacy case-management navigation and its list of the patient's own messages; and the
@@ -382,6 +382,12 @@ function prepareVascularTrackerFixture(s) {
   h.assert(same(sql.rows(rowQuery), [active]), 'The VT registration fixture is not available');
 }
 
+/**
+ * Exercise reciprocal patient isolation, including retired legacy writes and read-only revisions.
+ * The workflow owns both synthetic patients and registers exact layout/clinical cleanup with s.
+ * @param {object} s Initialized clinical workflow session and fixture/cleanup services.
+ * @returns {Promise<void>} Resolves only when every isolation assertion succeeds.
+ */
 async function run(s) {
   const { sql, patient: A, provider, marker, context, recorder } = s;
   const q = h.sqlString;
@@ -1145,6 +1151,7 @@ async function run(s) {
   const revisionsOf = patient => sql.rows(`SELECT eChartId FROM eChart WHERE demographicNo=${patientKey(patient)}
     ORDER BY eChartId`).map(row => row[0]);
   const legacy = {A: {}, B: {}};
+  /** Build one patient's legacy POST; undefined overrides deliberately omit identity fields. */
   const legacyForm = (d, text, overrides = []) => {
     const form = new URLSearchParams([['demographicNo', d.patient], ['btnPressed', 'Save'], ['enTextarea', text],
       ['shTextarea', `${marker}-${d.label}-history`], ['fhTextarea', ''], ['mhTextarea', ''], ['ocTextarea', ''],
@@ -1154,6 +1161,7 @@ async function run(s) {
     }
     return form;
   };
+  /** Submit without following redirects so retirement refusals cannot masquerade as a saved chart. */
   async function postLegacySave(token, form) {
     form.set('CSRF-TOKEN', token);
     return context.request.post(h.appUrl(s.config.baseUrl, '/encounter/SaveEncounter2'), {
@@ -1184,10 +1192,12 @@ async function run(s) {
 
   // Seed historical-only rows directly: modern writes must neither create nor modify them.
   for (const d of directions) {
+    /** Retain an owned historical revision without invoking any modern chart write path. */
     const seed = kind => h.insertId(sql, `INSERT INTO eChart (demographicNo, providerNo, timeStamp, subject,
       socialHistory, familyHistory, medicalHistory, ongoingConcerns, reminders, encounter)
-      VALUES (${patientKey(d.patient)},${q(provider)},NOW(),${q(`${marker}-${d.label}-${kind}`)},
-      ${q(`${marker}-${d.label}-history`)},'','','','',${q(`${marker}-${d.label}-${kind}-encounter`)})`, 'eChart');
+      VALUES (?,?,NOW(),?,?,'','','','',?)`, 'eChart',
+      [patientKey(d.patient), provider, `${marker}-${d.label}-${kind}`,
+        `${marker}-${d.label}-history`, `${marker}-${d.label}-${kind}-encounter`]);
     legacy[d.label] = {base: seed('older'), revision: seed('current')};
   }
 
@@ -1265,23 +1275,20 @@ async function run(s) {
   }
 
   for (const d of directions) {
-    await s.step(`the retired legacy prints for ${d.label} retain patient scope without loading old chart text`, async () => {
+    await s.step(`the historical revision prints for ${d.label} retain their own clinical text and patient scope`, async () => {
       const other = otherLabelOf(d);
       await activateOther(d.otherChart);
       const before = snapshot(d.other);
-      // #4793 forces the modern path even with an old false override. These unsupported
-      // routes remain until #5599: keep their patient-scope/refusal coverage, and require
-      // every legacy clinical field to stay empty rather than claiming a working print.
+      // Explicit historical revisions remain readable after the modern-only cutover.
+      // They must not be substituted for current chart data or another patient's revision.
       const own = text => d.ownName(text) && !d.otherName(text)
-        && !text.includes(`${marker}-${d.label}-`) && !text.includes(`${marker}-${other}-`)
-        && ['sh', 'fh', 'mh', 'oc', 're', 'en'].every(name => {
-          const field = text.match(new RegExp(`<pre\\b[^>]*\\bname=['"]${name}Textarea['"][^>]*>([\\s\\S]*?)</pre>`, 'i'));
-          return field && field[1].replace(/&nbsp;|\s/g, '') === '';
-        });
+        && text.includes(`${marker}-${d.label}-history`)
+        && text.includes(`${marker}-${d.label}-current-encounter`)
+        && !text.includes(`${marker}-${other}-`);
       const editor = await read(`/encounter/ViewEncounterPrint?demographicNo=${d.patient}&echartid=${legacy[d.label].revision}`);
-      h.assert(editor.status === 200 && own(editor.body), `${d.label}'s retired editor print loaded legacy text or lost patient scope`);
+      h.assert(editor.status === 200 && own(editor.body), `${d.label}'s historical editor print lost its clinical text or patient scope`);
       const history = await read(`/encounter/ViewEcharthistoryprint?echartid=${legacy[d.label].revision}&demographic_no=${d.patient}`);
-      h.assert(history.status === 200 && own(history.body), `${d.label}'s retired history print loaded legacy text or lost patient scope`);
+      h.assert(history.status === 200 && own(history.body), `${d.label}'s historical revision print lost its clinical text or patient scope`);
       const foreign = await read(`/encounter/ViewEcharthistoryprint?echartid=${legacy[other].revision}&demographic_no=${d.patient}`);
       h.assert(foreign.status === 200 && d.ownName(foreign.body) && !d.otherName(foreign.body)
         && !foreign.body.includes(`${marker}-${other}-`), `${d.label}'s history print showed the other patient's revision`);
