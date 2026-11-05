@@ -39,6 +39,7 @@ import java.util.regex.Pattern;
 
 /** Translates installed Connector/J configuration before passing it to MariaDB Connector/J. */
 public final class MariaDbJdbcCompatibility {
+    private static final String MYSQL_URL_PREFIX = "jdbc:mysql:";
     private static final String USE_SSL = "useSsl";
     private static final String USE_SSL_ALIAS = "useSSL";
     private static final String TRUST_SERVER_CERTIFICATE = "trustServerCertificate";
@@ -56,6 +57,7 @@ public final class MariaDbJdbcCompatibility {
     private static final String DNS_SRV = "dnsSrv";
     private static final String FALSE = "false";
     private static final String SSL_MODE = "sslMode";
+    private static final String SSL_MODE_TOKEN = "sslmode";
     private static final String SSL_PREFERRED = "preferred";
     private static final String SSL_DISABLE = "disable";
     private static final String SSL_TRUST = "trust";
@@ -155,7 +157,7 @@ public final class MariaDbJdbcCompatibility {
 
     /** Whether the configured scheme belongs to a database supported by this compatibility boundary. */
     public static boolean isMariaDbUrl(String url) {
-        return url != null && (url.startsWith("jdbc:mysql:") || url.startsWith("jdbc:mariadb:"));
+        return url != null && (url.startsWith(MYSQL_URL_PREFIX) || url.startsWith("jdbc:mariadb:"));
     }
 
     /** Keep old rendered configurations usable without retaining the Oracle driver jar. */
@@ -285,7 +287,7 @@ public final class MariaDbJdbcCompatibility {
             Properties properties = new Properties();
             String queryOptions = queryOptions(url);
             boolean normalizedLegacy = hasLegacySchemeMarker(queryOptions);
-            boolean legacy = url.startsWith("jdbc:mysql:") || normalizedLegacy;
+            boolean legacy = url.startsWith(MYSQL_URL_PREFIX) || normalizedLegacy;
             if (legacy) {
                 properties.setProperty(LEGACY_MYSQL_SCHEME, "true");
                 mergeQueryOptions(properties, queryOptions);
@@ -373,7 +375,7 @@ public final class MariaDbJdbcCompatibility {
     }
 
     private static String normalizeBase(String base) {
-        boolean legacy = base.startsWith("jdbc:mysql:");
+        boolean legacy = base.startsWith(MYSQL_URL_PREFIX);
         base = base.replaceFirst("^jdbc:mysql:", "jdbc:mariadb:");
         if (legacy && base.startsWith("jdbc:mariadb://") && hasMultipleHosts(base)) {
             base = base.replaceFirst("^jdbc:mariadb:", "jdbc:mariadb:sequential:");
@@ -412,7 +414,7 @@ public final class MariaDbJdbcCompatibility {
     /** Keep certificate and transport aliases together without altering unknown option names. */
     private static String canonicalTlsKey(String token, String original) {
         return switch (token) {
-            case "sslmode" -> SSL_MODE;
+            case SSL_MODE_TOKEN -> SSL_MODE;
             case "tlsversions", "enabledtlsprotocols", "enabledsslprotocolsuites" -> TLS_PROTOCOLS;
             case "tlsciphersuites", "enabledsslciphersuites" -> TLS_CIPHERS;
             case "clientcertificatekeystoreurl", "keystore" -> "keyStore";
@@ -652,7 +654,7 @@ public final class MariaDbJdbcCompatibility {
         String value = URLDecoder.decode(encodedValue, StandardCharsets.UTF_8);
         String token = asciiLowerCase(key);
         rejectReservedOption(key);
-        if (token.equals("sslmode")) {
+        if (token.equals(SSL_MODE_TOKEN)) {
             appendHostTlsPolicy(retained, properties, multiple, value);
         } else if (Set.of("host", "port", "type").contains(token)) {
             retained.append('(').append(token).append('=').append(encodedValue).append(')');
@@ -668,7 +670,7 @@ public final class MariaDbJdbcCompatibility {
     /** Native HostAddress ignores unsupported fields; promoting them could weaken global policies. */
     private static void appendNativeHostField(StringBuilder retained, Properties properties, boolean multiple,
                                               String token, String value) throws SQLException {
-        if (token.equals("sslmode")) {
+        if (token.equals(SSL_MODE_TOKEN)) {
             appendHostTlsPolicy(retained, properties, multiple, value);
         } else if (Set.of("host", "port", "type", "pipe", "localsocket").contains(token)) {
             retained.append('(').append(token).append('=').append(value).append(')');

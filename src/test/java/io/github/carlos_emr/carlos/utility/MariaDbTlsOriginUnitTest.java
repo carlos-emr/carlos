@@ -254,7 +254,8 @@ class MariaDbTlsOriginUnitTest {
             assertThatThrownBy(() -> Configuration.parse(nativeUrl, new Properties())).isInstanceOf(SQLException.class);
             for (int rounds = 0; rounds <= 2; rounds++) {
                 int selectedRounds = rounds;
-                assertThatThrownBy(() -> configuration(nativeUrl, new Properties(), selectedRounds))
+                Properties supplied = new Properties();
+                assertThatThrownBy(() -> configuration(nativeUrl, supplied, selectedRounds))
                         .isInstanceOfAny(SQLException.class, IllegalArgumentException.class)
                         .hasMessage("Invalid database connection configuration").hasNoCause();
             }
