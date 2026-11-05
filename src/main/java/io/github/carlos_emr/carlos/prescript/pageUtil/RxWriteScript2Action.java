@@ -115,7 +115,6 @@ public final class RxWriteScript2Action extends ActionSupport {
     private static final String UP_TO_NINE_DIGITS = "\\d{1,9}";
     /** Medication audit-log content prefix, followed by the drug id. */
     private static final String AUDIT_DRUG_ID = "drugid=";
-    private static final PartialDateDao partialDateDao = (PartialDateDao) SpringUtils.getBean(PartialDateDao.class);
 
     /** The only {@code action} values {@link #updateReRxDrug()} will act on. */
     private static final Set<String> RE_RX_ACTIONS =
@@ -1633,8 +1632,8 @@ public final class RxWriteScript2Action extends ActionSupport {
                             if ((val == null) || (val.equals(""))) {
                                 rx.setRxDate(RxUtil.StringToDate("0000-00-00", "yyyy-MM-dd"));
                             } else {
-                                rx.setRxDateFormat(partialDateDao.getFormat(val));
-                                rx.setRxDate(partialDateDao.StringToDate(val));
+                                rx.setRxDateFormat(getPartialDateDao().getFormat(val));
+                                rx.setRxDate(getPartialDateDao().StringToDate(val));
                             }
                         } else if (elem.equals("pickupDate_" + num)) {
                             if ((val != null) && (!val.equals(""))) {
@@ -1648,8 +1647,8 @@ public final class RxWriteScript2Action extends ActionSupport {
                             if (val == null || (val.equals(""))) {
                                 rx.setWrittenDate(RxUtil.StringToDate("0000-00-00", "yyyy-MM-dd"));
                             } else {
-                                rx.setWrittenDateFormat(partialDateDao.getFormat(val));
-                                rx.setWrittenDate(partialDateDao.StringToDate(val));
+                                rx.setWrittenDateFormat(getPartialDateDao().getFormat(val));
+                                rx.setWrittenDate(getPartialDateDao().StringToDate(val));
                             }
 
                         } else if (elem.equals("outsideProviderName_" + num)) {
@@ -2063,10 +2062,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 return null;
             }
             try {
-                if (Arrays.stream(bean.getStash()).anyMatch(card -> card.getDrugId() > 0)) {
-                    return persistCorrection(loggedInInfo, bean);
-                }
-                return persistStashLocked(loggedInInfo, bean);
+                return persistStashTransaction(loggedInInfo, bean);
             } catch (RuntimeException e) {
                 logger.error("Prescription save did not complete ({})", e.getClass().getSimpleName());
                 throw new PrescriptionSaveException(e);
@@ -2074,8 +2070,8 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
     }
 
-    /** A corrected save and the rows it replaces must commit together, including the staged identities. */
-    private String persistCorrection(LoggedInInfo loggedInInfo, RxSessionBean bean) {
+    /** Every save, its reasons/dates and archival must commit together, including the staged identities. */
+    private String persistStashTransaction(LoggedInInfo loggedInInfo, RxSessionBean bean) {
         record PreviousIdentity(RxPrescriptionData.Prescription card, int drugId, String scriptNo, String revision) {
             void restore() {
                 card.restoreSavedIdentity(drugId, scriptNo, revision);
@@ -2115,7 +2111,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
     }
 
-    /** An audit of a successful save must not survive rollback of the correction it describes. */
+    /** An audit of a successful save must not survive rollback of the prescription it describes. */
     private static void afterSaveCommit(Runnable audit) {
         if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
             org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
@@ -2135,9 +2131,14 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
     }
 
+    /** Resolves the current context's DAO without retaining it in the serializable action. */
+    private static PartialDateDao getPartialDateDao() {
+        return SpringUtils.getBean(PartialDateDao.class);
+    }
+
     private String persistStashLocked(LoggedInInfo loggedInInfo, RxSessionBean bean) {
-        // Consume every rendered card version before any database write. A duplicate submission
-        // or a retry after a partial failure must reload the draft rather than save it again.
+        // Consume every rendered card version before any database write. Committed or uncertain
+        // saves cannot be replayed; persistStashTransaction restores these only on confirmed rollback.
         for (RxPrescriptionData.Prescription card : bean.getStash()) {
             card.advanceDraftRevision();
         }
@@ -2187,13 +2188,13 @@ public final class RxWriteScript2Action extends ActionSupport {
 
                 //write partial date
                 if (StringUtils.filled(rx.getWrittenDateFormat()))
-                    partialDateDao.setPartialDate(PartialDate.DRUGS, rx.getDrugId(), PartialDate.DRUGS_WRITTENDATE, rx.getWrittenDateFormat());
+                    getPartialDateDao().setPartialDate(PartialDate.DRUGS, rx.getDrugId(), PartialDate.DRUGS_WRITTENDATE, rx.getWrittenDateFormat());
 
                 if (StringUtils.filled(rx.getRxDateFormat()))
-                    partialDateDao.setPartialDate(PartialDate.DRUGS, rx.getDrugId(), PartialDate.DRUGS_STARTDATE, rx.getRxDateFormat());
+                    getPartialDateDao().setPartialDate(PartialDate.DRUGS, rx.getDrugId(), PartialDate.DRUGS_STARTDATE, rx.getRxDateFormat());
             } catch (Exception e) {
-                // Initial legacy saves have no encompassing transaction; corrections roll back.
-                // Stop immediately either way, and never print or clear an unsuccessful prescription.
+                // Abort the entire batch, including its header and any earlier medications.
+                // Never print or clear an unsuccessful prescription.
                 throw new PrescriptionSaveException(e);
             }
 
@@ -2384,13 +2385,12 @@ public final class RxWriteScript2Action extends ActionSupport {
      * the card can then be closed or never staged at all; archiving on the staged id alone
      * removed the patient's active medication with nothing written to replace it (#3869).</p>
      *
-     * <p>A rejected drug is skipped, not fatal: the new prescription is already persisted by this
-     * point and no transaction spans the loop, so aborting would leave a half-written script.
-     * That includes an unchecked exception from {@link RxManager#archiveDrug} (a demographic-scoped
-     * authorization failure, or a row with no demographic).</p>
+     * <p>Each source is checked independently, including unchecked failures from
+     * {@link RxManager#archiveDrug}. A malformed, refused or failed source makes this method
+     * return false, so the enclosing stash transaction rolls back the entire prescription.</p>
      *
-     * <p>A malformed, null, unsaved, or refused entry is skipped individually so one bad id cannot
-     * stop the remaining staged drugs from being archived.</p>
+     * <p>A source with no saved replacement is left active. One bad entry does not prevent
+     * checking the remaining staged sources before reporting the batch outcome.</p>
      *
      * <p>Package-private for the re-prescribe regression tests.</p>
      *
@@ -2497,8 +2497,8 @@ public final class RxWriteScript2Action extends ActionSupport {
      */
     private ArchiveOutcome archiveReRxSource(String item, LoggedInInfo loggedInInfo, RxSessionBean bean,
                                              Set<Integer> savedSourceIds, String ip, String auditStr) {
-        // The list permits nulls, and item.trim() would throw past the catch below, stranding
-        // every later entry after the new script is already persisted.
+        // The list permits nulls; classify them so every staged source is checked and the
+        // enclosing transaction receives the failed batch outcome.
         if (item == null) {
             return ArchiveOutcome.MALFORMED;
         }

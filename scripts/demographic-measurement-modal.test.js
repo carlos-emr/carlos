@@ -171,8 +171,8 @@ test('observation date defaults to the local date in the evening west of UTC (is
   process.env.TZ = 'America/Vancouver';
   try {
     const RealDate = Date;
-    // 2026-03-10 19:30 PDT is already 2026-03-11 in UTC.
-    const evening = new RealDate('2026-03-11T02:30:00Z').getTime();
+    // Task 39 / finding 152: 2026-03-10 23:00 PDT is already the next day in UTC.
+    const evening = new RealDate('2026-03-11T06:00:00Z').getTime();
     class EveningDate extends RealDate {
       constructor(...args) { super(...(args.length ? args : [evening])); }
     }

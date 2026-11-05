@@ -26,9 +26,6 @@ package io.github.carlos_emr;
 
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
-import net.sf.jasperreports.engine.export.JRCsvExporter;
-import net.sf.jasperreports.engine.export.ooxml.JRXlsxExporter;
-import net.sf.jasperreports.export.*;
 import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -48,8 +45,6 @@ import java.util.Map;
  * <p>This class provides functionality to create and export reports in multiple formats:</p>
  * <ul>
  *   <li><strong>PDF</strong> - Portable Document Format with optional JavaScript</li>
- *   <li><strong>CSV</strong> - Comma-Separated Values for data export</li>
- *   <li><strong>Excel</strong> - Excel spreadsheet format (XLSX)</li>
  * </ul>
  *
  * <p>Supports various data sources:</p>
@@ -74,12 +69,6 @@ public class OscarDocumentCreator {
     /** PDF document format constant */
     public static final String PDF = "pdf";
 
-    /** CSV document format constant */
-    public static final String CSV = "csv";
-
-    /** Excel spreadsheet format constant */
-    public static final String EXCEL = "excel";
-
     /**
      * Allowlist of all permitted classpath resource paths for JasperReport templates.
      * Using a Map (key = caller-supplied path, value = hardcoded constant) ensures
@@ -100,14 +89,6 @@ public class OscarDocumentCreator {
         m.put(bc + "pdf_rep_wo.jrxml",           bc + "pdf_rep_wo.jrxml");
         m.put(bc + "pdf_rep_msprem.jrxml",       bc + "pdf_rep_msprem.jrxml");
         m.put(bc + "pdf_rep_mspremsum.jrxml",    bc + "pdf_rep_mspremsum.jrxml");
-        m.put(bc + "csv_rep_invoice.jrxml",      bc + "csv_rep_invoice.jrxml");
-        m.put(bc + "csv_rep_payref.jrxml",       bc + "csv_rep_payref.jrxml");
-        m.put(bc + "csv_rep_payref_sum.jrxml",   bc + "csv_rep_payref_sum.jrxml");
-        m.put(bc + "csv_rep_account_rec.jrxml",  bc + "csv_rep_account_rec.jrxml");
-        m.put(bc + "csv_rep_rej.jrxml",          bc + "csv_rep_rej.jrxml");
-        m.put(bc + "csv_rep_wo.jrxml",           bc + "csv_rep_wo.jrxml");
-        m.put(bc + "csv_rep_msprem.jrxml",       bc + "csv_rep_msprem.jrxml");
-        m.put(bc + "csv_rep_mspremsum.jrxml",    bc + "csv_rep_mspremsum.jrxml");
         m.put(bc + "msppremsum.practsum.jrxml",  bc + "msppremsum.practsum.jrxml");
         m.put(bc + "msppremsum.s23.jrxml",       bc + "msppremsum.s23.jrxml");
         m.put(bc + "broadcastmessages.jrxml",    bc + "broadcastmessages.jrxml");
@@ -162,7 +143,7 @@ public class OscarDocumentCreator {
      * 
      * @param parameters report parameters (e.g., title, date ranges)
      * @param sos output stream to write the generated document
-     * @param docType document format (PDF, CSV, or EXCEL)
+     * @param docType document format (PDF)
      * @param xmlDesign input stream containing the JasperReport XML design
      * @param dataSrc data source (List, Connection, ResultSet, JRDataSource, or null for empty)
      */
@@ -182,7 +163,7 @@ public class OscarDocumentCreator {
      * 
      * @param parameters report parameters (e.g., title, date ranges)
      * @param sos output stream to write the generated document
-     * @param docType document format (PDF, CSV, or EXCEL)
+     * @param docType document format (PDF)
      * @param xmlDesign input stream containing the JasperReport XML design
      * @param dataSrc data source (List, Connection, ResultSet, JRDataSource, or null for empty)
      * @param exportPdfJavascript optional JavaScript code to embed in PDF (e.g., "this.print();")
@@ -217,11 +198,6 @@ public class OscarDocumentCreator {
             }
             if (docType.equals(OscarDocumentCreator.PDF)) {
                 JasperExportManager.exportReportToPdfStream(print, sos);
-            } else if (docType.equals(OscarDocumentCreator.CSV)) {
-                this.exportReportToCSVStream(print, sos);
-
-            } else if (docType.equals(OscarDocumentCreator.EXCEL)) {
-                this.exportReportToExcelStream(print, sos);
             }
 
         } catch (JRException ex) {
@@ -255,41 +231,6 @@ public class OscarDocumentCreator {
             MiscUtils.getLogger().error("Error", ex);
         }
         return jasperReport;
-    }
-
-    /**
-     * Fills a servletoutout stream with data from a JasperReport
-     *
-     * @param jasperPrint JasperPrint
-     * @param sos         ServletOutputStream
-     * @throws JRException
-     */
-    private void exportReportToCSVStream(JasperPrint jasperPrint, OutputStream sos) throws JRException {
-        JRCsvExporter exp = new JRCsvExporter();
-        exp.setExporterInput(new SimpleExporterInput(jasperPrint));
-        exp.setExporterOutput(new SimpleWriterExporterOutput(sos));
-        SimpleCsvReportConfiguration configuration = new SimpleCsvReportConfiguration();
-        exp.setConfiguration(configuration);
-        exp.exportReport();
-    }
-
-    private void exportReportToExcelStream(JasperPrint jasperPrint, OutputStream os)
-            throws JRException {
-        JRXlsxExporter exp = new JRXlsxExporter();
-        exp.setExporterInput(new SimpleExporterInput(jasperPrint));
-        exp.setExporterOutput(new SimpleOutputStreamExporterOutput(os));
-
-        SimpleXlsxReportConfiguration reportConfiguration = new SimpleXlsxReportConfiguration();
-        reportConfiguration.setIgnorePageMargins(true);
-        reportConfiguration.setOffsetX(0);
-        reportConfiguration.setIgnoreCellBorder(false);
-        reportConfiguration.setDetectCellType(true);
-        reportConfiguration.setWhitePageBackground(false);
-        reportConfiguration.setOnePagePerSheet(false);
-        reportConfiguration.setMaxRowsPerSheet(65000);
-        exp.setConfiguration(reportConfiguration);
-
-        exp.exportReport();
     }
 
 }

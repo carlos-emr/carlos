@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 package io.github.carlos_emr.carlos.tickler.pageUtil;
@@ -67,6 +68,7 @@ public class EditTickler2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final Logger logger = MiscUtils.getLogger();
+    private static final String CLOSE_RESULT = "close";
     private TicklerManager ticklerManager = SpringUtils.getBean(TicklerManager.class);
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
     private TicklerAttachmentService ticklerAttachmentService = SpringUtils.getBean(TicklerAttachmentService.class);
@@ -76,8 +78,9 @@ public class EditTickler2Action extends ActionSupport {
      * Rejects every other HTTP method with status 405 and an {@code Allow: POST} header
      * before dispatching or changing data.
      *
-     * @return {@link #NONE} for a rejected method; otherwise the selected handler's
-     *         result ({@code close} on success, or {@code failure}/{@code error} on failure)
+     * @return String result: {@link #NONE} for a rejected method; otherwise the selected handler's
+     *         result ({@code close} on success, {@code attachmentsRefused} for a refused
+     *         selection, or {@code failure}/{@code error} on other failures)
      */
     @Override
     public String execute() {
@@ -107,7 +110,7 @@ public class EditTickler2Action extends ActionSupport {
                     SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class))
                     .execute(transaction -> {
                         String result = editTicklerInTransaction(loggedInInfo);
-                        if (!"close".equals(result)) transaction.setRollbackOnly();
+                        if (!CLOSE_RESULT.equals(result)) transaction.setRollbackOnly();
                         return result;
                     });
         } catch (RuntimeException e) {
@@ -189,7 +192,8 @@ public class EditTickler2Action extends ActionSupport {
                 logger.warn("Refused tickler attachments: ticklerNo={}: {}",
                         LogSafe.sanitize(String.valueOf(ticklerNo)), LogSafe.sanitize(e.getMessage()));
                 addActionError(getText("tickler.ticklerEdit.attachments.error"));
-                return "error";
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return "attachmentsRefused";
             } catch (Exception e) {
                 logger.error("Failed to store tickler attachments: ticklerNo={}",
                         LogSafe.sanitize(String.valueOf(ticklerNo)), e);
@@ -293,7 +297,7 @@ public class EditTickler2Action extends ActionSupport {
             request.setAttribute("parentAjaxId", parentAjaxId);
         }
 
-        return "close";
+        return CLOSE_RESULT;
 
     }
 
@@ -396,7 +400,7 @@ public class EditTickler2Action extends ActionSupport {
 
         }
 
-        return "close";
+        return CLOSE_RESULT;
     }
 
     /** Reject safe-method requests before changing ticklers or suggested text. */

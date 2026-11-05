@@ -16,6 +16,8 @@ non-zero when changed-line coverage is below PCT percent, for use as a gate.
 import argparse
 import codecs
 import math
+import json
+from pathlib import Path
 import re
 import subprocess
 import sys
@@ -23,7 +25,7 @@ from collections import defaultdict
 from xml.parsers import expat
 
 
-def read_jacoco_lines(filename):
+def read_jacoco_lines(filename, include_branches=False):
     """Stream JaCoCo lines while rejecting DTDs and external entities."""
     source_lines = {}
     parser = expat.ParserCreate()
@@ -37,7 +39,10 @@ def read_jacoco_lines(filename):
             source = f"src/main/java/{package}/{attrs['name']}"
             source_lines[source] = {}
         elif name == "line" and source is not None:
-            source_lines[source][int(attrs["nr"])] = (int(attrs["ci"]), int(attrs["mi"]))
+            counters = tuple(int(attrs.get(key, "0")) for key in ("ci", "mi", "cb", "mb"))
+            if any(value < 0 for value in counters) or int(attrs["nr"]) < 1:
+                raise ValueError("JaCoCo line counters must be nonnegative")
+            source_lines[source][int(attrs["nr"])] = counters if include_branches else counters[:2]
 
     def end_element(name):
         nonlocal package, source
@@ -108,13 +113,38 @@ def audit(source_lines, changed):
         missed_lines = []
         for number in sorted(lines):
             hits = source_lines[filename].get(number)
-            if hits is not None and sum(hits) > 0:
+            if hits is not None and sum(hits[:2]) > 0:
                 if hits[0] > 0:
                     covered += 1
                 else:
                     missed_lines.append(number)
         files[filename] = (covered, len(missed_lines), missed_lines)
     return files, unmapped
+
+
+def audit_details(source_lines, changed):
+    """Keep partial instructions and missed branches visible beside canonical line hits."""
+    details = {}
+    for filename, numbers in sorted(changed.items()):
+        if filename not in source_lines:
+            continue
+        result = dict(covered_instructions=0, missed_instructions=0,
+                      covered_branches=0, missed_branches=0,
+                      partial_lines=[], missed_branch_lines=[])
+        for number in sorted(numbers):
+            counters = source_lines[filename].get(number)
+            if counters is None:
+                continue
+            ci, mi, cb, mb = (*counters[:2], *(counters[2:] if len(counters) == 4 else (0, 0)))
+            for field, count in zip(("covered_instructions", "missed_instructions",
+                                     "covered_branches", "missed_branches"), (ci, mi, cb, mb)):
+                result[field] += count
+            if ci and mi:
+                result["partial_lines"].append(number)
+            if mb:
+                result["missed_branch_lines"].append(number)
+        details[filename] = result
+    return details
 
 
 def parse_args(argv):
@@ -132,15 +162,20 @@ def parse_args(argv):
                         help="list every changed file with its missed line numbers")
     parser.add_argument("--fail-under", type=float, default=None, metavar="PCT",
                         help="exit 1 when changed-line coverage is below PCT percent")
+    parser.add_argument("--fail-under-branches", type=float, default=None, metavar="PCT")
+    parser.add_argument("--fail-under-instructions", type=float, default=None, metavar="PCT")
+    parser.add_argument("--json", type=Path, help="write metadata-only per-file coverage evidence")
     args = parser.parse_args(argv)
-    if args.fail_under is not None and (not math.isfinite(args.fail_under) or not 0 <= args.fail_under <= 100):
-        parser.error("--fail-under must be a finite percentage from 0 to 100")
+    for flag in ("fail_under", "fail_under_branches", "fail_under_instructions"):
+        value = getattr(args, flag)
+        if value is not None and (not math.isfinite(value) or not 0 <= value <= 100):
+            parser.error("--" + flag.replace("_", "-") + " must be a finite percentage from 0 to 100")
     return args
 
 
 def main(argv=None):
     args = parse_args(sys.argv[1:] if argv is None else argv)
-    source_lines = read_jacoco_lines(args.jacoco_xml)
+    source_lines = read_jacoco_lines(args.jacoco_xml, include_branches=True)
     paths = args.path or ["src/main/java"]
     for prefix in paths:
         if (prefix != "src/main/java" and not prefix.startswith("src/main/java/")) or ".." in prefix.split("/"):
@@ -152,7 +187,9 @@ def main(argv=None):
         ["git", "diff", "--no-ext-diff", "--src-prefix=a/", "--dst-prefix=b/", "-U0", *revisions, "--", *paths],
         text=True,
     )
-    files, unmapped = audit(source_lines, changed_lines(diff))
+    changed = changed_lines(diff)
+    files, unmapped = audit(source_lines, changed)
+    details = audit_details(source_lines, changed)
 
     covered_total = sum(covered for covered, _, _ in files.values())
     missed_total = sum(missed for _, missed, _ in files.values())
@@ -164,6 +201,10 @@ def main(argv=None):
     print(f"Changed executable Java lines: {covered_total} covered / {denominator} ({percentage})")
     print(f"Changed Java files: {len(files) + len(unmapped)}; unmapped by JaCoCo: {len(unmapped)}")
     print(f"Files with zero covered changed lines: {len(zero)}")
+    totals = {field: sum(row[field] for row in details.values()) for field in (
+        "covered_instructions", "missed_instructions", "covered_branches", "missed_branches")}
+    print("Changed instructions: {covered_instructions} covered, {missed_instructions} missed; "
+          "branches: {covered_branches} covered, {missed_branches} missed".format(**totals))
     for missed, filename in zero:
         print(f"  {missed:3} missed  {filename}")
     for filename in unmapped:
@@ -173,13 +214,29 @@ def main(argv=None):
         for filename, (covered, missed, missed_lines) in files.items():
             listed = ",".join(str(n) for n in missed_lines) or "-"
             print(f"  {covered:3} / {covered + missed:3}  {filename}  missed: {listed}")
+            detail = details[filename]
+            if detail["partial_lines"] or detail["missed_branch_lines"]:
+                print(f"    partial instructions: {detail['partial_lines']}; missed branches: {detail['missed_branch_lines']}")
 
-    if args.fail_under is not None and unmapped:
+    if args.json:
+        args.json.parent.mkdir(parents=True, exist_ok=True)
+        args.json.write_text(json.dumps(dict(base=args.base, head=args.head, covered_lines=covered_total,
+                                            missed_lines=missed_total, totals=totals,
+                                            unmapped=unmapped, files=details), indent=2) + "\n")
+
+    thresholds = (args.fail_under, args.fail_under_branches, args.fail_under_instructions)
+    if any(value is not None for value in thresholds) and unmapped:
         print("FAIL changed Java files are missing from the JaCoCo report")
         return 1
     if args.fail_under is not None and denominator and 100.0 * covered_total / denominator < args.fail_under:
         print(f"FAIL changed-line coverage {percentage} is below {args.fail_under:g}%")
         return 1
+    for field, threshold in (("branches", args.fail_under_branches), ("instructions", args.fail_under_instructions)):
+        covered = totals["covered_" + field]
+        total = covered + totals["missed_" + field]
+        if threshold is not None and total and 100 * covered / total < threshold:
+            print(f"FAIL changed-{field} coverage {covered / total:.1%} is below {threshold:g}%")
+            return 1
     return 0
 
 

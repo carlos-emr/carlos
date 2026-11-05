@@ -123,6 +123,12 @@ COLUMN_KEYWORDS = {
     "primary", "unique", "key", "index", "constraint", "foreign",
     "fulltext", "check", "spatial",
 }
+_COLUMN_IDENTIFIER = r"(?:`(?:[^`]|``)+`|\w+)"
+
+
+def unquote_identifier(token: str) -> str:
+    """Decode a quoted MySQL identifier while preserving its actual name."""
+    return token[1:-1].replace("``", "`") if token.startswith("`") else token
 
 
 # --------------------------------------------------------------------------
@@ -212,7 +218,7 @@ def _split_top_level(body: str) -> List[str]:
 
 
 def strip_line_comments(text: str) -> str:
-    """Remove `-- ` and `#` line comments outside string literals.
+    """Remove ordinary SQL comments outside string literals.
 
     initcaisi.sql carries a commented-out `-- CREATE TABLE surveyData` whose
     empty body would otherwise REPLACE the real oscarinit definition. Quote
@@ -223,6 +229,12 @@ def strip_line_comments(text: str) -> str:
     n = len(text)
     while i < n:
         c = text[i]
+        if text.startswith("/*", i) and not text.startswith("/*!", i):
+            end = text.find("*/", i + 2)
+            end = n if end == -1 else end + 2
+            out.extend(char if char in "\r\n" else " " for char in text[i:end])
+            i = end
+            continue
         if c in ("'", '"', "`"):
             quote = c
             out.append(c)
@@ -297,11 +309,47 @@ def walk_ddl(text: str):
     literal is misread, and the cursor skips past each body so statement
     text inside an INSERTed string is never re-matched.
 
-    Kept separate from Schema so the parse has two consumers: the model
-    below, and verify_ddl_parse.py, which replays the same statements
-    through a real MariaDB and compares. One walk, so the oracle cannot
-    drift from the thing it verifies.
+    Kept separate from Schema so literal DDL has two consumers: the model
+    below, and verify_ddl_parse.py, which replays those statements through
+    MariaDB. Known guarded dynamic CARLOS effects are modeled in load_schema;
+    independent physical-contract inventory checks cover that separate path.
     """
+    # Dynamic migrations contain DDL inside CONCAT string literals. Those
+    # fragments are not executable declarations and can carry only part of
+    # a column type. Preserve offsets while excluding them from matching.
+    masked = list(text)
+    uncommented = list(text)
+    quote = None
+    cursor = 0
+    while cursor < len(text):
+        char = text[cursor]
+        if quote is None:
+            if text.startswith("/*", cursor) and not text.startswith("/*!", cursor):
+                end = text.find("*/", cursor + 2)
+                end = len(text) if end == -1 else end + 2
+                for index in range(cursor, end):
+                    if text[index] not in "\r\n":
+                        masked[index] = uncommented[index] = " "
+                cursor = end
+                continue
+            if char in ("'", '"'):
+                quote = char
+                masked[cursor] = " "
+        else:
+            masked[cursor] = " "
+            if char == "\\":
+                cursor += 1
+                if cursor < len(text):
+                    masked[cursor] = " "
+            elif char == quote:
+                if cursor + 1 < len(text) and text[cursor + 1] == quote:
+                    cursor += 1
+                    masked[cursor] = " "
+                else:
+                    quote = None
+        cursor += 1
+    text = "".join(uncommented)
+    searchable = "".join(masked)
     patterns = (("create", _CREATE_RE), ("drop", _DROP_RE),
                 ("rename", _RENAME_RE), ("alter", _ALTER_RE))
     i = 0
@@ -311,7 +359,7 @@ def walk_ddl(text: str):
         # alone so nothing else in the tuple is ever compared
         found = [(m.start(), kind, m)
                  for kind, rx in patterns
-                 for m in (rx.search(text, i),) if m]
+                 for m in (rx.search(searchable, i),) if m]
         if not found:
             return
         _, kind, m = min(found, key=lambda hit: hit[0])
@@ -335,7 +383,7 @@ def walk_ddl(text: str):
                             sql=text[m.start():m.end()], new_name=m.group(2))
             i = m.end()
         else:  # alter
-            stmt_end = text.find(";", m.end())
+            stmt_end = searchable.find(";", m.end())
             if stmt_end == -1:
                 stmt_end = n
             yield Statement("alter", m.group(1),
@@ -344,7 +392,7 @@ def walk_ddl(text: str):
             i = stmt_end + 1
 
 
-_POSITION_RE = re.compile(r"\s+(?:(first)|after\s+`?(\w+)`?)\s*$", re.I)
+_POSITION_RE = re.compile(rf"\s+(?:(first)|after\s+({_COLUMN_IDENTIFIER}))\s*$", re.I)
 
 
 def split_column_position(ctype: str) -> Tuple[str, Optional[str]]:
@@ -359,7 +407,7 @@ def split_column_position(ctype: str) -> Tuple[str, Optional[str]]:
     m = _POSITION_RE.search(ctype)
     if not m:
         return ctype, None
-    return ctype[:m.start()].rstrip(), ("FIRST" if m.group(1) else m.group(2))
+    return ctype[:m.start()].rstrip(), ("FIRST" if m.group(1) else unquote_identifier(m.group(2)))
 
 
 def place_column(cols: Dict[str, str], name: str, ctype: str,
@@ -439,6 +487,7 @@ class Schema:
 
     def apply_create(self, name: str, body: str,
                      if_not_exists: bool = False) -> None:
+        """Read complete quoted column names and retain union/guarded CREATE rules."""
         # CREATE TABLE IF NOT EXISTS on an existing table is a NO-OP in
         # MySQL — the restore migrations (V1.0.5/V1.0.6) re-issue old
         # definitions guarded this way, and replacing the baseline's
@@ -459,10 +508,11 @@ class Schema:
             part = part.strip()
             if not part:
                 continue
-            m = re.match(r"(`?)(\w+)`?\s*(.*)", part, re.S)
+            m = re.match(rf"({_COLUMN_IDENTIFIER})\s*(.*)", part, re.S)
             if not m:
                 continue
-            quoted, first = m.group(1) == "`", m.group(2)
+            quoted = m.group(1).startswith("`")
+            first = unquote_identifier(m.group(1))
             # A BACKTICKED first token is a column name, never a
             # constraint keyword -- MySQL requires the quoting precisely
             # so a column may be called `key`, `index` or `check`. Without
@@ -480,10 +530,10 @@ class Schema:
                     # PRIMARY KEY. Split the prefix off FIRST: stripping
                     # backticks first leaves the closing one attached to
                     # the name (`col` -> col`(20) -> col`).
-                    pk = [c.strip().split("(")[0].strip().strip("`")
+                    pk = [unquote_identifier(c.strip().split("(")[0].strip())
                           for c in pm.group(1).split(",")]
                 continue
-            ctype = re.sub(r"\s+", " ", m.group(3)).strip().rstrip(",")
+            ctype = re.sub(r"\s+", " ", m.group(2)).strip().rstrip(",")
             inline_pk = re.search(r"\bprimary\s+key\b", ctype, re.I)
             if inline_pk and not pk:
                 pk = [first]
@@ -503,6 +553,7 @@ class Schema:
             del self.pks[name]
 
     def apply_alter(self, name: str, clause_text: str) -> None:
+        """Apply ordered column/key changes while retaining names and declarations."""
         if name not in self.tables:
             # ALTER against a table this source set never created (e.g. a
             # BC-only table altered by a shared update script) — ignore.
@@ -515,9 +566,9 @@ class Schema:
                          re.I | re.S)
             if m:
                 for part in _split_top_level(m.group(1)):
-                    pm = re.match(r"\s*`?(\w+)`?\s+(.+)", part, re.S)
-                    if pm and pm.group(1).lower() not in COLUMN_KEYWORDS:
-                        cols[pm.group(1)] = re.sub(
+                    pm = re.match(rf"\s*({_COLUMN_IDENTIFIER})\s+(.+)", part, re.S)
+                    if pm and (pm.group(1).startswith("`") or pm.group(1).lower() not in COLUMN_KEYWORDS):
+                        cols[unquote_identifier(pm.group(1))] = re.sub(
                             r"\s+", " ", pm.group(2)).strip()
                 continue
             # `ALTER TABLE x DROP PRIMARY KEY` -- ignored entirely until the
@@ -543,40 +594,41 @@ class Schema:
                           r"key(?:\s+`?\w+`?)?\s*\((.*)\)\s*$",
                           clause, re.I | re.S)
             if pm:
-                added = [c.strip().split("(")[0].strip().strip("`")
+                added = [unquote_identifier(c.strip().split("(")[0].strip())
                          for c in pm.group(1).split(",")]
                 added = resolve_pk_case(added, cols)
                 if added:
                     self.pks[name] = added
                 continue
             m = re.match(r"add\s+(?:column\s+)?(?:if\s+not\s+exists\s+)?"
-                         r"`?(\w+)`?\s+(.+)", clause, re.I | re.S)
-            if m and m.group(1).lower() not in COLUMN_KEYWORDS:
+                         rf"({_COLUMN_IDENTIFIER})\s+(.+)", clause, re.I | re.S)
+            if m and (m.group(1).startswith("`") or m.group(1).lower() not in COLUMN_KEYWORDS):
+                column = unquote_identifier(m.group(1))
                 ctype, position = split_column_position(
                     re.sub(r"\s+", " ", m.group(2)).strip())
-                cols = place_column(cols, m.group(1), ctype, position)
+                cols = place_column(cols, column, ctype, position)
                 self.tables[name] = cols
                 # ...and the other half of the same pair: five of those
                 # seven files drop the key and then add a column that
                 # declares the new one inline
                 if re.search(r"\bprimary\s+key\b", ctype, re.I):
-                    self.pks[name] = [m.group(1)]
+                    self.pks[name] = [column]
                 continue
-            m = re.match(r"drop\s+(?:column\s+)?`?(\w+)`?\s*$", clause, re.I)
-            if m and m.group(1).lower() not in (
-                    "primary", "index", "key", "foreign"):
+            m = re.match(rf"drop\s+(?:column\s+)?({_COLUMN_IDENTIFIER})\s*$", clause, re.I)
+            if m and (m.group(1).startswith("`") or m.group(1).lower() not in (
+                    "primary", "index", "key", "foreign")):
                 # a column reference is case-insensitive in MySQL, so
                 # `DROP COLUMN name` drops a column declared `NAME`
                 victim = next((c for c in cols
-                               if c.lower() == m.group(1).lower()), None)
+                               if c.lower() == unquote_identifier(m.group(1)).lower()), None)
                 if victim is not None:
                     del cols[victim]
                 continue
             m = re.match(
-                r"change\s+(?:column\s+)?`?(\w+)`?\s+`?(\w+)`?\s+(.+)",
+                rf"change\s+(?:column\s+)?({_COLUMN_IDENTIFIER})\s+({_COLUMN_IDENTIFIER})\s+(.+)",
                 clause, re.I | re.S)
             if m:
-                old, new, ctype = m.group(1), m.group(2), m.group(3)
+                old, new, ctype = unquote_identifier(m.group(1)), unquote_identifier(m.group(2)), m.group(3)
                 # `change name NAME ...` renames the column declared `name`:
                 # the reference is case-insensitive even though the result
                 # is not. Matching case-sensitively left the old spelling
@@ -601,8 +653,20 @@ class Schema:
                     self.tables[name] = rebuilt
                     cols = rebuilt
                 continue
-            # MODIFY changes type only — column set is unaffected; other
-            # clauses (indexes, engine, charset) don't affect the column map.
+            # Keep the final declaration as well as the names. Ignoring
+            # MODIFY hid capacity changes in later OSCAR/CARLOS updates.
+            m = re.match(rf"modify\s+(?:column\s+)?({_COLUMN_IDENTIFIER})\s+(.+)",
+                         clause, re.I | re.S)
+            if m:
+                identifier = unquote_identifier(m.group(1))
+                column = next((c for c in cols
+                               if c.lower() == identifier.lower()), None)
+                if column is not None:
+                    ctype, position = split_column_position(
+                        re.sub(r"\s+", " ", m.group(2)).strip())
+                    cols = place_column(cols, column, ctype, position)
+                    self.tables[name] = cols
+                continue
         # A DROP COLUMN takes the column out of the primary key too, and a
         # key naming no column would be looked up in tables[t] and missed.
         # Re-resolving against the final column set covers every clause that
@@ -1015,6 +1079,26 @@ def load_schema(files: List[Path],
     schema = Schema(if_not_exists_mode)
     for f in files:
         schema.feed(strip_line_comments(read_sql(f)))
+        # These committed CARLOS migrations execute guarded dynamic DDL.
+        # Do not parse arbitrary CONCAT fragments as SQL declarations. Model
+        # their canonical schema effects explicitly instead; independent
+        # physical-contract tests require the resulting column inventory.
+        if f.name == "V1.0.54__allow_dashboard_exclusion_history.sql":
+            key = schema.tables.get("demographicExt", {}).get("key_val", "")
+            kind = re.match(r"varchar\(\d+\)", key, re.I)
+            if not kind:
+                raise ValueError("dashboard helper requires the demographicExt key declaration")
+            schema.apply_alter("demographicExt", "ADD COLUMN IF NOT EXISTS "
+                               "dashboard_single_value_key " + kind.group() +
+                               " GENERATED ALWAYS AS (CASE WHEN key_val = 'excludeIndicator' "
+                               "THEN NULL ELSE key_val END) VIRTUAL INVISIBLE")
+        elif f.name == "V1.0.59__archive_security_mfa_setting.sql":
+            schema.apply_alter("SecurityArchive", "ADD COLUMN IF NOT EXISTS "
+                               "usingMfa TINYINT(1) NULL DEFAULT NULL")
+        elif f.name == "V1.0.57__preserve_rourke2020_immunization_notes.sql":
+            for column in ("p3_immunization", "p4_immunization"):
+                schema.apply_alter("formRourke2020", "ADD COLUMN IF NOT EXISTS "
+                                   + column + " TEXT NULL")
     return schema
 
 
@@ -1036,24 +1120,33 @@ def carlos_migration_files(dirs: List[Path]) -> List[Path]:
     return sorted(files, key=lambda f: (flyway_version(f), f.name))
 
 
-def expand_sources(base: Path, patterns: List[str]) -> List[Path]:
+def expand_sources(base: Path, patterns: List[str], strict: bool = False) -> List[Path]:
     """Resolve the configured source patterns against `base`, globs sorted
     for determinism.
 
     A missing NON-glob file warns rather than dying: the source list
     spans several OSCAR 19 patch levels and not every checkout carries
-    every file."""
+    every file. Audits use strict mode: every configured file or glob must
+    resolve before any source declarations can be trusted."""
     out: List[Path] = []
+    missing = []
     for pat in patterns:
         if "*" in pat:
-            out.extend(sorted(base.glob(pat)))
+            matches = sorted(path for path in base.glob(pat) if path.is_file())
+            out.extend(matches)
+            if not matches:
+                missing.append(str(base / pat))
         else:
             p = base / pat
             if p.is_file():
                 out.append(p)
             else:
-                print("warning: missing O19 source {}".format(p),
-                      file=sys.stderr)
+                missing.append(str(p))
+                if not strict:
+                    print("warning: missing O19 source {}".format(p),
+                          file=sys.stderr)
+    if strict and missing:
+        raise FileNotFoundError("incomplete OSCAR source checkout: " + ", ".join(missing))
     return out
 
 
