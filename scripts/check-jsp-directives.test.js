@@ -4,6 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const fs = require('node:fs');
 const { spawnSync } = require('node:child_process');
 
 // Exercise the analyzer with synthetic translation units, independent of Maven.
@@ -107,4 +108,21 @@ test('JSP audit protects include scope, classpath resolution and taglib usage', 
     cwd: path.join(__dirname, '..'), encoding: 'utf8',
   });
   assert.equal(result.status, 0, result.stdout + result.stderr);
+});
+
+test('the actual JSP CI shell preserves compilation and classpath failures', () => {
+  const workflow = fs.readFileSync(path.join(__dirname, '../.github/workflows/maven-project.yml'), 'utf8');
+  const step = workflow.slice(workflow.indexOf('      - name: Compile JSPs'));
+  const match = step.match(/docker exec carlos-tomcat-dev bash (-[a-z]+) "([\s\S]*?)\n\s*"/);
+  assert.ok(match, 'locate the actual container shell and commands');
+  for (const [compilation, classpath, audit, expected, reached] of [
+    [17, 0, 0, 17, false], [0, 23, 0, 23, false],
+    [0, 0, 29, 29, true], [0, 0, 0, 0, true],
+  ]) {
+    const stubs = `make() { return ${compilation}; }; mvn() { return ${classpath}; }; `
+      + `python3() { echo AUDIT_REACHED; return ${audit}; };\n`;
+    const result = spawnSync('bash', [match[1], stubs + match[2]], {encoding: 'utf8'});
+    assert.equal(result.status, expected, result.stderr);
+    assert.equal(result.stdout.includes('AUDIT_REACHED'), reached);
+  }
 });
