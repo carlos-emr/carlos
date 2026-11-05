@@ -33,7 +33,7 @@
 
 %>
 <%@ page
-        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*"
+        import="java.util.*, io.github.carlos_emr.*, java.lang.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%
     //to prepare calendar display  
@@ -52,7 +52,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 

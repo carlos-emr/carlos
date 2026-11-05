@@ -30,10 +30,10 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
 <%@page %>
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*,io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler,java.util.*,io.github.carlos_emr.carlos.rx.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler, java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.lab.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.SortHashtable" %>
@@ -46,7 +46,7 @@
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>

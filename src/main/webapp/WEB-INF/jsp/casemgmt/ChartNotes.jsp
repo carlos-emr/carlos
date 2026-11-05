@@ -54,45 +54,45 @@
 <% response.setBufferSize(1024 * 1024); %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@page import="io.github.carlos_emr.Misc" %>
-<%@page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
+
+
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <%@taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="java.util.Enumeration" %>
-<%@page import="io.github.carlos_emr.carlos.encounter.pageUtil.NavBarDisplayDAO" %>
-<%@page import="java.util.Arrays,java.util.Properties,java.util.List,java.util.Set,java.util.ArrayList,java.util.Enumeration,java.util.HashSet,java.util.Iterator,java.text.SimpleDateFormat,java.util.Calendar,java.util.Date,java.text.ParseException" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.model.*,io.github.carlos_emr.carlos.casemgmt.service.* " %>
+
+
+<%@page import="java.util.List, java.util.Set, java.util.Iterator, java.text.SimpleDateFormat, java.util.Date" %>
+
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.model.*" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.*" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.EFormDao" %>
-<%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
-<%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
-<%@page import="org.springframework.web.context.WebApplicationContext" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour" %>
-<%@page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@page import="com.quatro.dao.security.*,io.github.carlos_emr.carlos.model.security.Secrole" %>
-<%@page import="io.github.carlos_emr.carlos.utility.EncounterUtil" %>
-<%@page import="org.apache.cxf.common.i18n.UncheckedException" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementViewAction" %>
+
+
+
+
+
+
+
+
+<%@page import="io.github.carlos_emr.carlos.model.security.Secrole" %>
+
+
+
+
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAO" %>
+
+
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
-<%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
+
+
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayNonNote" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao" %>
+
+
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.CheckBoxBean" %>
 <%@page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>

@@ -50,11 +50,11 @@
     @since 2012 (Centre de Medecine Integree); documented 2026-10 for issue #4131
 --%>
 
-<%@page import="java.nio.charset.StandardCharsets" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="java.util.Hashtable" %>
-<%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+
 <%@page import="java.util.Collections" %>
 <%@page import="io.github.carlos_emr.MyDateFormat" %>
 <%@page import="io.github.carlos_emr.carlos.util.DateUtils" %>
@@ -64,21 +64,21 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
-<%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
+
+
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="page"/>
 
-<%@page import="java.util.Date, java.util.List" %>
+<%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil,io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay,io.github.carlos_emr.carlos.casemgmt.web.NoteDisplayLocal" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager,io.github.carlos_emr.carlos.documentManager.DocumentListAccess" %>
 <%@page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager,io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
 <%@page import="org.springframework.web.context.WebApplicationContext" %>
 <%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%

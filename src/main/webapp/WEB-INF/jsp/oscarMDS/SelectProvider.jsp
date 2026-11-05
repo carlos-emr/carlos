@@ -48,9 +48,9 @@
 --%>
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ page
-        import="io.github.carlos_emr.carlos.providers.data.ProviderData, java.util.ArrayList,java.util.Map, java.util.List, io.github.carlos_emr.carlos.utility.SpringUtils" %>
+        import="java.util.List, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page
         import="io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingFavoritesDao, io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingFavorite" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao, io.github.carlos_emr.carlos.commn.model.Provider" %>

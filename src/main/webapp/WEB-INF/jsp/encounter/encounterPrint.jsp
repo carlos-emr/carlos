@@ -41,7 +41,7 @@
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -57,7 +57,7 @@
     }
 %>
 
-<%@page import="io.github.carlos_emr.carlos.encounter.data.*,java.net.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>

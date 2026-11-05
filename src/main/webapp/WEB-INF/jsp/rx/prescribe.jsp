@@ -64,7 +64,7 @@
 --%>
 
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.rx.util.*" %>
+
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
@@ -73,7 +73,7 @@
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security"%>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" />

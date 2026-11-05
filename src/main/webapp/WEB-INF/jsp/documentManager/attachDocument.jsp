@@ -28,12 +28,12 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
-<%@ page import="java.util.List" %>
-<%@ page import="java.util.ArrayList" %>
-<%@ page import="java.util.Arrays" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
+
+
+
+
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -77,7 +77,7 @@
 <fmt:message var="lblLabDecisionSupportStubbed" key="eform.renderIssue.labDecisionSupportStubbed"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="attachmentSelectionDisabled" value="${canManageAttachments ne true}"/>

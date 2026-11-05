@@ -22,12 +22,12 @@
 <%@ page import="java.util.*" %>
 <%@ page import="java.sql.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.model.security.Secuserrole" %>
+
 <%@ page import="io.github.carlos_emr.carlos.daos.security.SecuserroleDao" %>
 <%@ page import="java.util.ResourceBundle" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%

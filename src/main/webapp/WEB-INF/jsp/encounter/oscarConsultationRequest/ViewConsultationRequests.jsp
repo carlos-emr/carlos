@@ -74,8 +74,8 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao" %>
 
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.*,java.text.*,java.util.*" %>
-<%@ page import="java.sql.ResultSet" %>
+<%@ page import="java.text.*, java.util.*" %>
+
 <%@ page
         import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO, io.github.carlos_emr.carlos.commn.model.UserProperty, org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -90,13 +90,13 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequestsUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.consultation.dto.ConsultationListFilterDto" %>
 <%@ page import="io.github.carlos_emr.carlos.consultation.dto.ConsultationMrpOptionDto" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 

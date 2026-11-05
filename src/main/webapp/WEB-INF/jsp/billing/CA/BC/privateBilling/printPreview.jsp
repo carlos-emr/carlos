@@ -6,7 +6,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao" %>
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.bc.data.BillingPreferencesDAO" %>
@@ -23,7 +23,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("user") == null)

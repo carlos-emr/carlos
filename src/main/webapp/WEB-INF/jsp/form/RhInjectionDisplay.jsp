@@ -48,7 +48,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page
-        import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*,java.util.*, io.github.carlos_emr.carlos.providers.data.*, io.github.carlos_emr.carlos.prevention.*" %>
+        import="io.github.carlos_emr.carlos.util.*, java.util.*, io.github.carlos_emr.carlos.providers.data.*, io.github.carlos_emr.carlos.prevention.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>

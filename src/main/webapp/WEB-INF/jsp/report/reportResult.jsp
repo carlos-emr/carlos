@@ -1,5 +1,5 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -26,7 +26,7 @@
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.pageUtil.*" %>
-<%@ page import="io.github.carlos_emr.carlos.login.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportConfigData" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportCreator" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>

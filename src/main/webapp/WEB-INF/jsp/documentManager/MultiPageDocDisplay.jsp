@@ -48,17 +48,17 @@
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils,io.github.carlos_emr.carlos.lab.ca.all.*,io.github.carlos_emr.carlos.mds.data.*,io.github.carlos_emr.carlos.lab.ca.all.util.*" %>
-<%@page import="org.springframework.web.context.WebApplicationContext,io.github.carlos_emr.carlos.commn.dao.*,io.github.carlos_emr.carlos.commn.model.*, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
+<%@page import="io.github.carlos_emr.carlos.lab.ca.all.*, io.github.carlos_emr.carlos.mds.data.*" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.*, io.github.carlos_emr.carlos.commn.model.*, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
