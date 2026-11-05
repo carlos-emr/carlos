@@ -39,6 +39,7 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.billings.ca.bc.service.BillingDiagnosisService;
 import org.springframework.dao.DataAccessException;
+import org.springframework.transaction.CannotCreateTransactionException;
 import jakarta.persistence.PersistenceException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -78,7 +79,7 @@ public class DxReference {
                 code.setDesc(diagnosis.description());
                 list.add(code);
             }
-        } catch (DataAccessException | PersistenceException e) {
+        } catch (DataAccessException | PersistenceException | CannotCreateTransactionException e) {
             _log.error("Unable to read recent billing diagnoses ({})", e.getClass().getSimpleName());
         }
         Collections.sort(list, Collections.reverseOrder());

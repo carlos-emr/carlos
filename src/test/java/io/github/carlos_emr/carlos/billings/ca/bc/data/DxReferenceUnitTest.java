@@ -7,6 +7,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.transaction.CannotCreateTransactionException;
 
 import java.util.List;
 
@@ -39,4 +40,13 @@ class DxReferenceUnitTest extends CarlosUnitTestBase {
         when(service.findRecentDiagnoses("42")).thenThrow(new DataAccessResourceFailureException("synthetic failure"));
         assertThat(new DxReference().getLatestDxCodes("42")).isEmpty();
     }
+    @Test
+    void shouldReturnEmptyList_whenDatabaseTransactionCannotStart() {
+        BillingDiagnosisService service = mock(BillingDiagnosisService.class);
+        registerMock(BillingDiagnosisService.class, service);
+        when(service.findRecentDiagnoses("42"))
+                .thenThrow(new CannotCreateTransactionException("synthetic connection failure"));
+        assertThat(new DxReference().getLatestDxCodes("42")).isEmpty();
+    }
+
 }

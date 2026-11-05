@@ -2,7 +2,11 @@
 
 This inventory starts from `release/2026.08` at
 `be931c3fcb0ff9161c6a9a0b317fa5ac52fc81bb` and records the first migration on
-that base. The work is deliberately split into module changes, as requested by
+that base. The operation index and caller counts below are a historical snapshot
+of that migration, not a live inventory of the current release tree. During
+release integration, [#5552](https://github.com/carlos-emr/carlos/pull/5552)
+already migrated the indexed `MSPReconcile` reads for #5546; those entries remain
+as the audit trail of the original inventory. The work is deliberately split into module changes, as requested by
 [#5508](https://github.com/carlos-emr/carlos/issues/5508). It does not claim that
 all application SQL has been converted to JPA.
 
@@ -28,8 +32,8 @@ a single transaction. It does not add a write, permission bypass or audit call.
 
 The [operation index](legacy-query-helper-operations.tsv) records every direct
 Java executor invocation and JSP scriptlet invocation of `LegacyJdbcQuery`, plus
-`DBHelp.searchDBRecord` and the `dbExtract` construction site, in the resulting
-source tree. Java methods were parsed with the JDK compiler tree API, so multiline
+`DBHelp.searchDBRecord` and the `dbExtract` construction site, in the original migration
+snapshot. Java methods were parsed with the JDK compiler tree API, so multiline
 calls, overloads, package-private methods and nested methods are included. The
 snapshot has 235 Java call expressions grouped into 151 method entries, plus
 32 JSP call expressions, across 87 files. Of those Java expressions, 128 in 47
@@ -138,7 +142,7 @@ up this test through its inherited `spring-context` tag using generated tables;
 BC Flyway qualification must be run explicitly as above. H2 results alone do not
 establish MariaDB-native comparison, metadata or transaction behavior.
 
-## Current caller index
+## Historical caller index
 
 | Source | Entry points | Follow-up |
 | --- | --- | --- |
