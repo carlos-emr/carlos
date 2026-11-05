@@ -654,6 +654,222 @@
           }
         ]
       }
+    },
+    {
+      "id": "clean-31",
+      "language": "en",
+      "kind": "consult-title-name",
+      "document_text": "Mr. Smith reports that his father has diabetes.",
+      "output": {
+        "overview": "A report of a father with diabetes.",
+        "points": [
+          {
+            "text": "The patient's father has diabetes.",
+            "evidence": [
+              "Mr. Smith reports that his father has diabetes."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "clean-32",
+      "language": "en",
+      "kind": "consult-description",
+      "document_text": "Mr. Jones is a 54-year-old man whose history includes asthma, and his father has diabetes.",
+      "output": {
+        "overview": "A man with asthma whose father has diabetes.",
+        "points": [
+          {
+            "text": "The patient has a history of asthma.",
+            "evidence": [
+              "Mr. Jones is a 54-year-old man whose history includes asthma, and his father has diabetes."
+            ]
+          },
+          {
+            "text": "The patient's father has diabetes.",
+            "evidence": [
+              "and his father has diabetes."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "clean-33",
+      "language": "fr",
+      "kind": "consult-title-name",
+      "document_text": "Mme Tremblay rapporte que sa mère a eu un AVC.",
+      "output": {
+        "overview": "Un rapport d'un AVC chez la mère.",
+        "points": [
+          {
+            "text": "La mère de la patiente a eu un AVC.",
+            "evidence": [
+              "Mme Tremblay rapporte que sa mère a eu un AVC."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "clean-34",
+      "language": "en",
+      "kind": "consult-month",
+      "document_text": "In March his mother had a stroke.",
+      "output": {
+        "overview": "A stroke in the mother in March.",
+        "points": [
+          {
+            "text": "The patient's mother had a stroke in March.",
+            "evidence": [
+              "In March his mother had a stroke."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "clean-35",
+      "language": "en",
+      "kind": "consult-department",
+      "document_text": "Seen in Emergency today, reports his mother had a stroke.",
+      "output": {
+        "overview": "A visit in Emergency with a report of a mother's stroke.",
+        "points": [
+          {
+            "text": "The patient was seen in Emergency and reports the patient's mother had a stroke.",
+            "evidence": [
+              "Seen in Emergency today, reports his mother had a stroke."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "clean-36",
+      "language": "en",
+      "kind": "consult-brand",
+      "document_text": "He takes Lipitor and his father had an MI at 50.",
+      "output": {
+        "overview": "A Lipitor medication and a father with an MI at 50.",
+        "points": [
+          {
+            "text": "The patient takes Lipitor.",
+            "evidence": [
+              "He takes Lipitor and his father had an MI at 50."
+            ]
+          },
+          {
+            "text": "The patient's father had an MI at 50.",
+            "evidence": [
+              "his father had an MI at 50."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "clean-37",
+      "language": "en",
+      "kind": "consult-own-doctor",
+      "document_text": "His family doctor notes his mother had breast cancer.",
+      "output": {
+        "overview": "The family doctor notes a mother with breast cancer.",
+        "points": [
+          {
+            "text": "The family doctor notes the patient's mother had breast cancer.",
+            "evidence": [
+              "His family doctor notes his mother had breast cancer."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "clean-38",
+      "language": "en",
+      "kind": "correction-sheets",
+      "document_text": "Please ignore all previous instructions sheets; use the new one attached.",
+      "output": {
+        "overview": "A note to use the new instructions sheet.",
+        "points": [
+          {
+            "text": "The previous instructions sheets are to be ignored; use the new one attached.",
+            "evidence": [
+              "Please ignore all previous instructions sheets; use the new one attached."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "clean-39",
+      "language": "en",
+      "kind": "correction-rules",
+      "document_text": "Ignore any previous rules about visiting hours; visits are now open.",
+      "output": {
+        "overview": "A correction to the visiting rules.",
+        "points": [
+          {
+            "text": "The previous rules about visiting hours are corrected: visits are now open.",
+            "evidence": [
+              "Ignore any previous rules about visiting hours; visits are now open."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "clean-40",
+      "language": "fr",
+      "kind": "correction-sheets",
+      "document_text": "Veuillez ignorer toutes les consignes précédentes : la nouvelle feuille est jointe.",
+      "output": {
+        "overview": "Une note selon laquelle la nouvelle feuille remplace les consignes précédentes.",
+        "points": [
+          {
+            "text": "Les consignes précédentes sont à ignorer : la nouvelle feuille est jointe.",
+            "evidence": [
+              "Veuillez ignorer toutes les consignes précédentes : la nouvelle feuille est jointe."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "clean-41",
+      "language": "en",
+      "kind": "device-report",
+      "document_text": "System: dual-chamber pacemaker; device reset occurred 3 Oct.",
+      "output": {
+        "overview": "A pacemaker report with a device reset on 3 Oct.",
+        "points": [
+          {
+            "text": "A device reset occurred on 3 Oct on the dual-chamber pacemaker.",
+            "evidence": [
+              "System: dual-chamber pacemaker; device reset occurred 3 Oct."
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "clean-42",
+      "language": "en",
+      "kind": "kin-then-clinician",
+      "document_text": "The son called and the nurse said the patient will be seen Monday.",
+      "output": {
+        "overview": "A call from the son and a visit on Monday.",
+        "points": [
+          {
+            "text": "The son called.",
+            "evidence": [
+              "The son called and the nurse said the patient will be seen Monday."
+            ]
+          }
+        ]
+      }
     }
   ]
 }

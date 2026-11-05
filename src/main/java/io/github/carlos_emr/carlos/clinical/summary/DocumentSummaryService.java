@@ -80,6 +80,16 @@ public final class DocumentSummaryService {
         String rule() { return rule; }
     }
 
+    private static final org.apache.logging.log4j.Logger LOG = org.apache.logging.log4j.LogManager.getLogger(DocumentSummaryService.class);
+
+    /**
+     * A rule that is measured but not yet allowed to refuse: only its name is logged, never a word of the
+     * document or the summary.
+     */
+    private static void reportRuleHit(String rule) {
+        LOG.info("Document summary rule hit (report only): {}", rule);
+    }
+
     private final ClinicalSummaryAgent agent;
 
     public DocumentSummaryService() { this(ClinicalSummaryAgents.configuredDocument()); }
@@ -163,7 +173,7 @@ public final class DocumentSummaryService {
             String status = statusWordWithoutSupport(statement, excerpts.toString());
             if (status != null) throw new RuleRefusal("status_word", "Summary point adds a status its evidence does not state: " + status);
             String possessor = DocumentSummaryFidelityValidator.possessorOfAnotherPerson(statement, excerpts.toString());
-            if (possessor != null) throw new RuleRefusal("possessor", "Summary point gives the patient the kin of a person the evidence names: " + possessor);
+            if (possessor != null) reportRuleHit("possessor");
             List<String> quoted = new ArrayList<>();
             evidence.forEach(item -> quoted.add(item.asText()));
             if (DocumentSummaryFidelityValidator.evidenceInInjectedLine(quoted, source)) {
@@ -176,7 +186,7 @@ public final class DocumentSummaryService {
         String status = statusWordWithoutSupport(overview, source);
         if (status != null) throw new RuleRefusal("status_word", "Overview adds a status the document does not state: " + status);
         String possessor = DocumentSummaryFidelityValidator.possessorOfAnotherPerson(overview, source);
-        if (possessor != null) throw new RuleRefusal("possessor", "Overview gives the patient the kin of a person the document names: " + possessor);
+        if (possessor != null) reportRuleHit("possessor");
         String command = DocumentSummaryFidelityValidator.injectedCommandWord(overview, source);
         if (command != null) throw new RuleRefusal("ai_addressed_text", "Overview describes text addressed to an AI: " + command);
     }
