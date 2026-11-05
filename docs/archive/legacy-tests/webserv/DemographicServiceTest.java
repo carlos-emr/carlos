@@ -26,27 +26,38 @@ package io.github.carlos_emr.carlos.webserv;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
+
+import jakarta.ws.rs.BadRequestException;
 
 import org.apache.logging.log4j.Logger;
 import org.junit.Test;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
 import io.github.carlos_emr.carlos.webserv.rest.DemographicMergeService;
 import io.github.carlos_emr.carlos.webserv.rest.DemographicService;
+import io.github.carlos_emr.carlos.webserv.rest.to.AbstractSearchResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.OscarSearchResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicMergedTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1;
 
 public class DemographicServiceTest extends BaseRestServiceTest {
 
-    private static Logger logger = io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();
+    private static final Logger logger = io.github.carlos_emr.carlos.utility.MiscUtils.getLogger();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
-     * Generates a new pre-populated random demographic
+     * Generates a new pre-populated random demographic.
      *
-     * @return Returns a new demo instance
+     * @return Returns a new demographic instance.
      */
     protected static DemographicTo1 newRandomDemograpic() {
         DemographicTo1 demo = new DemographicTo1();
@@ -64,6 +75,10 @@ public class DemographicServiceTest extends BaseRestServiceTest {
 
         testCrud();
         testMerge();
+        testBasicDemographicData();
+        testDemographicSummary();
+        testQuickSearch();
+        testSearchRequest();
     }
 
     public void testMerge() {
@@ -78,25 +93,33 @@ public class DemographicServiceTest extends BaseRestServiceTest {
         assertNotNull(child.getDemographicNo());
 
         Integer parentId = parent.getDemographicNo();
+
         DemographicMergeService mergeService = getResource(DemographicMergeService.class);
-        OscarSearchResponse<DemographicMergedTo1> mergedResponse = mergeService.getMergedDemographicIds(parentId);
+
+        OscarSearchResponse<DemographicMergedTo1> mergedResponse =
+                mergeService.getMergedDemographicIds(parentId);
+
         List<Integer> mergedIds = getMergedIds(mergedResponse);
         assertTrue(mergedIds.isEmpty());
 
         mergeService.mergeDemographic(parent.getDemographicNo(), child.getDemographicNo());
+
         mergedResponse = mergeService.getMergedDemographicIds(parent.getDemographicNo());
         assertTrue(getMergedIds(mergedResponse).contains(child.getDemographicNo()));
 
         mergeService.unmergeDemographic(parentId, child.getDemographicNo());
+
         mergedResponse = mergeService.getMergedDemographicIds(parent.getDemographicNo());
         assertTrue(getMergedIds(mergedResponse).isEmpty());
     }
 
     private List<Integer> getMergedIds(OscarSearchResponse<DemographicMergedTo1> mergedResponse) {
         List<Integer> result = new ArrayList<Integer>();
+
         for (DemographicMergedTo1 to : mergedResponse.getContent()) {
             result.add(to.getDemographicNo());
         }
+
         return result;
     }
 
@@ -107,11 +130,14 @@ public class DemographicServiceTest extends BaseRestServiceTest {
 
         DemographicTo1 demo = newRandomDemograpic();
         demo = demographicService.createDemographicData(demo);
+
         assertNotNull(demo);
         assertNotNull(demo.getDemographicNo());
 
         /* test get all */
-        OscarSearchResponse<DemographicTo1> demographics = demographicService.getAllDemographics(0, 0); // find all
+        OscarSearchResponse<DemographicTo1> demographics =
+                demographicService.getAllDemographics(0, 0); // find all
+
         assertNotNull(demographics);
 
         Integer demoId = demo.getDemographicNo();
@@ -122,12 +148,16 @@ public class DemographicServiceTest extends BaseRestServiceTest {
         /* test update demo */
         String newFirstName = "NEW FIRST NAME";
         demo.setFirstName(newFirstName);
+
         demographicService.updateDemographicData(demo);
-        demo = demographicService.getDemographicData(demoId, Collections.EMPTY_LIST);
+
+        demo = demographicService.getDemographicData(demoId, Collections.emptyList());
+
         assertTrue(newFirstName.equals(demo.getFirstName()));
 
         /* test delete demo */
         demo = demographicService.deleteDemographicData(demo.getDemographicNo());
+
         assertNotNull(demo);
 
         demographics = demographicService.getAllDemographics(0, 0);
@@ -135,11 +165,158 @@ public class DemographicServiceTest extends BaseRestServiceTest {
     }
 
     /**
-     * Searches through demographic records to find record with the specified demographic id
+     * Tests retrieving basic demographic information without additional includes,
+     * and with contacts included.
+     */
+    public void testBasicDemographicData() {
+        DemographicService demographicService = getResource(DemographicService.class);
+
+        DemographicTo1 demo = newRandomDemograpic();
+        demo = demographicService.createDemographicData(demo);
+
+        assertNotNull(demo);
+        assertNotNull(demo.getDemographicNo());
+
+        Integer demoId = demo.getDemographicNo();
+
+        // Retrieve basic demographic data without any additional includes.
+        DemographicTo1 basicDemo =
+                demographicService.getBasicDemographicData(demoId, Collections.emptyList());
+
+        assertNotNull(basicDemo);
+        assertNotNull(basicDemo.getDemographicNo());
+        assertTrue(demoId.equals(basicDemo.getDemographicNo()));
+
+        // Retrieve basic demographic data with contacts included.
+        DemographicTo1 demoWithContacts =
+                demographicService.getBasicDemographicData(
+                        demoId, Collections.singletonList("contacts"));
+
+        assertNotNull(demoWithContacts);
+        assertNotNull(demoWithContacts.getDemographicNo());
+        assertTrue(demoId.equals(demoWithContacts.getDemographicNo()));
+    }
+
+    /**
+     * Tests retrieving a demographic summary.
+     */
+    public void testDemographicSummary() {
+        DemographicService demographicService = getResource(DemographicService.class);
+
+        DemographicTo1 demo = newRandomDemograpic();
+        demo = demographicService.createDemographicData(demo);
+
+        assertNotNull(demo);
+        assertNotNull(demo.getDemographicNo());
+
+        Integer demoId = demo.getDemographicNo();
+
+        DemographicTo1 summary = demographicService.getDemographicSummary(demoId);
+
+        assertNotNull(summary);
+        assertNotNull(summary.getDemographicNo());
+        assertTrue(demoId.equals(summary.getDemographicNo()));
+    }
+
+    /**
+     * Tests searching for a demographic using the quick-search endpoint.
+     */
+    public void testQuickSearch() {
+        DemographicService demographicService = getResource(DemographicService.class);
+
+        String uniqueName = "API" + UUID.randomUUID().toString().substring(0, 8);
+
+        DemographicTo1 demo = newRandomDemograpic();
+        demo.setFirstName(uniqueName);
+
+        demo = demographicService.createDemographicData(demo);
+
+        assertNotNull(demo);
+        assertNotNull(demo.getDemographicNo());
+
+        AbstractSearchResponse<DemographicSearchResult> response =
+                demographicService.search(uniqueName);
+
+        assertNotNull(response);
+        assertNotNull(response.getContent());
+
+        boolean found = false;
+
+        for (DemographicSearchResult result : response.getContent()) {
+            if (demo.getDemographicNo().equals(result.getDemographicNo())) {
+                found = true;
+                assertTrue(uniqueName.equals(result.getFirstName()));
+                break;
+            }
+        }
+
+        assertTrue(found);
+    }
+
+    /**
+     * Tests structured demographic searching and pagination validation.
+     */
+    public void testSearchRequest() {
+        DemographicService demographicService = getResource(DemographicService.class);
+
+        String uniqueName = "API" + UUID.randomUUID().toString().substring(0, 8);
+
+        DemographicTo1 demo = newRandomDemograpic();
+        demo.setFirstName(uniqueName);
+
+        demo = demographicService.createDemographicData(demo);
+
+        assertNotNull(demo);
+        assertNotNull(demo.getDemographicNo());
+
+        // Construct a structured search request.
+        ObjectNode request = objectMapper.createObjectNode();
+        request.put("type", "Name");
+        request.put("term", uniqueName);
+        request.put("active", true);
+
+        AbstractSearchResponse<DemographicSearchResult> response =
+                demographicService.search(request, 0, 10);
+
+        assertNotNull(response);
+        assertNotNull(response.getContent());
+
+        boolean found = false;
+
+        for (DemographicSearchResult result : response.getContent()) {
+            if (demo.getDemographicNo().equals(result.getDemographicNo())) {
+                found = true;
+                assertTrue(uniqueName.equals(result.getFirstName()));
+                break;
+            }
+        }
+
+        assertTrue(found);
+
+        // Negative pagination offsets should be rejected.
+        try {
+            demographicService.search(request, -1, 10);
+            fail("Expected BadRequestException for invalid pagination");
+        } catch (BadRequestException e) {
+            // Expected.
+        }
+
+        // Zero page sizes should be rejected.
+        try {
+            demographicService.search(request, 0, 0);
+            fail("Expected BadRequestException for invalid pagination");
+        } catch (BadRequestException e) {
+            // Expected.
+        }
+    }
+
+    /**
+     * Searches through demographic records to find the record with the specified
+     * demographic ID.
      *
-     * @param demographics Demographics to search through
-     * @param demoId       ID of the record to be found
-     * @return Returns the demographic record with the specified ID
+     * @param demographics Demographics to search through.
+     * @param demoId       ID of the record to be found.
+     * @return Returns the demographic record with the specified ID.
      */
     private DemographicTo1 findDemographic(OscarSearchResponse<DemographicTo1> demographics, Integer demoId) {
         if (demographics.getContent().isEmpty()) {
