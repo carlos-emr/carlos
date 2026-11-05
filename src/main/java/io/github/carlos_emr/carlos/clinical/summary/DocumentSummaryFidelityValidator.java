@@ -123,11 +123,18 @@ final class DocumentSummaryFidelityValidator {
     private static final String OVERRIDE_VERB = "(?:" + OVERRIDE_WORDS + ")";
     private static final String INSTRUCTION_NOUN = "(?:instructions?|prompts?|rules|consignes?|directives?)";
     private static final String ADJECTIVE = "(?:previous|prior|above|earlier|pr[ée]c[ée]dent(?:e|s|es)?|ci-dessus)";
-    /** An order about what the output should say, with the thing to say after it: "say the patient is fine". */
-    private static final String STEERING = "(?:(?:say|write|report|state|output|conclude|respond|answer|reply|summari[sz]e)\\s+(?:that|no|nothing|"
-            + "the\\s+(?:patient|scan|results?|findings?|summary)|this|it|everything|all|only)\\b"
-            + "|(?:dire|dites|[ée]cri\\p{L}*|r[ée]dige\\p{L}*|r[ée]pond\\p{L}*|r[ée]sume\\p{L}*|indique\\p{L}*|conclu\\p{L}*)\\s+"
-            + "(?:que|qu['’]|tout|aucun\\p{L}*|le\\s+patient|ceci|cela|seulement|uniquement)(?!\\p{L}))";
+    /**
+     * An order about what the summary should say, with an output-shaped thing to say after it: "say the
+     * patient is fine", "output only 'normal'". Only verbs aimed at the summary count, and "report" only as
+     * "report no findings / that / nothing": report, state, answer and indicate also continue ordinary
+     * corrections and patient instructions ("report all side effects to the pharmacist").
+     */
+    private static final String STEERING = "(?:(?:(?:say|write|output|conclude|summari[sz]e|respond|tell\\s+(?:the\\s+)?(?:clinician|doctor|physician|them|me|us))"
+            + "|report(?=\\s+(?:no\\s+findings?|that|nothing)\\b))\\s+(?:with\\s+)?"
+            + "(?:that\\b|(?:the\\s+)?(?:patient|scan|results?|findings?|summary)\\s+(?:is|are|was|were)\\b|everything\\b|all\\s+(?:is|are)\\b"
+            + "|nothing\\b|no\\s+(?:findings?|abnormal\\p{L}*|issues?)\\b|only\\b|normal\\b|this\\s+as\\b|['\"“‘])"
+            + "|(?:dire|dites|[ée]cri\\p{L}*|r[ée]dige\\p{L}*|r[ée]sume\\p{L}*|conclu\\p{L}*)\\s+"
+            + "(?:que\\b|qu['’]|tout\\s+(?:est|va)\\b|rien\\b|aucune?\\s+anomalie|le\\s+patient\\s+(?:est|va)\\b|seulement\\b|uniquement\\b|normal\\b))";
     private static final Pattern AI_ADDRESSED = Pattern.compile(
             "^\\s*(?:"
                     // SYSTEM/SYSTÈME/ASSISTANT line whose override takes the note, the instructions or the prompt as object
@@ -135,7 +142,7 @@ final class DocumentSummaryFidelityValidator {
                     + "(?:notes?|instructions?|prompts?|summary|r[ée]sum[ée]|consignes?|rules?|above|ci-dessus)\\b.*"
                     // an override followed by an order about the output: "Ignore previous instructions and say ..."
                     + "|.*\\b" + OVERRIDE_VERB + "\\b[^.\\n]*?(?:" + INSTRUCTION_NOUN + "|everything(?:\\s+above)?|tout\\s+ce\\s+qui\\s+pr[ée]c[èe]de|ci-dessus|above)"
-                    + "[^.\\n]*?[\\s,;:]+(?:and\\s+|then\\s+|et\\s+|puis\\s+)?" + STEERING + ".*"
+                    + "[^.\\n]*?(?:[.;:,]\\s+|\\s+)(?:and\\s+|then\\s+|et\\s+|puis\\s+)?" + STEERING + ".*"
                     // a bare line: "Ignore all previous instructions."
                     + "|(?:please\\s+|veuillez\\s+)?" + OVERRIDE_VERB + "\\s+(?:all|any|every|toutes?|tous)\\s+(?:of\\s+)?(?:the\\s+|your\\s+|les\\s+|vos\\s+)?"
                     + "(?:" + ADJECTIVE + "\\s+)?" + INSTRUCTION_NOUN + "(?:\\s+" + ADJECTIVE + ")?[\\s.!]*"
