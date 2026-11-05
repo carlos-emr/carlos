@@ -73,21 +73,28 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
     private ChartUpdateContext context;
     private io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService attachments;
     private final java.util.List<Issue> createdIssues = new java.util.ArrayList<>();
+    // The rows @BeforeEach inserted itself (it skips rows another test already left), so
+    // @AfterEach removes exactly those: this class commits (NOT_SUPPORTED) into the H2
+    // database a surefire fork shares with later classes such as DocumentDaoIntegrationTest
+    // (document counts) and InboxPopulatingIntegrationTest (active patient count).
+    private boolean createdPatient, createdDocument, createdDocumentLink, createdProgram;
 
     @BeforeEach void configure() {
         transactions = new TransactionTemplate(transactionManager);
         transactions.executeWithoutResult(status -> {
             IntegrationTestSeedService.ensureProviderExists(em, "999998");
+            createdPatient = ((Number) em.createNativeQuery("SELECT COUNT(*) FROM demographic WHERE demographic_no = " + PATIENT)
+                    .getSingleResult()).intValue() == 0;
             IntegrationTestSeedService.ensureDemographicExists(em, PATIENT);
             // Document 42, filed to the patient: the tickler's source, attached through the real
             // TicklerAttachmentService, whose ownership check reads this live ctl_document link.
-            em.createNativeQuery("INSERT INTO document (document_no, doctype, docdesc, docfilename, doccreator, responsible, updatedatetime, status, contenttype, public1, observationdate) "
+            createdDocument = 1 == em.createNativeQuery("INSERT INTO document (document_no, doctype, docdesc, docfilename, doccreator, responsible, updatedatetime, status, contenttype, public1, observationdate) "
                     + "SELECT 42, 'Synthetic', 'Synthetic source document', 'FAKE-source-42.txt', '999998', '999998', CURRENT_TIMESTAMP, 'A', 'text/plain', 0, CURRENT_DATE "
                     + "WHERE NOT EXISTS (SELECT 1 FROM document WHERE document_no = 42)").executeUpdate();
-            em.createNativeQuery("INSERT INTO ctl_document (module, module_id, document_no, status) "
+            createdDocumentLink = 1 == em.createNativeQuery("INSERT INTO ctl_document (module, module_id, document_no, status) "
                     + "SELECT 'demographic', " + PATIENT + ", 42, 'A' "
                     + "WHERE NOT EXISTS (SELECT 1 FROM ctl_document WHERE module = 'demographic' AND module_id = " + PATIENT + " AND document_no = 42)").executeUpdate();
-            em.createNativeQuery("INSERT INTO program (id, name) SELECT 10016, 'Synthetic program' WHERE NOT EXISTS (SELECT 1 FROM program WHERE id=10016)").executeUpdate();
+            createdProgram = 1 == em.createNativeQuery("INSERT INTO program (id, name) SELECT 10016, 'Synthetic program' WHERE NOT EXISTS (SELECT 1 FROM program WHERE id=10016)").executeUpdate();
             for (String section : ChartUpdateSections.CODES) {
                 if (em.createQuery("from Issue where code = :code").setParameter("code", section).getResultList().isEmpty()) {
                     var issue = new Issue();
@@ -168,6 +175,14 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
                 if (managed != null) em.remove(managed);
             }
             createdIssues.clear();
+            if (createdDocumentLink) {
+                em.createNativeQuery("DELETE FROM ctl_document WHERE module = 'demographic' AND module_id = " + PATIENT + " AND document_no = 42").executeUpdate();
+            }
+            if (createdDocument) em.createNativeQuery("DELETE FROM document WHERE document_no = 42").executeUpdate();
+            if (createdProgram) em.createNativeQuery("DELETE FROM program WHERE id = 10016").executeUpdate();
+            // Last: every row above that names the patient is gone by now.
+            if (createdPatient) em.createNativeQuery("DELETE FROM demographic WHERE demographic_no = " + PATIENT).executeUpdate();
+            createdPatient = createdDocumentLink = createdDocument = createdProgram = false;
         });
     }
 
