@@ -202,7 +202,7 @@
       "check": "echart-forms-list-paging",
       "finding": 335,
       "step": "Forms heading paginates ten records, Next changes the rows and Previous restores them",
-      "disposition": "Source fix for issue #5684 pages the Forms list across all form types; manifest pin retired and retained as an active regression. A fresh installed PASS is still required."
+      "disposition": "Source fix is in #5691 (issue #5684): the Forms list pages across all form types. Manifest pin retired; the check is retained as an active regression. A fresh installed PASS is still required."
     },
     {
       "check": "login-facility-chooser",
