@@ -173,6 +173,24 @@ RUN npm install -g "playwright@${PLAYWRIGHT_VERSION}" && \
 RUN playwright install --with-deps chromium firefox && \
     echo "✅ Playwright browsers installed (Chromium, Firefox)"
 
+# chromedriver for the eForm PDF and measurement-chart renderer. CARLOS connects to a RUNNING
+# chromedriver over loopback (eform_pdf_browser_service_url, default 127.0.0.1:9515) and no longer
+# ships Selenium Manager to fetch one, so the devcontainer installs the driver that matches the
+# Chrome for Testing build Playwright installed above (same version, same CDN) and `server start`
+# runs it beside Tomcat. The browser path is config/shared/volumes/carlos.properties
+# (eform_pdf_browser_chromium_path); keep its chromium-<revision> in step with PLAYWRIGHT_VERSION.
+RUN set -eu; \
+    chrome="$(ls -d /root/.cache/ms-playwright/chromium-*/chrome-linux64/chrome | head -n 1)"; \
+    version="$("$chrome" --version | grep -oE '[0-9]+(\.[0-9]+){3}')"; \
+    curl -fsSLo /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/${version}/linux64/chromedriver-linux64.zip"; \
+    python3 -c "import zipfile; zipfile.ZipFile('/tmp/chromedriver.zip').extractall('/tmp/chromedriver')"; \
+    install -m 0755 /tmp/chromedriver/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver; \
+    rm -rf /tmp/chromedriver /tmp/chromedriver.zip; \
+    case "$(chromedriver --version)" in \
+      "ChromeDriver ${version} "*) echo "✅ chromedriver ${version} installed" ;; \
+      *) echo "ERROR: chromedriver does not match Chrome for Testing ${version}: $(chromedriver --version)" >&2; exit 1 ;; \
+    esac
+
 # Aider requires Python <3.13; Ubuntu 26.04 supplies Python 3.14. Let uv
 # provide an isolated Python 3.12 instead of pip selecting an obsolete Aider.
 ARG UV_VERSION=0.13.6
