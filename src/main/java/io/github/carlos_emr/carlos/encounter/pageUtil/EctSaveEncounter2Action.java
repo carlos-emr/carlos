@@ -241,7 +241,7 @@ public class EctSaveEncounter2Action extends ActionSupport {
      */
     private String writeHistoricalRevision(HttpServletRequest request, HttpServletResponse response,
                                            LoggedInInfo loggedInInfo, EctSessionBean entry, Submission submission)
-            throws IOException, ServletException {
+            throws IOException {
         String button = submission.button();
         EChart revision = submittedRevision(request, entry, button);
         if (submission.revisionField() == null) {

@@ -269,7 +269,7 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
         when(rxPatient.getPrescribedDrugsUnique()).thenReturn(new RxPrescriptionData.Prescription[0]);
         when(rxPatient.getActiveAllergies()).thenReturn(new Allergy[0]);
         var types = EctFindMeasurementTypeUtil.loadMeasurementTypes(definition());
-        try (var servlet = servlet(); var rx = mockStatic(RxPatientData.class);
+        try (var _ = servlet(); var rx = mockStatic(RxPatientData.class);
                 var definitions = mockStatic(EctFindMeasurementTypeUtil.class)) {
             rx.when(() -> RxPatientData.getPatient(user, 101)).thenReturn(rxPatient);
             definitions.when(() -> EctFindMeasurementTypeUtil.checkMeasurmentTypes(any(), eq("VTForm"))).thenReturn(types);

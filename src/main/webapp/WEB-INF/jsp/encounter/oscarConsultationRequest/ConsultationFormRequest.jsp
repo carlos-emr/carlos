@@ -3432,7 +3432,7 @@ if (userAgent != null) {
                         </div>
                                 <div class="collapse show" id="collapseMedications">
                                 <c:if test="${requestScope.consultationCppUnavailable}">
-                                    <div class="alert alert-warning" role="status"><fmt:message key="encounter.oscarConsultationRequest.cppPrefillUnavailable"/></div>
+                                    <output class="alert alert-warning d-block"><fmt:message key="encounter.oscarConsultationRequest.cppPrefillUnavailable"/></output>
                                 </c:if>
                                 <textarea rows="6" id="currentMedications" class="form-control"
                                                name="currentMedications"><carlos:encode value='<%= thisForm.getCurrentMedications() %>' context="html"/></textarea>

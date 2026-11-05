@@ -88,6 +88,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class CarlosProperties extends Properties {
     private static final long serialVersionUID = -5965807410049845132L;
+    /** The retired legacy-chart switch; the modern chart is mandatory (#4793). */
+    private static final String ABANDON_OLD_CHART = "AbandonOldChart";
     @SuppressFBWarnings(value = "SE_TRANSIENT_FIELD_NOT_RESTORED",
             justification = "Deserialized properties must not inherit a writable source; only readFromFile establishes provenance.")
     private transient File loadedPropertiesFile;
@@ -178,7 +180,7 @@ public class CarlosProperties extends Properties {
         // The modern chart is mandatory (#4793), including on installs with an old false
         // override. Keep this at the shared reader so getProperty(key, defaultValue) and
         // boolean accessors agree. Remove the obsolete flag and legacy branches in #5599.
-        if ("AbandonOldChart".equals(key)) {
+        if (ABANDON_OLD_CHART.equals(key)) {
             return "true";
         }
 
@@ -276,14 +278,16 @@ public class CarlosProperties extends Properties {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive match of a configuration boolean; not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match of a configuration boolean; not a security or authorization decision")
     String warnIfLegacyChartSettingIgnored() {
-        String stored = super.getProperty("AbandonOldChart");
+        String stored = super.getProperty(ABANDON_OLD_CHART);
         if (stored == null || activeMarkers.contains(stored.trim().toLowerCase(Locale.ROOT))) {
             return null;
         }
-        MiscUtils.getLogger().warn("AbandonOldChart={} in the loaded configuration is ignored: the modern chart is"
-                + " mandatory (#4793) and the legacy eChart editor is retired. Set AbandonOldChart=true in the"
-                + " external configuration and retain it on rollback.",
-                LogSafe.sanitize(stored));
+        if (MiscUtils.getLogger().isWarnEnabled()) {
+            MiscUtils.getLogger().warn("AbandonOldChart={} in the loaded configuration is ignored: the modern chart is"
+                    + " mandatory (#4793) and the legacy eChart editor is retired. Set AbandonOldChart=true in the"
+                    + " external configuration and retain it on rollback.",
+                    LogSafe.sanitize(stored));
+        }
         return stored;
     }
 
@@ -393,11 +397,11 @@ public class CarlosProperties extends Properties {
                 // Read-only deployments with an explicit true setting need no write permission.
                 try (FileInputStream input = new FileInputStream(loadedPropertiesFile);
                      FileChannel channel = input.getChannel();
-                     FileLock _ = channel.lock(0, Long.MAX_VALUE, true)) {
+                     var _ = channel.lock(0, Long.MAX_VALUE, true)) {
                     Properties persisted = new Properties();
                     persisted.load(input);
-                    if (Boolean.parseBoolean(persisted.getProperty("AbandonOldChart"))) {
-                        super.setProperty("AbandonOldChart", "true");
+                    if (Boolean.parseBoolean(persisted.getProperty(ABANDON_OLD_CHART))) {
+                        super.setProperty(ABANDON_OLD_CHART, "true");
                         return;
                     }
                 }
@@ -406,10 +410,10 @@ public class CarlosProperties extends Properties {
                 try (FileChannel channel = FileChannel.open(loadedPropertiesFile.toPath(),
                              StandardOpenOption.READ, StandardOpenOption.WRITE);
                      Reader reader = Channels.newReader(channel, StandardCharsets.ISO_8859_1);
-                     FileLock _ = channel.lock()) {
+                     var _ = channel.lock()) {
                     Properties persisted = new Properties();
                     persisted.load(reader);
-                    if (!Boolean.parseBoolean(persisted.getProperty("AbandonOldChart"))) {
+                    if (!Boolean.parseBoolean(persisted.getProperty(ABANDON_OLD_CHART))) {
                         // Two terminators safely end a trailing properties continuation.
                         ByteBuffer entry = StandardCharsets.ISO_8859_1.encode(
                                 "\n\n# Mandatory modern-chart cutover; retain this on rollback (#4793).\nAbandonOldChart=true\n");
@@ -420,7 +424,7 @@ public class CarlosProperties extends Properties {
                         channel.force(true);
                     }
                 }
-                super.setProperty("AbandonOldChart", "true");
+                super.setProperty(ABANDON_OLD_CHART, "true");
             } catch (IOException e) {
                 throw new IOException("Unable to persist AbandonOldChart=true in loaded configuration file "
                         + loadedPropertiesFile + ". Set that property in this external file before restarting "

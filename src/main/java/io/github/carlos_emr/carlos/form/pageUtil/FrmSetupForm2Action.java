@@ -103,6 +103,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
     
     // Pattern to validate form names - only alphanumeric characters and underscores allowed
     private static final Pattern VALID_FORM_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_]+$");
+    private static final String VT_FORM = "VTForm";
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
@@ -188,7 +189,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
         request.setAttribute("formPatient", patient);
         request.setAttribute("formDemographicNo", demo);
         String ongoingConcerns = "";
-        if ("VTForm".equals(formName)) {
+        if (VT_FORM.equals(formName)) {
             if (securityInfoManager().hasPrivilege(loggedInInfo, "_demographic", "r", demo)
                     && securityInfoManager().hasPrivilege(loggedInInfo, "_eChart", "r", demo)
                     && securityInfoManager().hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", demo)) {
@@ -255,7 +256,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
                     request.setAttribute(mt.getType() + "Comments", currentRec.getProperty(mt.getType() + "Comments", ""));
                 } else {
                     // Set default values for new form entries
-                    String initialDate = "VTForm".equals(formName)
+                    String initialDate = VT_FORM.equals(formName)
                             && ("iEx".equals(mt.getType()) || "WHR".equals(mt.getType())) ? "" : today;
                     this.setValue(mt.getType() + "Value", "");
                     this.setValue(mt.getType() + "Date", initialDate);
@@ -389,7 +390,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
             for (int i = 1; i <= md.getColumnCount(); i++) {
                 String column = md.getColumnName(i);
                 // VT's uneditable history must retain SQL NULL and raw whitespace on save.
-                boolean retainedVtField = "VTForm".equals(trustedFormName) && Set.of(
+                boolean retainedVtField = VT_FORM.equals(trustedFormName) && Set.of(
                         "iExValue", "iExDate", "iExComments", "WHRValue", "WHRDate", "WHRComments").contains(column);
                 String value = retainedVtField ? rs.getString(i) : Misc.getString(rs, i);
                 if (value != null) props.setProperty(column, value);

@@ -67,7 +67,7 @@ class CarlosPropertiesModernChartPersistenceUnitTest {
         try (LogCapture logs = LogCapture.forLogger(CarlosProperties.class)) {
             // Startup can load the home configuration after the singleton constructor.
             configuration.readFromFile(file.toString());
-            assertThat(configuration.get("AbandonOldChart")).isEqualTo(ignored);
+            assertThat(configuration).containsEntry("AbandonOldChart", ignored);
             assertThat(logs.messages()).isEmpty();
             assertThat(read(file).getProperty("AbandonOldChart")).isEqualTo(ignored);
 
