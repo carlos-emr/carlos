@@ -57,16 +57,18 @@ class MeasurementChartSmokeIntegrationTest {
                 assertThat(image).isNotNull();
                 assertThat(image.getWidth()).isEqualTo(1000);
                 assertThat(image.getHeight()).isEqualTo(600);
+                // The series is JFreeChart's one pixel #ff5555 line and the range its one pixel green bar;
+                // JPEG compression smears both into the gray plot, so count by hue difference, not saturation.
                 int seriesPixels = 0, referencePixels = 0, medicationPixels = 0;
                 for (int x = 40; x < 980; x++) for (int y = 80; y < 580; y++) {
                     int rgb = image.getRGB(x, y);
                     int red = (rgb >>> 16) & 255, green = (rgb >>> 8) & 255, blue = rgb & 255;
-                    if (y < 380 && red > 120 && red > green * 1.5 && red > blue * 1.5) seriesPixels++;
-                    if (y < 380 && green > 60 && green > red * 1.3 && green > blue * 1.3) referencePixels++;
+                    if (y < 380 && red > green + 25 && red > blue + 25) seriesPixels++;
+                    if (y < 380 && green > red + 25 && green > blue + 25) referencePixels++;
                     if (y > 450 && blue > red + 30 && blue > green + 15) medicationPixels++;
                 }
-                assertThat(seriesPixels).as("measurement series in %s", format).isGreaterThan(20);
-                assertThat(referencePixels).as("reference range in %s", format).isGreaterThan(20);
+                assertThat(seriesPixels).as("measurement series in %s", format).isGreaterThan(100);
+                assertThat(referencePixels).as("reference range in %s", format).isGreaterThan(100);
                 assertThat(medicationPixels).as("medication interval in %s", format).isGreaterThan(1000);
             }
         }
