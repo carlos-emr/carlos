@@ -103,7 +103,7 @@
     <div class="alert alert-danger" role="alert"><s:actionerror/></div>
 </s:if>
 <s:if test="hasActionMessages()">
-    <div class="alert alert-success" role="status"><s:actionmessage/></div>
+    <output class="alert alert-success d-block"><s:iterator value="actionMessages"><span class="d-block"><s:property/></span></s:iterator></output>
 </s:if>
 <c:if test="${not empty useStatus}">
     <div class="alert alert-warning" role="alert">

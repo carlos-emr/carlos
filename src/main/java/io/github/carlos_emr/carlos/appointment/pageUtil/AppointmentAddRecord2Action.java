@@ -40,6 +40,7 @@ import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
@@ -125,8 +126,6 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
         a.setName(text.name());
         a.setNotes(text.notes());
         a.setReason(text.reason());
-        // Saves the Location List item and its label together, or the posted free text (#3982).
-        AppointmentLocationResolver.applyPostedLocation(a, request);
         a.setResources(text.resources());
         a.setType(request.getParameter("type"));
         a.setStyle(request.getParameter("style"));
@@ -157,7 +156,7 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
                 request.getParameter(FormSubmissionGuard.PARAMETER), FormSubmissionGuard.Scope.APPOINTMENT_ADD,
                 null, FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
         switch (attempt.verdict()) {
-            case PROCEED, ABSENT -> { }
+            case PROCEED, ABSENT -> { /* Continue with a new or legacy submission. */ }
             case ALREADY_SAVED -> {
                 return showAdded(request, ConversionUtils.fromIntString(attempt.result()), demographicNo, demographicNoStr);
             }
@@ -168,6 +167,13 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
 
         int apptId;
         try (FormSubmissionGuard.Claim claim = attempt.claim()) {
+            // A repeated, already-saved token returns above even if the selected location was
+            // subsequently disabled. A new booking must reject a stale choice before any write.
+            try {
+                AppointmentLocationResolver.applyPostedLocation(a, request);
+            } catch (AppointmentLocationUnavailableException _) {
+                return refuseUnavailableLocation(request, response);
+            }
             String mcNumber = request.getParameter("appt_mc_number");
             // The appointment and its MC number commit together, so the claim learns whether
             // anything was stored and a failed booking can be retried from the same form.
@@ -191,6 +197,19 @@ public final class AppointmentAddRecord2Action extends ActionSupport {
         }
 
         return showAdded(request, apptId, demographicNo, demographicNoStr);
+    }
+
+    private String refuseUnavailableLocation(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        if (!AppointmentTextBounds.canRedisplay(request)) {
+            io.github.carlos_emr.carlos.utility.ErrorPageMessage.sendError(request, response,
+                    HttpServletResponse.SC_CONFLICT, AppointmentLocationUnavailableException.MESSAGE_KEY);
+            return NONE;
+        }
+        response.setStatus(HttpServletResponse.SC_CONFLICT);
+        request.setAttribute("appointmentValidationErrors", java.util.List.of(
+                io.github.carlos_emr.carlos.utility.LocaleUtils.getMessage(request,
+                        AppointmentLocationUnavailableException.MESSAGE_KEY)));
+        return INPUT;
     }
 
     /**

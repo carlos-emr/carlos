@@ -43,7 +43,7 @@ function selectAppointmentLocationByName(select, name) {
         return false;
     }
     const match = Array.from(select.options).find(function (option) {
-        return option.value && !option.hasAttribute('data-inactive') && !option.hasAttribute('data-legacy')
+        return option.value && option.dataset.inactive === undefined && option.dataset.legacy === undefined
             && option.text.trim().toLowerCase() === wanted;
     });
     if (match) {
@@ -67,7 +67,7 @@ function selectAppointmentLocationCode(select, code) {
     }
     const wanted = String(code == null ? '' : code);
     const offered = wanted !== '' && Array.from(select.options).some(function (option) {
-        return option.value === wanted && !option.hasAttribute('data-legacy');
+        return option.value === wanted && option.dataset.legacy === undefined;
     });
     select.value = offered ? wanted : '';
 }
@@ -89,12 +89,12 @@ function offerLegacyAppointmentLocation(select, hidden, text, label) {
         return false;
     }
     let option = Array.from(select.options).find(function (each) {
-        return each.hasAttribute('data-legacy');
+        return each.dataset.legacy !== undefined;
     });
     if (!option) {
         option = select.ownerDocument.createElement('option');
         option.value = 'legacy';
-        option.setAttribute('data-legacy', '');
+        option.dataset.legacy = '';
         // After "Not specified", where the tag renders a legacy option.
         select.insertBefore(option, select.options.length > 1 ? select.options[1] : null);
     }

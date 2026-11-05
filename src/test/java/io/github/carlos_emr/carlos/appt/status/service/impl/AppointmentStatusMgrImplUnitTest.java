@@ -276,11 +276,12 @@ class AppointmentStatusMgrImplUnitTest extends CarlosUnitTestBase {
     @DisplayName("should refuse a blank or over-long description without saving")
     void shouldRefuseDescription_whenBlankOrTooLong() {
         AppointmentStatusMgrImpl manager = new AppointmentStatusMgrImpl();
+        String overlongDescription = "d".repeat(AppointmentStatusMgr.DESCRIPTION_MAX_LENGTH + 1);
 
         assertThatThrownBy(() -> manager.updateDescription(13, "   "))
                 .isInstanceOf(AppointmentStatusStyleException.class)
                 .extracting("messageKey").isEqualTo("admin.appt.status.mgr.error.descriptionRequired");
-        assertThatThrownBy(() -> manager.updateDescription(13, "d".repeat(AppointmentStatusMgr.DESCRIPTION_MAX_LENGTH + 1)))
+        assertThatThrownBy(() -> manager.updateDescription(13, overlongDescription))
                 .isInstanceOf(AppointmentStatusStyleException.class)
                 .extracting("messageKey").isEqualTo("admin.appt.status.mgr.error.descriptionLength");
         assertThat(manager.updateDescription(13, "d".repeat(AppointmentStatusMgr.DESCRIPTION_MAX_LENGTH))).isFalse();

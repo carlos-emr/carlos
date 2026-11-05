@@ -15,7 +15,8 @@
  * location choice survives the patient-search round trip, and that a booking stores the item's id
  * with a snapshot of its label.
  *
- * Fixtures: the clinic's Location List is clinic-wide, so run with EXCLUSIVE=1. Locations the
+ * Fixtures: the clinic's Location List is clinic-wide, so run only in a disposable database
+ * with EXCLUSIVE=1 and CARLOS_DISPOSABLE_VM=true. Locations the
  * clinic already enabled are switched off for the run and back on in cleanup; every location this
  * check adds carries the marker and is deleted afterwards, with the marker appointment. A core
  * status (editable=0) is restyled and restored. Needs a clinic without a site setup (multisites,
@@ -30,7 +31,13 @@ const {openAdminSection, frameNavigation, dismissedConfirmSendsNothing} = requir
 
 const LIST_NAME = 'appointmentLocationCode';
 
+function requireDisposableEnvironment(env = process.env) {
+  h.assert(env.EXCLUSIVE === '1' && env.CARLOS_DISPOSABLE_VM === 'true',
+    'Appointment Settings fixtures require EXCLUSIVE=1 and CARLOS_DISPOSABLE_VM=true');
+}
+
 async function workflow(s) {
+  requireDisposableEnvironment();
   const {sql, marker, provider, recorder, patient, context, schedule} = s;
   const q = h.sqlString;
   const listId = sql.value(`SELECT id FROM LookupList WHERE name=${q(LIST_NAME)}`);
@@ -367,5 +374,9 @@ async function postNoOpChanges(context, locationsUrl, target, status) {
   }
 }
 
-if (require.main === module) runWorkflow('appointment-settings', workflow, {openMaster: false});
-module.exports = {workflow};
+if (require.main === module) runWorkflow('appointment-settings', workflow, {
+  openMaster: false,
+  // Runs before the harness creates even its owned patient or opens a database connection.
+  preflightConfig: () => requireDisposableEnvironment(),
+});
+module.exports = {workflow, requireDisposableEnvironment};

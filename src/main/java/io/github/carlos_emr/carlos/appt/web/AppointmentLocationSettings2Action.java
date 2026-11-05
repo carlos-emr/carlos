@@ -67,15 +67,22 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  */
 public class AppointmentLocationSettings2Action extends ActionSupport {
 
+    private static final String ADD_MANY = "addMany";
+    private static final String MOVE_UP = "moveUp";
+    private static final String DEACTIVATE = "deactivate";
+    private static final String SAVED_MESSAGE = "admin.appt.location.msg.saved";
+
     private static final Set<String> MUTATIONS = Set.of(
-            "add", "addMany", "rename", "updateColour", "updateIcon", "moveUp", "moveDown", "deactivate", "restore");
+            "add", ADD_MANY, "rename", "updateColour", "updateIcon", MOVE_UP, "moveDown", DEACTIVATE, "restore");
 
     private static final String ADDED_ONE = "add";
     private static final String ADDED_MANY = "addMany:";
 
-    private final SecurityInfoManager securityInfoManager;
-    private final AppointmentLocationService locationService;
-    private final TransactionOperations transactions;
+    // Struts creates this constructor-injected action per request; it is never session state.
+    // Its inherited Serializable marker must not turn live Spring services into serialized data.
+    private final transient SecurityInfoManager securityInfoManager;
+    private final transient AppointmentLocationService locationService;
+    private final transient TransactionOperations transactions;
 
     private Integer id;
     private Integer position;
@@ -113,9 +120,10 @@ public class AppointmentLocationSettings2Action extends ActionSupport {
         // and a POST even when it names none (HttpMethodGuardFilter lists the route by it).
         boolean writeIntent = dispatch != null;
         boolean mutation = writeIntent && MUTATIONS.contains(dispatch);
-        String privilege = !writeIntent ? SecurityInfoManager.READ
-                : "deactivate".equals(dispatch) ? SecurityInfoManager.DELETE
-                : SecurityInfoManager.WRITE;
+        String privilege = SecurityInfoManager.READ;
+        if (writeIntent) {
+            privilege = DEACTIVATE.equals(dispatch) ? SecurityInfoManager.DELETE : SecurityInfoManager.WRITE;
+        }
         if (!AppointmentLocationService.hasLocationPrivilege(securityInfoManager, loggedInInfo, privilege)) {
             throw new SecurityException("missing required sec object (_admin.schedule)");
         }
@@ -146,7 +154,7 @@ public class AppointmentLocationSettings2Action extends ActionSupport {
             request.setAttribute("locationAddToken", FormSubmissionGuard.issue(request.getSession(),
                     FormSubmissionGuard.Scope.APPOINTMENT_LOCATION_ADD, "add"));
             request.setAttribute("locationPasteToken", FormSubmissionGuard.issue(request.getSession(),
-                    FormSubmissionGuard.Scope.APPOINTMENT_LOCATION_ADD, "addMany"));
+                    FormSubmissionGuard.Scope.APPOINTMENT_LOCATION_ADD, ADD_MANY));
         }
         request.setAttribute("canDeactivate",
                 AppointmentLocationService.hasLocationPrivilege(securityInfoManager, loggedInInfo, SecurityInfoManager.DELETE));
@@ -164,8 +172,8 @@ public class AppointmentLocationSettings2Action extends ActionSupport {
                          String dispatch) {
         try {
             switch (dispatch) {
-                case "add", "addMany" -> {
-                    return add(loggedInInfo, request, response, "addMany".equals(dispatch));
+                case "add", ADD_MANY -> {
+                    return add(loggedInInfo, request, response, ADD_MANY.equals(dispatch));
                 }
                 case "rename" -> {
                     locationService.rename(loggedInInfo, requireId(), name);
@@ -173,18 +181,14 @@ public class AppointmentLocationSettings2Action extends ActionSupport {
                 }
                 case "updateColour" -> {
                     locationService.updateColour(loggedInInfo, requireId(), colour);
-                    addActionMessage(getText("admin.appt.location.msg.saved"));
+                    addActionMessage(getText(SAVED_MESSAGE));
                 }
                 case "updateIcon" -> {
                     locationService.updateIcon(loggedInInfo, requireId(), icon);
-                    addActionMessage(getText("admin.appt.location.msg.saved"));
+                    addActionMessage(getText(SAVED_MESSAGE));
                 }
-                case "moveUp", "moveDown" -> {
-                    if (locationService.move(loggedInInfo, requireId(), "moveUp".equals(dispatch), position)) {
-                        addActionMessage(getText("admin.appt.location.msg.saved"));
-                    }
-                }
-                case "deactivate" -> {
+                case MOVE_UP, "moveDown" -> move(loggedInInfo, dispatch);
+                case DEACTIVATE -> {
                     locationService.deactivate(loggedInInfo, requireId());
                     addActionMessage(getText("admin.appt.location.msg.deactivated"));
                 }
@@ -203,6 +207,12 @@ public class AppointmentLocationSettings2Action extends ActionSupport {
         return null;
     }
 
+    private void move(LoggedInInfo loggedInInfo, String dispatch) {
+        if (locationService.move(loggedInInfo, requireId(), MOVE_UP.equals(dispatch), position)) {
+            addActionMessage(getText(SAVED_MESSAGE));
+        }
+    }
+
     /*
      * Adds one location or a pasted list once per rendering of the page (FormSubmissionGuard,
      * #4225): a double click, a re-click while the first is saving or a reload of the result shows
@@ -212,9 +222,9 @@ public class AppointmentLocationSettings2Action extends ActionSupport {
                        boolean many) {
         FormSubmissionGuard.Attempt attempt = FormSubmissionGuard.attempt(request.getSession(),
                 request.getParameter(FormSubmissionGuard.PARAMETER), FormSubmissionGuard.Scope.APPOINTMENT_LOCATION_ADD,
-                many ? "addMany" : "add", FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
+                many ? ADD_MANY : "add", FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
         switch (attempt.verdict()) {
-            case ABSENT, PROCEED -> { }
+            case ABSENT, PROCEED -> { /* Continue with a new or legacy submission. */ }
             case ALREADY_SAVED -> {
                 if (!addSavedMessage(attempt.result())) {
                     return FormSubmissionGuard.refuse(request, response, FormSubmissionGuard.Verdict.UNCONFIRMED);

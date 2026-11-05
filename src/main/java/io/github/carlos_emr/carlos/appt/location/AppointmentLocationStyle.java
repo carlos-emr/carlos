@@ -54,7 +54,7 @@ public final class AppointmentLocationStyle {
 
     /** The icons a location may use, in the order the settings page offers them. */
     public static final List<String> ICONS = List.of(
-            "fa-location-dot", "fa-map-pin", "fa-house", "fa-building", "fa-hospital", "fa-house-medical",
+            DEFAULT_ICON, "fa-map-pin", "fa-house", "fa-building", "fa-hospital", "fa-house-medical",
             "fa-door-open", "fa-video", "fa-phone", "fa-laptop-medical", "fa-stethoscope", "fa-user-doctor",
             "fa-user-nurse", "fa-people-group", "fa-person-walking", "fa-car", "fa-truck-medical",
             "fa-wheelchair", "fa-baby", "fa-syringe", "fa-vial", "fa-flask", "fa-tooth", "fa-eye", "fa-brain",

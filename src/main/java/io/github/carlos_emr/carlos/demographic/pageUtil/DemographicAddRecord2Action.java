@@ -155,7 +155,9 @@ public class DemographicAddRecord2Action extends ActionSupport {
                 request.getParameter(FormSubmissionGuard.PARAMETER), FormSubmissionGuard.Scope.DEMOGRAPHIC_ADD,
                 null, FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
         switch (attempt.verdict()) {
-            case PROCEED, ABSENT -> { }
+            case PROCEED, ABSENT -> {
+                // Continue with the claim, or the legacy tokenless submission.
+            }
             case ALREADY_SAVED -> {
                 return showAdded(attempt.result(), demographicDao.getDemographic(attempt.result()));
             }
@@ -185,9 +187,29 @@ public class DemographicAddRecord2Action extends ActionSupport {
      * form register the patient a second time.
      */
     private String addRecord(LoggedInInfo loggedInInfo, FormSubmissionGuard.Claim claim) {
-        String curUser_no = (String) request.getSession().getAttribute("user");
-        String proNo = curUser_no;
+        String providerNo = (String) request.getSession().getAttribute("user");
+        Demographic demographic = buildDemographic(providerNo);
+        if (refuseInvalidFieldLengths(demographic)) {
+            return "validationError";
+        }
+        if (hasDuplicateHealthCard()) {
+            return "duplicate";
+        }
 
+        String demographicNo = savePrimaryRecord(demographic, claim);
+        saveCustomFields(demographic);
+        savePatientConsents(loggedInInfo, demographic);
+        saveExtensionFields(providerNo, demographic);
+        OtherIdManager.saveIdDemographic(demographicNo, "meditech_id", request.getParameter("meditech_id"));
+        saveConfiguredExtensions(providerNo, demographic);
+        LogAction.addLog(providerNo, "add", "demographic", demographicNo, request.getRemoteAddr(), demographicNo);
+        archiveInitialRecord(demographicNo, demographic);
+        addToWaitingList(demographic);
+        admitToProgram(providerNo, demographicNo, demographic);
+        return showAdded(demographicNo, demographic);
+    }
+
+    private Demographic buildDemographic(String providerNo) {
         // --- Build Demographic entity ---
         Demographic demographic = new Demographic();
         demographic.setLastName(StringUtils.trimToEmpty(request.getParameter("last_name")));
@@ -235,44 +257,16 @@ public class DemographicAddRecord2Action extends ActionSupport {
         demographic.setPronoun(request.getParameter("pronouns"));
         demographic.setGender(request.getParameter("gender"));
 
-        String year = StringUtils.trimToNull(request.getParameter("end_date_year"));
-        String month = StringUtils.trimToNull(request.getParameter("end_date_month"));
-        String day = StringUtils.trimToNull(request.getParameter("end_date_date"));
-        if (year != null && month != null && day != null) {
-            demographic.setEndDate(MyDateFormat.getSysDate(year + "-" + month + "-" + day));
-        } else {
-            demographic.setEndDate(null);
-        }
+        demographic.setEndDate(optionalDate("end_date"));
 
-        year = StringUtils.trimToNull(request.getParameter("eff_date_year"));
-        month = StringUtils.trimToNull(request.getParameter("eff_date_month"));
-        day = StringUtils.trimToNull(request.getParameter("eff_date_date"));
-        if (year != null && month != null && day != null) {
-            demographic.setEffDate(MyDateFormat.getSysDate(year + "-" + month + "-" + day));
-        } else {
-            demographic.setEffDate(null);
-        }
+        demographic.setEffDate(optionalDate("eff_date"));
 
         demographic.setPcnIndicator(request.getParameter("pcn_indicator"));
         demographic.setHcType(request.getParameter("hc_type"));
 
-        year = StringUtils.trimToNull(request.getParameter("roster_date_year"));
-        month = StringUtils.trimToNull(request.getParameter("roster_date_month"));
-        day = StringUtils.trimToNull(request.getParameter("roster_date_date"));
-        if (year != null && month != null && day != null) {
-            demographic.setRosterDate(MyDateFormat.getSysDate(year + "-" + month + "-" + day));
-        } else {
-            demographic.setRosterDate(null);
-        }
+        demographic.setRosterDate(optionalDate("roster_date"));
 
-        year = StringUtils.trimToNull(request.getParameter("hc_renew_date_year"));
-        month = StringUtils.trimToNull(request.getParameter("hc_renew_date_month"));
-        day = StringUtils.trimToNull(request.getParameter("hc_renew_date_date"));
-        if (year != null && month != null && day != null) {
-            demographic.setHcRenewDate(MyDateFormat.getSysDate(year + "-" + month + "-" + day));
-        } else {
-            demographic.setHcRenewDate(null);
-        }
+        demographic.setHcRenewDate(optionalDate("hc_renew_date"));
 
         demographic.setFamilyDoctor(DemographicXml.familyDoctor(
                 request.getParameter("r_doctor_ohip"),
@@ -284,29 +278,52 @@ public class DemographicAddRecord2Action extends ActionSupport {
         demographic.setTitle(request.getParameter("title"));
         demographic.setOfficialLanguage(request.getParameter("official_lang"));
         demographic.setSpokenLanguage(request.getParameter("spoken_lang"));
-        demographic.setLastUpdateUser(curUser_no);
+        demographic.setLastUpdateUser(providerNo);
         demographic.setLastUpdateDate(new Date());
 
-        if (request.getParameter("patient_status_date") != null) {
-            SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd");
-            try {
-                demographic.setPatientStatusDate(fmt.parse(request.getParameter("patient_status_date")));
-            } catch (Exception e) {
-                demographic.setPatientStatusDate(new Date());
-            }
-        } else {
-            demographic.setPatientStatusDate(new Date());
-        }
+        demographic.setPatientStatusDate(patientStatusDate());
+        return demographic;
+    }
 
+    private Date optionalDate(String prefix) {
+        String year = StringUtils.trimToNull(request.getParameter(prefix + "_year"));
+        String month = StringUtils.trimToNull(request.getParameter(prefix + "_month"));
+        String day = StringUtils.trimToNull(request.getParameter(prefix + "_date"));
+        if (year == null || month == null || day == null) {
+            return null;
+        }
+        return MyDateFormat.getSysDate(year + "-" + month + "-" + day);
+    }
+
+    private Date patientStatusDate() {
+        String submitted = request.getParameter("patient_status_date");
+        if (submitted == null) {
+            return new Date();
+        }
+        try {
+            return new SimpleDateFormat("yyyy-MM-dd").parse(submitted);
+        } catch (Exception _) {
+            // Legacy registration uses today's date when the submitted status date cannot parse.
+            return new Date();
+        }
+    }
+
+    private boolean refuseInvalidFieldLengths(Demographic demographic) {
         List<String> fieldLengthValidationErrors = demographic.validateFieldLengths();
         if (!fieldLengthValidationErrors.isEmpty()) {
-            logger.warn("DemographicAddRecord2Action: rejected demographic input due to field length limits: {}",
-                    LogSafe.sanitize(String.join("; ", fieldLengthValidationErrors)));
+            if (logger.isWarnEnabled()) {
+                logger.warn("DemographicAddRecord2Action: rejected demographic input due to field length limits: {}",
+                        LogSafe.sanitize(String.join("; ", fieldLengthValidationErrors)));
+            }
             request.setAttribute("fieldLengthValidationErrors", fieldLengthValidationErrors);
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return "validationError";
+            return true;
         }
 
+        return false;
+    }
+
+    private boolean hasDuplicateHealthCard() {
         // --- HIN duplicate check ---
         boolean hinDupCheckException = false;
         String hcType = request.getParameter("hc_type");
@@ -321,10 +338,14 @@ public class DemographicAddRecord2Action extends ActionSupport {
             if (!demographics.isEmpty()) {
                 Demographic dupDemo = demographics.get(0);
                 request.setAttribute("hinDuplicateDemo", dupDemo);
-                return "duplicate";
+                return true;
             }
         }
 
+        return false;
+    }
+
+    private String savePrimaryRecord(Demographic demographic, FormSubmissionGuard.Claim claim) {
         // The patient row commits in a transaction the claim observes: a save that rolled back
         // leaves the form submittable, and one whose commit could not be confirmed never does.
         new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
@@ -340,6 +361,10 @@ public class DemographicAddRecord2Action extends ActionSupport {
             claim.saved(dem);
         }
 
+        return dem;
+    }
+
+    private void saveCustomFields(Demographic demographic) {
         // --- DemographicCust ---
         DemographicCust demographicCust = new DemographicCust();
         demographicCust.setResident(request.getParameter("cust2"));
@@ -349,12 +374,14 @@ public class DemographicAddRecord2Action extends ActionSupport {
         demographicCust.setNotes(DemographicXml.userNotes(request.getParameter("content")));
         demographicCust.setId(demographic.getDemographicNo());
         demographicCustDao.persist(demographicCust);
+    }
 
+    private void savePatientConsents(LoggedInInfo loggedInInfo, Demographic demographic) {
         // --- Patient consents ---
         if (CarlosProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
             PatientConsentManager patientConsentManager = SpringUtils.getBean(PatientConsentManager.class);
             List<ConsentType> consentTypes = patientConsentManager.getActiveConsentTypes();
-            boolean explicitConsent = Boolean.TRUE;
+            boolean explicitConsent = true;
             for (ConsentType consentType : consentTypes) {
                 String type = consentType.getType();
                 String consentRecord = request.getParameter(type);
@@ -362,8 +389,11 @@ public class DemographicAddRecord2Action extends ActionSupport {
                     boolean optOut;
                     try {
                         optOut = Integer.parseInt(consentRecord) == 1;
-                    } catch (NumberFormatException e) {
-                        logger.warn("DemographicAddRecord2Action: invalid consent value={}, defaulting to false", LogSafe.sanitize(consentRecord));
+                    } catch (NumberFormatException _) {
+                        if (logger.isWarnEnabled()) {
+                            logger.warn("DemographicAddRecord2Action: invalid consent value={}, defaulting to false",
+                                    LogSafe.sanitize(consentRecord));
+                        }
                         optOut = false;
                     }
                     patientConsentManager.addEditConsentRecord(loggedInInfo, demographic.getDemographicNo(),
@@ -371,7 +401,9 @@ public class DemographicAddRecord2Action extends ActionSupport {
                 }
             }
         }
+    }
 
+    private void saveExtensionFields(String proNo, Demographic demographic) {
         // --- DemographicExt keys ---
         demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "hPhoneExt", request.getParameter("hPhoneExt"), "");
         demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "wPhoneExt", request.getParameter("wPhoneExt"), "");
@@ -395,9 +427,9 @@ public class DemographicAddRecord2Action extends ActionSupport {
         demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "fNationFamilyNumber", request.getParameter("fNationFamilyNumber"), "");
         demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "fNationFamilyPosition", request.getParameter("fNationFamilyPosition"), "");
         demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "labelfNationCom", request.getParameter("labelfNationCom"), "");
+    }
 
-        OtherIdManager.saveIdDemographic(dem, "meditech_id", request.getParameter("meditech_id"));
-
+    private void saveConfiguredExtensions(String proNo, Demographic demographic) {
         // --- Customized extension keys from properties ---
         java.util.Properties oscarVariables = CarlosProperties.getInstance();
         if (oscarVariables.getProperty("demographicExt") != null) {
@@ -407,11 +439,9 @@ public class DemographicAddRecord2Action extends ActionSupport {
                 demographicExtDao.addKey(proNo, demographic.getDemographicNo(), key, request.getParameter(key), "");
             }
         }
+    }
 
-        // --- Audit log ---
-        String ip = request.getRemoteAddr();
-        LogAction.addLog(curUser_no, "add", "demographic", dem, ip, dem);
-
+    private void archiveInitialRecord(String dem, Demographic demographic) {
         // --- Archive the initial record ---
         Long archiveId = demographicArchiveDao.archiveRecord(demographicDao.getDemographic(dem));
         List<DemographicExt> extensions = demographicExtDao.getDemographicExtByDemographicNo(demographic.getDemographicNo());
@@ -421,37 +451,43 @@ public class DemographicAddRecord2Action extends ActionSupport {
             archive.setValue(request.getParameter(archive.getKey()));
             demographicExtArchiveDao.saveEntity(archive);
         }
+    }
 
+    private void addToWaitingList(Demographic demographic) {
         // --- Waiting list ---
-        io.github.carlos_emr.carlos.waitinglist.WaitingList wL = io.github.carlos_emr.carlos.waitinglist.WaitingList.getInstance();
-        if (wL.getFound() && CarlosProperties.getInstance().getBooleanProperty("DEMOGRAPHIC_WAITING_LIST", "true")) {
-            String listId = request.getParameter("list_id");
-            if (listId != null && !listId.isEmpty() && !listId.equals("0")) {
-                try {
-                    int listIdInt = Integer.parseInt(listId);
-                    Integer maxPosition = waitingListDao.getMaxPosition(listIdInt);
-                    if (maxPosition == null) {
-                        maxPosition = 0;
-                    }
-                    io.github.carlos_emr.carlos.commn.model.WaitingList waitingList =
-                            new io.github.carlos_emr.carlos.commn.model.WaitingList();
-                    waitingList.setListId(listIdInt);
-                    waitingList.setDemographicNo(demographic.getDemographicNo());
-                    waitingList.setNote(request.getParameter("waiting_list_note"));
-                    waitingList.setPosition((long) maxPosition + 1L);
-                    Date referralDate = MyDateFormat.getSysDate(request.getParameter("waiting_list_referral_date"));
-                    if (referralDate == null) {
-                        referralDate = new Date();
-                    }
-                    waitingList.setOnListSince(referralDate);
-                    waitingList.setIsHistory("N");
-                    waitingListDao.persist(waitingList);
-                } catch (NumberFormatException e) {
-                    logger.warn("DemographicAddRecord2Action: invalid list_id={}, skipping waiting list entry", listId, e);
-                }
-            }
+        io.github.carlos_emr.carlos.waitinglist.WaitingList waitingLists = io.github.carlos_emr.carlos.waitinglist.WaitingList.getInstance();
+        if (!waitingLists.getFound() || !CarlosProperties.getInstance().getBooleanProperty("DEMOGRAPHIC_WAITING_LIST", "true")) {
+            return;
         }
+        String listId = request.getParameter("list_id");
+        if (listId == null || listId.isEmpty() || listId.equals("0")) {
+            return;
+        }
+        try {
+            int listIdInt = Integer.parseInt(listId);
+            Integer maxPosition = waitingListDao.getMaxPosition(listIdInt);
+            if (maxPosition == null) {
+                maxPosition = 0;
+            }
+            io.github.carlos_emr.carlos.commn.model.WaitingList waitingList =
+                    new io.github.carlos_emr.carlos.commn.model.WaitingList();
+            waitingList.setListId(listIdInt);
+            waitingList.setDemographicNo(demographic.getDemographicNo());
+            waitingList.setNote(request.getParameter("waiting_list_note"));
+            waitingList.setPosition((long) maxPosition + 1L);
+            Date referralDate = MyDateFormat.getSysDate(request.getParameter("waiting_list_referral_date"));
+            if (referralDate == null) {
+                referralDate = new Date();
+            }
+            waitingList.setOnListSince(referralDate);
+            waitingList.setIsHistory("N");
+            waitingListDao.persist(waitingList);
+        } catch (NumberFormatException e) {
+            logger.warn("DemographicAddRecord2Action: invalid list_id={}, skipping waiting list entry", listId, e);
+        }
+    }
 
+    private void admitToProgram(String providerNo, String dem, Demographic demographic) {
         // --- Program admission ---
         String rps = request.getParameter("rps");
         if (rps == null || rps.trim().isEmpty()) {
@@ -467,7 +503,7 @@ public class DemographicAddRecord2Action extends ActionSupport {
                 Admission admission = new Admission();
                 admission.setClientId(demographic.getDemographicNo());
                 admission.setProgramId(programId);
-                admission.setProviderNo(curUser_no);
+                admission.setProviderNo(providerNo);
                 admission.setAdmissionDate(new Date());
                 admission.setAdmissionStatus("current");
                 admission.setAdmissionFromTransfer(false);
@@ -477,8 +513,6 @@ public class DemographicAddRecord2Action extends ActionSupport {
                 logger.warn("Failed to create program admission for demographic {}", dem, e);
             }
         }
-
-        return showAdded(dem, demographic);
     }
 
     /**

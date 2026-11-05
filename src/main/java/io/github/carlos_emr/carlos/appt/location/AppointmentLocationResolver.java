@@ -109,18 +109,19 @@ public class AppointmentLocationResolver {
      *       past booking.</li>
      *   <li>Another active item, while the list is in location mode: its id becomes the code and
      *       its label the text.</li>
-     *   <li>Blank ("Not specified") or not a number: in location mode the code and the text are
+     *   <li>Blank ("Not specified"): in location mode the code and the text are
      *       cleared. Outside it no dropdown was offered (the patient-search pages pass a blank code
      *       through), so the text is saved through {@link #setLocationText}.</li>
      *   <li>Any other id: a deactivated item, an id of another lookup list, or an item while the
      *       list is not in location mode. Only a hand-made request, or a form opened before the
-     *       item was disabled, can post one; it is refused and the saved location is left as it
-     *       is, so a disabled location is refused on the server too.</li>
+     *       item was disabled, can post one; it raises an explicit refusal without changing the
+     *       saved location. Callers must stop the save and ask the user to choose again.</li>
      * </ul>
      *
      * @param appointment Appointment the appointment about to be saved, holding its saved location
      * @param postedCode String the posted {@code locationCode}, or null when the form had none
      * @param postedText String the posted {@code location} text, or null
+     * @throws AppointmentLocationUnavailableException if the posted choice is invalid or unavailable
      */
     public void applyPostedLocation(Appointment appointment, String postedCode, String postedText) {
         if (postedCode == null) {
@@ -133,6 +134,9 @@ public class AppointmentLocationResolver {
             return;
         }
         Integer chosen = AppointmentLocationList.parseCode(postedCode);
+        if (chosen == null && !postedCode.isBlank()) {
+            throw new AppointmentLocationUnavailableException();
+        }
         if (chosen != null && chosen.equals(appointment.getLocationCode())) {
             return;
         }
@@ -148,13 +152,37 @@ public class AppointmentLocationResolver {
         }
         LookupListItem item = locations.isLocationMode() ? locations.find(chosen) : null;
         if (item == null || !item.isActive()) {
-            if (appointment.getLocation() == null) {
-                appointment.setLocation("");
-            }
-            return;
+            throw new AppointmentLocationUnavailableException();
         }
         appointment.setLocationCode(item.getId());
         appointment.setLocation(StringUtils.left(item.getLabel(), LABEL_MAX_LENGTH));
+    }
+
+    /** The validated location snapshot, reusable after preflighting all members of a group. */
+    public record ResolvedLocation(Integer code, String text) {
+        public void applyTo(Appointment appointment) {
+            appointment.setLocationCode(code);
+            appointment.setLocation(text);
+        }
+    }
+
+    /**
+     * Resolves a form on a temporary appointment so legacy writers can validate before modifying,
+     * archiving or deleting any persistent row. Reuse the result during writes; resolving again
+     * partway through a group could fail after earlier members have already been saved.
+     *
+     * @param saved Appointment the original row, or null for a new booking
+     * @param request HttpServletRequest the posted booking form
+     * @return ResolvedLocation the validated code and label
+     */
+    public static ResolvedLocation resolvePostedLocation(Appointment saved, HttpServletRequest request) {
+        Appointment candidate = new Appointment();
+        if (saved != null) {
+            candidate.setLocationCode(saved.getLocationCode());
+            candidate.setLocation(saved.getLocation());
+        }
+        applyPostedLocation(candidate, request);
+        return new ResolvedLocation(candidate.getLocationCode(), candidate.getLocation());
     }
 
     /**

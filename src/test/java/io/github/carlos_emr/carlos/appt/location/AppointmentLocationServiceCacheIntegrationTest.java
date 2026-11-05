@@ -81,6 +81,7 @@ class AppointmentLocationServiceCacheIntegrationTest extends CarlosTestBase {
 
         @Override
         protected void audit(LoggedInInfo who, String operation, String data) {
+            // The log table is outside this transaction/cache contract; unit tests cover auditing.
         }
     }
 

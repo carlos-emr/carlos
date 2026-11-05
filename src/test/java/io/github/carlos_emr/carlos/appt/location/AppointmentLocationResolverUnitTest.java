@@ -7,6 +7,7 @@ package io.github.carlos_emr.carlos.appt.location;
 
 import static io.github.carlos_emr.carlos.appt.location.AppointmentLocationTestItems.item;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -107,13 +108,14 @@ class AppointmentLocationResolverUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRefuseDeactivatedItem_whenNewBookingPostsIt() {
-        // Only a hand-made request can post a disabled location for a booking that never had it.
+        // The booking form may have been opened before an administrator disabled this location.
         Appointment appointment = new Appointment();
 
-        resolver.applyPostedLocation(appointment, "13", "Satellite office");
+        assertThatThrownBy(() -> resolver.applyPostedLocation(appointment, "13", "Satellite office"))
+                .isInstanceOf(AppointmentLocationUnavailableException.class);
 
         assertThat(appointment.getLocationCode()).isNull();
-        assertThat(appointment.getLocation()).isEmpty();
+        assertThat(appointment.getLocation()).isNull();
     }
 
     @Test
@@ -122,7 +124,8 @@ class AppointmentLocationResolverUnitTest extends CarlosUnitTestBase {
         // booking's location.
         Appointment appointment = booked("Virtual", 11);
 
-        resolver.applyPostedLocation(appointment, "13", "");
+        assertThatThrownBy(() -> resolver.applyPostedLocation(appointment, "13", ""))
+                .isInstanceOf(AppointmentLocationUnavailableException.class);
 
         assertThat(appointment.getLocationCode()).isEqualTo(11);
         assertThat(appointment.getLocation()).isEqualTo("Virtual");
@@ -145,10 +148,11 @@ class AppointmentLocationResolverUnitTest extends CarlosUnitTestBase {
         AppointmentLocationResolver siteResolver = new AppointmentLocationResolver(lookupListDao, () -> true);
         Appointment appointment = new Appointment();
 
-        siteResolver.applyPostedLocation(appointment, "11", "Main site");
+        assertThatThrownBy(() -> siteResolver.applyPostedLocation(appointment, "11", "Main site"))
+                .isInstanceOf(AppointmentLocationUnavailableException.class);
 
         assertThat(appointment.getLocationCode()).isNull();
-        assertThat(appointment.getLocation()).isEmpty();
+        assertThat(appointment.getLocation()).isNull();
     }
 
     @Test
@@ -210,7 +214,8 @@ class AppointmentLocationResolverUnitTest extends CarlosUnitTestBase {
         // An id from another lookup list (or one made up) never becomes a location code.
         Appointment appointment = booked("Basement", null);
 
-        resolver.applyPostedLocation(appointment, "4242", "Virtual");
+        assertThatThrownBy(() -> resolver.applyPostedLocation(appointment, "4242", "Virtual"))
+                .isInstanceOf(AppointmentLocationUnavailableException.class);
 
         assertThat(appointment.getLocationCode()).isNull();
         assertThat(appointment.getLocation()).isEqualTo("Basement");
@@ -298,6 +303,53 @@ class AppointmentLocationResolverUnitTest extends CarlosUnitTestBase {
 
         assertThat(appointment.getLocationCode()).isEqualTo(11);
         assertThat(appointment.getLocation()).isEqualTo("Virtual");
+    }
+
+
+    @Test
+    void shouldRejectMalformedChoice_withoutClearingSavedLocation() {
+        Appointment appointment = booked("Virtual", 11);
+
+        assertThatThrownBy(() -> resolver.applyPostedLocation(appointment, "not-an-id", ""))
+                .isInstanceOf(AppointmentLocationUnavailableException.class);
+
+        assertThat(appointment.getLocationCode()).isEqualTo(11);
+        assertThat(appointment.getLocation()).isEqualTo("Virtual");
+    }
+
+    @Test
+    void shouldPreflightOnACopy_withoutChangingTheSavedAppointment() {
+        Appointment saved = booked("Satellite office", 13);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addParameter("locationCode", "11");
+
+        AppointmentLocationResolver.ResolvedLocation resolved =
+                AppointmentLocationResolver.resolvePostedLocation(saved, request);
+
+        assertThat(saved.getLocationCode()).isEqualTo(13);
+        assertThat(saved.getLocation()).isEqualTo("Satellite office");
+        // Applying a validated result does not re-read a list that may change partway through a group.
+        when(lookupListDao.findByName(AppointmentLocationResolver.LIST_NAME)).thenReturn(null);
+        Appointment replacement = new Appointment();
+        resolved.applyTo(replacement);
+        assertThat(replacement.getLocationCode()).isEqualTo(11);
+        assertThat(replacement.getLocation()).isEqualTo("Virtual");
+    }
+
+    @Test
+    void shouldLeaveAllMembersUnchanged_whenLaterGroupMemberCannotKeepDisabledLocation() {
+        Appointment first = booked("Satellite office", 13);
+        Appointment second = booked("Virtual", 11);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addParameter("locationCode", "13");
+
+        assertThatThrownBy(() -> List.of(first, second).stream()
+                .map(saved -> AppointmentLocationResolver.resolvePostedLocation(saved, request)).toList())
+                .isInstanceOf(AppointmentLocationUnavailableException.class);
+
+        assertThat(first.getLocationCode()).isEqualTo(13);
+        assertThat(second.getLocationCode()).isEqualTo(11);
+        assertThat(second.getLocation()).isEqualTo("Virtual");
     }
 
     @Test

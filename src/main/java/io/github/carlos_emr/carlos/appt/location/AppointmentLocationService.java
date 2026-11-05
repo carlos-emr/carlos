@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.appt.location;
 
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -86,6 +85,7 @@ public class AppointmentLocationService {
 
     private static final String SCHEDULE_ADMIN = "_admin.schedule";
     private static final String ADMIN = "_admin";
+    private static final String AUDIT_ITEM_PREFIX = "lookupListItem id=";
     /** Width of {@code LookupListItem.value}; locations store a readable copy of their name there. */
     private static final int VALUE_MAX_LENGTH = 50;
     /** Width of {@code LookupListItem.createdBy}. */
@@ -145,7 +145,7 @@ public class AppointmentLocationService {
         AppointmentLocationList locations = freshList(list);
         requireNameFree(locations, label, null);
         LookupListItem item = persistItem(loggedInInfo, list, label, nextDisplayOrder(locations));
-        audit(loggedInInfo, "addLocation", "lookupListItem id=" + item.getId() + " added");
+        audit(loggedInInfo, "addLocation", AUDIT_ITEM_PREFIX + item.getId() + " added");
         return item;
     }
 
@@ -224,7 +224,7 @@ public class AppointmentLocationService {
         }
         item.setLabel(label);
         lookupListItemDao.merge(item);
-        audit(loggedInInfo, "rename", "lookupListItem id=" + id + " name updated");
+        audit(loggedInInfo, "rename", AUDIT_ITEM_PREFIX + id + " name updated");
     }
 
     /**
@@ -244,13 +244,13 @@ public class AppointmentLocationService {
         String value;
         try {
             value = AppointmentLocationStyle.normaliseColour(colour);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
             throw new AppointmentLocationChangeRefusedException("admin.appt.location.msg.invalidColour", null);
         }
         LookupListItem item = requireItem(requireList(), id);
         item.setColour(value);
         lookupListItemDao.merge(item);
-        audit(loggedInInfo, "updateColour", "lookupListItem id=" + id + " colour " + (value == null ? "cleared" : "updated"));
+        audit(loggedInInfo, "updateColour", AUDIT_ITEM_PREFIX + id + " colour " + (value == null ? "cleared" : "updated"));
     }
 
     /**
@@ -270,13 +270,13 @@ public class AppointmentLocationService {
         String value;
         try {
             value = AppointmentLocationStyle.normaliseIcon(icon);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
             throw new AppointmentLocationChangeRefusedException("admin.appt.location.msg.invalidIcon", null);
         }
         LookupListItem item = requireItem(requireList(), id);
         item.setIcon(value);
         lookupListItemDao.merge(item);
-        audit(loggedInInfo, "updateIcon", "lookupListItem id=" + id + " icon " + (value == null ? "cleared" : "updated"));
+        audit(loggedInInfo, "updateIcon", AUDIT_ITEM_PREFIX + id + " icon " + (value == null ? "cleared" : "updated"));
     }
 
     /**
@@ -326,7 +326,7 @@ public class AppointmentLocationService {
                 lookupListItemDao.merge(each);
             }
         }
-        audit(loggedInInfo, "move", "lookupListItem id=" + id + " moved " + (up ? "up" : "down"));
+        audit(loggedInInfo, "move", AUDIT_ITEM_PREFIX + id + " moved " + (up ? "up" : "down"));
         return true;
     }
 
@@ -347,7 +347,7 @@ public class AppointmentLocationService {
         if (item.isActive()) {
             item.setActive(false);
             lookupListItemDao.merge(item);
-            audit(loggedInInfo, "deactivate", "lookupListItem id=" + id + " deactivated");
+            audit(loggedInInfo, "deactivate", AUDIT_ITEM_PREFIX + id + " deactivated");
         }
     }
 
@@ -377,7 +377,7 @@ public class AppointmentLocationService {
         item.setActive(true);
         item.setDisplayOrder(displayOrder);
         lookupListItemDao.merge(item);
-        audit(loggedInInfo, "restore", "lookupListItem id=" + id + " reactivated");
+        audit(loggedInInfo, "restore", AUDIT_ITEM_PREFIX + id + " reactivated");
     }
 
     private boolean hasEither(LoggedInInfo loggedInInfo, String privilege) {
@@ -460,7 +460,6 @@ public class AppointmentLocationService {
         list.setDescription("Places an appointment can be booked");
         list.setActive(true);
         list.setCreatedBy(createdBy(loggedInInfo));
-        list.setDateCreated(new Date());
         lookupListDao.persist(list);
         return list;
     }
@@ -496,7 +495,6 @@ public class AppointmentLocationService {
         item.setActive(true);
         item.setDisplayOrder(displayOrder);
         item.setCreatedBy(createdBy(loggedInInfo));
-        item.setDateCreated(new Date());
         lookupListItemDao.persist(item);
         return item;
     }

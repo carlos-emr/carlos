@@ -1172,9 +1172,9 @@
                 </tr>
                 <tr>
                     <td>
-                        <%-- Only one of the three location controls below is rendered. Each has its own id and
+                        <%-- Only one of the location controls below is rendered. Each has its own id and
                              hidden label so the ids stay unique in this source too; the caption is shared. --%>
-                        <label><fmt:message key="Appointment.formLocation"/>:</label>
+                        <span><fmt:message key="Appointment.formLocation"/>:</span>
                     </td>
                     <td>
                         <%
@@ -1211,7 +1211,7 @@
 		<label for="locationProgram" class="visually-hidden"><fmt:message key="Appointment.formLocation"/></label>
 		<select name="location" id="locationProgram" class="form-select">
                             <%
-                                String location = SafeEncode.forJava(bFirstDisp ? (appt.getLocation()) : (request.getParameter("location") != null ? request.getParameter("location") : ""));
+                                String location = StringUtils.defaultString(bFirstDisp ? appt.getLocation() : request.getParameter("location"));
                                 if (programs != null && !programs.isEmpty()) {
                                     for (Program program : programs) {
                                         String description = StringUtils.isBlank(program.getLocation()) ? program.getName() : program.getLocation();
@@ -1220,8 +1220,11 @@
                             </option>
 
                             <% }
-                            }
-                            %>
+                            } else { %>
+                            <%-- An empty select posts no location. Retain the saved value so an
+                                 empty program setup cannot make Copy/Cut omit or clear it. --%>
+                            <option value="<carlos:encode value='<%= location %>' context="htmlAttribute"/>" selected><% if (location.isEmpty()) { %><fmt:message key="appointment.location.notSpecified"/><% } else { %><carlos:encode value='<%= location %>'/><% } %></option>
+                            <% } %>
                         </select>
                         <% } else if (locationMode) {
                             // First display starts from the saved booking; a re-render (patient search,

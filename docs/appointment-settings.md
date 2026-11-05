@@ -79,14 +79,17 @@ edit of what is stored:
 | the appointment's own code | nothing changes: the saved label stays even if the item was renamed or disabled since |
 | another active item, in location mode | the item id and its label |
 | blank ("Not specified") | location mode: no location, no code. Otherwise the text, through `setLocationText` (the patient-search pages pass a blank code through) |
-| a disabled item, an id of another list, or any item outside location mode | refused: the saved location stays as it was |
+| a disabled item, an id of another list, an invalid code, or any item outside location mode | the whole save is refused visibly; no appointment fields are changed |
 
 Only a hand-made request, or a form opened before an item was disabled, can post the last row, so
-a disabled location is refused on the server as well as hidden from the dropdown. The Repeat page
+a disabled location is refused on the server as well as hidden from the dropdown. Native Add and
+Update return HTTP 409 with the submitted draft and a message to choose again. Legacy record and
+group writers validate the location before any write and return an explicit error; group validation
+finishes for every selected appointment before any member is archived, deleted or saved. The Repeat page
 seeds its template from the saved appointment the same way, and treats typed text linked to the item
 with that name (see below) as unchanged, so "Save changes first" is not asked for a form nobody
-changed. Group Update (`appointmentgrouprecords.jsp`) recreates each appointment, so it copies the
-location of the one it replaces before applying the form.
+changed. Group Update (`appointmentgrouprecords.jsp`) recreates each appointment, so its preflight
+starts from the location of the one it replaces and the writer reuses that validated snapshot.
 
 Every booking-form writer goes through `AppointmentLocationResolver.applyPostedLocation`:
 `AppointmentAddRecord2Action`, `AppointmentUpdateRecord2Action`, `RecurringAppointmentService`,
@@ -107,10 +110,22 @@ the active item with the same name (ignoring case and surrounding spaces) so it 
 `js/appointmentLocationSelect.js` picks the option an appointment type names and the one a
 pasted appointment carries (`ApptData.locationCode`, through `AppointmentLocationList.pastedChoice`,
 which also links typed text to the active item of that name). A pasted location the screen cannot
-select (an item disabled since, or text naming no item) is offered as a legacy option with its
-name, so a cut and paste keeps it (`offerLegacyAppointmentLocation`). The choice survives a patient search and
+select (an item renamed or disabled since, or text naming no item) is offered as a legacy option with its
+saved name, so a cut and paste keeps it (`offerLegacyAppointmentLocation`). Copy and cut resolve the
+posted choice against the source appointment before filling the clipboard. Its label remains available
+if the final active item is disabled before paste and the screen returns to free text. An unavailable
+choice refuses copy or cut before replacing the clipboard or removing the source. The choice survives a patient search and
 the add-patient detour (`demographicsearch2apptresults.jsp`, `add-form-personal.jsp`,
 `demographicaddarecord.jsp`). `AppointmentEditVersion` includes the code.
+
+Copy and cut also refuse malformed identifiers, invalid Unicode/control characters, and text that
+cannot fit a new booking; they never silently drop or truncate fields before removing the source.
+They require the complete edit-form fields, distinguishing an intentionally empty text field from
+one omitted by an incomplete request; appointment date, times, duration and status cannot be empty.
+Name, notes, resources and location allow 255 Unicode code points; reason allows 80. Textarea CR LF
+counts as one logical line break, and multiline reasons and clinic-defined alphanumeric chart numbers
+are preserved. An oversized legacy value must be corrected before cutting because Paste creates a
+new booking with the current column limits. Refusals leave the previous clipboard and source intact.
 
 ### Day schedule
 

@@ -29,13 +29,18 @@ package io.github.carlos_emr.carlos.appt;
 
 import java.util.List;
 import java.util.regex.Pattern;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationList;
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Site;
-import io.github.carlos_emr.carlos.utility.LogSafe;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * This class contains Appointment related presentation layer helper methods.
@@ -44,10 +49,21 @@ import org.slf4j.LoggerFactory;
  */
 public class ApptUtil {
 
-    private static final Logger logger = LoggerFactory.getLogger(ApptUtil.class);
     private static final String SESSION_APPT_BEAN = "apptBean";
     private static final int MAX_FIELD_LEN = 255;
-    private static final int MAX_NOTES_LEN = 2000;
+    private static final int MAX_REASON_LEN = 80;
+    private static final String APPOINTMENT_DATE = "appointment_date";
+    private static final String START_TIME = "start_time";
+    private static final String END_TIME = "end_time";
+    private static final String DURATION = "duration";
+    private static final String STATUS = "status";
+    // Every Copy/Cut edit form posts these controls, including empty text. An absent field is
+    // an incomplete request, not permission to discard part of the appointment during a move.
+    private static final List<String> CLIPBOARD_FIELDS = List.of(
+            APPOINTMENT_DATE, START_TIME, END_TIME, DURATION, STATUS, "demographic_no",
+            "keyword", "chart_no", "reason", "notes", "location", "resources", "type", "remarks");
+    private static final List<String> NONEMPTY_CLIPBOARD_FIELDS = List.of(
+            APPOINTMENT_DATE, START_TIME, END_TIME, DURATION, STATUS);
 
     // CWE-501 trust boundary validation: appointment status is 1-2 alpha chars (e.g. t,T,H,P,E,N,C,B + optional S/V modifier)
     private static final Pattern SAFE_STATUS = Pattern.compile("[a-zA-Z]{1,2}");
@@ -61,75 +77,113 @@ public class ApptUtil {
     private static final Pattern SAFE_MULTILINE = Pattern.compile("[^\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]*", Pattern.DOTALL);
     // Numeric patterns for structured fields
     private static final Pattern SAFE_DURATION = Pattern.compile("\\d{1,4}");
-    private static final Pattern SAFE_REASON_CODE = Pattern.compile("[a-zA-Z0-9]{1,20}");
-    /** A Location List item id; "legacy" and blank copy no location code. */
-    private static final Pattern SAFE_LOCATION_CODE = Pattern.compile("[0-9]{1,10}");
 
-    private static String validateOptional(String value, Pattern pattern, String fieldName) {
+    private static String validateOptional(String value, Pattern pattern) {
         if (value == null || value.isEmpty()) {
             return value;
         }
         if (!pattern.matcher(value).matches()) {
-            logger.warn("Rejected invalid {} at trust boundary: {}", fieldName, LogSafe.sanitize(value));
-            return null;
+            throw new AppointmentClipboardValidationException();
         }
         return value;
     }
 
     private static String sanitizeText(String value, int maxLen) {
-        if (value == null) {
-            return null;
+        return validateText(value, maxLen, false);
+    }
+
+    private static String validateDate(String value) {
+        validateOptional(value, SAFE_DATE);
+        if (value != null && !value.isEmpty()) {
+            try {
+                LocalDate.parse(value);
+            } catch (DateTimeParseException _) {
+                throw new AppointmentClipboardValidationException();
+            }
         }
-        String capped = value.length() > maxLen ? value.substring(0, maxLen) : value;
-        if (!SAFE_TEXT.matcher(capped).matches()) {
-            logger.warn("Rejected text with control characters at trust boundary");
-            return null;
+        return value;
+    }
+
+    private static String validateTime(String value) {
+        validateOptional(value, SAFE_TIME);
+        if (value != null && !value.isEmpty()) {
+            try {
+                LocalTime.parse(value.charAt(1) == ':' ? "0" + value : value);
+            } catch (DateTimeParseException _) {
+                throw new AppointmentClipboardValidationException();
+            }
         }
-        return capped;
+        return value;
     }
 
     private static String sanitizeMultilineText(String value, int maxLen) {
+        return validateText(value, maxLen, true);
+    }
+
+    private static String validateText(String value, int maxLen, boolean multiline) {
         if (value == null) {
             return null;
         }
-        String capped = value.length() > maxLen ? value.substring(0, maxLen) : value;
-        if (!SAFE_MULTILINE.matcher(capped).matches()) {
-            logger.warn("Rejected multiline text with control characters at trust boundary");
-            return null;
+        // A supplementary Unicode character occupies one database character, not two UTF-16
+        // units. Browser textarea CR LF likewise becomes one logical line break on booking.
+        String logical = multiline ? value.replace("\r\n", "\n").replace('\r', '\n') : value;
+        if (logical.codePointCount(0, logical.length()) > maxLen
+                || logical.codePoints().anyMatch(codePoint -> codePoint >= Character.MIN_SURROGATE && codePoint <= Character.MAX_SURROGATE)
+                || !(multiline ? SAFE_MULTILINE : SAFE_TEXT).matcher(value).matches()) {
+            throw new AppointmentClipboardValidationException();
         }
-        return capped;
+        return value;
+    }
+
+    private static String validateOptionalNonNegativeInteger(String value) {
+        if (value == null || value.isEmpty()) {
+            return value;
+        }
+        try {
+            if (!value.matches("\\d+") || Integer.parseInt(value) < 0) {
+                throw new AppointmentClipboardValidationException();
+            }
+        } catch (NumberFormatException _) {
+            // Never attach the parser exception: its message includes the submitted value.
+            throw new AppointmentClipboardValidationException();
+        }
+        return value;
     }
 
     public static void copyAppointmentIntoSession(HttpServletRequest request) {
-        // Validate numeric ID fields at trust boundary (CWE-501)
-        String demoNoParam = request.getParameter("demographic_no");
-        if (demoNoParam != null && !demoNoParam.isEmpty() && !demoNoParam.matches("\\d+")) {
-            logger.warn("Invalid non-numeric demographic_no: {}", LogSafe.sanitize(demoNoParam)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            return;
+        Integer sourceId = AppointmentLocationList.parseCode(request.getParameter("appointment_no"));
+        Appointment source = sourceId == null ? null : SpringUtils.getBean(OscarAppointmentDao.class).find(sourceId);
+        if (source == null) {
+            throw new IllegalArgumentException("The source appointment is no longer available. Nothing was copied or cut.");
         }
-        String chartNo = request.getParameter("chart_no");
-        if (chartNo != null && !chartNo.isEmpty() && !chartNo.matches("\\d+")) {
-            logger.warn("Invalid non-numeric chart_no: {}", LogSafe.sanitize(chartNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-            return;
-        }
+        validateCompleteClipboard(request);
+        // The coded dropdown's hidden text is empty. Resolve against the saved source before
+        // copying so the clipboard retains its historical label even if the list changes before
+        // Paste. Resolution uses a temporary appointment and never mutates the source row.
+        AppointmentLocationResolver.ResolvedLocation location = AppointmentLocationResolver.resolvePostedLocation(source, request);
+
+        String demoNoParam = validateOptionalNonNegativeInteger(request.getParameter("demographic_no"));
+        // Chart numbers are clinic-defined text (Demographic.chartNo), not patient database ids.
+        String chartNo = sanitizeText(request.getParameter("chart_no"), MAX_FIELD_LEN);
 
         ApptData obj = new ApptData();
         // Structured fields: validated against expected formats
-        obj.setAppointment_date(validateOptional(request.getParameter("appointment_date"), SAFE_DATE, "appointment_date"));
-        obj.setStart_time(validateOptional(request.getParameter("start_time"), SAFE_TIME, "start_time"));
-        obj.setEnd_time(validateOptional(request.getParameter("end_time"), SAFE_TIME, "end_time"));
+        obj.setAppointment_date(validateDate(request.getParameter(APPOINTMENT_DATE)));
+        obj.setStart_time(validateTime(request.getParameter(START_TIME)));
+        obj.setEnd_time(validateTime(request.getParameter(END_TIME)));
         obj.setDemographic_no(demoNoParam);
         obj.setChart_no(chartNo);
-        obj.setStatus(validateOptional(request.getParameter("status"), SAFE_STATUS, "status"));
-        obj.setDuration(validateOptional(request.getParameter("duration"), SAFE_DURATION, "duration"));
-        obj.setReasonCode(validateOptional(request.getParameter("reasonCode"), SAFE_REASON_CODE, "reasonCode"));
-        String locationCode = request.getParameter("locationCode");
-        obj.setLocationCode(locationCode != null && SAFE_LOCATION_CODE.matcher(locationCode).matches() ? locationCode : null);
-        // Free-text fields: length-capped and control characters rejected
+        obj.setStatus(validateOptional(request.getParameter(STATUS), SAFE_STATUS));
+        obj.setDuration(validateOptional(request.getParameter(DURATION), SAFE_DURATION));
+        String reasonCode = request.getParameter("reasonCode");
+        // The booking form uses -1 for an unspecified coded reason; other codes are Integer ids.
+        obj.setReasonCode("-1".equals(reasonCode) ? reasonCode : validateOptionalNonNegativeInteger(reasonCode));
+        obj.setLocationCode(location.code() == null ? null : String.valueOf(location.code()));
+        // Refuse invalid text before replacing the clipboard; never silently shorten a cut booking.
         obj.setName(sanitizeText(request.getParameter("keyword"), MAX_FIELD_LEN));
-        obj.setNotes(sanitizeMultilineText(request.getParameter("notes"), MAX_NOTES_LEN));
-        obj.setReason(sanitizeText(request.getParameter("reason"), MAX_FIELD_LEN));
-        obj.setLocation(sanitizeText(request.getParameter("location"), MAX_FIELD_LEN));
+        obj.setNotes(sanitizeMultilineText(request.getParameter("notes"), MAX_FIELD_LEN));
+        obj.setReason(sanitizeMultilineText(request.getParameter("reason"), MAX_REASON_LEN));
+        obj.setLocation(sanitizeText(location.text(), MAX_FIELD_LEN));
         obj.setResources(sanitizeText(request.getParameter("resources"), MAX_FIELD_LEN));
         obj.setType(sanitizeText(request.getParameter("type"), MAX_FIELD_LEN));
         obj.setStyle(sanitizeText(request.getParameter("style"), MAX_FIELD_LEN));
@@ -137,8 +191,21 @@ public class ApptUtil {
         obj.setRemarks(sanitizeMultilineText(request.getParameter("remarks"), MAX_FIELD_LEN));
         obj.setUrgency(sanitizeText(request.getParameter("urgency"), MAX_FIELD_LEN));
         // nosemgrep: tainted-session-from-http-request -- numeric IDs validated via regex; status validated against [a-zA-Z]{1,2};
-        // date/time validated against format patterns; free-text fields length-capped and control characters rejected via SAFE_TEXT
-        request.getSession().setAttribute(SESSION_APPT_BEAN, obj); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): ApptData bean fields regex-validated/sanitized by sanitizeText() before storage
+        // date/time validated against format patterns; chart and free-text fields validated for length, Unicode and control characters
+        request.getSession().setAttribute(SESSION_APPT_BEAN, obj); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): ApptData bean fields validated before storage; failure leaves the previous clipboard intact
+    }
+
+    private static void validateCompleteClipboard(HttpServletRequest request) {
+        for (String field : CLIPBOARD_FIELDS) {
+            if (request.getParameter(field) == null) {
+                throw new AppointmentClipboardValidationException();
+            }
+        }
+        for (String field : NONEMPTY_CLIPBOARD_FIELDS) {
+            if (request.getParameter(field).isEmpty()) {
+                throw new AppointmentClipboardValidationException();
+            }
+        }
     }
 
     public static ApptData getAppointmentFromSession(HttpServletRequest request) {

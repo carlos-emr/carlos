@@ -25,7 +25,7 @@ package io.github.carlos_emr.carlos.appt.status.web;
 
 import java.util.List;
 import java.util.Set;
-import java.util.function.Supplier;
+import java.util.function.BooleanSupplier;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -73,8 +73,10 @@ public class AppointmentStatus2Action extends ActionSupport {
     private static final String ADMIN_SECURITY_OBJECT = "_admin";
     private static final String READ = "r";
     private static final String WRITE = "w";
+    private static final String RESET = "reset";
+    private static final String CHANGE_STATUS = "changestatus";
     private static final Set<String> MUTATIONS = Set.of(
-            "reset", "changestatus", "updateDescription", "updateColour", "updateIcon");
+            RESET, CHANGE_STATUS, "updateDescription", "updateColour", "updateIcon");
 
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -120,8 +122,8 @@ public class AppointmentStatus2Action extends ActionSupport {
             return view();
         }
         switch (dispatch) {
-            case "reset" -> reset();
-            case "changestatus" -> changestatus();
+            case RESET -> reset();
+            case CHANGE_STATUS -> changestatus();
             case "updateDescription" -> changeStyle(dispatch, "description",
                     () -> getApptStatusMgr().updateDescription(id, apptDesc));
             case "updateColour" -> changeStyle(dispatch, "colour",
@@ -145,7 +147,7 @@ public class AppointmentStatus2Action extends ActionSupport {
 
     private void reset() {
         getApptStatusMgr().reset();
-        audit("reset", "seeded appointment statuses restored to their default description, colour and icon");
+        audit(RESET, "seeded appointment statuses restored to their default description, colour and icon");
         addActionMessage(getText("admin.appt.status.mgr.message.reset"));
     }
 
@@ -172,17 +174,17 @@ public class AppointmentStatus2Action extends ActionSupport {
             addActionError(getText(e.getMessageKey()));
             return;
         }
-        audit("changestatus", "appointment_status id=" + id + " active=" + active);
+        audit(CHANGE_STATUS, "appointment_status id=" + id + " active=" + active);
         addActionMessage(getText("admin.appt.status.mgr.message.activationUpdated"));
     }
 
     /* Applies one inline style edit, reporting a refused value instead of saving it. */
-    private void changeStyle(String dispatch, String field, Supplier<Boolean> update) {
+    private void changeStyle(String dispatch, String field, BooleanSupplier update) {
         if (getExistingStatus() == null) {
             return;
         }
         try {
-            if (!update.get()) {
+            if (!update.getAsBoolean()) {
                 addActionError(getText("admin.appt.status.mgr.error.notFound"));
                 return;
             }

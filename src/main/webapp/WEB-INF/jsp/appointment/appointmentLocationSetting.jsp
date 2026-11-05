@@ -98,7 +98,7 @@
     <div class="alert alert-danger" role="alert"><s:actionerror/></div>
 </s:if>
 <s:if test="hasActionMessages()">
-    <div class="alert alert-success" role="status"><s:actionmessage/></div>
+    <output class="alert alert-success d-block"><s:iterator value="actionMessages"><span class="d-block"><s:property/></span></s:iterator></output>
 </s:if>
 
 <p class="text-body-secondary small"><fmt:message key="admin.appt.location.msg.intro"/></p>

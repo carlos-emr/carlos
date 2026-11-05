@@ -38,12 +38,15 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 import io.github.carlos_emr.carlos.appt.ApptUtil;
+import io.github.carlos_emr.carlos.appt.AppointmentClipboardValidationException;
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.ErrorPageMessage;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -97,7 +100,23 @@ public final class AppointmentCutRecord2Action extends ActionSupport {
         }
 
         // Copy appointment into session AFTER validation to avoid corrupting session state on bad input
-        ApptUtil.copyAppointmentIntoSession(request);
+        try {
+            ApptUtil.copyAppointmentIntoSession(request);
+        } catch (AppointmentClipboardValidationException _) {
+            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_CONFLICT,
+                    AppointmentClipboardValidationException.MESSAGE_KEY);
+            return NONE;
+        } catch (AppointmentLocationUnavailableException _) {
+            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_CONFLICT,
+                    AppointmentLocationUnavailableException.MESSAGE_KEY);
+            return NONE;
+        } catch (IllegalArgumentException e) {
+            // A stale/unavailable location must not remove the source appointment or replace
+            // the prior clipboard. The helper's messages contain no request or patient data.
+            ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_CONFLICT,
+                    "appointment.clipboard.sourceUnavailable");
+            return NONE;
+        }
 
         if (appt.getLastUpdateUser() == null || appt.getLastUpdateUser().isEmpty()) {
             appt.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());

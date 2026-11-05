@@ -12,12 +12,12 @@ const {
 /** A minimal stand-in for an HTMLSelectElement with the dropdown the tag renders. */
 function dropdown() {
     const options = [
-        {value: '', text: 'Not specified', attrs: []},
-        {value: 'legacy', text: 'Legacy: Basement', attrs: ['data-legacy']},
-        {value: '11', text: 'Virtual', attrs: []},
-        {value: '12', text: ' Room 2 ', attrs: []},
-        {value: '13', text: 'Satellite (disabled)', attrs: ['data-inactive']},
-    ].map((o) => ({value: o.value, text: o.text, hasAttribute: (name) => o.attrs.includes(name)}));
+        {value: '', text: 'Not specified', dataset: {}},
+        {value: 'legacy', text: 'Legacy: Basement', dataset: {legacy: ''}},
+        {value: '11', text: 'Virtual', dataset: {}},
+        {value: '12', text: ' Room 2 ', dataset: {}},
+        {value: '13', text: 'Satellite (disabled)', dataset: {inactive: ''}},
+    ];
     return {options, value: 'legacy'};
 }
 
@@ -60,11 +60,7 @@ test('tolerates a page without the dropdown', () => {
 
 /** The add screen's dropdown: no legacy option and no disabled items, with DOM insertion. */
 function addScreenDropdown() {
-    const make = (value, text, attrs = []) => ({
-        value, text, attrs,
-        hasAttribute(name) { return this.attrs.includes(name); },
-        setAttribute(name) { this.attrs.push(name); },
-    });
+    const make = (value, text) => ({value, text, dataset: {}});
     const select = {
         options: [make('', 'Not specified'), make('11', 'Virtual')],
         value: '',

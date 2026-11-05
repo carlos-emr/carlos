@@ -202,23 +202,23 @@ public class AppointmentStatusMgrImpl implements AppointmentStatusMgr {
     }
 
     @Override
-    public AppointmentStatus getStatus(int ID) {
-        return getAppointmentStatusDao().find(ID);
+    public AppointmentStatus getStatus(int id) {
+        return getAppointmentStatusDao().find(id);
     }
 
     @Override
-    public boolean changeStatus(int ID, int iActive) {
+    public boolean changeStatus(int id, int iActive) {
         if (iActive != 0 && iActive != 1) {
             throw new AppointmentStatusStyleException("admin.appt.status.mgr.error.invalidActive");
         }
         AppointmentStatusDao appointmentStatusDao = getAppointmentStatusDao();
-        AppointmentStatus status = appointmentStatusDao.find(ID);
+        AppointmentStatus status = appointmentStatusDao.find(id);
         // editable=0 marks the core statuses the schedule depends on: they can be restyled but
         // never switched off (issue #3888).
         if (status == null || status.getEditable() != 1) {
             return false;
         }
-        appointmentStatusDao.changeStatus(ID, iActive);
+        appointmentStatusDao.changeStatus(id, iActive);
         return true;
     }
 

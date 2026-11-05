@@ -62,18 +62,18 @@ public interface AppointmentStatusMgr {
 
     public List<AppointmentStatus> getAllActiveStatus();
 
-    public AppointmentStatus getStatus(int ID);
+    public AppointmentStatus getStatus(int id);
 
     /**
      * Enables or disables a status whose {@code editable} flag is 1.
      *
-     * @param ID int the appointment_status id
+     * @param id int the appointment_status id
      * @param iActive int 1 to enable, 0 to disable
      * @return boolean true when saved; false when there is no such status or its
      *         {@code editable} flag is 0
      * @throws AppointmentStatusStyleException if {@code iActive} is neither 0 nor 1
      */
-    public boolean changeStatus(int ID, int iActive);
+    public boolean changeStatus(int id, int iActive);
 
     /**
      * Renames a status. Applies to every status, whatever its {@code editable} flag.

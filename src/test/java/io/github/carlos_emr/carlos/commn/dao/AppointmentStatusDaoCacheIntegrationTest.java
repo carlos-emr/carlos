@@ -130,6 +130,35 @@ class AppointmentStatusDaoCacheIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @DisplayName("should retain independent status edits when another transaction commits first")
+    void shouldRetainIndependentEdits_whenAnotherTransactionCommitsFirst() {
+        AppointmentStatus seeded = persistSeed("W", "original");
+
+        transactionTemplate.executeWithoutResult(outer -> {
+            assertThat(appointmentStatusDao.modifyStyle(seeded.getId(), "new description", null, null)).isTrue();
+            // REQUIRES_NEW suspends the first persistence context, reproducing two requests that
+            // read the same status before either commits without relying on thread timing.
+            transactionTemplate.executeWithoutResult(inner -> {
+                assertThat(appointmentStatusDao.modifyStyle(seeded.getId(), null, "#abcdef", "here.gif")).isTrue();
+                appointmentStatusDao.changeStatus(seeded.getId(), 0);
+            });
+        });
+
+        AppointmentStatus saved = transactionTemplate.execute(status -> appointmentStatusDao.find(seeded.getId()));
+        assertThat(saved.getDescription()).isEqualTo("new description");
+        assertThat(saved.getColor()).isEqualTo("#abcdef");
+        assertThat(saved.getIcon()).isEqualTo("here.gif");
+        assertThat(saved.getActive()).isZero();
+        assertThat(appointmentStatusDao.findAll()).anySatisfy(status -> {
+            assertThat(status.getId()).isEqualTo(seeded.getId());
+            assertThat(status.getDescription()).isEqualTo("new description");
+            assertThat(status.getColor()).isEqualTo("#abcdef");
+            assertThat(status.getIcon()).isEqualTo("here.gif");
+            assertThat(status.getActive()).isZero();
+        });
+    }
+
+    @Test
     @DisplayName("should evict appointmentStatuses cache when changeStatus commits")
     void shouldEvictAppointmentStatusesCache_whenChangeStatusCommits() {
         AppointmentStatus seeded = persistSeed("Z", "active");

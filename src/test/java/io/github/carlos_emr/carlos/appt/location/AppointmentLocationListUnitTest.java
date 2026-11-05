@@ -182,10 +182,14 @@ class AppointmentLocationListUnitTest {
 
     @ParameterizedTest
     @CsvSource(nullValues = "NULL", value = {
-            // An active item is selected by its code.
-            "12, Old room label, 12, NULL",
-            // An item disabled since keeps its own name, not the stored snapshot.
-            "13, Old satellite label, legacy, Satellite office",
+            // An active item with the same name is selected by its code.
+            "12, Room 2, 12, NULL",
+            // Renamed or disabled items preserve the copied snapshot as legacy text.
+            "12, Old room label, legacy, Old room label",
+            "13, Old satellite label, legacy, Old satellite label",
+            // Older clipboard entries without a label fall back to the item's current name.
+            "12, NULL, 12, NULL",
+            "13, NULL, legacy, Satellite office",
             // Typed text naming an active item is linked to it, as the edit screen links it.
             "NULL, '  room 2 ', 12, NULL",
             "99, Virtual, 11, NULL",

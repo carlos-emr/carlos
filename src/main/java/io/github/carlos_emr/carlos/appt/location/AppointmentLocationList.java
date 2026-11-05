@@ -197,14 +197,15 @@ public final class AppointmentLocationList {
 
     /**
      * Works out what the booking dropdown starts on for a pasted appointment. A paste (a cut is a
-     * move) keeps its location: its item when that is active; the item's name as a legacy option
-     * when it has been disabled since; and otherwise what {@link #choiceFor} gives its text, so a
+     * move) keeps its location: its item when active with the same name; the saved name as a legacy
+     * option when the item was renamed or disabled; and otherwise what {@link #choiceFor} gives its text, so a
      * location typed before the list existed is linked to the active item of that name, as the
      * edit screen links it, or kept as a legacy option. The add and edit pages both paste through
      * this.
      *
-     * <p>A disabled item gives its current name, not the booking's saved one: copy and cut fill the
-     * clipboard from the edit form, whose location text is blank for a booking with a code.</p>
+     * <p>Copy and cut resolve the edit form against its source appointment before filling the
+     * clipboard. A legacy option preserves that label snapshot across later item changes. Older
+     * clipboard entries without text fall back to the item's current name.</p>
      *
      * @param pastedCode String the pasted appointment's location code as stored, or null
      * @param pastedLocation String the pasted appointment's location text, or null
@@ -212,6 +213,10 @@ public final class AppointmentLocationList {
      */
     public Choice pastedChoice(String pastedCode, String pastedLocation) {
         LookupListItem item = find(parseCode(pastedCode));
+        if (item != null && StringUtils.isNotBlank(pastedLocation)
+                && (!item.isActive() || !Objects.equals(item.getLabel(), pastedLocation))) {
+            return new Choice(LEGACY_VALUE, pastedLocation);
+        }
         if (item != null && item.isActive()) {
             return new Choice(String.valueOf(item.getId()), null);
         }

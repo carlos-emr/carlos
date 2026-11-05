@@ -88,8 +88,10 @@ public class RecurringAppointmentService {
             template.setLocation(anchor.getLocation());
             template.setLocationCode(anchor.getLocationCode());
         }
-        locations.applyPostedLocation(template, values.get(AppointmentLocationResolver.LOCATION_CODE_PARAM),
-                values.getOrDefault(AppointmentLocationResolver.LOCATION_PARAM, ""));
+        if (adding || operation.equals("Group Update")) {
+            locations.applyPostedLocation(template, values.get(AppointmentLocationResolver.LOCATION_CODE_PARAM),
+                    values.getOrDefault(AppointmentLocationResolver.LOCATION_PARAM, ""));
+        }
         if (adding && anchor != null && !sameDetails(anchor, template)) {
             throw new IllegalArgumentException("Save changes to the appointment before creating repeats.");
         }

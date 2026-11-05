@@ -75,6 +75,7 @@
         import="java.util.*, java.sql.*,java.net.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.commn.OtherIdManager"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
@@ -87,6 +88,26 @@
 
 
 <%
+    // Preflight every selected member before the first archive, delete or persist. A location
+    // may have been disabled while this page was open; no part of the group may then be saved.
+    Map<Integer, AppointmentLocationResolver.ResolvedLocation> groupLocations = new HashMap<>();
+    String groupOperation = request.getParameter("groupappt");
+    if ("Add Group Appointment".equals(groupOperation) || "Group Update".equals(groupOperation)) {
+        try {
+            for (String key : request.getParameterMap().keySet()) {
+                if (!key.contains("one") && !key.contains("two")) continue;
+                int selected = Integer.parseInt(request.getParameter(key));
+                String savedId = request.getParameter("appointment_no" + selected);
+                Appointment saved = "Group Update".equals(groupOperation) && savedId != null
+                        ? appointmentDao.find(Integer.parseInt(savedId)) : null;
+                groupLocations.put(selected, AppointmentLocationResolver.resolvePostedLocation(saved, request));
+            }
+        } catch (AppointmentLocationUnavailableException ex) {
+            io.github.carlos_emr.carlos.utility.ErrorPageMessage.sendError(request, response,
+                    HttpServletResponse.SC_CONFLICT, AppointmentLocationUnavailableException.MESSAGE_KEY);
+            return;
+        }
+    }
     if (request.getParameter("groupappt") != null) {
         boolean bSucc = false;
         if (request.getParameter("groupappt").equals("Add Group Appointment")) {
@@ -131,7 +152,7 @@
                 a.setName(request.getParameter("keyword"));
                 a.setNotes(request.getParameter("notes"));
                 a.setReason(request.getParameter("reason"));
-                AppointmentLocationResolver.applyPostedLocation(a, request);
+                groupLocations.get(datano).applyTo(a);
                 a.setResources(request.getParameter("resources"));
                 a.setType(request.getParameter("type"));
                 a.setStyle(request.getParameter("style"));
@@ -221,10 +242,8 @@
                 }
 
                 if (request.getParameter("groupappt").equals("Group Update")) {
-                    Appointment replaced = null;
                     if (request.getParameter("appointment_no" + datano) != null) {
                         Appointment appt = appointmentDao.find(Integer.parseInt(request.getParameter("appointment_no" + datano)));
-                        replaced = appt;
                         if (appt != null) {
                             appointmentArchiveDao.archiveAppointment(appt);
                             appointmentDao.remove(appt.getId());
@@ -262,13 +281,7 @@
                     a.setName(request.getParameter("keyword"));
                     a.setNotes(request.getParameter("notes"));
                     a.setReason(request.getParameter("reason"));
-                    // The new row replaces a saved one: start from its location, so the posted
-                    // choice is resolved as an edit of it (#3982).
-                    if (replaced != null) {
-                        a.setLocation(replaced.getLocation());
-                        a.setLocationCode(replaced.getLocationCode());
-                    }
-                    AppointmentLocationResolver.applyPostedLocation(a, request);
+                    groupLocations.get(datano).applyTo(a);
                     a.setResources(request.getParameter("resources"));
                     a.setType(request.getParameter("type"));
                     a.setStyle(request.getParameter("style"));

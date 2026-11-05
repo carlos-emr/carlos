@@ -328,6 +328,6 @@ class AppointmentLocationSettings2ActionUnitTest extends CarlosWebTestBase {
 
         assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
         assertThat(action.getActionErrors()).containsExactly("admin.appt.location.msg.notFound");
-        verify(locationService, org.mockito.Mockito.never()).rename(any(), anyInt(), any());
+        verify(locationService, never()).rename(any(), anyInt(), any());
     }
 }

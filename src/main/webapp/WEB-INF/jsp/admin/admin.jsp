@@ -627,13 +627,13 @@
                                        rights="r" reverse="<%=true%>">
                         <%-- Absent ENABLE_EDIT_APPT_STATUS means enabled; see CarlosProperties.isAppointmentStatusEditingEnabled(). --%>
                         <% if (CarlosProperties.getInstance().isAppointmentStatusEditingEnabled()) { %>
-                            <li><a href="#"
-                                   onclick="popupPage(700,1000,'${pageContext.request.contextPath}/appointment/apptStatusSetting');return false;"
+                            <li><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/apptStatusSetting"
+                                   onclick="popupPage(700,1000,this.href);return false;"
                                    title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.appointmentStatusSetting"/></a></li>
                         <% } %>
                         <%-- The Location List replaces free-text locations only without a site setup; see AppointmentLocationList. --%>
-                        <li><a href="#"
-                               onclick="popupPage(700,1000,'${carlos:forJavaScriptAttribute(pageContext.request.contextPath)}/appointment/apptLocationSetting');return false;"
+                        <li><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/appointment/apptLocationSetting"
+                               onclick="popupPage(700,1000,this.href);return false;"
                                title="<fmt:message key="admin.admin.scheduleSettingTitle"/>"><fmt:message key="admin.admin.appointmentLocationSetting"/></a></li>
 
                         <li><a href="#"
@@ -646,8 +646,8 @@
                         </security:oscarSec>
                         <li><a href="#"
                                onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/ViewAdminDisplayMyGroup");return false;'><fmt:message key="admin.admin.btnSearchGroupNoRecords"/></a></li>
-                        <li><a href="#"
-                               onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/GroupNoAcl")'><fmt:message key="admin.admin.btnGroupNoAcl"/></a></li>
+                        <li><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/admin/GroupNoAcl"
+                               onclick='popupPage(360,600, "${carlos:forJavaScriptAttribute(pageContext.request.contextPath)}/admin/GroupNoAcl");return false;'><fmt:message key="admin.admin.btnGroupNoAcl"/></a></li>
                         <li><a href="#"
                                onclick='popupPage(360,600, "${pageContext.request.contextPath}/admin/GroupPreference")'><fmt:message key="admin.admin.btnGroupPreference"/></a></li>
                         <li><a href="#" onclick='popupPage(800, 700, "${pageContext.request.contextPath}/prevention/ViewPreventionManager");return false;'

@@ -177,36 +177,37 @@ public final class FormSubmissionGuard {
         String bindingKey = normalize(binding);
         long deadline = System.nanoTime() + Math.max(0, waitMillis) * 1_000_000L;
         while (true) {
-            synchronized (WebUtils.getSessionMutex(session)) {
-                LinkedHashMap<String, Entry> entries = copyEntries(session);
-                Entry entry = entries.get(token);
-                if (entry == null || entry.scope() != scope || !entry.binding().equals(bindingKey)) {
-                    return Attempt.of(Verdict.STALE);
-                }
-                switch (entry.state()) {
-                    case ISSUED -> {
-                        entries.put(token, new Entry(entry.scope(), entry.binding(), State.SAVING, null));
-                        session.setAttribute(SESSION_KEY, new Pending(entries));
-                        return new Attempt(Verdict.PROCEED, new Claim(session, token, entry), null);
-                    }
-                    case SAVED -> {
-                        return entry.result() == null ? Attempt.of(Verdict.UNCONFIRMED)
-                                : new Attempt(Verdict.ALREADY_SAVED, null, entry.result());
-                    }
-                    default -> {
-                        // SAVING: the first submission is still writing; poll until it settles.
-                        if (System.nanoTime() - deadline >= 0) {
-                            return Attempt.of(Verdict.IN_PROGRESS);
-                        }
-                    }
-                }
+            Attempt current = attemptOnce(session, token, scope, bindingKey);
+            if (current.verdict() != Verdict.IN_PROGRESS || System.nanoTime() - deadline >= 0) {
+                return current;
             }
             try {
                 Thread.sleep(POLL_MILLIS);
-            } catch (InterruptedException interrupted) {
+            } catch (InterruptedException _) {
                 Thread.currentThread().interrupt();
                 return Attempt.of(Verdict.IN_PROGRESS);
             }
+        }
+    }
+
+    /** Checks and claims atomically; callers may poll only after releasing the session mutex. */
+    private static Attempt attemptOnce(HttpSession session, String token, Scope scope, String bindingKey) {
+        synchronized (WebUtils.getSessionMutex(session)) {
+            LinkedHashMap<String, Entry> entries = copyEntries(session);
+            Entry entry = entries.get(token);
+            if (entry == null || entry.scope() != scope || !entry.binding().equals(bindingKey)) {
+                return Attempt.of(Verdict.STALE);
+            }
+            return switch (entry.state()) {
+                case ISSUED -> {
+                    entries.put(token, new Entry(entry.scope(), entry.binding(), State.SAVING, null));
+                    session.setAttribute(SESSION_KEY, new Pending(entries));
+                    yield new Attempt(Verdict.PROCEED, new Claim(session, token, entry), null);
+                }
+                case SAVED -> entry.result() == null ? Attempt.of(Verdict.UNCONFIRMED)
+                        : new Attempt(Verdict.ALREADY_SAVED, null, entry.result());
+                case SAVING -> Attempt.of(Verdict.IN_PROGRESS);
+            };
         }
     }
 
@@ -337,7 +338,7 @@ public final class FormSubmissionGuard {
                     putBounded(entries, token, outcome);
                     session.setAttribute(SESSION_KEY, new Pending(entries));
                 }
-            } catch (IllegalStateException invalidated) {
+            } catch (IllegalStateException _) {
                 // The session ended while the save ran (a logout in another tab). Its tokens went
                 // with it, so there is nothing to record, and the save's own outcome must not be
                 // turned into an error page.

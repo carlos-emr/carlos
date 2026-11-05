@@ -44,20 +44,20 @@ public interface AppointmentStatusDao extends AbstractDao<AppointmentStatus> {
     public AppointmentStatus findByStatus(String status);
 
 
-    public void changeStatus(int ID, int iActive);
+    public void changeStatus(int id, int iActive);
 
     /**
      * Updates the style of one status in a single transaction and evicts the status cache.
      * A {@code null} argument leaves that field as it is.
      *
-     * @param ID int the appointment_status id
+     * @param id int the appointment_status id
      * @param description String the new description, or null to keep it
      * @param color String the new {@code #rrggbb} colour, or null to keep it
      * @param icon String the new icon file name under {@code /images}, or null to keep it
      * @return boolean true if the status exists and was updated, false if there is no such status
      * @since 2026-11-04
      */
-    public boolean modifyStyle(int ID, String description, String color, String icon);
+    public boolean modifyStyle(int id, String description, String color, String icon);
 
     /**
      * Finds the first inactive status that still has associated appointments.

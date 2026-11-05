@@ -97,10 +97,10 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
 
     @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true)
     @Override
-    public boolean modifyStyle(int ID, String description, String color, String icon) {
+    public boolean modifyStyle(int id, String description, String color, String icon) {
         // find() inside this @Transactional DAO call returns a managed entity, so the setters are
         // flushed at commit; the cached lists are never mutated in place.
-        AppointmentStatus status = find(ID);
+        AppointmentStatus status = find(id);
         if (status == null) {
             return false;
         }
@@ -117,8 +117,8 @@ public class AppointmentStatusDaoImpl extends AbstractDaoImpl<AppointmentStatus>
     }
 
     @CacheEvict(value = CacheConfig.APPOINTMENT_STATUSES, allEntries = true)
-    public void changeStatus(int ID, int iActive) {
-        AppointmentStatus appts = find(ID);
+    public void changeStatus(int id, int iActive) {
+        AppointmentStatus appts = find(id);
         if (appts != null) {
             appts.setActive(iActive);
         }
