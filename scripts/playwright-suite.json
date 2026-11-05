@@ -18217,11 +18217,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Eleven marker-owned Annual forms on the owned patient; chart heading, first ten, Next, Previous and patient context. Every form is removed by key.",
-      "expectedFailure": {
-        "finding": 335,
-        "step": "Forms heading paginates ten records, Next changes the rows and Previous restores them"
-      }
+      "fixtures": "Eleven marker-owned Annual forms on the owned patient; chart heading, first ten, Next, Previous and patient context. Every form is removed by key."
     },
     {
       "script": "scripts/note-browser-documents-playwright-checks.js",
