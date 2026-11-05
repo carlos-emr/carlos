@@ -40,6 +40,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 @Tag("unit")
@@ -88,10 +89,14 @@ class EFormExportZipLimitsUnitTest {
     }
 
     private void accepted(byte[] archive, String asset, long expectedBytes) throws Exception {
+        accepted(archive, asset, expectedBytes, 1);
+    }
+
+    private void accepted(byte[] archive, String asset, long expectedBytes, int expectedForms) throws Exception {
         try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
             folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
             assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(archive))).isEmpty();
-            forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)));
+            forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)), times(expectedForms));
         }
         assertThat(Files.size(images.resolve(asset))).isEqualTo(expectedBytes);
         try (var staged = Files.list(images.resolve("extractFolder"))) {
@@ -151,8 +156,13 @@ class EFormExportZipLimitsUnitTest {
     }
 
     private void rejectedText(byte[] archive) throws Exception {
+        rejectedText(archive, false);
+    }
+
+    private void rejectedText(byte[] archive, boolean formsAlreadyExist) throws Exception {
         try (var folders = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
             folders.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            forms.when(() -> EFormUtil.formExistsInDB(any())).thenReturn(formsAlreadyExist);
             assertThatThrownBy(() -> new EFormExportZip().importForm(new ByteArrayInputStream(archive)))
                     .isInstanceOf(IOException.class).hasMessageContaining("text byte limit");
             forms.verify(() -> EFormUtil.saveEForm(any(EForm.class)), never());
@@ -176,6 +186,41 @@ class EFormExportZipLimitsUnitTest {
     @Test
     void shouldRejectRetainedText_whenMultipleFormsExceedCombinedBudget() throws Exception {
         rejectedText(textArchive(".html", 5, 16 << 20, 0));
+    }
+
+    private byte[] combinedTextArchive(int extraBytes) throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
+            entry(zip, "asset.png", 20);
+            for (int i = 0; i < 4; i++) {
+                byte[] properties = ("form.name=Synthetic" + i + "\nform.htmlFilename=" + i + ".html\n")
+                        .getBytes(StandardCharsets.UTF_8);
+                zip.putNextEntry(new ZipEntry("form" + i + "/eform.properties"));
+                zip.write(properties);
+                zip.closeEntry();
+                // Each properties/HTML pair contributes exactly 16 MiB. Only the last HTML
+                // receives the optional excess byte, and every individual entry stays below 16 MiB.
+                entry(zip, i + ".html", (16 << 20) - properties.length + (i == 3 ? extraBytes : 0));
+            }
+        }
+        return bytes.toByteArray();
+    }
+
+    @Test
+    void shouldAcceptCombinedText_whenPropertiesAndHtmlReachDefaultTotalLimit() throws Exception {
+        accepted(combinedTextArchive(0), "asset.png", 20, 4);
+    }
+
+    @Test
+    void shouldRejectCombinedText_whenPropertiesAndHtmlExceedDefaultTotalLimitByOneByte() throws Exception {
+        rejectedText(combinedTextArchive(1));
+    }
+
+    @Test
+    void shouldCountSkippedFormProperties_whenTheyExceedCombinedTextBudget() throws Exception {
+        // All five forms already exist, but 13 MiB of padding in each properties entry still counts.
+        // The earlier asset must not become public when their combined text exceeds 64 MiB.
+        rejectedText(textArchive(".html", 5, 20, 13 << 20), true);
     }
 
     @Test

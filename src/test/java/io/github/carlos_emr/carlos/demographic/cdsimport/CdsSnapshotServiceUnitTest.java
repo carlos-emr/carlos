@@ -436,7 +436,7 @@ class CdsSnapshotServiceUnitTest {
         var candidates=new ArrayList<CdsSnapshotFileDto>();service.forEachXml(snapshot,candidates::add);
         Path spool=Files.createDirectory(temp.resolve("spools")).resolve("parsed");
         var invalid=assertThrows(CdsInputException.class,()->new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsXmlParser()
-                .parse(candidates.get(0).path(),spool,LIMITS,()->false,record->{ }));
+                .parse(candidates.get(0).path(),spool,LIMITS,()->false,patient->{ }));
         assertEquals("CDS_XML_MARKUP_LIMIT",invalid.code());assertFalse(Files.exists(spool.resolve("parse.seal")));assertTrue(Files.exists(file));
     }
 

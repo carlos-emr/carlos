@@ -278,16 +278,13 @@ public class EFormExportZip {
     }
 
     /** Applies explicit budgets so rejection and cleanup can be tested with small synthetic archives. */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    // FindSecBugs CRLF_INJECTION_LOGS: the logged zip entry name is already passed through LogSafe.sanitize(...), so CR/LF are neutralized.
-    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "CRLF_INJECTION_LOGS"}, justification = "IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. CRLF_INJECTION_LOGS: logged zip entry name is already wrapped in LogSafe.sanitize(...).")
     List<String> importForm(InputStream importInputStream, long maxEntryBytes, long maxTotalBytes,
-            int maxEntries) throws IOException, Exception {
+            int maxEntries) throws Exception {
         ArrayList<String> errors = new ArrayList<String>();
         _log.info("Importing eforms");
 
         File imageTempFolderDir = null;
-        long textBytes = 0;
+        long textBytes;
         Hashtable<String, EForm> eformTable = new Hashtable<String, EForm>(); //stores eforms constructed from eform.properties, no HTML
         Hashtable<String, EForm> eformTableFailed = new Hashtable<String, EForm>();  //stores eforms that are constructed from eform.properties that alredy exist and do not need to be imported
         Hashtable<String, File> tempFiles = new Hashtable<String, File>(); //references extracted files in the temp folder
@@ -305,71 +302,7 @@ public class EFormExportZip {
                 Files.createDirectories(imageExtractDir.toPath());
                 imageTempFolderDir = Files.createTempDirectory(imageExtractDir.toPath(), "extract-").toFile();
                 imageTempFolderDir = PathValidationUtils.validateExistingPath(imageTempFolderDir, imageExtractDir);
-                ZipEntry ze = null;
-                while ((ze = zis.getNextEntry()) != null) {
-                    // The path is validated BEFORE anything is skipped: an absolute or traversal name
-                    // must still fail the whole import, even when it hides under a metadata folder.
-                    File zipEntryFile = PathValidationUtils.validateZipEntryPath(ze, imageTempFolderDir);
-                    if (ze.isDirectory() || isArchiverMetadataEntry(ze.getName())) {
-                        // Directory entries have no content, and archiver metadata is not part of the
-                        // form. Both used to break imports: a folder entry was "extracted" as an empty
-                        // file and published into the shared eForm image directory under the folder's
-                        // name, and Finder's __MACOSX/._<name> AppleDouble entries failed the hidden-
-                        // component check below, refusing the whole package with a 403.
-                        if (_log.isDebugEnabled()) {
-                            _log.debug("Skipping non-content eForm import zip entry: {}", LogSafe.sanitize(ze.getName()));
-                        }
-                        continue;
-                    }
-                    String zipEntryFileName = PathValidationUtils.validatePathComponent(zipEntryFile.getName(), "eform import zip entry");
-                    _log.info("Unzipping..." + LogSafe.sanitize(zipEntryFileName));
-                    if (zipEntryFileName.equalsIgnoreCase("eform.properties")) {
-                        Properties properties = new Properties();
-                        // Stage first: Properties.load can allocate a full expanded line before
-                        // returning, so reject oversized text before giving it to the parser.
-                        File propertiesFile = Files.createTempFile(imageTempFolderDir.toPath(), "properties-", ".tmp").toFile();
-                        try {
-                            try (FileOutputStream output = new FileOutputStream(propertiesFile)) {
-                                inputToOutput(zis, output);
-                            }
-                            textBytes = countImportTextBytes(propertiesFile, textBytes);
-                            try (FileInputStream input = new FileInputStream(propertiesFile)) {
-                                properties.load(input);
-                            }
-                        } finally {
-                            Files.deleteIfExists(propertiesFile.toPath());
-                        }
-                        EForm newEForm = this.createEFormFromProperties(properties);
-                        //check for errors or existing forms
-                        if (newEForm.getFormName() == null || newEForm.getFormName().isEmpty()) {
-                            errors.add("Skipped form because it has no form name.");
-                            _log.info("Skipped form because it has no form name.");
-                            eformTableFailed.put(newEForm.getFormFileName(), newEForm);
-                            continue;
-                        }
-                        if (newEForm.getFormFileName() == null || newEForm.getFormFileName().isEmpty()) {
-                            errors.add("Skipped form titled '" + newEForm.getFormName() + "' because it has no form filename.");
-                            _log.info("Skipped form titled '" + newEForm.getFormName() + "' because it has no form filename.");
-                            continue;
-                        }
-                        if (EFormUtil.formExistsInDB(newEForm.getFormName())) {
-                            errors.add("Skipped form '" + newEForm.getFormName() + "', form already exists");
-                            _log.info("Skipped form '" + newEForm.getFormName() + "', form already exists");
-                            eformTableFailed.put(newEForm.getFormFileName(), newEForm);
-                            continue;
-                        }
-                        eformTable.put(newEForm.getFormFileName(), newEForm);  //store to add html and save to DB later
-                        _log.debug("going in eform table >" + newEForm.getFormFileName() + "<");
-                    } else {
-                        //store temp files on HD
-                        File tempFile = PathValidationUtils.validateGeneratedChildPath(zipEntryFileName, imageTempFolderDir);
-                        tempFiles.put(zipEntryFileName, tempFile); //reference so we can find it later
-                        try (FileOutputStream fos = new FileOutputStream(tempFile)) {
-                            inputToOutput(zis, fos);
-                        }
-                    }
-                    zis.closeEntry();
-                }
+                textBytes = stageImportEntries(zis, imageTempFolderDir, eformTable, eformTableFailed, tempFiles, errors);
             }
 
             // Check every retained HTML entry before the publication loop can expose an
@@ -381,41 +314,7 @@ public class EFormExportZip {
                 }
             }
 
-            //loop through each file and decide -if html eform, put in DB, if supporting files (i.e. images) put on HD
-            for (Entry<String, File> tempFile : tempFiles.entrySet()) {
-                _log.info("looking at {}", LogSafe.sanitize(tempFile.getKey()));
-                if (eformTable.containsKey(tempFile.getKey())) {  //if file name matches eform
-                    File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
-                    try (FileInputStream fis = new FileInputStream(extractedTempFile);
-                         ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-                        inputToOutput(fis, baos);
-                        String html = new String(baos.toByteArray());
-                        // Do not log raw uploaded HTML (attacker-controlled, multi-line → log forging
-                        // and content dump); log only its length.
-                        _log.debug("Loaded eform HTML content ({} chars)", html.length());
-                        eformTable.get(tempFile.getKey()).setFormHtml(html);
-                    }
-                } else if (eformTableFailed.containsKey(tempFile.getKey())) {
-                    //do not save file if eform fails
-                } else {
-                    File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
-                    File imageFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validatePathComponent(tempFile.getKey(), "eform image file"), ImageUpload2Action.getImageFolder());
-                    try {
-                        // The fully extracted, closed asset already lives on this filesystem.
-                        // Publish its complete inode atomically without replacing another import's
-                        // image. Streaming into CREATE_NEW exposed partial bytes and left broken
-                        // public assets after copy/close failures; later imports would skip them.
-                        // Cleanup unlinks only our private staging name, preserving this public link.
-                        Files.createLink(imageFile.toPath(), extractedTempFile.toPath());
-                        _log.info("Loaded eform file: {}", LogSafe.sanitize(tempFile.getKey()));
-                    } catch (FileAlreadyExistsException e) {
-                        errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
-                        _log.info("EForm Import: Image with name '{}' already exists, skipping image, but the form may still be uploaded.  Please resolve.", LogSafe.sanitize(tempFile.getKey()));
-                    } catch (UnsupportedOperationException e) {
-                        throw new IOException("The eForm image filesystem does not support safe atomic asset publication.", e);
-                    }
-                }
-            }
+            publishImportFiles(imageTempFolderDir, eformTable, eformTableFailed, tempFiles, errors);
             _log.info("Registering: " + eformTable.values().size() + " eforms");
             //write constructed eforms
             for (EForm eform : eformTable.values()) {
@@ -426,6 +325,122 @@ public class EFormExportZip {
             deleteDirectory(imageTempFolderDir);
         }
         return errors;
+    }
+
+    /** Stages all entries, including counting skipped entries, before any publication. */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
+    // FindSecBugs CRLF_INJECTION_LOGS: the logged zip entry name is already passed through LogSafe.sanitize(...), so CR/LF are neutralized.
+    @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "CRLF_INJECTION_LOGS"}, justification = "IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. CRLF_INJECTION_LOGS: logged zip entry name is already wrapped in LogSafe.sanitize(...).")
+    private long stageImportEntries(ZipInputStream zis, File imageTempFolderDir,
+            Map<String, EForm> eformTable, Map<String, EForm> eformTableFailed,
+            Map<String, File> tempFiles, List<String> errors) throws Exception {
+        long textBytes = 0;
+        ZipEntry ze;
+        while ((ze = zis.getNextEntry()) != null) {
+            // Validate before skipping: traversal names must fail even under metadata folders.
+            File zipEntryFile = PathValidationUtils.validateZipEntryPath(ze, imageTempFolderDir);
+            if (ze.isDirectory() || isArchiverMetadataEntry(ze.getName())) {
+                // Folder entries and Finder metadata are not form content. The next
+                // getNextEntry call still drains their payload through the byte budgets.
+                if (_log.isDebugEnabled()) {
+                    _log.debug("Skipping non-content eForm import zip entry: {}", LogSafe.sanitize(ze.getName()));
+                }
+                continue;
+            }
+            String zipEntryFileName = PathValidationUtils.validatePathComponent(zipEntryFile.getName(), "eform import zip entry");
+            _log.info("Unzipping..." + LogSafe.sanitize(zipEntryFileName));
+            if (zipEntryFileName.equalsIgnoreCase("eform.properties")) {
+                textBytes = stageImportProperties(zis, imageTempFolderDir, textBytes, eformTable, eformTableFailed, errors);
+            } else {
+                File tempFile = PathValidationUtils.validateGeneratedChildPath(zipEntryFileName, imageTempFolderDir);
+                tempFiles.put(zipEntryFileName, tempFile);
+                try (FileOutputStream fos = new FileOutputStream(tempFile)) {
+                    inputToOutput(zis, fos);
+                }
+                zis.closeEntry();
+            }
+        }
+        return textBytes;
+    }
+
+    /** Checks properties before parsing and retains warnings and form-selection behavior. */
+    private long stageImportProperties(ZipInputStream zis, File imageTempFolderDir, long textBytes,
+            Map<String, EForm> eformTable, Map<String, EForm> eformTableFailed, List<String> errors) throws Exception {
+        Properties properties = new Properties();
+        // Properties.load can allocate a full expanded line before returning, so stage
+        // and reject oversized text before giving it to the parser.
+        File propertiesFile = Files.createTempFile(imageTempFolderDir.toPath(), "properties-", ".tmp").toFile();
+        try {
+            try (FileOutputStream output = new FileOutputStream(propertiesFile)) {
+                inputToOutput(zis, output);
+            }
+            textBytes = countImportTextBytes(propertiesFile, textBytes);
+            try (FileInputStream input = new FileInputStream(propertiesFile)) {
+                properties.load(input);
+            }
+        } finally {
+            Files.deleteIfExists(propertiesFile.toPath());
+        }
+        EForm newEForm = this.createEFormFromProperties(properties);
+        if (newEForm.getFormName() == null || newEForm.getFormName().isEmpty()) {
+            errors.add("Skipped form because it has no form name.");
+            _log.info("Skipped form because it has no form name.");
+            eformTableFailed.put(newEForm.getFormFileName(), newEForm);
+            return textBytes;
+        }
+        if (newEForm.getFormFileName() == null || newEForm.getFormFileName().isEmpty()) {
+            errors.add("Skipped form titled '" + newEForm.getFormName() + "' because it has no form filename.");
+            _log.info("Skipped form titled '{}' because it has no form filename.", LogSafe.sanitize(newEForm.getFormName()));
+            return textBytes;
+        }
+        if (EFormUtil.formExistsInDB(newEForm.getFormName())) {
+            errors.add("Skipped form '" + newEForm.getFormName() + "', form already exists");
+            _log.info("Skipped form '{}', form already exists", LogSafe.sanitize(newEForm.getFormName()));
+            eformTableFailed.put(newEForm.getFormFileName(), newEForm);
+            return textBytes;
+        }
+        eformTable.put(newEForm.getFormFileName(), newEForm);
+        _log.debug("going in eform table >{}<", LogSafe.sanitize(newEForm.getFormFileName()));
+        zis.closeEntry();
+        return textBytes;
+    }
+
+    /** Loads retained HTML and publishes assets only after all resource preflight checks pass. */
+    private void publishImportFiles(File imageTempFolderDir, Map<String, EForm> eformTable,
+            Map<String, EForm> eformTableFailed, Map<String, File> tempFiles, List<String> errors) throws IOException {
+        for (Entry<String, File> tempFile : tempFiles.entrySet()) {
+            _log.info("looking at {}", LogSafe.sanitize(tempFile.getKey()));
+            if (eformTable.containsKey(tempFile.getKey())) {
+                File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
+                try (FileInputStream fis = new FileInputStream(extractedTempFile);
+                     ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                    inputToOutput(fis, baos);
+                    String html = new String(baos.toByteArray());
+                    // Do not log raw uploaded HTML; log only its length.
+                    _log.debug("Loaded eform HTML content ({} chars)", html.length());
+                    eformTable.get(tempFile.getKey()).setFormHtml(html);
+                }
+            } else if (!eformTableFailed.containsKey(tempFile.getKey())) {
+                publishImportAsset(tempFile, imageTempFolderDir, errors);
+            }
+        }
+    }
+
+    private void publishImportAsset(Entry<String, File> tempFile, File imageTempFolderDir,
+            List<String> errors) throws IOException {
+        File extractedTempFile = PathValidationUtils.validateExistingPath(tempFile.getValue(), imageTempFolderDir);
+        File imageFile = PathValidationUtils.validateGeneratedChildPath(PathValidationUtils.validatePathComponent(tempFile.getKey(), "eform image file"), ImageUpload2Action.getImageFolder());
+        try {
+            // Publish the complete inode without replacing another import's image.
+            // Cleanup unlinks only our private staging name, preserving the public link.
+            Files.createLink(imageFile.toPath(), extractedTempFile.toPath());
+            _log.info("Loaded eform file: {}", LogSafe.sanitize(tempFile.getKey()));
+        } catch (FileAlreadyExistsException e) {
+            errors.add("Image '" + tempFile.getKey() + "' already exists, skipping image, but the form may still be uploaded.  Please resolve.");
+            _log.info("EForm Import: Image with name '{}' already exists, skipping image, but the form may still be uploaded.  Please resolve.", LogSafe.sanitize(tempFile.getKey()));
+        } catch (UnsupportedOperationException e) {
+            throw new IOException("The eForm image filesystem does not support safe atomic asset publication.", e);
+        }
     }
 
     /** Counts actual staged text bytes before any parser or full-entry buffer sees them. */
