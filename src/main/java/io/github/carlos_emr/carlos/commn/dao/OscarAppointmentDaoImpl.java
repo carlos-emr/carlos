@@ -61,6 +61,33 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @SuppressWarnings("unchecked")
 public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implements OscarAppointmentDao {
 
+    @Override
+    public List<AppointmentDaySheetRow> findDaySheet(String start, String end, String startTime, String endTime,
+            String providerNo, boolean newOnly, String sort) {
+        if (!java.util.Set.of("start_time", "name", "phone", "sex", "hin", "ver", "chart_no", "roster_status").contains(sort)) {
+            throw new IllegalArgumentException("Invalid day-sheet sort");
+        }
+        String sql = "SELECT concat(d.year_of_birth,'/',d.month_of_birth,'/',d.date_of_birth), d.family_doctor,"
+                + " CAST(a.appointment_date AS CHAR), a.provider_no, CAST(a.start_time AS CHAR), CAST(a.end_time AS CHAR),"
+                + " a.reason, a.name, a.bookingSource, p.last_name, p.first_name, d.sex, d.hin, d.ver, d.provider_no,"
+                + " d.phone, d.roster_status, p2.last_name, p2.first_name, d.chart_no"
+                + " FROM appointment a JOIN provider p ON a.provider_no=p.provider_no"
+                + " LEFT JOIN demographic d ON a.demographic_no=d.demographic_no"
+                + " LEFT JOIN provider p2 ON d.provider_no=p2.provider_no WHERE "
+                + (newOnly ? "a.appointment_date=:start AND a.status LIKE BINARY 't'"
+                        : "a.appointment_date>=:start AND a.appointment_date<=:end AND a.start_time>=:fromTime"
+                                + " AND a.end_time<:untilTime AND BINARY a.status NOT LIKE 'C%'")
+                + (providerNo == null ? "" : " AND a.provider_no=:provider")
+                + " ORDER BY " + (providerNo == null ? "p.last_name, p.first_name, " : "")
+                + "a.appointment_date, " + sort;
+        Query query = entityManager.createNativeQuery(sql, Object[].class).setParameter("start", start);
+        if (!newOnly) query.setParameter("end", end).setParameter("fromTime", startTime).setParameter("untilTime", endTime);
+        if (providerNo != null) query.setParameter("provider", providerNo);
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        return rows.stream().map(AppointmentDaySheetRow::from).toList();
+    }
+
     public OscarAppointmentDaoImpl() {
         super(Appointment.class);
     }

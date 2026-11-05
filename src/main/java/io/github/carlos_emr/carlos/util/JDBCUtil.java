@@ -40,6 +40,8 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Set;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -66,7 +68,7 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.form.service.FormXmlImportService;
 
 public class JDBCUtil {
     private static final String XML_EXTENSION = ".xml";
@@ -150,42 +152,35 @@ public class JDBCUtil {
     }
 
     public static void toDataBase(InputStream inputStream, String fileName) throws XmlImportException {
+        try {
+            SpringUtils.getBean(FormXmlImportService.class).importEntry(inputStream, fileName);
+        } catch (RuntimeException e) {
+            throw new XmlImportException("Unable to import form XML row", e);
+        }
+    }
+
+    public record FormImportRequest(FormImportTarget target, Map<String, String> values) { }
+
+    /** Parse before persistence; the archive name remains authoritative for patient and edit date. */
+    public static FormImportRequest readImportRequest(InputStream input, String fileName) throws XmlImportException {
         FormImportTarget target = parseImportFileName(fileName);
-        String formName = validateImportFormTable(target.formName());
-        Document doc = parseImportDocument(inputStream);
-
-        // Table identifiers cannot be JDBC-bound. formName is accepted only after
-        // strict filename parsing plus the encounterForm/internal table allowlist.
-        if (importRowExists(formName, target)) {
-            return;
-        }
-        insertImportRow(formName, target, doc);
+        validateImportFormTable(target.formName());
+        Document document = parseImportDocument(input);
+        Map<String, String> values = new LinkedHashMap<>();
+        collectImportValues(document, values);
+        return new FormImportRequest(target, values);
     }
 
-    private static boolean importRowExists(String formName, FormImportTarget target) throws XmlImportException {
-        String existsSql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND formEdited=?";
-        MiscUtils.getLogger().debug("{}", existsSql);
-        try (ResultSet existing = LegacyJdbcQuery.getPreparedResultSet(
-                LegacyJdbcQuery.trustedSelectSql(existsSql), target.demographicNo(), target.timeStamp())) {
-            return existing.first();
-        } catch (SQLException e) {
-            throw new XmlImportException("Unable to check existing form XML import row", e);
+    private static void collectImportValues(Node node, Map<String, String> values) {
+        if (node.getNodeType() == Node.ELEMENT_NODE) {
+            String name = node.getNodeName();
+            if (!name.equalsIgnoreCase("Results") && !name.equalsIgnoreCase("Row")
+                    && !name.equalsIgnoreCase("ID") && !isImportTargetManagedField(name)) {
+                Node first = node.getFirstChild();
+                values.put(name, first != null && first.getNodeType() == Node.TEXT_NODE ? first.getNodeValue() : "");
+            }
         }
-    }
-
-    private static void insertImportRow(String formName, FormImportTarget target, Document doc) throws XmlImportException {
-        String insertSql = "SELECT * FROM " + formName + " WHERE demographic_no=? AND ID='0'";
-        MiscUtils.getLogger().debug("sql: {}", insertSql);
-        Object[] insertParams = {target.demographicNo()};
-        try (ResultSet insert = LegacyJdbcQuery.getPreparedResultSet(
-                LegacyJdbcQuery.trustedSelectSql(insertSql), true, insertParams)) {
-            insert.moveToInsertRow();
-            toResultSet(doc, insert);
-            applyTrustedImportTarget(target, insert);
-            insert.insertRow();
-        } catch (SQLException e) {
-            throw new XmlImportException("Unable to insert form XML import row", e);
-        }
+        for (Node child = node.getFirstChild(); child != null; child = child.getNextSibling()) collectImportValues(child, values);
     }
 
     public static FormImportTarget parseImportFileName(String fileName) throws XmlImportException {
@@ -290,45 +285,6 @@ public class JDBCUtil {
         }
     }
 
-    // FindSecBugs IMPROPER_UNICODE: fixed XML wrapper/id element names;
-    // import-managed DB fields are checked separately. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(
-            value = "IMPROPER_UNICODE",
-            justification = "case-insensitive comparison of fixed XML wrapper/id element names; "
-                    + "import-managed DB fields are checked separately")
-    static ResultSet toResultSet(Node node, ResultSet rs) throws SQLException {
-        int type = node.getNodeType();
-
-        if (type == Node.ELEMENT_NODE) {
-
-            String name = node.getNodeName();
-            String value = "";
-
-            Node next = node.getFirstChild();
-            if (next != null) {
-                type = next.getNodeType();
-                if (type == Node.TEXT_NODE) {
-
-                    value = next.getNodeValue();
-                }
-            }
-
-            if (!name.equalsIgnoreCase("Results")
-                    && !name.equalsIgnoreCase("Row")
-                    && !name.equalsIgnoreCase("ID")
-                    && !isImportTargetManagedField(name))
-                rs.updateString(name, value);
-        }
-
-        //recurse
-        for (Node child = node.getFirstChild(); child != null; child = child.getNextSibling()) {
-            toResultSet(child, rs);
-        }
-
-        return rs;
-
-    }
-
     // FindSecBugs IMPROPER_UNICODE: fixed ASCII import-managed DB columns;
     // archive entry name remains the trusted source for patient/timestamp. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(
@@ -337,13 +293,6 @@ public class JDBCUtil {
                     + "XML body cannot choose patient/timestamp")
     private static boolean isImportTargetManagedField(String name) {
         return IMPORT_TARGET_MANAGED_FIELDS.stream().anyMatch(field -> field.equalsIgnoreCase(name));
-    }
-
-    static void applyTrustedImportTarget(FormImportTarget target, ResultSet rs) throws SQLException {
-        // The archive entry name is the import boundary. Do not let XML body fields
-        // choose the patient or edited timestamp for the row being inserted.
-        rs.updateString("demographic_no", target.demographicNo());
-        rs.updateString("formEdited", target.timeStamp());
     }
 
     public record FormImportTarget(String formName, String demographicNo, String timeStamp) {

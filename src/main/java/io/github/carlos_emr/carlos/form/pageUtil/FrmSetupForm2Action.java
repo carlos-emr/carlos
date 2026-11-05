@@ -33,8 +33,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -53,7 +51,6 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -369,20 +366,16 @@ public final class FrmSetupForm2Action extends ActionSupport {
     static Properties loadFormRecord(String trustedFormName, String formId, String demographicNo) throws SQLException {
         if ("0".equals(formId)) return null;
         Properties props = new Properties();
-        String sql = setupFormRecordSql(trustedFormName);
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
-                LegacyJdbcQuery.trustedSelectSql(sql), Integer.parseInt(formId), Integer.parseInt(demographicNo))) {
-            if (!rs.next()) throw new IllegalArgumentException("Invalid form patient or record");
-            ResultSetMetaData md = rs.getMetaData();
-            for (int i = 1; i <= md.getColumnCount(); i++) {
-                String column = md.getColumnName(i);
-                // VT's uneditable history must retain SQL NULL and raw whitespace on save.
-                boolean retainedVtField = "VTForm".equals(trustedFormName) && Set.of(
-                        "iExValue", "iExDate", "iExComments", "WHRValue", "WHRDate", "WHRComments").contains(column);
-                String value = retainedVtField ? rs.getString(i) : Misc.getString(rs, i);
-                if (value != null) props.setProperty(column, value);
-            }
+        Map<String, String> row = SpringUtils.getBean(EncounterFormDao.class)
+                .findPatientRecord("form" + trustedFormName, Integer.parseInt(formId), Integer.parseInt(demographicNo));
+        if (row == null) throw new IllegalArgumentException("Invalid form patient or record");
+        for (var column : row.entrySet()) {
+            boolean retainedVtField = "VTForm".equals(trustedFormName) && Set.of(
+                    "iExValue", "iExDate", "iExComments", "WHRValue", "WHRDate", "WHRComments").contains(column.getKey());
+            String value = retainedVtField ? column.getValue() : org.apache.commons.lang3.StringUtils.trimToEmpty(column.getValue());
+            if (value != null) props.setProperty(column.getKey(), value);
         }
+
         return props;
     }
 
@@ -466,13 +459,6 @@ public final class FrmSetupForm2Action extends ActionSupport {
             index = formValue.indexOf("SetupForm", next);
         }
         return false;
-    }
-
-    private static String setupFormRecordSql(String trustedFormName) {
-        // Table identifiers cannot be JDBC-bound. trustedFormName comes only from
-        // validateSetupFormName(), which enforces a bare suffix and confirms the
-        // corresponding form table is registered for SetupForm; values stay bound.
-        return "SELECT * FROM form" + trustedFormName + " WHERE ID=? AND demographic_no=?";
     }
 
     private SecurityInfoManager securityInfoManager() {

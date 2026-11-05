@@ -40,6 +40,32 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class EFormValueDaoImpl extends AbstractDaoImpl<EFormValue> implements EFormValueDao {
 
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<ClinicalDataRow> findDatabaseApValues(io.github.carlos_emr.carlos.report.data.ParameterizedSql sql) {
+        io.github.carlos_emr.carlos.eform.EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
+        // AP templates expose JDBC text (including physical timestamp scale), not Java temporal objects.
+        // Hibernate owns the connection and transaction; only detached scalar rows leave this DAO.
+        return entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
+            try (var statement = connection.prepareStatement(sql.getSql())) {
+                for (int i = 0; i < sql.getParams().size(); i++) statement.setObject(i + 1, sql.getParams().get(i));
+                try (var rows = statement.executeQuery()) {
+                    var result = new java.util.ArrayList<ClinicalDataRow>();
+                    var metadata = rows.getMetaData();
+                    while (rows.next()) {
+                        java.util.Map<String, String> values = new java.util.LinkedHashMap<>();
+                        for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                            String label = metadata.getColumnLabel(i);
+                            if (!values.containsKey(label)) values.put(label, rows.getString(i));
+                        }
+                        result.add(new ClinicalDataRow(values));
+                    }
+                    return result;
+                }
+            }
+        });
+    }
+
     public EFormValueDaoImpl() {
         super(EFormValue.class);
     }

@@ -72,6 +72,7 @@ class EctFormDataShortcutLatestIntegrationTest {
     private static final String PATIENT = "101";
     private static final String OTHER_PATIENT = "202";
 
+    private io.github.carlos_emr.carlos.test.base.NativeDaoTestDatabase nativeDatabase;
     private Connection keeper;
     private JdbcTemplate jdbc;
     private MockedStatic<SpringUtils> spring;
@@ -90,8 +91,9 @@ class EctFormDataShortcutLatestIntegrationTest {
         registration.setFormName(FORM_NAME);
         registration.setFormTable(FORM_TABLE);
         registration.setFormValue(FORM_PATH);
-        var forms = mock(EncounterFormDao.class);
-        when(forms.findByFormName(FORM_NAME)).thenReturn(List.of(registration));
+        nativeDatabase = new io.github.carlos_emr.carlos.test.base.NativeDaoTestDatabase(source);
+        var forms = nativeDatabase.dao(io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoImpl.class);
+        nativeDatabase.transaction(() -> forms.persist(registration));
         spring = mockStatic(SpringUtils.class);
         spring.when(() -> SpringUtils.getBean(DataSource.class)).thenReturn(source);
         spring.when(() -> SpringUtils.getBean(EncounterFormDao.class)).thenReturn(forms);
@@ -105,6 +107,7 @@ class EctFormDataShortcutLatestIntegrationTest {
             try {
                 if (spring != null) spring.close();
             } finally {
+                if (nativeDatabase != null) nativeDatabase.close();
                 if (keeper != null) keeper.close();
             }
         }

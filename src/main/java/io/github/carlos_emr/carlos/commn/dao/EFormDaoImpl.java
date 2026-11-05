@@ -42,6 +42,19 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class EFormDaoImpl extends AbstractDaoImpl<EForm> implements EFormDao {
 
+    @Override
+    public List<EFormListingRow> findLibraryInGroup(Boolean current, String group, String sort) {
+        String order = EFormListingRow.requireSort(sort);
+        Query query = entityManager.createNativeQuery("SELECT NULL, f.fid, f.form_name, f.subject, f.file_name,"
+                + " CAST(f.form_date AS CHAR), CAST(f.form_time AS CHAR), f.roleType FROM eform f, eform_groups g"
+                + " WHERE f.fid=g.fid AND g.group_name=?1" + (current == null ? "" : " AND f.status=?2")
+                + " ORDER BY " + order, Object[].class).setParameter(1, group);
+        if (current != null) query.setParameter(2, current ? 1 : 0);
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        return rows.stream().map(EFormListingRow::from).toList();
+    }
+
     public EFormDaoImpl() {
         super(EForm.class);
     }

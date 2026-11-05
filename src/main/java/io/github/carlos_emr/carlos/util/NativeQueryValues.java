@@ -56,6 +56,9 @@ public final class NativeQueryValues {
     /** Preserves JDBC's space-separated timestamp text and SQL NULL for legacy parsers. */
     public static String asString(Object value) {
         if (value == null) return null;
+        if (value instanceof Boolean flag) return flag ? "1" : "0";
+        if (value instanceof java.time.LocalTime time) return java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss").format(time);
+        if (value instanceof byte[] bytes) return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
         if (value instanceof LocalDateTime dateTime) return JDBC_TIMESTAMP.format(dateTime);
         return value.toString();
     }

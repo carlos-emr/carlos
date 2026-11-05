@@ -34,7 +34,9 @@ package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
-import io.github.carlos_emr.carlos.util.SqlUtils;
+import io.github.carlos_emr.carlos.util.LegacyReadResult;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -213,14 +215,8 @@ public class CheckBillingData {
     public String checkSrvLocation(String m) {
         String ret = "C02:P40 Service Location CD Wrong! ";
         String pattern = "ROCHIEPDSZ";
-        List rows = SqlUtils.getQueryResultsList("select visittype from billingvisit");
-        if (rows != null) {
-            pattern = "";
-            for (Iterator iter = rows.iterator(); iter.hasNext(); ) {
-                String[] item = (String[]) iter.next();
-                pattern += item[0];
-            }
-        }
+        List<String> rows = LegacyReadResult.listOrNull(() -> SpringUtils.getBean(BillingServiceDao.class).findVisitTypes());
+        if (rows != null) pattern = String.join("", rows);
         if (m != null && m.matches("[" + pattern + "]")) {
             ret = "";
         }

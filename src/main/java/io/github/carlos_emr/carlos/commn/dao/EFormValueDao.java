@@ -35,6 +35,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
 
 public interface EFormValueDao extends AbstractDao<EFormValue> {
+    List<ClinicalDataRow> findDatabaseApValues(io.github.carlos_emr.carlos.report.data.ParameterizedSql sql);
     List<EFormValue> findByDemographicId(Integer demographicId);
 
     List<EFormValue> findByApptNo(int apptNo);
