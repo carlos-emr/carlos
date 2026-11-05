@@ -87,9 +87,34 @@ class PerformanceEvidenceTest(unittest.TestCase):
             with self.subTest(observed=observed,kernel=kernel):
                 with self.assertRaises(RuntimeError):GATE.enforce_rss_budget(observed,kernel,budget)
 
+    def test_candidate_scan_retains_live_jvm_when_another_descendant_exits(self):
+        command=[b'java',b'io.github.carlos_emr.carlos.demographic.cdsimport.CdsImport',
+                 b'--operation',b'import',b'--input',b'/owned/source',b'--provider',b'999998']
+        for missing_file in ('stat','cmdline','status'):
+            for error in (FileNotFoundError,ProcessLookupError,PermissionError):
+                with self.subTest(missing_file=missing_file,error=error):
+                    def read(path, *args, **kwargs):
+                        pid=int(path.parent.name)
+                        if pid==101 and path.name==missing_file:
+                            raise error()
+                        if path.name=='stat':
+                            return f'{pid} (java) S 100 0'
+                        if path.name=='status':
+                            return 'Uid:\t999\n'
+                        return b'\0'.join(command) if pid!=100 else b'supervisor\0'
+                    with patch.object(Path,'iterdir',return_value=iter([Path('/proc')/str(pid) for pid in (100,101,102)])), \
+                            patch.object(Path,'read_text',autospec=True,side_effect=read), \
+                            patch.object(Path,'read_bytes',autospec=True,side_effect=read):
+                        if error is PermissionError:
+                            with self.assertRaises(PermissionError):
+                                GATE.import_candidates(100,'/owned/source','999998',999)
+                        else:
+                            self.assertEqual(GATE.import_candidates(100,'/owned/source','999998',999),[(102,command)])
+
     def test_normal_process_disappearance_is_distinct_from_an_unreadable_live_process(self):
-        with patch.object(Path,'read_text',side_effect=FileNotFoundError):
-            self.assertIsNone(GATE.service_sample(123456))
+        for error in (FileNotFoundError,ProcessLookupError):
+            with self.subTest(error=error), patch.object(Path,'read_text',side_effect=error):
+                self.assertIsNone(GATE.service_sample(123456))
         with patch.object(Path,'read_text',side_effect=PermissionError):
             with self.assertRaises(PermissionError):GATE.service_sample(123456)
         stat='123456 (java) Z '+' '.join('0' for _ in range(20))
@@ -101,7 +126,7 @@ class PerformanceEvidenceTest(unittest.TestCase):
             fields=['R','1','0','0','0','0',str(flags)]+['0']*12+[started]
             return '123456 (java) '+' '.join(fields)
         missing='State:\tR (running)\nUid:\t999\n'
-        for final in (stat(4), FileNotFoundError()):
+        for final in (stat(4), FileNotFoundError(), ProcessLookupError()):
             with self.subTest(final=final):
                 with patch.object(Path,'read_text',side_effect=[stat(0),missing,final]):
                     self.assertIsNone(GATE.service_sample(123456))

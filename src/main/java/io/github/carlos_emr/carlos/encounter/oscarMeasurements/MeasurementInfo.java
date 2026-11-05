@@ -127,14 +127,16 @@ public class MeasurementInfo {
 
 
     public void getMeasurements(List<String> list) {
+        List<EctMeasurementsDataBean> readings = new ArrayList<>();
         for (int i = 0; i < list.size(); i++) {
             String measurement = list.get(i);
-            EctMeasurementsDataBeanHandler ect = new EctMeasurementsDataBeanHandler(Integer.valueOf(demographicNo), measurement);
-            Collection v = ect.getMeasurementsDataVector();
+            EctMeasurementsDataBeanHandler ect = new EctMeasurementsDataBeanHandler(Integer.valueOf(demographicNo), measurement, false);
+            Collection<EctMeasurementsDataBean> v = ect.getMeasurementsDataVector();
+            readings.addAll(v);
             measurementList.add(new ArrayList(v));
             measurementHash.put(measurement, new ArrayList(v));
         }
-
+        EctMeasurementsDataBeanHandler.populateSourceLabs(readings);
     }
 
     public ArrayList getMeasurementData(String measurement) {

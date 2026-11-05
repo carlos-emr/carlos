@@ -23,6 +23,8 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.util.Collections;
 import java.util.List;
@@ -33,6 +35,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.dao.PharmacyInfoDao;
@@ -99,6 +103,29 @@ class PharmacyServiceEndpointTest extends CarlosRestTestBase {
     @DisplayName("GET /pharmacies/")
     class GetPharmacies {
 
+        @ParameterizedTest
+        @CsvSource({"0,5001", "0,2147483647", "0,-1", "-1,10"})
+        @DisplayName("should return 400 without querying for invalid pagination")
+        void shouldReturn400_whenPaginationIsInvalid(int offset, int limit) {
+            try (Response response = request().path("/pharmacies/")
+                    .query("offset", offset).query("limit", limit).get()) {
+                assertThat(response.getStatus()).isEqualTo(400);
+                verifyNoInteractions(mockPharmacyInfoDao);
+            }
+        }
+
+        @ParameterizedTest
+        @CsvSource({"0,0", "0,1", "0,5000", "2147483647,10"})
+        @DisplayName("should preserve supported pagination boundaries")
+        void shouldReturn200_whenPaginationIsWithinBounds(int offset, int limit) {
+            when(mockPharmacyInfoDao.findAll(offset, limit)).thenReturn(Collections.emptyList());
+            try (Response response = request().path("/pharmacies/")
+                    .query("offset", offset).query("limit", limit).get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                verify(mockPharmacyInfoDao).findAll(offset, limit);
+            }
+        }
+
         @Test
         @DisplayName("should return 200 with pharmacy list")
         void shouldReturn200_whenPharmaciesExist() {
@@ -130,6 +157,7 @@ class PharmacyServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/total").intValue()).isEqualTo(0);
             assertThat(wireJson.at("/Item").isArray()).isTrue();
             assertThat(wireJson.at("/Item")).hasSize(0);
+            verify(mockPharmacyInfoDao).findAll(null, null);
         }
     }
 

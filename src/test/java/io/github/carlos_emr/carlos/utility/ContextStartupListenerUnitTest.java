@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.model.security.Secrole;
 import io.github.carlos_emr.carlos.commn.jobs.OscarJobUtils;
 import io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMFixMissingReportHelper;
+import io.github.carlos_emr.carlos.integration.mcedt.mailbox.CidPrefixResourceResolver;
 import jakarta.servlet.ServletContextEvent;
 import java.util.List;
 import org.apache.xml.security.utils.resolver.ResourceResolver;
@@ -90,6 +91,8 @@ class ContextStartupListenerUnitTest {
             assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(listener, "initializeClinicalProcesses"))
                     .isInstanceOf(IllegalStateException.class).hasMessage("Clinical startup deferred");
             spring.verify(() -> SpringUtils.getBean(FaxSchedulerJob.class), never());
+            jobs.verify(OscarJobUtils::initializeJobExecutionFramework);
+            verify(hrm.constructed().getFirst()).fixIt();
         }
     }
     @Test void shouldBootRecoveryContextWithoutClinicalQueries_whenMaintenanceIsRetained() {
@@ -98,13 +101,14 @@ class ContextStartupListenerUnitTest {
         when(maintenance.isClinicalAccessBlocked()).thenReturn(true);
         var context = new MockServletContext();
         var listener = new ContextStartupListener();
-        // Resolver registration is JVM-wide. This startup fixture must not replace
-        // WSS4J's attachment resolver for SOAP peers in other tests sharing the fork.
+        // The XML-signature resolver registry is process-wide. This startup-unit fixture
+        // must not install the clinical CID resolver into unrelated SOAP peer fixtures.
         try (var spring = mockStatic(SpringUtils.class);
-                var resolverRegistration = mockStatic(ResourceResolver.class)) {
+                var resolvers = mockStatic(ResourceResolver.class)) {
             spring.when(() -> SpringUtils.getBean(CdsImportMaintenanceService.class)).thenReturn(maintenance);
             spring.when(() -> SpringUtils.getBean(CdsImportService.class)).thenReturn(imports);
             listener.contextInitialized(new ServletContextEvent(context));
+            resolvers.verify(() -> ResourceResolver.register(any(CidPrefixResourceResolver.class), eq(true)));
             var coordinator = (ClinicalStartupCoordinator) context.getAttribute(ClinicalStartupCoordinator.ATTRIBUTE);
             assertThat(coordinator.state()).isEqualTo(ClinicalStartupCoordinator.State.PENDING);
             // Applies even to an empty database without default program/site: no fabricated rows or IDs.
@@ -123,12 +127,14 @@ class ContextStartupListenerUnitTest {
         var listener=spy(new ContextStartupListener());
         doThrow(new IllegalStateException("synthetic startup failure")).when(listener).initializeDefaultData(transactions);
         var context=new MockServletContext();
+        var event=new ServletContextEvent(context);
         try(var spring=mockStatic(SpringUtils.class);
-                var resolverRegistration=mockStatic(ResourceResolver.class)) {
+                var resolvers=mockStatic(ResourceResolver.class)) {
             spring.when(()->SpringUtils.getBean(CdsImportMaintenanceService.class)).thenReturn(maintenance);
             spring.when(()->SpringUtils.getBean(PlatformTransactionManager.class)).thenReturn(transactions);
-            assertThatThrownBy(()->listener.contextInitialized(new ServletContextEvent(context)))
+            assertThatThrownBy(()->listener.contextInitialized(event))
                     .isInstanceOf(RuntimeException.class).hasRootCauseMessage("synthetic startup failure");
+            resolvers.verify(() -> ResourceResolver.register(any(CidPrefixResourceResolver.class), eq(true)));
             spring.verify(()->SpringUtils.getBean(CdsImportService.class),never());
             listener.contextDestroyed(new ServletContextEvent(context));
         } finally {MiscUtils.setShutdownSignaled(false);}
@@ -157,6 +163,7 @@ class ContextStartupListenerUnitTest {
             throw new IllegalStateException("new hold before site write");
         }).when(siteDao).persist(any());
         var transactionManager = new RecordingTransactionManager();
+        var listener = new ContextStartupListener();
         try (var spring = mockStatic(SpringUtils.class)) {
             spring.when(() -> SpringUtils.getBean(ProgramDao.class)).thenReturn(programDao);
             spring.when(() -> SpringUtils.getBean(ProgramProviderDAO.class)).thenReturn(providerDao);
@@ -164,7 +171,7 @@ class ContextStartupListenerUnitTest {
             spring.when(() -> SpringUtils.getBean(FacilityDao.class)).thenReturn(facilityDao);
             spring.when(() -> SpringUtils.getBean(SiteDao.class)).thenReturn(siteDao);
             spring.when(() -> SpringUtils.getBean(ProviderSiteDao.class)).thenReturn(providerSiteDao);
-            assertThatThrownBy(() -> new ContextStartupListener().initializeDefaultData(transactionManager))
+            assertThatThrownBy(() -> listener.initializeDefaultData(transactionManager))
                     .isInstanceOf(IllegalStateException.class);
         }
         verify(programDao).saveProgram(any()); verify(providerDao).saveProgramProvider(any());
@@ -176,7 +183,9 @@ class ContextStartupListenerUnitTest {
     static final class RecordingTransactionManager extends AbstractPlatformTransactionManager {
         int commits; int rollbacks;
         @Override protected Object doGetTransaction() { return new Object(); }
-        @Override protected void doBegin(Object transaction, TransactionDefinition definition) { }
+        @Override protected void doBegin(Object transaction, TransactionDefinition definition) {
+            // This fixture records completion only; there is no physical transaction to begin.
+        }
         @Override protected void doCommit(DefaultTransactionStatus status) { commits++; }
         @Override protected void doRollback(DefaultTransactionStatus status) { rollbacks++; }
     }

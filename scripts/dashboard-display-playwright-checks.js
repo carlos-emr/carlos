@@ -307,29 +307,49 @@ async function workflow(s) {
       h.assert(await form.locator('input[name="serviceDate"].flatpickr-input').count() === 1
         && await form.locator('input[name="serviceTime"].flatpickr-input').count() === 1,
         'The Service Date / Time pickers did not start in the Assign Tickler modal');
-      // Set the value directly: typing into the picker normalizes what it can parse before submit.
-      await form.locator('input[name="serviceDate"]').evaluate(input => { input.value = '31/12/2030'; });
-      await form.locator('input[name="serviceTime"]').fill('10:30 AM');
       await form.locator('textarea[name="messageAppend"]').fill(`${marker} recall`);
-      // A refused date names the field to fix instead of the "could not be confirmed" text.
-      const mark = failureMark(recorder);
-      const dialogs = await h.withExpectedDialogs(dashboard, async () => {
-        await Promise.all([
-          dashboard.waitForResponse(r => /\/web\/dashboard\/display\/AssignTickler$/.test(new URL(r.url()).pathname)
-            && r.request().method() === 'POST' && r.status() === 400),
-          dashboard.locator('#saveTicklerBtn').click(),
-        ]);
-        await dashboard.waitForTimeout(500);
-      });
-      consumeExpectedFailure(recorder, mark, { status: 400, path: /\/web\/dashboard\/display\/AssignTickler$/ });
-      h.assert(dialogs.length === 1, `Expected one alert for the refused date, saw ${dialogs.length}`);
-      const alertText = dialogs[0].text;
-      h.assert(/Nothing was saved/.test(alertText) && /service date/i.test(alertText) && !/could not be confirmed/.test(alertText),
-        `A bad Service Date was not explained to the user: ${alertText}`);
-      h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no IN (${alpha},${bravo})`) === '0',
-        'A refused date wrote ticklers');
-      // The ISO date the picker emits (and a typed one) is accepted; the same receipt is reused.
-      await form.locator('input[name="serviceDate"]').fill('2030-12-31');
+      // #4457: use keyboard input, then blur/Enter: setting .value bypasses flatpickr's parser.
+      const dateInput = form.locator('input[name="serviceDate"]');
+      const timeInput = form.locator('input[name="serviceTime"]');
+      const saveRequests = [];
+      const trackSave = request => {
+        if (/\/web\/dashboard\/display\/AssignTickler$/.test(new URL(request.url()).pathname)
+            && new URLSearchParams(request.postData() || '').get('method') === 'saveTickler') saveRequests.push(request);
+      };
+      dashboard.on('request', trackSave);
+      try {
+        for (const [field, value, commit] of [
+          [dateInput, '31/12/2030', 'Tab'], [dateInput, '12/11/2030', 'Enter'],
+          [dateInput, '2030-02-30', 'Tab'], [dateInput, '2030-12-31junk', 'Enter'],
+          [dateInput, 'today', 'Tab'], [timeInput, 'today', 'Enter'],
+          [timeInput, '25:90', 'Tab'], [timeInput, '10:30garbage', 'Enter'],
+        ]) {
+          await dateInput.fill('2030-12-31');
+          await timeInput.fill('10:30 AM');
+          await field.fill('');
+          await field.pressSequentially(value);
+          await field.press(commit);
+          await form.locator('textarea[name="messageAppend"]').click();
+          h.assert(await field.inputValue() === '', `Invalid typed value ${value} was reinterpreted`);
+          h.assert((field === dateInput ? /Invalid service date/ : /Invalid service time/)
+            .test(await field.evaluate(input => input.validationMessage)),
+            `Invalid typed value ${value} has no validation explanation`);
+          await dashboard.locator('#saveTicklerBtn').click();
+          await dashboard.waitForTimeout(500);
+          h.assert(saveRequests.length === 0, `Invalid typed value ${value} reached Save`);
+          h.assert(sql.value('SELECT COUNT(*) FROM tickler WHERE demographic_no IN (?, ?)', [alpha, bravo]) === '0',
+            'An invalid typed date/time wrote ticklers');
+        }
+      } finally {
+        dashboard.off('request', trackSave);
+      }
+      // Correct the date through the actual picker and the time by typing; assert
+      // their submitted AND stored values below. Keep the calendar walk bounded.
+      await ui.pickDate(dashboard, dateInput, '2030-12-31',
+        { timeout: TIMEOUT, maxMonthSteps: 120 });
+      await timeInput.fill('');
+      await timeInput.pressSequentially('10:30 AM');
+      await timeInput.press('Tab');
       await form.locator('textarea[name="messageAppend"]').fill(`${marker} recall`);
       const invalid = await form.evaluate(element => Object.fromEntries(new FormData(element)));
       // Match the save controller: DOMPurify removes the hidden name="method" field.
@@ -353,6 +373,8 @@ async function workflow(s) {
         || new URLSearchParams(request.postData() || '').get('CSRF-TOKEN')), 'The successful tickler save carried no CSRF token');
       h.assert((await response.json()).success === 'true', 'Assign Tickler did not acknowledge the save');
       const submitted = new URLSearchParams(request.postData() || '');
+      h.assert(submitted.get('serviceDate') === '2030-12-31' && submitted.get('serviceTime') === '10:30 AM',
+        'The selected date/typed time changed before submission');
       h.assert(Boolean(submitted.get('ticklerSubmission')), 'The save has no server-issued operation key');
       const replay = async (body) => ctx.request.post(request.url(), {
         data: body.toString(), headers: {'Content-Type': 'application/x-www-form-urlencoded',

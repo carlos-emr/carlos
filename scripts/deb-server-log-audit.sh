@@ -28,7 +28,8 @@
 # names in the event's stack, a request path where the message logs one
 # (query string cut off and every all-digit path segment replaced by {n}, so a
 # demographic or record number never reaches the output), the error page
-# status, and a CSRF rejection's method and reason. Message text is never
+# status, a CSRF rejection's method and reason, and the fixed synthetic
+# AP-cache renderer probe marker (without its timestamp). Message text is never
 # printed unless --show-messages is given, and that is for disposable
 # demonstration hosts.
 #
@@ -171,6 +172,12 @@ awk -v show="$SHOW_MESSAGES" '
         sig = sig " " u
       }
       if (logger ~ /ErrorPageLogger$/ && match(rest, /status=[0-9]+/)) sig = sig " " substr(rest, RSTART, RLENGTH)
+      # Only the exact synthetic renderer key with its 13-digit millisecond
+      # timestamp is a known negative control. Keep this portable to older awk.
+      # Do not baseline this JSP location alone: real unconfigured keys log here too.
+      if (logger ~ /efmformapconfig_005flookup_jsp$/ && rest ~ /^AP config lookup requested an unconfigured key=renderer_missing_ap_[0-9]+ fid=[0-9]+$/ && match(rest, /renderer_missing_ap_[0-9]+/) && RLENGTH == length("renderer_missing_ap_") + 13) {
+        sig = sig " apcache-key=renderer_missing_ap_{n}"
+      }
       # A CSRF rejection is ERROR by design. CSRFGuard logs no request path,
       # and the CARLOS session login is invisible to it, so every violation
       # reads "user:<anonymous>"; the method and the reason are all that tell

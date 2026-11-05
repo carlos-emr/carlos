@@ -49,6 +49,7 @@
  *   patient tickler list directly, for tickler users without PMM search access.
  */
 
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
@@ -273,7 +274,7 @@ async function workflow(s) {
       'the edit popup opened a tickler other than the one this check saved');
     const priorityBefore = sql.value(`SELECT priority FROM tickler WHERE tickler_no=${ticklerNo}`);
     const historyBefore = sql.value(`SELECT COUNT(*) FROM tickler_update WHERE tickler_no=${ticklerNo}`);
-    const unsafeGet = await s.context.request.get(h.appUrl(s.config.baseUrl, '/tickler/EditTickler'), {
+    const unsafeGet = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, '/tickler/EditTickler'), {
       params: { method: 'editTickler', ticklerNo, status: 'C', priority: 'High',
         assignedToProviders: provider, xml_appointment_date: editDate, newMessage: 'must not save via GET' },
       maxRedirects: 0,

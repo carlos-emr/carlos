@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+// Modifications by CARLOS Contributors, 2026.
 /*
  * Two patients' charts open in one login must stay isolated from each other.
  *
@@ -48,6 +49,7 @@
  * immunization schedules are in the snapshot and the cleanup, as are the owned template and one
  * message linked to each patient; the provider's encounterWindow row is restored.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
@@ -512,8 +514,26 @@ async function run(s) {
     h.assert(response.status() === 200 && (response.headers()['content-type'] || '').startsWith('image/png'),
       'The Plot control did not answer with a PNG');
     const bytes = await response.body();
-    h.assert(bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])),
-      'The Plot control returned something other than PNG bytes');
+    const pngSignature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+    if (!bytes.subarray(0, 8).equals(pngSignature)) {
+      // Record format metadata only; image payloads can contain clinical details.
+      const kind = bytes.length === 0 ? 'empty'
+        : /^\s*<(?:!doctype|html)/i.test(bytes.subarray(0, 128).toString('utf8')) ? 'HTML' : 'other';
+      h.assert(new URL(response.url()).origin === new URL(s.config.baseUrl).origin,
+        'The Plot control pointed outside the application');
+      let verification;
+      let diagnostic = `The Plot control returned something other than PNG bytes (browser=${kind}, bytes=${bytes.length}, verification=unavailable)`;
+      try {
+        verification = await context.request.get(response.url(), {timeout: TIMEOUT});
+        const verified = await verification.body();
+        diagnostic = `The Plot control returned something other than PNG bytes (browser=${kind}, bytes=${bytes.length}, verificationStatus=${verification.status()}, verificationPng=${verified.subarray(0, 8).equals(pngSignature)})`;
+      } catch {
+        // Playwright errors include URLs; retain only the fixed metadata above.
+      } finally {
+        if (verification) await verification.dispose().catch(() => {});
+      }
+      throw new Error(diagnostic);
+    }
     return sha(bytes);
   }
 
@@ -1230,8 +1250,7 @@ async function run(s) {
         } finally { await response.dispose(); }
       }
       const query = new URLSearchParams(legacyForm(d, text, [['eChartId', legacy[d.label].revision]]));
-      const get = await context.request.get(h.appUrl(s.config.baseUrl, `/encounter/SaveEncounter2?${query}`),
-        {maxRedirects: 0, failOnStatusCode: false});
+      const get = await authenticatedProbe({context, config: s.config}, h.appUrl(s.config.baseUrl, `/encounter/SaveEncounter2?${query}`), {maxRedirects: 0, failOnStatusCode: false});
       try {
         h.assert(get.status() === 405, `A legacy save by GET answered HTTP ${get.status()}`);
       } finally { await get.dispose(); }
@@ -1259,10 +1278,9 @@ async function run(s) {
           const query = new URLSearchParams([['echartid', legacy[d.label].revision], ...parameters]);
           const route = `/encounter/${action}?${query}`;
           const refused = await read(route);
-          // No patient reaches the JSP's required-patient check (400). A supplied invalid or
-          // conflicting scope is refused by ViewClinical2Action before the JSP runs (403).
-          // Keep the shared gate's fail-closed policy; do not weaken it to satisfy this check (#5448).
-          const expectedStatus = label === 'missing' ? 400 : 403;
+          // Missing/malformed IDs are bad requests (400); conflicting valid IDs remain
+          // a scope refusal (403). Neither response may disclose either patient's chart (#5354).
+          const expectedStatus = label.startsWith('conflicting') ? 403 : 400;
           const description = `${d.label}'s ${action} with ${label} patient scope`;
           h.assert(refused.status === expectedStatus,
             `${description} answered HTTP ${refused.status}; expected ${expectedStatus}`);

@@ -24,6 +24,7 @@
  * (lib/authz-read-fixture.js); cleanup deletes only those rows and verifies they are gone.
  * Implements docs/ui-tests/playwright-coverage-plan-2026.08.md chart section (patient-photo-upload).
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
@@ -83,6 +84,18 @@ function consumeUnloadBeacon(recorder, since) {
   const added = recorder.requestFailures.splice(since);
   recorder.requestFailures.push(...added.filter(entry => !(entry.resourceType === 'ping'
     && entry.errorText === 'net::ERR_ABORTED' && new URL(entry.url).pathname.endsWith('/CaseManagementEntry'))));
+}
+
+/** Consume only the HTTP 400 document whose rendered error this step has asserted. */
+function consumeBadRequest(recorder, since, url) {
+  const index = recorder.badResponses.findIndex((entry, i) => i >= since.responses
+    && entry.status === 400 && entry.method === 'POST' && entry.url === url);
+  h.assert(index >= 0, 'The rejected photo POST was not recorded as HTTP 400');
+  recorder.badResponses.splice(index, 1);
+  for (let i = recorder.consoleIssues.length - 1; i >= since.console; i--) {
+    const entry = recorder.consoleIssues[i];
+    if (entry.location?.url === url && /status of 400 \(/.test(entry.text)) recorder.consoleIssues.splice(i, 1);
+  }
 }
 
 async function workflow(s) {
@@ -158,12 +171,15 @@ async function workflow(s) {
     await manager.locator('#clientImage').setInputFiles({
       name: 'notes<em>.txt', mimeType: 'text/plain', buffer: Buffer.from(`${s.marker} not an image\n`),
     });
+    const since = {responses: s.recorder.badResponses.length, console: s.recorder.consoleIssues.length};
     const [post] = await Promise.all([
       manager.waitForResponse(r => new URL(r.url()).pathname.endsWith('/ClientImage') && r.request().method() === 'POST'),
       manager.waitForEvent('load'),
       manager.locator('button[type="submit"]', { hasText: 'Upload' }).click(),
     ]);
-    h.assert(post.status() === 200, `The refused upload answered HTTP ${post.status()}`);
+    h.assert(post.status() === 400, `The refused upload answered HTTP ${post.status()}, expected 400`);
+    await manager.locator('.alert.alert-danger').waitFor({state: 'visible'});
+    consumeBadRequest(s.recorder, since, post.url());
     h.assert(!manager.isClosed() && await manager.locator('#clientImage').count() === 1,
       'The refused upload did not keep the image manager open for another try');
     h.assert(JSON.stringify(stored()) === before, 'The refused upload changed the stored photo');
@@ -196,9 +212,7 @@ async function workflow(s) {
       'Clear Photo does not post the patient the manager was opened for');
     await manager.locator('button.btn-secondary', { hasText: 'Cancel' }).click();
     if (!manager.isClosed()) await manager.waitForEvent('close');
-    const response = await s.context.request.get(
-      h.appUrl(s.config.baseUrl, `/ClientImage?method=deleteImage&demographicNo=${patient}`),
-      { maxRedirects: 0, failOnStatusCode: false });
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl, `/ClientImage?method=deleteImage&demographicNo=${patient}`), { maxRedirects: 0, failOnStatusCode: false });
     const status = response.status();
     await response.dispose();
     h.assert(sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no=${patient}`) === '1',
@@ -329,22 +343,45 @@ async function workflow(s) {
   });
 
   await s.step('A photo change that names no patient changes no photo, whichever manager was opened last', async () => {
-    // The second patient's manager was the last one opened; a Clear Photo POST without demographicNo
-    // used to fall back to the clientId that page left in the session. Sent with the login's own token.
-    const tokenField = managerB.locator('form input[name="CSRF-TOKEN"]').first();
-    await tokenField.waitFor({ state: 'attached' });
-    const token = await tokenField.inputValue();
-    h.assert(token, 'The second photo manager carries no CSRF token');
+    // Rewrite only the patient field of the real Clear Photo form submission, then render
+    // the server's response in that manager. This deliberately probes malformed POST input.
     const before = sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no IN (${patient},${patientB})`);
-    const response = await s.context.request.post(h.appUrl(s.config.baseUrl, '/ClientImage'), {
-      form: { method: 'deleteImage', 'CSRF-TOKEN': token }, maxRedirects: 0, failOnStatusCode: false,
-    });
-    const body = await response.text();
-    await response.dispose();
-    h.assert(!/opener\.location\.reload/.test(body), 'A Clear Photo POST that names no patient was answered as a success');
-    h.assert(sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no IN (${patient},${patientB})`) === before
-      && JSON.stringify(storedFor(patientB)) === JSON.stringify([['jpeg', sha(bPhoto)]]),
-    'A Clear Photo POST that names no patient deleted a photo (ClientImage fell back to the session clientId)');
+    // CRS 942220 reserves 2147483648 as an attack signature; the next integer
+    // exercises Java's same overflow boundary through the installed front door.
+    for (const values of [[], ['invalid'], ['0'], ['2147483649'], [patient, patientB]]) {
+      await h.gotoApp(managerB, s.config.baseUrl, `/casemgmt/ViewUploadimage?demographicNo=${patientB}`);
+      const rewritePatient = async route => {
+        h.assert(route.request().method() === 'POST', 'The malformed photo probe must submit the real form');
+        const form = new URLSearchParams(route.request().postData());
+        form.delete('demographicNo');
+        for (const value of values) form.append('demographicNo', value);
+        await route.continue({postData: form.toString()});
+      };
+      await managerB.route('**/ClientImage', rewritePatient);
+      const since = {responses: s.recorder.badResponses.length, console: s.recorder.consoleIssues.length};
+      let post;
+      try {
+        await h.withExpectedDialogs(managerB, async () => {
+          [post] = await Promise.all([
+            managerB.waitForResponse(isClientImagePost),
+            managerB.waitForEvent('load'),
+            managerB.locator('button[type="submit"]', {hasText: 'Clear Photo'}).click(),
+          ]);
+        });
+        h.assert(post.status() === 400, `Invalid Clear Photo answered HTTP ${post.status()}, expected 400`);
+        const error = managerB.locator('.alert.alert-danger');
+        await error.waitFor({state: 'visible'});
+        h.assert((await error.innerText()).includes('No client selected.'), 'The rejected photo POST did not display the error');
+        h.assert(await managerB.locator('button[type="submit"]').count() === 0,
+          'An invalid patient number rendered a photo mutation form');
+        h.assert(sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no IN (${patient},${patientB})`) === before
+          && JSON.stringify(storedFor(patientB)) === JSON.stringify([['jpeg', sha(bPhoto)]]),
+        'An invalid Clear Photo POST changed a photo');
+        consumeBadRequest(s.recorder, since, post.url());
+      } finally {
+        await managerB.unroute('**/ClientImage', rewritePatient);
+      }
+    }
     await managerB.close();
   });
 
@@ -357,23 +394,41 @@ async function workflow(s) {
     const login = fixture.addLogin('doctor');
     h.assert(fixture.lockPatient(login, patientB).length === 2, 'The patient lock rows were not written');
     doctor = await signIn(s, login);
-    const manager = await doctor.context.newPage();
-    await h.gotoApp(manager, s.config.baseUrl, `/casemgmt/ViewUploadimage?demographicNo=${patientB}`);
-    h.assert(await postedPatient(manager, 'deleteImage') === patientB,
-      'The locked login\'s photo manager does not post the second patient');
+    const deniedPage = await doctor.context.newPage();
     const before = sql.value(`SELECT COUNT(*) FROM client_image WHERE demographic_no=${patientB}`);
-    const dialogs = acceptDialogs(manager);
-    const [post] = await Promise.all([
-      manager.waitForResponse(isClientImagePost),
-      manager.locator('button[type="submit"]', { hasText: 'Clear Photo' }).click(),
-    ]);
-    h.assert(dialogs.length === 1 && dialogs[0] === 'confirm', 'Clear Photo did not ask exactly once to confirm');
-    await h.assertRefused(s, {
-      response: post, table: 'client_image', where: `demographic_no=${patientB}`, before,
-      label: 'Clear Photo by a login locked out of the patient',
-    });
-    h.assert(JSON.stringify(storedFor(patientB)) === JSON.stringify([['jpeg', sha(bPhoto)]]),
-      'Clear Photo by a login locked out of the patient changed that patient photo');
+    const view = await h.gotoApp(deniedPage, s.config.baseUrl, `/casemgmt/ViewUploadimage?demographicNo=${patientB}`);
+    await h.assertRefused(s, {response: view, table: 'client_image', where: `demographic_no=${patientB}`, before,
+      label: 'Opening the locked patient photo manager'});
+    await deniedPage.close();
+
+    // The clinical view gate now refuses the manager itself. Capture real forms
+    // from the same doctor's permitted patient, then replay only their patient
+    // parameter. Requiring a forbidden page to render a form never reaches the
+    // mutation boundary and used to misreport this as a missing fixture (#5378).
+    const manager = await doctor.context.newPage();
+    await h.gotoApp(manager, s.config.baseUrl, `/casemgmt/ViewUploadimage?demographicNo=${patient}`);
+    for (const method of ['deleteImage', 'saveImage']) {
+      h.assert(await postedPatient(manager, method) === patient,
+        'The allowed control manager must post its own patient');
+      if (method === 'saveImage') await manager.locator('#clientImage').setInputFiles({
+        name: 'locked-patient-probe.jpg', mimeType: 'image/jpeg', buffer: markedJpeg(marker),
+      });
+      const [post] = await Promise.all([
+        manager.waitForResponse(isClientImagePost),
+        manager.evaluate(async ({method, patientB}) => { // nosemgrep: javascript.playwright.security.audit.page-evaluate -- intentional denied-target replay of the real permitted form
+          const form = [...document.forms].find(form => form.querySelector('input[name="method"]')?.value === method);
+          if (!form) throw new Error('The permitted photo manager form is missing');
+          const data = new FormData(form);
+          data.set('demographicNo', patientB);
+          const response = await fetch(form.action, {method: 'POST', credentials: 'same-origin', body: data});
+          await response.arrayBuffer();
+        }, {method, patientB}),
+      ]);
+      await h.assertRefused(s, {response: post, table: 'client_image', where: `demographic_no=${patientB}`, before,
+        label: `${method} by a login locked out of the patient`});
+      h.assert(JSON.stringify(storedFor(patientB)) === JSON.stringify([['jpeg', sha(bPhoto)]]),
+        `${method} by the locked doctor changed the patient's photo`);
+    }
     await manager.close();
   });
 
