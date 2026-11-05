@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -97,8 +98,9 @@ public final class XmlUtils {
      * Use this factory method instead of {@code new SAXBuilder()} throughout the codebase.
      *
      * <p>All security features are required. JDOM defers feature application until it
-     * creates a parsing engine, so an engine is built here to verify the configuration
-     * before returning the builder. Each subsequent engine uses the same restrictions.
+     * creates a parsing engine, so a fixed empty document is parsed here to verify the
+     * configuration and cache the engine before returning the builder. Each subsequent
+     * engine uses the same restrictions.
      * A provider that cannot apply them causes an {@link IllegalStateException}.
      *
      * @return SAXBuilder configured with XXE protections
@@ -113,9 +115,10 @@ public final class XmlUtils {
         parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         parser.setExpandEntities(false);
         try {
-            // setFeature only records settings; buildEngine applies them to the XMLReader.
-            parser.buildEngine();
-        } catch (JDOMException ex) {
+            // buildEngine() alone does not cache its result. A fixed, trusted document
+            // validates the protections and lets JDOM reuse the engine for caller input.
+            parser.build(new StringReader("<root/>"));
+        } catch (JDOMException | IOException ex) {
             throw new IllegalStateException("Failed to configure secure JDOM XML parsing", ex);
         }
         return parser;

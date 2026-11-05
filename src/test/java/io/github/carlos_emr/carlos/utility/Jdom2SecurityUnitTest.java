@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.utility;
 import org.jdom2.JDOMException;
 import org.jdom2.Namespace;
 import org.jdom2.input.SAXBuilder;
+import org.jdom2.input.sax.XMLReaderJDOMFactory;
+import org.jdom2.input.sax.XMLReaders;
 import org.jdom2.output.XMLOutputter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -34,12 +36,16 @@ import org.mockito.MockedConstruction;
 import org.xml.sax.SAXException;
 
 import java.io.StringReader;
+import java.io.Reader;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mockConstruction;
+import static org.mockito.Mockito.withSettings;
+import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.mockito.ArgumentMatchers.any;
 
 /** Behavioral checks for the JDOM boundary retained by CARLOS. Uses synthetic XML only. */
 @Tag("unit")
@@ -53,11 +59,49 @@ class Jdom2SecurityUnitTest {
     void shouldFailCreation_whenSecurityConfigurationFails() throws Exception {
         JDOMException failure = new JDOMException("Required SAX feature is unsupported");
         try (MockedConstruction<SAXBuilder> construction = mockConstruction(SAXBuilder.class,
-                (builder, context) -> doThrow(failure).when(builder).buildEngine())) {
+                (builder, context) -> doThrow(failure).when(builder).build(any(Reader.class)))) {
             assertThatThrownBy(XmlUtils::createSecureSAXBuilder)
                     .isInstanceOf(IllegalStateException.class)
                     .hasCause(failure);
             assertThat(construction.constructed()).hasSize(1);
+        }
+    }
+
+    @Test
+    @DisplayName("should reuse the validated XML reader and rebuild it when settings change")
+    void shouldReuseValidatedReader_untilBuilderConfigurationChanges() throws Exception {
+        AtomicInteger readers = new AtomicInteger();
+        SAXBuilder delegate = new SAXBuilder(new XMLReaderJDOMFactory() {
+            @Override
+            public org.xml.sax.XMLReader createXMLReader() throws JDOMException {
+                readers.incrementAndGet();
+                return XMLReaders.NONVALIDATING.createXMLReader();
+            }
+
+            @Override
+            public boolean isValidating() {
+                return false;
+            }
+        });
+        try (MockedConstruction<SAXBuilder> construction = mockConstruction(SAXBuilder.class,
+                withSettings().defaultAnswer(delegatesTo(delegate)))) {
+            SAXBuilder builder = XmlUtils.createSecureSAXBuilder();
+            assertThat(construction.constructed()).containsExactly(builder);
+            assertThat(readers.get()).isEqualTo(1);
+            assertThat(builder.build(new StringReader("<root>caller input</root>"))
+                    .getRootElement().getText()).isEqualTo("caller input");
+            assertThat(readers.get()).isEqualTo(1);
+
+            builder.setEntityResolver((publicId, systemId) -> {
+                throw new SAXException("External resource resolution must not be attempted");
+            });
+            assertThatThrownBy(() -> builder.build(new StringReader("<!DOCTYPE root><root/>")))
+                    .isInstanceOf(JDOMException.class)
+                    .hasMessageContaining("DOCTYPE");
+            assertThat(readers.get()).isEqualTo(2);
+            assertThat(builder.build(new StringReader("<root>after rejection</root>"))
+                    .getRootElement().getText()).isEqualTo("after rejection");
+            assertThat(readers.get()).isEqualTo(2);
         }
     }
 

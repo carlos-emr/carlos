@@ -44,15 +44,18 @@ Do not add another XML tree library merely to replace the dormant dependency.
 `XmlUtils.createSecureSAXBuilder()` requires secure processing, rejects DOCTYPE
 and disables external general entities, external parameter entities, external
 DTD loading and entity expansion. JDOM records `setFeature()` settings without
-applying them immediately. The factory therefore calls `buildEngine()` and
+applying them immediately. The factory therefore parses a fixed `<root/>` document and
 throws `IllegalStateException` if a protected engine cannot be created; later
 engines are configured with the same restrictions. Builders remain local to a
-caller and must not be shared between threads or have protections relaxed.
+caller and must not be shared between threads or have protections relaxed. This
+warm-up uses JDOM's own engine cache, avoiding the discarded engine produced by
+calling `buildEngine()` directly. JDOM invalidates that cache when builder settings
+change and applies the configured restrictions to replacement engines.
 
 Previously, unsupported configured features already caused JDOM to reject engine
 creation when parsing began. The change validates that configuration before the
-factory returns; it does not claim to fix an observed XXE bypass. The extra engine
-creation checks configuration only and does not parse input.
+factory returns; it does not claim to fix an observed XXE bypass. The warm-up parses
+only the fixed document above; caller input is parsed after the factory returns.
 
 The Maven Enforcer `ban-obsolete-jdom` execution rejects JDOM 1 under either
 historical coordinate and JDOM2 versions older than 2.0.6.1, including transitive
