@@ -80,7 +80,13 @@ def translation_units(webapp):
                 pending.append(target)
             children[path].add(target)
             parents[target].add(path)
-    bodies = {p: DIRECTIVE.sub('', COMMENT.sub('', data)) for p, data in texts.items()}
+    def directive_body(match):
+        # Other page attributes may reference an imported type (extends="Base").
+        if match[1] == 'page':
+            return ' '.join(value for name, value in attributes(match[0]).items() if name != 'import')
+        return ''
+
+    bodies = {p: DIRECTIVE.sub(directive_body, COMMENT.sub('', data)) for p, data in texts.items()}
     closures = {p: reachable(p, children) for p in texts}
     for path, data in texts.items():
         unit = set().union(*(closures[p] for p in reachable(path, parents)))
