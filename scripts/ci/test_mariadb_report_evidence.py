@@ -8,7 +8,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from junit_evidence import read_surefire
+from unittest.mock import patch
+from junit_evidence import display_literal, EvidenceError, read_surefire
 
 SPEC = importlib.util.spec_from_file_location("mariadb_reports", Path(__file__).with_name("verify-mariadb-dao-reports.py"))
 MODULE = importlib.util.module_from_spec(SPEC)
@@ -160,6 +161,20 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         report("MSPReconcile.notDeclared")
         with self.assertRaisesRegex(ValueError, "belongs to another suite"):
             read_surefire(path, suite)
+
+    def test_java_only_annotation_escapes_do_not_refuse_a_valid_suite(self):
+        suite = "io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcileUpdateStatUnitTest"
+        path = self.root / ("TEST-" + suite + ".xml")
+        path.write_text(f'<testsuite name="{suite}" tests="1" failures="0" errors="0" skipped="0">'
+                        '<testcase classname="MSPReconcile.updateStat" name="shouldUpdate_forStatus"/></testsuite>')
+        source = r'''@DisplayName("MSPReconcile.updateStat")
+                     @DisplayName("Patient\'s\sRecord\040\uu002e")'''
+        with patch("junit_evidence.Path.read_text", return_value=source):
+            self.assertEqual(read_surefire(path, suite)[0].container, "MSPReconcile.updateStat")
+        self.assertEqual(display_literal(r'"Patient\'s\sRecord\040\uu002e"'), "Patient's Record .")
+        self.assertEqual(display_literal(r'"escaped\\s"'), r"escaped\s")
+        with self.assertRaisesRegex(EvidenceError, "Unsupported escape"):
+            display_literal(r'"invalid\q"')
 
     def test_parenthesized_surefire_schema_suffixes_are_bound_to_the_filename(self):
         self.seed()

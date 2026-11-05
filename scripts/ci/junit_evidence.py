@@ -31,6 +31,27 @@ FAILURE_TAGS = frozenset({"failure", "error", "flakyFailure", "flakyError",
                           "rerunFailure", "rerunError"})
 
 
+def display_literal(literal):
+    """Normalize Java-only escapes before decoding a quoted annotation value."""
+    def normalize(match):
+        token = match[1]
+        if token == "'":
+            return "'"
+        if token == "s":
+            return " "
+        if token.startswith("u"):
+            return "\\u" + token.lstrip("u")
+        if token[0] in "01234567":
+            return json.dumps(chr(int(token, 8)))[1:-1]
+        return match[0]  # Preserve escaped backslashes; \\s is literal text.
+
+    normalized = re.sub(r"\\(\\|u+[0-9A-Fa-f]{4}|[0-3][0-7]{0,2}|[4-7][0-7]?|'|s)", normalize, literal)
+    try:
+        return json.loads(normalized)
+    except ValueError as failure:
+        raise EvidenceError("Unsupported escape in test display label") from failure
+
+
 def read_surefire(path: Path, expected_suite: str, suffix: str = "", diagnostics=None) -> list[Case]:
     """Retain first failures even when Surefire's final counters report success."""
     try:
@@ -74,7 +95,7 @@ def read_surefire(path: Path, expected_suite: str, suffix: str = "", diagnostics
                 if source.resolve().is_relative_to(source_root) and source.is_file():
                     for literal in re.findall(r'@(?:org\.junit\.jupiter\.api\.)?DisplayName\s*\(\s*("(?:[^"\\]|\\.)*")\s*\)',
                                               source.read_text(encoding="utf-8")):
-                        labels.add(json.loads(literal))
+                        labels.add(display_literal(literal))
                 if classname not in labels:
                     raise EvidenceError("Test case belongs to another suite")
             # Surefire/JUnit 6 puts @DisplayName text in testcase@classname,
