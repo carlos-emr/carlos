@@ -47,6 +47,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -628,6 +629,140 @@ class CsrfGuardScriptInjectionFilterUnitTest {
                         assertThat(event.getMessage().getFormattedMessage())
                                 .contains("uri=/carlos/provider/providercontrol,");
                     });
+        }
+    }
+
+    @Test
+    void shouldDiscardCapturedPrefix_whenNestedForwardResetsTheBuffer() throws Exception {
+        for (boolean fullReset : new boolean[] {false, true}) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+            request.setContextPath("/carlos");
+            request.setDispatcherType(DispatcherType.FORWARD);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+                res.getWriter().write("DISCARDED PREFIX");
+                if (fullReset) {
+                    res.reset();
+                } else {
+                    res.resetBuffer();
+                }
+                res.setContentType("text/html;charset=UTF-8");
+                res.getWriter().write(PROVIDER_PAGE);
+            }));
+            assertThat(response.getContentAsString()).isEqualTo(PROVIDER_PAGE_WITH_SCRIPT);
+        }
+    }
+
+    @Test
+    void shouldKeepCapturedBody_whenUnderlyingResetIsRejected() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            res.getWriter().write(PROVIDER_PAGE);
+            response.setCommitted(true);
+            org.assertj.core.api.Assertions.assertThatThrownBy(res::resetBuffer)
+                    .isInstanceOf(IllegalStateException.class);
+            org.assertj.core.api.Assertions.assertThatThrownBy(res::reset)
+                    .isInstanceOf(IllegalStateException.class);
+        }));
+        assertThat(response.getContentAsString()).isEqualTo(PROVIDER_PAGE_WITH_SCRIPT);
+    }
+
+    @Test
+    void shouldDropPendingLength_onBufferResetAndOnFullReset() throws Exception {
+        for (boolean fullReset : new boolean[] {false, true}) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+            request.setContextPath("/carlos");
+            request.setDispatcherType(DispatcherType.FORWARD);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+                res.setContentLength(4);
+                if (fullReset) {
+                    res.reset();
+                } else {
+                    res.resetBuffer();
+                }
+                res.setContentType("application/octet-stream");
+                res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+            }));
+            assertThat(response.getHeader("Content-Length")).as("fullReset=%s", fullReset).isNull();
+            assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+        }
+    }
+
+    @Test
+    void shouldRetractPublishedLength_whenBufferResetDiscardsThePassthroughBody() throws Exception {
+        for (boolean stream : new boolean[] {false, true}) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+            request.setContextPath("/carlos");
+            request.setDispatcherType(DispatcherType.FORWARD);
+            MockHttpServletResponse response = spy(new MockHttpServletResponse());
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+                res.setContentType(stream ? "application/octet-stream" : "text/plain;charset=UTF-8");
+                if (stream) {
+                    res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+                } else {
+                    res.getWriter().write("abcd");
+                }
+                res.setContentLength(4);
+                assertThat(response.getContentLength()).as("passthrough length published, stream=%s", stream)
+                        .isEqualTo(4);
+                res.resetBuffer();
+                // The published length described the discarded body. Spring's mock ignores null
+                // values, so the removal call itself is asserted.
+                verify(response).setHeader("Content-Length", null);
+            }));
+        }
+    }
+
+    @Test
+    void shouldKeepPublishedLength_whenPassthroughBufferResetIsRejected() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+        request.setContextPath("/carlos");
+        request.setDispatcherType(DispatcherType.FORWARD);
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("application/octet-stream");
+            res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+            res.setContentLength(4);
+            response.setCommitted(true);
+            org.assertj.core.api.Assertions.assertThatThrownBy(res::resetBuffer)
+                    .isInstanceOf(IllegalStateException.class);
+        }));
+        verify(response, never()).setHeader("Content-Length", null);
+        assertThat(response.getContentLength()).isEqualTo(4);
+    }
+
+    @Test
+    void shouldAllowChannelReselection_afterFullReset() throws Exception {
+        for (boolean writerFirst : new boolean[] {false, true}) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/forward");
+            request.setContextPath("/carlos");
+            request.setDispatcherType(DispatcherType.FORWARD);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            withEnabledCsrfGuard(() -> filter.doFilter(request, response, (req, res) -> {
+                if (writerFirst) {
+                    res.getWriter().write("discarded");
+                } else {
+                    res.getOutputStream().write(new byte[] {9, 9});
+                }
+                res.reset();
+                if (writerFirst) {
+                    res.setContentType("application/octet-stream");
+                    res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+                } else {
+                    res.setContentType("text/html;charset=UTF-8");
+                    res.getWriter().write(PROVIDER_PAGE);
+                }
+            }));
+            if (writerFirst) {
+                assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+            } else {
+                assertThat(response.getContentAsString()).isEqualTo(PROVIDER_PAGE_WITH_SCRIPT);
+            }
         }
     }
 
