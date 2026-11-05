@@ -180,7 +180,7 @@ class GraphMeasurementRequestIsolationUnitTest extends CarlosUnitTestBase {
                     return graph;
                 }
             };
-            assertThat(action.execute()).isNull();
+            assertThat(action.execute()).isEqualTo("none");
             assertThat(response.getContentType()).isEqualTo("image/png");
             // Composed read guards may repeat policy checks; the canonical patient must
             // be authorized before the first identifying or clinical lookup.

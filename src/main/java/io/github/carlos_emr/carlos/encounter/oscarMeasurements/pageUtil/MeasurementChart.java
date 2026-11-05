@@ -86,7 +86,7 @@ public final class MeasurementChart {
         config.put("title", title); config.put("xLabel", xLabel); config.put("yLabel", yLabel);
         config.put("datasets", datasets); config.put("medications", medications);
         config.put("dateAxis", dateAxis);
-        config.put("timeZone", ZoneId.systemDefault().getId());
+        config.put("timeZone", browserTimeZone(ZoneId.systemDefault()));
         config.put("pointLabels", pointLabels);
         config.put("fixedDecimals", fixedDecimals);
         if (secondAxis != null) config.put("secondAxis", secondAxis);
@@ -114,6 +114,18 @@ public final class MeasurementChart {
                     .atStartOfDay(ZoneId.systemDefault()).toInstant());
         }
         Date getStart() { return new Date(start.getTime()); }
+    }
+
+    /**
+     * The zone id Chromium's Intl accepts: an IANA region as is, a fixed offset as {@code +HH:MM}
+     * (Java's {@code GMT+03:00} and {@code Z} are rejected there), and UTC as {@code UTC}.
+     */
+    static String browserTimeZone(ZoneId zone) {
+        ZoneId normalized = zone.normalized();
+        if (normalized instanceof java.time.ZoneOffset offset) {
+            return offset.getTotalSeconds() == 0 ? "UTC" : offset.getId();
+        }
+        return normalized.getId();
     }
 
     record ReferenceRange(Date date, double low, double high) { }

@@ -154,11 +154,25 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         }
 
 
+        // Direct image response: render into a buffer first so a renderer failure answers an
+        // HTTP error, never image headers followed by an HTML error page (CLAUDE.md, direct responses).
+        java.io.ByteArrayOutputStream image = new java.io.ByteArrayOutputStream();
+        try {
+            BrowserChartRenderer.write(request.getServletContext(), image, chart, width, height, "png");
+        } catch (IOException | IllegalArgumentException unavailable) {
+            log.warn("Measurement graph unavailable: {}", unavailable.getMessage());
+            if (!response.isCommitted()) {
+                response.resetBuffer();
+                response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            }
+            return NONE;
+        }
         response.setContentType("image/png");
+        response.setContentLength(image.size());
         OutputStream o = response.getOutputStream();
-        BrowserChartRenderer.write(request.getServletContext(), o, chart, width, height, "png");
-        o.close();
-        return null;
+        image.writeTo(o);
+        o.flush();
+        return NONE;
     }
 
     ArrayList<EctMeasurementsDataBean> getList(Integer demographicNo, String typeIdName) {

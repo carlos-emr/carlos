@@ -49,4 +49,14 @@ class MeasurementChartDataUnitTest {
             assertThat((Long) intervals.getFirst().get("end")).isBetween(before, System.currentTimeMillis());
         }
     }
+
+    /** V8's Intl accepts IANA regions and "+HH:MM" offsets, not Java's "GMT+03:00" or "Z". */
+    @Test
+    void shouldPassBrowserTimeZone_asIanaRegionOrOffset() {
+        assertThat(MeasurementChart.browserTimeZone(java.time.ZoneId.of("America/Toronto"))).isEqualTo("America/Toronto");
+        assertThat(MeasurementChart.browserTimeZone(java.time.ZoneId.of("GMT+03:00"))).isEqualTo("+03:00");
+        assertThat(MeasurementChart.browserTimeZone(java.time.ZoneId.of("GMT-5"))).isEqualTo("-05:00");
+        assertThat(MeasurementChart.browserTimeZone(java.time.ZoneId.of("GMT"))).isEqualTo("UTC");
+        assertThat(MeasurementChart.browserTimeZone(java.time.ZoneId.of("Etc/UTC"))).isEqualTo("UTC");
+    }
 }

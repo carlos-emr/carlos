@@ -23,7 +23,7 @@ import static org.mockito.Mockito.*;
 @Tag("measurement")
 class MeasurementChartSmokeIntegrationTest {
     @Test
-    void shouldRenderClinicalSeriesRangesAndMedicationIntervalsAsPngAndJpeg() throws Exception {
+    void shouldRenderSeriesRangesAndMedicationIntervals_asPngAndJpeg() throws Exception {
         String endpoint = System.getenv("CARLOS_SMOKE_DRIVER_URL");
         String binary = System.getenv("CARLOS_SMOKE_CHROMIUM");
         assumeTrue(endpoint != null && binary != null, "local browser service required");
