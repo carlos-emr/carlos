@@ -63,6 +63,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
 
     private static final Logger _logger = MiscUtils.getLogger();
     public static final int MAX_CSV_EXPORT_BYTES = 5 * 1024 * 1024;
+    private static final String SQL_AND = " and ";
 
     String DELIMETER = "\t";
 
@@ -163,7 +164,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
     private static final class ReportColumns {
         private final Properties captions = new Properties();
         private final java.util.StringJoiner selection = new java.util.StringJoiner(",");
-        private final java.util.StringJoiner filter = new java.util.StringJoiner(" and ");
+        private final java.util.StringJoiner filter = new java.util.StringJoiner(SQL_AND);
         private final List<Object> parameters = new ArrayList<>();
         private boolean selected;
         private boolean filtered;
@@ -354,7 +355,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
             String sql = "select distinct(demographic.demographic_no) from demographicExt, demographic where demographic.demographic_no=demographicExt.demographic_no ";
             String joined = RptReportCreator.joinPredicates(demographicColumns.filter.toString(), extensionColumns.filter.toString());
             if (!joined.isEmpty()) {
-                sql += " and " + joined + "  ";
+                sql += SQL_AND + joined + "  ";
             }
             List<Object> parameters = new ArrayList<>(demographicColumns.parameters);
             parameters.addAll(extensionColumns.parameters);
@@ -392,7 +393,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
             String sql = "select max(ID) from " + antenatalTable + ", demographic where demographic.demographic_no="
                     + antenatalTable + ".demographic_no ";
             if (!joined.isEmpty()) {
-                sql += " and " + joined;
+                sql += SQL_AND + joined;
             }
             sql += " group by " + antenatalTable + ".demographic_no," + antenatalTable + ".formCreated ";
             List<Object> parameters = new ArrayList<>(demographicColumns.parameters);
@@ -479,7 +480,7 @@ public class RptDownloadCSVServlet extends HttpServlet {
             if (extensionColumns.selected) {
                 String demographic = row.getProperty(DEMOGRAPHIC_NUMBER);
                 for (String caption : selectedExtensionCaptions) {
-                    csv.print(extensionValues.getProperty(demographic + caption.replaceAll(" ", "_"), ""));
+                    csv.print(extensionValues.getProperty(demographic + caption.replace(' ', '_'), ""));
                 }
             }
         }

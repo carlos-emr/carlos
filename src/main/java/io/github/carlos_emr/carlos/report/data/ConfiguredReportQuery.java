@@ -217,8 +217,9 @@ public final class ConfiguredReportQuery {
         return new MaterializedRow(new Row(columns, values), characters);
     }
 
+    // computeIfAbsent treats stored SQL NULLs as absent and would replace the first matching column.
+    @SuppressWarnings("java:S3824")
     private static void putFirstColumn(Map<String, String> columns, String name, String value) {
-        // A SQL NULL in the first matching column must not be replaced by a later duplicate.
         if (!columns.containsKey(name)) columns.put(name, value);
     }
 

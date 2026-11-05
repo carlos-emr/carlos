@@ -66,6 +66,32 @@ class ConfiguredReportQueryUnitTest {
     }
 
     @Test
+    void shouldPreserveFirstSqlNull_whenColumnNamesAndLabelsRepeat() throws Exception {
+        ResultSet rows = mock(ResultSet.class);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(rows.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnCount()).thenReturn(2);
+        when(metadata.getColumnName(1)).thenReturn("value");
+        when(metadata.getColumnName(2)).thenReturn("VALUE");
+        when(metadata.getColumnLabel(1)).thenReturn("shared");
+        when(metadata.getColumnLabel(2)).thenReturn("SHARED");
+        when(metadata.getTableName(1)).thenReturn("report");
+        when(metadata.getTableName(2)).thenReturn("REPORT");
+        when(rows.next()).thenReturn(true, false);
+        when(rows.getString(1)).thenReturn(null);
+        when(rows.getString(2)).thenReturn("later");
+        try (var jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), eq(10_001), anyLong(), any(Object[].class))).thenReturn(rows);
+            var row = ConfiguredReportQuery.read("select value, value from report").rows().getFirst();
+            assertThat(row.value("shared")).isNull();
+            assertThat(row.value("value")).isNull();
+            assertThat(row.value("report.value")).isNull();
+            assertThat(row.values()).containsExactly(null, "later");
+        }
+        verify(rows).close();
+    }
+
+    @Test
     void shouldCloseResultsAndRejectPartialOutput_whenRowBudgetIsExceeded() throws Exception {
         ResultSet rows = mock(ResultSet.class);
         ResultSetMetaData metadata = mock(ResultSetMetaData.class);
