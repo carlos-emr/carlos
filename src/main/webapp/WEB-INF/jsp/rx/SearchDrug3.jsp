@@ -3160,21 +3160,23 @@ function updateQty(element){
     }
 
     /**
-     * Error codes updateSaveAllDrugs writes only when it refuses a save before changing anything.
-     * A 5xx that carries one of them is a definite refusal; any other 5xx is not (#5686).
+     * Error codes updateSaveAllDrugs sends with a 5xx status only when it refuses a save before
+     * writing anything. Any other 5xx may follow a commit (#5686).
      */
-    var RX_SAVE_PRE_WRITE_ERRORS = ['STALE_RX_STASH', 'INVALID_RX_DRAFT', 'INVALID_RX_DOSE',
-        'INVALID_RX_REPEATS', 'RX_DRAFT_VALIDATION_FAILED'];
+    var RX_SAVE_PRE_WRITE_ERRORS = ['RX_DRAFT_VALIDATION_FAILED'];
 
     /**
      * Whether a save the server did not confirm may still have committed (#5686). Only a refusal
-     * proves nothing was written: a 4xx (the action, CSRFGuard, the WAF or the proxy refused the
-     * request before any write) or a 5xx naming a pre-write refusal. Everything else may follow a
-     * commit and must not be reported as NOT saved, or a retry can issue a duplicate prescription:
-     * no response at all (status 0: a lost or aborted reply, a timeout, a network failure), a
-     * server or gateway error with no refusal code (the action can fail after the transaction
-     * commits, and a proxy can time out while Tomcat completes the save), and a 2xx reply without
-     * the saved script id.
+     * proves nothing was written, so only a refusal may be reported as NOT saved:
+     * - a 4xx: the action, a filter (login, CSRFGuard, method guard), the WAF or the proxy refused
+     *   the request before the action wrote anything;
+     * - a 5xx naming one of RX_SAVE_PRE_WRITE_ERRORS;
+     * - a 2xx from another page: a login or facility-selection redirect, followed by the XHR,
+     *   means the request never reached the save action.
+     * Everything else may follow a commit, and a retry can then issue a duplicate prescription:
+     * no response at all (status 0: a lost or aborted reply, a timeout, a network failure), any
+     * other 5xx (the action can fail after its transaction commits, and a proxy can time out while
+     * Tomcat completes the save) and a 2xx from the save action without the saved script id.
      *
      * @param {Object} transport the CarlosAjax transport of the request, or nothing
      * @return {boolean} true when the prescriber must check the medication profile before retrying
@@ -3183,8 +3185,12 @@ function updateQty(element){
         var status = transport ? Number(transport.status) : 0;
         if (!(status > 0)) return true;
         if (status >= 400 && status < 500) return false;
-        var error = transport.responseJSON ? transport.responseJSON.error : null;
-        return !(status >= 500 && RX_SAVE_PRE_WRITE_ERRORS.indexOf(error) !== -1);
+        if (status >= 500) {
+            var error = transport.responseJSON ? transport.responseJSON.error : null;
+            return RX_SAVE_PRE_WRITE_ERRORS.indexOf(error) === -1;
+        }
+        var landed = String(transport.responseURL || '').split(/[?#]/)[0];
+        return !(status < 300 && landed && !/\/rx\/WriteScript$/.test(landed));
     }
 
     /**
@@ -3220,12 +3226,12 @@ function updateQty(element){
             alert(RxInputValidation.format(jsMsg.dateNotOnCalendar, badDate.length ? badDate.val() : ''));
             if (badDate.length) badDate.focus();
         } else if (isUncertainSaveOutcome(transport)) {
-            // The staged cards stay as they are: a confirmed-unsaved draft must survive, and the
-            // server refuses a replay of cards a committed save consumed. Reload the profile first
-            // so it is current when the prescriber dismisses the alert.
-            refreshDrugProfile();
+            // The staged cards stay as they are: an unsaved draft must survive, and the server
+            // refuses a replay of cards a committed save consumed. The profile is reloaded after
+            // the alert, which blocks the page, so it shows what the server now holds.
             var status = transport ? Number(transport.status) : 0;
             alert(jsMsg.saveUncertain + (status > 0 ? ' (HTTP ' + status + ')' : ''));
+            refreshDrugProfile();
         } else {
             alert(jsMsg.saveRefused + ' (HTTP ' + (transport ? transport.status : '?') + ')');
         }

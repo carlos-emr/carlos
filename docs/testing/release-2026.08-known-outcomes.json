@@ -193,6 +193,18 @@
   ],
   "retiredBrowserExpectations": [
     {
+      "check": "rx-save-failure-retry-only-lost",
+      "finding": 334,
+      "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved",
+      "disposition": "Source fix #5686; manifest pin retired and retained as an active regression. A fresh installed PASS is still required."
+    },
+    {
+      "check": "rx-save-failure-retry-print-lost",
+      "finding": 334,
+      "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved",
+      "disposition": "Source fix #5686; manifest pin retired and retained as an active regression. A fresh installed PASS is still required."
+    },
+    {
       "check": "login-facility-chooser",
       "finding": 265,
       "step": "the chooser page's own stylesheet and script are served to a login that has not chosen a facility",

@@ -61,16 +61,19 @@ const refusedMessages = {
 
 function reportRefused(transport) {
     const alerts = [];
+    const events = [];
     let refreshed = 0;
     const context = {
         jsMsg: refusedMessages,
-        alert(message) { alerts.push(message); },
-        refreshDrugProfile() { refreshed++; },
+        alert(message) { alerts.push(message); events.push('alert'); },
+        refreshDrugProfile() { refreshed++; events.push('refresh'); },
     };
     // No reload, retry or DOM mutation of the staged cards is available: a refusal must preserve
     // local edits, and an uncertain outcome must not resend cards a committed save consumed.
     vm.runInNewContext(refusedSave, context);
     context.reportRefusedSave(transport);
+    // The alert blocks the page; reloading the profile after it shows what the server now holds.
+    if (refreshed) assert.deepEqual(events, ['alert', 'refresh']);
     return { alerts, refreshed };
 }
 
@@ -79,7 +82,6 @@ for (const [transport, expected] of [
     [{ status: 409, responseJSON: { error: 'STALE_RX_STASH' } }, 'review the current draft'],
     [{ status: 409, responseJSON: null, responseText: '<html>Conflict</html>' }, 'reopen the session'],
     [{ status: 409, responseJSON: { error: 'OTHER' } }, 'reopen the session'],
-    [{ status: 500, responseJSON: { error: 'STALE_RX_STASH' } }, 'reopen the session (HTTP 500)'],
 ]) {
     test(`refused save explains the fixed stale-draft conflict only: ${JSON.stringify(transport)}`, () => {
         assert.deepEqual(reportRefused(transport), { alerts: [expected], refreshed: 0 });
@@ -87,8 +89,11 @@ for (const [transport, expected] of [
 }
 
 // #5686: only a refusal proves nothing was written. A 4xx is refused before any write, and so is a
-// 5xx that names one of the action's pre-write refusal codes.
+// 5xx that names one of the action's pre-write refusal codes, and a 2xx page that a login or
+// facility-selection redirect answered instead of the save action.
 for (const transport of [
+    { status: 200, responseJSON: null, responseText: '<html>login</html>', responseURL: 'https://clinic.test/carlos/login?timeout=1' },
+    { status: 200, responseJSON: null, responseText: '<html>facility</html>', responseURL: 'https://clinic.test/carlos/select/facility' },
     { status: 400, responseJSON: null, responseText: '<html>Bad Request</html>' },
     { status: 403, responseJSON: null, responseText: 'CSRF validation failed' },
     { status: 405, responseJSON: null, responseText: '' },
@@ -110,11 +115,15 @@ for (const [transport, expected] of [
     [undefined, ''],
     [{ status: 500, responseJSON: null, responseText: '<html>Internal Server Error</html>' }, ' (HTTP 500)'],
     [{ status: 500, responseJSON: { error: 'OTHER' } }, ' (HTTP 500)'],
+    // STALE_RX_STASH is only ever a 409: a 500 that carries it is not a refusal the action sends.
+    [{ status: 500, responseJSON: { error: 'STALE_RX_STASH' } }, ' (HTTP 500)'],
     [{ status: 502, responseJSON: null, responseText: '<html>Bad Gateway</html>' }, ' (HTTP 502)'],
     [{ status: 503, responseJSON: null, responseText: '' }, ' (HTTP 503)'],
     [{ status: 504, responseJSON: null, responseText: '<html>Gateway Time-out</html>' }, ' (HTTP 504)'],
     [{ status: 200, responseJSON: null, responseText: '<html>login</html>' }, ' (HTTP 200)'],
     [{ status: 200, responseJSON: { scriptId: 'x' }, responseText: '{"scriptId":"x"}' }, ' (HTTP 200)'],
+    [{ status: 200, responseJSON: null, responseText: '{"scriptI',
+        responseURL: 'https://clinic.test/carlos/rx/WriteScript?parameterValue=updateSaveAllDrugs&rand=7' }, ' (HTTP 200)'],
 ]) {
     test(`an unconfirmed save reports an uncertain outcome: ${JSON.stringify(transport)}`, () => {
         assert.deepEqual(reportRefused(transport),
