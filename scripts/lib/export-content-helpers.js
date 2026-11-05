@@ -106,8 +106,10 @@ function xmlText(value) {
  * "_xHHHH_" in the text is written as _x005F_xHHHH_. Decoded after the XML entities, as Excel does.
  */
 function excelText(value) {
-  return value.replace(/_x005F_(x[0-9A-Fa-f]{4}_)|_x([0-9A-Fa-f]{4})_/g,
-    (_, literal, hex) => literal ? `_${literal}` : String.fromCharCode(parseInt(hex, 16)));
+  // Decode each token once. Consuming a following literal token would swallow the
+  // leading underscore of the next escaped token when original tokens overlap.
+  return value.replace(/_x([0-9A-Fa-f]{4})_/g,
+    (_, hex) => String.fromCharCode(parseInt(hex, 16)));
 }
 
 /**

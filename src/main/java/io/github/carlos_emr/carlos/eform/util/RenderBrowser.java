@@ -25,9 +25,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * Chrome still speaks CDP over its private pipe; no debugging TCP port is opened. Keep the
  * command set small: navigation, scripts, logs, native printing and session cleanup only.
  */
-class RenderBrowser implements AutoCloseable {
+final class RenderBrowser implements AutoCloseable {
     private static final ObjectMapper JSON = new ObjectMapper()
             .enable(DeserializationFeature.USE_LONG_FOR_INTS);
+    private static final String VALUE = "value";
     private final URI serviceUri;
     private final HttpClient client;
     private final Duration readTimeout;
@@ -121,25 +122,28 @@ class RenderBrowser implements AutoCloseable {
                             : HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(body)))
                     .build();
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            JsonNode envelope;
-            try {
-                envelope = JSON.readTree(response.body());
-            } catch (com.fasterxml.jackson.core.JsonProcessingException malformed) {
-                throw new IllegalStateException("Invalid browser response");
-            }
-            if (response.statusCode() != 200 || envelope == null || !envelope.has("value")
-                    || envelope.path("value").has("error")) {
+            JsonNode envelope = readEnvelope(response.body());
+            if (response.statusCode() != 200 || envelope == null || !envelope.has(VALUE)
+                    || envelope.path(VALUE).has("error")) {
                 // Browser replies can contain clinical page content and capability URLs. Never
                 // put their body or message into an exception, even on transport failure.
                 throw new IllegalStateException("Browser command failed (HTTP " + response.statusCode() + ")");
             }
-            return envelope.get("value");
-        } catch (InterruptedException interrupted) {
+            return envelope.get(VALUE);
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Browser command interrupted");
         } catch (IOException failure) {
             // Keep the cause for typed connect-failure classification; callers redact logs.
             throw new IllegalStateException("Browser command transport failed", failure);
+        }
+    }
+
+    private static JsonNode readEnvelope(String body) {
+        try {
+            return JSON.readTree(body);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException _) {
+            throw new IllegalStateException("Invalid browser response");
         }
     }
 

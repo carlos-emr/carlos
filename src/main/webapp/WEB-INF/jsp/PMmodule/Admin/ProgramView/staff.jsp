@@ -37,7 +37,8 @@
 	</tr>
 </table>
 </div>
-<table class="simple" cellspacing="2" cellpadding="3" id="provider" data-carlos-table data-page-size="0" data-default-sort="3" data-default-order="ascending">
+<c:if test="${not empty providers}">
+<table class="carlos-table-spaced simple" id="provider" data-carlos-table data-page-size="0" data-default-sort="3" data-default-order="ascending">
 <thead><tr>
 
     <th scope="col" class="non_sorted_header">Team(s)</th>
@@ -61,4 +62,5 @@
     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(provider.role.name))}" data-sort-type="${carlos:tableSortType(provider.role.name)}">${carlos:forHtml(provider.role.name)}</td>
 </tr></c:forEach></tbody>
 </table>
+</c:if>
 <c:if test="${empty providers}"><p class="table-empty">Nothing found to display.</p></c:if>

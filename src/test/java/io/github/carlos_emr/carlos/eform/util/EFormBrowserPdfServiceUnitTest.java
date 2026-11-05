@@ -519,8 +519,8 @@ class EFormBrowserPdfServiceUnitTest {
         // the console gate silently sees zero script errors on every render, and without
         // PERFORMANCE at ALL the network-event replay has nothing to replay. (The performance
         // leg fails loudly when the log type is missing; the console leg would not.)
-        assertThat(capabilities.get("goog:loggingPrefs"))
-                .isEqualTo(Map.of("browser", "SEVERE", "performance", "ALL"));
+        assertThat(capabilities)
+                .containsEntry("goog:loggingPrefs", Map.of("browser", "SEVERE", "performance", "ALL"));
     }
 
     @Test
@@ -1269,8 +1269,8 @@ class EFormBrowserPdfServiceUnitTest {
     @Test
     @DisplayName("should pin the browser command and connection timeout defaults")
     void shouldPinTimeoutDefaults_forBrowserCommands() {
-        assertThat(EFormBrowserPdfService.WEBDRIVER_COMMAND_READ_TIMEOUT).isEqualTo(Duration.ofSeconds(90));
-        assertThat(EFormBrowserPdfService.WEBDRIVER_CONNECTION_TIMEOUT).isEqualTo(Duration.ofSeconds(10));
+        assertThat(EFormBrowserPdfService.WEBDRIVER_COMMAND_READ_TIMEOUT.toSeconds()).isEqualTo(90);
+        assertThat(EFormBrowserPdfService.WEBDRIVER_CONNECTION_TIMEOUT.toSeconds()).isEqualTo(10);
     }
 
     @Test

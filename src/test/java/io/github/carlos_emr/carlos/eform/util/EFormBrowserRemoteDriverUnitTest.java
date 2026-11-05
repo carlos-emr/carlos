@@ -21,8 +21,6 @@
  */
 package io.github.carlos_emr.carlos.eform.util;
 
-import io.github.carlos_emr.carlos.eform.util.RenderBrowser.LogEntry;
-
 import java.net.ConnectException;
 import java.net.URI;
 

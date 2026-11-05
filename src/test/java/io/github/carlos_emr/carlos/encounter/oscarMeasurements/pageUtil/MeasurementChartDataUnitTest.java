@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +18,7 @@ class MeasurementChartDataUnitTest {
     @SuppressWarnings("unchecked")
     void shouldReplaceDailyReadings_andKeepSecondaryAxisUnits() {
         var series = new MeasurementChart.Series("Weight");
-        var day = new MeasurementChart.Day(new Date(1_700_000_000_000L));
+        var day = new MeasurementChart.Day(Instant.ofEpochMilli(1_700_000_000_000L));
         series.addOrUpdate(day, 61);
         series.addOrUpdate(day, 63);
         var collection = new MeasurementChart.SeriesCollection();
@@ -28,9 +29,9 @@ class MeasurementChartDataUnitTest {
         var datasets = (List<Map<String, Object>>) chart.toConfig().get("datasets");
         var primary = (List<Map<String, Object>>) datasets.get(0).get("data");
         assertThat(primary).hasSize(1);
-        assertThat(primary.getFirst().get("y")).isEqualTo(63.0);
-        assertThat(datasets.get(1).get("yAxisID")).isEqualTo("y2");
-        assertThat(chart.toConfig().get("secondAxis")).isEqualTo("Secondary units");
+        assertThat(primary.getFirst()).containsEntry("y", 63.0);
+        assertThat(datasets.get(1)).containsEntry("yAxisID", "y2");
+        assertThat(chart.toConfig()).containsEntry("secondAxis", "Secondary units");
         var bounds = (List<Map<String, Object>>) datasets.get(2).get("data");
         assertThat(bounds).singleElement().satisfies(range -> assertThat(range).containsEntry("low", 55.0).containsEntry("high", 70.0));
     }
@@ -44,6 +45,7 @@ class MeasurementChartDataUnitTest {
                         .thenReturn(new RxPrescriptionData.Prescription[]{prescription}))) {
             long before = System.currentTimeMillis();
             var intervals = MeasurementGraphAction22Action.getDrugDataSet(101, new String[]{"synthetic"});
+            assertThat(construction.constructed()).hasSize(1);
             assertThat(intervals).hasSize(1);
             assertThat(intervals.getFirst()).containsEntry("name", "Medication").containsEntry("start", 1_700_000_000_000L);
             assertThat((Long) intervals.getFirst().get("end")).isBetween(before, System.currentTimeMillis());
@@ -81,7 +83,7 @@ class MeasurementChartDataUnitTest {
     @Test
     @SuppressWarnings("unchecked")
     void shouldDescribeTheHighLowChartLook_forReferenceRangeCharts() {
-        var day = new MeasurementChart.Day(new Date(1_700_000_000_000L));
+        var day = new MeasurementChart.Day(Instant.ofEpochMilli(1_700_000_000_000L));
         var ranges = List.of(new MeasurementChart.ReferenceRange(day.getStart(), 7, 40));
         var chart = MeasurementChart.highLow("HighLowChartDemo2", "Time", "Value", collection("ALT", 23), "DREFERENCE RANGE", ranges);
         var style = (Map<String, Object>) chart.toConfig().get("style");
@@ -90,7 +92,7 @@ class MeasurementChartDataUnitTest {
         var datasets = (List<Map<String, Object>>) chart.toConfig().get("datasets");
         assertThat(datasets.get(0)).containsEntry("label", "DREFERENCE RANGE").containsEntry("kind", "range").containsEntry("paint", "#ff5555").containsEntry("widensAxis", true);
         assertThat((List<Map<String, Object>>) datasets.get(0).get("data")).singleElement()
-                .satisfies(point -> assertThat(point).containsEntry("x", day.getStart().getTime()).containsEntry("low", 7.0).containsEntry("high", 40.0));
+                .satisfies(point -> assertThat(point).containsEntry("x", day.getStart().toEpochMilli()).containsEntry("low", 7.0).containsEntry("high", 40.0));
         assertThat(datasets.get(1)).containsEntry("label", "ALT").containsEntry("kind", "line").containsEntry("lines", true).containsEntry("shapes", false)
                 .as("drawn by the same renderer as the range dataset, so it shares its first series paint").containsEntry("paint", "#ff5555")
                 .containsEntry("highLow", true);
@@ -100,7 +102,7 @@ class MeasurementChartDataUnitTest {
     @Test
     @SuppressWarnings("unchecked")
     void shouldColourTheRangeAxisGreen_onlyForGreenReferenceRanges() {
-        var day = new MeasurementChart.Day(new Date(1_700_000_000_000L));
+        var day = new MeasurementChart.Day(Instant.ofEpochMilli(1_700_000_000_000L));
         var ranges = List.of(new MeasurementChart.ReferenceRange(day.getStart(), 120, 160));
         var green = MeasurementChart.lines("Synthetic", "Days", "g/L", collection("Hemoglobin", 132)).withGreenReferenceRanges("Reference Range", ranges);
         var datasets = (List<Map<String, Object>>) green.toConfig().get("datasets");
@@ -120,11 +122,15 @@ class MeasurementChartDataUnitTest {
 
     /** The lab charts chose their item labels by tens of points: date and value, value, value in 8pt, none. */
     @Test
+    @SuppressWarnings("unchecked")
     void shouldChooseLabItemLabels_byTensOfPoints() {
         assertThat(MeasurementChart.labItemLabels(5)).containsEntry("format", "{1} \n {2}").containsEntry("decimals", "0.###").containsEntry("fontSize", 12);
         assertThat(MeasurementChart.labItemLabels(15)).containsEntry("format", "{2}").containsEntry("decimals", "0.###").containsEntry("fontSize", 12);
         assertThat(MeasurementChart.labItemLabels(25)).containsEntry("format", "{2}").containsEntry("fontSize", 8);
-        assertThat(MeasurementChart.labItemLabels(35)).isNull();
+        assertThat(MeasurementChart.labItemLabels(35)).isEmpty();
+        var chart = MeasurementChart.lines("Synthetic", "Days", "kg", collection("Weight", 61))
+                .withItemLabels(MeasurementChart.labItemLabels(35));
+        assertThat((Map<String, Object>) chart.toConfig().get("style")).containsEntry("itemLabels", null);
     }
 
     /** The other lab charts overrode the factory look: wide date margins, a taller range, white plot, shapes, labels. */
@@ -171,9 +177,23 @@ class MeasurementChartDataUnitTest {
         assertThat(second).containsEntry("yAxisID", "y2").containsEntry("paint", "#000000").containsEntry("lines", true).containsEntry("shapes", false);
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldPreserveScatterObservations_whenCoordinatesShareTheSameDay() {
+        var series = new MeasurementChart.Series("Synthetic observations");
+        series.add(2, 41);
+        series.add(0, 23);
+        series.add(0, 37);
+        var chart = MeasurementChart.scatter("Synthetic", "Day", "Results", List.of(series), false);
+        var datasets = (List<Map<String, Object>>) chart.toConfig().get("datasets");
+        assertThat((List<Map<String, Object>>) datasets.getFirst().get("data")).containsExactly(
+                Map.of("x", 0L, "y", 23.0), Map.of("x", 0L, "y", 37.0), Map.of("x", 2L, "y", 41.0));
+        assertThat(series.getItemCount()).isEqualTo(3);
+    }
+
     private static MeasurementChart.SeriesCollection collection(String name, double value) {
         var series = new MeasurementChart.Series(name);
-        series.addOrUpdate(new MeasurementChart.Day(new Date(1_700_000_000_000L)), value);
+        series.addOrUpdate(new MeasurementChart.Day(Instant.ofEpochMilli(1_700_000_000_000L)), value);
         var collection = new MeasurementChart.SeriesCollection();
         collection.addSeries(series);
         return collection;

@@ -49,7 +49,7 @@
 <form action="${pageContext.request.contextPath}/PMmodule/FacilityManager" method="post">
     <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <c:if test="${not empty facilities}">
-<table class="simple" cellspacing="2" cellpadding="3" id="facility" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<table class="carlos-table-spaced simple" id="facility" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 

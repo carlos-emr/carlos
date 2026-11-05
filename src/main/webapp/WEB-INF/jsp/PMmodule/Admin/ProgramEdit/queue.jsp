@@ -47,7 +47,7 @@ function removeFromRemoteQueue(remoteReferralId) {
 </div>
 <!--  show current clients -->
 <c:if test="${not empty queue}">
-<table class="simple" cellspacing="2" cellpadding="3" id="queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<table class="carlos-table-spaced simple" id="queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 
@@ -92,7 +92,7 @@ function removeFromRemoteQueue(remoteReferralId) {
 	</div>
 	<!--  show current clients -->
     <c:if test="${not empty remoteQueue}">
-    <table class="simple" cellspacing="2" cellpadding="3" id="remote_queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+    <table class="carlos-table-spaced simple" id="remote_queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 

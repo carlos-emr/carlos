@@ -59,7 +59,10 @@
     // The axis' initial unit, whose label (Java's default SimpleDateFormat) seeds the first estimate.
     const INITIAL_DATE_UNIT = { field: 'day', count: 1, size: DAY, format: 'M/d/yy, h:mm a' };
     const NUMBER_UNITS = [];
-    for (let k = -9; k <= 12; k++) [1, 2, 5].forEach(m => NUMBER_UNITS.push(Number((m * Math.pow(10, k)).toPrecision(12))));
+    for (let k = -9; k <= 308; k++) [1, 2, 5].forEach(m => {
+        const unit = m * Math.pow(10, k);
+        if (Number.isFinite(unit)) NUMBER_UNITS.push(Number(unit.toPrecision(12)));
+    });
 
     // --- text metrics as Java measured them ----------------------------------------------------
 
@@ -167,8 +170,10 @@
         if (!values.length) return [0, 1];
         let lower = Math.min(...values), upper = Math.max(...values);
         if (includesZero) { lower = Math.min(lower, 0); upper = Math.max(upper, 0); }
-        const minimum = 1e-8;
-        if (upper - lower < minimum) { const middle = (upper + lower) / 2; upper = middle + minimum / 2; lower = middle - minimum / 2; }
+        // A fixed epsilon disappears at large magnitudes (for example a viral load of 100,000,000).
+        // Keep the expansion representable so a constant series cannot produce an unbounded tick loop.
+        const minimum = Math.max(1e-8, Math.max(Math.abs(lower), Math.abs(upper)) * 1e-12);
+        if (upper - lower < minimum) { const middle = lower + (upper - lower) / 2; upper = middle + minimum / 2; lower = middle - minimum / 2; }
         const range = upper - lower;
         upper = upper <= 0 ? Math.min(0, upper + margins[1] * range) : upper + margins[1] * range;
         lower = lower >= 0 ? Math.max(0, lower - margins[0] * range) : lower - margins[0] * range;
@@ -211,6 +216,9 @@
     }
 
     function numberTicks(lower, upper, pixels, vertical, fontSize) {
+        if (!Number.isFinite(lower) || !Number.isFinite(upper) || !(upper > lower)) {
+            throw new Error('Chart numeric axis has invalid bounds');
+        }
         const units = NUMBER_UNITS.map(size => ({ size }));
         const pixelsPerSize = pixels / (upper - lower);
         const labelSize = vertical
@@ -220,8 +228,13 @@
         const decimals = numberDecimals(unit);
         const ticks = [];
         // The same double arithmetic as NumberAxis.calculateLowestVisibleTickValue and calculateVisibleTickCount.
-        for (let i = Math.ceil(lower / unit); i <= Math.floor(upper / unit); i++) {
-            const value = Number((i * unit).toPrecision(12));
+        const first = Math.ceil(lower / unit), last = Math.floor(upper / unit);
+        const count = last - first + 1;
+        if (!Number.isSafeInteger(first) || !Number.isSafeInteger(last) || count > 1000) {
+            throw new Error('Chart numeric axis has too many ticks');
+        }
+        for (let offset = 0; offset < count; offset++) {
+            const value = Number(((first + offset) * unit).toPrecision(15));
             ticks.push({ value, label: formatNumber(value, decimals) });
         }
         return { unit, ticks };
@@ -496,7 +509,8 @@
             charts.length = 0;
             document.querySelectorAll('canvas').forEach(canvas => canvas.remove());
             mainChart = null; medicationChart = null;
-            if (datasets.length) {
+            // No matching prescriptions is a valid medication request; retain its title and axes.
+            if (datasets.length || !combined) {
                 const main = document.createElement('canvas');
                 main.style.display = 'block';
                 main.width = width;
@@ -526,15 +540,17 @@
                 const colourOf = name => drugColours[names.indexOf(name)];
                 medicationChart = new Chart(meds, {
                     type: 'bar',
-                    data: { labels: names.map(shorten), datasets: [{ label: 'Meds', carlosKind: 'bar',
-                        data: medications.map(m => ({ y: shorten(m.name), x: [m.start, m.end] })),
+                    // Category identity uses the full name. Shortening it here would put repeated
+                    // prescriptions on the wrong row when two medication names share a prefix.
+                    data: { labels: names, datasets: [{ label: 'Meds', carlosKind: 'bar',
+                        data: medications.map(m => ({ y: m.name, x: [m.start, m.end] })),
                         backgroundColor: medications.map(m => colourOf(m.name)), borderWidth: 0, categoryPercentage: 0.6, barPercentage: 1, minBarLength: 1 }] },
                     plugins: [jfreePlugin(LOOKS.plain, { background: '#ffffff', bars: true, legend: true })],
                     options: { indexAxis: 'y', responsive: false, animation: false, devicePixelRatio: 1,
                         scales: { x: xScale(LOOKS.plain, true),
                             // reverse: the first medication listed sits at the bottom, as on the former symbol axis.
-                            y: { type: 'category', labels: names.map(shorten), reverse: true, offset: true,
-                                ticks: { ...tickOptions(LOOKS.plain, '#000000'), callback(value) { return this.getLabelForValue(value); } },
+                            y: { type: 'category', labels: names, reverse: true, offset: true,
+                                ticks: { ...tickOptions(LOOKS.plain, '#000000'), callback(value) { return shorten(this.getLabelForValue(value)); } },
                                 grid: gridOptions('#c0c0c0'), border: { display: true, color: 'rgba(128, 128, 128, 0.5)', width: 1 },
                                 title: axisTitle('Meds', LOOKS.plain, '#000000') } },
                         layout: { padding: { ...basePadding, top: mainChart ? 5 : basePadding.top, bottom: basePadding.bottom + legend.height } },

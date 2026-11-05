@@ -78,9 +78,13 @@ public class MeasurementGraphAction22Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private static Logger log = MiscUtils.getLogger();
+    private static final Logger log = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private final String NUMERIC_REGEX = "[^-.\\d]";
+    private static final String NUMERIC_REGEX = "[^-.\\d]";
+    private static final String WHITE = "#ffffff";
+    private static final String VALUE_DATE_LABEL = "{1} \n {2}";
+    private static final String SYSTOLIC = "Systolic";
+    private static final String DIASTOLIC = "Diastolic";
 
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
@@ -118,47 +122,19 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         String method = request.getParameter("method");
 
         log.debug("Creating graph for demo {} type1: {} type2: {}", LogSafe.sanitizeObject(demographicNo), LogSafe.sanitize(typeIdName), LogSafe.sanitize(typeIdName2));
-        MeasurementChart chart = null;
-        if (method == null) {
-            log.debug("Calling DefaultChart");
-            chart = defaultChart(demographicNo, typeIdName, typeIdName2, patientName, chartTitle);
-        } else if (method.equals("inclRef")) {
-            chart = referenceRangeChart(demographicNo, typeIdName, typeIdName2, patientName, chartTitle);
-
-        } else if (method.equals("rxincl")) {
-            chart = rxAndLabChart(demographicNo, typeIdName, typeIdName2, patientName, chartTitle);
-        } else if (method.equals("lab")) {
-            chart = labChart(demographicNo, typeIdName, typeIdName2, patientName, chartTitle);
-        } else if (method.equals("labRef")) {
-            chart = labChartRef(demographicNo, typeIdName, typeIdName2, patientName, chartTitle);
-        } else if (method.equals("actualLab")) {
-            String labType = request.getParameter("labType");
-            String identifier = request.getParameter("identifier");
-            String testName = request.getParameter("testName");
-            String drugs[] = request.getParameterValues("drug");
-            if (drugs == null) {
-                chart = actualLabChartRef(demographicNo, labType, identifier, testName, patientName, chartTitle);
-            } else {
-                chart = actualLabChartRefPlusMeds(demographicNo, labType, identifier, testName, patientName, chartTitle, drugs);
-            }
-        } else if (method.equals("ChartMeds")) {
-            String drugs[] = request.getParameterValues("drug");
-            chart = ChartMeds(demographicNo, patientName, chartTitle, drugs);
-            if (drugs != null && drugs.length > 10) {
-                height = (drugs.length * 30);
-            }
-        } else {
-            chart = defaultChart(demographicNo, typeIdName, typeIdName2, patientName, chartTitle);
-        }
-
-
-        // Direct image response: render into a buffer first so a renderer failure answers an
-        // HTTP error, never image headers followed by an HTML error page (CLAUDE.md, direct responses).
+        // Assemble and render before sending image headers. Invalid stored values must produce
+        // an explicit error, not a partial chart or an HTML page advertised as an image.
         java.io.ByteArrayOutputStream image = new java.io.ByteArrayOutputStream();
         try {
+            MeasurementChart chart = requestedChart(demographicNo, typeIdName, typeIdName2, chartTitle, method);
+            String[] drugs = request.getParameterValues("drug");
+            if ("ChartMeds".equals(method) && drugs != null && drugs.length > 10) {
+                height = drugs.length * 30;
+            }
             BrowserChartRenderer.write(request.getServletContext(), image, chart, width, height, "png");
-        } catch (IOException | IllegalArgumentException unavailable) {
-            log.warn("Measurement graph unavailable: {}", unavailable.getMessage());
+        } catch (IOException | ParseException | RuntimeException unavailable) {
+            // Parse/DAO/driver messages can include clinical values; retain only the failure type.
+            log.warn("Measurement graph unavailable ({})", unavailable.getClass().getSimpleName());
             if (!response.isCommitted()) {
                 response.resetBuffer();
                 response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
@@ -173,511 +149,275 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return NONE;
     }
 
+    private MeasurementChart requestedChart(Integer demographicNo, String typeIdName, String typeIdName2,
+                                             String chartTitle, String method) throws ParseException {
+        if (method == null) {
+            return defaultChart(demographicNo, typeIdName, typeIdName2, chartTitle);
+        }
+        return switch (method) {
+            case "inclRef" -> referenceRangeChart(demographicNo, typeIdName);
+            case "rxincl" -> rxAndLabChart(demographicNo, typeIdName);
+            case "lab" -> labChart(demographicNo, typeIdName, chartTitle);
+            case "labRef" -> labChartRef(demographicNo, typeIdName, chartTitle);
+            case "actualLab" -> requestedLabChart(demographicNo, chartTitle);
+            case "ChartMeds" -> chartMeds(demographicNo, chartTitle, request.getParameterValues("drug"));
+            default -> defaultChart(demographicNo, typeIdName, typeIdName2, chartTitle);
+        };
+    }
+
+    private MeasurementChart requestedLabChart(Integer demographicNo, String chartTitle) throws ParseException {
+        String labType = request.getParameter("labType");
+        String identifier = request.getParameter("identifier");
+        String testName = request.getParameter("testName");
+        String[] drugs = request.getParameterValues("drug");
+        return drugs == null
+                ? actualLabChartRef(demographicNo, labType, identifier, testName, chartTitle)
+                : actualLabChartRefPlusMeds(demographicNo, labType, identifier, testName, chartTitle, drugs);
+    }
+
     ArrayList<EctMeasurementsDataBean> getList(Integer demographicNo, String typeIdName) {
         EctMeasurementsDataBeanHandler ectMeasure = new EctMeasurementsDataBeanHandler(demographicNo, typeIdName);
-        Collection<EctMeasurementsDataBean> dataVector = ectMeasure.getMeasurementsDataVector();
-        ArrayList<EctMeasurementsDataBean> list = new ArrayList<EctMeasurementsDataBean>(dataVector);
-        return list;
+        return new ArrayList<>(ectMeasure.getMeasurementsDataVector());
     }
 
     static List<Map<String, Object>> getDrugDataSet(Integer demographicId, String[] dins) {
         List<Map<String, Object>> values = new ArrayList<>();
+        if (dins == null || dins.length == 0) {
+            return values;
+        }
         RxPrescriptionData prescriptData = new RxPrescriptionData();
-        if (dins != null) {
-            for (String din : dins) {
-                if (din == null) continue;
-                RxPrescriptionData.Prescription[] prescriptions = prescriptData.getPrescriptionScriptsByPatientRegionalIdentifier(demographicId, din);
-                if (prescriptions == null) continue;
-                for (RxPrescriptionData.Prescription prescription : prescriptions) {
-                    Date start = prescription.getRxDate() != null ? prescription.getRxDate() : prescription.getWrittenDate();
-                    if (start == null) throw new IllegalArgumentException("Prescription has no interval start date");
-                    Date end = prescription.getEndDate() != null ? prescription.getEndDate() : new Date();
-                    values.add(Map.of("name", Objects.toString(prescription.getBrandName(), "Medication"),
-                            "start", start.getTime(), "end", end.getTime()));
-                }
+        for (String din : dins) {
+            if (din != null) {
+                addPrescriptionIntervals(values, prescriptData.getPrescriptionScriptsByPatientRegionalIdentifier(demographicId, din));
             }
         }
         return values;
     }
 
-    private MeasurementChart referenceRangeChart(Integer demographicNo, String typeIdName, String typeIdName2, String patientName, String chartTitle) {
-        SeriesCollection dataset = new SeriesCollection();
-
-        ArrayList<EctMeasurementsDataBean> list = getList(demographicNo, typeIdName);
-        ArrayList<ReferenceRange> dataItems = new ArrayList<ReferenceRange>();
-
-        if (typeIdName.equals("BP")) {
-            log.debug("Using BP LOGIC FOR type 1 ");
-            EctMeasurementsDataBean sampleLine = list.get(0);
-            Series systolic = new Series("Systolic");
-            Series diastolic = new Series("Diastolic");
-            for (EctMeasurementsDataBean mdb : list) { // dataVector) {
-                String[] str = mdb.getDataField().split("/");
-
-                systolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[0]));
-                diastolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[1]));
-            }
-            dataset.addSeries(diastolic);
-            dataset.addSeries(systolic);
-
-
-        } else {
-            log.debug("Not Using BP LOGIC FOR type 1 ");
-            // get the name from the Series
-            EctMeasurementsDataBean sampleLine = list.get(0);
-            String typeLegendName = sampleLine.getTypeDisplayName();
-            Series newSeries = new Series(typeLegendName);
-            for (EctMeasurementsDataBean mdb : list) { //dataVector) {
-                String result = (String) mdb.getDataField();
-                if (StringUtils.isNotEmpty(result)) {
-                    result = result.replaceAll(NUMERIC_REGEX, "");
-                    if (NumberUtils.isParsable(result)) {
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                plottedValue(mdb.getType(), result));
-                    }
-                }
-                try {
-                    Hashtable h = getMeasurementsExt(mdb.getId());
-                    if (h != null && h.containsKey("minimum")) {
-                        String min = (String) h.get("minimum");
-                        String max = (String) h.get("maximum");
-                        double open = Double.parseDouble(min.trim());
-                        double high = Double.parseDouble(max.trim());
-                        double low = Double.parseDouble(min.trim());
-                        double close = Double.parseDouble(max.trim());
-                        double volume = 1045;
-                        dataItems.add(new ReferenceRange(mdb.getDateObservedAsDate(), low, high));
-                    }
-                } catch (Exception et) {
-                    MiscUtils.getLogger().error("Error", et);
-                }
-
-            }
-            dataset.addSeries(newSeries);
+    private static void addPrescriptionIntervals(List<Map<String, Object>> values, RxPrescriptionData.Prescription[] prescriptions) {
+        if (prescriptions == null) {
+            return;
         }
-
-        // The former chart was a high-low chart built from its "DREFERENCE RANGE" dataset, titled by a
-        // leftover demo string; kept as it was, since this change replaces the library, not the chart.
-        return MeasurementChart.highLow("HighLowChartDemo2", "Time", "Value", dataset, "DREFERENCE RANGE", dataItems);
+        for (RxPrescriptionData.Prescription prescription : prescriptions) {
+            Date start = prescription.getRxDate() != null ? prescription.getRxDate() : prescription.getWrittenDate();
+            if (start == null) {
+                throw new IllegalArgumentException("Prescription has no interval start date");
+            }
+            Date end = prescription.getEndDate() != null ? prescription.getEndDate() : new Date();
+            values.add(Map.of("name", Objects.toString(prescription.getBrandName(), "Medication"),
+                    "start", start.getTime(), "end", end.getTime()));
+        }
     }
 
-    MeasurementChart rxAndLabChart(Integer demographicNo, String typeIdName, String typeIdName2, String patientName, String chartTitle) {
-        SeriesCollection dataset = new SeriesCollection();
+    private MeasurementChart referenceRangeChart(Integer demographicNo, String typeIdName) {
+        List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
+        SeriesCollection dataset = measurementSeries(measurements, typeIdName);
+        // Preserve the legacy high-low chart's title and dataset order.
+        return MeasurementChart.highLow("HighLowChartDemo2", "Time", "Value", dataset,
+                "DREFERENCE RANGE", measurementReferenceRanges(measurements, typeIdName));
+    }
 
-        ArrayList<EctMeasurementsDataBean> list = getList(demographicNo, typeIdName);
-
-        String typeYAxisName = "";
-
-        if (typeIdName.equals("BP")) {
-            log.debug("Using BP LOGIC FOR type 1 ");
-            EctMeasurementsDataBean sampleLine = list.get(0);
-            typeYAxisName = sampleLine.getTypeDescription();
-            Series systolic = new Series("Systolic");
-            Series diastolic = new Series("Diastolic");
-            for (EctMeasurementsDataBean mdb : list) { // dataVector) {
-                String[] str = mdb.getDataField().split("/");
-
-                systolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[0]));
-                diastolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[1]));
-            }
-            dataset.addSeries(diastolic);
-            dataset.addSeries(systolic);
-
-
-        } else {
-            log.debug("Not Using BP LOGIC FOR type 1 ");
-            // get the name from the Series
-            EctMeasurementsDataBean sampleLine = list.get(0);
-            String typeLegendName = sampleLine.getTypeDisplayName();
-            typeYAxisName = sampleLine.getTypeDescription(); // this should be the type of measurement
-            Series newSeries = new Series(typeLegendName);
-            for (EctMeasurementsDataBean mdb : list) { //dataVector) {
-                String result = (String) mdb.getDataField();
-                if (StringUtils.isNotEmpty(result)) {
-                    result = result.replaceAll(NUMERIC_REGEX, "");
-                    if (NumberUtils.isParsable(result)) {
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                plottedValue(mdb.getType(), result));
-                    }
-                }
-            }
-            dataset.addSeries(newSeries);
-        }
-
-        // The former chart replaced its title with "MED + LAB CHART" when it combined the panels.
-        return MeasurementChart.lines("MED + LAB CHART", "Days", typeYAxisName, dataset)
-                .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.2).withPlotBackground("#ffffff")
-                .withShapes().withItemLabels("{1} \n {2}", "0.00", 8)
+    private MeasurementChart rxAndLabChart(Integer demographicNo, String typeIdName) {
+        List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
+        return MeasurementChart.lines("MED + LAB CHART", "Days", measurementUnits(measurements),
+                        measurementSeries(measurements, typeIdName))
+                .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.2).withPlotBackground(WHITE)
+                .withShapes().withItemLabels(VALUE_DATE_LABEL, "0.00", 8)
                 .withMedications(getDrugDataSet(demographicNo, request.getParameterValues("drug")));
     }
 
-
-    MeasurementChart labChart(Integer demographicNo, String typeIdName, String typeIdName2, String patientName, String chartTitle) {
-        SeriesCollection dataset = new SeriesCollection();
-        ArrayList<EctMeasurementsDataBean> list = getList(demographicNo, typeIdName);
-        String typeYAxisName = "";
-
-        if (typeIdName.equals("BP")) {
-            log.debug("Using BP LOGIC FOR type 1 ");
-            EctMeasurementsDataBean sampleLine = list.get(0);
-            typeYAxisName = sampleLine.getTypeDescription();
-            Series systolic = new Series("Systolic");
-            Series diastolic = new Series("Diastolic");
-            for (EctMeasurementsDataBean mdb : list) { // dataVector) {
-                String[] str = mdb.getDataField().split("/");
-
-                systolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[0]));
-                diastolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[1]));
-            }
-            dataset.addSeries(diastolic);
-            dataset.addSeries(systolic);
-        } else {
-            log.debug("Not Using BP LOGIC FOR type 1 ");
-            // get the name from the Series
-            EctMeasurementsDataBean sampleLine = list.get(0);
-            String typeLegendName = sampleLine.getTypeDisplayName();
-            typeYAxisName = sampleLine.getTypeDescription(); // this should be the type of measurement
-            Series newSeries = new Series(typeLegendName);
-            for (EctMeasurementsDataBean mdb : list) { //dataVector) {
-                String result = (String) mdb.getDataField();
-                if (StringUtils.isNotEmpty(result)) {
-                    result = result.replaceAll(NUMERIC_REGEX, "");
-                    if (NumberUtils.isParsable(result)) {
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                plottedValue(mdb.getType(), result));
-                    }
-                }
-            }
-            dataset.addSeries(newSeries);
-        }
-
-        return MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset)
-                .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground("#ffffff")
-                .withShapes().withItemLabels("{1} \n {2}", "0.00", 8);
+    private MeasurementChart labChart(Integer demographicNo, String typeIdName, String chartTitle) {
+        List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
+        return MeasurementChart.lines(chartTitle, "Days", measurementUnits(measurements),
+                        measurementSeries(measurements, typeIdName))
+                .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground(WHITE)
+                .withShapes().withItemLabels(VALUE_DATE_LABEL, "0.00", 8);
     }
 
-
-    MeasurementChart actualLabChartRef(Integer demographicNo, String labType, String identifier, String testName, String patientName, String chartTitle) throws ParseException {
-        SeriesCollection dataset = new SeriesCollection();
-
-        ArrayList<Map<String, Serializable>> list = CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
-
-        String typeYAxisName = "";
-        ArrayList<ReferenceRange> dataItems = new ArrayList<ReferenceRange>();
-
-
-        String typeLegendName = "Lab Value";
-        typeYAxisName = "type Y";
-
-        boolean nameSet = false;
-        Series newSeries = new Series(typeLegendName);
-        for (Map<String, Serializable> mdb : list) {
-            if (!nameSet) {
-                typeYAxisName = (String) mdb.get("units");
-                typeLegendName = (String) mdb.get("testName");
-                newSeries.setKey(typeLegendName);
-                nameSet = true;
-            }
-            String result = (String) mdb.get("result");
-            if (StringUtils.isNotEmpty(result)) {
-                result = result.replaceAll(NUMERIC_REGEX, "");
-                if (NumberUtils.isParsable(result)) {
-                    String collectionDate = (String) mdb.get("collDate");
-                    if (collectionDate != null) {
-                        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-                        Day regularTimePeriod = new Day(simpleDateFormat.parse(collectionDate));
-                        newSeries.addOrUpdate(regularTimePeriod, Double.parseDouble(result));
-                    }
-                }
-            }
-
-            if (mdb.get("range") != null) {
-                String range = (String) mdb.get("range");
-                if (range.indexOf("-") != -1) {
-                    String[] sp = range.split("-");
-                    String sp0 = sp[0].replaceAll("%", "").trim();
-                    String sp1 = sp[1].replaceAll("%", "").trim();
-                    double open = Double.parseDouble(sp0);
-                    double high = Double.parseDouble(sp1);
-                    double low = Double.parseDouble(sp0);
-                    double close = Double.parseDouble(sp1);
-                    double volume = 1045;
-                    String collectionDate = (String) mdb.get("collDate");
-                    if (collectionDate != null) {
-                        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-                        Day regularTimePeriod = new Day(simpleDateFormat.parse(collectionDate));
-                        dataItems.add(new ReferenceRange(regularTimePeriod.getStart(), low, high));
-                    }
-                }
-            }
-
-        }
-        dataset.addSeries(newSeries);
-
-        return MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset)
-                .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground("#ffffff").withGridlines("#c0c0c0")
-                .withShapes().withItemLabels(MeasurementChart.labItemLabels(newSeries.getItemCount()))
-                .withReferenceRanges("Normal Reference Range", dataItems);
+    private MeasurementChart labChartRef(Integer demographicNo, String typeIdName, String chartTitle) {
+        List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
+        return MeasurementChart.lines(chartTitle, "Days", measurementUnits(measurements),
+                        measurementSeries(measurements, typeIdName))
+                .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground(WHITE)
+                .withShapes().withItemLabels(VALUE_DATE_LABEL, "0.00", 12)
+                .withGreenReferenceRanges("Reference Range", measurementReferenceRanges(measurements, typeIdName));
     }
 
+    MeasurementChart defaultChart(Integer demographicNo, String typeIdName, String typeIdName2, String chartTitle) {
+        List<EctMeasurementsDataBean> measurements = getList(demographicNo, typeIdName);
+        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", measurementUnits(measurements),
+                measurementSeries(measurements, typeIdName));
+        if (typeIdName2 != null) {
+            List<EctMeasurementsDataBean> secondary = getList(demographicNo, typeIdName2);
+            // The legacy secondary axis is a single numeric series, including for a BP request.
+            chart.withSecondAxis(measurementUnits(secondary), numericMeasurementSeries(secondary));
+        }
+        return chart;
+    }
 
-    MeasurementChart actualLabChartRefPlusMeds(Integer demographicNo, String labType, String identifier, String testName, String patientName, String chartTitle, String[] drugs) throws ParseException {
+    private static String measurementUnits(List<EctMeasurementsDataBean> measurements) {
+        return measurements.isEmpty() ? "" : measurements.getFirst().getTypeDescription();
+    }
+
+    private static SeriesCollection measurementSeries(List<EctMeasurementsDataBean> measurements, String typeIdName) {
+        if (!"BP".equals(typeIdName)) {
+            return numericMeasurementSeries(measurements);
+        }
+        Series systolic = new Series(SYSTOLIC);
+        Series diastolic = new Series(DIASTOLIC);
+        for (EctMeasurementsDataBean measurement : measurements) {
+            if (StringUtils.isNotEmpty(measurement.getDataField())) {
+                String[] values = measurement.getDataField().split("/");
+                if (values.length != 2) {
+                    throw new IllegalArgumentException("Invalid blood pressure measurement");
+                }
+                Day day = new Day(measurement.getDateObservedAsDate().toInstant());
+                systolic.addOrUpdate(day, Double.parseDouble(values[0]));
+                diastolic.addOrUpdate(day, Double.parseDouble(values[1]));
+            }
+        }
         SeriesCollection dataset = new SeriesCollection();
+        dataset.addSeries(diastolic);
+        dataset.addSeries(systolic);
+        return dataset;
+    }
 
-
-        List<Map<String, Serializable>> list = new ArrayList<>();
-        boolean loincLab = "loinc".equals(labType);
-        MiscUtils.getLogger().debug("lab type >{}< >{}< {} {}",
-                LogSafe.sanitize(labType), loincLab, LogSafe.sanitize(testName), LogSafe.sanitize(identifier));
-        if (loincLab) {
-            try {
-                List<Map<String, Serializable>> loincValues =
-                        CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier);
-                if (loincValues != null) {
-                    list = loincValues;
-                }
-                MiscUtils.getLogger().debug("List ->{}", list.size());
-            } catch (Exception ed) {
-                MiscUtils.getLogger().error("Error", ed);
+    private static SeriesCollection numericMeasurementSeries(List<EctMeasurementsDataBean> measurements) {
+        SeriesCollection dataset = new SeriesCollection();
+        if (measurements.isEmpty()) {
+            return dataset;
+        }
+        Series series = new Series(measurements.getFirst().getTypeDisplayName());
+        for (EctMeasurementsDataBean measurement : measurements) {
+            String result = numericResult(measurement.getDataField());
+            if (result != null) {
+                series.addOrUpdate(new Day(measurement.getDateObservedAsDate().toInstant()), plottedValue(measurement.getType(), result));
             }
+        }
+        dataset.addSeries(series);
+        return dataset;
+    }
+
+    private static String numericResult(String result) {
+        if (StringUtils.isEmpty(result)) {
+            return null;
+        }
+        String numeric = result.replaceAll(NUMERIC_REGEX, "");
+        return NumberUtils.isParsable(numeric) ? numeric : null;
+    }
+
+    private List<ReferenceRange> measurementReferenceRanges(List<EctMeasurementsDataBean> measurements, String typeIdName) {
+        List<ReferenceRange> ranges = new ArrayList<>();
+        if ("BP".equals(typeIdName)) {
+            return ranges;
+        }
+        for (EctMeasurementsDataBean measurement : measurements) {
+            Map<String, String> extensions = getMeasurementsExt(measurement.getId());
+            String minimum = extensions.get("minimum");
+            String maximum = extensions.get("maximum");
+            if (minimum != null && maximum != null) {
+                ranges.add(new ReferenceRange(measurement.getDateObservedAsDate().toInstant(),
+                        Double.parseDouble(minimum.trim()), Double.parseDouble(maximum.trim())));
+            }
+        }
+        return ranges;
+    }
+
+    private MeasurementChart actualLabChartRef(Integer demographicNo, String labType, String identifier,
+                                               String testName, String chartTitle) throws ParseException {
+        List<Map<String, Serializable>> values = CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
+        return actualLabChart(values, null, chartTitle);
+    }
+
+    private MeasurementChart actualLabChartRefPlusMeds(Integer demographicNo, String labType, String identifier,
+                                                       String testName, String chartTitle, String[] drugs) throws ParseException {
+        List<Map<String, Serializable>> values;
+        if ("loinc".equals(labType)) {
+            values = CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier);
         } else {
-            ArrayList<Map<String, Serializable>> testValues =
-                    CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
-            if (testValues != null) {
-                list = testValues;
-            }
+            values = CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
         }
-        String typeYAxisName = "";
-        ArrayList<ReferenceRange> dataItems = new ArrayList<ReferenceRange>();
-
-
-        String typeLegendName = "Lab Value";
-        typeYAxisName = "type Y";
-
-        boolean nameSet = false;
-        Series newSeries = new Series(typeLegendName);
-        for (Map mdb : list) {
-            if (!nameSet) {
-                typeYAxisName = (String) mdb.get("units");
-                typeLegendName = (String) mdb.get("testName");
-                if (typeLegendName == null) {
-                    typeLegendName = testName;
-                }
-
-                newSeries.setKey(typeLegendName);
-                nameSet = true;
-            }
-            String result = (String) mdb.get("result");
-            if (StringUtils.isNotEmpty(result)) {
-                result = result.replaceAll(NUMERIC_REGEX, "");
-                if (NumberUtils.isParsable(result)) {
-                    String collectionDate = (String) mdb.get("collDate");
-                    if (collectionDate != null) {
-                        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-                        Day regularTimePeriod = new Day(simpleDateFormat.parse(collectionDate));
-                        newSeries.addOrUpdate(regularTimePeriod, Double.parseDouble(result));
-                    }
-                }
-            }
-
-
-            if (mdb.get("range") != null) {
-                String range = (String) mdb.get("range");
-                if (range.indexOf("-") != -1) {
-                    String[] sp = range.split("-");
-                    String sp0 = sp[0].replaceAll("%", "").trim();
-                    String sp1 = sp[1].replaceAll("%", "").trim();
-                    double open = Double.parseDouble(sp0);
-                    double high = Double.parseDouble(sp1);
-                    double low = Double.parseDouble(sp0);
-                    double close = Double.parseDouble(sp1);
-                    double volume = 1045;
-                    String collectionDate = (String) mdb.get("collDate");
-                    if (collectionDate != null) {
-                        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-                        Day regularTimePeriod = new Day(simpleDateFormat.parse(collectionDate));
-                        dataItems.add(new ReferenceRange(regularTimePeriod.getStart(), low, high));
-                    }
-                }
-            }
-
-        }
-        dataset.addSeries(newSeries);
-
-        return MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset)
-                .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground("#ffffff").withGridlines("#c0c0c0")
-                .withShapes().withItemLabels(MeasurementChart.labItemLabels(newSeries.getItemCount()))
-                .withReferenceRanges("Normal Reference Range", dataItems)
+        return actualLabChart(values, testName, chartTitle)
                 .withMedications(getDrugDataSet(demographicNo, drugs));
     }
 
-
-    MeasurementChart labChartRef(Integer demographicNo, String typeIdName, String typeIdName2, String patientName, String chartTitle) {
-        SeriesCollection dataset = new SeriesCollection();
-        ArrayList<EctMeasurementsDataBean> list = getList(demographicNo, typeIdName);
-        String typeYAxisName = "";
-        ArrayList<ReferenceRange> dataItems = new ArrayList<ReferenceRange>();
-        if (typeIdName.equals("BP")) {
-            log.debug("Using BP LOGIC FOR type 1 ");
-            EctMeasurementsDataBean sampleLine = list.get(0);
-            typeYAxisName = sampleLine.getTypeDescription();
-            Series systolic = new Series("Systolic");
-            Series diastolic = new Series("Diastolic");
-            for (EctMeasurementsDataBean mdb : list) { // dataVector) {
-                String[] str = mdb.getDataField().split("/");
-
-                systolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[0]));
-                diastolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[1]));
+    private static MeasurementChart actualLabChart(List<Map<String, Serializable>> values, String fallbackName,
+                                                   String chartTitle) throws ParseException {
+        String units = "type Y";
+        String name = "Lab Value";
+        if (!values.isEmpty()) {
+            units = (String) values.getFirst().get("units");
+            name = (String) values.getFirst().get("testName");
+            if (name == null) {
+                name = fallbackName;
             }
-            dataset.addSeries(diastolic);
-            dataset.addSeries(systolic);
-        } else {
-            log.debug("Not Using BP LOGIC FOR type 1 ");
-            // get the name from the Series
-            EctMeasurementsDataBean sampleLine = list.get(0);
-            String typeLegendName = sampleLine.getTypeDisplayName();
-            typeYAxisName = sampleLine.getTypeDescription(); // this should be the type of measurement
-            Series newSeries = new Series(typeLegendName);
-            for (EctMeasurementsDataBean mdb : list) { //dataVector) {
-                String result = (String) mdb.getDataField();
-                if (StringUtils.isNotEmpty(result)) {
-                    result = result.replaceAll(NUMERIC_REGEX, "");
-                    if (NumberUtils.isParsable(result)) {
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                plottedValue(mdb.getType(), result));
-                    }
-                }
-                try {
-                    Hashtable h = getMeasurementsExt(mdb.getId());
-                    if (h != null && h.containsKey("minimum")) {
-                        String min = (String) h.get("minimum");
-                        String max = (String) h.get("maximum");
-                        double open = Double.parseDouble(min.trim());
-                        double high = Double.parseDouble(max.trim());
-                        double low = Double.parseDouble(min.trim());
-                        double close = Double.parseDouble(max.trim());
-                        double volume = 1045;
-                        dataItems.add(new ReferenceRange(mdb.getDateObservedAsDate(), low, high));
-                    }
-                } catch (Exception et) {
-                    MiscUtils.getLogger().error("Error", et);
-                }
-            }
-            dataset.addSeries(newSeries);
         }
-
-
-        return MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset)
-                .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground("#ffffff")
-                .withShapes().withItemLabels("{1} \n {2}", "0.00", 12)
-                .withGreenReferenceRanges("Reference Range", dataItems);
+        Series series = new Series(name);
+        List<ReferenceRange> ranges = new ArrayList<>();
+        for (Map<String, Serializable> value : values) {
+            addLabValue(series, value);
+            addLabReferenceRange(ranges, value);
+        }
+        SeriesCollection dataset = new SeriesCollection();
+        dataset.addSeries(series);
+        return MeasurementChart.lines(chartTitle, "Days", units, dataset)
+                .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground(WHITE).withGridlines("#c0c0c0")
+                .withShapes().withItemLabels(MeasurementChart.labItemLabels(series.getItemCount()))
+                .withReferenceRanges("Normal Reference Range", ranges);
     }
 
-    MeasurementChart defaultChart(Integer demographicNo, String typeIdName,
-                            String typeIdName2, String patientName,
-                            String chartTitle) {
-        SeriesCollection dataset = new SeriesCollection();
-
-        ArrayList<EctMeasurementsDataBean> list = getList(demographicNo, typeIdName);
-        String typeYAxisName = "";
-
-        if (typeIdName.equals("BP")) {
-            log.debug("Using BP LOGIC FOR type 1 ");
-            EctMeasurementsDataBean sampleLine = list.get(0);
-            typeYAxisName = sampleLine.getTypeDescription();
-            Series systolic = new Series("Systolic");
-            Series diastolic = new Series("Diastolic");
-            for (EctMeasurementsDataBean mdb : list) { // dataVector) {
-                if (!mdb.getDataField().equals("")) {
-                    String[] str = mdb.getDataField().split("/");
-
-                    systolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[0]));
-                    diastolic.addOrUpdate(new Day(mdb.getDateObservedAsDate()), Double.parseDouble(str[1]));
-                } else {
-                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSafe.sanitize(String.valueOf(mdb.getId())));
-                }
-            }
-            dataset.addSeries(diastolic);
-            dataset.addSeries(systolic);
-
-        } else {
-            log.debug("Not Using BP LOGIC FOR type 1 ");
-            // get the name from the Series
-            EctMeasurementsDataBean sampleLine = list.get(0);
-            String typeLegendName = sampleLine.getTypeDisplayName();
-            typeYAxisName = sampleLine.getTypeDescription(); // this should be the type of measurement
-
-            Series newSeries = new Series(typeLegendName);
-            for (EctMeasurementsDataBean mdb : list) { //dataVector) {
-                String result = (String) mdb.getDataField();
-                if (StringUtils.isNotEmpty(result)) {
-                    result = result.replaceAll(NUMERIC_REGEX, "");
-                    if (NumberUtils.isParsable(result)) {
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                plottedValue(mdb.getType(), result));
-                    }
-                } else {
-                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSafe.sanitize(String.valueOf(mdb.getId())));
-                }
-            }
-            dataset.addSeries(newSeries);
+    private static void addLabValue(Series series, Map<String, Serializable> value) throws ParseException {
+        String result = numericResult((String) value.get("result"));
+        Day collectionDate = collectionDay(value);
+        if (result != null && collectionDate != null) {
+            series.addOrUpdate(collectionDate, Double.parseDouble(result));
         }
-
-        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", typeYAxisName, dataset);
-        if (typeIdName2 != null) {
-            log.debug("type id name 2: {}", LogSafe.sanitize(typeIdName2));
-
-            ArrayList<EctMeasurementsDataBean> list2 = getList(demographicNo, typeIdName2);
-            SeriesCollection dataset2 = new SeriesCollection();
-
-
-            EctMeasurementsDataBean sampleLine2 = list2.get(0);
-            String typeLegendName = sampleLine2.getTypeDisplayName();
-            String typeYAxisName2 = sampleLine2.getTypeDescription(); // this should be the type of measurement
-
-            Series newSeries = new Series(typeLegendName);
-            for (EctMeasurementsDataBean mdb : list2) { //dataVector) {
-                String result = (String) mdb.getDataField();
-                if (StringUtils.isNotEmpty(result)) {
-                    result = result.replaceAll(NUMERIC_REGEX, "");
-                    if (NumberUtils.isParsable(result)) {
-                        newSeries.addOrUpdate(new Day(mdb.getDateObservedAsDate()),
-                                plottedValue(mdb.getType(), result));
-                    }
-                } else {
-                    log.debug("Error passing measurement value to chart. DataField is empty for ID: {}", LogSafe.sanitize(String.valueOf(mdb.getId())));
-                }
-            }
-            dataset2.addSeries(newSeries);
-
-            chart.withSecondAxis(typeYAxisName2, dataset2);
-        }
-        return chart;
     }
 
-
-    /*
-     * Just Drugs
-     */
-    MeasurementChart ChartMeds(Integer demographicNo, String patientName, String chartTitle, String[] drugs) {
-        MiscUtils.getLogger().debug("In ChartMeds");
-        SeriesCollection dataset = new SeriesCollection();
-        MeasurementChart chart = MeasurementChart.lines(chartTitle, "Days", "MEDS", dataset);
-        chart.withMedications(getDrugDataSet(demographicNo, drugs));
-        return chart;
+    private static void addLabReferenceRange(List<ReferenceRange> ranges, Map<String, Serializable> value) throws ParseException {
+        String range = (String) value.get("range");
+        Day collectionDate = collectionDay(value);
+        if (range == null || !range.contains("-") || collectionDate == null) {
+            return;
+        }
+        String[] bounds = range.split("-");
+        if (bounds.length != 2) {
+            throw new IllegalArgumentException("Invalid laboratory reference range");
+        }
+        double low = Double.parseDouble(bounds[0].replace("%", "").trim());
+        double high = Double.parseDouble(bounds[1].replace("%", "").trim());
+        ranges.add(new ReferenceRange(collectionDate.getStart(), low, high));
     }
 
+    private static Day collectionDay(Map<String, Serializable> value) throws ParseException {
+        // CML and HL7 already supply a normalized Date; LOINC supplies its timestamp as text.
+        // Prefer the typed date because the provider's display date may use a different format.
+        Serializable normalized = value.get("collDateDate");
+        if (normalized instanceof Date observed) {
+            return new Day(observed.toInstant());
+        }
+        String collectionDate = (String) value.get("collDate");
+        if (collectionDate == null && normalized instanceof String observed) {
+            collectionDate = observed;
+        }
+        return collectionDate == null ? null
+                : new Day(new SimpleDateFormat("yyyy-MM-dd HH:mm").parse(collectionDate).toInstant());
+    }
 
-    private Hashtable getMeasurementsExt(Integer measurementId) {
-        Hashtable<String, String> hash = new Hashtable<String, String>();
+    private MeasurementChart chartMeds(Integer demographicNo, String chartTitle, String[] drugs) {
+        return MeasurementChart.lines(chartTitle, "Days", "MEDS", new SeriesCollection())
+                .withMedications(getDrugDataSet(demographicNo, drugs));
+    }
+
+    private Map<String, String> getMeasurementsExt(Integer measurementId) {
+        Map<String, String> values = new HashMap<>();
         if (measurementId != null) {
             MeasurementsExtDao dao = SpringUtils.getBean(MeasurementsExtDao.class);
-            MeasurementsExt m = dao.find(measurementId);
-            if (m != null) {
-                hash.put(m.getKeyVal(), m.getVal());
+            for (MeasurementsExt extension : dao.getMeasurementsExtByMeasurementId(measurementId)) {
+                values.put(extension.getKeyVal(), extension.getVal());
             }
         }
-        return hash;
+        return values;
     }
 
     /**

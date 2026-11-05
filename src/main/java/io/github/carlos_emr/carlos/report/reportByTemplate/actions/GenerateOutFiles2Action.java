@@ -62,7 +62,7 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GenerateOutFiles2Action extends ActionSupport {
-    private static final Pattern CANONICAL_DECIMAL = Pattern.compile("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?");
+    private static final Pattern CANONICAL_DECIMAL = Pattern.compile("-?(?:0|[1-9]\\d*+)(?:\\.\\d++)?");
     private final SecurityInfoManager securityInfoManager;
 
     HttpServletRequest request = ServletActionContext.getRequest();

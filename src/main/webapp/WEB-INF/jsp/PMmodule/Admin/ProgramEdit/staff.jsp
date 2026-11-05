@@ -99,7 +99,8 @@
 </table>
 </div>
 <!--  show current staff -->
-<table class="simple" cellspacing="2" cellpadding="3" id="provider" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<c:if test="${not empty providers}">
+<table class="carlos-table-spaced simple" id="provider" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 
@@ -150,6 +151,7 @@
     </td>
 </tr></c:forEach></tbody>
 </table>
+</c:if>
 <c:if test="${empty providers}"><p class="table-empty">No staff currently assigned to this program.</p></c:if>
 <br />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">

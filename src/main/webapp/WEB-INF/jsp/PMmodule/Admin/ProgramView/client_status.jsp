@@ -33,7 +33,7 @@
 </div>
 <!--  show current staff -->
 <c:if test="${not empty client_statuses}">
-<table class="simple" cellspacing="2" cellpadding="3" id="status" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<table class="carlos-table-spaced simple" id="status" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 

@@ -96,6 +96,13 @@ PNG/JPEG rendering with clinical series, reference bounds and medication interva
 checks default sorting, typed keys, paging, keyboard operation and row actions without form
 submission. The JSP profile compiles the actual application pages.
 
+Regression coverage also checks overlapping literal OOXML escape sequences, duplicate scatter
+observations, medication names with identical shortened labels, empty medication charts, and
+large constant measurement values. Reference ranges load both bounds by measurement ID, and
+lab-plus-medication charts accept the LOINC provider's collection-date field. Invalid range data
+or a failed chart draw produces an explicit error before image bytes are sent. Empty migrated
+tables retain their localized messages, including staff tables with nested team markup.
+
 The local managed environment blocks `commondatastorage.googleapis.com`, where the release's
 pinned Chromium snapshot is downloaded. Local browser/package validation therefore uses a
 matching Debian Chromium/driver pair through the supported `CHROMIUM_DIST` build input.

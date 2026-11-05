@@ -52,8 +52,6 @@ class BcBillingAdminPageLinksRegressionTest {
     private static final Path ADMIN_JSP = Path.of("src/main/webapp/WEB-INF/jsp/admin/admin.jsp");
     private static final Path BC_JSP_DIR = Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/BC");
     private static final Path STRUTS_BILLING = Path.of("src/main/webapp/WEB-INF/classes/struts-billing.xml");
-    private static final Path TABLE_WRAPPER =
-            Path.of("src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/BillCodesTableWrapper.java");
 
     private static final List<String> PAGES = List.of("billingCodeAdjust.jsp", "billingPrivateCodeAdjust.jsp",
             "billingAddCode.jsp", "billingAddPrivateCode.jsp", "billingEditCode.jsp", "billingManageReferralDoc.jsp",

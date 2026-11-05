@@ -1515,16 +1515,7 @@ public class EFormBrowserPdfService {
         AtomicBoolean abandoned = new AtomicBoolean();
         try {
             Future<RendererBrowser> pending = starter.submit(() -> {
-                RenderBrowser driver = new RenderBrowser(serviceUri, options.asMap());
-                RendererBrowser browser;
-                try {
-                    browser = new RendererBrowser(driver, serviceUri, driver.getSessionId());
-                } catch (RuntimeException e) {
-                    // The session exists but we cannot describe it (e.g. a null session id). Quit it
-                    // here: nothing downstream will ever see a handle to it.
-                    quitQuietly(driver);
-                    throw e;
-                }
+                RendererBrowser browser = openRendererBrowser(serviceUri, options);
                 created.set(browser);
                 if (abandoned.get()) {
                     // The caller timed out between the session being created and it being
@@ -1584,6 +1575,19 @@ public class EFormBrowserPdfService {
             }
         } finally {
             starter.shutdown();
+        }
+    }
+
+    // Successful construction transfers the browser to RendererBrowser; teardownQuietly owns its
+    // cleanup after rendering. A try-with-resources here would close that returned session too early.
+    @SuppressWarnings("java:S2093")
+    private RendererBrowser openRendererBrowser(URI serviceUri, BrowserOptions options) {
+        RenderBrowser driver = new RenderBrowser(serviceUri, options.asMap());
+        try {
+            return new RendererBrowser(driver, serviceUri, driver.getSessionId());
+        } catch (RuntimeException failure) {
+            quitQuietly(driver);
+            throw failure;
         }
     }
 
@@ -2105,40 +2109,8 @@ public class EFormBrowserPdfService {
         // Document 200 from standing in for a missing/failed main-document response.
         Integer mainDocumentStatus = latchedMainStatus != null ? latchedMainStatus : scan.mainDocumentStatus();
 
-        int severeConsoleEntries = 0;
-        // Dedupe on the RAW message BEFORE describeConsoleError: a form erroring in a
-        // rAF/interval loop emits thousands of identical entries per render, and describing
-        // each one pays URL-redaction regex work on the hot render path while the description
-        // dedupe below keeps the list too small for the cap guard to short-circuit. Distinct
-        // raws mapping to one description are still collapsed by the contains() check.
-        java.util.Set<String> describedRawMessages = new java.util.HashSet<>();
-        try {
-            for (LogEntry entry : driver.logs("browser")) {
-                if (entry.getLevel().intValue() >= Level.SEVERE.intValue()
-                        && !isResourceLoadConsoleEntry(entry.getMessage(), scan.duplicateScriptFailureUrls())
-                        && !isPolicyContainmentConsoleEntry(entry.getMessage())) {
-                    severeConsoleEntries++;
-                    if (severeConsoleDetailsOut != null && severeConsoleDetailsOut.size() < MAX_CONSOLE_DETAILS
-                            && describedRawMessages.add(entry.getMessage())) {
-                        // De-duplicated, matching the fax-packet aggregation: the COUNT
-                        // (severeConsoleEntries, unbounded) still reports every occurrence.
-                        String consoleErrorDescription = describeConsoleError(entry.getMessage());
-                        if (!severeConsoleDetailsOut.contains(consoleErrorDescription)) {
-                            severeConsoleDetailsOut.add(consoleErrorDescription);
-                        }
-                    }
-                }
-            }
-        } catch (RuntimeException e) {
-            // Fail closed: we explicitly enable BROWSER logging in goog:loggingPrefs, so retrieval
-            // failing is a WebDriver fault, not a capability gap — and a silently-empty console
-            // gate was the only defense against faxing a form whose background never painted.
-            // Redacted (no raw WebDriver throwable — it can embed the render URL/token).
-            logger.error("Browser console log unavailable for eForm render gate: fdid={} type={} error={}",
-                    fdid, e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
-            throw new PDFGenerationException(
-                    "Browser rendering could not verify the page's console error state.");
-        }
+        int severeConsoleEntries = collectSevereConsoleErrors(driver, scan.duplicateScriptFailureUrls(),
+                severeConsoleDetailsOut, fdid);
 
         if (scan.parseFailures() > 0) {
             // Same philosophy as the drain-fault gate in drainPerformanceLog: an unparseable
@@ -2198,6 +2170,48 @@ public class EFormBrowserPdfService {
         // legacy corpus, so leaving this advisory meant shipping a silently truncated document.
         return new EFormRenderCompletenessReport(
                 scan.failedCriticalSubresources(), 0, severeConsoleEntries, 0, false, false, false, false);
+    }
+
+    private int collectSevereConsoleErrors(RenderBrowser driver, java.util.Set<String> duplicateScriptFailureUrls,
+            List<String> severeConsoleDetailsOut, int fdid) throws PDFGenerationException {
+        int severeConsoleEntries = 0;
+        // Dedupe on the RAW message BEFORE describeConsoleError: a form erroring in a
+        // rAF/interval loop emits thousands of identical entries per render, and describing
+        // each one pays URL-redaction regex work on the hot render path while the description
+        // dedupe below keeps the list too small for the cap guard to short-circuit. Distinct
+        // raws mapping to one description are still collapsed by the contains() check.
+        java.util.Set<String> describedRawMessages = new java.util.HashSet<>();
+        try {
+            for (LogEntry entry : driver.logs("browser")) {
+                if (entry.getLevel().intValue() >= Level.SEVERE.intValue()
+                        && !isResourceLoadConsoleEntry(entry.getMessage(), duplicateScriptFailureUrls)
+                        && !isPolicyContainmentConsoleEntry(entry.getMessage())) {
+                    severeConsoleEntries++;
+                    appendConsoleErrorDetail(entry.getMessage(), severeConsoleDetailsOut, describedRawMessages);
+                }
+            }
+        } catch (RuntimeException e) {
+            // Fail closed: we explicitly enable BROWSER logging in goog:loggingPrefs, so retrieval
+            // failing is a WebDriver fault, not a capability gap — and a silently-empty console
+            // gate was the only defense against faxing a form whose background never painted.
+            // Redacted (no raw WebDriver throwable — it can embed the render URL/token).
+            logger.error("Browser console log unavailable for eForm render gate: fdid={} type={} error={}",
+                    fdid, e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
+            throw new PDFGenerationException(
+                    "Browser rendering could not verify the page's console error state.");
+        }
+        return severeConsoleEntries;
+    }
+
+    private void appendConsoleErrorDetail(String message, List<String> details, java.util.Set<String> describedMessages) {
+        if (details == null || details.size() >= MAX_CONSOLE_DETAILS || !describedMessages.add(message)) {
+            return;
+        }
+        // De-duplicated, matching fax-packet aggregation; the caller still counts every occurrence.
+        String description = describeConsoleError(message);
+        if (!details.contains(description)) {
+            details.add(description);
+        }
     }
 
     /**

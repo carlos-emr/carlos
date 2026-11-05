@@ -7,7 +7,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Date;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import javax.imageio.ImageIO;
@@ -31,18 +31,18 @@ class MeasurementChartSmokeIntegrationTest {
         when(properties.getProperty("eform_pdf_browser_service_url", "http://127.0.0.1:9515")).thenReturn(endpoint);
         when(properties.getProperty("eform_pdf_browser_chromium_path")).thenReturn(binary);
         var series = new MeasurementChart.Series("Synthetic measurement");
-        series.addOrUpdate(new MeasurementChart.Day(new Date(1_700_000_000_000L)), 61);
-        series.addOrUpdate(new MeasurementChart.Day(new Date(1_700_086_400_000L)), 63);
+        series.addOrUpdate(new MeasurementChart.Day(Instant.ofEpochMilli(1_700_000_000_000L)), 61);
+        series.addOrUpdate(new MeasurementChart.Day(Instant.ofEpochMilli(1_700_086_400_000L)), 63);
         var collection = new MeasurementChart.SeriesCollection();
         collection.addSeries(series);
         var secondary = new MeasurementChart.Series("Synthetic temperature");
-        secondary.addOrUpdate(new MeasurementChart.Day(new Date(1_700_000_000_000L)), 36.5);
-        secondary.addOrUpdate(new MeasurementChart.Day(new Date(1_700_086_400_000L)), 37.2);
+        secondary.addOrUpdate(new MeasurementChart.Day(Instant.ofEpochMilli(1_700_000_000_000L)), 36.5);
+        secondary.addOrUpdate(new MeasurementChart.Day(Instant.ofEpochMilli(1_700_086_400_000L)), 37.2);
         var secondaryCollection = new MeasurementChart.SeriesCollection();
         secondaryCollection.addSeries(secondary);
         MeasurementChart chart = MeasurementChart.lines("Synthetic chart", "Days", "kg", collection)
                 .withSecondAxis("C", secondaryCollection)
-                .withGreenReferenceRanges("Reference Range", List.of(new MeasurementChart.ReferenceRange(new Date(1_700_000_000_000L), 55, 70)))
+                .withGreenReferenceRanges("Reference Range", List.of(new MeasurementChart.ReferenceRange(Instant.ofEpochMilli(1_700_000_000_000L), 55, 70)))
                 .withMedications(List.of(Map.of("name", "Synthetic medication", "start", 1_699_900_000_000L, "end", 1_700_100_000_000L)));
         Path project = projectRoot();
         var context = new MockServletContext(project.resolve("src/main/webapp").toUri().toString(), new FileSystemResourceLoader());
@@ -57,8 +57,8 @@ class MeasurementChartSmokeIntegrationTest {
                 assertThat(image).isNotNull();
                 assertThat(image.getWidth()).isEqualTo(1000);
                 assertThat(image.getHeight()).isEqualTo(600);
-                // The series is JFreeChart's one pixel #ff5555 line and the range its one pixel green bar;
-                // JPEG compression smears both into the gray plot, so count by hue difference, not saturation.
+                // Count pixels by relative colour strength so JPEG compression does not hide the
+                // thin red measurement line or the thin green reference range against the gray plot.
                 int seriesPixels = 0, referencePixels = 0, medicationPixels = 0;
                 for (int x = 40; x < 980; x++) for (int y = 80; y < 580; y++) {
                     int rgb = image.getRGB(x, y);

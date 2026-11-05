@@ -1,6 +1,11 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 (() => {
     'use strict';
+    function value(row, column) {
+        const cell = row.cells[column];
+        return {key: cell ? (cell.dataset.sortValue ?? cell.textContent).trim() : '',
+            type: cell?.dataset.sortType ?? 'text'};
+    }
     function initialize(table) {
         if (table.dataset.tableReady) return;
         const body = table.tBodies[0];
@@ -85,11 +90,6 @@
                 pageButtons.find(button => Number(button.dataset.page) === page)?.focus();
             }
         }
-        function value(row, column) {
-            const cell = row.cells[column];
-            return {key: cell ? (cell.dataset.sortValue ?? cell.textContent).trim() : '',
-                type: cell?.dataset.sortType ?? 'text'};
-        }
         function compare(left, right) {
             const type = left.type === right.type ? left.type : 'text';
             left = left.key;
@@ -99,7 +99,8 @@
             if (!right) return 1;
             if (type === 'number' && /^-?\d+$/.test(left) && /^-?\d+$/.test(right)) {
                 const a = BigInt(left), b = BigInt(right);
-                return a < b ? -1 : a > b ? 1 : 0;
+                if (a === b) return 0;
+                return a < b ? -1 : 1;
             }
             if (type === 'number' || type === 'date') {
                 return Number(left) - Number(right);

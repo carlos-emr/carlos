@@ -46,7 +46,7 @@
     <body>
 
     <c:if test="${not empty programSignatures}">
-    <table cellspacing="2" cellpadding="9" id="ps" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+    <table class="carlos-table-history" id="ps" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
         <th scope="col"><span data-table-sort>Provider Name</span></th>

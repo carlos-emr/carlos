@@ -52,3 +52,17 @@ test('xlsxCells decodes the OOXML _xHHHH_ escapes Excel decodes, and _x005F_ as 
 test('xlsxRows still returns the same cells as strings', () => {
   assert.deepEqual(x.xlsxRows(WORKBOOK)[1], ['00123', '1234.5', 'a & b', 'line1\r\nline2 _x0041_ kept']);
 });
+
+test('xlsx readers preserve overlapping literal OOXML escape tokens', () => {
+  const workbook = zip({
+    'xl/workbook.xml': '<workbook/>',
+    'xl/worksheets/sheet1.xml': '<worksheet><sheetData><row r="1">'
+      + '<c r="A1" t="inlineStr"><is><t>_x005F_x005F_x005F_x0041_</t></is></c>'
+      + '<c r="B1" t="inlineStr"><is><t>_x005F_x0041_x005F_x0042_</t></is></c>'
+      + '</row></sheetData></worksheet>',
+  });
+  assert.deepEqual(x.xlsxRows(workbook)[0], ['_x005F_x0041_', '_x0041_x0042_']);
+  assert.deepEqual(x.xlsxCells(workbook)[0], [
+    { type: 'text', value: '_x005F_x0041_' }, { type: 'text', value: '_x0041_x0042_' },
+  ]);
+});

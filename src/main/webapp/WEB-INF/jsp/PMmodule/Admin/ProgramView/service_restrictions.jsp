@@ -32,7 +32,7 @@
 </table>
 </div>
 <c:if test="${not empty service_restrictions}">
-<table class="simple" cellspacing="2" cellpadding="3" id="restriction" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<table class="carlos-table-spaced simple" id="restriction" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 

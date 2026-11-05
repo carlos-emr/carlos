@@ -42,6 +42,21 @@ class SpreadsheetExportUnitTest {
     }
 
     @Test
+    void shouldPreserveOverlappingExcelEscapeTokens_whenWritingLiteralText() throws Exception {
+        Object[][] values = {{"_x005F_x0041_", "_x0041_x0042_", "_x000D__x005F_",
+                "_x005F_x005F_x005F_", "before_x0041_x0042_after"}};
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        SpreadsheetExport.write(output, values);
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(output.toByteArray()))) {
+            var row = workbook.getSheet("OSCAR_Report").getRow(0);
+            for (int column = 0; column < values[0].length; column++) {
+                assertThat(row.getCell(column).getCellType()).isEqualTo(CellType.STRING);
+                assertThat(row.getCell(column).getStringCellValue()).isEqualTo(values[0][column]);
+            }
+        }
+    }
+
+    @Test
     void shouldRejectUnsupportedCellTypes_beforeWritingTheResponse() {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> SpreadsheetExport.write(output, new Object[][]{{42}}))

@@ -8,6 +8,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -18,12 +19,18 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+import org.mockito.MockedConstruction;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -77,11 +84,32 @@ class BrowserChartRendererUnitTest {
     }
 
     @Test
+    void shouldRejectEmptyChart_andReleaseSession() throws Exception {
+        RenderBrowser driver = mock(RenderBrowser.class);
+        when(driver.executeScript(eq("return window.carlosDrawChart(arguments[0], arguments[1], arguments[2]).length > 0;"),
+                any(), eq(100), eq(100))).thenReturn(false);
+        EFormBrowserPdfService.RendererBrowser session = new EFormBrowserPdfService.RendererBrowser(
+                driver, URI.create("http://127.0.0.1:9515"), "synthetic-session");
+        int permits = EFormBrowserPdfService.RENDER_SLOTS.availablePermits();
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (MockedConstruction<EFormBrowserPdfService> services = mockConstruction(EFormBrowserPdfService.class,
+                (service, ignored) -> when(service.createDriver(any())).thenReturn(session))) {
+            assertThatThrownBy(() -> BrowserChartRenderer.write(context, output, chart(), 100, 100, "png"))
+                    .isInstanceOf(IOException.class).hasMessage("Chart image is unavailable");
+        }
+        assertThat(output.size()).as("a blank screenshot must never be emitted as a successful chart").isZero();
+        verify(driver, never()).executeCdpCommand(anyString(), any());
+        verify(driver).quit();
+        assertThat(EFormBrowserPdfService.RENDER_SLOTS.availablePermits()).isEqualTo(permits);
+    }
+
+    @Test
     void shouldQueueForRenderSlot_whileSlotsAreBusy() throws Exception {
         int permits = EFormBrowserPdfService.RENDER_SLOTS.drainPermits();
         List<Thread> waiters = new ArrayList<>();
         List<String> outcomes = java.util.Collections.synchronizedList(new ArrayList<>());
         CountDownLatch started = new CountDownLatch(6);
+        CountDownLatch completed = new CountDownLatch(1);
         try {
             for (int i = 0; i < 6; i++) {
                 Thread thread = new Thread(() -> {
@@ -91,13 +119,16 @@ class BrowserChartRendererUnitTest {
                         outcomes.add("rendered");
                     } catch (IOException failure) {
                         outcomes.add(failure.getMessage());
+                    } finally {
+                        completed.countDown();
                     }
                 });
                 waiters.add(thread);
                 thread.start();
             }
             assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
-            Thread.sleep(500);
+            assertThat(completed.await(500, TimeUnit.MILLISECONDS))
+                    .as("no render completes before a slot is released").isFalse();
             assertThat(outcomes).as("no chart request fails fast while slots are merely busy").isEmpty();
         } finally {
             EFormBrowserPdfService.RENDER_SLOTS.release(permits);

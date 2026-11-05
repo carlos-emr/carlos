@@ -41,6 +41,9 @@ function isBold(javaFont) {
 }
 
 async function draw(page, input, width, height) {
+    // Only checked-in synthetic chart fixtures and numeric dimensions enter this literal callback.
+    // Arguments are structured-cloned data; the callback neither evaluates strings nor makes requests.
+    // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection
     return page.evaluate(([input, width, height]) => {
         const charts = window.carlosDrawChart(input, width, height);
         const scale = s => s && ({ min: s.min, max: s.max, ticks: s.ticks.map(t => ({ value: t.value, label: String(t.label ?? '') })),
@@ -69,6 +72,8 @@ async function draw(page, input, width, height) {
 }
 
 async function pixelAt(page, chartIndex, x, y) {
+    // Numeric canvas coordinates come from this test's own rendered chart; no URL or code is constructed.
+    // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection
     return page.evaluate(([chartIndex, x, y]) => {
         const canvas = document.querySelectorAll('canvas')[chartIndex];
         const d = canvas.getContext('2d').getImageData(Math.round(x), Math.round(y), 1, 1).data;
@@ -167,7 +172,7 @@ function checkFixture(fixture, result) {
         if (labelled.length) {
             const first = labelled[0];
             assert.ok(chart.itemLabels && chart.itemLabels.length > 0, `${name}: item labels drawn`);
-            assert.equal(chart.itemLabels[0].text, first.itemLabel0.replace('\n', ''), `${name}: first item label`);
+            assert.equal(chart.itemLabels[0].text, first.itemLabel0.replaceAll('\n', ''), `${name}: first item label`);
             assert.equal(chart.itemLabels[0].fontSize, fontSize(first.itemLabelFont), `${name}: item label size`);
         } else {
             assert.ok(!chart.itemLabels || chart.itemLabels.length === 0, `${name}: no item labels`);
@@ -227,6 +232,37 @@ async function main() {
             data: [{ x: t0, y: 61 }, { x: t0 + 3 * 3_600_000, y: 63 }] }], timeZone: 'UTC' };
         const sameDay = await draw(page, hourly, 1000, 600);
         assert.ok(sameDay.charts[0].x.ticks.some(t => /\d{2}:\d{2}/.test(t.label)), `a same-day series shows times on its date axis: ${sameDay.charts[0].x.ticks.map(t => t.label)}`);
+
+        // Distinct full names can share the shortened axis label. Every repeat prescription must
+        // stay on its own medication's row, independently of its position in the input array.
+        const firstName = 'Synthetic medication with shared prefix A';
+        const secondName = 'Synthetic medication with shared prefix B';
+        const intervals = [firstName, firstName, secondName].map((name, index) => ({
+            name, start: t0 + index * 2 * 86_400_000, end: t0 + (index * 2 + 1) * 86_400_000,
+        }));
+        const repeated = await draw(page, { ...thirteen.input, medications: intervals }, 1000, 600);
+        const repeatedBars = repeated.charts[0].datasets[0].bars;
+        assert.equal(repeatedBars[0].y, repeatedBars[1].y, 'repeat prescriptions remain on the same medication row');
+        assert.notEqual(repeatedBars[1].y, repeatedBars[2].y, 'distinct names with the same shortened label retain separate rows');
+        assert.deepEqual(repeated.charts[0].legend.map(item => item.label), [firstName, secondName]);
+
+        // A valid request with no matching prescriptions still returns a readable empty chart.
+        const empty = await draw(page, { ...thirteen.input, medications: [] }, 1000, 600);
+        assert.equal(empty.canvases.length, 1, 'an empty medication request renders a chart');
+        assert.equal(empty.charts[0].title.text, thirteen.input.title);
+        assert.ok(empty.charts[0].x && empty.charts[0].y, 'empty charts retain their axes');
+        assert.deepEqual(empty.charts[0].datasets, []);
+
+        // The fixed 1e-8 range expansion previously rounded away at this magnitude and left an
+        // infinite tick loop. A wide range must also choose units beyond the former 5e12 ceiling.
+        for (const values of [[100_000_000], [0, 1e20], [1e308]]) {
+            const input = { ...hourly, datasets: [{ ...hourly.datasets[0], data: values.map((y, index) => ({ x: t0 + index * 86_400_000, y })) }] };
+            const large = await draw(page, input, 1000, 600);
+            const axis = large.charts[0].y;
+            assert.ok(Number.isFinite(axis.min) && Number.isFinite(axis.max) && axis.max > axis.min, 'large values retain a finite nonzero axis range');
+            assert.ok(axis.ticks.length > 0 && axis.ticks.length <= 1000, 'large values render a bounded number of ticks');
+            assert.equal(new Set(axis.ticks.map(tick => tick.value)).size, axis.ticks.length, 'tick coordinates do not collapse at large magnitudes');
+        }
         assert.deepEqual(errors, []);
         console.log(`PASS: ${names.length} JFreeChart fixtures matched (ranges, ticks, labels, colours, fonts, legend, bars with shadows, item labels, reference ranges)`);
     } finally {

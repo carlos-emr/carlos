@@ -14,7 +14,7 @@ import javax.xml.stream.XMLStreamWriter;
 public final class SpreadsheetExport {
     public static final String CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     private static final String NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-    private static final java.util.regex.Pattern EXCEL_ESCAPE = java.util.regex.Pattern.compile("_x([0-9a-fA-F]{4})_");
+    private static final java.util.regex.Pattern EXCEL_ESCAPE = java.util.regex.Pattern.compile("_(?=x[0-9a-fA-F]{4}_)");
     private SpreadsheetExport() { }
 
     /** Writes one sheet; the caller owns the response stream. Cells are Strings or finite Doubles. */
@@ -67,8 +67,8 @@ public final class SpreadsheetExport {
                       <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
                     </Relationships>""");
             zip.putNextEntry(new ZipEntry("xl/worksheets/sheet1.xml"));
-            XMLStreamWriter xml = XMLOutputFactory.newFactory().createXMLStreamWriter(zip, "UTF-8");
-            xml.writeStartDocument("UTF-8", "1.0");
+            XMLStreamWriter xml = XMLOutputFactory.newFactory().createXMLStreamWriter(zip, StandardCharsets.UTF_8.name());
+            xml.writeStartDocument(StandardCharsets.UTF_8.name(), "1.0");
             xml.writeStartElement("worksheet");
             xml.writeDefaultNamespace(NS);
             if (headers != null) {
@@ -125,9 +125,9 @@ public final class SpreadsheetExport {
 
     private static void workbook(ZipOutputStream zip, String sheetName) throws IOException, XMLStreamException {
         zip.putNextEntry(new ZipEntry("xl/workbook.xml"));
-        XMLStreamWriter xml = XMLOutputFactory.newFactory().createXMLStreamWriter(zip, "UTF-8");
+        XMLStreamWriter xml = XMLOutputFactory.newFactory().createXMLStreamWriter(zip, StandardCharsets.UTF_8.name());
         String relationships = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-        xml.writeStartDocument("UTF-8", "1.0");
+        xml.writeStartDocument(StandardCharsets.UTF_8.name(), "1.0");
         xml.writeStartElement("workbook");
         xml.writeDefaultNamespace(NS);
         xml.writeNamespace("r", relationships);
@@ -183,18 +183,19 @@ public final class SpreadsheetExport {
 
     private static String escapeExcelText(String text) {
         // OOXML encodes XML-forbidden code units as _xHHHH_. Escape literal occurrences first.
-        String literal = EXCEL_ESCAPE.matcher(text).replaceAll("_x005F_x$1_");
+        // Match only the opening underscore so overlapping escapes such as _x0041_x0042_
+        // both remain literal instead of allowing the second token to decode as a character.
+        String literal = EXCEL_ESCAPE.matcher(text).replaceAll("_x005F_");
         StringBuilder result = new StringBuilder();
-        for (int i = 0; i < literal.length(); i++) {
-            char ch = literal.charAt(i);
-            if (Character.isHighSurrogate(ch) && i + 1 < literal.length()
-                    && Character.isLowSurrogate(literal.charAt(i + 1))) {
-                result.append(ch).append(literal.charAt(++i));
-            } else if (Character.isSurrogate(ch) || (ch < 0x20 && ch != '\t' && ch != '\n')
-                    || ch == 0xfffe || ch == 0xffff) {
-                result.append(String.format(java.util.Locale.ROOT, "_x%04X_", (int) ch));
-            } else result.append(ch);
-        }
+        literal.codePoints().forEach(codePoint -> {
+            if ((codePoint >= Character.MIN_SURROGATE && codePoint <= Character.MAX_SURROGATE)
+                    || (codePoint < 0x20 && codePoint != '\t' && codePoint != '\n')
+                    || codePoint == 0xfffe || codePoint == 0xffff) {
+                result.append(String.format(java.util.Locale.ROOT, "_x%04X_", codePoint));
+            } else {
+                result.appendCodePoint(codePoint);
+            }
+        });
         return result.toString();
     }
 }

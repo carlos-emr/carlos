@@ -30,6 +30,7 @@ class JstlTableEmptyStateJspRegressionTest {
 
     private static final Path JSP_ROOT = Path.of("src/main/webapp/WEB-INF/jsp");
     private static final Pattern EMPTY_GUARD = Pattern.compile("<c:if test=\"\\$\\{empty ([A-Za-z_][\\w.]*)\\}\">\\s*<p class=\"table-empty\"");
+    private static final Pattern CARLOS_TABLE = Pattern.compile("<table\\b[^>]*\\bdata-carlos-table\\b[^>]*>");
 
     @Test
     @DisplayName("should hide the table, header included, when its list is empty")
@@ -42,8 +43,12 @@ class JstlTableEmptyStateJspRegressionTest {
                 while (guard.find()) {
                     String attribute = guard.group(1);
                     String before = page.substring(0, guard.start());
-                    int table = before.lastIndexOf("<table");
-                    if (table < 0 || !before.substring(table).contains("data-carlos-table")) continue;
+                    // A cell can contain a nested layout table (for example, staff teams).
+                    // Find the migrated table itself so nested markup cannot bypass this check.
+                    Matcher tables = CARLOS_TABLE.matcher(before);
+                    int table = -1;
+                    while (tables.find()) table = tables.start();
+                    if (table < 0) continue;
                     if (!before.substring(0, table).contains("<c:if test=\"${not empty " + attribute + "}\">")) {
                         problems.add(path + " renders its table header before the empty message for " + attribute);
                     }

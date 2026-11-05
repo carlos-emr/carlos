@@ -59,7 +59,7 @@ function add_team(form) {
 </div>
 <!--  show current staff -->
 <c:if test="${not empty teams}">
-<table class="simple" cellspacing="2" cellpadding="3" id="team" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<table class="carlos-table-spaced simple" id="team" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 

@@ -174,9 +174,9 @@ class GraphMeasurementRequestIsolationUnitTest extends CarlosUnitTestBase {
             MeasurementGraphAction22Action action = new MeasurementGraphAction22Action() {
                 @Override
                 MeasurementChart defaultChart(Integer patient, String firstType, String secondType,
-                                        String patientName, String chartTitle) {
+                                        String chartTitle) {
                     assertThat(patient).isEqualTo(101);
-                    assertThat(patientName).isEqualTo("Allowed patient");
+                    assertThat(chartTitle).isEqualTo("Data Graph for Allowed patient");
                     return graph;
                 }
             };

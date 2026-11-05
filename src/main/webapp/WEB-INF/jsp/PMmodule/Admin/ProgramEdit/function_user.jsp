@@ -75,7 +75,7 @@
 <input type="hidden" name="function.id" id="function.id" value="${carlos:forHtmlAttribute(function.id)}"/>
 <input type="hidden" name="function.providerNo" id="function.providerNo" value="${carlos:forHtmlAttribute(function.providerNo)}"/>
 <c:if test="${not empty functional_users}">
-<table class="simple" cellspacing="2" cellpadding="3" id="functional" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<table class="carlos-table-spaced simple" id="functional" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
 

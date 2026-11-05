@@ -1,9 +1,9 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +18,13 @@ import java.util.TreeMap;
  * what JFreeChart drew for the same descriptions.
  */
 public final class MeasurementChart {
+    private static final String PLOT_BACKGROUND = "plotBackground";
+    private static final String DOMAIN_MARGINS = "domainMargins";
+    private static final String RANGE_MARGINS = "rangeMargins";
+    private static final String RANGE_INCLUDES_ZERO = "rangeIncludesZero";
+    private static final String ITEM_LABELS = "itemLabels";
+    private static final String FONT_SIZE = "fontSize";
+    private static final String FORMAT = "format";
     /** The start of JFreeChart's default series paint sequence; the renderer holds the full sequence. */
     static final String[] PAINT_SEQUENCE = {"#ff5555", "#5555ff", "#55ff55", "#ffff55", "#ff55ff", "#55ffff"};
     static final String FIRST_SERIES_PAINT = PAINT_SEQUENCE[0];
@@ -36,14 +43,14 @@ public final class MeasurementChart {
         this.title = title; this.xLabel = xLabel; this.yLabel = yLabel;
         // ChartFactory's "JFree" theme: a light gray plot with white dashed gridlines.
         style.put("theme", "jfree");
-        style.put("plotBackground", "#c0c0c0");
+        style.put(PLOT_BACKGROUND, "#c0c0c0");
         style.put("gridlines", "#ffffff");
-        style.put("domainMargins", List.of(0.02, 0.02));
-        style.put("rangeMargins", List.of(0.05, 0.05));
-        style.put("rangeIncludesZero", false);
+        style.put(DOMAIN_MARGINS, List.of(0.02, 0.02));
+        style.put(RANGE_MARGINS, List.of(0.05, 0.05));
+        style.put(RANGE_INCLUDES_ZERO, false);
         style.put("domainIncludesZero", false);
         style.put("rangeAxisPaint", null);
-        style.put("itemLabels", null);
+        style.put(ITEM_LABELS, null);
     }
 
     /** {@code ChartFactory.createTimeSeriesChart}: 2% date margins, a value axis that need not include zero, lines only. */
@@ -62,10 +69,10 @@ public final class MeasurementChart {
     static MeasurementChart highLow(String title, String xLabel, String yLabel, SeriesCollection series,
                                     String rangesLabel, List<ReferenceRange> ranges) {
         MeasurementChart chart = new MeasurementChart(title, xLabel, yLabel);
-        chart.style.put("plotBackground", "#ffffff");
-        chart.style.put("domainMargins", List.of(0.9, 0.9));
-        chart.style.put("rangeMargins", List.of(0.05, 0.2));
-        chart.style.put("rangeIncludesZero", true);
+        chart.style.put(PLOT_BACKGROUND, "#ffffff");
+        chart.style.put(DOMAIN_MARGINS, List.of(0.9, 0.9));
+        chart.style.put(RANGE_MARGINS, List.of(0.05, 0.2));
+        chart.style.put(RANGE_INCLUDES_ZERO, true);
         chart.datasets.add(rangeDataset(rangesLabel, FIRST_SERIES_PAINT, ranges, true));
         // One renderer drew both datasets, so series i of the measurement reused its paint i, and
         // its legend item carried the high-low renderer's square.
@@ -85,8 +92,8 @@ public final class MeasurementChart {
     static MeasurementChart scatter(String title, String xLabel, String yLabel, List<Series> series, boolean lines) {
         MeasurementChart chart = new MeasurementChart(title, xLabel, yLabel);
         chart.dateAxis = false;
-        chart.style.put("domainMargins", List.of(0.05, 0.05));
-        chart.style.put("rangeIncludesZero", lines);
+        chart.style.put(DOMAIN_MARGINS, List.of(0.05, 0.05));
+        chart.style.put(RANGE_INCLUDES_ZERO, lines);
         SeriesCollection collection = new SeriesCollection();
         series.forEach(collection::addSeries);
         String[] paints = {"#ff0000", "#0000ff"};
@@ -125,13 +132,13 @@ public final class MeasurementChart {
     /** Prescription intervals; the chart becomes a combined plot with a medication panel below. */
     MeasurementChart withMedications(List<Map<String, Object>> values) { medications.addAll(values); return this; }
 
-    MeasurementChart withDomainMargins(double lower, double upper) { style.put("domainMargins", List.of(lower, upper)); return this; }
+    MeasurementChart withDomainMargins(double lower, double upper) { style.put(DOMAIN_MARGINS, List.of(lower, upper)); return this; }
 
     MeasurementChart withRangeUpperMargin(double upper) {
-        style.put("rangeMargins", List.of(((List<?>) style.get("rangeMargins")).get(0), upper)); return this;
+        style.put(RANGE_MARGINS, List.of(((List<?>) style.get(RANGE_MARGINS)).get(0), upper)); return this;
     }
 
-    MeasurementChart withPlotBackground(String colour) { style.put("plotBackground", colour); return this; }
+    MeasurementChart withPlotBackground(String colour) { style.put(PLOT_BACKGROUND, colour); return this; }
 
     MeasurementChart withGridlines(String colour) { style.put("gridlines", colour); return this; }
 
@@ -148,13 +155,13 @@ public final class MeasurementChart {
      */
     MeasurementChart withItemLabels(String format, String decimals, int fontSize) {
         Map<String, Object> labels = new LinkedHashMap<>();
-        labels.put("format", format); labels.put("decimals", decimals); labels.put("fontSize", fontSize);
-        style.put("itemLabels", labels);
+        labels.put(FORMAT, format); labels.put("decimals", decimals); labels.put(FONT_SIZE, fontSize);
+        style.put(ITEM_LABELS, labels);
         return this;
     }
 
     MeasurementChart withItemLabels(Map<String, Object> labels) {
-        style.put("itemLabels", labels == null ? null : new LinkedHashMap<>(labels));
+        style.put(ITEM_LABELS, labels == null || labels.isEmpty() ? null : new LinkedHashMap<>(labels));
         return this;
     }
 
@@ -162,10 +169,10 @@ public final class MeasurementChart {
     static Map<String, Object> labItemLabels(int count) {
         Map<String, Object> labels = new LinkedHashMap<>();
         switch (count / 10) {
-            case 0 -> { labels.put("format", "{1} \n {2}"); labels.put("fontSize", 12); }
-            case 1 -> { labels.put("format", "{2}"); labels.put("fontSize", 12); }
-            case 2 -> { labels.put("format", "{2}"); labels.put("fontSize", 8); }
-            default -> { return null; }
+            case 0 -> { labels.put(FORMAT, "{1} \n {2}"); labels.put(FONT_SIZE, 12); }
+            case 1 -> { labels.put(FORMAT, "{2}"); labels.put(FONT_SIZE, 12); }
+            case 2 -> { labels.put(FORMAT, "{2}"); labels.put(FONT_SIZE, 8); }
+            default -> { return Map.of(); }
         }
         labels.put("decimals", "0.###");
         return labels;
@@ -183,7 +190,8 @@ public final class MeasurementChart {
         dataset.put("paint", paint);
         dataset.put("lines", lines);
         dataset.put("shapes", shapes);
-        dataset.put("data", series.values.entrySet().stream().map(e -> Map.of("x", e.getKey(), "y", e.getValue())).toList());
+        dataset.put("data", series.values.entrySet().stream()
+                .flatMap(entry -> entry.getValue().stream().map(value -> Map.of("x", entry.getKey(), "y", value))).toList());
         datasets.add(dataset);
     }
 
@@ -194,7 +202,7 @@ public final class MeasurementChart {
         dataset.put("yAxisID", "y");
         dataset.put("paint", paint);
         dataset.put("widensAxis", widensAxis);
-        dataset.put("data", ranges.stream().map(range -> Map.<String, Object>of("x", range.date().getTime(), "low", range.low(), "high", range.high())).toList());
+        dataset.put("data", ranges.stream().map(range -> Map.<String, Object>of("x", range.date().toEpochMilli(), "low", range.low(), "high", range.high())).toList());
         return dataset;
     }
 
@@ -211,12 +219,14 @@ public final class MeasurementChart {
 
     static final class Series {
         private String name;
-        private final TreeMap<Long, Double> values = new TreeMap<>();
+        private final TreeMap<Long, List<Double>> values = new TreeMap<>();
         Series(String name) { this.name = name; }
         void setKey(String name) { this.name = name; }
-        void addOrUpdate(Day day, double value) { values.put(day.getStart().getTime(), value); }
-        void add(long x, long y) { values.put(x, (double) y); }
-        int getItemCount() { return values.size(); }
+        void addOrUpdate(Day day, double value) { values.put(day.start.toEpochMilli(), new ArrayList<>(List.of(value))); }
+        // XYSeries accepted duplicate x coordinates; unlike a daily TimeSeries update, adding a
+        // scatter observation must not erase another observation that falls on the same x value.
+        void add(long x, long y) { values.computeIfAbsent(x, ignored -> new ArrayList<>()).add((double) y); }
+        int getItemCount() { return values.values().stream().mapToInt(List::size).sum(); }
     }
 
     static final class SeriesCollection {
@@ -225,12 +235,12 @@ public final class MeasurementChart {
     }
 
     static final class Day {
-        private final Date start;
-        Day(Date value) {
-            start = Date.from(value.toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
-                    .atStartOfDay(ZoneId.systemDefault()).toInstant());
+        private final Instant start;
+        Day(Instant value) {
+            start = value.atZone(ZoneId.systemDefault()).toLocalDate()
+                    .atStartOfDay(ZoneId.systemDefault()).toInstant();
         }
-        Date getStart() { return new Date(start.getTime()); }
+        Instant getStart() { return start; }
     }
 
     /**
@@ -245,5 +255,5 @@ public final class MeasurementChart {
         return normalized.getId();
     }
 
-    record ReferenceRange(Date date, double low, double high) { }
+    record ReferenceRange(Instant date, double low, double high) { }
 }

@@ -64,15 +64,16 @@ public final class BrowserChartRenderer {
             browser.setTimeouts(Duration.ofSeconds(30), Duration.ofSeconds(30));
             browser.get("about:blank");
             browser.executeScript("const s=document.createElement('script'); s.textContent=arguments[0]; document.head.append(s);", scripts);
-            browser.executeScript("return window.carlosDrawChart(arguments[0], arguments[1], arguments[2]).length > 0;",
+            Object drawn = browser.executeScript("return window.carlosDrawChart(arguments[0], arguments[1], arguments[2]).length > 0;",
                     chart.toConfig(), width, height);
+            if (!Boolean.TRUE.equals(drawn)) throw new IOException("Chart image is unavailable");
             Map<String, Object> screenshot = browser.executeCdpCommand("Page.captureScreenshot", Map.of(
                     "format", format, "captureBeyondViewport", true,
                     "clip", Map.of("x", 0, "y", 0, "width", width, "height", height, "scale", 1)));
             Object data = screenshot.get("data");
             if (!(data instanceof String encoded) || encoded.isEmpty()) throw new IOException("Chart image is unavailable");
             output.write(Base64.getDecoder().decode(encoded));
-        } catch (InterruptedException interrupted) {
+        } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
             throw new IOException("Chart rendering interrupted");
         } catch (RuntimeException | io.github.carlos_emr.carlos.utility.PDFGenerationException failure) {
