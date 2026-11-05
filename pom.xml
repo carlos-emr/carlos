@@ -4,7 +4,7 @@
     <groupId>io.github.carlos_emr</groupId>
     <artifactId>carlos</artifactId>
     <packaging>war</packaging>
-    <version>2026.08.0-beta3-SNAPSHOT</version>
+    <version>2026.08.0-beta7-SNAPSHOT</version>
     <name>CARLOS</name>
     <description>CARLOS EMR (Clinical Assisting Recording Ledger Open Source) is a web-based electronic medical record system for Canadian healthcare.</description>
     <inceptionYear>2024</inceptionYear>
@@ -26,6 +26,14 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- SonarCloud -->
         <sonar.organization>carlos-emr</sonar.organization>
+        <!--
+            The scanner engine runs in its own provisioned JVM, which ignores MAVEN_OPTS and by default
+            gets a quarter of the runner's memory. The full-branch Java bug detection pass (sensor
+            javabugs [dbd], 55k+ functions since the 2026.08 CDS import) exhausted that heap on every
+            push analysis of main, develop and release/2026.08. PR analyses are incremental and fit.
+            The plugin passes this POM property to the engine launch, so it covers push and PR runs.
+        -->
+        <sonar.scanner.javaOpts>-Xmx8g</sonar.scanner.javaOpts>
         <!-- Include webapp (JSP/JS/HTML) and resources in SonarCloud analysis alongside Java sources -->
         <sonar.sources>src/main/java,src/main/resources,src/main/webapp</sonar.sources>
         <!-- Exclude vendored/minified third-party assets to avoid inflating LOC count and generating noise -->
@@ -47,6 +55,9 @@
             old records still open, so each version repeats the previous one by design. Encoding their saved
             values (#5090) marked thousands of those lines as new code. Only duplication detection skips them;
             BC-AR 2020 (formBCAR2020*) is not covered.
+            Scope, passing analysis and retained-exclusion disposition: issue #5174 and
+            docs/static-analysis-workflows.md (Legacy BC form exclusions).
+            scripts/legacy-bc-sonar-policy.test.js guards the matched page inventory and rules.
         -->
         <sonar.cpd.exclusions>
             src/main/resources/db/reporting/**,
@@ -479,15 +490,8 @@
                 <artifactId>jakarta.transaction-api</artifactId>
                 <version>2.0.1</version>
             </dependency>
-            <!-- Override transitive Xalan from jakarta.servlet.jsp.jstl to fix CVE-2022-34169
-                 (integer truncation in XSLTC compiler allows arbitrary bytecode execution) -->
-            <dependency>
-                <groupId>xalan</groupId>
-                <artifactId>xalan</artifactId>
-                <version>2.7.3</version>
-            </dependency>
-            <!-- Xalan 2.7.3 requires its companion serializer artifact (provides
-                 org.apache.xml.serializer.OutputPropertiesFactory used by Struts) -->
+            <!-- Struts uses the standalone Xalan serializer; Glassfish JSTL
+                 shades its own Xalan implementation. -->
             <dependency>
                 <groupId>xalan</groupId>
                 <artifactId>serializer</artifactId>
@@ -525,13 +529,14 @@
                 <version>2.15.1</version>
             </dependency>
             <!-- Override the OpenTelemetry API family aligned by the transitive dependency tree.
-                 Addresses the Snyk/OpenTelemetry baggage-header allocation alert (CVE-2026-45292)
+                 Addresses the baggage-header allocation alert (CVE-2026-45292) and
+                 quadratic W3C tracestate parsing (GHSA-ccrj-gw8r-854m)
                  without importing the full BOM because CARLOS does not directly depend on the
                  OpenTelemetry module set. -->
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-api</artifactId>
-                <version>1.62.0</version>
+                <version>1.67.0</version>
             </dependency>
             <!-- Pin the httpcore5 pair reached transitively through httpclient5 and through the
                  older httpclient5-cache 5.3.1 that is also in the tree. 5.4.3 fixes CVE-2026-54399
@@ -884,10 +889,12 @@
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
         </dependency>
-        <!-- Required for @Aspect, @Transactional, and @Cacheable proxy weaving -->
+        <!-- Spring's aspectj-autoproxy and WebServiceLoggingAdvice need the
+             AspectJ runtime/weaver, not Spring's compile-time weaving aspects. -->
         <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-aspects</artifactId>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+            <version>1.9.25.1</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
@@ -1010,8 +1017,7 @@
             <artifactId>jakarta.servlet.jsp.jstl</artifactId>
             <version>3.0.1</version>
         </dependency>
-        <!-- Xalan serializer: companion to xalan:xalan (transitive from JSTL above).
-             Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts. -->
+        <!-- Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts. -->
         <dependency>
             <groupId>xalan</groupId>
             <artifactId>serializer</artifactId>
@@ -1369,13 +1375,6 @@
             <groupId>org.owasp</groupId>
             <artifactId>csrfguard-jsp-tags</artifactId>
             <version>${csrfguard.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <version>26.1.0</version>
-            <scope>compile</scope>
         </dependency>
 
         <!-- ==================== Testing ==================== -->

@@ -256,8 +256,10 @@ async function workflow(s, { editorOnly = false } = {}) {
             url.searchParams.set('printView', 'true');
             url.searchParams.set('printHP', 'WT');
           }
-          const answer = await probe(restricted.context, url.href, { method, needles: [marker, items.WT] });
-          h.assert(forbiddenByApp(answer), `${object} patient lock did not refuse ${method} print in CARLOS (HTTP ${answer.status})`);
+          const answer = await probe(restricted.context, url.href, {
+            method, ...(method === 'POST' ? { allowPost: true } : {}), needles: [marker, items.WT],
+          });
+          h.assert(forbiddenByApp(answer), `${object} patient lock did not refuse ${method} print in CARLOS (HTTP ${answer.status}${answer.error ? `; error=${answer.error}` : ''})`);
           h.assert(answer.found.length === 0, 'A locked patient print request disclosed the custom reading label');
         }
       } finally {

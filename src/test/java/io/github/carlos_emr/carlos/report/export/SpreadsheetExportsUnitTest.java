@@ -137,21 +137,79 @@ class SpreadsheetExportsUnitTest {
 
     @ParameterizedTest
     @NullAndEmptySource
-    @ValueSource(strings = {" ", "00000000"})
-    void shouldRejectUnknownServiceDate_whenAgingCannotBeDetermined(String serviceDate) {
+    @ValueSource(strings = {" ", "00000000", "not a date", "20260230", "20261301"})
+    void shouldRetainUnagedBalance_whenServiceDateIsUnavailable(String serviceDate) throws Exception {
         MSPBill b = bill();
         b.setServiceDate(serviceDate);
         var output = new ByteArrayOutputStream();
-        assertThatThrownBy(() -> BcBillingCsv.write(output, "REP_ACCOUNT_REC", List.of(b),
-                java.time.LocalDate.of(2026, 11, 2)))
-                .isInstanceOf(java.time.DateTimeException.class)
-                .hasMessage("Service date unavailable for aging");
+        BcBillingCsv.write(output, "REP_ACCOUNT_REC", List.of(b, bill()), java.time.LocalDate.of(2026, 11, 2));
+        var rows = CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords();
+        assertThat(rows).hasSize(3);
+        assertThat(rows.getFirst().toList()).containsExactly("Insurer", "Patient", "ServDate", "Invoice#",
+                "91 Days+", "61 - 90 Days", "31 - 60 Days", "0 - 30 Days", "Status", "Unknown age");
+        assertThat(rows.get(1).get(2)).isEqualTo(serviceDate == null || serviceDate.isBlank() || "00000000".equals(serviceDate) ? "" : serviceDate);
+        assertThat(rows.get(1).toList().subList(4, 8)).containsOnly("");
+        assertThat(rows.get(1).get(9)).isEqualTo("-1234.50");
+        assertThat(rows.get(2).get(6)).isEqualTo("-1234.50");
+        assertThat(rows.get(2).get(9)).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"REP_ACCOUNT_REC", "REP_INVOICE", "REP_REJ", "REP_WO", "REP_PAYREF"})
+    void shouldPreserveMalformedValues_whenWritingDetailExports(String type) throws Exception {
+        MSPBill malformed = bill();
+        malformed.setServiceDate("20260230"); malformed.setRejectionDate("not a date"); malformed.setPaymentDate("20261301");
+        malformed.setAmount("=bad amount"); malformed.setAmtOwing("not a decimal"); malformed.setAdjustmentCodeAmt("bad adjustment");
+        var output = new ByteArrayOutputStream();
+        BcBillingCsv.write(output, type, List.of(malformed, bill()));
+        var rows = CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords();
+        assertThat(rows).hasSize(3);
+        assertThat(rows.get(1)).contains("20260230", "\t=bad amount");
+        assertThat(rows.get(2)).contains("01-Oct-26", "-1234.50");
+        if (type.equals("REP_INVOICE")) assertThat(rows.get(1)).contains("not a decimal");
+        if (type.equals("REP_REJ")) assertThat(rows.get(1)).contains("not a date");
+        if (type.equals("REP_PAYREF")) assertThat(rows.get(1)).contains("20261301", "bad adjustment");
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "not a decimal", "=1+1"})
+    void shouldKeepValidSummaryTotals_whenAmountsOrAdjustmentsAreUnparseable(String amount) throws Exception {
+        MSPBill invalidAmount = bill(); invalidAmount.setAmount(amount); invalidAmount.setAdjustmentCodeAmt("2.25");
+        MSPBill invalidAdjustment = bill(); invalidAdjustment.setAmount("12.50"); invalidAdjustment.setAdjustmentCodeAmt(amount);
+        MSPBill refund = bill(); refund.setAmount("-5.00");
+        var output = new ByteArrayOutputStream();
+        BcBillingCsv.write(output, "REP_PAYREF_SUM", List.of(invalidAmount, invalidAdjustment, refund));
+        var rows = CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords();
+        assertThat(rows.get(1).toList()).containsExactly("Cash", "7.50", "-5.00");
+        assertThat(rows.get(6).toList()).containsExactly("Electronic", "2.25", "0.00");
+        assertThat(rows.get(9).toList()).containsExactly("Total", "9.75", "-5.00");
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "00000000"})
+    void shouldLeaveMissingDatesAndAmountsEmpty_whenFormattingLegacyFields(String value) {
+        assertThat(BcBillingCsv.date(value)).isEmpty();
+        if (!"00000000".equals(value)) assertThat(BcBillingCsv.money(value)).isEmpty();
     }
 
     @Test
-    void shouldRejectMalformedAmountsAndDates_beforeDownload() {
-        assertThatThrownBy(() -> BcBillingCsv.money("synthetic invalid amount")).isInstanceOf(NumberFormatException.class);
-        assertThatThrownBy(() -> BcBillingCsv.date("20260230")).isInstanceOf(java.time.DateTimeException.class);
-        assertThat(BcBillingCsv.date("00000000")).isEmpty();
+    void shouldPreserveValidFormatting_whenLegacyTextIsMalformed() {
+        assertThat(BcBillingCsv.date("20261001")).isEqualTo("01-Oct-26");
+        assertThat(BcBillingCsv.date("20260230")).isEqualTo("20260230");
+        assertThat(BcBillingCsv.money("12.345")).isEqualTo("12.35");
+        assertThat(BcBillingCsv.money("synthetic invalid amount")).isEqualTo("synthetic invalid amount");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"1e309", "-1e309"})
+    void shouldPreserveOutOfRangeSourceText_whenAmountsExceedBalanceRepresentation(String amount) throws Exception {
+        assertThat(BcBillingCsv.money(amount)).isEqualTo(amount);
+        MSPBill b = bill(); b.setAmount(amount);
+        var output = new ByteArrayOutputStream();
+        BcBillingCsv.write(output, "REP_INVOICE", List.of(b));
+        var rows = CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords();
+        assertThat(rows.get(1).get(7)).isEqualTo(amount);
     }
 }

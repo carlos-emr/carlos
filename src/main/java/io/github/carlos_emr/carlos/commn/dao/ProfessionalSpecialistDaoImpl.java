@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * <p>
  * Copyright (c) 2005-2012. Centre for Research on Inner City Health, St. Michael's Hospital, Toronto. All Rights Reserved.
@@ -33,6 +34,8 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.consultation.dto.SpecialistListRow;
+
 import java.util.List;
 
 import jakarta.persistence.Query;
@@ -46,6 +49,16 @@ public class ProfessionalSpecialistDaoImpl extends AbstractDaoImpl<ProfessionalS
 
     public ProfessionalSpecialistDaoImpl() {
         super(ProfessionalSpecialist.class);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<SpecialistListRow> findListRows() {
+        return entityManager.createQuery("select new io.github.carlos_emr.carlos.consultation.dto.SpecialistListRow("
+                + "x.id, x.firstName, x.lastName, x.professionalLetters, x.streetAddress, x.phoneNumber, "
+                + "x.faxNumber, x.webSite, x.emailAddress, x.specialtyType) "
+                + "from ProfessionalSpecialist x where x.deleted = false order by x.lastName,x.firstName",
+                SpecialistListRow.class).getResultList();
     }
 
     @Override

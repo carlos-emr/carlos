@@ -144,7 +144,7 @@ class DemographicLabelActionUnitTest extends CarlosUnitTestBase {
 
     static Stream<Arguments> invalidIds() {
         return Arrays.stream(Route.values()).flatMap(route ->
-                Stream.of(null, "", "abc", "0", "-1", "2147483648", "1 OR 1=1")
+                Stream.of(null, "", "abc", "0", "-1", "2147483648", "1000000000x", "9999999999x", "1 OR 1=1")
                         .map(id -> Arguments.of(route, id)));
     }
 

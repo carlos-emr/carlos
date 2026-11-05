@@ -412,6 +412,23 @@ to Java.
 
 ---
 
+## SonarCloud scanner heap
+
+`.github/workflows/sonarcloud.yml` runs `sonar-maven-plugin`, which starts the scanner engine in a
+separate JVM that it provisions itself. That JVM does not read `MAVEN_OPTS`. Without a setting it
+gets the JVM default heap, a quarter of the runner's memory. After the 2026.08 CDS import landed, the
+full-branch Java bug detection pass (`Sensor javabugs [dbd]`, 55,194 of 74,231 functions) ran out of
+heap (`java.lang.OutOfMemoryError: Java heap space`). It failed this way on every push analysis of
+`main`, `develop` and `release/2026.08`. Pull-request analyses are incremental and stayed green, so
+the failure appeared only after merge.
+
+`pom.xml` sets `sonar.scanner.javaOpts` (`-Xmx8g`). The plugin passes top-level POM properties to the
+engine launcher, so the setting applies to push and pull-request runs alike, and the workflow needs
+no change. If the branch analysis runs out of heap again, raise this value. The hosted runner has
+16 GB, and the Maven JVM that launches the scanner also needs memory.
+
+---
+
 ## SonarCloud path-traversal exclusions
 
 SonarCloud's taint rules for file paths (`javasecurity:S2083`, plus `S6549` and `S6096`) cannot be
@@ -489,6 +506,66 @@ in the project. That includes 17 files outside the excluded packages that pass r
 through `PathValidationUtils` to file reads (for example `GenericDownload`, `OscarDownload`,
 `DocumentUploadServlet`), which suggests the scanner already accepts the canonical-path checks in
 `validatePath`.
+
+---
+
+## Legacy BC form exclusions
+
+Issue [#5174](https://github.com/carlos-emr/carlos/issues/5174) follows up the exclusions added
+in [PR #5167](https://github.com/carlos-emr/carlos/pull/5167). Retain these exclusions to preserve
+the versioned provincial layouts used when reopening and printing historical records. They
+acknowledge existing duplication and markup debt; they do not remediate it.
+
+### Decision and quality-gate evidence
+
+The maintainer [approved resolving the gate](https://github.com/carlos-emr/carlos/pull/5167#issuecomment-6353723166).
+The [implementation record](https://github.com/carlos-emr/carlos/pull/5167#issuecomment-6353744620)
+explains that commit `fe4ef0302e` used POM exclusions because a SonarCloud login was unavailable;
+PR #5167 merged on 24 October 2026. Retaining that merged configuration is the disposition for
+this follow-up. No issues were accepted through the SonarCloud UI.
+
+The subsequent [SonarCloud report](https://github.com/carlos-emr/carlos/pull/5167#issuecomment-6376792374),
+posted on 23 October 2026, records **Quality Gate passed** for
+[the PR analysis](https://sonarcloud.io/dashboard?id=carlos-emr_carlos&pullRequest=5167):
+
+| Reported measure | Result |
+| --- | --- |
+| Duplication on new code | 0.0% |
+| Coverage on new code | 93.7% |
+| Security hotspots | 0 |
+| New issues / accepted issues | 82 / 0 |
+
+The [SonarCloud workflow run](https://github.com/carlos-emr/carlos/actions/runs/40038121070)
+also completed successfully for PR head `ad7afc6f733313e85ff9d924f0e657ac0ff034e6`, which
+contains the exclusion commit.
+
+This is evidence for the original post-configuration PR analysis, not a claim that every issue
+was fixed or that the current maintenance branch has just been analyzed. The SonarCloud check
+on each subsequent PR supplies that PR's gate result.
+
+### Scope and future changes
+
+`sonar.cpd.exclusions` skips duplication detection for
+`src/main/webapp/WEB-INF/jsp/form/formbc*.jsp` and `formBCNewBorn2008*.jsp` in the same directory.
+It also retains the independent `src/main/resources/db/reporting/**` exclusion. Duplication
+between provincial form versions is intentional and remains a separate decision from markup.
+
+Only `Web:InputWithoutLabelCheck` and `Web:UnsupportedTagsInHtml5Check` are ignored on those
+two form families, through `bcFormLabel`, `bcFormLabel2008`, `bcFormFont` and `bcFormFont2008`.
+The forms remain in `sonar.sources`, outside `sonar.exclusions`; security and all other rules
+continue to analyze them. Matching is case-sensitive: BC-AR 2020 (`formBCAR2020*`), future
+newborn versions and unrelated JSPs remain outside these legacy exclusions.
+
+`scripts/legacy-bc-sonar-policy.test.js` checks the 28 matched JSPs (including wrappers), the
+four rule/resource pairs, the absence of any other suppression on those pages, and negative
+controls for the modern forms and unrelated paths. Run it with
+`node --test scripts/legacy-bc-sonar-policy.test.js`; it also runs in Node Script Regressions.
+Review any added matching page explicitly instead of silently extending the inventory.
+
+Any future label or deprecated-font remediation must preserve saved-value encoding and scoring
+and verify saved-record reopening plus screen and print layout before narrowing the relevant
+markup exclusion. Removing those markup exclusions does not resolve intentional duplication.
+This follow-up changes no form markup or saved-record behavior.
 
 ---
 
