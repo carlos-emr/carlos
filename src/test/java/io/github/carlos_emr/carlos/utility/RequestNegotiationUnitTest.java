@@ -5,6 +5,10 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import jakarta.servlet.ServletResponse;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -13,6 +17,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.owasp.csrfguard.CsrfGuard;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -130,5 +135,29 @@ class RequestNegotiationUnitTest {
         request.addHeader("Accept", "application/problem+json");
 
         assertThat(RequestNegotiation.acceptsJson(request)).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ISO-8859-1", "UTF-16"})
+    void shouldReturnDeclaredCharset_whenTheJreSupportsIt(String name) {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        response.setCharacterEncoding(name);
+        assertThat(RequestNegotiation.responseCharset(response)).isEqualTo(Charset.forName(name));
+    }
+
+    @Test
+    void shouldFallBackToUtf8_whenCharsetIsMissingIllegalOrUnsupported() {
+        ServletResponse missing = mock(ServletResponse.class);
+        when(missing.getCharacterEncoding()).thenReturn(null);
+        ServletResponse empty = mock(ServletResponse.class);
+        when(empty.getCharacterEncoding()).thenReturn("");
+        ServletResponse illegal = mock(ServletResponse.class);
+        when(illegal.getCharacterEncoding()).thenReturn("not a charset!");
+        ServletResponse unsupported = mock(ServletResponse.class);
+        when(unsupported.getCharacterEncoding()).thenReturn("x-carlos-no-such-charset");
+        for (ServletResponse response : List.of(missing, empty, illegal, unsupported)) {
+            assertThat(RequestNegotiation.responseCharset(response))
+                    .as(String.valueOf(response.getCharacterEncoding())).isEqualTo(StandardCharsets.UTF_8);
+        }
     }
 }

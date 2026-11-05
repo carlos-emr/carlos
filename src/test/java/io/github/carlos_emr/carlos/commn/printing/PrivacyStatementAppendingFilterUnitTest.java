@@ -24,11 +24,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -52,6 +58,317 @@ class PrivacyStatementAppendingFilterUnitTest {
 
         filter = new PrivacyStatementAppendingFilter();
         filter.init(config);
+    }
+
+    @Test
+    void shouldPublishNonHtmlWriterLength_beforeTheBodyCanCommit() throws Exception {
+        for (boolean typeFirst : new boolean[] {false, true}) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/text");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            String body = "x".repeat(APPEND_BUFFER_SIZE_BYTES + 1);
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentLength(body.length());
+                if (typeFirst) {
+                    res.setContentType("text/plain;charset=UTF-8");
+                }
+                var writer = res.getWriter();
+                if (!typeFirst) {
+                    res.setContentType("text/plain;charset=UTF-8");
+                }
+                assertThat(response.getContentLength()).isEqualTo(body.length());
+                writer.write(body);
+            });
+            assertThat(response.getContentAsString()).isEqualTo(body);
+            assertThat(response.getContentLength()).isEqualTo(body.length());
+        }
+    }
+
+    @Test
+    void shouldKeepMetadataLength_whenHtmlHasNoBodyChannel() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("HEAD", "/print");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("text/html;charset=UTF-8");
+            res.setContentLength(12345);
+        });
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getContentLength()).isEqualTo(12345);
+    }
+
+    @Test
+    void shouldEncodeStreamNotice_withTheDeclaredResponseCharset() throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic café notice.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentType("text/html;charset=ISO-8859-1");
+                res.getOutputStream().write("body".getBytes(StandardCharsets.ISO_8859_1));
+            });
+            assertThat(new String(response.getContentAsByteArray(), StandardCharsets.ISO_8859_1))
+                    .startsWith("body").contains("Synthetic café notice.");
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.put("confidentiality_statement.v1", original);
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRetractPublishedLength_whenBufferResetDiscardsTheBody(boolean stream) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = spy(new MockHttpServletResponse());
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType(stream ? "application/octet-stream" : "text/plain;charset=UTF-8");
+            res.setContentLength(4);
+            if (stream) {
+                res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+            } else {
+                res.getWriter().write("abcd");
+            }
+            assertThat(response.getContentLength()).as("non-HTML length published before the body").isEqualTo(4);
+            res.resetBuffer();
+            // The published length described the discarded body; a pending one would be kept.
+            // Spring's mock ignores null values, so the removal call itself is asserted here.
+            verify(response).setHeader("Content-Length", null);
+        });
+        assertThat(response.getContentAsByteArray()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"x-carlos-unsupported-5495", "not a charset"})
+    void shouldEncodeStreamNoticeAsUtf8_whenDeclaredCharsetIsUnusable(String charset) throws Exception {
+        // Tomcat 11 keeps an unsupported charset name visible through getCharacterEncoding()
+        // after rejecting it, so the notice must not be the thing that fails the response.
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic café notice.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentType("text/html");
+                res.setCharacterEncoding(charset);
+                res.getOutputStream().write("body".getBytes(StandardCharsets.US_ASCII));
+            });
+            assertThat(new String(response.getContentAsByteArray(), StandardCharsets.UTF_8))
+                    .startsWith("body").contains("Synthetic café notice.");
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.put("confidentiality_statement.v1", original);
+            }
+        }
+    }
+
+    @Test
+    void shouldDropPendingLength_onBufferResetAndOnFullReset() throws Exception {
+        for (boolean fullReset : new boolean[] {false, true}) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentLength(4);
+                if (fullReset) {
+                    res.reset();
+                } else {
+                    res.resetBuffer();
+                }
+                res.setContentType("application/octet-stream");
+                res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+            });
+            assertThat(response.getHeader("Content-Length")).as("fullReset=%s", fullReset).isNull();
+            assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+        }
+    }
+
+    @Test
+    void shouldIgnoreMalformedLengthHeader_andKeepTheBodyUnframed() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentType("application/octet-stream");
+            ((jakarta.servlet.http.HttpServletResponse) res).setHeader("Content-Length", "not-a-number");
+            res.getOutputStream().write(new byte[] {0, 1, 2, 3});
+        });
+        assertThat(response.getHeader("Content-Length")).isNull();
+        assertThat(response.getContentAsByteArray()).containsExactly(0, 1, 2, 3);
+    }
+
+    @Test
+    void shouldAppendNotice_whenContentTypeIsUpperCaseHtml() throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic case notice.");
+        try {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            filter.doFilter(request, response, (req, res) -> {
+                res.setContentType("TEXT/HTML;charset=UTF-8");
+                res.getWriter().write("<p>upper</p>");
+            });
+            assertThat(response.getContentAsString()).contains("<p>upper</p>", "Synthetic case notice.");
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.setProperty("confidentiality_statement.v1", (String) original);
+            }
+        }
+    }
+
+    @Test
+    void shouldAppendNoticeToBothPages_whenNestedRequestSharesTheSession() throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic race notice.");
+        try {
+            MockHttpSession session = new MockHttpSession();
+            MockHttpServletRequest outer = new MockHttpServletRequest("GET", "/print-a");
+            MockHttpServletRequest inner = new MockHttpServletRequest("GET", "/print-b");
+            outer.setSession(session);
+            inner.setSession(session);
+            MockHttpServletResponse outerResponse = new MockHttpServletResponse();
+            MockHttpServletResponse innerResponse = new MockHttpServletResponse();
+            filter.doFilter(outer, outerResponse, (req, res) -> {
+                res.setContentType("text/html;charset=UTF-8");
+                res.getWriter().write("<p>A</p>");
+                // A second request on the same session arrives while the first is still rendering.
+                filter.doFilter(inner, innerResponse, (req2, res2) -> {
+                    res2.setContentType("text/html;charset=UTF-8");
+                    res2.getWriter().write("<p>B</p>");
+                });
+            });
+            assertThat(outerResponse.getContentAsString()).contains("<p>A</p>", "Synthetic race notice.");
+            assertThat(innerResponse.getContentAsString()).contains("<p>B</p>", "Synthetic race notice.");
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.setProperty("confidentiality_statement.v1", (String) original);
+            }
+        }
+    }
+
+    @Test
+    void shouldDeferOriginalLength_whenHtmlStreamGetsAPrivacyNotice() throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic length notice.");
+        try {
+            for (int form = 0; form < 6; form++) {
+                MockHttpServletRequest request = new MockHttpServletRequest("GET", "/print");
+                MockHttpServletResponse response = new MockHttpServletResponse();
+                int setter = form;
+                filter.doFilter(request, response, (req, res) -> {
+                    res.setContentType("text/html;charset=UTF-8");
+                    var http = (jakarta.servlet.http.HttpServletResponse) res;
+                    switch (setter) {
+                        case 0 -> http.setContentLength(4);
+                        case 1 -> http.setContentLengthLong(4);
+                        case 2 -> http.setHeader("Content-Length", "4");
+                        case 3 -> http.addHeader("Content-Length", "4");
+                        case 4 -> http.setIntHeader("Content-Length", 4);
+                        default -> http.addIntHeader("Content-Length", 4);
+                    }
+                    res.getOutputStream().write("body".getBytes(StandardCharsets.UTF_8));
+                    assertThat(response.getContentLength()).isZero();
+                });
+                assertThat(response.getContentAsString()).startsWith("body").contains("Synthetic length notice.");
+                assertThat(response.getHeader("Content-Length")).isNull();
+            }
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.put("confidentiality_statement.v1", original);
+            }
+        }
+    }
+
+    @Test
+    void shouldKeepBinaryLength_whenItIsDeclaredBeforeContentType() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        byte[] payload = {0, 1, -1, 42};
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentLength(payload.length);
+            var stream = res.getOutputStream();
+            res.setContentType("application/octet-stream");
+            assertThat(response.getContentLength()).isEqualTo(payload.length);
+            stream.write(payload);
+        });
+        assertThat(response.getContentAsByteArray()).isEqualTo(payload);
+        assertThat(response.getContentLength()).isEqualTo(payload.length);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false,false", "false,true", "true,false", "true,true"})
+    void shouldPublishNonHtmlLength_whenTypeHeaderIsSetAfterChannelSelection(boolean add, boolean useWriter)
+            throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentLength(4);
+            var writer = useWriter ? res.getWriter() : null;
+            var stream = useWriter ? null : res.getOutputStream();
+            var http = (jakarta.servlet.http.HttpServletResponse) res;
+            if (add) {
+                http.addHeader("cOnTeNt-TyPe", "text/plain;charset=UTF-8");
+            } else {
+                http.setHeader("cOnTeNt-TyPe", "text/plain;charset=UTF-8");
+            }
+            assertThat(response.getContentLength()).isEqualTo(4);
+            if (useWriter) {
+                writer.write("body");
+            } else {
+                stream.write("body".getBytes(StandardCharsets.UTF_8));
+                stream.flush();
+            }
+        });
+        assertThat(response.getContentAsString()).isEqualTo("body");
+        assertThat(response.getContentLength()).isEqualTo(4);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"0,false", "1,false", "2,false", "0,true", "1,true", "2,true"})
+    void shouldClearPublishedLength_whenContentTypeChangesToHtml(int api, boolean useWriter) throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic switch notice.");
+        try {
+            MockHttpServletResponse response = spy(new MockHttpServletResponse());
+            filter.doFilter(new MockHttpServletRequest("GET", "/print"), response, (req, res) -> {
+                res.setContentType("text/plain;charset=UTF-8");
+                res.setContentLength(4);
+                if (useWriter) {
+                    res.getWriter();
+                } else {
+                    res.getOutputStream();
+                }
+                assertThat(response.getContentLength()).isEqualTo(4);
+                var http = (jakarta.servlet.http.HttpServletResponse) res;
+                switch (api) {
+                    case 0 -> http.setContentType("text/html;charset=UTF-8");
+                    case 1 -> http.setHeader("Content-Type", "text/html;charset=UTF-8");
+                    default -> http.addHeader("Content-Type", "text/html;charset=UTF-8");
+                }
+                // Spring's mock ignores null values; real-Tomcat tests verify header removal.
+                verify(response).setHeader("Content-Length", null);
+                if (useWriter) {
+                    res.getWriter().write("body");
+                } else {
+                    res.getOutputStream().write("body".getBytes(StandardCharsets.UTF_8));
+                }
+            });
+            assertThat(response.getContentAsString()).startsWith("body").contains("Synthetic switch notice.");
+            verify(response).setHeader("Content-Length", null);
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.put("confidentiality_statement.v1", original);
+            }
+        }
     }
 
     @Test
