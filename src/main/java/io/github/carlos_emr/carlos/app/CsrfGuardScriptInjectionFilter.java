@@ -465,8 +465,11 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
          *
          * <p>Every CARLOS wrapper applies one rule to an accepted {@code resetBuffer()}: a length that
          * predates the reset, pending or published, described the discarded body and is dropped. A
-         * forward always replaces the body, so a pre-forward length is stale by definition. A rejected
-         * reset (the delegate throws) leaves the capture and the pending length as they were.</p>
+         * forward always replaces the body, so a pre-forward length is stale by definition. This
+         * wrapper only ever holds a pending length: in stream and writer-passthrough modes a length
+         * was already handed to the delegate, and the privacy or logout wrapper beneath this
+         * FORWARD-only wrapper retracts a published one. A rejected reset (the delegate throws)
+         * leaves the capture and the pending length as they were.</p>
          */
         @Override
         public void resetBuffer() {

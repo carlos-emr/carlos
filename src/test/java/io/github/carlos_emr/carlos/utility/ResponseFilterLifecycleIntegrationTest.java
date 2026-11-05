@@ -155,9 +155,9 @@ class ResponseFilterLifecycleIntegrationTest {
                         "org.owasp.csrfguard.config.NullConfigurationProviderFactory");
             }
             CsrfGuard.load(restore);
-            assertThat(CsrfGuard.getInstance().isEnabled())
-                    .as("CsrfGuard singleton restored for later tests in this fork").isEqualTo(originalCsrfEnabled);
         }
+        assertThat(CsrfGuard.getInstance().isEnabled())
+                .as("CsrfGuard singleton restored for later tests in this fork").isEqualTo(originalCsrfEnabled);
     }
 
     static Stream<Arguments> htmlCases() {
@@ -336,18 +336,23 @@ class ResponseFilterLifecycleIntegrationTest {
 
     static Stream<Arguments> staleLengthCases() {
         return Stream.of("/development", "/packaged").flatMap(context ->
-                Stream.of("forward", "nested").map(dispatch -> Arguments.of(context, dispatch)));
+                Stream.of("forward", "nested").flatMap(dispatch ->
+                        Stream.of("binary", "plain").map(output -> Arguments.of(context, dispatch, output))));
     }
 
-    @ParameterizedTest(name = "stale length {0} {1}")
+    @ParameterizedTest(name = "stale length {0} {1} {2}")
     @MethodSource("staleLengthCases")
-    void shouldNotFrameForwardedBody_withLengthDeclaredBeforeTheForward(String context, String dispatch)
+    void shouldNotFrameForwardedBody_withLengthDeclaredBeforeTheForward(String context, String dispatch, String output)
             throws Exception {
-        // A pass-through stream: the outer sanitizer captures writer output and re-frames it with
+        // Both pass-through paths: a binary stream, and a plain writer body past the sanitizer's
+        // capture limit. Under the limit the sanitizer captures writer output and re-frames it with
         // a byte-accurate length at replay, which would hide a stale length on the writer path.
-        HttpResponse<byte[]> response = get(context + "/" + dispatch + "?output=binary&staleLength=true&noLength=true");
+        int size = ResponseSanitizationFilter.MAX_CAPTURE_CHARS + 64;
+        byte[] expected = "binary".equals(output) ? BINARY : html(size).getBytes(StandardCharsets.UTF_8);
+        HttpResponse<byte[]> response = get(context + "/" + dispatch + "?output=" + output
+                + "&staleLength=true&noLength=true&size=" + size);
         assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(response.body()).as("forwarded binary body for %s at %s", dispatch, context).isEqualTo(BINARY);
+        assertThat(response.body()).as("forwarded %s body for %s at %s", output, dispatch, context).isEqualTo(expected);
         assertLength(response);
     }
 
@@ -552,7 +557,8 @@ class ResponseFilterLifecycleIntegrationTest {
                 if ("true".equals(request.getParameter("staleLength"))) {
                     // A length declared before the forward, with no channel open, describes a body
                     // that the forward replaces; it must never frame the forwarded body.
-                    response.setContentType("application/octet-stream");
+                    response.setContentType("plain".equals(output)
+                            ? "text/plain;charset=UTF-8" : "application/octet-stream");
                     response.setContentLength(10);
                 } else if ("stream".equals(initial)) {
                     response.getOutputStream().write("DISCARDED PRE-FORWARD PREFIX".getBytes(StandardCharsets.UTF_8));

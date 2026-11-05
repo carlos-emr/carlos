@@ -207,7 +207,7 @@ class PrivacyStatementAppendingFilterUnitTest {
     }
 
     @Test
-    void shouldAppendNoticeToBothPages_whenTwoRequestsShareOneSessionConcurrently() throws Exception {
+    void shouldAppendNoticeToBothPages_whenNestedRequestSharesTheSession() throws Exception {
         var properties = io.github.carlos_emr.CarlosProperties.getInstance();
         Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic race notice.");
         try {
