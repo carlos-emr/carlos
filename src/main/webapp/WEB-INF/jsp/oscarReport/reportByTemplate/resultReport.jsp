@@ -123,6 +123,10 @@
         <small>${carlos:forHtml(reportobject.description)}</small>
     </h3>
 
+    <c:if test="${not empty errormsg}">
+        <div class="alert alert-warning" role="alert">${carlos:forHtml(errormsg)}</div>
+    </c:if>
+
     <div class="reportBorderDiv row">
         <c:forEach items="${ htmlList }" var="htmlOut">
             <c:choose>
@@ -148,6 +152,7 @@
 
             <%
                 for (int x = 0; x < csvList.size(); x++) {
+                    if (csvList.get(x) == null || csvList.get(x).isEmpty()) continue;
             %>
 
             <form style="display:inline;" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/generateOutFilesAction" method="post">

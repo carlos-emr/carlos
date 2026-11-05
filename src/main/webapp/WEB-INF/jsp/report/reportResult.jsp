@@ -18,7 +18,9 @@
     if (request.getParameter("submit") != null && request.getParameter("submit").equals("Report in CSV")) {
         if (true) {
             out.clearBuffer();
-            request.getRequestDispatcher("reportDownload").include(request, response); //forward request&response to the target page
+            // This JSP lives below WEB-INF; use the registered servlet name so relocation and
+            // the Struts URL mapper cannot turn the authenticated CSV export into a 404.
+            request.getServletContext().getNamedDispatcher("reportDownload").forward(request, response);
             return;
         }
     }

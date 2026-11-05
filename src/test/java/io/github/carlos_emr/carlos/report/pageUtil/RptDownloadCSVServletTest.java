@@ -13,17 +13,28 @@
 package io.github.carlos_emr.carlos.report.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Vector;
 import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.AfterEach;
@@ -32,19 +43,33 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 
-import io.github.carlos_emr.carlos.login.DBHelp;
+import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
+import io.github.carlos_emr.carlos.report.data.RptReportConfigData;
+import io.github.carlos_emr.carlos.report.data.RptReportCreator;
+import io.github.carlos_emr.carlos.report.data.RptReportItem;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
- * Regression tests for {@link RptDownloadCSVServlet#demoReport(jakarta.servlet.http.HttpServletRequest)}.
+ * Regression tests for demographic SQL construction and the report CSV servlet response contract.
  *
  * <p>These tests target the empty-demographic-filter combinations fixed in PR #1639 and
  * verify the generated SQL shape and bind-parameter ordering without requiring a database.
  * They invoke the private servlet method via reflection and capture
- * {@link DBHelp#searchDBRecord(String, Object...)} calls with a static mock.</p>
+ * {@link ConfiguredReportQuery#read(String, Object...)} calls with a static mock.</p>
+ *
+ * <p>Public {@code service()} tests also verify that query failures return HTTP 500 and
+ * UTF-8 payloads exceeding the export byte budget return HTTP 413 without a partial download,
+ * overlapping requests retain their own attachment filenames, and buffered write failures
+ * propagate while releasing the output stream.</p>
  *
  * @since 2026-04-20
  */
@@ -57,9 +82,8 @@ class RptDownloadCSVServletTest {
 
     private static Method demoReportMethod;
 
-    private final ResultSet emptyResultSet = mock(ResultSet.class);
 
-    private MockedStatic<DBHelp> dbHelpMock;
+    private MockedStatic<ConfiguredReportQuery> configuredQueryMock;
 
     @BeforeAll
     static void setUpReflection() throws NoSuchMethodException {
@@ -68,16 +92,15 @@ class RptDownloadCSVServletTest {
     }
 
     @BeforeEach
-    void setUp() throws Exception {
-        when(emptyResultSet.next()).thenReturn(false);
-        dbHelpMock = mockStatic(DBHelp.class);
+    void setUp() {
+        configuredQueryMock = mockStatic(ConfiguredReportQuery.class);
     }
 
     @AfterEach
     void tearDown() {
-        if (dbHelpMock != null) {
-            dbHelpMock.close();
-            dbHelpMock = null;
+        if (configuredQueryMock != null) {
+            configuredQueryMock.close();
+            configuredQueryMock = null;
         }
     }
 
@@ -176,6 +199,211 @@ class RptDownloadCSVServletTest {
         assertThat(subQuery.params()).containsExactly("Smith", "French");
     }
 
+    @ParameterizedTest
+    @EnumSource(CsvScenario.class)
+    void shouldPreserveSelectedColumnsAndCohorts_acrossCsvQueryBranches(CsvScenario scenario) throws Exception {
+        MockHttpServletRequest request = branchRequest(scenario);
+        List<SqlCall> calls = new ArrayList<>();
+        Map<String, String> values = Map.of("demographic_no", "41", "last_name", "O'Neil",
+                "first_name", "Zoë", "c_EDD", "2026-11-01");
+        var row = new ConfiguredReportQuery.Row(values, List.of());
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(anyString(), any(Object[].class)))
+                .thenAnswer(call -> {
+                    calls.add(new SqlCall(call.getArgument(0), extractBindParameters(call.getArguments())));
+                    return new ConfiguredReportQuery.Result(List.of(), List.of(row));
+                });
+        configuredQueryMock.when(() -> ConfiguredReportQuery.identifiers(anyString(), any(Object[].class)))
+                .thenAnswer(call -> {
+                    calls.add(new SqlCall(call.getArgument(0), extractBindParameters(call.getArguments())));
+                    return List.of(41, 42);
+                });
+        var properties = mock(CarlosProperties.class);
+        when(properties.getProperty("demographicExt")).thenReturn("prefer language");
+        when(properties.getProperty("demographicExt", "")).thenReturn("prefer language");
+        var extensions = mock(DemographicExtDao.class);
+        when(extensions.findReportValues(anyString(), anyCollection(), anyBoolean()))
+                .thenReturn(List.of(new DemographicExtDao.ReportValue(1, 41, "French")));
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var settings = mockStatic(CarlosProperties.class); var spring = mockStatic(SpringUtils.class)) {
+            settings.when(CarlosProperties::getInstance).thenReturn(properties);
+            spring.when(() -> SpringUtils.getBean(DemographicExtDao.class)).thenReturn(extensions);
+            new RptDownloadCSVServlet().service(request, response);
+        }
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        String header = "id\tLast Name\tFirst Name" + (scenario.antenatal ? "\tEDD" : "")
+                + (scenario.extension ? "\tprefer language" : "");
+        String data = "1\tO'Neil\tZoë" + (scenario.antenatal ? "\t2026-11-01" : "")
+                + (scenario.extension ? "\tFrench" : "");
+        assertThat(response.getContentAsString()).isEqualTo(header + "\r\n" + data);
+        assertBranchQueries(scenario, calls);
+        if (scenario.extension) {
+            List<Integer> cohort = scenario.extensionFilter ? List.of(41, 42) : List.of(41);
+            verify(extensions).findReportValues("prefer_language", cohort, scenario != CsvScenario.ALL_SELECTED);
+        }
+    }
+
+    private MockHttpServletRequest branchRequest(CsvScenario scenario) {
+        MockHttpServletRequest request = baseRequest();
+        request.getSession(true);
+        request.setParameter("demoReport", "true");
+        // Demographic projection order follows the legacy fixed list, not request order.
+        request.setParameter("first_name", "on");
+        request.setParameter("last_name", "on");
+        addFilter(request, 1, "demographic.last_name='${surname}'", "surname", "O'Neil");
+        if (scenario.antenatal) {
+            request.setParameter("c_EDD", "on");
+            addFilter(request, 2, "formBCAR.c_EDD>='${edd}'", "edd", "2026-11-01");
+        }
+        if (scenario.extension) {
+            request.setParameter("prefer_language", "on");
+        }
+        if (scenario.extensionFilter) {
+            addFilter(request, 3, "demographicExt.prefer_language='${language}'", "language", "French");
+        }
+        return request;
+    }
+
+    private void assertBranchQueries(CsvScenario scenario, List<SqlCall> calls) {
+        calls.forEach(this::assertSqlShape);
+        if (scenario.extensionFilter) {
+            assertThat(calls.getFirst().sql()).startsWith("select distinct(demographic.demographic_no)");
+            assertThat(calls.getFirst().params()).containsExactly("O'Neil", "French");
+        }
+        if (scenario.antenatal) {
+            SqlCall ids = findCallContaining(calls, "select max(ID) from formBCAR");
+            assertThat(ids.params()).containsExactly("O'Neil", "2026-11-01");
+            assertThat(calls.getLast().sql()).contains("formBCAR.ID in (41,42)");
+        }
+        if (scenario.extensionFilter) {
+            assertThat(calls.getLast().sql()).contains("demographic.demographic_no in (41,42)");
+        } else if (!scenario.antenatal) {
+            assertThat(calls.getLast().params()).containsExactly("O'Neil");
+        }
+    }
+
+    private enum CsvScenario {
+        DEMOGRAPHIC(false, false, false),
+        EXTENSION(false, true, false),
+        FILTERED_EXTENSION(false, true, true),
+        ANTENATAL(true, false, false),
+        ALL_SELECTED(true, true, false),
+        ALL_FILTERED(true, true, true);
+
+        private final boolean antenatal;
+        private final boolean extension;
+        private final boolean extensionFilter;
+
+        CsvScenario(boolean antenatal, boolean extension, boolean extensionFilter) {
+            this.antenatal = antenatal;
+            this.extension = extension;
+            this.extensionFilter = extensionFilter;
+        }
+    }
+
+    @Test
+    void shouldReturnFailureInsteadOfEmptyCsv_whenFormReportReadFails() throws Exception {
+        MockHttpServletRequest request = baseRequest();
+        request.getSession(true);
+        request.setParameter("id", "5549");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var reports = mockConstruction(
+                RptReportItem.class,
+                (report, context) -> when(report.getReportName("5549"))
+                        .thenThrow(new java.sql.SQLException("synthetic read failure")))) {
+            new RptDownloadCSVServlet().service(request, response);
+            assertThat(reports.constructed()).hasSize(1);
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(response.getErrorMessage()).isEqualTo("Unable to generate report");
+            assertThat(response.getContentAsString()).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldRejectUtf8ByteOversize_whenCharacterCountFits() throws Exception {
+        String value = "€".repeat(RptDownloadCSVServlet.MAX_CSV_EXPORT_BYTES / 2);
+        var row = new ConfiguredReportQuery.Row(java.util.Map.of("last_name", value), List.of(value));
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(
+                        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenReturn(new ConfiguredReportQuery.Result(List.of("last_name"), List.of(row)));
+        var request = baseRequest(); request.getSession(true);
+        request.setParameter("demoReport", "true"); request.setParameter("last_name", "on");
+        addFilter(request, 1, "demographic.demographic_no=42", "unused", "");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        new RptDownloadCSVServlet().service(request, response);
+        assertThat(response.getStatus()).isEqualTo(413);
+        assertThat(response.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    void shouldKeepEachDownloadFilename_whenRequestsOverlap() throws Exception {
+        RptDownloadCSVServlet servlet = new RptDownloadCSVServlet();
+        MockHttpServletRequest first = baseRequest();
+        first.getSession(true);
+        first.setParameter("id", "1");
+        MockHttpServletRequest second = baseRequest();
+        second.getSession(true);
+        second.setParameter("id", "2");
+        var firstResponse = new org.springframework.mock.web.MockHttpServletResponse();
+        var secondResponse = new org.springframework.mock.web.MockHttpServletResponse();
+
+        try (var reports = mockConstruction(RptReportItem.class, (report, context) ->
+                     when(report.getReportName(anyString())).thenAnswer(call -> "report-" + call.getArgument(0)));
+             var queries = mockConstruction(RptFormQuery.class, (query, context) ->
+                     when(query.getQueryStr(anyString(), any())).thenAnswer(call ->
+                             new ParameterizedSql("select " + call.getArgument(0), List.of())));
+             var configs = mockConstruction(RptReportConfigData.class, (config, context) ->
+                     when(config.getAllFieldNameValue(anyString(), anyString())).thenReturn(new Vector[]{
+                             new Vector<>(List.of("value")), new Vector<>(List.of("value"))}));
+             var readers = mockConstruction(RptReportCreator.class, (reader, context) ->
+                     when(reader.query(anyString(), any(Vector.class), any(Object[].class))).thenAnswer(call -> {
+                         String sql = call.getArgument(0);
+                         if ("select 1".equals(sql)) {
+                             // Deterministically interleave a second request after the first
+                             // resolves its name but before it publishes its response headers.
+                             servlet.service(second, secondResponse);
+                         }
+                         Properties row = new Properties();
+                         row.setProperty("value", sql);
+                         return new Vector<>(List.of(row));
+                     }))) {
+            servlet.service(first, firstResponse);
+            assertThat(reports.constructed()).hasSize(2);
+            assertThat(queries.constructed()).hasSize(2);
+            assertThat(configs.constructed()).hasSize(2);
+            assertThat(readers.constructed()).hasSize(2);
+        }
+
+        assertThat(firstResponse.getStatus()).isEqualTo(200);
+        assertThat(secondResponse.getStatus()).isEqualTo(200);
+        for (var response : List.of(firstResponse, secondResponse)) {
+            assertThat(response.getContentType()).isEqualTo("text/csv; charset=UTF-8");
+            assertThat(response.getCharacterEncoding()).isEqualTo("UTF-8");
+            assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+        }
+        assertThat(firstResponse.getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"report-1.csv\"");
+        assertThat(secondResponse.getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"report-2.csv\"");
+        assertThat(firstResponse.getContentAsString()).contains("select 1").doesNotContain("select 2");
+        assertThat(secondResponse.getContentAsString()).contains("select 2").doesNotContain("select 1");
+    }
+
+    @Test
+    void shouldPropagateWriteFailure_whenClosingBufferedDownload() throws Exception {
+        MockHttpServletRequest request = baseRequest();
+        request.getSession(true);
+        request.setParameter("demoReport", "true");
+        var output = mock(jakarta.servlet.ServletOutputStream.class);
+        doThrow(new java.io.IOException("synthetic output failure"))
+                .when(output).write(any(byte[].class), anyInt(), anyInt());
+        var response = mock(jakarta.servlet.http.HttpServletResponse.class);
+        when(response.getOutputStream()).thenReturn(output);
+
+        assertThatThrownBy(() -> new RptDownloadCSVServlet().service(request, response))
+                .isInstanceOf(java.io.IOException.class)
+                .hasMessage("synthetic output failure");
+        verify(output).close();
+    }
+
     private MockHttpServletRequest baseRequest() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
@@ -196,10 +424,16 @@ class RptDownloadCSVServletTest {
 
     private List<SqlCall> invokeDemoReport(MockHttpServletRequest request) throws Exception {
         List<SqlCall> sqlCalls = new ArrayList<>();
-        dbHelpMock.when(() -> DBHelp.searchDBRecord(
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.any(Object[].class)))
-                .thenAnswer(invocation -> captureDbHelpCall(sqlCalls, invocation));
+                .thenAnswer(invocation -> captureConfiguredQueryCall(sqlCalls, invocation));
+        configuredQueryMock.when(() -> ConfiguredReportQuery.identifiers(
+                        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    sqlCalls.add(new SqlCall(invocation.getArgument(0), extractBindParameters(invocation.getArguments())));
+                    return List.of();
+                });
 
         try {
             demoReportMethod.invoke(new RptDownloadCSVServlet(), request);
@@ -213,11 +447,11 @@ class RptDownloadCSVServletTest {
         return sqlCalls;
     }
 
-    private ResultSet captureDbHelpCall(List<SqlCall> sqlCalls, InvocationOnMock invocation) {
+    private ConfiguredReportQuery.Result captureConfiguredQueryCall(List<SqlCall> sqlCalls, InvocationOnMock invocation) {
         sqlCalls.add(new SqlCall(
                 invocation.getArgument(0),
                 extractBindParameters(invocation.getArguments())));
-        return emptyResultSet;
+        return new ConfiguredReportQuery.Result(List.of(), List.of());
     }
 
     private List<Object> extractBindParameters(Object[] invocationArgs) {

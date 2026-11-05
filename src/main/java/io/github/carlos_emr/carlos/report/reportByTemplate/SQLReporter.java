@@ -36,8 +36,6 @@ import java.util.Map;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-import org.owasp.encoder.Encode;
-
 import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
@@ -215,7 +213,9 @@ public class SQLReporter implements Reporter {
             return new String[]{REPORT_LIMIT_MESSAGE, null};
         } catch (SQLException | IOException e) {
             MiscUtils.getLogger().error("Error generating template report", e);
-            return new String[]{"An SQL query error has occured " + (sequenced ? e.getMessage() : Encode.forHtml(e.getMessage())), sequenced ? null : ""};
+            // Both destination JSPs encode error text. Keep it unencoded here so
+            // diagnostic characters are displayed once, not as HTML entities.
+            return new String[]{"An SQL query error has occured " + e.getMessage(), sequenced ? null : ""};
         }
     }
 

@@ -150,9 +150,10 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
             verify(report, never()).buildParameterizedSql(1, parameters);
         }
     }
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"Only SELECT statements are allowed", "synthetic <query> & failure"})
     @DisplayName("should retain result-page navigation for an ordinary SQL refusal")
-    void shouldKeepResultPageNavigation_whenStoredSqlIsRejected() {
+    void shouldKeepResultPageNavigation_whenStoredSqlIsRejected(String message) {
         ReportTemplatesDao dao = mock(ReportTemplatesDao.class);
         registerMock(ReportTemplatesDao.class, dao);
         ReportTemplates template = new ReportTemplates();
@@ -167,12 +168,13 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
                 (manager, context) -> when(manager.getReportTemplateNoParam("1")).thenReturn(report));
              MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
             jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong()))
-                    .thenThrow(new java.sql.SQLException("Only SELECT statements are allowed"));
+                    .thenThrow(new java.sql.SQLException(message));
             assertThat(new SQLReporter().generateReport(request)).isTrue();
             verify(managers.constructed().getFirst()).getReportTemplateNoParam("1");
             assertThat(request.getAttribute("reportobject")).isSameAs(report);
             assertThat(request.getAttribute("csv")).isEqualTo("");
-            assertThat(request.getAttribute("resultsethtml").toString()).contains("Only SELECT statements are allowed");
+            assertThat(request.getAttribute("resultsethtml")).isEqualTo("An SQL query error has occured " + message);
+            assertThat(request.getAttribute("errormsg")).isNull();
         }
     }
 
