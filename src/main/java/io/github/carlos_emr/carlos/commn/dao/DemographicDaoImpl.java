@@ -1741,6 +1741,17 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         return entityManager().find(Demographic.class, demographicNo, LockModeType.PESSIMISTIC_WRITE);
     }
 
+    @Override
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public boolean lockForMerge(Integer demographicNo) {
+        if (demographicNo == null) return false;
+        // A hydrated PESSIMISTIC_WRITE also locks the eager demographic_merged join.
+        // Its empty index gaps can deadlock two otherwise disjoint merge parents.
+        return !entityManager().createNativeQuery(
+                "SELECT demographic_no FROM demographic WHERE demographic_no = ?1 FOR UPDATE", Integer.class)
+                .setParameter(1, demographicNo).getResultList().isEmpty();
+    }
+
     /**
      * Runs a non-transactional side effect once the surrounding transaction commits, or immediately
      * when no transaction synchronization is active (callers that save outside a transaction keep

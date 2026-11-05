@@ -152,6 +152,7 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
     private int patient() {
         Demographic patient = new Demographic();
         patient.setSex("M"); patient.setFirstName("Synthetic"); patient.setLastName("Projection");
+        patient.setPrefName("");
         entityManager.persist(patient);
         return patient.getDemographicNo();
     }
@@ -163,6 +164,7 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
         requests.merge(request);
         for (String value : List.of("First", "Second")) {
             ConsultationRequestExt ext = new ConsultationRequestExt();
+            ext.setDateCreated(new Date());
             ext.setRequestId(request.getId()); ext.setKey("ereferral_service"); ext.setValue(value);
             extensions.persist(ext);
         }
@@ -197,6 +199,7 @@ class ConsultationListProjectionIntegrationTest extends CarlosTestBase {
     void shouldLoadExtensionsForRequestedPage_withEmptyAndUnknownIds() {
         for (int id : List.of(7, 8, 9)) {
             ConsultationRequestExt ext = new ConsultationRequestExt();
+            ext.setDateCreated(new Date());
             ext.setRequestId(id); ext.setKey("ereferral_service"); ext.setValue("Service " + id);
             extensions.persist(ext);
         }

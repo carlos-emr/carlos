@@ -1560,6 +1560,20 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
     @Tag("merge")
     class MergeOperationsTests {
 
+        @BeforeEach
+        void provideExistingMergeParticipants() {
+            org.mockito.Mockito.lenient().when(mockDemographicDao.lockForMerge(anyInt())).thenReturn(true);
+        }
+
+        @Test
+        void shouldPreserveExtensionDaoCompatibility_withTheDefaultMergeLock() {
+            var extension = mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class,
+                    org.mockito.Mockito.CALLS_REAL_METHODS);
+            when(extension.findForUpdate(1001)).thenReturn(new Demographic());
+            assertThat(extension.lockForMerge(1001)).isTrue();
+            assertThat(extension.lockForMerge(1002)).isFalse();
+        }
+
         @Test
         @DisplayName("should merge multiple children to parent")
         void shouldMergeMultipleChildren_toParent() {

@@ -620,6 +620,13 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             String fileName = "";
             boolean updateFileContent = false;
             File validatedDocFile = null;
+            var storedReview = this.isExtraReviewDoc()
+                    ? SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.DocumentDao.class)
+                            .find(Integer.parseInt(this.getMode()))
+                    : null;
+            if (this.isExtraReviewDoc() && storedReview == null) {
+                throw new IllegalStateException("Reviewed document no longer exists");
+            }
 
             if (CarlosProperties.getInstance().getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true"))
             {
@@ -643,7 +650,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             String reviewerId = filled(this.getReviewerId()) ? this.getReviewerId() : "";
             String reviewDateTime = filled(this.getReviewDateTime()) ? this.getReviewDateTime() : "";
 
-            if (!filled(reviewerId) && this.getReviewDoc()) {
+            if (this.getReviewDoc() && !this.isExtraReviewDoc()) {
                 LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
                 reviewerId = loggedInInfo.getLoggedInProviderNo();
                 reviewDateTime = UtilDateUtilities.DateToString(new Date(), EDocUtil.REVIEW_DATETIME_FORMAT);
@@ -714,14 +721,17 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
                 DocumentExtraReviewer der = new DocumentExtraReviewer();
                 der.setDocumentNo(Integer.parseInt(newDoc.getDocId()));
                 der.setReviewDateTime(new Date());
-                der.setReviewerProviderNo(this.getExtraReviewerId());
+                // A review attests to the authenticated actor, never a hidden form field.
+                der.setReviewerProviderNo(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
 
                 DocumentExtraReviewerDao derDao = SpringUtils.getBean(DocumentExtraReviewerDao.class);
                 derDao.persist(der);
 
                 //don't lose the initial review
                 this.setReviewDoc(true);
-                newDoc.setReviewDateTime(this.getReviewDateTime());
+                newDoc.setReviewerId(storedReview.getReviewer());
+                newDoc.setReviewDateTime(storedReview.getReviewdatetime() == null ? ""
+                        : UtilDateUtilities.DateToString(storedReview.getReviewdatetime(), EDocUtil.REVIEW_DATETIME_FORMAT));
             }
 
             EDocUtil.editDocumentSQL(newDoc, this.getReviewDoc());

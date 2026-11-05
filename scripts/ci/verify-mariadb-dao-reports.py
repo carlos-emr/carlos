@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-"""Verify MariaDB coverage; requires scripts/ci/requirements.txt dependencies."""
-from pathlib import Path
+"""Require complete native evidence, including failed first attempts."""
 import argparse
-import defusedxml.ElementTree as ET
+import json
+from pathlib import Path
+import sys
 
-parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--reports", type=Path, default=Path("target/surefire-reports"))
-parser.add_argument("--output", type=Path, default=Path("target/mariadb-dao-test-summary.txt"))
-args = parser.parse_args()
-critical = {
+from junit_evidence import EvidenceError, read_surefire
+
+CRITICAL = {
     "MariaDbDaoHarnessIntegrationTest": 1,
     "MeasurementDaoIntegrationTest": 1,
     "MeasurementsExtDaoIntegrationTest": 1,
@@ -19,50 +18,93 @@ critical = {
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
-required = {"generated": {**critical, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
+REQUIRED = {"generated": {**CRITICAL, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
                           "AbstractDaoFindAllOrderingIntegrationTest": 6,
-                          "CaseManagementIssueDAOIntegrationTest": 21},
-            "flyway": {**critical, "ConsultationArchiveDaoIntegrationTest": 1,
-                       "ArchiveAuditTimestampIntegrationTest": 2, "CaseManagementIssueDAOIntegrationTest": 22,
-                       "CaseManagementNoteLockMariaDbIntegrationTest": 15},
+                          "CaseManagementIssueDAOIntegrationTest": 21,
+                          "ConsultationListProjectionIntegrationTest": 17,
+                          "BCAR2020FormSaveTransactionIntegrationTest": 15,
+                          "RxCorrectionSaveRollbackIntegrationTest": 2,
+                          "DemographicMergeMariaDbIntegrationTest": 8},
+            "flyway": {**CRITICAL, "ConsultationArchiveDaoIntegrationTest": 1,
+                       "ArchiveAuditTimestampIntegrationTest": 2,
+                       "CaseManagementNoteLockMariaDbIntegrationTest": 15,
+                       "CaseManagementIssueDAOIntegrationTest": 22,
+                       "ConsultationListProjectionIntegrationTest": 17,
+                       "RxCorrectionSaveRollbackIntegrationTest": 2,
+                       "DemographicMergeMariaDbIntegrationTest": 8},
             "bc-flyway": {"ConsultationArchiveDaoIntegrationTest": 1,
                            "ArchiveAuditTimestampIntegrationTest": 2,
+                           "CaseManagementNoteLockMariaDbIntegrationTest": 15,
                            "BcBillingNativeMariaDbIntegrationTest": 8,
                            "BcBillingDaoTransactionIntegrationTest": 4,
-                           "CaseManagementNoteLockMariaDbIntegrationTest": 15}}
-counts = {mode: dict(tests=0, failures=0, errors=0, skipped=0) for mode in required}
-families = {mode: dict.fromkeys(required[mode], 0) for mode in required}
-lines = []
-reports = list(args.reports.glob("TEST-*.xml"))
-for report in reports:
-    root = ET.parse(report).getroot()
-    mode = ("bc-flyway" if report.stem.endswith("-bc-flyway")
-            else "flyway" if report.stem.endswith("-flyway") else "generated")
-    suite = report.stem.removeprefix("TEST-")
-    if mode != "generated":
-        suite = suite.removesuffix("-" + mode)
-    family_name = suite.rsplit(".", 1)[-1].split("$", 1)[0]
-    # Actual testcase elements avoid existing nested-suite header discrepancies.
-    for case in root.iter("testcase"):
-        counts[mode]["tests"] += 1
-        outcome = "pass"
-        for tag, key in (("failure", "failures"), ("error", "errors"), ("skipped", "skipped")):
-            if case.find(tag) is not None:
-                counts[mode][key] += 1
-                outcome = tag
-        lines.append(f"{mode} {outcome}: {case.get('classname', '')}::{case.get('name', '')}")
-        for family in families[mode]:
-            if family == family_name and outcome == "pass":
+                           "BCAR2020FormSaveTransactionIntegrationTest": 15,
+                           "DemographicMergeMariaDbIntegrationTest": 8}}
+
+
+def verify(reports: Path, output: Path) -> dict:
+    if reports.is_symlink() or not reports.is_dir():
+        raise EvidenceError("MariaDB report directory is missing or is a symlink")
+    paths = sorted(reports.glob("TEST-*.xml"))
+    if not paths:
+        raise EvidenceError("No MariaDB DAO reports found")
+    counts = {mode: dict(tests=0, failures=0, skipped=0) for mode in REQUIRED}
+    families = {mode: dict.fromkeys(required, 0) for mode, required in REQUIRED.items()}
+    identities = set()
+    collisions = []
+    lines = []
+    for report in paths:
+        mode = ("bc-flyway" if report.stem.endswith("-bc-flyway") else
+                "flyway" if report.stem.endswith("-flyway") else "generated")
+        suffix = "" if mode == "generated" else mode
+        suite = report.stem.removeprefix("TEST-")
+        if suffix:
+            suite = suite.removesuffix("-" + suffix)
+        family = suite.rsplit(".", 1)[-1].split("$", 1)[0]
+        diagnostics = []
+        cases = read_surefire(report, suite, suffix, diagnostics)
+        collisions.extend({"mode": mode, **row} for row in diagnostics)
+        for case in cases:
+            identity = (mode, *case.identity)
+            if identity in identities:
+                raise EvidenceError("Duplicate test execution across MariaDB reports")
+            identities.add(identity)
+            counts[mode]["tests"] += 1
+            if case.outcome != "pass":
+                counts[mode]["failures" if case.outcome == "failure" else "skipped"] += 1
+            if family in families[mode] and case.outcome == "pass":
                 families[mode][family] += 1
-summary = "MariaDB DAO integration results\n" + str(counts) + "\n" + str(families) + "\n"
-args.output.write_text(summary + "\n".join(lines) + "\n")
-print(summary)
-assert reports, "No MariaDB DAO reports found"
-assert counts["generated"]["tests"] >= 2500, "Broad MariaDB DAO selection unexpectedly lost coverage"
-for mode in required:
-    assert counts[mode]["tests"] > 0, f"No {mode} MariaDB tests executed"
-    for key in ("failures", "errors", "skipped"):
-        assert counts[mode][key] == 0, f"MariaDB {mode} run has {key}"
-    for family, minimum in required[mode].items():
-        assert families[mode][family] >= minimum, f"Required MariaDB {mode} coverage missing: {family}"
+            label = f" [{case.container}]" if case.container else ""
+            lines.append(f"{mode} {case.outcome}: {case.classname}{label}::{case.name}")
+    summary = {"counts": counts, "families": families, "counterCollisions": collisions}
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("MariaDB DAO integration results\n" + json.dumps(summary, indent=2)
+                      + "\n" + "\n".join(lines) + "\n", encoding="utf-8")
+    if counts["generated"]["tests"] < 2500:
+        raise EvidenceError("Broad MariaDB DAO selection unexpectedly lost coverage")
+    for mode, required in REQUIRED.items():
+        if counts[mode]["failures"] or counts[mode]["skipped"]:
+            raise EvidenceError(f"MariaDB {mode} contains failed, retried, or skipped cases")
+        for family, minimum in required.items():
+            if families[mode][family] < minimum:
+                raise EvidenceError(f"Required MariaDB {mode} coverage missing: {family}")
+    return summary
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--reports", type=Path, default=Path("target/surefire-reports"))
+    parser.add_argument("--output", type=Path, default=Path("target/mariadb-dao-test-summary.txt"))
+    args = parser.parse_args(argv)
+    args.output.unlink(missing_ok=True)
+    try:
+        print(json.dumps(verify(args.reports, args.output), indent=2))
+    except Exception as failure:
+        reason = str(failure) if isinstance(failure, EvidenceError) else type(failure).__name__
+        print(f"MariaDB evidence refused: {reason}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

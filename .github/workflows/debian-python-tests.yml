@@ -108,7 +108,10 @@ jobs:
       - name: Packaging-contract tests
         # Do not import these as debian.assets: python-debian, installed on
         # Debian development hosts, owns the top-level debian package.
-        run: python3 -m unittest discover -s debian/assets/tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends restic
+          python3 -m unittest discover -s debian/assets/tests
       - name: Manifest generator and shipped-manifest tests
         run: python3 -m unittest discover -s scripts/migration/o19/tests -t .
       # Standalone data belongs to carlos-emr and can advance independently

@@ -134,6 +134,46 @@ class BCAR2020FormSaveTransactionIntegrationTest extends CarlosTestBase {
     }
 
     @ParameterizedTest
+    @ValueSource(ints = {0, 1, 49, 50, 51, 101})
+    void shouldPreserveEveryFieldInBothTables_acrossBatchBoundaries(int size) {
+        Map<String, String> submitted = new java.util.LinkedHashMap<>();
+        for (int i = 0; i < size; i++) {
+            submitted.put("t_batch" + i, "Écho 測定 " + i);
+            submitted.put("mt_batch" + i, "Synthetic Unicode prose Écho 測定 " + i + "\n" + "z".repeat(4000));
+        }
+        FormBCAR2020 saved = service.saveVersion(actor, 0, 5299, 1, submitted);
+        tx.executeWithoutResult(status -> {
+            em.clear();
+            assertThat(data.findFields(saved.getId())).hasSize(size).allSatisfy(row -> {
+                assertThat(row.getValue()).isEqualTo(submitted.get(row.getField()));
+                assertThat(row.getProviderNo()).isEqualTo("999998");
+                assertThat(row.getPageNo()).isEqualTo(1);
+            });
+            assertThat(text.findFields(saved.getId())).hasSize(size).allSatisfy(row -> {
+                assertThat(row.getValue()).isEqualTo(submitted.get(row.getField()));
+                assertThat(row.getProviderNo()).isEqualTo("999998");
+                assertThat(row.getPageNo()).isEqualTo(1);
+            });
+        });
+        assertPreviousVersion();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldLeaveAllVersionsUntouched_whenSourceIsMissingOrForeign(boolean foreign) {
+        assertThatThrownBy(() -> service.saveVersion(actor, foreign ? source : Integer.MAX_VALUE,
+                foreign ? 5300 : 5299, 1, fields())).isInstanceOf(SecurityException.class);
+        tx.executeWithoutResult(status -> {
+            em.clear();
+            assertThat(em.createQuery("SELECT COUNT(f) FROM FormBCAR2020 f WHERE f.demographicNo IN (5299, 5300)", Long.class)
+                    .getSingleResult()).isEqualTo(1);
+            assertThat(data.findFields(source)).hasSize(57);
+            assertThat(text.findFields(source)).hasSize(56);
+        });
+        assertPreviousVersion();
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"header", "ordinary", "afterOrdinary", "text", "commit"})
     void shouldRollBackTheEntireVersion_whenFailureOccursAtEachStage(String stage) throws Exception {
         FormBCAR2020DataDao failingData = mock(FormBCAR2020DataDao.class, delegatesTo(data));
