@@ -390,9 +390,10 @@ public interface DemographicDao {
     public Demographic findForUpdate(Integer demographicNo);
 
     /**
-     * Locks an existing participant row for a merge without locking eager relationship rows.
-     * Must run inside the caller's transaction. The default preserves compatibility with
-     * extension DAOs; the core implementation uses a scalar primary-key locking query.
+     * Locks an existing participant row for a merge inside the caller's transaction.
+     * The core implementation uses a scalar primary-key query to avoid eager relationship
+     * locks. The compatibility default may also lock eager relationships; extension DAOs
+     * should override it with a scalar lock when using concurrent merge operations.
      *
      * @param demographicNo patient number
      * @return whether the patient exists and is locked

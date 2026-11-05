@@ -14,7 +14,7 @@ test('Node readiness refuses TODO, unexpected TODO pass, cancellation, skips, em
   for (const kind of ['failed', 'cancelled', 'skipped', 'todo']) {
     assert.equal(readiness({...clean, counts: {...clean.counts, [kind]: 1}}), false, kind);
   }
-  for (const value of [null, {}, {...clean, success: false}, {...clean, counts: {...clean.counts, tests: 0, passed: 0}}]) {
+  for (const value of [null, {}, {...clean, counts: {...clean.counts, passed: 1}}, {...clean, success: false}, {...clean, counts: {...clean.counts, tests: 0, passed: 0}}]) {
     assert.equal(readiness(value), false);
   }
 });
@@ -41,10 +41,20 @@ test('real Node subprocess outcomes cannot hide behind exit zero or TODO annotat
       require.resolve('./run-node-release-tests'), file, output], {encoding: 'utf8', env: environment});
     assert.equal(child.status, expected, body + child.stderr);
     const report = JSON.parse(fs.readFileSync(output));
-    assert.equal(report.cases[0].outcome, outcome);
+    assert.equal(report.cases.length, body.includes('same display name') ? 2 : 1, body);
+    assert.ok(report.cases.every(c => c.outcome === outcome));
     const ids = report.cases.map(c => JSON.stringify([c.file,c.parents,c.testNumber]));
     assert.equal(new Set(ids).size, ids.length, 'Parameterized executions retain distinct engine identities');
     assert.equal(JSON.stringify(report).includes('Error: synthetic'), false, 'No arbitrary child output in evidence');
+  }
+  for (const body of ['', 'process.exit(0);']) {
+    const file = path.join(directory, 'empty.test.cjs');
+    fs.writeFileSync(file, body);
+    const environment = {...process.env};
+    delete environment.NODE_TEST_CONTEXT;
+    const child = spawnSync(process.execPath, [driver,
+      require.resolve('./run-node-release-tests'), file, path.join(directory, 'empty-result.json')], {env: environment});
+    assert.equal(child.status, 1, 'Synthetic file PASS must not count as a test');
   }
   await assert.rejects(execute([], path.join(directory, 'empty.json')), /Empty/);
 });

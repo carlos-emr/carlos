@@ -1588,8 +1588,18 @@
           "check": "java-native-generated",
           "cases": [
             {
-              "name": "shouldRetainCommittedMerge_whenAuditFails",
-              "container": ""
+              "name": "shouldRollbackEveryChangeAndAudit_whenSecondAuditFails(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldRollbackEveryChangeAndAudit_whenSecondAuditFails(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldRollbackEveryChangeAndAudit_whenSecondAuditFails(boolean)[2]",
+                  "container": ""
+                }
+              ]
             },
             {
               "name": "shouldRollbackEveryUnmerge_whenSecondUpdateFails",
@@ -1683,7 +1693,7 @@
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
-        "DemographicMergeMariaDbIntegrationTest": 7
+        "DemographicMergeMariaDbIntegrationTest": 8
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -1726,7 +1736,7 @@
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
         "CaseManagementIssueDAOIntegrationTest": 22,
-        "DemographicMergeMariaDbIntegrationTest": 7
+        "DemographicMergeMariaDbIntegrationTest": 8
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -1769,7 +1779,7 @@
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 8,
         "BcBillingDaoTransactionIntegrationTest": 4,
-        "DemographicMergeMariaDbIntegrationTest": 7
+        "DemographicMergeMariaDbIntegrationTest": 8
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"

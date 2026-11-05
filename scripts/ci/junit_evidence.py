@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Read test identities/outcomes without publishing configuration or test output."""
 from dataclasses import dataclass
 import os
@@ -63,7 +63,7 @@ def read_surefire(path: Path, expected_suite: str, suffix: str = "", diagnostics
         if not classname or not name or any(ord(c) < 32 for c in classname + name):
             raise EvidenceError("Test case has no usable identity")
         if classname != suite and not classname.startswith(suite + "$"):
-            if re.fullmatch(r"[a-z_][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)+", classname):
+            if re.fullmatch(r"[^\W\d][\w$]*(?:\.[^\W\d][\w$]*)+", classname):
                 raise EvidenceError("Test case belongs to another suite")
             # Surefire/JUnit 6 puts @DisplayName text in testcase@classname,
             # while testsuite@name and the filename retain the binary class.

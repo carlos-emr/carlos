@@ -12,7 +12,6 @@ import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.base.IsolatedJpaTestDatabase;
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
@@ -23,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -55,7 +55,7 @@ import static org.mockito.Mockito.*;
 @Tag("integration")
 @Tag("mariadb-native")
 @EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_DAO", matches = "true")
-class DemographicMergeMariaDbIntegrationTest extends CarlosUnitTestBase {
+class DemographicMergeMariaDbIntegrationTest {
     @Autowired private DataSource dataSource;
     @Autowired private DemographicDao patients;
     @Autowired private DemographicMergedDao merges;
@@ -68,9 +68,12 @@ class DemographicMergeMariaDbIntegrationTest extends CarlosUnitTestBase {
     private int otherParent;
     private int first;
     private int second;
+    private Object previousAuditDao;
 
     @BeforeEach
     void prepareParticipants() throws Exception {
+        previousAuditDao = ReflectionTestUtils.getField(LogAction.class, "oscarLogDao");
+        ReflectionTestUtils.setField(LogAction.class, "oscarLogDao", auditLogs);
         if (!"flyway".equals(System.getenv("CARLOS_TEST_MARIADB_SCHEMA"))) {
             // Demographic's read-only formulas refer to these legacy lookup tables.
             // The Flyway lane uses the shipped definitions without alteration.
@@ -85,7 +88,6 @@ class DemographicMergeMariaDbIntegrationTest extends CarlosUnitTestBase {
         var target = new DemographicManagerImpl();
         ReflectionTestUtils.setField(target, "demographicDao", patients);
         ReflectionTestUtils.setField(target, "demographicMergedDao", merges);
-        ReflectionTestUtils.setField(target, "transactionManager", transactions);
         var proxy = new ProxyFactory(target);
         proxy.setInterfaces(DemographicManager.class);
         // Read the production annotations: deleting @Transactional must break the rollback proof.
@@ -123,27 +125,23 @@ class DemographicMergeMariaDbIntegrationTest extends CarlosUnitTestBase {
 
     @Test
     void shouldPersistMergeAndUnmergeAudits_whenObservedAfterCommit() throws Exception {
-        // A static interaction assertion cannot prove the audit transaction committed.
-        logActionMock.close();
-        logActionMock = null;
-        Object previous = ReflectionTestUtils.getField(LogAction.class, "oscarLogDao");
-        ReflectionTestUtils.setField(LogAction.class, "oscarLogDao", auditLogs);
-        try {
-            String merge = "DemographicManager.mergeDemographics";
-            String unmerge = "DemographicManager.unmergeDemographics";
-            long beforeMerge = audits(merge);
-            long beforeUnmerge = audits(unmerge);
-            manager.mergeDemographics(actor, parent, List.of(first));
-            assertThat(active(first)).isEqualTo(1);
-            assertThat(audits(merge)).isEqualTo(beforeMerge + 1);
-            assertThat(audits(unmerge)).isEqualTo(beforeUnmerge);
-            manager.unmergeDemographics(actor, parent, List.of(first));
-            assertThat(active(first)).isZero();
-            assertThat(audits(merge)).isEqualTo(beforeMerge + 1);
-            assertThat(audits(unmerge)).isEqualTo(beforeUnmerge + 1);
-        } finally {
-            ReflectionTestUtils.setField(LogAction.class, "oscarLogDao", previous);
-        }
+        String merge = "DemographicManager.mergeDemographics";
+        String unmerge = "DemographicManager.unmergeDemographics";
+        long beforeMerge = audits(merge);
+        long beforeUnmerge = audits(unmerge);
+        manager.mergeDemographics(actor, parent, List.of(first));
+        assertThat(active(first)).isEqualTo(1);
+        assertThat(audits(merge)).isEqualTo(beforeMerge + 1);
+        assertThat(audits(unmerge)).isEqualTo(beforeUnmerge);
+        manager.unmergeDemographics(actor, parent, List.of(first));
+        assertThat(active(first)).isZero();
+        assertThat(audits(merge)).isEqualTo(beforeMerge + 1);
+        assertThat(audits(unmerge)).isEqualTo(beforeUnmerge + 1);
+    }
+
+    @AfterEach
+    void restoreAuditDao() {
+        ReflectionTestUtils.setField(LogAction.class, "oscarLogDao", previousAuditDao);
     }
 
     private void fault(String event, String condition) throws Exception {
@@ -162,12 +160,13 @@ class DemographicMergeMariaDbIntegrationTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRollbackEveryMergeAndAudit_whenSecondInsertFails() throws Exception {
+        long beforeAudit = audits("DemographicManager.mergeDemographics");
         fault("INSERT", "");
         try {
             assertThatThrownBy(() -> manager.mergeDemographics(actor, parent, List.of(first, second)))
                     .rootCause().hasMessageContaining("Synthetic late merge failure");
             assertThat(active(first)).isZero(); assertThat(active(second)).isZero();
-            logActionMock.verifyNoInteractions();
+            assertThat(audits("DemographicManager.mergeDemographics")).isEqualTo(beforeAudit);
         } finally { removeFault(); }
         manager.mergeDemographics(actor, parent, List.of(first, second));
         assertThat(active(first)).isEqualTo(1); assertThat(active(second)).isEqualTo(1);
@@ -176,13 +175,13 @@ class DemographicMergeMariaDbIntegrationTest extends CarlosUnitTestBase {
     @Test
     void shouldRollbackEveryUnmerge_whenSecondUpdateFails() throws Exception {
         manager.mergeDemographics(actor, parent, List.of(first, second));
-        logActionMock.clearInvocations();
+        long beforeAudit = audits("DemographicManager.unmergeDemographics");
         fault("UPDATE", "AND NEW.deleted=1");
         try {
             assertThatThrownBy(() -> manager.unmergeDemographics(actor, parent, List.of(first, second)))
                     .rootCause().hasMessageContaining("Synthetic late merge failure");
             assertThat(active(first)).isEqualTo(1); assertThat(active(second)).isEqualTo(1);
-            logActionMock.verifyNoInteractions();
+            assertThat(audits("DemographicManager.unmergeDemographics")).isEqualTo(beforeAudit);
         } finally { removeFault(); }
         manager.unmergeDemographics(actor, parent, List.of(first, second));
         assertThat(active(first)).isZero(); assertThat(active(second)).isZero();
@@ -204,14 +203,12 @@ class DemographicMergeMariaDbIntegrationTest extends CarlosUnitTestBase {
     }
 
     private boolean contend(CyclicBarrier barrier, int destination, int child) throws Exception {
-        try (var logs = mockStatic(LogAction.class)) {
-            barrier.await(5, TimeUnit.SECONDS);
-            try {
-                manager.mergeDemographics(actor, destination, List.of(child));
-                return true;
-            } catch (IllegalArgumentException refused) {
-                return false;
-            }
+        barrier.await(5, TimeUnit.SECONDS);
+        try {
+            manager.mergeDemographics(actor, destination, List.of(child));
+            return true;
+        } catch (IllegalArgumentException refused) {
+            return false;
         }
     }
 
@@ -224,15 +221,28 @@ class DemographicMergeMariaDbIntegrationTest extends CarlosUnitTestBase {
         assertThat(active(parent)).isZero();
     }
 
-    @Test
-    void shouldRetainCommittedMerge_whenAuditFails() throws Exception {
-        logActionMock.when(() -> LogAction.addLogSynchronous(eq(actor),
-                eq("DemographicManager.mergeDemographics"), anyString()))
-                .thenThrow(new IllegalStateException("Synthetic audit failure"));
-        assertThatCode(() -> manager.mergeDemographics(actor, parent, List.of(first))).doesNotThrowAnyException();
-        assertThat(active(first)).isEqualTo(1);
-        logActionMock.verify(() -> LogAction.addLogSynchronous(eq(actor),
-                eq("DemographicManager.mergeDemographics"), anyString()));
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRollbackEveryChangeAndAudit_whenSecondAuditFails(boolean unmerge) throws Exception {
+        if (unmerge) manager.mergeDemographics(actor, parent, List.of(first, second));
+        String operation = unmerge ? "DemographicManager.unmergeDemographics" : "DemographicManager.mergeDemographics";
+        long beforeAudit = audits(operation);
+        var failingDao = mock(OscarLogDao.class);
+        var writes = new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(invocation -> {
+            if (writes.incrementAndGet() == 2) throw new IllegalStateException("Synthetic audit failure");
+            auditLogs.persist(invocation.getArgument(0));
+            return null;
+        }).when(failingDao).persist(any(OscarLog.class));
+        ReflectionTestUtils.setField(LogAction.class, "oscarLogDao", failingDao);
+        assertThatThrownBy(() -> {
+            if (unmerge) manager.unmergeDemographics(actor, parent, List.of(first, second));
+            else manager.mergeDemographics(actor, parent, List.of(first, second));
+        }).isInstanceOf(IllegalStateException.class).hasMessage("Synthetic audit failure");
+        assertThat(writes.get()).isEqualTo(2);
+        assertThat(active(first)).isEqualTo(unmerge ? 1 : 0);
+        assertThat(active(second)).isEqualTo(unmerge ? 1 : 0);
+        assertThat(audits(operation)).isEqualTo(beforeAudit);
     }
 
     @Configuration

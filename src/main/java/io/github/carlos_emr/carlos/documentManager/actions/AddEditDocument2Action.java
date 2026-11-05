@@ -620,6 +620,13 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             String fileName = "";
             boolean updateFileContent = false;
             File validatedDocFile = null;
+            var storedReview = this.isExtraReviewDoc()
+                    ? SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.DocumentDao.class)
+                            .find(Integer.parseInt(this.getMode()))
+                    : null;
+            if (this.isExtraReviewDoc() && storedReview == null) {
+                throw new IllegalStateException("Reviewed document no longer exists");
+            }
 
             if (CarlosProperties.getInstance().getBooleanProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "true"))
             {
@@ -711,9 +718,6 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
             }
 
             if (this.isExtraReviewDoc()) {
-                var stored = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.DocumentDao.class)
-                        .find(Integer.parseInt(this.getMode()));
-                if (stored == null) throw new IllegalStateException("Reviewed document no longer exists");
                 DocumentExtraReviewer der = new DocumentExtraReviewer();
                 der.setDocumentNo(Integer.parseInt(newDoc.getDocId()));
                 der.setReviewDateTime(new Date());
@@ -725,9 +729,9 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
                 //don't lose the initial review
                 this.setReviewDoc(true);
-                newDoc.setReviewerId(stored.getReviewer());
-                newDoc.setReviewDateTime(stored.getReviewdatetime() == null ? ""
-                        : UtilDateUtilities.DateToString(stored.getReviewdatetime(), EDocUtil.REVIEW_DATETIME_FORMAT));
+                newDoc.setReviewerId(storedReview.getReviewer());
+                newDoc.setReviewDateTime(storedReview.getReviewdatetime() == null ? ""
+                        : UtilDateUtilities.DateToString(storedReview.getReviewdatetime(), EDocUtil.REVIEW_DATETIME_FORMAT));
             }
 
             EDocUtil.editDocumentSQL(newDoc, this.getReviewDoc());

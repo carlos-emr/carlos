@@ -35,6 +35,9 @@ public final class IsolatedJpaTestDatabase implements AutoCloseable {
             throw new IllegalArgumentException("A MariaDB URL requires the explicit native-test opt-in");
         }
         String mode = environment.getOrDefault("CARLOS_TEST_MARIADB_SCHEMA", "generated");
+        if (!nativeMode && "flyway".equals(mode)) {
+            throw new IllegalArgumentException("Flyway schema requires the explicit native-test opt-in");
+        }
         String province = environment.getOrDefault("CARLOS_TEST_MARIADB_PROVINCE", "on");
         if (!java.util.List.of("generated", "flyway").contains(mode)
                 || !java.util.List.of("on", "bc").contains(province)) {

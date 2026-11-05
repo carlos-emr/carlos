@@ -14,7 +14,7 @@ const root = path.resolve(__dirname, '../src/main/webapp');
 const sha256 = data => crypto.createHash('sha256').update(data).digest('hex');
 
 async function main() {
-  const browser = await launchBrowser({headless: true, chromePath: process.env.CHROME_PATH || ''});
+  const browser = await launchBrowser({headless: true, chromePath: process.env.CHROME_PATH || process.env.CHROMIUM_PATH || ''});
   const records = [];
   let assertions = 0;
   try {
@@ -65,6 +65,7 @@ async function main() {
       await fill({...valid, cCholesterol: '4', cHDL: '3.9999'});
       await calculate.click();
       assert.equal(await page.locator('#riskInputRefused').count(), 0);
+      assert.match(await page.locator('#' + highlighted).innerText(), /%$/);
       assertions++;
       assert.deepEqual(errors, []);
       for (const entry of await page.coverage.stopJSCoverage()) {

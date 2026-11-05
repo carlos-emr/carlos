@@ -10,6 +10,11 @@ from cds_war_manifest import build_manifest, identity
 from junit_evidence import EvidenceError
 
 INSTALLED_WEBAPP = Path("/usr/share/carlos-emr/webapp/carlos")
+SOURCE_ROOT = Path(__file__).resolve().parents[2]
+PACKAGE_TRANSFORMS = {
+    "WEB-INF/tomcat-web.xml": "debian/assets/tomcat/tomcat-web.xml",
+    "WEB-INF/classes/jdbc-defaults.properties": "debian/assets/jdbc-defaults.properties",
+}
 
 
 def local_target(base_url):
@@ -21,17 +26,27 @@ def local_target(base_url):
         return False
 
 
-def attest(war, installed=INSTALLED_WEBAPP, base_url=""):
+def attest(war, installed=INSTALLED_WEBAPP, base_url="", root=SOURCE_ROOT):
     if not local_target(base_url):
         raise EvidenceError("Packaged qualification must run beside its loopback deployment")
     if installed.is_symlink() or not installed.is_dir():
         raise EvidenceError("Installed package application tree is unavailable")
     manifest = build_manifest(war)
     expected = {row["name"]: row for row in manifest["entries"] if row["kind"] == "file"}
+    # Apply exactly the reviewed debian/rules transforms, including their WAR
+    # prerequisites. Everything else remains bound to the candidate bytes.
+    if "WEB-INF/tomcat-web.xml" in expected or "WEB-INF/classes/jdbc-defaults.properties" not in expected:
+        raise EvidenceError("Candidate does not satisfy package transform prerequisites")
+    for name, source in PACKAGE_TRANSFORMS.items():
+        data = (root / source).read_bytes()
+        expected[name] = {"bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
     actual = set()
     total = 0
     combined = hashlib.sha256()
-    for directory, subdirectories, files in os.walk(installed, followlinks=False):
+    def unreadable(_failure):
+        raise EvidenceError("Installed application directory cannot be read")
+
+    for directory, subdirectories, files in os.walk(installed, followlinks=False, onerror=unreadable):
         parent = Path(directory)
         if any((parent / name).is_symlink() for name in subdirectories):
             raise EvidenceError("Installed application contains an unbound directory symlink")

@@ -17,6 +17,13 @@ class IsolatedJpaTestDatabaseUnitTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void shouldRefuseFlywaySchema_withoutNativeOptIn() {
+        assertThatThrownBy(() -> new IsolatedJpaTestDatabase("guard", Map.of(
+                "CARLOS_TEST_MARIADB_SCHEMA", "flyway")))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("native-test opt-in");
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"jdbc:mysql://127.0.0.1/clinical", "jdbc:mysql://127.0.0.1/?database=clinical",
             "jdbc:mysql://127.0.0.1/;database=clinical", "jdbc:h2:file:clinical", "jdbc:mysql://user:synthetic@127.0.0.1/"})

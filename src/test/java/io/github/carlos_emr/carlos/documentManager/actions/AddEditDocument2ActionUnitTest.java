@@ -263,6 +263,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         stored.setReviewer("999997");
         stored.setReviewdatetime(new java.util.Date(1700000000000L));
         var documentsDao = mock(DocumentDao.class);
+        // Stored-document authorization uses this lookup for both review modes.
         when(documentsDao.find(123)).thenReturn(stored);
         registerMock(DocumentDao.class, documentsDao);
         var reviewers = mock(DocumentExtraReviewerDao.class);
@@ -290,6 +291,25 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         } finally {
             if (previous == null) CarlosProperties.getInstance().remove("ALLOW_UPDATE_DOCUMENT_CONTENT");
             else CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", previous);
+        }
+    }
+
+    @Test
+    void shouldRefuseMissingReviewedDocument_beforePublishingReplacementContent() throws Exception {
+        tempUploadFile = File.createTempFile("missing-reviewed-document", ".txt");
+        Files.writeString(tempUploadFile.toPath(), "synthetic replacement");
+        bindDocFileUpload(tempUploadFile, "replacement.txt", "text/plain");
+        var documentsDao = mock(DocumentDao.class);
+        when(documentsDao.find(123)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document(), null);
+        registerMock(DocumentDao.class, documentsDao);
+        action.setMode("123"); action.setFunction("provider"); action.setFunctionId("999998");
+        action.setDocDesc("Synthetic review"); action.setDocType("Consultant Report");
+        action.setAppointmentNo("0"); action.setExtraReviewDoc(true);
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class);
+             MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class)) {
+            assertThat(action.execute2()).isEqualTo("failEdit");
+            paths.verifyNoInteractions();
+            documents.verifyNoInteractions();
         }
     }
 

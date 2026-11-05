@@ -86,6 +86,11 @@ class ResultInventoryTest(unittest.TestCase):
             path.write_text(json.dumps(result))
             return gate.node_results(path, self.root)
         self.assertTrue(read()["ready"])
+        original = dict(result["cases"][1])
+        result["cases"][1] = dict(result["cases"][0])
+        with self.assertRaisesRegex(EvidenceError, "Duplicate Node"):
+            read()
+        result["cases"][1] = original
         result["cases"][1]["outcome"] = "TODO"
         self.assertFalse(read()["ready"])
         result["files"].pop()
@@ -111,6 +116,43 @@ class ResultInventoryTest(unittest.TestCase):
 
 
 class ScopeInventoryTest(unittest.TestCase):
+    def test_scope_requires_baseline_workstreams_and_hash_bound_migration_dispositions(self):
+        scope = module_from("release_scope", "release-scope-audit.py")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            def git(*args):
+                return subprocess.check_output(["git", *args], cwd=root, stderr=subprocess.DEVNULL).decode().strip()
+            git("init", "--quiet")
+            git("config", "user.email", "synthetic@example.invalid")
+            git("config", "user.name", "Synthetic test")
+            migration = "database/mysql/migration/common/V1.sql"
+            path = root / migration
+            path.parent.mkdir(parents=True)
+            path.write_text("-- synthetic main-only migration")
+            (root / "test.py").write_text("# concrete source reference")
+            git("add", "."); git("commit", "--quiet", "-m", "test: main baseline")
+            baseline = git("rev-parse", "HEAD")
+            path.unlink()
+            git("add", "."); git("commit", "--quiet", "-m", "test: release scope")
+            plan = {"baselines": {}, "checks": [{"id": "required"}], "workstreams": [{"id": "T01"}]}
+            with self.assertRaisesRegex(EvidenceError, "currentMain"):
+                scope.inventory(plan, root)
+            plan["baselines"]["currentMain"] = baseline
+            plan["pathBindings"] = {migration: {"tests": ["test.py"], "checks": ["required"], "reason": "reviewed"}}
+            with self.assertRaisesRegex(EvidenceError, "workstream"):
+                scope.inventory(plan, root)
+            plan["pathBindings"][migration]["workstreams"] = ["T01"]
+            report = scope.inventory(plan, root)
+            sha256 = report["mainOnlyMigrations"][0]["sha256"]
+            for disposition in (None, "TODO", {}, {"reason": "reviewed"},
+                                {"sha256": "0" * 64, "reason": "reviewed"},
+                                {"sha256": sha256, "reason": "  "}):
+                with self.subTest(disposition=disposition):
+                    plan["mainOnlyMigrationDispositions"] = {migration: disposition}
+                    self.assertEqual(scope.inventory(plan, root)["unresolvedMainOnlyMigrations"], [migration])
+            plan["mainOnlyMigrationDispositions"][migration] = {"sha256": sha256, "reason": "reviewed exclusion"}
+            self.assertTrue(scope.inventory(plan, root)["ready"])
+
     def test_full_diff_preserves_more_than_300_paths_deletions_and_binary_files(self):
         scope = module_from("release_scope", "release-scope-audit.py")
         with tempfile.TemporaryDirectory() as temporary:
@@ -134,14 +176,14 @@ class ScopeInventoryTest(unittest.TestCase):
             self.assertEqual(len(changes), 323)
             self.assertIn(("D", "removed.java"), changes)
             self.assertIn(("A", "binary.bin"), changes)
-            result = scope.inventory({"baselines": {"olderMain": baseline}, "checks": [], "workstreams": []}, root)
+            result = scope.inventory({"baselines": {"olderMain": baseline, "currentMain": baseline}, "checks": [], "workstreams": []}, root)
             self.assertEqual(len(result["unownedProductionPaths"]), 321)
             self.assertFalse(result["ready"])
 
     def test_production_classification_does_not_hide_migrations_or_package_scripts(self):
         scope = module_from("release_scope", "release-scope-audit.py")
         for path in ("database/mysql/migration/common/V1.sql", "debian/carlos-emr.postrm", "debian/assets/bin/carlos-emr-backup",
-                     "src/main/webapp/WEB-INF/jsp/fragment.jspf", "src/main/resources/messages_fr.properties", "package-lock.json"):
+                     "src/main/webapp/WEB-INF/jsp/fragment.jspf", "src/main/resources/messages_fr.properties", "package-lock.json", "local_repo/cds/library.jar"):
             self.assertTrue(scope.runtime_path(path), path)
         for path in ("debian/assets/tests/test_backup_restic.py", "debian/tests/control",
                      "src/test/java/ExampleUnitTest.java"):

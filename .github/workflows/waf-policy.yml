@@ -81,13 +81,17 @@ jobs:
             python3 scripts/waf/check-clinical-policy.py --self-test \
             2>&1 | tee "$WAF_EVIDENCE/self-tests.log"
 
+      - name: Validate policy configuration and inventory
+        run: |
+          set -euo pipefail
+          python3 scripts/waf/check-clinical-policy.py --check-config 2>&1 | tee "$WAF_EVIDENCE/config.log"
+          python3 scripts/waf/check-clinical-policy.py --check-inventory 2>&1 | tee "$WAF_EVIDENCE/inventory.log"
+
       - name: Run real-engine policy regressions
         # Still collect engine results if a mechanics check fails.
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' && steps.checkout.outcome == 'success' }}
         run: |
           set -euo pipefail
-          python3 scripts/waf/check-clinical-policy.py --check-config
-          python3 scripts/waf/check-clinical-policy.py --check-inventory
           # The harness uses master_process off: nginx keeps the invoking UID,
           # including root in this container, and can read its private prefix.
           # It opens only ephemeral loopback ports and stops its own process.

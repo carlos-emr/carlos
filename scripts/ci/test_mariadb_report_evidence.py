@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Exercise native verdicts with real subprocess exits, including python -O."""
 import importlib.util
 import os
@@ -29,11 +29,16 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                                str(Path(MODULE.__file__)), "--reports", str(self.reports),
                                "--output", str(self.output)], capture_output=True, text=True, timeout=10)
 
+    def assert_refused(self, result, reason):
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("MariaDB evidence refused: " + reason, result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+
     def seed(self, tag="", mode="generated", duplicate=False):
         for selected, required in MODULE.REQUIRED.items():
             required = dict(required)
             if selected == "generated":
-                required["MeasurementDaoIntegrationTest"] += 2500 - sum(required.values())
+                required["MeasurementDaoIntegrationTest"] += 3000 - sum(required.values())
             for family, count in required.items():
                 suite = "example." + family
                 suffix = "" if selected == "generated" else "-" + selected
@@ -59,7 +64,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
     def test_empty_reports_fail_with_optimization_and_remove_old_success(self):
         for optimized in (False, True):
             self.output.write_text("old successful run")
-            self.assertNotEqual(self.invoke(optimized).returncode, 0)
+            self.assert_refused(self.invoke(optimized), "No MariaDB DAO reports found")
             self.assertFalse(self.output.exists())
 
     def test_first_attempt_failures_cannot_be_reclassified_as_pass(self):
@@ -67,27 +72,31 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             with self.subTest(tag=tag):
                 self.seed(tag=f'<{tag} message="private synthetic payload"/>')
                 result = self.invoke()
-                self.assertNotEqual(result.returncode, 0)
+                self.assert_refused(result, "Suite skip counter disagrees" if tag == "skipped" else "MariaDB generated contains failed, retried, or skipped cases")
                 self.assertNotIn("private synthetic payload", result.stdout + result.stderr)
 
     def test_missing_required_family_in_each_lane_fails(self):
         self.seed()
         for mode, required in MODULE.REQUIRED.items():
-            family = next(iter(required))
-            suffix = "" if mode == "generated" else "-" + mode
-            path = self.reports / ("TEST-example." + family + suffix + ".xml")
-            original = path.read_bytes()
-            path.unlink()
-            self.assertNotEqual(self.invoke().returncode, 0)
-            path.write_bytes(original)
+            for family in required:
+                with self.subTest(mode=mode, family=family):
+                    suffix = "" if mode == "generated" else "-" + mode
+                    path = self.reports / ("TEST-example." + family + suffix + ".xml")
+                    original = path.read_bytes()
+                    path.unlink()
+                    reason = ("Broad MariaDB DAO selection unexpectedly lost coverage"
+                              if mode == "generated" and family == "MeasurementDaoIntegrationTest"
+                              else f"Required MariaDB {mode} coverage missing: {family}")
+                    self.assert_refused(self.invoke(), reason)
+                    path.write_bytes(original)
 
     def test_duplicates_and_suite_binding_are_refused(self):
         self.seed(duplicate=True)
-        self.assertNotEqual(self.invoke().returncode, 0)
+        self.assert_refused(self.invoke(), "Duplicate test case identity")
         self.seed()
         path = next(self.reports.glob("*.xml"))
         path.write_text(path.read_text().replace('name="example.', 'name="different.', 1))
-        self.assertNotEqual(self.invoke().returncode, 0)
+        self.assert_refused(self.invoke(), "Report filename and suite identity disagree")
 
     def test_malformed_entities_and_symlinks_are_refused(self):
         self.seed()
@@ -95,21 +104,21 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         original = path.read_bytes()
         for body in (b"<testsuite", b'<!DOCTYPE testsuite [<!ENTITY secret SYSTEM "file:///does-not-exist">]><testsuite/>'):
             path.write_bytes(body)
-            self.assertNotEqual(self.invoke().returncode, 0)
+            self.assert_refused(self.invoke(), "Cannot read test report" if body.startswith(b"<testsuite") else "DTDForbidden")
         outside = self.root / "outside.xml"
         outside.write_bytes(original)
         path.unlink()
         path.symlink_to(outside)
-        self.assertNotEqual(self.invoke().returncode, 0)
+        self.assert_refused(self.invoke(), "Cannot read test report")
         path.unlink()
         os.mkfifo(path)
-        self.assertNotEqual(self.invoke().returncode, 0, "A FIFO must be refused without waiting for a writer")
+        self.assert_refused(self.invoke(), "Test report is not a bounded regular file")
 
     def test_counter_mismatch_cannot_supply_coverage(self):
         self.seed()
         path = next(self.reports.glob("*.xml"))
         path.write_text(re.sub(r'tests="\d+"', 'tests="0"', path.read_text(), count=1))
-        self.assertNotEqual(self.invoke().returncode, 0)
+        self.assert_refused(self.invoke(), "Suite counter does not match executed test cases")
 
     def test_summary_omits_configuration_and_console_output(self):
         self.seed()
@@ -126,6 +135,15 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         path.write_text(re.sub(r'classname="[^"]+"', 'classname="Clinical DAO display name"', path.read_text()))
         self.assertEqual(self.invoke().returncode, 0)
         self.assertIn("example.", self.output.read_text())
+
+    def test_foreign_dotted_classnames_are_refused_regardless_of_package_case(self):
+        self.seed()
+        path = next(self.reports.glob("*.xml"))
+        original = path.read_text()
+        for classname in ("OtherPackage.ForeignTest", "_package.ForeignTest", "example.ForeignTest"):
+            with self.subTest(classname=classname):
+                path.write_text(re.sub(r'classname="[^"]+"', f'classname="{classname}"', original))
+                self.assert_refused(self.invoke(), "Test case belongs to another suite")
 
     def test_parenthesized_surefire_schema_suffixes_are_bound_to_the_filename(self):
         self.seed()

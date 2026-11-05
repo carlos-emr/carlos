@@ -152,7 +152,9 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
         for source in row["sources"]:
             if Path(source).is_absolute() or ".." in Path(source).parts or not (root / source).is_file():
                 raise EvidenceError(f"Missing test/source reference in {row['id']}: {source}")
-    if plan.get("knownOutcomeLedger"):
+    if not plan.get("knownOutcomeLedger"):
+        raise EvidenceError("Plan must name its knownOutcomeLedger")
+    if plan["knownOutcomeLedger"]:
         ledger = read_json(root / plan["knownOutcomeLedger"])
         manifest = read_json(root / "scripts/playwright-suite.json")["checks"]
         actual = {(c["name"], c["expectedFailure"]["finding"], c["expectedFailure"]["step"])
@@ -237,6 +239,10 @@ def node_results(path: Path, root=ROOT, minimum=1, required=()):
                    c.get("column"), c.get("name")) for c in cases]
     if len(set(identities)) != len(identities):
         raise EvidenceError("Duplicate Node test identity")
+    if {c.get("file") for c in cases} != expected or any(
+            c.get("file") not in expected or not isinstance(c.get("name"), str)
+            or c["name"] in (c["file"], str((root / c["file"]).resolve())) for c in cases):
+        raise EvidenceError("Node file lacks real test case executions")
     ready = summary.get("success") is True and counts["tests"] >= minimum and counts["tests"] == counts["passed"]
     ready = ready and not any(counts[k] for k in keys[2:]) and all(c.get("outcome") == "PASS" for c in cases)
     if set(required) - {case.get("name") for case in cases if case.get("outcome") == "PASS"}:
@@ -311,6 +317,11 @@ def summarize(check, run_dir: Path, exit_code, root=ROOT):
         summary = {"artifactSha256": manifest["warSha256"], "entries": manifest["entryCount"], "ready": True}
     elif kind == "command":
         summary = {"ready": True}
+        if check["id"] == "scope-inventory":
+            report = read_json(run_dir / "scope.json")
+            if report.get("schemaVersion") != 1 or report.get("head") != source_identity(root)["commit"]:
+                raise EvidenceError("Scope report does not identify the tested source")
+            summary = {"ready": report.get("ready") is True, "scopeSha256": digest(run_dir / "scope.json")}
     else:
         raise EvidenceError("External acceptance requires its dedicated evidence adapter")
     summary["ready"] = summary["ready"] and exit_code == 0
@@ -353,7 +364,7 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
             receipt["reason"] = "Packaged acceptance requires the exact built WAR"
         else:
             if check.get("packaged"):
-                receipt["deployment"] = attest(artifact, base_url=os.environ.get("BASE_URL", ""))
+                receipt["deployment"] = attest(artifact, base_url=os.environ.get("BASE_URL", ""), root=root)
             substitutions = {"run": str(run_dir.resolve()), "root": str(root.resolve()),
                              "profile": profile, "artifact": str(artifact.resolve()) if artifact else ""}
             substitutions.update({name: os.environ.get(variable, "") for name, variable in check.get("environmentInputs", {}).items()})
@@ -390,7 +401,7 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
                 raise EvidenceError("Source or plan changed during execution")
             if artifact is not None and digest(artifact) != receipt["artifactSha256"]:
                 raise EvidenceError("Packaged bytes changed during execution")
-            if check.get("packaged") and attest(artifact, base_url=os.environ.get("BASE_URL", "")) != receipt["deployment"]:
+            if check.get("packaged") and attest(artifact, base_url=os.environ.get("BASE_URL", ""), root=root) != receipt["deployment"]:
                 raise EvidenceError("Installed application changed during execution")
             receipt["outcome"] = "PASS" if receipt["summary"]["ready"] else "FAIL"
     except Exception as failure:
@@ -400,7 +411,7 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
         receipt["problems"].append({"stage": "evidence", "reason": reason})
     receipt["completedNs"] = time.time_ns()
     for pattern in ("reports/TEST-*.xml", "node.json", "python.json", "browser.xml", "carlos.war",
-                    "jacoco.exec", "coverage/jacoco.xml", "javascript-coverage.json"):
+                    "jacoco.exec", "coverage/jacoco.xml", "javascript-coverage.json", "scope.json"):
         for path in sorted(run_dir.glob(pattern)):
             if path.is_symlink() or not path.is_file():
                 receipt["outcome"] = "FAIL"
@@ -469,7 +480,7 @@ def verify(plan_path, evidence: Path, artifact: Path, root=ROOT):
         if receipt.get("command") != check.get("command") or check["kind"] == "external":
             raise EvidenceError("Receipt was not produced by its reviewed executable check")
         actual_inputs = {str(p.relative_to(path.parent)) for pattern in ("reports/TEST-*.xml", "node.json", "python.json", "browser.xml", "carlos.war",
-                                                                    "jacoco.exec", "coverage/jacoco.xml", "javascript-coverage.json")
+                                                                    "jacoco.exec", "coverage/jacoco.xml", "javascript-coverage.json", "scope.json")
                          for p in path.parent.glob(pattern)}
         if actual_inputs != set(input_names):
             raise EvidenceError("Evidence file inventory changed")

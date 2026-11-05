@@ -45,7 +45,8 @@ async function execute(files, output, options = {}) {
   fs.writeFileSync(output, JSON.stringify(record, null, 2) + '\n', {mode: 0o600, flag: 'wx'});
   const identities = cases.map(c => JSON.stringify([c.file, c.parents, c.testNumber, c.name, c.line, c.column]));
   return readiness(summary) && cases.length === summary.counts.tests && new Set(identities).size === cases.length
-    && cases.every(c => c.outcome === 'PASS') ? 0 : 1;
+    && files.every(file => cases.some(c => c.file === path.relative(process.cwd(), file)))
+    && cases.every(c => c.outcome === 'PASS' && path.resolve(c.name) !== path.resolve(c.file)) ? 0 : 1;
 }
 
 async function main(argv = process.argv.slice(2)) {

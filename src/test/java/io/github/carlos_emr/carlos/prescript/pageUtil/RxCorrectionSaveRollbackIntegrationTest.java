@@ -165,6 +165,7 @@ class RxCorrectionSaveRollbackIntegrationTest extends CarlosUnitTestBase {
                     .isInstanceOf(RxWriteScript2Action.PrescriptionSaveException.class)
                     .hasRootCauseInstanceOf(java.sql.SQLException.class);
             if (insertFaultInstalled) failure.rootCause().hasMessageContaining("Synthetic second insert failure");
+            else failure.rootCause().hasMessageContaining("Value too long for column");
 
             assertThat(observedPartialWrite).isTrue();
             template.executeWithoutResult(status -> {

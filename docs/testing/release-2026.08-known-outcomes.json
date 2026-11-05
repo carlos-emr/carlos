@@ -80,12 +80,6 @@
       "disposition": "required installed retake; blocks release readiness"
     },
     {
-      "check": "xss-poison-admin-detail",
-      "finding": 122,
-      "step": "the walk found no output-encoding defect",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "xss-poison-admin-reports-system",
       "finding": 122,
       "step": "the walk found no output-encoding defect",
@@ -95,12 +89,6 @@
       "check": "echart-issues-filter-resolve",
       "finding": 227,
       "step": "a clinician can reach the control that resolves an issue from the note editor",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "echart-issues-filter-radios",
-      "finding": 261,
-      "step": "the Certain, Uncertain, Major and Not Major radios and the role box of an issue are enabled for a login with full rights",
       "disposition": "required installed retake; blocks release readiness"
     },
     {
@@ -116,12 +104,6 @@
       "disposition": "required installed retake; blocks release readiness"
     },
     {
-      "check": "authz-write-role-matrix-billing",
-      "finding": 199,
-      "step": "Ontario bill save: the restricted login's replay with its own valid token is refused, and the full login's replay writes",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "authz-write-chart-bill",
       "finding": 200,
       "step": "the restricted chart's note toolbar offers no Bill button to a role without _billing",
@@ -131,12 +113,6 @@
       "check": "direct-response-contract",
       "finding": 202,
       "step": "OscarDownload (OBEC key) refuses a stored-document file to a login that holds no _edoc",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "mcedt-mailbox-outbox-short-name",
-      "finding": 217,
-      "step": "Add of a one-character name is not answered with a server error",
       "disposition": "required installed retake; blocks release readiness"
     },
     {
@@ -233,6 +209,30 @@
       "finding": 265,
       "step": "the chooser page's own stylesheet and script are served to a login that has not chosen a facility",
       "disposition": "Source fix is in implementation base #5615; a fresh installed PASS is still required"
+    },
+    {
+      "check": "xss-poison-admin-detail",
+      "finding": 122,
+      "step": "the walk found no output-encoding defect",
+      "disposition": "Manifest pin retired by the implementation base; retained as an active regression. A fresh installed PASS is still required."
+    },
+    {
+      "check": "echart-issues-filter-radios",
+      "finding": 261,
+      "step": "the Certain, Uncertain, Major and Not Major radios and the role box of an issue are enabled for a login with full rights",
+      "disposition": "Manifest pin retired by the implementation base; retained as an active regression. A fresh installed PASS is still required."
+    },
+    {
+      "check": "authz-write-role-matrix-billing",
+      "finding": 199,
+      "step": "Ontario bill save: the restricted login's replay with its own valid token is refused, and the full login's replay writes",
+      "disposition": "Manifest pin retired by the implementation base; retained as an active regression. A fresh installed PASS is still required."
+    },
+    {
+      "check": "mcedt-mailbox-outbox-short-name",
+      "finding": 217,
+      "step": "Add of a one-character name is not answered with a server error",
+      "disposition": "Manifest pin retired by the implementation base; retained as an active regression. A fresh installed PASS is still required."
     }
   ]
 }

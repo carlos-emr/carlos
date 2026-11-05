@@ -38,6 +38,7 @@ test('strict JUnit exposes readiness failures without rewriting their product cl
 
 test('strict release refuses omitted selections and duplicate check identities', () => {
   assert.throws(() => suite.parseArguments(['--strict-release', '--skip', check.name]), /does not permit/);
+  assert.throws(() => suite.parseArguments(['--strict-release', '--dry-run']), /does not permit/);
   assert.throws(() => suite.selectChecks([check, check], suite.parseArguments([])), /Duplicate/);
 });
 
@@ -75,7 +76,7 @@ test('a complete strict run returns zero and writes compatible JUnit', t => {
   assert.match(fs.readFileSync(output, 'utf8'), /tests="1" failures="0" skipped="0"/);
 });
 
-test('loss of deployment identity and cleanup failures remain fatal after a successful check', () => {
+test('loss of deployment identity remains fatal after a successful check', () => {
   let probes = 0;
   const result = suite.main(['--strict-release'], {}, quiet, {
     checks: [check], readBuildIdentity: () => ++probes === 1 ? 'controlled-deployment' : null,
@@ -85,4 +86,12 @@ test('loss of deployment identity and cleanup failures remain fatal after a succ
     },
   });
   assert.equal(result, 1);
+});
+
+test('strict release reports a missing private result under the actual check name', t => {
+  t.mock.method(fs, 'mkdtempSync', () => {throw new Error('synthetic unavailable temp');});
+  const result = suite.runOne(check, strict, () => {throw new Error('must not start a child');});
+  assert.equal(result.name, check.name);
+  assert.equal(result.outcome, 'FAIL');
+  assert.match(result.detail, /cannot create a private structured result/);
 });

@@ -272,7 +272,7 @@ jobs:
             --innodb-page-size=32768 --sql-mode= --innodb-strict-mode=OFF
           ready=false
           for attempt in $(seq 1 30); do
-            if docker exec carlos-ci-db mariadb -uroot -N -e 'SELECT 1' >/dev/null 2>&1; then
+            if docker exec carlos-ci-db healthcheck.sh --connect --innodb_initialized >/dev/null 2>&1; then
               ready=true
               break
             fi

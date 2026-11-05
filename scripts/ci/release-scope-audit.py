@@ -30,7 +30,7 @@ def comparison(root, base, head):
 
 
 def runtime_path(path):
-    return (path.startswith(("src/main/", "database/", ".devcontainer/"))
+    return (path.startswith(("src/main/", "database/", ".devcontainer/", "local_repo/"))
             or path.startswith("debian/") and not path.startswith(("debian/assets/tests/", "debian/tests/"))
             or path in ("pom.xml", "package.json", "package-lock.json"))
 
@@ -41,8 +41,8 @@ def inventory(plan, root=ROOT, head="HEAD"):
     checks = {check["id"] for check in plan["checks"]}
     workstreams = {work["id"] for work in plan["workstreams"]}
     for path, binding in bindings.items():
-        if not binding.get("reason") or not binding.get("tests") or not binding.get("checks"):
-            raise EvidenceError("Path binding lacks its concrete test, check or rationale")
+        if not binding.get("reason") or not binding.get("tests") or not binding.get("checks") or not binding.get("workstreams"):
+            raise EvidenceError("Path binding lacks its concrete test, check, workstream or rationale")
         if set(binding["checks"]) - checks or set(binding.get("workstreams", [])) - workstreams:
             raise EvidenceError("Path binding names an unknown check/workstream")
         for test in binding["tests"]:
@@ -66,6 +66,8 @@ def inventory(plan, root=ROOT, head="HEAD"):
                          "production": production, "ownership": binding,
                          "candidateTests": candidates.get(Path(path).stem, []) if path.endswith(".java") else []})
     main = plan["baselines"].get("currentMain")
+    if not isinstance(main, str) or not main.strip():
+        raise EvidenceError("Scope inventory requires the currentMain baseline")
     migrations = []
     if main:
         main_files = set(git(root, "ls-tree", "-r", "--name-only", main, "database/mysql/migration").decode().splitlines())
@@ -76,7 +78,11 @@ def inventory(plan, root=ROOT, head="HEAD"):
                 continue
             migrations.append({"path": path, "sha256": hashlib.sha256(git(root, "show", main + ":" + path)).hexdigest(),
                                "disposition": dispositions.get(path)})
-    unresolved = [row["path"] for row in migrations if not row["disposition"]]
+    unresolved = [row["path"] for row in migrations if not (
+        isinstance(row["disposition"], dict)
+        and row["disposition"].get("sha256") == row["sha256"]
+        and isinstance(row["disposition"].get("reason"), str)
+        and row["disposition"]["reason"].strip())]
     return {"schemaVersion": 1, "head": resolved, "changes": rows,
             "unownedProductionPaths": sorted(missing), "mainOnlyMigrations": migrations,
             "unresolvedMainOnlyMigrations": unresolved, "ready": not missing and not unresolved}

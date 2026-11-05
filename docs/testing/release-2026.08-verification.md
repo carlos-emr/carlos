@@ -32,7 +32,8 @@ workstreams and a rationale. Unowned production paths block scope acceptance;
 packaging paths remain in the inventory with `production: false`.
 
 The six main-only migrations are individually listed with content hashes. They
-are not automatically backported or treated as verified exclusions. Published
+require a disposition object containing the exact `sha256` and a nonempty
+`reason`. They are not automatically backported or treated as verified exclusions. Published
 migrations and the branch version/SCM metadata are preserved.
 
 ## Implemented regressions and gates
@@ -49,14 +50,14 @@ migrations and the branch version/SCM metadata are preserved.
   source preservation and missing/foreign source refusal. The text mapping now
   matches the shipped `TEXT` column instead of generating `VARCHAR(255)`.
 * Patient merges/unmerges are transactional, lock participant rows in a stable
-  order, retain a single link for duplicate inputs and audit after commit.
+  order, retain a single link for duplicate inputs and persist strict audits in the same transaction.
   Native faults prove late insert/update rollback; contending connections prove
   one winner without cycles or duplicate links. The tests also exposed and fix
   reversed parent/child bindings in the unmerge DAO. A scalar locking query
   avoids locking eager relationship gaps. The DAO's default method preserves
-  compatibility for extension implementations. A separate-connection audit
-  assertion exposed lost after-commit writes; audit callbacks now use a fresh
-  transaction, and real merge/unmerge audit rows must be visible after return.
+  compatibility for extension implementations. Separate-connection assertions
+  require committed merge/unmerge audit rows after return; second-audit faults
+  prove that every patient link and preceding audit rolls back together.
 * Document first/additional reviews derive the actor from the session. Extra
   review preserves the stored first reviewer and time. Forged hidden reviewer
   fields have active regressions.

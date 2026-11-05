@@ -62,7 +62,7 @@ public class FormBCAR2020Text extends AbstractModel<CompositeFormBCAR2020TextId>
 
     // Match the shipped BC Flyway table; the default VARCHAR(255) silently
     // made generated-schema tests exercise a different prose-size contract.
-    @Column(name = "val", columnDefinition = "text")
+    @Column(name = "val", columnDefinition = "text", nullable = false)
     String value = "";
 
     @Column(name = "field_edited")

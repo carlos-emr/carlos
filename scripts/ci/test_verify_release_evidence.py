@@ -49,6 +49,12 @@ if '--nonzero' in sys.argv: sys.exit(7)
                        {"id": "java", "kind": "junit", "profiles": ["all"], "minimumCases": 1,
                         "requiredFamilies": {"RequiredTest": 1},
                         "command": [sys.executable, str(self.tool), "{run}", "test"]}]}
+        self.plan["checks"].append({"id": "node-all", "kind": "node", "profiles": ["all"],
+                                    "command": [sys.executable, str(self.tool)], "requiredCases": []})
+        self.plan["knownOutcomeLedger"] = "ledger.json"
+        (self.root / "ledger.json").write_text(json.dumps({"browserExpectedFailures": [], "retiredNodeTodos": []}))
+        (self.root / "scripts").mkdir()
+        (self.root / "scripts/playwright-suite.json").write_text('{"checks": []}')
         self.save_plan()
         self.git("init", "--quiet")
         self.git("config", "user.email", "synthetic@example.invalid")
@@ -97,12 +103,49 @@ if '--nonzero' in sys.argv: sys.exit(7)
         self.assertEqual(result["exitCode"], 0)
         self.assertEqual(result["outcome"], "PASS")
 
-    def test_missing_lane_and_missing_build_are_incomplete(self):
+    def test_missing_lane_is_incomplete(self):
         self.seed()
         shutil.rmtree(self.evidence / self.result["runId"])
         result = self.verify()
         self.assertFalse(result["releaseReady"])
         self.assertEqual(result["incomplete"][0]["checkId"], "java")
+
+    def test_missing_build_is_incomplete(self):
+        self.seed()
+        artifact = self.base / "candidate.war"
+        shutil.copyfile(self.artifact, artifact)
+        shutil.rmtree(self.artifact.parent)
+        self.artifact = artifact
+        result = self.verify()
+        self.assertFalse(result["releaseReady"])
+        self.assertIn({"checkId": "build", "outcome": "MISSING_SOURCE_BOUND_BUILD"}, result["incomplete"])
+
+    def test_missing_known_outcome_ledger_is_refused(self):
+        del self.plan["knownOutcomeLedger"]
+        self.save_plan()
+        with self.assertRaisesRegex(EvidenceError, "knownOutcomeLedger"):
+            gate.load_plan(self.plan_path, self.root)
+
+    def test_scope_output_is_required_and_bound_to_its_receipt(self):
+        scope_tool = self.root / "scope.py"
+        scope_tool.write_text("import json,pathlib,subprocess,sys\n"
+            "p=pathlib.Path(sys.argv[1]); p.write_text(json.dumps({'schemaVersion':1,'ready':True,"
+            "'head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()}))\n")
+        self.plan["checks"].append({"id": "scope-inventory", "kind": "command", "profiles": ["all"],
+            "command": [sys.executable, str(scope_tool), "{run}/scope.json"]})
+        self.plan["workstreams"][0]["requiredChecks"].append("scope-inventory")
+        self.save_plan(); self.commit(); self.seed()
+        receipt = self.run_check("scope-inventory")
+        self.assertEqual(receipt["outcome"], "PASS")
+        self.assertEqual([row["path"] for row in receipt["inputs"]], ["scope.json"])
+        self.assertTrue(self.verify()["releaseReady"])
+        report = self.evidence / receipt["runId"] / "scope.json"
+        report.write_text(report.read_text().replace('true', 'false'))
+        with self.assertRaisesRegex(EvidenceError, "changed evidence input"):
+            self.verify()
+        report.unlink()
+        with self.assertRaises(EvidenceError):
+            gate.summarize(self.plan["checks"][-1], report.parent, 0, self.root)
 
     def test_duplicate_repetition_cannot_replace_a_missing_profile(self):
         self.seed()
@@ -364,6 +407,7 @@ raise SystemExit(0 if result['outcome']=='PASS' else 1)
                     self.assertNotEqual(process.returncode, 0)
                     self.assertEqual(restored.read_text(), "restored")
                     receipts = [gate.read_json(path) for path in self.evidence.glob('*/receipt.json')]
+                    self.assertTrue(receipts, "Interrupted runs must preserve their receipts")
                     self.assertTrue(all(r['outcome'] == 'FAIL' and r.get('cancelled') for r in receipts))
                     self.assertTrue(all([p['stage'] for p in r['problems']] == ['execution', 'evidence'] for r in receipts))
                 finally:

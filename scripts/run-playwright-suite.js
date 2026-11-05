@@ -151,6 +151,9 @@ function parseArguments(argv) {
   if (options.strictRelease && options.skip.length) {
     throw new Error('--strict-release does not permit --skip; select applicable profiles/provinces explicitly');
   }
+  if (options.strictRelease && options.dryRun) {
+    throw new Error('--strict-release does not permit --dry-run');
+  }
   return options;
 }
 
@@ -420,7 +423,10 @@ function runOne(check, options, run = spawnSync) {
     // with an expectedFailure then reads failed-elsewhere, which fails safe.
   }
   const resultPath = resultDirectory ? path.join(resultDirectory, 'result.json') : null;
-  if (options.strictRelease && !resultPath) throw new Error('strict release: cannot create a private structured result');
+  if (options.strictRelease && !resultPath) {
+    return {name: check.name, outcome: 'FAIL', durationMs: Date.now() - started,
+      detail: 'strict release: cannot create a private structured result'};
+  }
   try {
     const result = run(process.execPath, [script], {
       stdio: 'inherit',
