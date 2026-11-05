@@ -43,7 +43,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class RBTGroupManager {
 
-    /** Length of the {@code rbt_groups.group_name} column (varchar(255)). */
+    /** Length of the {@code rbt_groups.group_name} column (varchar(255)), counted in Unicode code points. */
     public static final int MAX_GROUP_NAME_LENGTH = 255;
 
     /** Leading/trailing whitespace as JavaScript's {@code String.trim()} defines it. */
@@ -75,7 +75,7 @@ public class RBTGroupManager {
      * @param groupName    Name of the template group to add the template to
      * @param tid          Template id of the group to be added
      * @throws IllegalArgumentException if the stripped group name is null, blank, longer than
-     *                                  {@link #MAX_GROUP_NAME_LENGTH} characters, contains control
+     *                                  {@link #MAX_GROUP_NAME_LENGTH} code points, contains control
      *                                  characters, or (when {@code tid} is 0, creating the group)
      *                                  names a group that already exists
      */
@@ -98,8 +98,10 @@ public class RBTGroupManager {
         if (groupName.isEmpty()) {
             throw new IllegalArgumentException("Report by Template group name is required");
         }
-        // rbt_groups.group_name is varchar(255); refuse rather than let the database truncate or fail.
-        if (groupName.length() > MAX_GROUP_NAME_LENGTH) {
+        // rbt_groups.group_name is varchar(255), which MariaDB counts in characters (code points), not
+        // UTF-16 units; String.length() would reject 200 emoji that the column holds. Refuse rather than
+        // let the database truncate or fail.
+        if (groupName.codePointCount(0, groupName.length()) > MAX_GROUP_NAME_LENGTH) {
             throw new IllegalArgumentException(
                     "Report by Template group name exceeds " + MAX_GROUP_NAME_LENGTH + " characters");
         }

@@ -71,7 +71,7 @@
                         <!--ADD GROUP-->
                         <form action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/actions/addGroup"
                               method="post" id="addGroupTemplate" class="d-flex flex-wrap align-items-center gap-2">
-                            <input type="text" name="groupName" class="check" placeholder="Group Name" maxlength="255">
+                            <input type="text" name="groupName" class="check" placeholder="Group Name">
                             <input type="submit" name="subm" class="btn groupAdd" value="Add Group" disabled>
                         </form>
 
@@ -301,8 +301,12 @@
             value = value.trim();
             var id = this.getAttribute("id");
             var inputCheck = checkRow(value);
+            // The column holds 255 characters (code points), which is not what maxlength counts (UTF-16
+            // units), so the limit is checked here and the server enforces the same count.
+            var tooLong = Array.from(value).length > 255;
+            this.classList.toggle("is-invalid", tooLong);
 
-            if (value != "" && inputCheck == "") {
+            if (value != "" && inputCheck == "" && !tooLong) {
                 document.querySelectorAll('.groupAdd').forEach(function (el) { el.removeAttribute("disabled"); });
                 document.querySelectorAll('.groupAdd').forEach(function (el) { el.classList.add("btn-success"); });
                 document.querySelectorAll('.textExists').forEach(function (el) { el.style.display = 'none'; });

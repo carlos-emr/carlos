@@ -105,6 +105,28 @@ class RBTGroupManagerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should count the column length in code points, not UTF-16 units")
+    void shouldPersistName_atMaximumCodePointsOfSupplementaryCharacters() {
+        allowAdminWrite();
+        String emoji = "\uD83D\uDE00".repeat(RBTGroupManager.MAX_GROUP_NAME_LENGTH);
+
+        manager.addTemplateToGroup(mockLoggedInInfo, emoji, 0);
+
+        assertThat(persistedGroup().getGroupName()).isEqualTo(emoji);
+    }
+
+    @Test
+    @DisplayName("should refuse a supplementary-character name over the column length")
+    void shouldThrowIllegalArgument_whenCodePointsExceedColumn() {
+        allowAdminWrite();
+        String emoji = "\uD83D\uDE00".repeat(RBTGroupManager.MAX_GROUP_NAME_LENGTH + 1);
+
+        assertThatThrownBy(() -> manager.addTemplateToGroup(mockLoggedInInfo, emoji, 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(mockRbtGroupDao, never()).persist(any(RBTGroup.class));
+    }
+
+    @Test
     @DisplayName("should refuse a name longer than the column")
     void shouldThrowIllegalArgument_whenNameTooLong() {
         allowAdminWrite();
