@@ -463,8 +463,12 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 // Keep it pending in case the response ultimately needs no decoration.
                 contentLength.retractToPending();
             }
-            // Content-Type can arrive through any header API after channel selection.
-            if ((responseOutputStreamObtained || responseWriterObtained) && isKnownNonHtml()) {
+            // Content-Type can arrive through any header API after channel selection, and so can
+            // the length. The channel rules of getOutputStream() and getWriter() apply again here:
+            // a stream publishes unless the type is known HTML, a writer only once it is known
+            // non-HTML.
+            if ((responseOutputStreamObtained && !RequestNegotiation.isHtmlContentType(getContentType()))
+                    || (responseWriterObtained && isKnownNonHtml())) {
                 contentLength.publishPending();
             }
         }

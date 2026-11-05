@@ -931,7 +931,10 @@ public class LogoutBroadcastFilter implements Filter {
         @Override
         public void setContentLengthLong(long len) {
             contentLength.defer(len);
-            if ((responseWriterObtained || responseOutputStreamObtained) && isKnownNonHtml()) {
+            // This filter never appends to a stream, so a stream's length is published as soon
+            // as it is known, whatever the type, exactly as getOutputStream() does for a length
+            // declared earlier. A writer's length waits for a known non-HTML type.
+            if (responseOutputStreamObtained || (responseWriterObtained && isKnownNonHtml())) {
                 applyDeferredContentLength();
             }
         }

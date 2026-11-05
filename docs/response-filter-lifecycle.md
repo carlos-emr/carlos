@@ -80,19 +80,23 @@ writer/stream in both directions through the complete response-transforming stac
 Rejected resets retain the captured body and state. Flush/close behavior is unchanged.
 
 The HTML-stream matrix exposed a stale Content-Length crossing the privacy wrapper
-before its notice was appended. The wrapper now defers the length until it knows
-whether it will decorate; binary/non-HTML streams retain their supplied length.
+before its notice was appended. The wrapper now defers a length whose response may
+still be decorated (a writer, or a stream already typed as HTML) until it knows;
+binary/non-HTML streams, and streams whose type is still unknown, keep their
+supplied length.
 Known non-HTML lengths reach the logout wrapper before stream acquisition, so an
 explicit flush cannot outrun header replay. The logout wrapper also publishes
 known non-HTML writer lengths before a large body can commit. HEAD/no-channel
 responses preserve metadata length; integer header setters share the same rules.
 A channel counts as obtained only when the container hands it over: the privacy
-wrapper no longer treats `getResponse()` as a writer request, because Tomcat's
-`ApplicationDispatcher` walks the wrapper chain through it on every forward and
-include, so that signal marked a channel open on responses that never wrote a
-body. A stream whose type is still unknown publishes its length at acquisition,
-as the other wrappers do: a download that never declares a type can never be
-decorated, and holding the length past an explicit flush would only lose it. A
+wrapper does not treat `getResponse()` as a writer request (#5495 removed the
+override that did), because Tomcat's `ApplicationDispatcher` walks the wrapper
+chain through it on every forward and include, so that signal marked a channel
+open on responses that never wrote a body. A stream whose type is still unknown
+publishes its length as soon as both the stream and the length exist, in either
+order, as the CSRF and logout wrappers do for every stream (neither decorates
+one): a download that never declares a type can never be decorated, and holding
+the length past an explicit flush would only lose it. A
 type that turns to HTML before commit retracts it like any other published length.
 Content-Type header setters also publish known non-HTML lengths. If the type
 changes to HTML before commitment, the decorators remove their published lengths
