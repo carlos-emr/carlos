@@ -272,10 +272,35 @@ public final class MariaDbJdbcCompatibility {
         return base;
     }
 
-    /** Canonicalize recognized aliases and reject ambiguous values before the driver can ignore them. */
-    private static void put(Properties properties, String name, String value) throws SQLException {
-        String key = switch (asciiLowerCase(name)) {
+    /** Normalize application and JDBC options before TLS-specific aliases. */
+    private static String canonicalOptionKey(String name) {
+        String token = asciiLowerCase(name);
+        return switch (token) {
             case "servertimezone", "connectiontimezone" -> "connectionTimeZone";
+            case "zerodatetimebehavior" -> ZERO_DATE_TIME_BEHAVIOR;
+            case "useoldaliasmetadatabehavior" -> "useOldAliasMetadataBehavior";
+            case "transformedbitisboolean" -> TRANSFORMED_BIT_IS_BOOLEAN;
+            case "preserveinstants" -> PRESERVE_INSTANTS;
+            case "purelocaldatetime" -> PURE_LOCAL_DATE_TIME;
+            case "connecttimeout" -> "connectTimeout";
+            case "sockettimeout" -> "socketTimeout";
+            case "dnssrv" -> DNS_SRV;
+            case "useinformationschema" -> "useInformationSchema";
+            case "tinyint1isbit" -> "tinyInt1isBit";
+            case "useunicode" -> "useUnicode";
+            case "characterencoding" -> "characterEncoding";
+            case "connectioncollation" -> "connectionCollation";
+            case "allowloadlocalinfile", "allowlocalinfile" -> ALLOW_LOCAL_INFILE;
+            case "emptystringsconverttozero" -> "emptyStringsConvertToZero";
+            case "treatmysqldatetimeastimestamp" -> "treatMysqlDatetimeAsTimestamp";
+            case "jdbccomplianttruncation" -> "jdbcCompliantTruncation";
+            default -> canonicalTlsKey(token, name);
+        };
+    }
+
+    /** Keep certificate and transport aliases together without altering unknown option names. */
+    private static String canonicalTlsKey(String token, String original) {
+        return switch (token) {
             case "sslmode" -> SSL_MODE;
             case "usessl" -> USE_SSL;
             case "tlsversions", "enabledtlsprotocols", "enabledsslprotocolsuites" -> TLS_PROTOCOLS;
@@ -293,27 +318,15 @@ public final class MariaDbJdbcCompatibility {
             case "trustmanagerfactoryprovider" -> "trustManagerFactoryProvider";
             case "keystoreprovider" -> "keyStoreProvider";
             case "sslcontextprovider" -> "sslContextProvider";
-            case "zerodatetimebehavior" -> ZERO_DATE_TIME_BEHAVIOR;
-            case "useoldaliasmetadatabehavior" -> "useOldAliasMetadataBehavior";
-            case "transformedbitisboolean" -> TRANSFORMED_BIT_IS_BOOLEAN;
-            case "preserveinstants" -> PRESERVE_INSTANTS;
-            case "purelocaldatetime" -> PURE_LOCAL_DATE_TIME;
-            case "connecttimeout" -> "connectTimeout";
-            case "sockettimeout" -> "socketTimeout";
-            case "dnssrv" -> DNS_SRV;
-            case "useinformationschema" -> "useInformationSchema";
-            case "tinyint1isbit" -> "tinyInt1isBit";
-            case "useunicode" -> "useUnicode";
-            case "characterencoding" -> "characterEncoding";
-            case "connectioncollation" -> "connectionCollation";
             case "requiressl" -> REQUIRE_SSL;
             case "verifyservercertificate" -> VERIFY_SERVER_CERTIFICATE;
-            case "allowloadlocalinfile", "allowlocalinfile" -> ALLOW_LOCAL_INFILE;
-            case "emptystringsconverttozero" -> "emptyStringsConvertToZero";
-            case "treatmysqldatetimeastimestamp" -> "treatMysqlDatetimeAsTimestamp";
-            case "jdbccomplianttruncation" -> "jdbcCompliantTruncation";
-            default -> name;
+            default -> original;
         };
+    }
+
+    /** Canonicalize recognized aliases and reject ambiguous values before the driver can ignore them. */
+    private static void put(Properties properties, String name, String value) throws SQLException {
+        String key = canonicalOptionKey(name);
         if (BOOLEAN_OPTIONS.contains(key)) {
             value = switch (asciiLowerCase(value)) {
                 case "true", "yes", "1" -> "true";
