@@ -27,7 +27,7 @@ test('lost-response warning must express uncertainty rather than a false unsaved
 test('the shipped uncertain-save message satisfies the lost-response warning check (#5686)',()=>{
   const fs=require('node:fs'),path=require('node:path');
   const text=fs.readFileSync(path.join(__dirname,'../src/main/resources/oscarResources_en.properties'),'utf8');
-  const message=key=>{const match=new RegExp(`^SearchDrug\\.js\\.${key}=(.*)$`,'m').exec(text);assert(match,`missing ${key}`);return match[1];};
+  const message=key=>{const prefix=`SearchDrug.js.${key}=`,line=text.split('\n').find(row=>row.startsWith(prefix));assert(line,`missing ${key}`);return line.slice(prefix.length);};
   const refused=message('saveRefused'),uncertain=message('saveUncertain');
   // The page appends the status only when a response arrived (none for a lost response).
   for(const shown of [uncertain,uncertain+' (HTTP 502)'])assert(uncertainWarning(shown,refused),shown);
