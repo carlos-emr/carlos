@@ -37,11 +37,18 @@ DATETIME object types, timezone handling, checkbox metadata and
 `ROUND` applies only to genuinely zero values. Report streaming requests are
 translated to MariaDB's positive fetch-size convention.
 
-Connection settings are decoded once. Explicit connection properties retain
-precedence over URL query options; supported single-host address options retain
-their host-specific precedence. Legacy multi-host failover URLs use MariaDB's
+URL query settings are decoded once. MySQL connection properties retain
+precedence over URL query options, including after URL normalization. Native
+MariaDB URLs retain their opposite precedence: URL options override connection
+properties. Supported single-host address options retain their host-specific
+precedence. Legacy multi-host failover URLs use MariaDB's
 sequential host selection. CDS maintenance connections continue to require one
 host and finite, validated network timeouts.
+For native URLs, conflicting case variants or aliases recognized by the adapter
+fail with a configuration error: MariaDB otherwise chooses between them by property-map
+iteration order. Equivalent normalized values remain accepted. Native URL
+normalization preserves option spelling so this check still applies when
+connection properties are supplied later.
 
 `serverTimezone` becomes `connectionTimeZone`. Both the modern `sslMode` values
 and the legacy `useSSL`, `requireSSL` and `verifyServerCertificate` flags retain
@@ -54,6 +61,20 @@ provider selection cannot be represented and fails with a configuration error.
 A selected certificate store or private key that cannot be loaded causes a
 connection failure. The connection does not silently omit the requested client
 identity or substitute public trust roots for a configured trust store.
+Normalized MySQL URLs retain their original TLS flag semantics. For native
+`jdbc:mariadb:` URLs, explicit `useSsl`/`useSSL` flags retain MariaDB's exact
+case-sensitive names and values: `true`, `1`, or an empty value enable verified
+TLS, with `trustServerCertificate` or `disableSslHostnameVerification` selecting
+the corresponding native policy. An enabled native flag overrides the global
+`sslMode`; an explicit host `sslMode` overrides the global policy. Native address
+descriptors retain MariaDB's supported host, port, type, SSL mode, pipe and local
+socket fields, including their literal path spelling. Other native descriptor
+fields remain ignored, as in MariaDB itself; they do not change global TLS,
+certificate-store or LOCAL INFILE policy.
+Connections without TLS options retain the application's existing PREFERRED
+default, which negotiates TLS when available without certificate verification.
+Native system-store fallback and LOCAL INFILE flags retain MariaDB's Boolean
+tokens, including an empty value for true; unsupported `yes`/`no` values fail.
 LOCAL INFILE remains disabled unless explicitly enabled. MariaDB always uses
 Unicode and INFORMATION_SCHEMA metadata; the former
 `useInformationSchema` setting is accepted but no longer selects an implementation.

@@ -29,7 +29,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
@@ -38,12 +40,19 @@ import java.util.regex.Pattern;
 /** Translates installed Connector/J configuration before passing it to MariaDB Connector/J. */
 public final class MariaDbJdbcCompatibility {
     private static final String USE_SSL = "useSsl";
+    private static final String USE_SSL_ALIAS = "useSSL";
+    private static final String TRUST_SERVER_CERTIFICATE = "trustServerCertificate";
+    private static final String DISABLE_SSL_HOSTNAME_VERIFICATION = "disableSslHostnameVerification";
+    private static final String LEGACY_MYSQL_SCHEME = "carlosLegacyMysqlScheme";
+    private static final String HOST_SSL_MODE = "carlosHostSslMode";
     private static final String REQUIRE_SSL = "requireSSL";
     private static final String VERIFY_SERVER_CERTIFICATE = "verifyServerCertificate";
     private static final String TRANSFORMED_BIT_IS_BOOLEAN = "transformedBitIsBoolean";
     private static final String PRESERVE_INSTANTS = "preserveInstants";
     private static final String PURE_LOCAL_DATE_TIME = "pureLocalDateTime";
     private static final String ALLOW_LOCAL_INFILE = "allowLocalInfile";
+    private static final String FALLBACK_TO_SYSTEM_KEY_STORE = "fallbackToSystemKeyStore";
+    private static final String FALLBACK_TO_SYSTEM_TRUST_STORE = "fallbackToSystemTrustStore";
     private static final String DNS_SRV = "dnsSrv";
     private static final String FALSE = "false";
     private static final String SSL_MODE = "sslMode";
@@ -51,6 +60,8 @@ public final class MariaDbJdbcCompatibility {
     private static final String SSL_DISABLE = "disable";
     private static final String SSL_TRUST = "trust";
     private static final String SSL_ALLOW = "allow";
+    private static final String SSL_VERIFY_CA = "verify-ca";
+    private static final String SSL_VERIFY_FULL = "verify-full";
     private static final String ZERO_DATE_TIME_BEHAVIOR = "zeroDateTimeBehavior";
     private static final String ADDRESS_PREFIX = "address=";
     private static final String TLS_CIPHERS = "enabledSslCipherSuites";
@@ -130,11 +141,13 @@ public final class MariaDbJdbcCompatibility {
     private static final String FIPS_COMPLIANT_JSSE = "fipsCompliantJsse";
     private static final Set<String> UNSUPPORTED_TLS_PROVIDERS = Set.of("keyManagerFactoryProvider",
             "trustManagerFactoryProvider", "keyStoreProvider", "sslContextProvider");
-    private static final Set<String> BOOLEAN_OPTIONS = Set.of(USE_SSL, REQUIRE_SSL, VERIFY_SERVER_CERTIFICATE,
+    private static final Set<String> NATIVE_SECURITY_BOOLEANS = Set.of(ALLOW_LOCAL_INFILE,
+            FALLBACK_TO_SYSTEM_KEY_STORE, FALLBACK_TO_SYSTEM_TRUST_STORE);
+    private static final Set<String> BOOLEAN_OPTIONS = Set.of(REQUIRE_SSL, VERIFY_SERVER_CERTIFICATE,
             "useOldAliasMetadataBehavior", TRANSFORMED_BIT_IS_BOOLEAN, PRESERVE_INSTANTS, PURE_LOCAL_DATE_TIME,
             "tinyInt1isBit", ALLOW_LOCAL_INFILE, "useInformationSchema", DNS_SRV, "useUnicode",
             "emptyStringsConvertToZero", "treatMysqlDatetimeAsTimestamp", "jdbcCompliantTruncation",
-            "fallbackToSystemKeyStore", "fallbackToSystemTrustStore", FIPS_COMPLIANT_JSSE);
+            FALLBACK_TO_SYSTEM_KEY_STORE, FALLBACK_TO_SYSTEM_TRUST_STORE, FIPS_COMPLIANT_JSSE);
     private MariaDbJdbcCompatibility() { }
 
     /** Query-free driver URL and decoded options, owned by this connection preparation operation. */
@@ -151,16 +164,18 @@ public final class MariaDbJdbcCompatibility {
                 || "org.mariadb.jdbc.Driver".equals(driver) ? MariaDbCompatibilityDriver.class.getName() : driver;
     }
 
-    /** Canonical, escaped URL for storage; the compatibility driver decodes it exactly once. */
+    /** Escaped URL for storage; native spelling is retained until connection properties are available. */
     public static String normalizeUrl(String url) {
         if (!isMariaDbUrl(url)) return url;
         try {
             Settings settings = parse(url, new Properties());
+            Properties options = settings.properties().containsKey(LEGACY_MYSQL_SCHEME)
+                    ? settings.properties() : nativeOptions(queryOptions(url), new Properties());
             StringBuilder normalized = new StringBuilder(settings.url());
-            for (String key : new TreeSet<>(settings.properties().stringPropertyNames())) {
+            for (String key : new TreeSet<>(options.stringPropertyNames())) {
                 normalized.append(normalized.indexOf("?") < 0 ? '?' : '&')
                         .append(URLEncoder.encode(key, StandardCharsets.UTF_8)).append('=')
-                        .append(URLEncoder.encode(settings.properties().getProperty(key), StandardCharsets.UTF_8));
+                        .append(URLEncoder.encode(options.getProperty(key), StandardCharsets.UTF_8));
             }
             return normalized.toString();
         } catch (SQLException invalid) {
@@ -170,8 +185,9 @@ public final class MariaDbJdbcCompatibility {
     }
 
     /**
-     * Resolve query options first, then explicit connection properties. Host-specific
-     * credentials/options override both, matching Connector/J's host precedence.
+     * MySQL connection properties override URL options; native MariaDB URL options
+     * override connection properties. Legacy host credentials/options override both;
+     * native host descriptors retain MariaDB's supported field semantics.
      * Returned properties are a fresh copy; the caller may pass them to MariaDB's mutating parser.
      */
     public static Settings settings(String url, Properties supplied) throws SQLException {
@@ -192,17 +208,7 @@ public final class MariaDbJdbcCompatibility {
         properties.putIfAbsent(ALLOW_LOCAL_INFILE, FALSE);
         // Connector/J does not follow MariaDB's server redirection extension.
         properties.putIfAbsent("permitRedirect", FALSE);
-        // Connector/J's default is PREFERRED. Never silently turn an existing TLS request off.
-        if (!properties.containsKey(SSL_MODE)) {
-            boolean useSsl = Boolean.parseBoolean(properties.getProperty(USE_SSL, "true"));
-            boolean requireSsl = Boolean.parseBoolean(properties.getProperty(REQUIRE_SSL, FALSE));
-            boolean verify = Boolean.parseBoolean(properties.getProperty(VERIFY_SERVER_CERTIFICATE, FALSE));
-            String mode = SSL_PREFERRED;
-            if (!useSsl) mode = SSL_DISABLE;
-            else if (verify) mode = "verify-ca";
-            else if (requireSsl) mode = SSL_TRUST;
-            properties.setProperty(SSL_MODE, mode);
-        }
+        resolveTlsMode(properties);
         if (SSL_PREFERRED.equals(properties.getProperty(SSL_MODE))) {
             // MariaDB ALLOW verifies TLS identities. MySQL PREFERRED negotiates
             // TLS without identity verification, and allows servers without TLS.
@@ -211,6 +217,9 @@ public final class MariaDbJdbcCompatibility {
         }
         properties.putIfAbsent("tlsSocketType", "carlos-preferred");
         properties.remove(USE_SSL);
+        properties.remove(USE_SSL_ALIAS);
+        properties.remove(TRUST_SERVER_CERTIFICATE);
+        properties.remove(DISABLE_SSL_HOSTNAME_VERIFICATION);
         properties.remove(REQUIRE_SSL);
         properties.remove(VERIFY_SERVER_CERTIFICATE);
         String zero = asciiLowerCase(properties.getProperty(ZERO_DATE_TIME_BEHAVIOR, "EXCEPTION"));
@@ -224,6 +233,48 @@ public final class MariaDbJdbcCompatibility {
         return parsed;
     }
 
+    /** Keep each driver's deprecated TLS flags distinct, including MariaDB's exact token semantics. */
+    private static void resolveTlsMode(Properties properties) {
+        boolean legacy = properties.remove(LEGACY_MYSQL_SCHEME) != null;
+        String hostMode = (String) properties.remove(HOST_SSL_MODE);
+        String mode = properties.getProperty(SSL_MODE);
+        if (!legacy && hasNativeTlsFlags(properties)) {
+            mode = nativeTlsMode(properties, mode);
+        } else if (mode == null) {
+            mode = legacyTlsMode(properties);
+        }
+        // Native MariaDB evaluates a host's explicit mode after its global deprecated flags.
+        properties.setProperty(SSL_MODE, hostMode == null ? mode : hostMode);
+    }
+
+    private static boolean hasNativeTlsFlags(Properties properties) {
+        return properties.containsKey(USE_SSL) || properties.containsKey(USE_SSL_ALIAS)
+                || properties.containsKey(TRUST_SERVER_CERTIFICATE)
+                || properties.containsKey(DISABLE_SSL_HOSTNAME_VERIFICATION);
+    }
+
+    private static String nativeTlsMode(Properties properties, String explicitMode) {
+        if (nativeFlagEnabled(properties, USE_SSL) || nativeFlagEnabled(properties, USE_SSL_ALIAS)) {
+            if (nativeFlagEnabled(properties, TRUST_SERVER_CERTIFICATE)) return SSL_TRUST;
+            if (nativeFlagEnabled(properties, DISABLE_SSL_HOSTNAME_VERIFICATION)) return SSL_VERIFY_CA;
+            return SSL_VERIFY_FULL;
+        }
+        return explicitMode == null ? SSL_DISABLE : explicitMode;
+    }
+
+    private static boolean nativeFlagEnabled(Properties properties, String name) {
+        String value = properties.getProperty(name);
+        return value != null && (value.equals("true") || value.equals("1") || value.isEmpty());
+    }
+
+    private static String legacyTlsMode(Properties properties) {
+        // Existing application defaults follow Connector/J PREFERRED for either URL scheme.
+        if (!Boolean.parseBoolean(properties.getProperty(USE_SSL, "true"))) return SSL_DISABLE;
+        if (Boolean.parseBoolean(properties.getProperty(VERIFY_SERVER_CERTIFICATE, FALSE))) return SSL_VERIFY_CA;
+        if (Boolean.parseBoolean(properties.getProperty(REQUIRE_SSL, FALSE))) return SSL_TRUST;
+        return SSL_PREFERRED;
+    }
+
     /** Decode storage syntax without materializing defaults before all property sources are available. */
     private static Settings parse(String url, Properties supplied) throws SQLException {
         if (!isMariaDbUrl(url)) throw invalid();
@@ -232,16 +283,60 @@ public final class MariaDbJdbcCompatibility {
             String base = query < 0 ? url : url.substring(0, query);
             base = normalizeBase(base);
             Properties properties = new Properties();
-            if (query >= 0) mergeQueryOptions(properties, url.substring(query + 1));
-            Properties preferredTls = new Properties();
-            for (String key : supplied.stringPropertyNames()) {
-                putSourceOption(properties, preferredTls, key, supplied.getProperty(key));
+            String queryOptions = queryOptions(url);
+            boolean normalizedLegacy = hasLegacySchemeMarker(queryOptions);
+            boolean legacy = url.startsWith("jdbc:mysql:") || normalizedLegacy;
+            if (legacy) {
+                properties.setProperty(LEGACY_MYSQL_SCHEME, "true");
+                mergeQueryOptions(properties, queryOptions);
+                mergeSuppliedOptions(properties, supplied);
+            } else {
+                Properties nativeOptions = nativeOptions(queryOptions, supplied);
+                validateNativeSpellings(nativeOptions);
+                mergeSuppliedOptions(properties, nativeOptions);
             }
-            properties.putAll(preferredTls);
             return new Settings(base, properties);
         } catch (IllegalArgumentException malformed) {
             throw invalid(malformed);
         }
+    }
+
+    private static String queryOptions(String url) {
+        int query = url.indexOf('?');
+        return query < 0 ? "" : url.substring(query + 1);
+    }
+
+    /** Merge exact native names first; alternate spellings must not hide a stronger supplied policy. */
+    private static Properties nativeOptions(String query, Properties supplied) {
+        Properties options = new Properties();
+        for (String name : supplied.stringPropertyNames()) options.setProperty(name, supplied.getProperty(name));
+        for (String option : query.split("&")) {
+            if (option.isEmpty()) continue;
+            String[] pair = option.split("=", 2);
+            options.setProperty(URLDecoder.decode(pair[0], StandardCharsets.UTF_8),
+                    pair.length == 1 ? "" : URLDecoder.decode(pair[1], StandardCharsets.UTF_8));
+        }
+        return options;
+    }
+
+    /** Native reflective mapping gives conflicting aliases an iteration-dependent winner. Fail closed. */
+    private static void validateNativeSpellings(Properties options) throws SQLException {
+        Map<String, Properties> spellings = new HashMap<>();
+        for (String name : options.stringPropertyNames()) {
+            Properties normalized = new Properties();
+            put(normalized, name, options.getProperty(name));
+            validateTlsSettings(normalized);
+            Properties previous = spellings.putIfAbsent(canonicalOptionKey(name), normalized);
+            if (previous != null && !previous.equals(normalized)) throw invalid();
+        }
+    }
+
+    private static void mergeSuppliedOptions(Properties properties, Properties supplied) throws SQLException {
+        Properties preferredTls = new Properties();
+        for (String key : supplied.stringPropertyNames()) {
+            putSourceOption(properties, preferredTls, key, supplied.getProperty(key));
+        }
+        properties.putAll(preferredTls);
     }
 
     private static void mergeQueryOptions(Properties properties, String query) throws SQLException {
@@ -249,10 +344,26 @@ public final class MariaDbJdbcCompatibility {
         for (String option : query.split("&")) {
             if (option.isEmpty()) continue;
             String[] pair = option.split("=", 2);
-            putSourceOption(properties, preferredTls, URLDecoder.decode(pair[0], StandardCharsets.UTF_8),
-                    pair.length == 1 ? "true" : URLDecoder.decode(pair[1], StandardCharsets.UTF_8));
+            String name = URLDecoder.decode(pair[0], StandardCharsets.UTF_8);
+            if (!LEGACY_MYSQL_SCHEME.equals(name)) {
+                putSourceOption(properties, preferredTls, name,
+                        pair.length == 1 ? "true" : URLDecoder.decode(pair[1], StandardCharsets.UTF_8));
+            }
         }
         properties.putAll(preferredTls);
+    }
+
+    /** The normalized URL owns provenance; connection or host properties cannot override it. */
+    private static boolean hasLegacySchemeMarker(String query) throws SQLException {
+        boolean legacy = false;
+        for (String option : query.split("&")) {
+            String[] pair = option.split("=", 2);
+            if (LEGACY_MYSQL_SCHEME.equals(URLDecoder.decode(pair[0], StandardCharsets.UTF_8))) {
+                if (pair.length != 2 || !"true".equals(URLDecoder.decode(pair[1], StandardCharsets.UTF_8))) throw invalid();
+                legacy = true;
+            }
+        }
+        return legacy;
     }
 
     /** Connector/J's canonical TLS names beat their legacy aliases within the same property source. */
@@ -302,7 +413,6 @@ public final class MariaDbJdbcCompatibility {
     private static String canonicalTlsKey(String token, String original) {
         return switch (token) {
             case "sslmode" -> SSL_MODE;
-            case "usessl" -> USE_SSL;
             case "tlsversions", "enabledtlsprotocols", "enabledsslprotocolsuites" -> TLS_PROTOCOLS;
             case "tlsciphersuites", "enabledsslciphersuites" -> TLS_CIPHERS;
             case "clientcertificatekeystoreurl", "keystore" -> "keyStore";
@@ -311,8 +421,8 @@ public final class MariaDbJdbcCompatibility {
             case "trustcertificatekeystoreurl", "truststore" -> "trustStore";
             case "trustcertificatekeystoretype", "truststoretype" -> "trustStoreType";
             case "trustcertificatekeystorepassword", "truststorepassword" -> "trustStorePassword";
-            case "fallbacktosystemkeystore" -> "fallbackToSystemKeyStore";
-            case "fallbacktosystemtruststore" -> "fallbackToSystemTrustStore";
+            case "fallbacktosystemkeystore" -> FALLBACK_TO_SYSTEM_KEY_STORE;
+            case "fallbacktosystemtruststore" -> FALLBACK_TO_SYSTEM_TRUST_STORE;
             case "fipscompliantjsse" -> FIPS_COMPLIANT_JSSE;
             case "keymanagerfactoryprovider" -> "keyManagerFactoryProvider";
             case "trustmanagerfactoryprovider" -> "trustManagerFactoryProvider";
@@ -326,13 +436,12 @@ public final class MariaDbJdbcCompatibility {
 
     /** Canonicalize recognized aliases and reject ambiguous values before the driver can ignore them. */
     private static void put(Properties properties, String name, String value) throws SQLException {
+        rejectReservedOption(name);
         String key = canonicalOptionKey(name);
-        if (BOOLEAN_OPTIONS.contains(key)) {
-            value = switch (asciiLowerCase(value)) {
-                case "true", "yes", "1" -> "true";
-                case FALSE, "no", "0" -> FALSE;
-                default -> throw invalid();
-            };
+        boolean legacyUseSsl = properties.containsKey(LEGACY_MYSQL_SCHEME) && asciiEquals(name, USE_SSL);
+        if (legacyUseSsl) key = USE_SSL;
+        if (BOOLEAN_OPTIONS.contains(key) || legacyUseSsl) {
+            value = normalizedBoolean(properties, key, value);
         }
         if (asciiEquals(key, "allowLoadLocalInfileInPath") && !value.isEmpty()) throw invalid();
         if (key.equals(SSL_MODE)) {
@@ -341,8 +450,8 @@ public final class MariaDbJdbcCompatibility {
                 case SSL_PREFERRED -> SSL_PREFERRED;
                 case SSL_ALLOW -> SSL_ALLOW;
                 case "required", SSL_TRUST -> SSL_TRUST;
-                case "verify_ca" -> "verify-ca";
-                case "verify_identity", "verify_full" -> "verify-full";
+                case "verify_ca" -> SSL_VERIFY_CA;
+                case "verify_identity", "verify_full" -> SSL_VERIFY_FULL;
                 default -> throw invalid();
             };
         }
@@ -354,6 +463,29 @@ public final class MariaDbJdbcCompatibility {
         } else {
             properties.setProperty(key, value);
         }
+    }
+
+    private static void rejectReservedOption(String name) throws SQLException {
+        if (asciiEquals(name, LEGACY_MYSQL_SCHEME) || asciiEquals(name, HOST_SSL_MODE)) throw invalid();
+    }
+
+    private static String normalizedBoolean(Properties properties, String key, String value) throws SQLException {
+        if (!properties.containsKey(LEGACY_MYSQL_SCHEME) && NATIVE_SECURITY_BOOLEANS.contains(key)) {
+            return switch (asciiLowerCase(value)) {
+                case "", "true", "1" -> "true";
+                case FALSE, "0" -> FALSE;
+                default -> throw invalid();
+            };
+        }
+        return booleanValue(value);
+    }
+
+    private static String booleanValue(String value) throws SQLException {
+        return switch (asciiLowerCase(value)) {
+            case "true", "yes", "1" -> "true";
+            case FALSE, "no", "0" -> FALSE;
+            default -> throw invalid();
+        };
     }
 
     /** Never silently replace an explicitly selected JSSE security implementation. */
@@ -451,13 +583,12 @@ public final class MariaDbJdbcCompatibility {
         return false;
     }
 
-    /** MariaDB understands host/port/type/sslMode descriptors, but silently ignores other host options. */
+    /** MariaDB understands host/port/type/sslMode/pipe/localSocket descriptors and ignores other fields. */
     private static Settings resolveHostOptions(Settings settings) throws SQLException {
         String url = settings.url();
         int start = url.indexOf("//") + 2;
         if (start < 2) throw invalid();
-        int end = url.indexOf('/', start);
-        if (end < 0) end = url.length();
+        int end = authorityEnd(url, start);
         String authority = url.substring(start, end);
         List<String> hosts = splitHosts(authority);
         boolean multiple = hosts.size() > 1;
@@ -468,6 +599,17 @@ public final class MariaDbJdbcCompatibility {
                     : normalizeSimpleHost(host, settings.properties(), multiple));
         }
         return new Settings(url.substring(0, start) + String.join(",", normalized) + url.substring(end), settings.properties());
+    }
+
+    /** Socket paths inside a native address descriptor are not database-name separators. */
+    private static int authorityEnd(String url, int start) throws SQLException {
+        HostNesting nesting = new HostNesting();
+        for (int index = start; index < url.length(); index++) {
+            char current = url.charAt(index);
+            if (current == '/' && nesting.isTopLevel()) return index;
+            nesting.accept(current);
+        }
+        return url.length();
     }
 
     private static String normalizeSimpleHost(String host, Properties properties, boolean multiple) throws SQLException {
@@ -501,9 +643,15 @@ public final class MariaDbJdbcCompatibility {
 
     private static void appendHostField(StringBuilder retained, Properties properties, Properties preferredTls, boolean multiple,
                                         String encodedKey, String encodedValue) throws SQLException {
+        if (!properties.containsKey(LEGACY_MYSQL_SCHEME)) {
+            rejectReservedOption(encodedKey);
+            appendNativeHostField(retained, properties, multiple, asciiLowerCase(encodedKey), encodedValue);
+            return;
+        }
         String key = URLDecoder.decode(encodedKey, StandardCharsets.UTF_8);
         String value = URLDecoder.decode(encodedValue, StandardCharsets.UTF_8);
         String token = asciiLowerCase(key);
+        rejectReservedOption(key);
         if (token.equals("sslmode")) {
             appendHostTlsPolicy(retained, properties, multiple, value);
         } else if (Set.of("host", "port", "type").contains(token)) {
@@ -517,10 +665,21 @@ public final class MariaDbJdbcCompatibility {
         }
     }
 
+    /** Native HostAddress ignores unsupported fields; promoting them could weaken global policies. */
+    private static void appendNativeHostField(StringBuilder retained, Properties properties, boolean multiple,
+                                              String token, String value) throws SQLException {
+        if (token.equals("sslmode")) {
+            appendHostTlsPolicy(retained, properties, multiple, value);
+        } else if (Set.of("host", "port", "type", "pipe", "localsocket").contains(token)) {
+            retained.append('(').append(token).append('=').append(value).append(')');
+        }
+    }
+
     private static void appendHostTlsPolicy(StringBuilder retained, Properties properties, boolean multiple,
                                             String value) throws SQLException {
         if (!multiple) {
             put(properties, SSL_MODE, value);
+            properties.setProperty(HOST_SSL_MODE, properties.getProperty(SSL_MODE));
         } else {
             Properties hostPolicy = new Properties();
             put(hostPolicy, SSL_MODE, value);
