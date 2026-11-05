@@ -3903,7 +3903,7 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java": "e6ff5aa1ca38a0adcef4576d7d2f14c1a6419d011b83f9c2547f7bdd255274c0",
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/MeasurementInfo.java": "839f44b1d5a7ff853d1c9aa434810b8c873ab635f49a350b7acc593d1bd1bc7b",
     "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayRx2Action.java": "4e6b1ce3e46d4b89b614fa0b36c350c22c07cd4d650d964bc355ed72d12763d4",
-    "src/main/java/io/github/carlos_emr/carlos/form/pageUtil/FrmSetupForm2Action.java": "280c0b981bebdba9214b5a959aab38d7e7266d14a5a020bb2f9bf6af5059f448",
+    "src/main/java/io/github/carlos_emr/carlos/form/pageUtil/FrmSetupForm2Action.java": "681159e51d71502b44b3cd6c42a14bd07efe7c14182ba782a860213e59bef9d1",
     "src/main/java/io/github/carlos_emr/carlos/managers/AllergyManagerImpl.java": "6d2103aa328451900b4cbacd04c37e74686e2af6d33e6c78198259afd4102bbf",
     "src/main/java/io/github/carlos_emr/carlos/prescript/data/RxPrescriptionData.java": "3954af39001d969d267d2832dd5c83319d5dd6ad3eb8ac5348b13803c45fea8c",
     "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionDateService.java": "18b51f8d5979549d64bb99860bb7de63abb38026f94ee0ddd9a753332bbe92c5",
@@ -3915,5 +3915,5 @@
     "EMR_Data_Migration_Schema.xsd": "2bffde70ae84137624db888611e8a3b919e868789b726ee012d39513ce846726",
     "EMR_Data_Migration_Schema_DT.xsd": "e999fafd945d13a7a2866482e06029cea86b902ce7f30139377a3600c3d9ce31"
   },
-  "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described."
+  "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described. On 2026-11-05, Codex independently reviewed the FrmSetupForm2Action reader update for PR #5602: the ongoing-concerns prefill changed, while the reviewed medication dose, pharmacy-instruction and timing mappings and their getDrugList/medicationLine reader behavior remain unchanged."
 }
