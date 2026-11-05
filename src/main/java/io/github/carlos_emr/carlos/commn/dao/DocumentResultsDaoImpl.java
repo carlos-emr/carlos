@@ -225,6 +225,8 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
                     lbData.discipline = null;
                 }
 
+                // The description every inbox view shows for a document row (#5685).
+                lbData.description = StringUtils.defaultIfBlank(d.getDocdesc(), null);
                 lbData.finalResultsCount = 0;
                 labResults.add(lbData);
             }
@@ -333,6 +335,8 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
 
                 lbData.discipline = StringUtils.trimToNull(d.getDoctype());
 
+                // The description every inbox view shows for a document row (#5685).
+                lbData.description = StringUtils.defaultIfBlank(d.getDocdesc(), null);
                 lbData.finalResultsCount = 0;
                 labResults.add(lbData);
             }
@@ -457,6 +461,8 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
                     lbData.discipline = null;
                 }
 
+                // The description every inbox view shows for a document row (#5685).
+                lbData.description = StringUtils.defaultIfBlank(d.getDocdesc(), null);
                 lbData.finalResultsCount = 0;
                 labResults.add(lbData);
             }

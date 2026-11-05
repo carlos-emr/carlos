@@ -28,6 +28,7 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
@@ -231,6 +232,10 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
         int hinLoc = -1;
         int sexLoc = -1;
         int moduleLoc = -1;
+        // Every query shape below selects the document's own description (document.docdesc) at
+        // descriptionLoc. The Inbox Hub list, the legacy Inbox page and the REST inbox all show it
+        // as a document row's description; six shapes once read document.doctype here, so a
+        // patient or name search showed the type ("others") instead of the saved description.
         int descriptionLoc = -1;
         int updateDateLoc = -1;
         try {
@@ -251,7 +256,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     descriptionLoc = 10;
                     updateDateLoc = 11;
                     sql = " SELECT X.id, X.lab_no as document_no, X.status, X.lab_type as doctype, d.last_name, d.first_name, hin, sex, d.demographic_no as module_id, "
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", doc.doctype as description, date(doc.updatedatetime) "
+                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", doc.docdesc as description, date(doc.updatedatetime) "
                         + " FROM document doc, "
                         + " (SELECT plr.id, plr.lab_type, plr.lab_no, plr.status "
                         + "  FROM patientLabRouting plr2, providerLabRouting plr, hl7TextInfo info "
@@ -295,7 +300,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     descriptionLoc = 10;
                     updateDateLoc = 11;
                     sql = " SELECT plr.id, doc.document_no, plr.status, d.last_name, d.first_name, hin, sex, d.demographic_no as module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.doctype as description, date(doc.updatedatetime) "
+                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.docdesc as description, date(doc.updatedatetime) "
                         + " FROM demographic d, providerLabRouting plr, document doc, "
                         + " (SELECT * FROM "
                         + " (SELECT DISTINCT plr.id, plr.lab_type FROM providerLabRouting plr, ctl_document cd "
@@ -337,7 +342,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     // out-of-province or imported patients) never satisfies LIKE, so a blank search
                     // field ("%%") would otherwise drop those patients from every Inbox search.
                     sql = " SELECT plr.id, doc.document_no, plr.status, d.last_name, d.first_name, hin, sex, d.demographic_no as module_id, "
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.doctype as description, date(doc.updatedatetime) "
+                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.docdesc as description, date(doc.updatedatetime) "
                         + " FROM demographic d, providerLabRouting plr, document doc,  "
                         + " (SELECT * FROM "
                         + "	 (SELECT * FROM  "
@@ -384,7 +389,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     // N
                     // document_no, status, last_name, first_name, hin, sex, module_id, observationdate
                     sql = "SELECT doc.document_no, plr.status, d.last_name, d.first_name, d.hin, d.sex, cd.module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type, doc.doctype, date(doc.updatedatetime) "
+                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type, doc.docdesc as description, date(doc.updatedatetime) "
                         + "FROM document doc "
                         + "LEFT JOIN providerLabRouting plr ON doc.document_no = plr.lab_no "
                         + "LEFT JOIN ctl_document cd ON cd.document_no = doc.document_no "
@@ -436,7 +441,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     descriptionLoc = 10;
                     updateDateLoc = 11;
                     sql = "SELECT plr.id, doc.document_no, plr.status, last_name, first_name, hin, sex, module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.doctype as description, date(doc.updatedatetime) "
+                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.docdesc as description, date(doc.updatedatetime) "
                         + "FROM ctl_document cd, demographic d, providerLabRouting plr, document doc "
                         + "WHERE d.demographic_no = :demographicNo "
                         + "	AND cd.module_id = d.demographic_no "
@@ -465,7 +470,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     // out-of-province or imported patients) never satisfies LIKE, so a blank search
                     // field ("%%") would otherwise drop those patients from every Inbox search.
                     sql = "SELECT plr.id, doc.document_no, plr.status, last_name, first_name, hin, sex, module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.doctype as description, date(doc.updatedatetime) "
+                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.docdesc as description, date(doc.updatedatetime) "
                         + "FROM ctl_document cd, demographic d, providerLabRouting plr, document doc "
                         + "WHERE COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "	AND cd.module_id = d.demographic_no "
@@ -650,10 +655,9 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     lbData.discipline = null;
                 }
 
-                lbData.description = getStringValue(r[descriptionLoc]);
-                if (lbData.description.trim().equals("")) {
-                    lbData.description = null;
-                }
+                // Null-safe: a NullPointerException here would end the loop in the catch below
+                // and silently drop this row and every row after it from the Inbox page.
+                lbData.description = StringUtils.defaultIfBlank(getStringValue(r[descriptionLoc]), null);
 
                 lbData.lastUpdateDate = getStringValue(r[updateDateLoc]);
 

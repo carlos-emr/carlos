@@ -146,12 +146,6 @@
       "disposition": "required installed retake; blocks release readiness"
     },
     {
-      "check": "document-clinical-followup",
-      "finding": 348,
-      "step": "the forwarded Inbox row displays its exact seeded description and patient identity",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "echart-forms-list-paging",
       "finding": 335,
       "step": "Forms heading paginates ten records, Next changes the rows and Previous restores them",
@@ -233,6 +227,12 @@
       "finding": 217,
       "step": "Add of a one-character name is not answered with a server error",
       "disposition": "Manifest pin retired by the implementation base; retained as an active regression. A fresh installed PASS is still required."
+    },
+    {
+      "check": "document-clinical-followup",
+      "finding": 348,
+      "step": "the forwarded Inbox row displays its exact seeded description and patient identity",
+      "disposition": "Source fix for #5685: every Inbox document query selects the saved description. Manifest pin retired; retained as an active regression. A fresh installed PASS of the whole check, including its review, comment and acknowledgement steps, is still required."
     }
   ]
 }

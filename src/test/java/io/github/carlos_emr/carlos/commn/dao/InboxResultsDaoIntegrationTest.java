@@ -672,6 +672,57 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
     }
 
     /**
+     * Every Inbox view shows a document row's own description ({@code document.docdesc}). Six of
+     * the query shapes read the document type into that column instead, so the Inbox of one
+     * patient, or of a name search, showed the type where the clinician had saved a description
+     * (#5685). A document with no type was worse: mapping the null type threw, and the catch-all
+     * ended the page there, dropping that row and every row after it.
+     */
+    @Nested
+    @DisplayName("populateDocumentResultsData description column")
+    @Tag("read")
+    class PopulateDocumentResultsDataDescription {
+
+        private int routeDocument(int moduleId, String doctype, String docdesc) {
+            Document doc = createDocument(doctype, PROVIDER_NO, 'A');
+            doc.setDocdesc(docdesc);
+            createCtlDocument("demographic", moduleId, doc.getDocumentNo());
+            createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
+            entityManager.flush();
+            return doc.getDocumentNo();
+        }
+
+        /**
+         * The same ten shapes as the acknowledged-since bound: the provider's whole list of
+         * patient documents and of unmatched ones, one patient, a name search and the unmatched
+         * view, each with labs and documents mixed and separate. Together they reach every query
+         * the method builds.
+         */
+        @ParameterizedTest(name = "{0}, mixLabsAndDocs={1}")
+        @CsvSource({"provider,true", "provider,false", "providerUnmatched,true", "providerUnmatched,false",
+                "patient,true", "patient,false", "nameSearch,true", "nameSearch,false", "unmatched,true", "unmatched,false"})
+        @DisplayName("should list each document with its saved description, not its type")
+        void shouldListSavedDescription_inEveryInboxQueryShape(String shape, boolean mixLabsAndDocs) {
+            int moduleId = "unmatched".equals(shape) || "providerUnmatched".equals(shape) ? -1 : demoId;
+            int described = routeDocument(moduleId, "lab", "FAKE CT head report");
+            int untyped = routeDocument(moduleId, null, "FAKE referral letter");
+            int undescribed = routeDocument(moduleId, "consult", "");
+            String demographicNo = "patient".equals(shape) ? String.valueOf(demoId) : "unmatched".equals(shape) ? "0" : null;
+            String lastName = "nameSearch".equals(shape) ? "Patient" : "";
+
+            List<LabResultData> result = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, demographicNo, "", lastName, "", "N",
+                    false, null, null, mixLabsAndDocs, null, null, null, null);
+
+            assertThat(result).extracting(row -> row.segmentID, row -> row.description)
+                    .containsExactlyInAnyOrder(
+                            tuple(String.valueOf(described), "FAKE CT head report"),
+                            tuple(String.valueOf(untyped), "FAKE referral letter"),
+                            tuple(String.valueOf(undescribed), null));
+        }
+    }
+
+    /**
      * The Inbox patient search matched a document through {@code d.hin LIKE :patientHealthNumber},
      * which a NULL HIN never satisfies, so a patient without a health card number disappeared from
      * every name search.
