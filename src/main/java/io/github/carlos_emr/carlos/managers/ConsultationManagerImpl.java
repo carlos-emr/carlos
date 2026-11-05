@@ -741,7 +741,25 @@ public class ConsultationManagerImpl implements ConsultationManager {
                 Integer.toString(demographicNo))) {
             return Collections.emptyList();
         }
-        List<ConsultDocs> attachedForms = getAttachedDocumentsByType(loggedInInfo, consultRequestId, ConsultDocs.DOCTYPE_FORM);
+        return filterAttachedForms(loggedInInfo, demographicNo,
+                getAttachedDocumentsByType(loggedInInfo, consultRequestId, ConsultDocs.DOCTYPE_FORM));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<EctFormData.PatientForm> getAttachedForms(LoggedInInfo loggedInInfo, int consultRequestId,
+            int demographicNo, List<ConsultDocs> attachedForms) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_form", SecurityInfoManager.READ,
+                Integer.toString(demographicNo))) {
+            return Collections.emptyList();
+        }
+        return filterAttachedForms(loggedInInfo, demographicNo, attachedForms);
+    }
+
+    private List<EctFormData.PatientForm> filterAttachedForms(LoggedInInfo loggedInInfo, int demographicNo,
+            List<ConsultDocs> attachedForms) {
         List<EctFormData.PatientForm> filteredForms = new ArrayList<>(attachedForms.size());
         /*
          * Sure wish we didn't have to do this.  It's the only option without having to refactor a
@@ -770,7 +788,16 @@ public class ConsultationManagerImpl implements ConsultationManager {
 
     @Override
     public ArrayList<HashMap<String, ? extends Object>> getAttachedHRMDocuments(LoggedInInfo loggedInInfo, String demographicNo, String requestId) {
-        List<ConsultDocs> attachedHRMDocuments = getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_HRM);
+        return getAttachedHRMDocuments(loggedInInfo, demographicNo, requestId,
+                getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_HRM));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ArrayList<HashMap<String, ? extends Object>> getAttachedHRMDocuments(LoggedInInfo loggedInInfo,
+            String demographicNo, String requestId, List<ConsultDocs> attachedHRMDocuments) {
         //TODO: refactor HRMUtil so that it's possible to call a function, pass in a particular HRM ID, and return the same information for that HRM that listHRMDocuments does
         //		once this is done, would be possible to simply iterate over attachedHRMDocuments
         //		In the absence of the above refactoring, the following gets the full listHRMDocuments and then filters for only the items that are actually attached to the consult

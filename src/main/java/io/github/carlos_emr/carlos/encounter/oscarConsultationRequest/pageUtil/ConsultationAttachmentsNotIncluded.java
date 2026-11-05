@@ -62,16 +62,33 @@ public final class ConsultationAttachmentsNotIncluded {
      */
     public static List<String> describe(ConsultationManager manager, LoggedInInfo info, int requestId,
             List<EctFormData.PatientForm> forms, List<? extends Map<String, ?>> hrms, Locale locale) {
+        return describe(manager.getAttachedDocumentsByType(info, requestId, ConsultDocs.DOCTYPE_FORM),
+                manager.getAttachedDocumentsByType(info, requestId, ConsultDocs.DOCTYPE_HRM), forms, hrms, locale);
+    }
+
+    /**
+     * Compares already-fetched relationships with the same patient-scoped lists used by the view.
+     * No attachment queries are performed. Callers must authorize the consultation and its patient.
+     *
+     * @param storedForms List of stored clinical-form relationships for the verified consultation
+     * @param storedHrms List of stored HRM relationships for the same consultation
+     * @param forms List of clinical forms available to the renderer
+     * @param hrms List of HRM maps available to the renderer
+     * @param locale Locale negotiated for the reader, or null for English
+     * @return List of localized omission warnings, empty when every attachment is available
+     */
+    public static List<String> describe(List<ConsultDocs> storedForms, List<ConsultDocs> storedHrms,
+            List<EctFormData.PatientForm> forms, List<? extends Map<String, ?>> hrms, Locale locale) {
         ResourceBundle bundle = ConsultationLabsNotIncluded.bundle(locale == null ? Locale.ENGLISH : locale);
         Set<String> formIds = forms.stream().filter(Objects::nonNull).map(EctFormData.PatientForm::getFormId).collect(Collectors.toSet());
         Set<String> hrmIds = hrms.stream().filter(Objects::nonNull).map(row -> String.valueOf(row.get("id"))).collect(Collectors.toSet());
         List<String> warnings = new ArrayList<>();
-        if (hasOmission(manager.getAttachedDocumentsByType(info, requestId, ConsultDocs.DOCTYPE_FORM), formIds)) {
+        if (hasOmission(storedForms, formIds)) {
             warnings.add(bundle.getString(PREFIX + "form"));
         }
         // Collapse HRM omissions to one generic message, including when permission or region hides
         // the whole list. Neither the report type nor its count identifies restricted records.
-        if (hasOmission(manager.getAttachedDocumentsByType(info, requestId, ConsultDocs.DOCTYPE_HRM), hrmIds)) {
+        if (hasOmission(storedHrms, hrmIds)) {
             warnings.add(bundle.getString(PREFIX + "restricted"));
         }
         return warnings;

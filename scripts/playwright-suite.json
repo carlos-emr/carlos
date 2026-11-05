@@ -674,6 +674,25 @@
       "fixtures": "Owned FAKE-PW patient (lib/owned-patient.js, created through the harness mysql client): the consultation request it creates and updates, the extension, archive and signature rows saving it writes and the patient are removed by the patient's key and asserted gone. It no longer files its request for demo patient 1. No clinic-wide state is changed."
     },
     {
+      "name": "consultation-attachment-query-reuse",
+      "script": "scripts/consultation-attachment-query-reuse-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "manual": true,
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CARLOS_DISPOSABLE_VM",
+        "EXCLUSIVE"
+      ],
+      "fixtures": "Owned FAKE patient, referral, service and consultant; unavailable form/HRM relationship rows. All owned rows are removed. Requires a local exclusive disposable install and database administrator access.",
+      "notes": "Issue #5668. Measures actual ViewRequest/JSP form and HRM relationship SELECTs with empty and omitted attachments and checks warning output. Temporarily enables MariaDB general_log to TABLE, restores the original settings in finally and retains existing log rows. Refuses an existing enabled query capture. Manual only: use --only consultation-attachment-query-reuse."
+    },
+    {
       "name": "consultation-lab-attachment-rows",
       "script": "scripts/consultation-lab-attachment-rows-playwright-checks.js",
       "tiers": [
