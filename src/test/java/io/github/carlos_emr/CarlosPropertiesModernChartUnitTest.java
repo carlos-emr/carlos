@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr;
 
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -55,6 +56,40 @@ class CarlosPropertiesModernChartUnitTest {
         assertThatThrownBy(() -> properties.getProperty(key))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Property key cannot be blank.");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"false", "no", "off", "garbage", " False "})
+    void shouldWarnAtStartup_whenStoredSettingIsIgnored(String value) {
+        properties.setProperty(KEY, value);
+
+        try (LogCapture logs = LogCapture.forLogger(CarlosProperties.class)) {
+            assertThat(properties.warnIfLegacyChartSettingIgnored()).isEqualTo(value);
+            assertThat(logs.messages()).singleElement().asString()
+                    .contains("AbandonOldChart=", value.trim(), "#4793", "ignored");
+        }
+        assertModernChart();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"true", "yes", "on", "TRUE", " yes "})
+    void shouldNotWarnAtStartup_whenStoredSettingAgreesWithPolicy(String value) {
+        properties.setProperty(KEY, value);
+
+        try (LogCapture logs = LogCapture.forLogger(CarlosProperties.class)) {
+            assertThat(properties.warnIfLegacyChartSettingIgnored()).isNull();
+            assertThat(logs.messages()).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldNotWarnAtStartup_whenPropertyIsAbsent() {
+        properties.remove(KEY);
+
+        try (LogCapture logs = LogCapture.forLogger(CarlosProperties.class)) {
+            assertThat(properties.warnIfLegacyChartSettingIgnored()).isNull();
+            assertThat(logs.messages()).isEmpty();
+        }
     }
 
     private void assertModernChart() {

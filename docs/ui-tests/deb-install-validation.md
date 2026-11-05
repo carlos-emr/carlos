@@ -1150,7 +1150,9 @@ therefore both use the modern chart and do not mirror modern notes/CPP into `eCh
 Existing legacy records are retained. The legacy editor/print path is unsupported:
 non-Exit save requests return HTTP 410 before changing clinical data or layout;
 Exit retains its layout-only behavior. The print beans do not load legacy clinical
-text, and changing this property cannot restore it. Use the modern chart and its
+text, and changing this property cannot restore it. A loaded `false`, `no` or `off`
+value is reported once at startup as ignored (`AbandonOldChart=... is ignored` at
+WARN); remove the obsolete setting rather than trust it. Use the modern chart and its
 print workflow. Permanent removal of the
 legacy routes and a retrieval plan for historical-only records are tracked in #5599.
 The manual `legacy-encounter-editor-isolation` check's legacy-content expectations

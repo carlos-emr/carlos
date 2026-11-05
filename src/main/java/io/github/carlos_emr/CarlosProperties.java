@@ -262,6 +262,27 @@ public class CarlosProperties extends Properties {
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
         }
+        warnIfLegacyChartSettingIgnored();
+    }
+
+    /**
+     * Reports, once at startup, a loaded {@code AbandonOldChart} value that the mandatory modern
+     * chart policy (#4793) ignores. The stored value is left as written so the operator's file is
+     * not rewritten, but an old {@code false} override must not read as the active mode.
+     *
+     * @return String the ignored stored value, or null when the setting is absent or agrees with the policy
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive match of a configuration boolean; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match of a configuration boolean; not a security or authorization decision")
+    String warnIfLegacyChartSettingIgnored() {
+        String stored = super.getProperty("AbandonOldChart");
+        if (stored == null || activeMarkers.contains(stored.trim().toLowerCase(Locale.ROOT))) {
+            return null;
+        }
+        MiscUtils.getLogger().warn("AbandonOldChart={} in the loaded configuration is ignored: the modern chart is"
+                + " mandatory (#4793) and the legacy eChart editor is retired. Remove the obsolete setting.",
+                LogSafe.sanitize(stored));
+        return stored;
     }
 
     /**
