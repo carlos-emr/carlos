@@ -22,6 +22,7 @@
  * Ontario, Canada
  
  * <p>
+ * Modifications by CARLOS Contributors, 2026.
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
@@ -31,6 +32,7 @@
 package io.github.carlos_emr;
 
 import io.github.carlos_emr.carlos.utility.BuildInfo;
+import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -40,7 +42,15 @@ import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Reader;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -78,6 +88,15 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class CarlosProperties extends Properties {
     private static final long serialVersionUID = -5965807410049845132L;
+    @SuppressFBWarnings(value = "SE_TRANSIENT_FIELD_NOT_RESTORED",
+            justification = "Deserialized properties must not inherit a writable source; only readFromFile establishes provenance.")
+    private transient File loadedPropertiesFile;
+    @SuppressFBWarnings(value = "SE_TRANSIENT_FIELD_NOT_RESTORED",
+            justification = "The source description is process-local provenance and is intentionally absent after deserialization.")
+    private transient String loadedPropertiesLocation;
+    // Keep file descriptors and their locks serialized among instances in this class loader.
+    // The filesystem locks additionally coordinate separate application processes.
+    private static final Object CONFIGURATION_FILE_LOCK = new Object();
     private static CarlosProperties carlosProperties = new CarlosProperties();
     private static final Set<String> activeMarkers = new HashSet<String>(Arrays.asList(new String[]{"true", "yes", "on"}));
     /**
@@ -146,7 +165,12 @@ public class CarlosProperties extends Properties {
      * @throws IllegalArgumentException if the key is null or blank
      */
     public String getProperty(String key) {
-        if ("FORMS_PROMOTEXT".equals(key)) {
+        if (key == null || key.trim().isEmpty()) {
+            MiscUtils.getLogger().warn("Attempted to retrieve property with blank key.");
+            throw new IllegalArgumentException("Property key cannot be blank.");
+        }
+
+        if (key.equals("FORMS_PROMOTEXT")) {
             return "";
         }
 
@@ -155,11 +179,6 @@ public class CarlosProperties extends Properties {
         // boolean accessors agree. Remove the obsolete flag and legacy branches in #5599.
         if ("AbandonOldChart".equals(key)) {
             return "true";
-        }
-
-        if (key == null || key.trim().isEmpty()) {
-            MiscUtils.getLogger().warn("Attempted to retrieve property with blank key.");
-            throw new IllegalArgumentException("Property key cannot be blank.");
         }
 
         String value = super.getProperty(key);
@@ -236,9 +255,8 @@ public class CarlosProperties extends Properties {
 
             String overrideProperties = System.getProperty("carlos_override_properties");
             if (overrideProperties != null) {
-                if (MiscUtils.getLogger().isInfoEnabled()) {
-                    MiscUtils.getLogger().info("Applying override properties : {}", LogSafe.sanitize(overrideProperties));
-                }
+                String overrideLocation = LogSafe.sanitize(overrideProperties);
+                MiscUtils.getLogger().info("Applying override properties : {}", overrideLocation);
                 readFromFile(overrideProperties);
             }
         } catch (IOException e) {
@@ -246,25 +264,87 @@ public class CarlosProperties extends Properties {
         }
     }
 
+    /**
+     * Loads configuration and records its source after the read completes successfully.
+     * File reads share the locking protocol used by first-key initialization.
+     *
+     * @param url String classpath resource or filesystem path
+     * @throws IOException if the configuration cannot be read
+     */
     public void readFromFile(String url) throws IOException {
-        InputStream is = getClass().getResourceAsStream(url);
-        if (is == null) {
-            File propertyFile;
-            try {
-                propertyFile = PathValidationUtils.resolveConfiguredFile(url, "carlos properties file");
-            } catch (SecurityException e) {
-                // Honour the declared throws IOException: a blank or un-canonicalizable configured
-                // path surfaces as IOException rather than an unchecked SecurityException. (resolveConfiguredFile
-                // permits a merely missing path; that surfaces below as FileNotFoundException from the stream.)
-                throw new IOException("Unable to resolve carlos properties file", e);
+        synchronized (CONFIGURATION_FILE_LOCK) {
+            InputStream resource = getClass().getResourceAsStream(url);
+            File propertyFile = null;
+            if (resource != null) {
+                try (resource) {
+                    load(resource);
+                }
+            } else {
+                try {
+                    propertyFile = PathValidationUtils.resolveConfiguredFile(url, "carlos properties file");
+                } catch (SecurityException e) {
+                    throw new IOException("Unable to resolve carlos properties file", e);
+                }
+                // FileInputStream retains the FileNotFoundException contract used by Startup.
+                // Release the lock before closing either owner of the same file descriptor.
+                try (FileInputStream input = new FileInputStream(propertyFile);
+                     FileChannel channel = input.getChannel();
+                     FileLock _ = channel.lock(0, Long.MAX_VALUE, true)) {
+                    load(input);
+                }
             }
-            is = new FileInputStream(propertyFile);
+            // Bundled resources are not operator-writable configuration files.
+            loadedPropertiesFile = propertyFile;
+            loadedPropertiesLocation = url;
         }
+    }
 
-        try {
-            load(is);
-        } finally {
-            is.close();
+    /**
+     * Obtains a persisted encryption key from the loaded external configuration.
+     * An exclusive file lock covers re-reading, generation, append and flush, so an
+     * instance with an outdated blank-key snapshot adopts another instance's key.
+     *
+     * @return String the persisted key to install in the active configuration
+     * @throws IOException if the loaded configuration cannot be updated
+     * @throws NoSuchAlgorithmException if AES key generation is unavailable
+     */
+    public String getOrCreateEncryptionKey() throws IOException, NoSuchAlgorithmException {
+        synchronized (CONFIGURATION_FILE_LOCK) {
+            String keyName = EncryptionUtils.SECRET_KEY_ENV_VAR;
+            if (loadedPropertiesFile == null) {
+                throw new IOException("Configuration source " + loadedPropertiesLocation
+                        + " is not an external properties file; refusing to generate an unpersisted encryption key. "
+                        + "Set " + keyName + " in the loaded configuration, or supply a writable external properties "
+                        + "file with -Dcarlos_override_properties=/path/to/carlos.properties before restarting. "
+                        + "Restore the original key if encrypted data already exists. "
+                        + "See https://github.com/carlos-emr/carlos/blob/release/2026.08/docs/startup-encryption-key.md "
+                        + "for configuration and recovery instructions.");
+            }
+            // Do not create a replacement/stub if the loaded file has since disappeared.
+            // Keep one descriptor open for both reading and writing throughout the lock.
+            try (FileChannel channel = FileChannel.open(loadedPropertiesFile.toPath(),
+                         StandardOpenOption.READ, StandardOpenOption.WRITE);
+                 Reader reader = Channels.newReader(channel, StandardCharsets.ISO_8859_1);
+                 FileLock _ = channel.lock()) {
+                Properties persisted = new Properties();
+                persisted.load(reader);
+                String key = persisted.getProperty(keyName);
+                if (key == null || key.isBlank()) {
+                    key = EncryptionUtils.generateSecretKey();
+                    // A trailing continuation may consume the first line terminator.
+                    ByteBuffer entry = StandardCharsets.ISO_8859_1.encode("\n\n" + keyName + "=" + key + "\n");
+                    channel.position(channel.size());
+                    while (entry.hasRemaining()) {
+                        channel.write(entry);
+                    }
+                    channel.force(true);
+                }
+                return key;
+            } catch (IOException e) {
+                throw new IOException("Unable to update loaded configuration file " + loadedPropertiesFile
+                        + ". Set " + keyName + " in that file before restarting; restore the original key "
+                        + "if encrypted data already exists.", e);
+            }
         }
     }
 
@@ -611,8 +691,8 @@ public class CarlosProperties extends Properties {
 	 * Updates the in-memory reference of the properties.
 	 *
 	 * @param propFilePath The path to the properties file.
-	 * @param key          The key of the property to be saved.
-	 * @param value        The value of the property to be saved.
+	 * @param key          String the key of the property to be saved.
+	 * @param value        String the value of the property to be saved.
 	 * @throws IOException If an I/O error occurs while writing to the file.
 	 */
 	public void saveProperty(String propFilePath, String key, String value) throws IOException {
@@ -627,8 +707,8 @@ public class CarlosProperties extends Properties {
 		try (FileWriter writer = new FileWriter(propertyFile, true)) {
 			// Write the new key-value pair
 			writer.write("\n" + key + "=" + value + "\n");
-			carlosProperties.setProperty(key, value);
 		}
+		setProperty(key, value);
 	}
 
 }

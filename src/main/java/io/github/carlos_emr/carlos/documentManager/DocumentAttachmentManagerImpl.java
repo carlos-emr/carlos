@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationLabsNotIncluded;
+import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationAttachmentsNotIncluded;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -706,7 +707,11 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
         ArrayList<Object> pdfDocumentList = new ArrayList<>();
         try {
             pdfDocumentList.add(consultationFormPDFPath.toString());
+            List<String> attachmentsNotIncluded = ConsultationAttachmentsNotIncluded.describe(consultationManager,
+                    loggedInInfo, Integer.parseInt(requestId), attachedForms, attachedHRMs, readerLocale);
+            request.setAttribute(ConsultationAttachmentsNotIncluded.REQUEST_ATTRIBUTE, attachmentsNotIncluded);
             attachLabsNotIncludedNotice(labsNotIncluded, readerLocale, pdfDocumentList);
+            attachAttachmentsNotIncludedNotice(attachmentsNotIncluded, readerLocale, pdfDocumentList);
             attachEFormPDFs(loggedInInfo, attachedEForms, pdfDocumentList);
             attachEDocPDFs(loggedInInfo, attachedEDocs, pdfDocumentList);
             attachLabPDFs(loggedInInfo, attachedLabs, pdfDocumentList);
@@ -721,6 +726,17 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
             // the letter and the page naming the labs it leaves out both carry PHI.
             cleanupRenderedTempInputs(pdfDocumentList, null);
             throw e;
+        }
+    }
+
+    private void attachAttachmentsNotIncludedNotice(List<String> warnings, Locale locale,
+                                                    ArrayList<Object> pdfDocumentList) throws PDFGenerationException {
+        if (warnings.isEmpty()) return;
+        try (ByteArrayOutputStream notice = new ByteArrayOutputStream()) {
+            notice.write(ConsultationAttachmentsNotIncluded.noticePage(warnings, locale));
+            pdfDocumentList.add(nioFileManager.saveTempFile("consultationAttachmentsNotIncluded", notice).toString());
+        } catch (IOException | DocumentException e) {
+            throw new PDFGenerationException("The attachment omission notice could not be created", e);
         }
     }
 

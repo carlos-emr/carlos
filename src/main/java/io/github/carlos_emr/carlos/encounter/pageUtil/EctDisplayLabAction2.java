@@ -53,7 +53,7 @@ public class EctDisplayLabAction2 extends EctDisplayAction {
     private static final String cmd = "labs";
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
 
         logger.debug("EctDisplayLabAction2");
         OscarLogDao oscarLogDao = (OscarLogDao) SpringUtils.getBean(OscarLogDao.class);
@@ -156,7 +156,7 @@ public class EctDisplayLabAction2 extends EctDisplayAction {
                     url = request.getContextPath() + "/lab/CA/BC/ViewLabDisplay?demographicId=" + bean.demographicNo + "&segmentID=" + result.segmentID + "&providerNo=" + bean.providerNo + "&multiID=" + result.multiLabId;
                 }
                 String labRead = "";
-                if (!oscarLogDao.hasRead(((String) request.getSession().getAttribute("user")), "lab", result.segmentID)) {
+                if (!oscarLogDao.hasRead(getProviderNo(request), "lab", result.segmentID)) {
                     labRead = "*";
                 }
 

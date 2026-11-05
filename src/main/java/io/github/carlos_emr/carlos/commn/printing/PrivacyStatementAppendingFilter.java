@@ -33,6 +33,7 @@ import java.io.PrintWriter;
 import java.io.Writer;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import jakarta.servlet.Filter;
@@ -45,10 +46,13 @@ import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletResponseWrapper;
-import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.utility.DeferredContentLength;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -137,8 +141,6 @@ public class PrivacyStatementAppendingFilter implements Filter {
         }
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         boolean isConfidentialityNotePrinted = false;
@@ -168,8 +170,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 delegatingServletResponse.completeWithoutStatement();
                 return;
             }
-            boolean isHtmlResponse = contentType.toLowerCase().startsWith("text/html");
-            if (!isHtmlResponse) {
+            if (!RequestNegotiation.isHtmlContentType(contentType)) {
                 delegatingServletResponse.completeWithoutStatement();
                 return;
             }
@@ -185,7 +186,18 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 return;
             }
 
-            printConfidentialityStatement(response, delegatingServletResponse);
+            String statement = getPrivacyStatement();
+            if (statement.isEmpty()) {
+                delegatingServletResponse.completeWithoutStatement();
+                return;
+            }
+            if (!delegatingServletResponse.isResponseWriterObtained()
+                    && !delegatingServletResponse.isResponseOutputStreamObtained()) {
+                delegatingServletResponse.completeWithoutStatement();
+                return;
+            }
+            delegatingServletResponse.discardDeferredContentLength();
+            printConfidentialityStatement(response, delegatingServletResponse, statement);
         } finally {
             if (!isConfidentialityNotePrinted)
                 resetConfidentialityNote((HttpServletRequest) request);
@@ -237,40 +249,33 @@ public class PrivacyStatementAppendingFilter implements Filter {
 
     // FindSecBugs XSS_SERVLET: writes fixed print-only privacy HTML from trusted system configuration.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "writes fixed print-only privacy HTML from trusted system configuration")
-    private void printConfidentialityStatement(ServletResponse response, DelegatingServletResponse delegatingServletResponse) throws IOException {
+    private void printConfidentialityStatement(ServletResponse response, DelegatingServletResponse delegatingServletResponse,
+                                               String statement) throws IOException {
         if (delegatingServletResponse.isResponseOutputStreamObtained()) {
-            response.getOutputStream().write(getPrivacyStatement().getBytes());
+            response.getOutputStream().write(statement.getBytes(RequestNegotiation.responseCharset(response)));
         } else if (delegatingServletResponse.isResponseWriterObtained()) {
-            response.getWriter().print(getPrivacyStatement());
+            response.getWriter().print(statement);
         }
 
         response.flushBuffer();
     }
 
     private void resetConfidentialityNote(HttpServletRequest request) {
-        HttpSession session = request.getSession(false);
-        if (session != null && session.getAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED) != null)
-            session.removeAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED);
         request.removeAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED);
     }
 
 
+    /**
+     * Marks this request as the one that appends the notice and reports whether an outer pass
+     * already did. The flag only has to survive dispatches within one request, so it lives on the
+     * request: a session attribute, cleared in {@code doFilter}'s {@code finally}, added nothing
+     * but a race in which a second request on the same session, arriving while the first was
+     * still rendering, shipped its printable page without the notice.
+     */
     private boolean isConfidentialtyNotePrinted(HttpServletRequest request) {
-        boolean isConfidentialtyNotePrinted = false;
-
-        HttpSession session = request.getSession(false);
-        if (session == null) {
-            // fall back onto request
-            isConfidentialtyNotePrinted = request.getAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED) != null;
-            if (!isConfidentialtyNotePrinted)
-                request.setAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED, Boolean.TRUE);
-            return isConfidentialtyNotePrinted;
-        }
-
-        isConfidentialtyNotePrinted = session.getAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED) != null;
+        boolean isConfidentialtyNotePrinted = request.getAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED) != null;
         if (!isConfidentialtyNotePrinted)
-            // nosemgrep: tainted-session-from-http-request -- value is hardcoded Boolean.TRUE constant, not user input
-            session.setAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED, Boolean.TRUE);
+            request.setAttribute(ATTRIBUTE_NAME_CONFIDENTIALITY_NOTE_PRINTED, Boolean.TRUE);
         return isConfidentialtyNotePrinted;
     }
 
@@ -309,20 +314,20 @@ public class PrivacyStatementAppendingFilter implements Filter {
      */
     private static class DelegatingServletResponse extends HttpServletResponseWrapper {
 
+        private static final Logger logger = LoggerFactory.getLogger(DelegatingServletResponse.class);
+
         private boolean responseWriterObtained;
         private boolean responseOutputStreamObtained;
 
         private DelegatingWriter writer;
+        /** The shared defer/publish/retract rules; its two delegate calls are its only access to the response. */
+        private final DeferredContentLength contentLength = new DeferredContentLength(
+                super::setContentLengthLong,
+                () -> super.setHeader(DeferredContentLength.HEADER, null));
 
         public DelegatingServletResponse(HttpServletResponse response) {
             super(response);
             response.setBufferSize(1024 * 1024 * 1); // 1 Megs
-        }
-
-        @Override
-        public ServletResponse getResponse() {
-            responseWriterObtained = true;
-            return super.getResponse();
         }
 
         // Each flag is set only after the container hands the channel over. A caller may ask
@@ -334,6 +339,15 @@ public class PrivacyStatementAppendingFilter implements Filter {
         // response, so this guard covers any other forwarding JAX-RS method.
         @Override
         public ServletOutputStream getOutputStream() throws IOException {
+            // Publish before acquiring the delegate: an outer wrapper may itself defer the
+            // length and replay it only when its output stream is first acquired. A stream whose
+            // type is still unknown publishes too, as the CSRF and logout wrappers do: a download
+            // that never declares a type can never be decorated, and holding its length until the
+            // chain unwinds loses it once an explicit flush commits the body. A type that turns
+            // to HTML before commit retracts the length in updateContentLengthForType().
+            if (!RequestNegotiation.isHtmlContentType(getContentType())) {
+                contentLength.publishPending();
+            }
             ServletOutputStream stream = super.getOutputStream();
             responseOutputStreamObtained = true;
             return stream;
@@ -344,6 +358,11 @@ public class PrivacyStatementAppendingFilter implements Filter {
             if (writer == null)
                 writer = new DelegatingWriter(super.getWriter());
             responseWriterObtained = true;
+            // Unlike a stream, a writer taken before its type is usually a page about to declare
+            // text/html, so an unknown type keeps the length pending here.
+            if (isKnownNonHtml()) {
+                contentLength.publishPending();
+            }
             return writer;
         }
 
@@ -356,9 +375,128 @@ public class PrivacyStatementAppendingFilter implements Filter {
         }
 
         public void completeWithoutStatement() {
+            contentLength.publishPending();
             if (writer != null) {
                 writer.flushDelegate();
             }
+        }
+
+        @Override
+        public void setContentLength(int length) {
+            setContentLengthLong(length);
+        }
+
+        @Override
+        public void setContentLengthLong(long length) {
+            contentLength.defer(length);
+            updateContentLengthForType();
+        }
+
+        @Override
+        public void setIntHeader(String name, int value) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
+                setContentLength(value);
+            } else {
+                super.setIntHeader(name, value);
+            }
+        }
+
+        @Override
+        public void addIntHeader(String name, int value) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
+                setContentLength(value);
+            } else {
+                super.addIntHeader(name, value);
+            }
+        }
+
+        @Override
+        public void setHeader(String name, String value) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
+                deferContentLengthHeader(value);
+                return;
+            }
+            super.setHeader(name, value);
+            updateContentLengthForType();
+        }
+
+        @Override
+        public void addHeader(String name, String value) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
+                // Servlet 6.1: adding a null value is a no-op; setting one removes the header.
+                if (value != null) {
+                    deferContentLengthHeader(value);
+                }
+                return;
+            }
+            super.addHeader(name, value);
+            updateContentLengthForType();
+        }
+
+        /**
+         * Routes a string Content-Length through the shared rules. A malformed value is ignored
+         * with a warning, never handed to the container, so every CARLOS wrapper treats it alike.
+         */
+        private void deferContentLengthHeader(String value) {
+            if (value == null) {
+                contentLength.remove();
+                return;
+            }
+            OptionalLong parsed = DeferredContentLength.parse(value);
+            if (parsed.isPresent()) {
+                setContentLengthLong(parsed.getAsLong());
+            } else if (logger.isWarnEnabled()) {
+                logger.warn("Ignoring malformed Content-Length header value before the privacy notice: {}",
+                        LogSafe.sanitize(value));
+            }
+        }
+
+        @Override
+        public void setContentType(String type) {
+            super.setContentType(type);
+            updateContentLengthForType();
+        }
+
+        private void updateContentLengthForType() {
+            if (!isCommitted() && RequestNegotiation.isHtmlContentType(getContentType())) {
+                // A type change before writing makes a previously published length unsafe.
+                // Keep it pending in case the response ultimately needs no decoration.
+                contentLength.retractToPending();
+            }
+            // Content-Type can arrive through any header API after channel selection, and so can
+            // the length. The channel rules of getOutputStream() and getWriter() apply again here:
+            // a stream publishes unless the type is known HTML, a writer only once it is known
+            // non-HTML.
+            if ((responseOutputStreamObtained && !RequestNegotiation.isHtmlContentType(getContentType()))
+                    || (responseWriterObtained && isKnownNonHtml())) {
+                contentLength.publishPending();
+            }
+        }
+
+        /** The delegate resets first, so a rejected reset leaves the shared length state as it was. */
+        @Override
+        public void resetBuffer() {
+            super.resetBuffer();
+            contentLength.onBufferReset();
+        }
+
+        @Override
+        public void reset() {
+            super.reset();
+            contentLength.onReset();
+            writer = null;
+            responseWriterObtained = false;
+            responseOutputStreamObtained = false;
+        }
+
+        private boolean isKnownNonHtml() {
+            String type = getContentType();
+            return type != null && !RequestNegotiation.isHtmlContentType(type);
+        }
+
+        /** The appended notice changes the body, so a declared length no longer applies. */
+        private void discardDeferredContentLength() {
+            contentLength.discardPending();
         }
 
         @Override

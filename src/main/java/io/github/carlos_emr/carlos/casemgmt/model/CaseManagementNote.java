@@ -627,6 +627,8 @@ public class CaseManagementNote extends BaseObject {
         return false;
     }
     @jakarta.persistence.Column(name = "locked")
+    // Legacy CHAR(1) NULL means the existing false default; retain explicit locks and write values.
+    @jakarta.persistence.Convert(converter = io.github.carlos_emr.carlos.commn.model.converter.LegacyFalseFlagConverter.class)
 
     public boolean isLocked() {
         return locked;

@@ -220,8 +220,12 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("newQueueName", "  Lab Queue  ");
         when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
                 .thenReturn(true);
-        when(queueDao.addNewQueue("Lab Queue")).thenReturn(true);
-        when(queueDao.getLastId()).thenReturn("42");
+        when(queueDao.addNewQueueAndGetId("Lab Queue")).thenAnswer(call -> {
+            // A second request inserts a later row before the first associates its security object.
+            assertThat(queueDao.addNewQueueAndGetId("Other Queue")).isEqualTo(99);
+            return 42;
+        });
+        when(queueDao.addNewQueueAndGetId("Other Queue")).thenReturn(99);
 
         String result = new DmsInboxManage2Action().execute();
 
@@ -230,6 +234,8 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getContentAsString()).isEqualTo("{\"addNewQueue\":true}");
         org.mockito.Mockito.verify(secObjectNameDao).saveOrUpdate(org.mockito.ArgumentMatchers.argThat(
                 sbn -> "_queue.42".equals(sbn.getObjectname()) && "Lab Queue".equals(sbn.getDescription())));
+        verify(queueDao, never()).getLastId();
+        assertThat(transactions.commits).isEqualTo(1);
     }
 
     @Test
@@ -240,12 +246,62 @@ class DmsInboxManage2ActionUnitTest extends CarlosUnitTestBase {
         request.setParameter("newQueueName", "Dup");
         when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
                 .thenReturn(true);
-        when(queueDao.addNewQueue("Dup")).thenReturn(false);
+        when(queueDao.addNewQueueAndGetId("Dup")).thenThrow(new jakarta.persistence.PersistenceException("insert failed"));
 
         new DmsInboxManage2Action().execute();
 
         assertThat(response.getContentAsString()).isEqualTo("{\"addNewQueue\":false}");
         verifyNoInteractions(secObjectNameDao);
+        verify(queueDao, never()).getLastId();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReportFailure_whenSecurityObjectCannotBeSaved() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("method", "addNewQueue");
+        request.setParameter("newQueueName", "Lab Queue");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(queueDao.addNewQueueAndGetId("Lab Queue")).thenReturn(42);
+        doThrow(new IllegalStateException("security insert failed")).when(secObjectNameDao).saveOrUpdate(any());
+
+        new DmsInboxManage2Action().execute();
+
+        assertThat(response.getContentAsString()).isEqualTo("{\"addNewQueue\":false}");
+        assertThat(transactions.commits).isZero();
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
+    @Test
+    void shouldNotCreateSecObject_whenQueueHasNoAssignedId() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("method", "addNewQueue");
+        request.setParameter("newQueueName", "Lab Queue");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(queueDao.addNewQueueAndGetId("Lab Queue")).thenReturn(null);
+
+        new DmsInboxManage2Action().execute();
+
+        assertThat(response.getContentAsString()).isEqualTo("{\"addNewQueue\":false}");
+        verifyNoInteractions(secObjectNameDao);
+        assertThat(transactions.rollbacks).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReportFailure_whenQueueTransactionCannotCommit() throws Exception {
+        request.setMethod("POST");
+        request.setParameter("method", "addNewQueue");
+        request.setParameter("newQueueName", "Lab Queue");
+        when(securityInfoManager.hasPrivilege(nullable(LoggedInInfo.class), eq("_edoc"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(queueDao.addNewQueueAndGetId("Lab Queue")).thenReturn(42);
+        transactions.failCommit = true;
+
+        new DmsInboxManage2Action().execute();
+
+        assertThat(response.getContentAsString()).isEqualTo("{\"addNewQueue\":false}");
     }
 
     @Test

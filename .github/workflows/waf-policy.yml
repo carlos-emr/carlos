@@ -11,6 +11,7 @@ on:
       - 'scripts/waf/**'
       - 'scripts/lib/clinical-prose-corpus.js'
       - '.github/workflows/waf-policy.yml'
+      - 'docs/testing/release-2026.08*'
   push:
     branches: [main, develop, 'release/**']
     paths:
@@ -18,6 +19,7 @@ on:
       - 'scripts/waf/**'
       - 'scripts/lib/clinical-prose-corpus.js'
       - '.github/workflows/waf-policy.yml'
+      - 'docs/testing/release-2026.08*'
   workflow_dispatch:
 
 permissions:
@@ -78,6 +80,13 @@ jobs:
           timeout --signal=TERM --kill-after=10s 1m \
             python3 scripts/waf/check-clinical-policy.py --self-test \
             2>&1 | tee "$WAF_EVIDENCE/self-tests.log"
+
+      - name: Validate policy configuration and inventory
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' && steps.checkout.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          python3 scripts/waf/check-clinical-policy.py --check-config 2>&1 | tee "$WAF_EVIDENCE/config.log"
+          python3 scripts/waf/check-clinical-policy.py --check-inventory 2>&1 | tee "$WAF_EVIDENCE/inventory.log"
 
       - name: Run real-engine policy regressions
         # Still collect engine results if a mechanics check fails.

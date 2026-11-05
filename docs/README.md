@@ -11,11 +11,11 @@ This directory contains technical documentation for CARLOS EMR (Clinical Assisti
 | Category | Documents | Description |
 |----------|-----------|-------------|
 | **Installation & Deployment** | [Installing CARLOS (.deb packages)](install-deb.md)<br>[carlos-ctl administration reference](https://github.com/carlos-emr/carlos-ctl/blob/main/docs/carlos-ctl.md) (its own repository and package)<br>[Importing an OSCAR 19 clinic (.deb)](o19-import-deb.md) | Single-server production install on Ubuntu 26.04: packages, an illustrated installer walkthrough, quickstart, day-two administration, troubleshooting, backups, TLS — plus the post-install configuration and `carlos-ctl` verb reference. Development environments use the [devcontainer](../.devcontainer/README.md); a container-based deployment is under development at [carlos-podman](https://github.com/carlos-emr/carlos-podman) |
-| **Migration** | [OSCAR 19 → CARLOS Migration Plan](oscar19-to-carlos-migration-plan.md)<br>[Importing an OSCAR 19 clinic (.deb)](o19-import-deb.md)<br>[OSCAR 19 importer — review ledger](o19-review-ledger.md)<br>[Jasypt → Spring Crypto](migration/jasypt-to-spring-crypto.md) | Design and operational spec plus the operator runbook for the experimental OSCAR 19 clinic import, the per-finding audit record of the review behind it, and the credential-encryption migration |
+| **Migration** | [OSCAR 19 → CARLOS Migration Plan](oscar19-to-carlos-migration-plan.md)<br>[Importing an OSCAR 19 clinic (.deb)](o19-import-deb.md)<br>[OSCAR 19 importer — review ledger](o19-review-ledger.md)<br>[OSCAR 19 capacity and package recovery](oscar19-capacity-recovery.md)<br>[Jasypt → Spring Crypto](migration/jasypt-to-spring-crypto.md) | Design and operational spec plus the operator runbook for the experimental OSCAR 19 clinic import, the per-finding audit record of the review behind it, and the credential-encryption migration |
 | **CDS Import** | [CDS documentation index](cds-import.md)<br>[Architecture and framework integration](cds-import-architecture.md)<br>[Operator guide](cds-import-operator-guide.md)<br>[Recovery runbook](cds-import-recovery-runbook.md)<br>[JDK XML providers and schema metadata](cds-xml-providers.md) | Shared web/CLI import, clinical normalization, CARLOS DAO composition, durable jobs, reporting, recovery, bounded-resource design and verification gates |
-| **Testing** | [📂 test/](test/)<br>[📂 ui-tests/](ui-tests/)<br>[eForm PDF Render Smoke Test](ui-tests/eform-pdf-render-smoke-test.md) | Modern test framework docs, browser-backed UI testing, and the eForm PDF smoke runbook |
+| **Testing** | [Release verification guide (testing/)](testing/release-2026.08-verification.md)<br> [📂 test/](test/)<br>[📂 ui-tests/](ui-tests/)<br>[eForm PDF Render Smoke Test](ui-tests/eform-pdf-render-smoke-test.md) | Modern test framework docs, browser-backed UI testing, and the eForm PDF smoke runbook |
 | **Architecture** | [Struts Actions Summary](struts-actions-summary.md)<br>[Struts Actions Detailed](struts-actions-detailed.md)<br>[Struts Web Endpoints](struts-web-endpoints.md)<br>[Integrator System Architecture](integrator-system-architecture.md)<br>[Raw JDBC Accessor Retirement](architecture/raw-jdbc-retirement.md) | System architecture, action mappings, and current endpoint/JSP routing rules |
-| **Security** | [Password System](Password_System.md) | Authentication and security architecture |
+| **Security** | [Password System](Password_System.md)<br>[JDOM2 Maintenance Decision](jdom2-maintenance.md) | Authentication, secure XML parsing, and dependency maintenance safeguards |
 | **APIs** | [API Collections Index](api-collections-index.md) | REST API documentation and collections |
 | **Development** | [Release Process](release-process.md)<br>[DS Guideline](dsGuideline.md)<br>[Copyright Header (Magenta)](copyright-header-magenta.md) | Branching, releases, and development standards |
 
@@ -26,6 +26,8 @@ The modern test framework documentation has its own dedicated directory with com
 **[📂 test/README.md](test/README.md)** - Start here for all testing documentation
 
 Key testing resources:
+
+- [Test-only release issue follow-up](ui-tests/test-only-release-issues.md) — per-ticket harness repairs, validation scope, and outstanding packaged acceptance for release 2026.08.
 - Modern Test Framework Guide (JUnit 5)
 - Test Writing Best Practices
 - Unit Testing Strategy
@@ -33,6 +35,9 @@ Key testing resources:
 - Multi-file Test Architecture
 
 ### 🏥 Healthcare Modules
+
+The [Legacy Query Helper Migration](architecture/legacy-query-helper-migration.md)
+records the staged persistence migration and module follow-ups.
 
 | Document | Description |
 |----------|-------------|
@@ -46,6 +51,7 @@ Key testing resources:
 | Document | Description |
 |----------|-------------|
 | [Runtime Directories](runtime-directories.md) | Required filesystem directories and permissions |
+| [Response-filter lifecycle](response-filter-lifecycle.md) | Response capture ownership, nested forwards, error sanitization, and the Tomcat compatibility contract |
 | [Resources Directory](resources-directory.md) | Application resources structure |
 | [Container-provided Jakarta APIs](container-provided-apis.md) | Which web-tier Jakarta APIs Tomcat 11 supplies (`provided`), why JSTL still ships in the WAR, and the checks that hold it |
 | [JasperReports and OpenPDF 3](jasperreports-openpdf3.md) | Shared PDF dependencies, stock OpenPDF and Brotli decisions, and report-export compatibility checks (#5471) |
@@ -70,7 +76,9 @@ Key testing resources:
 ### For New Team Members
 
 1. Read the main project context: [CLAUDE.md](../CLAUDE.md)
-2. Follow the branch and release policy: [Release Process](release-process.md)
+2. Follow the branch and release policy: [Release Process](release-process.md).
+   Read the [2026.08 release notes](release-notes-2026.08.md) and
+   [startup encryption key guide](startup-encryption-key.md) before deploying.
 3. Review development guidelines: [DS Guideline](dsGuideline.md)
 4. Understand the test framework: [test/](test/)
 5. Study the architecture: [Struts Actions](struts-actions-summary.md)

@@ -4,7 +4,7 @@
     <groupId>io.github.carlos_emr</groupId>
     <artifactId>carlos</artifactId>
     <packaging>war</packaging>
-    <version>2026.08.0-beta3-SNAPSHOT</version>
+    <version>2026.08.0-beta7-SNAPSHOT</version>
     <name>CARLOS</name>
     <description>CARLOS EMR (Clinical Assisting Recording Ledger Open Source) is a web-based electronic medical record system for Canadian healthcare.</description>
     <inceptionYear>2024</inceptionYear>
@@ -26,6 +26,14 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- SonarCloud -->
         <sonar.organization>carlos-emr</sonar.organization>
+        <!--
+            The scanner engine runs in its own provisioned JVM, which ignores MAVEN_OPTS and by default
+            gets a quarter of the runner's memory. The full-branch Java bug detection pass (sensor
+            javabugs [dbd], 55k+ functions since the 2026.08 CDS import) exhausted that heap on every
+            push analysis of main, develop and release/2026.08. PR analyses are incremental and fit.
+            The plugin passes this POM property to the engine launch, so it covers push and PR runs.
+        -->
+        <sonar.scanner.javaOpts>-Xmx8g</sonar.scanner.javaOpts>
         <!-- Include webapp (JSP/JS/HTML) and resources in SonarCloud analysis alongside Java sources -->
         <sonar.sources>src/main/java,src/main/resources,src/main/webapp</sonar.sources>
         <!-- Exclude vendored/minified third-party assets to avoid inflating LOC count and generating noise -->
@@ -281,6 +289,9 @@
              because the JDK caches its fontconfig resolution there (issue #5046). -->
         <test.jvmArgs/>
         <test.forkCount>4</test.forkCount>
+        <!-- Each evidence lane supplies a fresh directory; ordinary Maven runs retain their path. -->
+        <test.reportsDirectory>${project.build.directory}/surefire-reports</test.reportsDirectory>
+        <test.coverageDirectory>${project.reporting.outputDirectory}/jacoco</test.coverageDirectory>
         <!-- Log4j Version -->
         <log4j2.version>2.25.5</log4j2.version>
         <!-- Slf4j Version -->
@@ -484,15 +495,8 @@
                 <artifactId>jakarta.transaction-api</artifactId>
                 <version>2.0.1</version>
             </dependency>
-            <!-- Override transitive Xalan from jakarta.servlet.jsp.jstl to fix CVE-2022-34169
-                 (integer truncation in XSLTC compiler allows arbitrary bytecode execution) -->
-            <dependency>
-                <groupId>xalan</groupId>
-                <artifactId>xalan</artifactId>
-                <version>2.7.3</version>
-            </dependency>
-            <!-- Xalan 2.7.3 requires its companion serializer artifact (provides
-                 org.apache.xml.serializer.OutputPropertiesFactory used by Struts) -->
+            <!-- Struts uses the standalone Xalan serializer; Glassfish JSTL
+                 shades its own Xalan implementation. -->
             <dependency>
                 <groupId>xalan</groupId>
                 <artifactId>serializer</artifactId>
@@ -530,13 +534,14 @@
                 <version>2.15.1</version>
             </dependency>
             <!-- Override the OpenTelemetry API family aligned by the transitive dependency tree.
-                 Addresses the Snyk/OpenTelemetry baggage-header allocation alert (CVE-2026-45292)
+                 Addresses the baggage-header allocation alert (CVE-2026-45292) and
+                 quadratic W3C tracestate parsing (GHSA-ccrj-gw8r-854m)
                  without importing the full BOM because CARLOS does not directly depend on the
                  OpenTelemetry module set. -->
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-api</artifactId>
-                <version>1.62.0</version>
+                <version>1.67.0</version>
             </dependency>
             <!-- Pin the httpcore5 pair reached transitively through httpclient5 and through the
                  older httpclient5-cache 5.3.1 that is also in the tree. 5.4.3 fixes CVE-2026-54399
@@ -855,8 +860,9 @@
             <version>${hapi-hl7.version}</version>
         </dependency>
 
-        <!-- JDOM 2 for CARLOS's own XML helpers (XmlUtils.createSecureSAXBuilder); jdom v1,
-             which hapi-base 1.0.1 pulled in, is no longer on the classpath -->
+        <!-- Retain the latest JDOM 2 release for CARLOS's XML helpers; all parsing goes
+             through XmlUtils.createSecureSAXBuilder. Maintenance assessment and migration
+             criteria: docs/jdom2-maintenance.md. JDOM 1 is no longer on the classpath. -->
         <dependency>
             <groupId>org.jdom</groupId>
             <artifactId>jdom2</artifactId>
@@ -889,10 +895,12 @@
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
         </dependency>
-        <!-- Required for @Aspect, @Transactional, and @Cacheable proxy weaving -->
+        <!-- Spring's aspectj-autoproxy and WebServiceLoggingAdvice need the
+             AspectJ runtime/weaver, not Spring's compile-time weaving aspects. -->
         <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-aspects</artifactId>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+            <version>1.9.25.1</version>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
@@ -1009,8 +1017,7 @@
             <artifactId>jakarta.servlet.jsp.jstl</artifactId>
             <version>3.0.1</version>
         </dependency>
-        <!-- Xalan serializer: companion to xalan:xalan (transitive from JSTL above).
-             Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts. -->
+        <!-- Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts. -->
         <dependency>
             <groupId>xalan</groupId>
             <artifactId>serializer</artifactId>
@@ -1408,13 +1415,6 @@
             <version>${csrfguard.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <version>26.1.0</version>
-            <scope>compile</scope>
-        </dependency>
-
         <!-- ==================== Testing ==================== -->
 
         <!-- Mockito for Java 21 -->
@@ -1604,7 +1604,7 @@
             <artifactId>opentelemetry-api</artifactId>
         </dependency>
         <!-- Selenium drives the pinned headless Chromium for eForm browser PDF rendering.
-             Deliberately NOT selenium-java: chrome-driver + support keeps the tree to the
+             Deliberately NOT selenium-java: chrome-driver keeps the tree to the
              Chromium path only (no firefox/edge/safari driver artifacts in the WAR). -->
         <dependency>
             <groupId>org.seleniumhq.selenium</groupId>
@@ -1647,12 +1647,6 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        <dependency>
-            <groupId>org.seleniumhq.selenium</groupId>
-            <artifactId>selenium-support</artifactId>
-            <version>${selenium.version}</version>
-        </dependency>
-
         <!-- SpotBugs annotations: provides edu.umd.cs.findbugs.annotations.SuppressFBWarnings for
              per-site, justified suppression of Find Security Bugs findings (e.g. the informational
              IMPROPER_UNICODE case-folding detector). CLASS retention, compile-only; provided scope
@@ -1713,6 +1707,7 @@
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.16</version>
                 <configuration>
+                    <outputDirectory>${test.coverageDirectory}</outputDirectory>
                     <!-- JSqlParser's generated token-manager method exceeds the JVM method
                          size after instrumentation; dependency code is outside our coverage scope. -->
                     <excludes>
@@ -1997,6 +1992,7 @@
                     <!-- Each fork is a separate JVM with its own H2 mem:testdb instance,
                          so forks are completely isolated and safe to run in parallel. -->
                     <forkCount>${test.forkCount}</forkCount>
+                    <reportsDirectory>${test.reportsDirectory}</reportsDirectory>
                     <reuseForks>true</reuseForks>
                     <!-- Keep test classes sequential within each fork. Several Spring integration
                          tests share application-context caches or fixed seed data; fork-level
@@ -2086,6 +2082,24 @@
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <version>3.6.3</version>
                 <executions>
+                    <execution>
+                        <id>ban-obsolete-jdom</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>jdom:jdom</exclude>
+                                        <exclude>org.jdom:jdom</exclude>
+                                        <exclude>org.jdom:jdom2:(,2.0.6.1)</exclude>
+                                    </excludes>
+                                    <message>CARLOS retains JDOM 2.0.6.1 or later with mandatory parser hardening. Do not reintroduce JDOM 1 or versions affected by CVE-2021-33813; see docs/jdom2-maintenance.md.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
                     <execution>
                         <id>ban-legacy-openpdf</id>
                         <goals>
