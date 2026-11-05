@@ -209,16 +209,13 @@ test('a valid UKPDS entry computes, including a decimal systolic between 149 and
   assert.equal(refusal(page), '');
 });
 
-// Finding 166 (#4553) remains an application defect on release/2026.08.
-// Pin the required cross-field contract without changing the calculator in this
-// tests-only PR. Each input is individually in range, so per-field guards alone
-// cannot make these regressions pass.
+// Finding 166 (#4553): individually valid fields can still be inconsistent.
 for (const [name, values, update, cells] of [
   ['Framingham', FRAMINGHAM_VALID, calc.UpdateNonDiabetic, FRAMINGHAM_CELL],
   ['UKPDS', UKPDS_VALID, calc.UpdateDiabetic, UKPDS_CELL],
 ]) for (const hdl of ['4', '5']) {
   test(`${name} refuses HDL ${hdl === '4' ? 'equal to' : 'above'} total cholesterol and clears stale risk`,
-    {todo: 'finding 166 / #4553: HDL must be below total cholesterol'}, () => {
+    () => {
       const page = fakePage(values);
       update();
       assert.ok(page.figures(cells).every(cell => /%$/.test(cell.textContent)), 'precondition: a calculated answer');
@@ -226,6 +223,11 @@ for (const [name, values, update, cells] of [
       page.get('cHDL').value = hdl;
       update();
       assertRefused(page, /HDL|cholesterol/i, 'cHDL', 'HDL must be below total cholesterol');
+      page.get('cHDL').value = '1';
+      update();
+      assert.equal(refusal(page), '');
+      assert.equal(page.get('cHDL').getAttribute('aria-invalid'), null);
+      assert.ok(page.figures(cells).every(cell => /%$/.test(cell.textContent)));
     });
 }
 
@@ -375,7 +377,7 @@ test('every refusal the browser check asserts is one the page makes, with the me
   for (const [refusals, valid, update] of [[FRAMINGHAM_REFUSALS, framingham, calc.UpdateNonDiabetic],
     [UKPDS_REFUSALS, ukpds, calc.UpdateDiabetic]]) {
     for (const scenario of refusals) {
-      const page = fakePage({ ...valid, [scenario.field]: scenario.value });
+      const page = fakePage({ ...valid, ...scenario.values, [scenario.field]: scenario.value });
       update();
       assertRefused(page, scenario.says, scenario.field, scenario.why);
     }
