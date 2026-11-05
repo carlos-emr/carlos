@@ -27,7 +27,10 @@ does not supply it; the existing WAR packaging check also requires the API and i
   configured it (margins, zero, plot background, gridlines, shapes, item-label rules, green or
   sequence-coloured reference ranges). `scripts/fixtures/chart/jfreechart` holds recordings made
   with JFreeChart 1.5.6 from the former code paths, and `scripts/chart-draw-playwright-checks.js`
-  requires the same ranges, ticks, labels, colours, fonts, legend and bar geometry. Kept as they
+  requires the same ranges, ticks, labels, colours, fonts, legend and bar geometry. Pixel checks
+  also require visible dashed gridlines on both axes where the recorded grid colour differs
+  from the background. The adapter explicitly enables chart-area grids and uses Chart.js 4's
+  `border.dash` setting; medication grids remain gray and align with the row centres. Kept as they
   were, because this change replaces the library and not the charts: the reference range chart's
   "HighLowChartDemo2" title and "DREFERENCE RANGE" legend entry, the `rxincl` chart's
   "MED + LAB CHART" title, and the green value axis of `labRef` when ranges exist. Two
@@ -102,6 +105,16 @@ large constant measurement values. Reference ranges load both bounds by measurem
 lab-plus-medication charts accept the LOINC provider's collection-date field. Invalid range data
 or a failed chart draw produces an explicit error before image bytes are sent. Empty migrated
 tables retain their localized messages, including staff tables with nested team markup.
+
+Corrected grid screenshots rendered directly in Chromium from the synthetic chart fixtures:
+
+* [Measurement graph](images/pr5518/grid-fixed-default.png)
+* [Scatter plot](images/pr5518/grid-fixed-scatter.png)
+* [Medication intervals](images/pr5518/grid-fixed-chartmeds.png)
+
+These captures supersede the chart grid appearance in the earlier PR screenshot gallery.
+The medication capture uses the two-medication fixture (including a one-day interval) with a
+synthetic patient title; it is a chart fixture, not a capture of a deployed patient page.
 
 The local managed environment blocks `commondatastorage.googleapis.com`, where the release's
 pinned Chromium snapshot is downloaded. Local browser/package validation therefore uses a

@@ -336,7 +336,8 @@
     function gridOptions(colour) {
         const rgba = colour ? colour.replace('#', '') : null;
         const gridColour = rgba ? `rgba(${parseInt(rgba.slice(0, 2), 16)}, ${parseInt(rgba.slice(2, 4), 16)}, ${parseInt(rgba.slice(4, 6), 16)}, 0.5)` : 'rgba(0,0,0,0)';
-        return { display: true, color: gridColour, lineWidth: 1, borderDash: [2, 2], drawTicks: true, tickLength: 2, tickColor: 'rgba(128, 128, 128, 0.5)' };
+        // The bundled Chart.js default misspells drawOnChartArea; declare it explicitly here.
+        return { display: true, drawOnChartArea: true, color: gridColour, lineWidth: 1, drawTicks: true, tickLength: 2, tickColor: 'rgba(128, 128, 128, 0.5)' };
     }
 
     function drawChart(spec, width, height) {
@@ -384,7 +385,7 @@
         const legend = legendLayout(legendItems, width, chartLook);
 
         const charts = [];
-        const xScale = (look, shared) => ({
+        const xScale = (look, shared, gridColour = style.gridlines) => ({
             type: 'linear', min: xLower, max: xUpper, offset: false,
             afterBuildTicks(scale) {
                 const length = Math.max(1, scale.maxWidth);
@@ -394,8 +395,8 @@
                 scale.ticks = chosen.ticks.map(tick => ({ value: tick.value }));
             },
             ticks: tickOptions(look, null, shared ? {} : { display: false }),
-            grid: { ...gridOptions(style.gridlines), drawTicks: shared },
-            border: { display: shared, color: 'rgba(128, 128, 128, 0.5)', width: 1 },
+            grid: { ...gridOptions(gridColour), drawTicks: shared },
+            border: { display: shared, color: 'rgba(128, 128, 128, 0.5)', width: 1, dash: [2, 2] },
             title: shared ? axisTitle(combined ? 'Date/Time' : spec.xLabel, look) : { display: false },
         });
         const yScale = (id, lower, upper, look, label, colour, position) => ({
@@ -407,7 +408,7 @@
             },
             ticks: tickOptions(look, colour),
             grid: id === 'y' ? gridOptions(style.gridlines) : { display: false, drawTicks: true, tickLength: 2, tickColor: 'rgba(128, 128, 128, 0.5)' },
-            border: { display: true, color: 'rgba(128, 128, 128, 0.5)', width: 1 },
+            border: { display: true, color: 'rgba(128, 128, 128, 0.5)', width: 1, dash: [2, 2] },
             title: axisTitle(label, look, colour),
         });
 
@@ -547,11 +548,11 @@
                         backgroundColor: medications.map(m => colourOf(m.name)), borderWidth: 0, categoryPercentage: 0.6, barPercentage: 1, minBarLength: 1 }] },
                     plugins: [jfreePlugin(LOOKS.plain, { background: '#ffffff', bars: true, legend: true })],
                     options: { indexAxis: 'y', responsive: false, animation: false, devicePixelRatio: 1,
-                        scales: { x: xScale(LOOKS.plain, true),
+                        scales: { x: xScale(LOOKS.plain, true, '#c0c0c0'),
                             // reverse: the first medication listed sits at the bottom, as on the former symbol axis.
                             y: { type: 'category', labels: names, reverse: true, offset: true,
                                 ticks: { ...tickOptions(LOOKS.plain, '#000000'), callback(value) { return shorten(this.getLabelForValue(value)); } },
-                                grid: gridOptions('#c0c0c0'), border: { display: true, color: 'rgba(128, 128, 128, 0.5)', width: 1 },
+                                grid: { ...gridOptions('#c0c0c0'), offset: false }, border: { display: true, color: 'rgba(128, 128, 128, 0.5)', width: 1, dash: [2, 2] },
                                 title: axisTitle('Meds', LOOKS.plain, '#000000') } },
                         layout: { padding: { ...basePadding, top: mainChart ? 5 : basePadding.top, bottom: basePadding.bottom + legend.height } },
                         plugins: { title: titleOptions(!mainChart), legend: { display: false }, tooltip: { enabled: false } } } });

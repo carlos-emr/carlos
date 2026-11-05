@@ -53,6 +53,33 @@ async function draw(page, input, width, height) {
             const d = chart.ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data;
             return '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join('');
         };
+        const gridPixels = (chart, axis) => {
+            const area = chart.chartArea;
+            const background = chart.config.type === 'bar' ? '#ffffff' : input.style.plotBackground;
+            const rgb = [1, 3, 5].map(offset => parseInt(background.slice(offset, offset + 2), 16));
+            const rgba = axis.options.grid.color.match(/[\d.]+/g).map(Number);
+            const expected = rgb.map((value, index) => Math.round(value * (1 - rgba[3]) + rgba[index] * rgba[3]));
+            const pixels = chart.ctx.getImageData(0, 0, chart.width, chart.height).data;
+            const horizontal = axis.isHorizontal();
+            const otherAxis = horizontal ? chart.scales.y : chart.scales.x;
+            const crossings = otherAxis.ticks.map((tick, index) => otherAxis.getPixelForTick(index));
+            const first = Math.ceil(horizontal ? area.top : area.left) + 8;
+            const last = Math.floor(horizontal ? area.bottom : area.right) - 8;
+            const counts = { colour: axis.options.grid.color, dash: [...axis.options.border.dash], painted: 0, gaps: 0 };
+            axis.ticks.forEach((tick, index) => {
+                const cross = Math.round(axis.getPixelForTick(index) - 0.5);
+                if (cross < (horizontal ? area.left : area.top) + 3 || cross > (horizontal ? area.right : area.bottom) - 3) return;
+                for (let along = first; along < last; along++) {
+                    // A perpendicular gridline must not make an absent line pass this check.
+                    if (crossings.some(crossing => Math.abs(crossing - along) <= 3)) continue;
+                    const offset = ((horizontal ? along : cross) * chart.width + (horizontal ? cross : along)) * 4;
+                    const matches = colour => colour.every((value, channel) => Math.abs(pixels[offset + channel] - value) <= 2);
+                    if (matches(expected)) counts.painted++;
+                    if (matches(rgb)) counts.gaps++;
+                }
+            });
+            return counts;
+        };
         return {
             canvases: [...document.querySelectorAll('canvas')].map(c => ({ width: c.width, height: c.height })),
             charts: charts.map(chart => ({
@@ -64,6 +91,7 @@ async function draw(page, input, width, height) {
                     bars: chart.config.type === 'bar' ? chart.getDatasetMeta(i).data.map(b => ({ x: b.x, base: b.base, y: b.y, height: b.height })) : undefined })),
                 legend: chart.carlosLegend, itemLabels: chart.carlosItemLabels, ranges: chart.carlosRanges, shadows: chart.carlosShadows,
                 plotPixel: pixel(chart, chart.chartArea.left + 3, chart.chartArea.top + 3),
+                gridPixels: { x: gridPixels(chart, chart.scales.x), y: gridPixels(chart, chart.scales.y) },
                 pixelAt: (() => null)(),
             })),
             pixelAt: null,
@@ -137,6 +165,16 @@ function checkFixture(fixture, result) {
             if (fixture.input.secondAxis) expectAxis(`${name} y2`, chart.y2, subplot.ranges[1], false);
         }
         assert.equal(chart.plotPixel, subplot.background, `${name}: plot background`);
+        for (const [axis, colour] of [['x', subplot.domainGridlines], ['y', subplot.rangeGridlines]]) {
+            const grid = chart.gridPixels[axis];
+            const rgb = [1, 3, 5].map(offset => parseInt(colour.slice(offset, offset + 2), 16));
+            assert.equal(grid.colour, `rgba(${rgb.join(', ')}, 0.5)`, `${name}: ${axis} grid colour`);
+            assert.deepEqual(grid.dash, subplot.gridlineStroke.dash, `${name}: ${axis} grid dash pattern`);
+            if (colour !== subplot.background) {
+                assert.ok(grid.painted > 4, `${name}: ${axis} grid has visible pixels (${grid.painted})`);
+                assert.ok(grid.gaps > 4, `${name}: ${axis} grid has visible dash gaps (${grid.gaps})`);
+            }
+        }
         const lines = subplot.datasets.filter(d => d.renderer !== 'XYBarRenderer' && d.renderer !== 'HighLowRenderer' || d.key === 'ALT' && d.renderer === 'HighLowRenderer');
         subplot.datasets.forEach(expected => {
             if (expected.renderer === 'XYBarRenderer') return;
