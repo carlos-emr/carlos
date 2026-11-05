@@ -101,7 +101,7 @@ public class WLWaitingListNameUtil {
 
     /**
      * Updates the current name through the existing waiting-list DAOs.
-     * Invalid or missing required values leave the record unchanged.
+     * Null inputs, identifier {@code "0"}, or empty names/groups leave the record unchanged.
      *
      * @param wlNameId String identifier of the waiting-list name to update
      * @param wlName String replacement name
