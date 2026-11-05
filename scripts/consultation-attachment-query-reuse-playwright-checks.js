@@ -31,25 +31,27 @@ async function workflow(s) {
   for (const omitted of [false, true]) {
     await s.step(`${omitted ? 'omitted' : 'empty'} attachments query each relationship once in the request view`, async () => {
       if (omitted) sql.execute(`INSERT INTO consultdocs(requestId,document_no,doctype,deleted,attach_date,provider_no)
-        VALUES(${requestId},2147483640,'F',NULL,CURDATE(),${h.sqlString(provider)}),
-        (${requestId},2147483641,'H',NULL,CURDATE(),${h.sqlString(provider)})`);
+        VALUES(?,2147483640,'F',NULL,CURDATE(),?),
+        (?,2147483641,'H',NULL,CURDATE(),?)`, [requestId, provider, requestId, provider]);
       const originalOutput = sql.value('SELECT @@GLOBAL.log_output');
       const started = sql.value('SELECT NOW(6)');
       let counts;
       try {
-        sql.execute("SET GLOBAL log_output='TABLE'; SET GLOBAL general_log=ON");
+        sql.execute("SET GLOBAL log_output='TABLE'");
+        sql.execute('SET GLOBAL general_log=ON');
         await page.goto(url, {waitUntil: 'networkidle', timeout: 120000});
         await page.locator('#EctConsultationFormRequest2Form').waitFor();
         await h.assertNotErrorPage(page, 'consultation request render');
       } finally {
-        sql.execute(`SET GLOBAL general_log=OFF; SET GLOBAL log_output=${h.sqlString(originalOutput)}`);
+        sql.execute('SET GLOBAL general_log=OFF');
+        sql.execute('SET GLOBAL log_output=?', [originalOutput]);
       }
       counts = sql.rows(`SELECT
         COALESCE(SUM(LOWER(argument) REGEXP "doctype[[:space:]]*=[[:space:]]*'f'"),0),
         COALESCE(SUM(LOWER(argument) REGEXP "doctype[[:space:]]*=[[:space:]]*'h'"),0)
-        FROM mysql.general_log WHERE event_time>=${h.sqlString(started)} AND command_type IN ('Query','Execute')
+        FROM mysql.general_log WHERE event_time>=? AND command_type IN ('Query','Execute')
         AND LOWER(argument) LIKE '%from consultdocs%'
-        AND LOWER(argument) REGEXP 'requestid[[:space:]]*=[[:space:]]*${requestId}([^0-9]|$)'`);
+        AND LOWER(argument) REGEXP ?`, [started, `requestid[[:space:]]*=[[:space:]]*${requestId}([^0-9]|$)`]);
       h.assert(counts.length === 1 && counts[0][0] === '1' && counts[0][1] === '1',
         `Expected one form and one HRM relationship SELECT; got ${JSON.stringify(counts)}`);
       const notice = page.locator('#consultAttachmentsNotIncluded');
@@ -60,7 +62,7 @@ async function workflow(s) {
         h.assert(await notice.locator('li').count() === 2, 'Expected exactly two generic omission warnings');
         h.assert(!text.includes('2147483640') && !text.includes('2147483641'), 'An unavailable attachment identifier was disclosed');
       } else h.assert(await notice.count() === 0, 'Unexpected omission warning');
-      h.assert(sql.value(`SELECT COUNT(*) FROM consultdocs WHERE requestId=${requestId}`) === (omitted ? '2' : '0'),
+      h.assert(sql.value('SELECT COUNT(*) FROM consultdocs WHERE requestId=?', [requestId]) === (omitted ? '2' : '0'),
         'Viewing the referral changed its attachment relationships');
       console.log('PASS actual request view: form relationship queries=1, HRM relationship queries=1; warning output correct');
     });

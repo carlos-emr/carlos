@@ -745,6 +745,9 @@ public class ConsultationManagerImpl implements ConsultationManager {
                 getAttachedDocumentsByType(loggedInInfo, consultRequestId, ConsultDocs.DOCTYPE_FORM));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public List<EctFormData.PatientForm> getAttachedForms(LoggedInInfo loggedInInfo, int consultRequestId,
             int demographicNo, List<ConsultDocs> attachedForms) {
@@ -789,6 +792,9 @@ public class ConsultationManagerImpl implements ConsultationManager {
                 getAttachedDocumentsByType(loggedInInfo, Integer.parseInt(requestId), ConsultDocs.DOCTYPE_HRM));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public ArrayList<HashMap<String, ? extends Object>> getAttachedHRMDocuments(LoggedInInfo loggedInInfo,
             String demographicNo, String requestId, List<ConsultDocs> attachedHRMDocuments) {
