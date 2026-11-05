@@ -95,6 +95,10 @@ class OscarResourcesBundleParseTest {
             "mfa.registration.qr.alt"
     };
 
+    /**
+     * Discovers shipped bundles and validates every effective date pattern, reporting
+     * the bundle, key and value when a translated pattern cannot compile.
+     */
     @Test
     @DisplayName("should compile every date pattern in every shipped bundle")
     void shouldCompileDatePatterns_inEveryBundle() throws Exception {
@@ -116,6 +120,10 @@ class OscarResourcesBundleParseTest {
         }
     }
 
+    /**
+     * Verifies localized calendar and time fields in UTC near a year boundary, where
+     * valid but incorrect pattern letters can silently render the wrong values.
+     */
     @Test
     @DisplayName("should preserve calendar fields in localized date patterns")
     void shouldFormatCalendarFields_inEveryLocale() throws Exception {
