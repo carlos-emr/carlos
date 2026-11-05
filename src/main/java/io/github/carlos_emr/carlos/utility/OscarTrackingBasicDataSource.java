@@ -56,8 +56,6 @@ import java.util.TimeZone;
 import java.util.WeakHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.commons.dbcp2.BasicDataSource;
@@ -274,6 +272,17 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         }
     }
 
+    /**
+     * Maps installed MySQL and native MariaDB driver names to the compatibility adapter.
+     * Other driver names retain the datasource's normal behavior.
+     *
+     * @param driverClassName configured JDBC driver class name
+     */
+    @Override
+    public synchronized void setDriverClassName(String driverClassName) {
+        super.setDriverClassName(MariaDbJdbcCompatibility.normalizeDriverClassName(driverClassName));
+    }
+
     @Override
     public synchronized void setUrl(String url) {
         configuredUrl = url;
@@ -304,23 +313,23 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
             url += (url.contains("?") ? "&" : "?")
                     + "useInformationSchema=" + defaultUseInformationSchema;
         }
-        logger.warn("Setting mysql connection timezone. System timezone: " + TimeZone.getDefault().getID());
-        // find serverTimezone jdbc parameter
-        Pattern p = Pattern.compile("(serverTimezone=)(.*?)(?=&|$)");
-        Matcher m = p.matcher(url);
-        if (m.find()) {
-            String configuredTimezone = m.group(2);
-            logger.warn("Configured timezone: " + configuredTimezone);
-        } else {
-            // Sanitize the timezone ID to only allow safe characters before appending it to
-            // the JDBC URL.  TimeZone.getDefault().getID() returns values like "America/Toronto"
-            // which contain only letters, digits, underscores, hyphens, and forward slashes.
-            // The replacement ensures that even an unusual JVM timezone setting cannot inject
-            // additional JDBC URL parameters.
+        // Preserve a configured timezone; otherwise keep the historical JVM-local default.
+        if (MariaDbJdbcCompatibility.isMariaDbUrl(url) && !hasExplicitTimezone(url)) {
             String safeTimezoneId = TimeZone.getDefault().getID().replaceAll("[^a-zA-Z0-9/_.+-]", "");
-            url += (url.contains("?") ? "&" : "?") + "serverTimezone=" + safeTimezoneId;
+            url += (url.contains("?") ? "&" : "?") + "connectionTimeZone="
+                    + java.net.URLEncoder.encode(safeTimezoneId, StandardCharsets.UTF_8);
         }
+        url = MariaDbJdbcCompatibility.normalizeUrl(url);
         super.setUrl(url);
+    }
+
+    private static boolean hasExplicitTimezone(String url) {
+        try {
+            Properties configured = MariaDbJdbcCompatibility.settings(url, new Properties()).properties();
+            return configured.containsKey("connectionTimeZone") || configured.containsKey("timezone");
+        } catch (SQLException ignoredInvalid) {
+            throw new IllegalArgumentException("Invalid database connection configuration");
+        }
     }
 
     // FindSecBugs IMPROPER_UNICODE: ASCII JDBC option-name matching, not an authorization decision.

@@ -21,8 +21,8 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
-import com.mysql.cj.conf.ConnectionUrl;
-import com.mysql.cj.conf.ConnectionUrlParser;
+import org.mariadb.jdbc.Configuration;
+import org.mariadb.jdbc.export.HaMode;
 import java.sql.SQLException;
 import java.util.Properties;
 import org.apache.commons.dbcp2.ConnectionFactory;
@@ -30,6 +30,8 @@ import org.apache.commons.dbcp2.DriverConnectionFactory;
 
 /** Per-factory network policy for controlled CDS connections; ordinary default-off pools are unchanged. */
 public final class CdsJdbcConnectionTimeouts {
+    private static final String CONNECT_TIMEOUT = "connectTimeout";
+    private static final String SOCKET_TIMEOUT = "socketTimeout";
     public static final int DEFAULT_CONNECT_MILLIS=5000;
     public static final int DEFAULT_SOCKET_MILLIS=60000;
     public static final int MAX_CONNECT_MILLIS=30000;
@@ -56,24 +58,80 @@ public final class CdsJdbcConnectionTimeouts {
     /** Clone the resolved driver, URL and credential properties; never mutate shared pool configuration. */
     public static ConnectionFactory bounded(ConnectionFactory factory) throws SQLException {
         if (!(factory instanceof DriverConnectionFactory configured)) throw invalid();
-        Properties copy=(Properties) configured.getProperties().clone();
+        Properties original=configured.getProperties();
+        Properties copy=new Properties();
+        for (String name : original.stringPropertyNames()) copy.setProperty(name, original.getProperty(name));
+        String url=configured.getConnectionString();
+        if (url==null || !(url.startsWith("jdbc:mysql://") || url.startsWith("jdbc:mariadb://"))) {
+            throw singleHostRequired();
+        }
         try {
-            // Resolve the actual shipped driver's query/property/per-host merge semantics.
-            // Missing values alone receive bounded defaults.
-            var parsed=ConnectionUrlParser.parseConnectionString(configured.getConnectionString());
-            if (ConnectionUrl.Type.fromValue(parsed.getScheme(), parsed.getHosts().size())!=ConnectionUrl.Type.SINGLE_CONNECTION) {
+            if (hasDnsSrv(url, copy)) throw singleHostRequired();
+            // MariaDB does not interpret MySQL's per-host timeout options. For the
+            // only supported topology (one host), retain their highest precedence.
+            Properties hostTimeouts=new Properties();
+            url=stripHostTimeouts(url, hostTimeouts);
+            var settings=MariaDbJdbcCompatibility.settings(url, copy);
+            Properties effective=(Properties) settings.properties().clone();
+            // parse() mutates its Properties argument. The shared compatibility
+            // layer has already decoded and merged URL and explicit properties.
+            Configuration resolved=Configuration.parse(settings.url(), (Properties) effective.clone());
+            if (resolved==null || resolved.haMode()!=HaMode.NONE || resolved.addresses().size()!=1) {
                 throw singleHostRequired();
             }
-            var resolved=ConnectionUrl.getConnectionUrlInstance(configured.getConnectionString(), copy);
-            if (resolved.getType()!=ConnectionUrl.Type.SINGLE_CONNECTION) throw singleHostRequired();
-            Properties effective=resolved.getMainHost().exposeAsProperties();
-            copy.setProperty("connectTimeout", bounded(effective, "connectTimeout", DEFAULT_CONNECT_MILLIS, MAX_CONNECT_MILLIS));
-            copy.setProperty("socketTimeout", bounded(effective, "socketTimeout", DEFAULT_SOCKET_MILLIS, MAX_SOCKET_MILLIS));
-            return new DriverConnectionFactory(configured.getDriver(), configured.getConnectionString(), copy);
-        } catch (RuntimeException malformed) {
+            effective.putAll(hostTimeouts);
+            String connect=bounded(effective, CONNECT_TIMEOUT, DEFAULT_CONNECT_MILLIS, MAX_CONNECT_MILLIS);
+            String socket=bounded(effective, SOCKET_TIMEOUT, DEFAULT_SOCKET_MILLIS, MAX_SOCKET_MILLIS);
+            copy.keySet().removeIf(key -> MariaDbJdbcCompatibility.asciiEquals(CONNECT_TIMEOUT, key.toString())
+                    || MariaDbJdbcCompatibility.asciiEquals(SOCKET_TIMEOUT, key.toString()));
+            copy.setProperty(CONNECT_TIMEOUT, connect);
+            copy.setProperty(SOCKET_TIMEOUT, socket);
+            // Both native and compatibility drivers must observe the finite values.
+            url=MariaDbJdbcCompatibility.normalizeUrl(url);
+            url+=(url.contains("?") ? "&" : "?")+"connectTimeout="+connect+"&socketTimeout="+socket;
+            return new DriverConnectionFactory(configured.getDriver(), url, copy);
+        } catch (SQLException malformed) {
+            if ("CDS_JDBC_SINGLE_HOST_REQUIRED".equals(malformed.getMessage())) throw singleHostRequired();
+            throw invalid();
+        } catch (RuntimeException ignoredMalformed) {
             // URL/property contents and credentials must not enter ordinary framework logs.
             throw invalid();
         }
+    }
+
+    /** Retain the single host's timeout overrides before passing its descriptor to MariaDB. */
+    private static String stripHostTimeouts(String url, Properties hostTimeouts) throws SQLException {
+        int authorityStart=url.indexOf("//")+2;
+        int authorityEnd=url.indexOf('/', authorityStart);
+        int queryStart=url.indexOf('?', authorityStart);
+        if (authorityEnd<0 || queryStart>=0 && queryStart<authorityEnd) authorityEnd=queryStart;
+        if (authorityEnd<0) authorityEnd=url.length();
+        String authority=url.substring(authorityStart, authorityEnd);
+        if (authority.contains(",")) throw singleHostRequired();
+        var descriptor=java.util.regex.Pattern.compile("\\((connectTimeout|socketTimeout)=([^()]*)\\)")
+                .matcher(authority);
+        StringBuilder stripped=new StringBuilder();
+        while (descriptor.find()) {
+            hostTimeouts.setProperty(descriptor.group(1), descriptor.group(2));
+            descriptor.appendReplacement(stripped, "");
+        }
+        descriptor.appendTail(stripped);
+        return url.substring(0, authorityStart)+stripped+url.substring(authorityEnd);
+    }
+
+    private static boolean hasDnsSrv(String url, Properties properties) {
+        for (String key : properties.stringPropertyNames()) {
+            if (MariaDbJdbcCompatibility.asciiEquals("dnsSrv", key) && Boolean.parseBoolean(properties.getProperty(key))) return true;
+        }
+        int query=url.indexOf('?');
+        if (query>=0) {
+            for (String parameter : url.substring(query+1).split("&")) {
+                String[] pair=parameter.split("=", 2);
+                if (pair.length==2 && MariaDbJdbcCompatibility.asciiEquals("dnsSrv", java.net.URLDecoder.decode(pair[0], java.nio.charset.StandardCharsets.UTF_8))
+                        && Boolean.parseBoolean(java.net.URLDecoder.decode(pair[1], java.nio.charset.StandardCharsets.UTF_8))) return true;
+            }
+        }
+        return false;
     }
 
     private static String bounded(Properties effective, String key, int fallback, int maximum) throws SQLException {
@@ -81,7 +139,7 @@ public final class CdsJdbcConnectionTimeouts {
         if (configured==null) return Integer.toString(fallback);
         final int value;
         try { value=Integer.parseInt(configured); }
-        catch (NumberFormatException malformed) { throw invalid(); }
+        catch (NumberFormatException ignoredMalformed) { throw invalid(); }
         if (value<1 || value>maximum) throw invalid();
         return Integer.toString(value);
     }

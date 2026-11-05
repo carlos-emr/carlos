@@ -33,7 +33,7 @@ public class MariaDbDaoTestContextInitializer
     public void initialize(ConfigurableApplicationContext context) {
         if (!"true".equals(System.getenv("CARLOS_TEST_MARIADB_DAO"))) return;
         String server = System.getenv("CARLOS_TEST_MARIADB_URL");
-        if (server == null || !server.startsWith("jdbc:mysql:") || !server.endsWith("/") || server.contains("?")) {
+        if (server == null || !server.startsWith("jdbc:mariadb:") || !server.endsWith("/") || server.contains("?")) {
             throw new IllegalArgumentException("MariaDB DAO tests require a server JDBC URL ending in / without a database");
         }
         String schemaMode = System.getenv().getOrDefault("CARLOS_TEST_MARIADB_SCHEMA", "generated");
@@ -86,7 +86,7 @@ public class MariaDbDaoTestContextInitializer
         }
         context.addBeanFactoryPostProcessor(factory -> {
             factory.getBeanDefinition("dataSource").getPropertyValues()
-                    .add("driverClassName", "com.mysql.cj.jdbc.Driver")
+                    .add("driverClassName", "org.mariadb.jdbc.Driver")
                     .add("url", jdbcUrl)
                     .add("username", credentials.getProperty("user"))
                     .add("password", credentials.getProperty("password"))

@@ -69,7 +69,7 @@ class CdsIdentityMariaDbIntegrationTest {
         }
         var source =
                 new DriverManagerDataSource(
-                        p.getProperty("jdbcUrl").replace("jdbc:mariadb:", "jdbc:mysql:"),
+                        p.getProperty("jdbcUrl"),
                         p.getProperty("jdbcUser"),
                         p.getProperty("jdbcPassword"));
         try (var connection = source.getConnection();
