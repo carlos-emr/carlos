@@ -63,6 +63,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class BillingmasterDAO {
     private static Logger log = MiscUtils.getLogger();
     private static final String BILLING_TYPE_COLUMN = "b.billingtype";
+    private static final String DEMOGRAPHIC_NO_PARAMETER = "demographicNo";
 
     /**
      * Signals the legacy payment-provider validation failure separately from report-read failures.
@@ -103,7 +104,7 @@ public class BillingmasterDAO {
                 "SELECT dx_code1, dx_code2, dx_code3, service_date FROM billingmaster "
                         + "WHERE demographic_no = :demographicNo AND billingstatus != 'D' "
                         + "ORDER BY service_date DESC LIMIT 10", Object[].class)
-                .setParameter("demographicNo", demographicNo).getResultList();
+                .setParameter(DEMOGRAPHIC_NO_PARAMETER, demographicNo).getResultList();
         return rows.stream().map(row -> new DiagnosisRow((String) row[0], (String) row[1],
                 (String) row[2], (String) row[3])).toList();
     }
@@ -135,7 +136,7 @@ public class BillingmasterDAO {
 
     public List<Billing> getPrivateBillings(String demographicNo) {
         Query query = entityManager.createQuery("select b from Billing b where b.billingtype = 'Pri' and b.demographicNo = (:demographicNo)");
-        query.setParameter("demographicNo", Integer.parseInt(demographicNo));
+        query.setParameter(DEMOGRAPHIC_NO_PARAMETER, Integer.parseInt(demographicNo));
         return query.getResultList();
     }
 
@@ -194,7 +195,7 @@ public class BillingmasterDAO {
 
     private List<WCB> loadWcbForms(int demographic) {
         Query query = entityManager.createQuery("select wcb from WCB wcb where wcb.demographic_no = (:demographicNo) order by wcb.id desc");
-        query.setParameter("demographicNo", demographic);
+        query.setParameter(DEMOGRAPHIC_NO_PARAMETER, demographic);
         List<WCB> list = query.getResultList();
         return list;
     }

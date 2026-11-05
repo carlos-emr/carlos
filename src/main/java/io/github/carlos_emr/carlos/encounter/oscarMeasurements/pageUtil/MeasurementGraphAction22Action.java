@@ -689,13 +689,13 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         org.jfree.data.time.TimeSeriesCollection dataset = new org.jfree.data.time.TimeSeriesCollection();
 
 
-        ArrayList<Map<String, Serializable>> list = new ArrayList<>();
+        List<Map<String, Serializable>> list = new ArrayList<>();
         boolean loincLab = "loinc".equals(labType);
         MiscUtils.getLogger().debug("lab type >{}< >{}< {} {}",
                 LogSafe.sanitize(labType), loincLab, LogSafe.sanitize(testName), LogSafe.sanitize(identifier));
         if (loincLab) {
             try {
-                ArrayList<Map<String, Serializable>> loincValues =
+                List<Map<String, Serializable>> loincValues =
                         CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier);
                 if (loincValues != null) {
                     list = loincValues;

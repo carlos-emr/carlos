@@ -95,7 +95,8 @@ class BillingDiagnosisServiceIntegrationTest extends CarlosTestBase {
 
     @Test
     void shouldRollBackBothWrites_whenFailureFollowsReadAndSecondWrite() throws Exception {
-        assertThatThrownBy(() -> transaction().executeWithoutResult(tx -> {
+        TransactionTemplate template = transaction();
+        assertThatThrownBy(() -> template.executeWithoutResult(tx -> {
             bill(patient, "20261101", "O", "first", null, null);
             assertThat(service.findRecentDiagnoses(String.valueOf(patient)))
                     .extracting(BillingDiagnosisService.DiagnosisDto::code).containsExactly("first");
