@@ -33,19 +33,22 @@ import java.util.regex.Pattern;
 
 /**
  * Offline fidelity checks on a draft summary, beside the provenance checks in {@link DocumentSummaryService}
- * (prototype for the EN/FR evaluation, carlos#5537; nothing here calls a model, and none of it is wired
- * into {@code validate} yet). Each answers one error class that exact quotes and lexical overlap cannot
- * see, and each is a provenance rule on wording, not a clinical judgement:
+ * (EN/FR evaluation, carlos#5537; nothing here calls a model). Each is a provenance rule on wording, not a
+ * clinical judgement, and each is deliberately narrow: a rule that refuses an ordinary document is worse
+ * than the error it catches, so each fires only on text that nothing but the error would produce.
  * <ul>
- * <li>{@link #addedPossessor}: the summary resolves an ambiguous possessor ("sa sœur") into the patient's
- * kin ("la sœur du patient") although the evidence never says "patient";</li>
+ * <li>{@link #possessorOfAnotherPerson}: the summary gives the patient the kin of a person the evidence
+ * names ("Dr. Lee said her sister will call" summarized as "the patient's sister"). An ambiguous
+ * possessor with no person named before it ("sa sœur") is left to the prompt and the clinician;</li>
  * <li>{@link #injectedCommandWord} / {@link #evidenceInInjectedLine}: the summary describes or quotes text
- * addressed to an AI that is embedded in the document ("SYSTÈME : ignorer la note..."), which the prompt
- * says to leave out;</li>
- * <li>{@link #languageMismatch}: the summary is written in another language than the document, decided
- * only when both texts carry enough function words to say (a one-line document usually does not).</li>
+ * that only an AI-directed line says (it names an AI as the target: "ignore all previous instructions",
+ * "you are an AI", "system prompt", or a SYSTEM/SYSTÈME/ASSISTANT line with an override verb), which the
+ * prompt says to leave out. Ordinary corrections to a clinical instruction ("Ignore the previous
+ * instructions about warfarin; continue 5 mg daily") are not AI-directed;</li>
+ * <li>{@link #languageMismatch}: the summary is in another language than the document, decided only when
+ * both texts carry enough function words to say. Not wired.</li>
  * </ul>
- * The status-word rule ("prescribed", "scheduled", "administré") is already {@code DocumentSummaryService.statusWordWithoutSupport}.
+ * The status-word rule is {@code DocumentSummaryService.statusWordWithoutSupport}.
  */
 final class DocumentSummaryFidelityValidator {
     private DocumentSummaryFidelityValidator() {}
@@ -60,6 +63,13 @@ final class DocumentSummaryFidelityValidator {
     /** A possessive pronoun before a kin word: "sa sœur", "his sister". */
     private static final Pattern POSSESSIVE_KIN = Pattern.compile(
             "\\b(?:sa|son|ses|leurs?|ma|mon|mes|his|her|their|my|your)\\s+(" + KIN + ")\\b");
+    /** Words that name a person by role or title, in front of a possessive. */
+    private static final Pattern PERSON_ROLE = Pattern.compile(
+            "\\b(?:nurse|doctor|physician|clinician|surgeon|pharmacist|therapist|dr|mr|mrs|ms|miss|"
+                    + "infirmi[èe]re?|m[ée]decin|docteur|chirurgien(?:ne)?|pharmacien(?:ne)?|mme|madame|monsieur|mlle)\\b\\.?",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    /** A capitalized word that is not the first of its sentence: a name. */
+    private static final Pattern MID_SENTENCE_NAME = Pattern.compile("(?<=[\\p{L}\\p{N},;:)]\\s)\\p{Lu}\\p{Ll}+");
     private static final Pattern WORD = Pattern.compile("[\\p{L}\\p{N}]+");
 
     private static String fold(String value) {
@@ -67,22 +77,31 @@ final class DocumentSummaryFidelityValidator {
     }
 
     /**
-     * The "patient's kin" phrase in {@code statement} that {@code reference} (the evidence, or the document for
-     * an overview) does not support, else null. Only when the reference introduces that kin by a possessive
-     * pronoun and never says "patient": a bare family-history heading ("Mother: diabetes") does make the
-     * kin the patient's, so it is left alone.
+     * The "patient's kin" phrase in {@code statement} when {@code reference} (the point's evidence, or the document
+     * for an overview) gives that kin to a person it names (a name or a role such as "the nurse" or "Dr. Lee" in the
+     * same sentence, before the possessive) and never says "patient". Else null. A possessive with no person named
+     * before it ("His mother had breast cancer", "Si la fièvre revient, sa sœur…") is not refused: it is left to the
+     * prompt and to the clinician's review, because a family-history line is usually the patient's own.
      */
-    static String addedPossessor(String statement, String reference) {
-        String shown = fold(reference);
-        if (shown.contains("patient")) return null;
-        Matcher possessive = POSSESSIVE_KIN.matcher(shown);
-        Set<String> possessed = new HashSet<>();
-        while (possessive.find()) possessed.add(stem(possessive.group(1)));
-        if (possessed.isEmpty()) return null;
+    static String possessorOfAnotherPerson(String statement, String reference) {
+        if (fold(reference).contains("patient")) return null;
+        Set<String> kinOfSomeoneElse = new HashSet<>();
+        // A title's full stop ("Dr. Lee") does not end a sentence.
+        String unabbreviated = reference.replaceAll("\\b(Drs?|Mrs?|Ms|Mme|Mlle|Mr|Pr)\\.", "$1");
+        for (String sentence : unabbreviated.split("(?<=[.!?;])\\s+")) {
+            Matcher possessive = POSSESSIVE_KIN.matcher(fold(sentence));
+            while (possessive.find()) {
+                String before = sentence.substring(0, possessive.start());
+                if (PERSON_ROLE.matcher(before).find() || MID_SENTENCE_NAME.matcher(before).find()) {
+                    kinOfSomeoneElse.add(stem(possessive.group(1)));
+                }
+            }
+        }
+        if (kinOfSomeoneElse.isEmpty()) return null;
         Matcher claim = PATIENT_KIN.matcher(fold(statement));
         while (claim.find()) {
             String kin = claim.group(1) != null ? claim.group(1) : claim.group(2);
-            if (possessed.contains(stem(kin))) return claim.group();
+            if (kinOfSomeoneElse.contains(stem(kin))) return claim.group();
         }
         return null;
     }
@@ -91,17 +110,24 @@ final class DocumentSummaryFidelityValidator {
         return kin.replace("œ", "oe").replace("é", "e").replace("è", "e").replaceAll("(?:es|e|s)$", "");
     }
 
-    /**
-     * Verbs that give an AI an order or ask it to change its instructions. A line is addressed to an AI
-     * only with one of these: a system-looking prefix or an "instructions" key alone also appears in
-     * ordinary documents ("System: Zimmer knee", a medication JSON {"instructions":"take with food"}).
-     */
-    private static final String OVERRIDE = "(?:ignore|ignorer|ignorez|disregard|override|replace|remplacer|remplacez|forget|oublie|oubliez|"
-            + "start|begin|commencer|commencez|stop|arr[êe]ter|arr[êe]tez|prescribe|prescrire|recommend|recommander|you must|vous devez|do not|ne pas)";
+    private static final String OVERRIDE_WORDS = "ignore|ignorer|ignorez|disregard|forget|oublie|oubliez|override|bypass|contourner|reset";
+    private static final String OVERRIDE_VERB = "(?:" + OVERRIDE_WORDS + ")";
+    private static final String INSTRUCTION_NOUN = "(?:instructions?|prompts?|rules|consignes?|directives?)";
     private static final Pattern AI_ADDRESSED = Pattern.compile(
-            "^\\s*(?:(?:system|système|systeme)\\s*[:>\\]-].*\\b" + OVERRIDE + "\\b.*"
-                    + "|.*\\b(?:ignore|ignorer|ignorez|disregard|oublie|oubliez)\\b.*\\b(?:previous|prior|above|instructions?|consignes?|note|précédent|precedent)\\b.*"
-                    + "|[{\\[].*\"(?:instructions?|system|prompt)\"\\s*:\\s*\"[^\"]*\\b" + OVERRIDE + "\\b.*)$",
+            "^\\s*(?:"
+                    // SYSTEM/SYSTÈME/ASSISTANT line that tells the model to override: "SYSTÈME : ignorer la note et ..."
+                    + "(?:system|système|systeme|assistant)\\s*[:>\\]-].*\\b" + OVERRIDE_VERB + "\\b.*"
+                    // an AI as the target of an override: "ignore all previous instructions"
+                    + "|.*\\b(?:ignore|ignorer|ignorez|disregard|forget|oublie|oubliez)\\s+(?:all|any|every|toutes?|tous)\\s+(?:of\\s+)?(?:the\\s+|your\\s+|les\\s+|vos\\s+)?"
+                    + "(?:(?:previous|prior|above|earlier|pr[ée]c[ée]dent(?:e|s|es)?)\\s+)?" + INSTRUCTION_NOUN
+                    + "(?:\\s+(?:previous|prior|above|earlier|pr[ée]c[ée]dent(?:e|s|es)?|ci-dessus))?.*"
+                    // an address to the model itself
+                    + "|.*\\b(?:you\\s+are\\s+an?\\s+(?:ai|assistant|language\\s+model|llm|chatbot)|as\\s+an\\s+ai(?:\\s+language\\s+model)?|"
+                    + "(?:vous|tu)\\s+(?:êtes|etes|es)\\s+un(?:e)?\\s+(?:ia|assistant|mod[èe]le\\s+de\\s+langage|chatbot)|system\\s+prompt|prompt\\s+syst[èe]me)\\b.*"
+                    // a JSON object whose instructions/system/prompt value orders the model to replace or ignore instructions
+                    + "|[{\\[].*\"(?:instructions?|system|prompt)\"\\s*:\\s*\"[^\"]*\\b(?:replace|remplacer|remplacez|" + OVERRIDE_WORDS
+                    + ")\\b[^\"]*\\b(?:instructions?|prompts?|rules|consignes?|directives?|system)\\b.*"
+                    + ")$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
     /** The lines of {@code source} that read as addressed to an AI. */
