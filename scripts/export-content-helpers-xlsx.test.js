@@ -33,16 +33,22 @@ const WORKBOOK = zip({
   'xl/worksheets/sheet1.xml': '<worksheet><sheetData>'
     + '<row r="1"><c r="A1" t="inlineStr"><is><t>chart_no</t></is></c><c r="B1" t="inlineStr"><is><t>fee</t></is></c></row>'
     + '<row r="2"><c r="A2" t="inlineStr"><is><t xml:space="preserve">00123</t></is></c><c r="B2" t="n"><v>1234.5</v></c>'
-    + '<c r="C2" t="inlineStr"><is><t>a &amp; b</t></is></c></row>'
+    + '<c r="C2" t="inlineStr"><is><t>a &amp; b</t></is></c>'
+    + '<c r="D2" t="inlineStr"><is><t xml:space="preserve">line1_x000D_\nline2 _x005F_x0041_ kept</t></is></c></row>'
     + '</sheetData></worksheet>',
 });
 
 test('xlsxCells keeps the cell type: inline strings are text, numeric cells are numbers', () => {
   const rows = x.xlsxCells(WORKBOOK);
   assert.deepEqual(rows[0], [{ type: 'text', value: 'chart_no' }, { type: 'text', value: 'fee' }]);
-  assert.deepEqual(rows[1], [{ type: 'text', value: '00123' }, { type: 'number', value: 1234.5 }, { type: 'text', value: 'a & b' }]);
+  assert.deepEqual(rows[1], [{ type: 'text', value: '00123' }, { type: 'number', value: 1234.5 }, { type: 'text', value: 'a & b' },
+    { type: 'text', value: 'line1\r\nline2 _x0041_ kept' }]);
+});
+
+test('xlsxCells decodes the OOXML _xHHHH_ escapes Excel decodes, and _x005F_ as a literal underscore', () => {
+  assert.equal(x.xlsxCells(WORKBOOK)[1][3].value, 'line1\r\nline2 _x0041_ kept');
 });
 
 test('xlsxRows still returns the same cells as strings', () => {
-  assert.deepEqual(x.xlsxRows(WORKBOOK)[1], ['00123', '1234.5', 'a & b']);
+  assert.deepEqual(x.xlsxRows(WORKBOOK)[1], ['00123', '1234.5', 'a & b', 'line1\r\nline2 _x0041_ kept']);
 });

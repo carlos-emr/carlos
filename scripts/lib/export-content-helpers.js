@@ -102,6 +102,15 @@ function xmlText(value) {
 }
 
 /**
+ * Excel's own escape for characters XML cannot carry: _xHHHH_ is the code unit, and a literal
+ * "_xHHHH_" in the text is written as _x005F_xHHHH_. Decoded after the XML entities, as Excel does.
+ */
+function excelText(value) {
+  return value.replace(/_x005F_(x[0-9A-Fa-f]{4}_)|_x([0-9A-Fa-f]{4})_/g,
+    (_, literal, hex) => literal ? `_${literal}` : String.fromCharCode(parseInt(hex, 16)));
+}
+
+/**
  * The first worksheet of an .xlsx as rows of cells { type: 'text' | 'number', value }: a numeric
  * cell reads as a Number, a shared or inline string as its text, a blank as { type: 'text', value: '' }.
  */
@@ -127,9 +136,9 @@ function xlsxCells(buffer) {
       const body = cell[2] || '';
       const v = /<v>([\s\S]*?)<\/v>/.exec(body);
       let value;
-      if (type && type[1] === 's') value = { type: 'text', value: v ? shared[Number(v[1])] : '' };
-      else if (type && type[1] === 'inlineStr') value = { type: 'text', value: xmlText([...body.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map(t => t[1]).join('')) };
-      else if (type && type[1] !== 'n') value = { type: 'text', value: v ? xmlText(v[1]) : '' };
+      if (type && type[1] === 's') value = { type: 'text', value: v ? excelText(shared[Number(v[1])]) : '' };
+      else if (type && type[1] === 'inlineStr') value = { type: 'text', value: excelText(xmlText([...body.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map(t => t[1]).join(''))) };
+      else if (type && type[1] !== 'n') value = { type: 'text', value: v ? excelText(xmlText(v[1])) : '' };
       else value = v ? { type: 'number', value: Number(v[1]) } : { type: 'text', value: '' };
       cells[column - 1] = value;
     }
@@ -160,8 +169,8 @@ function xlsxRows(buffer) {
       for (const letter of ref[1]) column = column * 26 + letter.charCodeAt(0) - 64;
       const body = cell[2] || '';
       let value = '';
-      if (type && type[1] === 's') { const v = /<v>([\s\S]*?)<\/v>/.exec(body); value = v ? shared[Number(v[1])] : ''; }
-      else if (type && type[1] === 'inlineStr') value = xmlText([...body.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map(t => t[1]).join(''));
+      if (type && type[1] === 's') { const v = /<v>([\s\S]*?)<\/v>/.exec(body); value = v ? excelText(shared[Number(v[1])]) : ''; }
+      else if (type && type[1] === 'inlineStr') value = excelText(xmlText([...body.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map(t => t[1]).join('')));
       else { const v = /<v>([\s\S]*?)<\/v>/.exec(body); value = v ? xmlText(v[1]) : ''; }
       cells[column - 1] = value;
     }
