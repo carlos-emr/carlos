@@ -581,7 +581,8 @@
         const value = decimals === '0.00' ? Number(point.y).toFixed(2)
             : Number(Number(point.y).toFixed(3)).toLocaleString('en-US', { maximumFractionDigits: 3 });
         const date = formatDate(point.x, 'yyyy.MM.dd', timeZone);
-        return format.replace('{1}', date).replace('{2}', value).replace('\n', '');
+        // JFreeChart drew the generator's "\n" as nothing visible, leaving the spaces around it.
+        return format.replaceAll('{1}', date).replaceAll('{2}', value).replaceAll('\n', '');
     }
 
     void hex;

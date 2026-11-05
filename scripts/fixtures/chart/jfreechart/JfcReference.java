@@ -32,7 +32,8 @@ public class JfcReference {
     static File out;
 
     public static void main(String[] args) throws Exception {
-        out = new File(args[0]); out.mkdirs();
+        // Fixtures and PNGs go to ./out under the working directory; no path is taken from the command line.
+        out = new File("out"); out.mkdirs();
         TimeZone.setDefault(TZ);
         String title = "Data Graph for FAKE-JOHN, FAKE-SMITH M 41 years";
         String jfree = style("jfree", "#c0c0c0", "#ffffff", 0.02, 0.02, 0.05, 0.05, false, false, null, null);

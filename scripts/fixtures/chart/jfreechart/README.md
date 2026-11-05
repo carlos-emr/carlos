@@ -22,8 +22,9 @@ JAR=~/.m2/repository/org/jfree/jfreechart/1.5.6/jfreechart-1.5.6.jar   # no long
 docker run --rm -v "$PWD/scripts/fixtures/chart/jfreechart:/jfc" -v "$JAR:/jfc/jfreechart.jar:ro" \
   -e TZ=America/Toronto carlos-tomcat-dev bash -c 'cd /jfc && mkdir -p /tmp/classes \
   && javac -cp jfreechart.jar -d /tmp/classes JfcReference.java \
-  && java -Djava.awt.headless=true -Duser.timezone=America/Toronto -cp jfreechart.jar:/tmp/classes JfcReference /jfc'
+  && java -Djava.awt.headless=true -Duser.timezone=America/Toronto -cp jfreechart.jar:/tmp/classes JfcReference \
+  && cp out/*.json .'
 ```
 
-The program also writes a PNG of each chart next to its JSON, for comparison by eye; the PNGs are
-not committed.
+The program writes each chart's JSON and a PNG of it under `out/` in its working directory; the
+JSON files are copied here, the PNGs are for comparison by eye and are not committed.
