@@ -39,7 +39,6 @@ import java.util.Set;
 import java.util.Locale;
 
 import jakarta.persistence.Query;
-import jakarta.persistence.Tuple;
 
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.util.NativeQueryValues;

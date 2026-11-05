@@ -68,6 +68,16 @@ public class EChartDaoIntegrationTest extends CarlosTestBase {
         return entity;
     }
 
+    @Test
+    void shouldSelectHighestId_whenLegacyEncounterChartTimestampsDisagree() throws Exception {
+        EChart newerTime = createEChart(5547101, "newer timestamp", new Date(200000L));
+        EChart newerId = createEChart(5547101, "newer ID", new Date(100000L));
+        createEChart(5547102, "other patient", new Date(300000L));
+        assertThat(eChartDao.getLatestChartById(5547101).getId()).isEqualTo(newerId.getId());
+        assertThat(eChartDao.getLatestChart(5547101).getId()).isEqualTo(newerTime.getId());
+        assertThat(eChartDao.getLatestChartById(5547103)).isNull();
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {
