@@ -41,6 +41,8 @@ async function main() {
         const page = await browser.newPage();
         const errors = [];
         page.on('pageerror', error => errors.push(error.message));
+        // html contains only literal markup and the fixed synthetic rows above, with no external input or URLs.
+        // nosemgrep: javascript.playwright.security.audit.playwright-setcontent-injection.playwright-setcontent-injection
         await page.setContent(html);
         await page.addScriptTag({content: script.toString('utf8')});
         assert.deepEqual(await page.locator('#no-body, #no-head, #no-header-row')
@@ -88,6 +90,8 @@ async function main() {
         assert.deepEqual(errors, []);
         const noScript = await browser.newContext({javaScriptEnabled: false});
         const plain = await noScript.newPage();
+        // Reuse the same static fixture to verify readability with JavaScript disabled; no user data enters html.
+        // nosemgrep: javascript.playwright.security.audit.playwright-setcontent-injection.playwright-setcontent-injection
         await plain.setContent(html);
         assert.equal(await plain.locator('#codes tbody tr:visible').count(), 3);
         assert.equal(await plain.locator('.table-sort').count(), 0);
@@ -117,7 +121,9 @@ async function checkRegistryResults(browser) {
     const page = await browser.newPage();
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
-    // Exercise the JSP's actual table markup and initializer with fixed, synthetic rows.
+    // opening and headers come only from the checked-in JSP; rows contain the fixed synthetic strings above.
+    // No request, environment value, or external response enters this fixture or supplies a resource URL.
+    // nosemgrep: javascript.playwright.security.audit.playwright-setcontent-injection.playwright-setcontent-injection
     await page.setContent(`<!doctype html><html><body>${opening}${headers}<tbody>${rows}</tbody></table></body></html>`);
     for (const file of ['library/jquery/jquery-3.7.1.min.js',
         'library/DataTables/DataTables-1.13.11/js/jquery.dataTables.min.js',
