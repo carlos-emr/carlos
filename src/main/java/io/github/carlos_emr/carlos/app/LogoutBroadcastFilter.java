@@ -53,6 +53,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.ClientAbort;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.DeferredContentLength;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -739,10 +740,10 @@ public class LogoutBroadcastFilter implements Filter {
 
         private boolean responseWriterObtained;
         private boolean responseOutputStreamObtained;
-        private boolean contentLengthDeferred;
-        private int deferredContentLength;
-        private long deferredContentLengthLong;
-        private boolean deferredContentLengthIsLong;
+        /** The shared defer/publish/retract rules; its two delegate calls are its only access to the response. */
+        private final DeferredContentLength contentLength = new DeferredContentLength(
+                this::publishContentLength,
+                () -> super.setHeader(DeferredContentLength.HEADER, null));
         private boolean htmlInjectionBufferConfigured;
         private boolean htmlInjectionBufferUnavailable;
         private boolean chainComplete;
@@ -802,6 +803,9 @@ public class LogoutBroadcastFilter implements Filter {
         public PrintWriter getWriter() throws IOException {
             responseWriterObtained = true;
             configureWriterInjectionBufferIfNeeded();
+            if (isKnownNonHtml()) {
+                applyDeferredContentLength();
+            }
             if (writer == null) {
                 writer = new DelegatingWriter(super.getWriter());
             }
@@ -821,8 +825,19 @@ public class LogoutBroadcastFilter implements Filter {
         public void setContentType(String type) {
             super.setContentType(type);
             if (RequestNegotiation.isHtmlContentType(type)) {
+                if (responseWriterObtained && !isCommitted()) {
+                    // A published length may now be decorated away; keep it pending instead.
+                    contentLength.retractToPending();
+                }
                 configureWriterInjectionBufferIfNeeded();
+            } else if ((responseWriterObtained || responseOutputStreamObtained) && isKnownNonHtml()) {
+                applyDeferredContentLength();
             }
+        }
+
+        private boolean isKnownNonHtml() {
+            String type = getContentType();
+            return type != null && !RequestNegotiation.isHtmlContentType(type);
         }
 
         /**
@@ -879,40 +894,49 @@ public class LogoutBroadcastFilter implements Filter {
          */
         @Override
         public void reset() {
-            clearDeferredContentLength();
+            // A rejected reset must leave both the delegate and our cached state intact.
+            super.reset();
+            contentLength.onReset();
+            writer = null;
+            responseWriterObtained = false;
+            responseOutputStreamObtained = false;
             htmlInjectionBufferConfigured = false;
             htmlInjectionBufferUnavailable = false;
-            super.reset();
         }
 
         /**
-         * Resets only the body buffer and clears deferred Content-Length state.
+         * Resets only the body buffer and clears the Content-Length state this wrapper owns.
          *
-         * <p>The servlet response keeps its headers across {@code resetBuffer()}, but the body length
-         * no longer matches any prior downstream Content-Length. Clearing the deferred value avoids
-         * replaying an obsolete length after an error path swaps the response body. The HTML buffer
-         * configured flag is intentionally left intact because servlet containers keep the buffer
-         * size across {@code resetBuffer()} just as they keep headers.</p>
+         * <p>Every CARLOS wrapper applies one rule to an accepted {@code resetBuffer()}: a length that
+         * predates the reset, pending or published, described the discarded body and is dropped. A
+         * forward always replaces the body, so a pre-forward length is stale by definition; replaying
+         * it would frame (and truncate) the replacement. This is stricter than the bare container,
+         * which keeps the header. The HTML buffer configured flag is intentionally left intact because
+         * servlet containers keep the buffer size across {@code resetBuffer()} just as they keep
+         * headers. A rejected reset (the response is already committed) leaves all of this state
+         * as it was.</p>
          */
         @Override
         public void resetBuffer() {
-            clearDeferredContentLength();
-            htmlInjectionBufferUnavailable = false;
             super.resetBuffer();
+            contentLength.onBufferReset();
+            htmlInjectionBufferUnavailable = false;
         }
 
         @Override
         public void setContentLength(int len) {
-            contentLengthDeferred = true;
-            deferredContentLength = len;
-            deferredContentLengthIsLong = false;
+            setContentLengthLong(len);
         }
 
         @Override
         public void setContentLengthLong(long len) {
-            contentLengthDeferred = true;
-            deferredContentLengthLong = len;
-            deferredContentLengthIsLong = true;
+            contentLength.defer(len);
+            // This filter never appends to a stream, so a stream's length is published as soon
+            // as it is known, whatever the type, exactly as getOutputStream() does for a length
+            // declared earlier. A writer's length waits for a known non-HTML type.
+            if (responseOutputStreamObtained || (responseWriterObtained && isKnownNonHtml())) {
+                applyDeferredContentLength();
+            }
         }
 
         @Override
@@ -921,7 +945,7 @@ public class LogoutBroadcastFilter implements Filter {
                 setContentType(value);
                 return;
             }
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
                 deferContentLengthHeader(value);
                 return;
             }
@@ -934,7 +958,10 @@ public class LogoutBroadcastFilter implements Filter {
                 setContentType(value);
                 return;
             }
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
+                if (value == null) {
+                    return;
+                }
                 deferContentLengthHeader(value);
                 return;
             }
@@ -943,7 +970,7 @@ public class LogoutBroadcastFilter implements Filter {
 
         @Override
         public void setIntHeader(String name, int value) {
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
                 setContentLength(value);
                 return;
             }
@@ -952,7 +979,7 @@ public class LogoutBroadcastFilter implements Filter {
 
         @Override
         public void addIntHeader(String name, int value) {
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
                 setContentLength(value);
                 return;
             }
@@ -969,19 +996,17 @@ public class LogoutBroadcastFilter implements Filter {
          * same length twice.</p>
          */
         void applyDeferredContentLength() {
-            if (!contentLengthDeferred || isCommitted()) {
+            if (isCommitted()) {
                 return;
             }
-            if (deferredContentLengthIsLong) {
-                logger.debug("Replaying deferred Content-Length for non-injected response: uri={}, length={}",
-                        requestUriForLog, deferredContentLengthLong);
-                super.setContentLengthLong(deferredContentLengthLong);
-            } else {
-                logger.debug("Replaying deferred Content-Length for non-injected response: uri={}, length={}",
-                        requestUriForLog, deferredContentLength);
-                super.setContentLength(deferredContentLength);
-            }
-            clearDeferredContentLength();
+            contentLength.publishPending();
+        }
+
+        /** The publisher handed to {@link DeferredContentLength}: the delegate call plus the audit line. */
+        private void publishContentLength(long length) {
+            logger.debug("Replaying deferred Content-Length for non-injected response: uri={}, length={}",
+                    requestUriForLog, length);
+            super.setContentLengthLong(length);
         }
 
         /**
@@ -1004,7 +1029,7 @@ public class LogoutBroadcastFilter implements Filter {
          * replaying it can truncate the client response on success or failure.</p>
          */
         void discardDeferredContentLength() {
-            clearDeferredContentLength();
+            contentLength.discardPending();
         }
 
         void flushDelegatingWriter() throws IOException {
@@ -1037,28 +1062,17 @@ public class LogoutBroadcastFilter implements Filter {
          * @param value raw Content-Length header value from downstream code
          */
         private void deferContentLengthHeader(String value) {
-            try {
-                setContentLengthLong(Long.parseLong(value));
-            } catch (NumberFormatException e) {
-                logger.warn("Ignoring malformed Content-Length header value from downstream response: {}",
-                        LogSafe.sanitize(value), e);
+            if (value == null) {
+                contentLength.remove();
+                return;
             }
-        }
-
-        /**
-         * Clears all deferred Content-Length state after reset or replacement response paths.
-         */
-        private void clearDeferredContentLength() {
-            contentLengthDeferred = false;
-            deferredContentLength = 0;
-            deferredContentLengthLong = 0L;
-            deferredContentLengthIsLong = false;
-        }
-
-        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-        private boolean isContentLengthHeader(String name) {
-            return "Content-Length".equalsIgnoreCase(name);
+            java.util.OptionalLong parsed = DeferredContentLength.parse(value);
+            if (parsed.isPresent()) {
+                setContentLengthLong(parsed.getAsLong());
+            } else if (logger.isWarnEnabled()) {
+                logger.warn("Ignoring malformed Content-Length header value from downstream response: {}",
+                        LogSafe.sanitize(value));
+            }
         }
 
         // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md

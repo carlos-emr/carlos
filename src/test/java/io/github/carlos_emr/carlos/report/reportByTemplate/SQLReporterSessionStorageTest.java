@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.commn.dao.ReportTemplatesDao;
 import io.github.carlos_emr.carlos.commn.model.ReportTemplates;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
-import io.github.carlos_emr.carlos.report.data.RptResultStruct;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +43,8 @@ import jakarta.servlet.http.HttpSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -82,15 +83,17 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
         when(report.buildParameterizedSql(parameters)).thenReturn(new ParameterizedSql("select 1", List.of()));
 
         ResultSet resultSet = mock(ResultSet.class);
-        when(resultSet.isBeforeFirst()).thenReturn(false);
-        when(resultSet.getMetaData()).thenReturn(mock(ResultSetMetaData.class));
+        when(resultSet.next()).thenReturn(false);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(resultSet.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnCount()).thenReturn(1);
 
         try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class,
                 (mock, context) -> {
                     when(mock.getReportTemplateNoParam("1")).thenReturn(report);
                 });
              MockedStatic<LegacyJdbcQuery> legacyJdbcQuery = mockStatic(LegacyJdbcQuery.class)) {
-            legacyJdbcQuery.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), org.mockito.ArgumentMatchers.eq(10_000), org.mockito.ArgumentMatchers.eq(30), org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn(resultSet);
+            legacyJdbcQuery.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong())).thenReturn(resultSet);
 
             boolean generated = new SQLReporter().generateReport(request);
 
@@ -120,59 +123,151 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
         when(report.buildParameterizedSql(0, parameters)).thenReturn(new ParameterizedSql("select 1", List.of()));
         when(report.buildParameterizedSql(1, parameters)).thenReturn(null);
 
-        // Stay below the result character budget and exceed only the UTF-8 CSV byte cap.
-        String oversizedCell = "€".repeat(SQLReporter.MAX_CSV_EXPORT_LENGTH / 2);
-        var metadata = new javax.sql.rowset.RowSetMetaDataImpl();
-        metadata.setColumnCount(1);
-        metadata.setColumnName(1, "synthetic");
-        metadata.setColumnLabel(1, "synthetic");
-        metadata.setColumnType(1, java.sql.Types.VARCHAR);
-        var resultSet = javax.sql.rowset.RowSetProvider.newFactory().createCachedRowSet();
-        resultSet.setMetaData(metadata);
-        resultSet.moveToInsertRow();
-        resultSet.updateString(1, oversizedCell);
-        resultSet.insertRow();
-        resultSet.moveToCurrentRow();
-        resultSet.beforeFirst();
+        ResultSet resultSet = mock(ResultSet.class);
+        java.util.concurrent.atomic.AtomicInteger consumedRows = new java.util.concurrent.atomic.AtomicInteger();
+        when(resultSet.next()).thenAnswer(ignored -> consumedRows.getAndIncrement() < 81);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(resultSet.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnCount()).thenReturn(1);
+        when(metadata.getColumnType(1)).thenReturn(java.sql.Types.VARCHAR);
+        when(metadata.getColumnLabel(1)).thenReturn("value");
+        when(resultSet.getCharacterStream(1)).thenAnswer(ignored -> new java.io.StringReader("a".repeat(64 * 1024)));
+
         try (MockedConstruction<ReportManager> reportManagers = mockConstruction(ReportManager.class,
                 (mock, context) -> {
                     when(mock.getReportTemplateNoParam("1")).thenReturn(report);
                 });
-             MockedStatic<LegacyJdbcQuery> legacyJdbcQuery = mockStatic(LegacyJdbcQuery.class);
-             MockedStatic<RptResultStruct> resultStruct = mockStatic(RptResultStruct.class)) {
-            legacyJdbcQuery.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), org.mockito.ArgumentMatchers.eq(10_000), org.mockito.ArgumentMatchers.eq(30), org.mockito.ArgumentMatchers.any(Object[].class))).thenReturn(resultSet);
-            resultStruct.when(() -> RptResultStruct.getStructure2(resultSet)).thenReturn("<table></table>");
+             MockedStatic<LegacyJdbcQuery> legacyJdbcQuery = mockStatic(LegacyJdbcQuery.class)) {
+            legacyJdbcQuery.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong())).thenReturn(resultSet);
 
             boolean generated = new SQLReporter().generateReport(request);
 
-            assertThat(generated).isTrue();
+            assertThat(generated).isFalse();
             verify(reportManagers.constructed().get(0)).getReportTemplateNoParam("1");
             verify(request).setAttribute("csv-0", "");
             verify(request).setAttribute("errormsg", SQLReporter.CSV_EXPORT_LIMIT_MESSAGE);
+            verify(resultSet).close();
+            verify(report, never()).buildParameterizedSql(1, parameters);
         }
     }
-
     @Test
-    void shouldKeepQueryFailureSeparate_fromCsvSizeWarning() throws Exception {
-        var dao = mock(ReportTemplatesDao.class);
+    @DisplayName("should retain result-page navigation for an ordinary SQL refusal")
+    void shouldKeepResultPageNavigation_whenStoredSqlIsRejected() {
+        ReportTemplatesDao dao = mock(ReportTemplatesDao.class);
         registerMock(ReportTemplatesDao.class, dao);
         ReportTemplates template = new ReportTemplates();
         template.setActive(1);
         when(dao.find(1)).thenReturn(template);
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        when(request.getParameter("templateId")).thenReturn("1");
-        when(request.getParameterMap()).thenReturn(Map.of());
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.setParameter("templateId", "1");
         ReportObjectGeneric report = mock(ReportObjectGeneric.class);
-        when(report.buildParameterizedSql(Map.of())).thenReturn(new ParameterizedSql("select 1", List.of()));
-        try (var managers = mockConstruction(ReportManager.class,
-                     (manager, context) -> when(manager.getReportTemplateNoParam("1")).thenReturn(report));
-             var jdbc = mockStatic(LegacyJdbcQuery.class)) {
-            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(), eq(10_000), eq(30), any(Object[].class)))
-                    .thenThrow(new java.sql.SQLException("synthetic query failure"));
+        when(report.buildParameterizedSql(request.getParameterMap()))
+                .thenReturn(new ParameterizedSql("update synthetic", List.of()));
+        try (MockedConstruction<ReportManager> managers = mockConstruction(ReportManager.class,
+                (manager, context) -> when(manager.getReportTemplateNoParam("1")).thenReturn(report));
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong()))
+                    .thenThrow(new java.sql.SQLException("Only SELECT statements are allowed"));
             assertThat(new SQLReporter().generateReport(request)).isTrue();
-            verify(request).setAttribute("csv", "");
-            verify(request, never()).setAttribute("errormsg", SQLReporter.CSV_EXPORT_LIMIT_MESSAGE);
+            verify(managers.constructed().getFirst()).getReportTemplateNoParam("1");
+            assertThat(request.getAttribute("reportobject")).isSameAs(report);
+            assertThat(request.getAttribute("csv")).isEqualTo("");
+            assertThat(request.getAttribute("resultsethtml").toString()).contains("Only SELECT statements are allowed");
         }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldDiscardEarlierSubreports_whenLaterQueryFails(boolean missingParameters) throws Exception {
+        ReportTemplatesDao dao = mock(ReportTemplatesDao.class);
+        registerMock(ReportTemplatesDao.class, dao);
+        ReportTemplates template = new ReportTemplates();
+        template.setActive(1);
+        when(dao.find(1)).thenReturn(template);
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.setParameter("templateId", "1");
+        var parameters = request.getParameterMap();
+        ReportObjectGeneric report = mock(ReportObjectGeneric.class);
+        when(report.isSequence()).thenReturn(true);
+        when(report.buildParameterizedSql(0, parameters)).thenReturn(new ParameterizedSql("select 1", List.of()));
+        when(report.buildParameterizedSql(1, parameters))
+                .thenReturn(new ParameterizedSql(missingParameters ? "" : "select 2", List.of()));
+        ResultSet rs = mock(ResultSet.class);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(rs.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnCount()).thenReturn(1);
+        when(metadata.getColumnType(1)).thenReturn(java.sql.Types.VARCHAR);
+        when(metadata.getColumnLabel(1)).thenReturn("h");
+        when(rs.next()).thenReturn(true, false);
+        when(rs.getCharacterStream(1)).thenReturn(new java.io.StringReader("synthetic"));
+        try (MockedConstruction<ReportManager> managers = mockConstruction(ReportManager.class,
+                (manager, context) -> when(manager.getReportTemplateNoParam("1")).thenReturn(report));
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong()))
+                    .thenReturn(rs).thenThrow(new java.sql.SQLException("synthetic <query> & failure"));
+            assertThat(new SQLReporter().generateReport(request)).isFalse();
+            assertThat(managers.constructed()).hasSize(2);
+            assertThat(request.getAttribute("csv-0")).isNull();
+            assertThat(request.getAttribute("sql-0")).isNull();
+            assertThat(request.getAttribute("resultsethtml-0")).isNull();
+            assertThat(request.getAttribute("errormsg").toString())
+                    .contains(missingParameters ? "Cannot find all parameters" : "synthetic <query> & failure");
+            verify(report, never()).buildParameterizedSql(2, parameters);
+            verify(rs).close();
+        }
+    }
+
+    @Test
+    void shouldShareRowsAndAbsoluteDeadline_throughSequencedJdbcCalls() throws Exception {
+        ReportTemplatesDao dao = mock(ReportTemplatesDao.class);
+        registerMock(ReportTemplatesDao.class, dao);
+        ReportTemplates template = new ReportTemplates();
+        template.setActive(1);
+        when(dao.find(1)).thenReturn(template);
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.setParameter("templateId", "1");
+        var parameters = request.getParameterMap();
+        ReportObjectGeneric report = mock(ReportObjectGeneric.class);
+        when(report.buildParameterizedSql(0, parameters)).thenReturn(new ParameterizedSql("select 1", List.of()));
+        when(report.buildParameterizedSql(1, parameters)).thenReturn(new ParameterizedSql("select 2", List.of()));
+        ResultSet first = sequenceRows(6000);
+        ResultSet second = sequenceRows(4001);
+        List<Long> deadlines = new java.util.ArrayList<>();
+        List<Integer> rowLimits = new java.util.ArrayList<>();
+        try (MockedConstruction<ReportManager> managers = mockConstruction(ReportManager.class,
+                (manager, context) -> when(manager.getReportTemplateNoParam("1")).thenReturn(report));
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong()))
+                    .thenAnswer(call -> {
+                        rowLimits.add(call.getArgument(1));
+                        deadlines.add(call.getArgument(2));
+                        return deadlines.size() == 1 ? first : second;
+                    });
+            assertThat(new SQLReporter().generateSequencedReport(request)).isFalse();
+            assertThat(managers.constructed()).hasSize(1);
+            assertThat(rowLimits).containsExactly(10001, 4001);
+            assertThat(deadlines).hasSize(2);
+            assertThat(deadlines.get(1)).isEqualTo(deadlines.get(0));
+            assertThat(request.getAttribute("errormsg")).isEqualTo(SQLReporter.REPORT_LIMIT_MESSAGE);
+            assertThat(request.getAttribute("resultsethtml-0")).isNull();
+            assertThat(request.getAttribute("csv-0")).isNull();
+            verify(report, never()).buildParameterizedSql(2, parameters);
+            verify(first).close();
+            verify(second).close();
+        }
+    }
+
+    private ResultSet sequenceRows(int count) throws Exception {
+        ResultSet rs = mock(ResultSet.class);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(rs.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnCount()).thenReturn(1);
+        when(metadata.getColumnType(1)).thenReturn(java.sql.Types.INTEGER);
+        when(metadata.getColumnLabel(1)).thenReturn("h");
+        when(rs.getString(1)).thenReturn("1");
+        java.util.concurrent.atomic.AtomicInteger rows = new java.util.concurrent.atomic.AtomicInteger();
+        when(rs.next()).thenAnswer(ignored -> rows.getAndIncrement() < count);
+        return rs;
     }
 
 }

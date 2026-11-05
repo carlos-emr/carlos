@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -39,7 +40,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
@@ -61,6 +65,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjec
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicTo1;
 import io.github.carlos_emr.carlos.webserv.rest.util.SecurityExceptionMapper;
 
 /**
@@ -165,10 +170,127 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
         return demo;
     }
 
+    @Nested
+    @DisplayName("Demographic write field lengths")
+    class WriteFieldLengths {
+
+        @BeforeEach
+        void allowRecordUpdates() {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("u"), eq(42)))
+                    .thenReturn(true);
+        }
+
+        private DemographicTo1 payload(String method) {
+            DemographicTo1 data = new DemographicTo1();
+            if ("PUT".equals(method)) data.setDemographicNo(42);
+            data.setFirstName("FAKE");
+            data.setLastName("PATIENT");
+            data.setDobYear("1980");
+            data.setDobMonth("06");
+            data.setDobDay("15");
+            return data;
+        }
+
+        @ParameterizedTest
+        @CsvSource({"POST,pronoun,A", "POST,gender,A", "PUT,pronoun,A", "PUT,gender,A",
+                "POST,pronoun,😀", "POST,gender,😀", "PUT,pronoun,😀", "PUT,gender,😀"})
+        void shouldRejectOverlongFields_beforeAnyWrite(String method, String field, String character) {
+            DemographicTo1 data = payload(method);
+            String invalid = character.repeat(26);
+            if ("pronoun".equals(field)) data.setPronoun(invalid);
+            else data.setGender(invalid);
+            data.setNurse("999998");
+            data.setNotes("FAKE-NOTES");
+            data.setWaitingListID(7);
+
+            try (Response response = request().path("/demographics").invoke(method, data)) {
+                assertThat(response.getStatus()).isEqualTo(400);
+                assertThat(response.readEntity(String.class))
+                        .contains("exceeds maximum length of 25 characters.")
+                        .doesNotContain(invalid, "FAKE-NOTES");
+            }
+            verifyNoInteractions(mockDemographicManager, mockWaitingListDao);
+        }
+
+        @ParameterizedTest
+        @CsvSource({"POST,A", "PUT,A", "POST,😀", "PUT,😀"})
+        void shouldPreserveFullColumnCapacity_whenFieldsAreAtTheLimit(String method, String character) {
+            DemographicTo1 data = payload(method);
+            String exact = character.repeat(25);
+            data.setPronoun(exact);
+            data.setGender(exact);
+
+            try (Response response = request().path("/demographics").invoke(method, data)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                var json = responseJson(response);
+                assertThat(json.get("pronoun").textValue()).isEqualTo(exact);
+                assertThat(json.get("gender").textValue()).isEqualTo(exact);
+            }
+            ArgumentCaptor<Demographic> saved = ArgumentCaptor.forClass(Demographic.class);
+            if ("POST".equals(method)) {
+                verify(mockDemographicManager).createDemographic(any(LoggedInInfo.class), saved.capture(), eq(null));
+            } else {
+                verify(mockDemographicManager).updateDemographic(any(LoggedInInfo.class), saved.capture());
+            }
+            assertThat(saved.getValue().getPronoun()).isEqualTo(exact);
+            assertThat(saved.getValue().getGender()).isEqualTo(exact);
+        }
+    }
+
     /** Tests for GET /demographics (list all). */
     @Nested
     @DisplayName("GET /demographics")
     class GetAllDemographics {
+
+        @ParameterizedTest
+        @CsvSource({"0,501", "0,2147483647", "0,-1", "-1,10"})
+        @DisplayName("should return 403 before validating pagination when demographic read is denied")
+        void shouldReturn403_whenInvalidListPaginationIsRequestedWithoutReadPrivilege(int offset, int limit) {
+            when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"), any()))
+                    .thenReturn(false);
+            try (Response response = request().path("/demographics")
+                    .query("offset", offset).query("limit", limit).get()) {
+                assertThat(response.getStatus()).isEqualTo(403);
+                verifyNoInteractions(mockDemographicManager);
+            }
+        }
+
+        @ParameterizedTest
+        @CsvSource({"0,501", "0,2147483647", "0,-1", "-1,10"})
+        @DisplayName("should return 400 before reading demographics for invalid pagination")
+        void shouldReturn400_whenListPaginationIsInvalid(int offset, int limit) {
+            try (Response response = request().path("/demographics")
+                    .query("offset", offset).query("limit", limit).get()) {
+                assertThat(response.getStatus()).isEqualTo(400);
+                verifyNoInteractions(mockDemographicManager);
+            }
+        }
+
+        @ParameterizedTest
+        @CsvSource({"0,0", "0,1", "0,500", "2147483647,10"})
+        @DisplayName("should preserve supported demographic list pagination boundaries")
+        void shouldReturn200_whenListPaginationIsWithinBounds(int offset, int limit) {
+            when(mockDemographicManager.getActiveDemographicCount(any())).thenReturn(0L);
+            when(mockDemographicManager.getActiveDemographics(any(), eq(offset), eq(limit)))
+                    .thenReturn(Collections.emptyList());
+            try (Response response = request().path("/demographics")
+                    .query("offset", offset).query("limit", limit).get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                verify(mockDemographicManager).getActiveDemographics(any(), eq(offset), eq(limit));
+            }
+        }
+
+        @Test
+        @DisplayName("should preserve zero defaults for omitted list pagination")
+        void shouldUseZeroDefaults_whenListPaginationIsOmitted() {
+            when(mockDemographicManager.getActiveDemographicCount(any())).thenReturn(0L);
+            when(mockDemographicManager.getActiveDemographics(any(), eq(0), eq(0)))
+                    .thenReturn(Collections.emptyList());
+            try (Response response = request().path("/demographics").get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                verify(mockDemographicManager).getActiveDemographics(any(), eq(0), eq(0));
+            }
+        }
 
         @Test
         @DisplayName("should return 200 with demographics list")

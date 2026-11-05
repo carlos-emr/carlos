@@ -61,7 +61,7 @@ public class Favorites extends AbstractModel<Integer> {
     @Column(name = "favoritename")
     private String favoriteName;
 
-    @Column(name = "BN")
+    @Column(name = "BN", length = 255)
     private String bn;
 
     @Column(name = "GCN_SEQNO")

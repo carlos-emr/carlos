@@ -51,6 +51,33 @@ test('should pass bash syntax checking', () => {
   assert.equal(spawnSync('bash', ['-n', SCRIPT]).status, 0);
 });
 
+test('image installs the lockfile-pinned axe-core beside Playwright', t => {
+  const box = sandbox(t);
+  const debs = path.join(box.dir, 'debs'), cgroups = path.join(box.dir, 'cgroups');
+  fs.mkdirSync(debs); fs.mkdirSync(cgroups);
+  fs.writeFileSync(path.join(cgroups, 'cgroup.controllers'), 'cpu memory');
+  for (const name of ['carlos-emr_1_amd64.deb', 'carlos-emr-drugref_1_all.deb', 'carlos-ctl_1_all.deb']) {
+    fs.writeFileSync(path.join(debs, name), '');
+  }
+  const captured = path.join(box.dir, 'Dockerfile');
+  fs.writeFileSync(path.join(box.dir, 'bin/docker'), `#!/bin/sh
+echo "$*" >> '${box.calls}'
+if [ "$1" = build ]; then
+  for context do :; done
+  cp "$context/Dockerfile" '${captured}'
+fi
+exit 1
+`, {mode:0o755});
+  const r = run(['up'], {...box.env, CARLOS_DISPOSABLE_HOST:'true', DEBS_DIR:debs,
+    CGROUP_ROOT:cgroups, CONTAINER_NETWORK:'bridge', AXE_CORE_VERSION:'', BUILD_CA_BUNDLE:''});
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /image build failed/);
+  const dockerfile = fs.readFileSync(captured, 'utf8');
+  assert.match(dockerfile, /npm install --save-exact[^\n]+"playwright@\$\{PLAYWRIGHT_VERSION\}" "axe-core@\$\{AXE_CORE_VERSION\}"/);
+  const pin = require('../package-lock.json').packages['node_modules/axe-core'].version;
+  assert.ok(fs.readFileSync(box.calls, 'utf8').includes(`--build-arg AXE_CORE_VERSION=${pin}`));
+});
+
 test('should refuse every container command without CARLOS_DISPOSABLE_HOST=true and never call docker', (t) => {
   const box = sandbox(t);
   for (const command of ['up', 'suite', 'audit', 'down', 'upgrade']) {

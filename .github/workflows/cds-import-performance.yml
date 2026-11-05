@@ -34,7 +34,7 @@ concurrency:
 jobs:
   installed-resource-profile:
     name: Installed CDS ${{ matrix.profile }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -42,7 +42,7 @@ jobs:
         profile: [scaling, aggregate20, zip64, disk-reserve, disk-enospc]
     steps:
       - name: Checkout candidate
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Verify bounded WAR content evidence tooling
@@ -55,11 +55,25 @@ jobs:
           # webapp exist. The hosted image's other SDKs left only ~30 GiB even
           # after removing Android/.NET/GHC. Java and CLI tooling run in Docker;
           # subsequent host steps need only system Python, Git and Docker.
+          # Remove the unused Go/Rust/Azure SDKs too: 72 GiB runner images otherwise
+          # fall below that prerequisite after the Java images and WAR are staged.
+          # LLVM, Julia and packaged PowerShell also live outside those SDK paths.
+          # Hosted images also include AWS/pipx/R tools and browser binaries.
+          # These are unused here and can leave aggregate20 below 50 GiB even
+          # after the SDK cleanup; preserve the storage prerequisite itself.
+          # All compilation and application execution below take place in Docker.
           df -h "$GITHUB_WORKSPACE"
           sudo rm -rf -- /usr/local/lib/android /opt/ghc /usr/share/dotnet \
             /opt/hostedtoolcache /usr/local/.ghcup /usr/local/share/boost \
             /usr/local/share/powershell /usr/local/share/chromium \
-            /usr/share/swift /usr/share/miniconda /usr/lib/jvm
+            /usr/share/swift /usr/share/miniconda /usr/lib/jvm \
+            /usr/local/go /usr/local/share/vcpkg /opt/az /usr/share/az \
+            /home/runner/.rustup /home/runner/.cargo /opt/microsoft/powershell \
+            /usr/local/aws-cli /usr/local/aws-sam-cli /opt/pipx /usr/local/pipx \
+            /usr/local/lib/R /usr/lib/R /opt/google/chrome /opt/microsoft/msedge \
+            /usr/lib/firefox /usr/lib/chromium /opt/selenium
+          sudo find /usr/lib -maxdepth 1 -type d -name 'llvm-[0-9]*' -exec rm -rf -- {} +
+          sudo find /usr/local -maxdepth 1 -type d -name 'julia[0-9]*' -exec rm -rf -- {} +
           docker image prune --all --force
           df -h "$GITHUB_WORKSPACE"
       - name: Resolve exact paired CLI source
@@ -76,7 +90,7 @@ jobs:
               output.write('ref='+ref+'\n')
           PY
       - name: Checkout paired CLI
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: carlos-emr/carlos-ctl
           ref: ${{ steps.cli.outputs.ref }}
@@ -94,7 +108,7 @@ jobs:
           --cli-source target/cds-ctl-source
       - name: Preserve bounded sanitized resource and prerequisite evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cds-installed-${{ matrix.profile }}-evidence
           path: target/cds-performance-*/public/*

@@ -414,12 +414,13 @@
                     </div>
                 </div>
 
-                <c:if test="${ (not empty documents or not empty consultLabsNotIncluded) and transactionType eq 'CONSULTATION' }">
+                <c:if test="${ (not empty documents or not empty consultLabsNotIncluded or not empty consultAttachmentsNotIncluded) and transactionType eq 'CONSULTATION' }">
                     <div class="card">
                         <div class="card-header">
                             <h3 class="card-title"><fmt:message key="coverPage.card.attachments"/></h3>
                         </div>
                         <div class="card-body">
+                            <%@ include file="/WEB-INF/jsp/encounter/oscarConsultationRequest/attachmentsNotIncludedNotice.jspf" %>
                             <div class="container">
                                 <c:if test="${ not empty documents }">
                                 <div class="row">
