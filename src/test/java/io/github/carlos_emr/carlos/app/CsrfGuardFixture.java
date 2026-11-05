@@ -20,6 +20,8 @@ import org.owasp.csrfguard.CsrfGuard;
  * second load through it is ignored. The way back to the disabled guard other tests start from is
  * {@code NullConfigurationProviderFactory}, whose provider reports disabled; {@code CsrfGuard.load}
  * clears its own expirable cache, so the switch takes effect at once.</p>
+ *
+ * @since 2026-11-05
  */
 public final class CsrfGuardFixture implements AutoCloseable {
 
@@ -34,7 +36,12 @@ public final class CsrfGuardFixture implements AutoCloseable {
         this.enabledBefore = enabledBefore;
     }
 
-    /** Loads the shipped {@code Owasp.CsrfGuard.properties} through the properties provider factory. */
+    /**
+     * Loads the shipped {@code Owasp.CsrfGuard.properties} through the properties provider factory.
+     *
+     * @return CsrfGuardFixture the fixture that restores the previous guard state on close
+     * @throws IOException if the shipped properties file cannot be read
+     */
     public static CsrfGuardFixture loadShippedConfiguration() throws IOException {
         Properties properties = new Properties();
         try (var in = Files.newInputStream(SHIPPED_PROPERTIES)) {
@@ -44,7 +51,12 @@ public final class CsrfGuardFixture implements AutoCloseable {
         return load(properties);
     }
 
-    /** Loads the given configuration, remembering whether the guard was enabled before. */
+    /**
+     * Loads the given configuration, remembering whether the guard was enabled before.
+     *
+     * @param properties Properties the CsrfGuard configuration to load
+     * @return CsrfGuardFixture the fixture that restores the previous guard state on close
+     */
     public static CsrfGuardFixture load(Properties properties) {
         boolean enabledBefore = CsrfGuard.getInstance().isEnabled();
         CsrfGuard.load(properties);
