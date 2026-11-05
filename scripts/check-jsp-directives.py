@@ -9,7 +9,7 @@ directives do not. This is a maintenance check, not a Java/EL type resolver:
 Jasper must still compile every page after any cleanup (#5478).
 
 Example (after Maven has compiled the application):
-  mvn dependency:build-classpath -Dmdep.outputFile=target/jsp-classpath.txt
+  mvn dependency:build-classpath -DincludeScope=compile -Dmdep.outputFile=target/jsp-classpath.txt
   python3 scripts/check-jsp-directives.py --classpath-file target/jsp-classpath.txt
 
 Exit codes: 0 clean; 1 dead directives; 2 missing/unsupported analysis inputs.

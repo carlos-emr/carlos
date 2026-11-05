@@ -406,6 +406,6 @@ jobs:
             echo 'Compiling JSPs (jspc profile)'
             echo '========================================='
             make jspc
-            mvn -B -ntp dependency:build-classpath -Dmdep.outputFile=target/jsp-classpath.txt
+            mvn -B -ntp dependency:build-classpath -DincludeScope=compile -Dmdep.outputFile=target/jsp-classpath.txt
             python3 scripts/check-jsp-directives.py --classpath-file target/jsp-classpath.txt
           "
