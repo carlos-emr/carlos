@@ -63,7 +63,7 @@
     String styleClass = "data2";
 %>
 <%@ page
-        import="java.util.*,io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.waitinglist.bean.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.waitinglist.bean.*" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBeanHandler" %>
 <%@ page import="io.github.carlos_emr.carlos.waitinglist.bean.WLWaitingListNameBean" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

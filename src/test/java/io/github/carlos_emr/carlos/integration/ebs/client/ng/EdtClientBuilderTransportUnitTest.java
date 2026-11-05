@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.integration.ebs.client.ng;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Proxy;
 import java.math.BigInteger;
 import java.net.SocketTimeoutException;
 import java.nio.file.Files;
@@ -79,9 +80,9 @@ class EdtClientBuilderTransportUnitTest {
     @TempDir static Path keyDirectory;
     @TempDir Path temporaryDirectory;
     private static EbsHttpsTestFixture.Keys keys;
-    // CXF finalizes ClientProxy by closing its client. Retain the handlers until explicit
-    // close so GC cannot race ClientImpl.destroy (which is not safe to invoke twice).
-    private final List<ClientProxy> clientProxies = new ArrayList<>();
+    // Retain the finalizable handlers, not just their underlying clients: a
+    // collected handler can otherwise destroy a client concurrently with teardown.
+    private final List<ClientProxy> clients = new ArrayList<>();
     private final ConcurrentLinkedQueue<InputStream> replays = new ConcurrentLinkedQueue<>();
     private final AtomicInteger faultChains = new AtomicInteger();
     private Bus previousBus;
@@ -104,14 +105,11 @@ class EdtClientBuilderTransportUnitTest {
     @AfterEach
     void tearDown() throws IOException {
         try {
-            for (ClientProxy proxy : clientProxies) proxy.close();
+            for (ClientProxy client : clients) client.close();
         } finally {
-            try {
-                BusFactory.setThreadDefaultBus(previousBus);
-                if (bus != null) bus.shutdown(true);
-            } finally {
-                if (peer != null) peer.close();
-            }
+            BusFactory.setThreadDefaultBus(previousBus);
+            if (bus != null) bus.shutdown(true);
+            if (peer != null) peer.close();
         }
     }
 
@@ -395,7 +393,7 @@ class EdtClientBuilderTransportUnitTest {
         builder.setClientKeystoreFilename(keys.clientProperties().toUri().toString());
         T port = builder.build(contract);
         Client cxf = ClientProxy.getClient(port);
-        clientProxies.add((ClientProxy) java.lang.reflect.Proxy.getInvocationHandler(port));
+        clients.add((ClientProxy) Proxy.getInvocationHandler(port));
         cxf.getInFaultInterceptors().add(new AbstractPhaseInterceptor<Message>(Phase.RECEIVE) {
             @Override public void handleMessage(Message message) { faultChains.incrementAndGet(); }
         });

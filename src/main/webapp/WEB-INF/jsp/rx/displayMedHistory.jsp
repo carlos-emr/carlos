@@ -45,16 +45,16 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%@page import="io.github.carlos_emr.carlos.prescript.data.RxDrugData,java.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
-<%@page import="java.text.SimpleDateFormat" %>
-<%@page import="java.util.Calendar" %>
-<%@page import="io.github.carlos_emr.carlos.rx.data.*" %>
-<%@page import="io.github.carlos_emr.carlos.rx.util.*" %>
+<%@page import="java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
+
+
+
+
 <c:set var="ctx" value="${pageContext.request.contextPath}"/>
 
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>

@@ -43,13 +43,13 @@
     @since 2026.08 (#4987)
 --%>
 
-<%@page import="io.github.carlos_emr.CarlosProperties" %>
+
 <%@ include file="/taglibs.jsp" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ page import="java.util.Properties" %>
-<%@ page import="java.util.List, io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.ContactSpecialtyDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.ContactSpecialty" %>
+
+
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>

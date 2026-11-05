@@ -36,7 +36,7 @@
 %>
 
 <%@ page
-        import="java.lang.*, java.util.*, java.text.*, io.github.carlos_emr.*"
+        import="java.lang.*, java.util.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
@@ -50,7 +50,7 @@
 %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%

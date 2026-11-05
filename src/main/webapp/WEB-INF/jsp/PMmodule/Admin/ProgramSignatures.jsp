@@ -28,7 +28,7 @@
 
 --%>
 <%@ include file="/taglibs.jsp" %>
-<%@ page import="java.util.List" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:url var="programSignaturesUri" value="/PMmodule/ProgramManager">
     <c:param name="method" value="programSignatures"/>

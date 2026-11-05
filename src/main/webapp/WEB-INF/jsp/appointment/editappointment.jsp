@@ -112,9 +112,9 @@
 
 <fmt:message key="report.appointmentReceipt.title" var="appointmentReceiptTitle"/>
 <fmt:message key="appointment.editappointment.msgReceiptPending" var="appointmentReceiptPending"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 <%

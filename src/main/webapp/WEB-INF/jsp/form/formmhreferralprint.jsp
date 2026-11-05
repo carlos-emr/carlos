@@ -44,13 +44,13 @@
     }
 %>
 
-<%@ page import="io.github.carlos_emr.carlos.form.*, java.util.*" %>
-<%@ page import="java.io.FileInputStream" %>
+<%@ page import="java.util.*" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+
 <%@ page import="io.github.carlos_emr.carlos.encounter.util.EctFileUtil" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>

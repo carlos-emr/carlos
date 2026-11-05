@@ -30,23 +30,23 @@
 --%>
 
 <%-- ========== PAGE IMPORTS ========== --%>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
+
 <%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.prevention.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.util.CumulativeLabValuesComparator" %>
 <%@ page import="org.jdom2.*" %>
-<%@ page import="io.github.carlos_emr.carlos.db.*" %>
+
 <%@ page import="org.jdom2.input.*" %>
 <%@ page import="java.io.InputStream" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+
 
 <%-- ========== TAGLIB DECLARATIONS ========== --%>
 <%@ taglib uri="jakarta.tags.core"      prefix="c"   %>

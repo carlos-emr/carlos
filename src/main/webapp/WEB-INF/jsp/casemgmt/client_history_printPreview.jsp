@@ -43,8 +43,8 @@
 %>
 
 
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
+
+
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <style type="text/css" media="print">

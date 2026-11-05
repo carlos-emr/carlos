@@ -388,16 +388,15 @@ async function createTickler(context) {
     return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-save-ok');
   }, null, { timeout: 30000 });
 
-  await page.waitForTimeout(750);
+  // Observe persistence from a separate database connection before closing the
+  // page; a fixed delay after the iframe acknowledgement does not prove it.
+  const row = await waitForTicklerStatus('A');
   await page.close().catch(() => {});
 
-  const rows = getTicklerRows();
-  assert(rows.length === 1, `expected one created tickler row, found ${rows.length}`);
-  assert(rows[0].status === 'A', `created tickler status was ${rows[0].status}`);
-  assert(rows[0].priority === 'High', `created tickler priority was ${rows[0].priority}`);
-  assert(rows[0].serviceDate === '2026-02-18', `created tickler service date was ${rows[0].serviceDate}`);
-  assert(rows[0].assignee === providerNo, `created tickler assignee was ${rows[0].assignee}`);
-  return rows[0].id;
+  assert(row.priority === 'High', `created tickler priority was ${row.priority}`);
+  assert(row.serviceDate === '2026-02-18', `created tickler service date was ${row.serviceDate}`);
+  assert(row.assignee === providerNo, `created tickler assignee was ${row.assignee}`);
+  return row.id;
 }
 
 async function editTicklerFromList(context, listPage, ticklerNo) {

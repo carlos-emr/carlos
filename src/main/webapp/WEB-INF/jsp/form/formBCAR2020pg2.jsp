@@ -29,7 +29,9 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
+
 <%
     String user = (String) session.getAttribute("user");
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -46,7 +48,7 @@
     }
 %>
 
-<%@ page import=" io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*, java.util.Properties" %>
+<%@ page import="io.github.carlos_emr.carlos.form.*, java.util.Properties" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilMisc" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
