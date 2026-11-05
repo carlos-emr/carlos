@@ -1,7 +1,7 @@
 # Dependency replacements for #5472
 
-The WAR no longer carries POI, JFreeChart, Selenium or displaytag; the WAR packaging check
-(`scripts/check-war-container-apis.py`) reports 280 jars. POI is a test-only independent
+The WAR no longer carries POI, JFreeChart, Selenium or displaytag. The WAR packaging check
+(`scripts/check-war-container-apis.py`) verifies container API and JSTL boundaries. POI is a test-only independent
 reader for the spreadsheet round trips. The JSTL API is declared directly, because Tomcat
 does not supply it; the existing WAR packaging check also requires the API and implementation.
 

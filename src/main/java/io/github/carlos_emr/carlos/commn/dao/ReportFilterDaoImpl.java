@@ -40,4 +40,13 @@ public class ReportFilterDaoImpl extends AbstractDaoImpl<ReportFilter> implement
     public ReportFilterDaoImpl() {
         super(ReportFilter.class);
     }
+
+    @Override
+    public java.util.List<ReportFilter> findByReportIdAndStatus(Integer reportId, int status) {
+        var query = entityManager.createQuery("select x from ReportFilter x where x.status=:status"
+                + (reportId == null ? "" : " and x.reportId=:reportId") + " order by x.orderNo, x.id", ReportFilter.class)
+                .setParameter("status", status);
+        if (reportId != null) query.setParameter("reportId", reportId);
+        return query.getResultList();
+    }
 }

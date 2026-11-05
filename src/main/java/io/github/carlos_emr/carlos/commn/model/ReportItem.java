@@ -48,7 +48,7 @@ public class ReportItem extends AbstractModel<Integer> {
     @Column(name = "report_name")
     private String reportName;
 
-    private int status;
+    private Integer status = 0;
 
     public Integer getId() {
         return id;
@@ -67,7 +67,7 @@ public class ReportItem extends AbstractModel<Integer> {
     }
 
     public int getStatus() {
-        return status;
+        return status == null ? 0 : status;
     }
 
     public void setStatus(int status) {

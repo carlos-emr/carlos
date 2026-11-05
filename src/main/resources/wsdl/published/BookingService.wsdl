@@ -1,0 +1,197 @@
+<?xml version='1.0' encoding='UTF-8'?><wsdl:definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://ws.oscarehr.org/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:ns1="http://schemas.xmlsoap.org/soap/http" name="BookingWsService" targetNamespace="http://ws.oscarehr.org/">
+  <wsdl:types>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:ns0="http://ws.oscarehr.org/" targetNamespace="http://ws.oscarehr.org/">
+  <xsd:complexType name="appointmentConfirmationTransfer">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="appointmentDescription" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="appointmentEndTime" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="appointmentTime" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="bookingError" type="ns0:bookingError"/>
+      <xsd:element minOccurs="0" name="location" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="providerName" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="appointmentOptionTransfer">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="availableTime" type="xsd:dateTime"/>
+      <xsd:element name="cancelled" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="encString" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="providerName" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="timeDisplay" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="appointmentResults">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="appointmentOptions" nillable="true" type="ns0:appointmentOptionTransfer"/>
+      <xsd:element minOccurs="0" name="bookingError" type="ns0:bookingError"/>
+      <xsd:element minOccurs="0" name="nextStartDateEncrypted" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="bookingError">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="code" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="description" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="bookingType">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="id" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="name" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="bookAppointment">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="arg1" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="bookAppointmentResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="ns0:appointmentConfirmationTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="findAppointment">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="arg1" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="arg2" type="xsd:dateTime"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="findAppointmentResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="ns0:appointmentResults"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentTypesByProvider">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getAppointmentTypesByProviderResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:bookingType"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getExternalAppointmentTypes">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getExternalAppointmentTypesResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:bookingType"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:element name="bookAppointment" type="ns0:bookAppointment"/>
+  <xsd:element name="bookAppointmentResponse" type="ns0:bookAppointmentResponse"/>
+  <xsd:element name="findAppointment" type="ns0:findAppointment"/>
+  <xsd:element name="findAppointmentResponse" type="ns0:findAppointmentResponse"/>
+  <xsd:element name="getAppointmentTypesByProvider" type="ns0:getAppointmentTypesByProvider"/>
+  <xsd:element name="getAppointmentTypesByProviderResponse" type="ns0:getAppointmentTypesByProviderResponse"/>
+  <xsd:element name="getExternalAppointmentTypes" type="ns0:getExternalAppointmentTypes"/>
+  <xsd:element name="getExternalAppointmentTypesResponse" type="ns0:getExternalAppointmentTypesResponse"/>
+</xsd:schema>
+  </wsdl:types>
+  <wsdl:message name="bookAppointment">
+    <wsdl:part element="tns:bookAppointment" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getExternalAppointmentTypesResponse">
+    <wsdl:part element="tns:getExternalAppointmentTypesResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="findAppointmentResponse">
+    <wsdl:part element="tns:findAppointmentResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentTypesByProviderResponse">
+    <wsdl:part element="tns:getAppointmentTypesByProviderResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getAppointmentTypesByProvider">
+    <wsdl:part element="tns:getAppointmentTypesByProvider" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getExternalAppointmentTypes">
+    <wsdl:part element="tns:getExternalAppointmentTypes" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="bookAppointmentResponse">
+    <wsdl:part element="tns:bookAppointmentResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="findAppointment">
+    <wsdl:part element="tns:findAppointment" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="BookingWs">
+    <wsdl:operation name="bookAppointment">
+      <wsdl:input message="tns:bookAppointment" name="bookAppointment">
+    </wsdl:input>
+      <wsdl:output message="tns:bookAppointmentResponse" name="bookAppointmentResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentTypesByProvider">
+      <wsdl:input message="tns:getAppointmentTypesByProvider" name="getAppointmentTypesByProvider">
+    </wsdl:input>
+      <wsdl:output message="tns:getAppointmentTypesByProviderResponse" name="getAppointmentTypesByProviderResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getExternalAppointmentTypes">
+      <wsdl:input message="tns:getExternalAppointmentTypes" name="getExternalAppointmentTypes">
+    </wsdl:input>
+      <wsdl:output message="tns:getExternalAppointmentTypesResponse" name="getExternalAppointmentTypesResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="findAppointment">
+      <wsdl:input message="tns:findAppointment" name="findAppointment">
+    </wsdl:input>
+      <wsdl:output message="tns:findAppointmentResponse" name="findAppointmentResponse">
+    </wsdl:output>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="BookingWsServiceSoapBinding" type="tns:BookingWs">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="bookAppointment">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="bookAppointment">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="bookAppointmentResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getAppointmentTypesByProvider">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getAppointmentTypesByProvider">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getAppointmentTypesByProviderResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getExternalAppointmentTypes">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getExternalAppointmentTypes">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getExternalAppointmentTypesResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="findAppointment">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="findAppointment">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="findAppointmentResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="BookingWsService">
+    <wsdl:port binding="tns:BookingWsServiceSoapBinding" name="BookingWsPort">
+      <soap:address location="http://127.0.0.1:18080/carlos/ws/BookingService"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

@@ -1,0 +1,349 @@
+<?xml version='1.0' encoding='UTF-8'?><wsdl:definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://ws.oscarehr.org/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:ns1="http://schemas.xmlsoap.org/soap/http" name="LabUploadWsService" targetNamespace="http://ws.oscarehr.org/">
+  <wsdl:types>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:ns0="http://ws.oscarehr.org/" targetNamespace="http://ws.oscarehr.org/">
+  <xsd:complexType name="uploadCDL">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="file_name" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="contents" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="oscar_provider_no" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadCDLResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadCLS">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="file_name" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="contents" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="oscar_provider_no" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadCLSResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadCML">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="file_name" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="contents" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="oscar_provider_no" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadCMLResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadDocumentReference">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="file_name" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="contents" type="xsd:base64Binary"/>
+      <xsd:element minOccurs="0" name="oscar_provider_no" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadDocumentReferenceResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadExcelleris">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="file_name" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="contents" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="oscar_provider_no" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadExcellerisResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadGammaDynacare">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="file_name" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="contents" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="oscar_provider_no" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadGammaDynacareResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadIHA">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="file_name" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="contents" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="oscar_provider_no" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadIHAResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadLifelabs">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="file_name" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="contents" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="oscar_provider_no" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadLifelabsResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadPDF">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="file_name" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="contents" type="xsd:base64Binary"/>
+      <xsd:element minOccurs="0" name="oscar_provider_no" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="uploadPDFResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:element name="uploadCDL" type="ns0:uploadCDL"/>
+  <xsd:element name="uploadCDLResponse" type="ns0:uploadCDLResponse"/>
+  <xsd:element name="uploadCLS" type="ns0:uploadCLS"/>
+  <xsd:element name="uploadCLSResponse" type="ns0:uploadCLSResponse"/>
+  <xsd:element name="uploadCML" type="ns0:uploadCML"/>
+  <xsd:element name="uploadCMLResponse" type="ns0:uploadCMLResponse"/>
+  <xsd:element name="uploadDocumentReference" type="ns0:uploadDocumentReference"/>
+  <xsd:element name="uploadDocumentReferenceResponse" type="ns0:uploadDocumentReferenceResponse"/>
+  <xsd:element name="uploadExcelleris" type="ns0:uploadExcelleris"/>
+  <xsd:element name="uploadExcellerisResponse" type="ns0:uploadExcellerisResponse"/>
+  <xsd:element name="uploadGammaDynacare" type="ns0:uploadGammaDynacare"/>
+  <xsd:element name="uploadGammaDynacareResponse" type="ns0:uploadGammaDynacareResponse"/>
+  <xsd:element name="uploadIHA" type="ns0:uploadIHA"/>
+  <xsd:element name="uploadIHAResponse" type="ns0:uploadIHAResponse"/>
+  <xsd:element name="uploadLifelabs" type="ns0:uploadLifelabs"/>
+  <xsd:element name="uploadLifelabsResponse" type="ns0:uploadLifelabsResponse"/>
+  <xsd:element name="uploadPDF" type="ns0:uploadPDF"/>
+  <xsd:element name="uploadPDFResponse" type="ns0:uploadPDFResponse"/>
+</xsd:schema>
+  </wsdl:types>
+  <wsdl:message name="uploadDocumentReferenceResponse">
+    <wsdl:part element="tns:uploadDocumentReferenceResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadCML">
+    <wsdl:part element="tns:uploadCML" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadIHA">
+    <wsdl:part element="tns:uploadIHA" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadDocumentReference">
+    <wsdl:part element="tns:uploadDocumentReference" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadCDL">
+    <wsdl:part element="tns:uploadCDL" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadLifelabsResponse">
+    <wsdl:part element="tns:uploadLifelabsResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadLifelabs">
+    <wsdl:part element="tns:uploadLifelabs" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadCDLResponse">
+    <wsdl:part element="tns:uploadCDLResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadCLS">
+    <wsdl:part element="tns:uploadCLS" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadCMLResponse">
+    <wsdl:part element="tns:uploadCMLResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadExcelleris">
+    <wsdl:part element="tns:uploadExcelleris" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadPDFResponse">
+    <wsdl:part element="tns:uploadPDFResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadCLSResponse">
+    <wsdl:part element="tns:uploadCLSResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadExcellerisResponse">
+    <wsdl:part element="tns:uploadExcellerisResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadGammaDynacare">
+    <wsdl:part element="tns:uploadGammaDynacare" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadIHAResponse">
+    <wsdl:part element="tns:uploadIHAResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadPDF">
+    <wsdl:part element="tns:uploadPDF" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="uploadGammaDynacareResponse">
+    <wsdl:part element="tns:uploadGammaDynacareResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="LabUploadWs">
+    <wsdl:operation name="uploadExcelleris">
+      <wsdl:input message="tns:uploadExcelleris" name="uploadExcelleris">
+    </wsdl:input>
+      <wsdl:output message="tns:uploadExcellerisResponse" name="uploadExcellerisResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="uploadGammaDynacare">
+      <wsdl:input message="tns:uploadGammaDynacare" name="uploadGammaDynacare">
+    </wsdl:input>
+      <wsdl:output message="tns:uploadGammaDynacareResponse" name="uploadGammaDynacareResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="uploadCML">
+      <wsdl:input message="tns:uploadCML" name="uploadCML">
+    </wsdl:input>
+      <wsdl:output message="tns:uploadCMLResponse" name="uploadCMLResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="uploadIHA">
+      <wsdl:input message="tns:uploadIHA" name="uploadIHA">
+    </wsdl:input>
+      <wsdl:output message="tns:uploadIHAResponse" name="uploadIHAResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="uploadPDF">
+      <wsdl:input message="tns:uploadPDF" name="uploadPDF">
+    </wsdl:input>
+      <wsdl:output message="tns:uploadPDFResponse" name="uploadPDFResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="uploadDocumentReference">
+      <wsdl:input message="tns:uploadDocumentReference" name="uploadDocumentReference">
+    </wsdl:input>
+      <wsdl:output message="tns:uploadDocumentReferenceResponse" name="uploadDocumentReferenceResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="uploadCDL">
+      <wsdl:input message="tns:uploadCDL" name="uploadCDL">
+    </wsdl:input>
+      <wsdl:output message="tns:uploadCDLResponse" name="uploadCDLResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="uploadLifelabs">
+      <wsdl:input message="tns:uploadLifelabs" name="uploadLifelabs">
+    </wsdl:input>
+      <wsdl:output message="tns:uploadLifelabsResponse" name="uploadLifelabsResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="uploadCLS">
+      <wsdl:input message="tns:uploadCLS" name="uploadCLS">
+    </wsdl:input>
+      <wsdl:output message="tns:uploadCLSResponse" name="uploadCLSResponse">
+    </wsdl:output>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="LabUploadWsServiceSoapBinding" type="tns:LabUploadWs">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="uploadExcelleris">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="uploadExcelleris">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="uploadExcellerisResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="uploadGammaDynacare">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="uploadGammaDynacare">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="uploadGammaDynacareResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="uploadCML">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="uploadCML">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="uploadCMLResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="uploadIHA">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="uploadIHA">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="uploadIHAResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="uploadPDF">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="uploadPDF">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="uploadPDFResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="uploadDocumentReference">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="uploadDocumentReference">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="uploadDocumentReferenceResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="uploadCDL">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="uploadCDL">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="uploadCDLResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="uploadLifelabs">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="uploadLifelabs">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="uploadLifelabsResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="uploadCLS">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="uploadCLS">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="uploadCLSResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="LabUploadWsService">
+    <wsdl:port binding="tns:LabUploadWsServiceSoapBinding" name="LabUploadWsPort">
+      <soap:address location="http://127.0.0.1:18080/carlos/ws/LabUploadService"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>
