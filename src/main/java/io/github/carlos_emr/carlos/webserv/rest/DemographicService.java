@@ -638,6 +638,7 @@ public class DemographicService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).entity("Request body is required").build());
         }
         Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
+        validateFieldLengths(demographic);
         demographicManager.createDemographic(loggedInInfo, demographic, data.getAdmissionProgramId());
         return demoConverter.getAsTransferObject(loggedInInfo, demographic);
     }
@@ -657,6 +658,9 @@ public class DemographicService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).entity("Request body with demographicNo is required").build());
         }
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("u", data.getDemographicNo());
+        Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
+        // Reject the whole request before custom fields or waiting-list entries can be changed.
+        validateFieldLengths(demographic);
         //update demographiccust
         if (data.getNurse() != null || data.getResident() != null || data.getAlert() != null || data.getMidwife() != null || data.getNotes() != null) {
             DemographicCust demoCust = demographicManager.getDemographicCust(loggedInInfo, data.getDemographicNo());
@@ -677,10 +681,18 @@ public class DemographicService extends AbstractServiceImpl {
             WLWaitingListUtil.updateWaitingListRecord(data.getWaitingListID().toString(), data.getWaitingListNote(), data.getDemographicNo().toString(), null);
         }
 
-        Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
         demographicManager.updateDemographic(loggedInInfo, demographic);
 
         return demoConverter.getAsTransferObject(loggedInInfo, demographic);
+    }
+
+    private static void validateFieldLengths(Demographic demographic) {
+        List<String> errors = demographic.validateFieldLengths();
+        if (!errors.isEmpty()) {
+            // The validator names fields and limits; it never includes submitted patient values.
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
+                    .type(MediaType.TEXT_PLAIN).entity(String.join("; ", errors)).build());
+        }
     }
 
     /**

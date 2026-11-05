@@ -70,6 +70,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public static final int FIRST_NAME_MAX_LENGTH = 50;
     public static final int MIDDLE_NAMES_MAX_LENGTH = 100;
     public static final int ALIAS_MAX_LENGTH = 70;
+    public static final int PRONOUN_MAX_LENGTH = 25;
+    public static final int GENDER_MAX_LENGTH = 25;
     /** The pref_name column ({@code varchar(30) NOT NULL}); see {@link #prefNameForNameUsed(String)}. */
     public static final int PREF_NAME_MAX_LENGTH = 30;
     public static final int ADDRESS_MAX_LENGTH = 60;
@@ -335,6 +337,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         addFieldLengthError(errors, "First name", firstName, FIRST_NAME_MAX_LENGTH);
         addFieldLengthError(errors, "Middle names", middleNames, MIDDLE_NAMES_MAX_LENGTH);
         addFieldLengthError(errors, "Preferred name", alias, ALIAS_MAX_LENGTH);
+        addFieldLengthError(errors, "Pronouns", pronoun, PRONOUN_MAX_LENGTH);
+        addFieldLengthError(errors, "Gender", gender, GENDER_MAX_LENGTH);
         addFieldLengthError(errors, "Address", address, ADDRESS_MAX_LENGTH);
         addFieldLengthError(errors, "City", city, CITY_MAX_LENGTH);
         addFieldLengthError(errors, "Province", province, PROVINCE_MAX_LENGTH);
