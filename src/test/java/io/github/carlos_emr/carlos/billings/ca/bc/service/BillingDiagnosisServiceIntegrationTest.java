@@ -62,7 +62,7 @@ class BillingDiagnosisServiceIntegrationTest extends CarlosTestBase {
             for (int day = 1; day <= 11; day++) {
                 bill(patient, "202610%02d".formatted(day), "O", "same", "d" + day, null);
             }
-            bill(patient, "20261101", "D", "deleted", null, null);
+            bill(patient, "20261101", "D", "del", null, null);
             bill(patient, "20261102", null, "null", null, null);
             bill(patient + 1, "20261103", "O", "other", null, null);
         });
