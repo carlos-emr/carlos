@@ -327,7 +327,7 @@ Body: the sanitizer's current `resolveEncoding` logic (null/empty → UTF-8; `Ch
 
 - [ ] **Step 4: Replace the two private copies**
 
-`ResponseSanitizationFilter`: delete `resolveEncoding`; both call sites call `RequestNegotiation.responseCharset(response)`. `PrivacyStatementAppendingFilter`: delete `noticeCharset` and its three `java.nio.charset` imports that become unused; `printConfidentialityStatement` calls `RequestNegotiation.responseCharset(response)`. In `doFilter`, replace `contentType.toLowerCase().startsWith("text/html")` with `RequestNegotiation.isHtmlContentType(contentType)` and drop the `IMPROPER_UNICODE` suppression on `doFilter` if `toLowerCase` no longer appears in it (`normalizeServletPath` keeps its own).
+`ResponseSanitizationFilter`: delete `resolveEncoding`; both call sites call `RequestNegotiation.responseCharset(response)`. `PrivacyStatementAppendingFilter`: delete `noticeCharset` and its three `java.nio.charset` imports that become unused; `printConfidentialityStatement` calls `RequestNegotiation.responseCharset(response)`. In `doFilter`, replace `contentType.toLowerCase().startsWith("text/html")` with `RequestNegotiation.isHtmlContentType(contentType)` and drop the `IMPROPER_UNICODE` suppression on `doFilter` once `toLowerCase` no longer appears in it (the pre-existing `toLowerCase()` calls in `init()` and `normalizeServletPath` carry no suppression and are untouched).
 
 - [ ] **Step 5: Run the focused suite**
 
