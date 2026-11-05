@@ -302,6 +302,88 @@ class PrivacyStatementAppendingFilterUnitTest {
         assertThat(response.getContentLength()).isEqualTo(payload.length);
     }
 
+    @Test
+    void shouldPublishStreamLength_whenContentTypeIsNeverSet() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        byte[] payload = {0, 1, -1, 42};
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentLength(payload.length);
+            var stream = res.getOutputStream();
+            // An untyped stream can never be decorated: the length must be out before any
+            // write or flush can commit the body, as it was before the wrapper deferred lengths.
+            assertThat(response.getContentLength()).isEqualTo(payload.length);
+            stream.write(payload);
+        });
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getContentAsByteArray()).isEqualTo(payload);
+        assertThat(response.getContentLength()).isEqualTo(payload.length);
+    }
+
+    @Test
+    void shouldPublishStreamLength_whenItIsDeclaredAfterTheStreamWithoutAType() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        byte[] payload = {0, 1, -1, 42};
+        filter.doFilter(request, response, (req, res) -> {
+            var stream = res.getOutputStream();
+            res.setContentLength(payload.length);
+            // Declared after the channel and still untyped: the same rule applies, so the
+            // length is out before the first write or flush can commit the body.
+            assertThat(response.getContentLength()).isEqualTo(payload.length);
+            stream.write(payload);
+        });
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getContentAsByteArray()).isEqualTo(payload);
+        assertThat(response.getContentLength()).isEqualTo(payload.length);
+    }
+
+    @Test
+    void shouldPublishReplacementLength_whenAnUntypedStreamRedeclaresIt() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/download");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        byte[] payload = {0, 1, 2, 3, 4, 5, 6, 7};
+        filter.doFilter(request, response, (req, res) -> {
+            res.setContentLength(4);
+            var stream = res.getOutputStream();
+            assertThat(response.getContentLength()).isEqualTo(4);
+            // The length published at acquisition is replaced before the body: the container
+            // would otherwise frame eight bytes with a length of four and cut the body short.
+            res.setContentLength(payload.length);
+            assertThat(response.getContentLength()).isEqualTo(payload.length);
+            stream.write(payload);
+        });
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getContentAsByteArray()).isEqualTo(payload);
+        assertThat(response.getContentLength()).isEqualTo(payload.length);
+    }
+
+    @Test
+    void shouldRetractUntypedStreamLength_whenTypeTurnsHtmlBeforeTheBody() throws Exception {
+        var properties = io.github.carlos_emr.CarlosProperties.getInstance();
+        Object original = properties.setProperty("confidentiality_statement.v1", "Synthetic untyped notice.");
+        try {
+            MockHttpServletResponse response = spy(new MockHttpServletResponse());
+            filter.doFilter(new MockHttpServletRequest("GET", "/print"), response, (req, res) -> {
+                res.setContentLength(4);
+                var stream = res.getOutputStream();
+                assertThat(response.getContentLength()).isEqualTo(4);
+                // The type arrives after the channel: the published length no longer describes
+                // the decorated body, so it is retracted before anything is written.
+                res.setContentType("text/html;charset=UTF-8");
+                verify(response).setHeader("Content-Length", null);
+                stream.write("body".getBytes(StandardCharsets.UTF_8));
+            });
+            assertThat(response.getContentAsString()).startsWith("body").contains("Synthetic untyped notice.");
+        } finally {
+            if (original == null) {
+                properties.remove("confidentiality_statement.v1");
+            } else {
+                properties.put("confidentiality_statement.v1", original);
+            }
+        }
+    }
+
     @ParameterizedTest
     @CsvSource({"false,false", "false,true", "true,false", "true,true"})
     void shouldPublishNonHtmlLength_whenTypeHeaderIsSetAfterChannelSelection(boolean add, boolean useWriter)

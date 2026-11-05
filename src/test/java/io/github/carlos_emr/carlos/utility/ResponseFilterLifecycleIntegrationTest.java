@@ -281,6 +281,47 @@ class ResponseFilterLifecycleIntegrationTest {
         assertThat(response.headers().firstValueAsLong("Content-Length")).hasValue(BINARY.length);
     }
 
+    static Stream<Arguments> untypedStreamCases() {
+        return Stream.of("/development", "/packaged").flatMap(context ->
+                Stream.of("direct", "forward", "nested").flatMap(dispatch ->
+                        Stream.of(false, true).map(lateLength -> Arguments.of(context, dispatch, lateLength))));
+    }
+
+    static Stream<Arguments> untypedReplacementCases() {
+        return Stream.of("/development", "/packaged").flatMap(context ->
+                Stream.of("direct", "forward", "nested").map(dispatch -> Arguments.of(context, dispatch)));
+    }
+
+    @ParameterizedTest(name = "untyped replacement length {0} {1}")
+    @MethodSource("untypedReplacementCases")
+    void shouldPublishReplacementLength_whenAnUntypedStreamRedeclaresIt(String context, String dispatch)
+            throws Exception {
+        // A length published at acquisition and replaced before the body: the replacement must
+        // reach the container, or it frames the full body with the stale length and cuts it short.
+        HttpResponse<byte[]> response = get(context + "/" + dispatch
+                + "?output=binary&noType=true&flush=true&lateLength=true&staleFirstLength=true");
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).as("full body for %s at %s", dispatch, context).isEqualTo(BINARY);
+        assertThat(response.headers().firstValueAsLong("Content-Length")).hasValue(BINARY.length);
+    }
+
+    @ParameterizedTest(name = "untyped stream {0} {1} lateLength={2}")
+    @MethodSource("untypedStreamCases")
+    void shouldPublishStreamLength_whenNoContentTypeIsEverSet(String context, String dispatch, boolean lateLength)
+            throws Exception {
+        // No wrapper can decorate a response that declares no type, so holding the length until
+        // the chain unwinds only loses it once the explicit flush commits. The same holds whether
+        // the length is declared before or after the stream is acquired.
+        HttpResponse<byte[]> response = get(context + "/" + dispatch
+                + "?output=binary&noType=true&flush=true&lateLength=" + lateLength);
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).isEqualTo(BINARY);
+        assertThat(response.headers().firstValue("Content-Type")).isEmpty();
+        assertThat(response.headers().firstValueAsLong("Content-Length"))
+                .as("explicit length for untyped %s at %s, lateLength=%s", dispatch, context, lateLength)
+                .hasValue(BINARY.length);
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"/development", "/packaged"})
     void shouldKeepSuppliedLength_whenNullLengthHeaderIsAdded(String context) throws Exception {
@@ -525,6 +566,16 @@ class ResponseFilterLifecycleIntegrationTest {
     }
 
     private static class ContentServlet extends HttpServlet {
+        /** The binary fixture's length headers, declared before or after the stream as the query asks. */
+        private static void declareBinaryLength(HttpServletRequest request, HttpServletResponse response) {
+            if (!"true".equals(request.getParameter("noLength"))) {
+                response.setContentLength(BINARY.length);
+            }
+            if ("true".equals(request.getParameter("addNullLength"))) {
+                response.addHeader("Content-Length", null);
+            }
+        }
+
         @Override
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws IOException, ServletException {
@@ -589,14 +640,22 @@ class ResponseFilterLifecycleIntegrationTest {
                 String lateType = request.getParameter("lateType");
                 jakarta.servlet.ServletOutputStream stream;
                 if (lateType == null) {
-                    response.setContentType("application/octet-stream");
-                    if (!"true".equals(request.getParameter("noLength"))) {
-                        response.setContentLength(BINARY.length);
+                    // noType: a download that declares its length but never a Content-Type.
+                    // lateLength: the length is declared only after the stream was acquired.
+                    if (!"true".equals(request.getParameter("noType"))) {
+                        response.setContentType("application/octet-stream");
                     }
-                    if ("true".equals(request.getParameter("addNullLength"))) {
-                        response.addHeader("Content-Length", null);
+                    if ("true".equals(request.getParameter("lateLength"))) {
+                        if ("true".equals(request.getParameter("staleFirstLength"))) {
+                            // A length declared before the stream that the real one replaces after it.
+                            response.setContentLength(10);
+                        }
+                        stream = response.getOutputStream();
+                        declareBinaryLength(request, response);
+                    } else {
+                        declareBinaryLength(request, response);
+                        stream = response.getOutputStream();
                     }
-                    stream = response.getOutputStream();
                 } else {
                     response.setContentLength(BINARY.length);
                     stream = response.getOutputStream();

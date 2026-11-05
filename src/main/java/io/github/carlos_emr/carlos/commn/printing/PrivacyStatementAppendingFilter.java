@@ -340,8 +340,12 @@ public class PrivacyStatementAppendingFilter implements Filter {
         @Override
         public ServletOutputStream getOutputStream() throws IOException {
             // Publish before acquiring the delegate: an outer wrapper may itself defer the
-            // length and replay it only when its output stream is first acquired.
-            if (isKnownNonHtml()) {
+            // length and replay it only when its output stream is first acquired. A stream whose
+            // type is still unknown publishes too, as the CSRF and logout wrappers do: a download
+            // that never declares a type can never be decorated, and holding its length until the
+            // chain unwinds loses it once an explicit flush commits the body. A type that turns
+            // to HTML before commit retracts the length in updateContentLengthForType().
+            if (!RequestNegotiation.isHtmlContentType(getContentType())) {
                 contentLength.publishPending();
             }
             ServletOutputStream stream = super.getOutputStream();
@@ -354,6 +358,8 @@ public class PrivacyStatementAppendingFilter implements Filter {
             if (writer == null)
                 writer = new DelegatingWriter(super.getWriter());
             responseWriterObtained = true;
+            // Unlike a stream, a writer taken before its type is usually a page about to declare
+            // text/html, so an unknown type keeps the length pending here.
             if (isKnownNonHtml()) {
                 contentLength.publishPending();
             }
@@ -457,8 +463,12 @@ public class PrivacyStatementAppendingFilter implements Filter {
                 // Keep it pending in case the response ultimately needs no decoration.
                 contentLength.retractToPending();
             }
-            // Content-Type can arrive through any header API after channel selection.
-            if ((responseOutputStreamObtained || responseWriterObtained) && isKnownNonHtml()) {
+            // Content-Type can arrive through any header API after channel selection, and so can
+            // the length. The channel rules of getOutputStream() and getWriter() apply again here:
+            // a stream publishes unless the type is known HTML, a writer only once it is known
+            // non-HTML.
+            if ((responseOutputStreamObtained && !RequestNegotiation.isHtmlContentType(getContentType()))
+                    || (responseWriterObtained && isKnownNonHtml())) {
                 contentLength.publishPending();
             }
         }

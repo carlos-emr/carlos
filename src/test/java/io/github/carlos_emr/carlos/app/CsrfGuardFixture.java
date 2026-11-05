@@ -54,10 +54,14 @@ public final class CsrfGuardFixture implements AutoCloseable {
     /**
      * Loads the given configuration, remembering whether the guard was enabled before.
      *
+     * <p>Private on purpose: the properties factory pins the first provider it builds for the
+     * rest of the fork, so a test that loaded a non-shipped configuration through it would hand
+     * that configuration to every later {@link #loadShippedConfiguration()} without an error.</p>
+     *
      * @param properties Properties the CsrfGuard configuration to load
      * @return CsrfGuardFixture the fixture that restores the previous guard state on close
      */
-    public static CsrfGuardFixture load(Properties properties) {
+    private static CsrfGuardFixture load(Properties properties) {
         boolean enabledBefore = CsrfGuard.getInstance().isEnabled();
         CsrfGuard.load(properties);
         return new CsrfGuardFixture(properties, enabledBefore);
