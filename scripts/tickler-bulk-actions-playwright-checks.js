@@ -9,6 +9,13 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { waitForTicklerTable } = require('./tickler-forward-filters-playwright-checks');
 const { withTicklerConfirmations } = require('./lib/tickler-confirmation');
 
+/**
+ * Drives the main task list's bulk actions (Check All, Clear All, Complete, reactivation and Delete, which
+ * asks for one native confirmation, #5683) against four owned tasks and checks that only the ticked ids are
+ * posted. The tasks are removed and verified gone.
+ *
+ * @param {object} s the workflow session from lib/workflow-session.js (patient, marker, sql, steps)
+ */
 async function workflow(s) {
   const manualRefresh = process.env.TICKLER_BULK_ONLY === 'state-actions';
   h.assert(!process.env.TICKLER_BULK_ONLY || manualRefresh, 'TICKLER_BULK_ONLY must be state-actions when set');

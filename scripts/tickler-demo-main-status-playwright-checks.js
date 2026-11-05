@@ -60,6 +60,13 @@ function documentStore() {
   return real;
 }
 
+/**
+ * Drives the patient task list opened from the chart document viewer: Delete (which asks for one native
+ * confirmation, #5683) and Complete on owned tasks, the Move to views, a legacy erase submission, and
+ * refused GET and tokenless POST requests. The owned tasks and the PDF fixture are removed and verified gone.
+ *
+ * @param {object} s the workflow session from lib/workflow-session.js (patient, marker, sql, steps)
+ */
 async function workflow(s) {
   const { sql, marker, patient, provider, recorder } = s;
   const store = documentStore();

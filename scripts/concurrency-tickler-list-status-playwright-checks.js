@@ -37,6 +37,12 @@ async function batch(list, message, buttonValue, confirms) {
     `The ${buttonValue} batch reported failed rows (failCount in the redirect URL), so the update itself did not run`);
 }
 
+/**
+ * Runs the stale-list race: session B deletes a task (one native confirmation, #5683), then session A, whose
+ * list still shows it Active, completes it. Passes only if the deleted task is not resurrected as Completed.
+ *
+ * @param {object} s the workflow session from lib/workflow-session.js (patient, marker, sql, steps)
+ */
 async function workflow(s) {
   const { sql } = s;
   const tickler = seedTickler(s, 'list race');

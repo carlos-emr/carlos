@@ -9,6 +9,13 @@ const {withTicklerConfirmations}=require('./lib/tickler-confirmation');
 const {waitForTicklerTable}=require('./tickler-forward-filters-playwright-checks');
 const all=process.env.TICKLER_SELECTION_ACTION==='first';
 const name=all?'tickler-first-page-delete':'tickler-last-page-complete';
+/**
+ * Checks that Check All on one page of the 50-row task list submits only that page's owned tasks: Complete
+ * on the last page, or Delete (one native confirmation, #5683) on the first page. The 53 owned tasks are
+ * removed and verified gone.
+ *
+ * @param {object} s the workflow session from lib/workflow-session.js (patient, marker, sql, steps)
+ */
 async function workflow(s){
   const {sql,patient,marker,provider}=s,q=h.sqlString;
   const owned=`demographic_no=${patient} AND message LIKE ${q(marker+'%')}`;

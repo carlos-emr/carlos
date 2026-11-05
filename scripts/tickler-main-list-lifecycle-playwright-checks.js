@@ -26,6 +26,13 @@ const BUTTON = {
   erase: `${FORM} input[type="button"][onclick*="submit_form.value='Erase Completely'"]`,
 };
 
+/**
+ * Drives the provider-wide task list through its Active, Completed and Deleted views against four
+ * owned tasks, including the Delete confirmation (#5683), the reactivation refresh and a legacy erase
+ * submission. Every row it creates is removed and verified gone by the registered cleanup.
+ *
+ * @param {object} s the workflow session from lib/workflow-session.js (patient, marker, sql, steps)
+ */
 async function workflow(s) {
   const { sql, marker, patient, provider } = s;
   const owned = `SELECT tickler_no FROM tickler WHERE demographic_no=${patient}`;
