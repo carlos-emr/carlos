@@ -96,13 +96,14 @@ class DemographicUpdate2ActionTest extends CarlosWebTestBase {
         addRequestParameter("demographic_no", "123");
         String invalid = character.repeat(26);
         addRequestParameter(field, invalid);
-        when(mockDemographicDao.getDemographic("123")).thenReturn(new Demographic(123));
+        Demographic demographic = new Demographic(123);
+        when(mockDemographicDao.getDemographic("123")).thenReturn(demographic);
 
         assertThat(executeAction(action)).isEqualTo("validationError");
         assertThat(mockResponse.getStatus()).isEqualTo(400);
         assertThat(mockRequest.getAttribute("fieldLengthValidationErrors"))
                 .isEqualTo(List.of(label + " exceeds maximum length of 25 characters."));
-        assertThat(mockRequest.getParameter(field)).isEqualTo(invalid);
+        assertThat("pronouns".equals(field) ? demographic.getPronoun() : demographic.getGender()).isEqualTo(invalid);
         verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
 
