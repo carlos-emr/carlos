@@ -32,6 +32,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -89,6 +91,25 @@ class DemographicAddRecord2ActionTest extends CarlosWebTestBase {
         if (mockCloseable != null) {
             mockCloseable.close();
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"pronouns,Pronouns,A", "gender,Gender,A", "pronouns,Pronouns,😀", "gender,Gender,😀"})
+    void shouldRejectOverlongFields_whenPostedWithoutBrowserValidation(String field, String label, String character) throws Exception {
+        allowPrivilege("_demographic", "w");
+        mockRequest.setMethod("POST");
+        addRequestParameter("last_name", "FAKE-PATIENT");
+        addRequestParameter("first_name", "Check");
+        addRequestParameter("sex", "F");
+        String invalid = character.repeat(26);
+        addRequestParameter(field, invalid);
+
+        assertThat(executeAction(action)).isEqualTo("validationError");
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(mockRequest.getAttribute("fieldLengthValidationErrors"))
+                .isEqualTo(List.of(label + " exceeds maximum length of 25 characters."));
+        assertThat(mockRequest.getParameter(field)).isEqualTo(invalid);
+        verify(mockDemographicDao, never()).save(any(Demographic.class));
     }
 
     @Test

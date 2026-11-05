@@ -21,6 +21,7 @@ const ui = require('./lib/playwright-ui');
 const b = require('./lib/boundary-values');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { removeMarkedPatients } = require('./lib/gap-records-fixtures');
+const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 
 const TIMEOUT = 30000;
 
@@ -248,6 +249,30 @@ async function workflow(s) {
     b.assertStored(sql, 'demographic', 'gender', where('Q'), acceptedGender, 'Unicode gender at the column length');
     await add.close();
     h.assert(problems.length === 0, problems.join(' || '));
+  });
+
+  await s.step('direct Add POSTs reject pronoun and gender overflow before saving', async () => {
+    for (const [field, label, suffix] of [['pronouns', 'Pronouns', 'R'], ['gender', 'Gender', 'S']]) {
+      add = await openAddForm(s, tag + suffix);
+      const form = await fillBasics(add, tag + suffix, 'Direct');
+      const column = field === 'pronouns' ? 'pronoun' : 'gender';
+      const maximum = b.columnLength(sql, 'demographic', column);
+      const invalid = '😀'.repeat(maximum) + 'X';
+      await form.locator(`[name="${field}"]`).fill(invalid);
+      const mark = failureMark(s.recorder);
+      // Native submit bypasses both HTML validity and the form's submit listeners.
+      const [response] = await Promise.all([
+        add.waitForNavigation({ waitUntil: 'networkidle', timeout: TIMEOUT }),
+        form.evaluate(element => HTMLFormElement.prototype.submit.call(element)),
+      ]);
+      h.assert(response && response.status() === 400, `The server did not reject the direct ${field} POST`);
+      h.assert((await add.locator('body').innerText()).includes(`${label} exceeds maximum length of ${maximum} characters.`),
+        `The server did not report the ${field} length error`);
+      h.assert(sql.value('SELECT COUNT(*) FROM demographic WHERE last_name LIKE ?', [tag + suffix + '%']) === '0',
+        `The direct over-length ${field} POST saved a patient`);
+      consumeExpectedFailure(s.recorder, mark, { status: 400, path: /\/demographic\/DemographicAddRecord$/ });
+      await add.close();
+    }
   });
 
 }
