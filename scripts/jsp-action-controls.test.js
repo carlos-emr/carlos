@@ -33,9 +33,10 @@ function render(control) {
 }
 
 function attribute(control, name) {
-  const match = control.match(new RegExp(`\\b${name}=(['"])([\\s\\S]*?)\\1`, 'i'));
+  const match = [...control.matchAll(/\b([\w-]+)=(['"])([\s\S]*?)\2/g)]
+    .find(candidate => candidate[1].toLowerCase() === name.toLowerCase());
   assert.ok(match, `Missing ${name}: ${control}`);
-  return decodeHTML(match[2]);
+  return decodeHTML(match[3]);
 }
 
 function click(control, context) {
@@ -91,20 +92,32 @@ test('image delete remains a single encoded action and bypasses anchor-only AJAX
   assert.deepEqual(calls, ['fixture.png']);
 });
 
-test('OMD and messenger navigation links have real fallback routes matching their popups', () => {
-  const cases = [
-    {file: 'casemgmt/newEncounterHeader.jsp', route: '/common/omdDiseaseList', label: 'encounter.Header.OntMD', fn: 'popupPage', routeIndex: 3},
-    {file: 'admin/admin.jsp', route: '/messenger', label: 'admin.admin.btnMessengerAdmin', fn: 'popupOscarRx', routeIndex: 2},
-  ];
-  for (const entry of cases) {
-    const raw = (jsp(entry.file).match(/<a\b[\s\S]*?<\/a>/g) || []).find(control => control.includes(`key="${entry.label}"`));
-    assert.ok(raw);
-    const control = render(raw);
-    const calls = [];
-    assert.equal(click(control, {[entry.fn]: (...args) => calls.push(args)}), false);
-    assert.equal(calls.length, 1);
-    const fallback = attribute(control, 'href');
-    assert.equal(fallback, calls[0][entry.routeIndex]);
-    assert.equal(new URL(fallback, 'https://example.test').pathname, '/carlos' + entry.route);
+test('the OMD popup action does not expose patient attributes in a navigation link', () => {
+  const source = jsp('casemgmt/newEncounterHeader.jsp');
+  const raw = (source.match(/<button\b[\s\S]*?<\/button>/g) || [])
+    .find(control => control.includes('key="encounter.Header.OntMD"'));
+  assert.ok(raw, 'OMD must remain a native button');
+  const control = render(raw);
+  assert.equal(attribute(control, 'type'), 'button');
+  assert.doesNotMatch(control, /\b(?:href|formaction)\s*=/i);
+  for (const anchor of source.match(/<a\b[\s\S]*?<\/a>/g) || []) {
+    assert.doesNotMatch(anchor, /omdDiseaseList|popupPatientSex|popupPatientAge/,
+      'Patient attributes must not be copied into a navigation link');
   }
+  const calls = [];
+  assert.equal(click(control, {popupPage: (...args) => calls.push(args)}), false);
+  assert.deepEqual(calls, [[600, 175, 'Calculators', '/carlos/common/omdDiseaseList?sex=F&age=55']]);
+});
+
+test('messenger navigation has a real fallback route matching its popup', () => {
+  const raw = (jsp('admin/admin.jsp').match(/<a\b[\s\S]*?<\/a>/g) || [])
+    .find(control => control.includes('key="admin.admin.btnMessengerAdmin"'));
+  assert.ok(raw);
+  const control = render(raw);
+  const calls = [];
+  assert.equal(click(control, {popupOscarRx: (...args) => calls.push(args)}), false);
+  assert.equal(calls.length, 1);
+  const fallback = attribute(control, 'href');
+  assert.equal(fallback, calls[0][2]);
+  assert.equal(new URL(fallback, 'https://example.test').pathname, '/carlos/messenger');
 });

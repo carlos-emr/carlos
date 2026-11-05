@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -58,10 +59,17 @@ class BillingDigSearchJspRegressionTest {
 
         assertThat(jsp).doesNotContain("javascript:CodeAttach(");
         assertThat(jsp).contains(
-                "href=\"#\" onclick=\"CodeAttach('<%=" + ENCODE + "forJavaScriptAttribute(Dcode)%>|<%="
+                "onclick=\"CodeAttach('<%=" + ENCODE + "forJavaScriptAttribute(Dcode)%>|<%="
                         + ENCODE + "forJavaScriptAttribute(DcodeDesc)%>'); return false;\">",
-                "href=\"#\" onclick=\"CodeAttach('<%=" + ENCODE + "forJavaScriptAttribute(Dcode2)%>|<%="
+                "onclick=\"CodeAttach('<%=" + ENCODE + "forJavaScriptAttribute(Dcode2)%>|<%="
                         + ENCODE + "forJavaScriptAttribute(DcodeDesc2)%>'); return false;\">");
+        assertThat(Pattern.compile("<button\\b[\\s\\S]*?</button>").matcher(jsp)
+                .results().map(match -> match.group()).toList())
+                .hasSize(3)
+                .allSatisfy(button -> assertThat(button)
+                        .containsPattern("<button\\s+type=\"button\"")
+                        .contains("onclick=\"CodeAttach('")
+                        .doesNotContain("href="));
     }
 
     @Test
@@ -84,12 +92,14 @@ class BillingDigSearchJspRegressionTest {
     }
 
     @Test
-    @DisplayName("should close each code link with an end tag")
-    void shouldCloseEachCodeLink_withEndTag() throws IOException {
+    @DisplayName("should close each of the three code buttons with an end tag")
+    void shouldCloseEachCodeButton_withEndTag() throws IOException {
         String jsp = Files.readString(JSP, StandardCharsets.UTF_8);
 
-        // The rows used "<a>" where "</a>" was meant, opening a stray empty link after every code.
-        assertThat(jsp).doesNotContain("<a></font>");
+        // Each search path emits its own result row; a stray start tag instead of an
+        // end tag can absorb the adjacent description input into the action control.
+        assertThat(Pattern.compile("<button\\b").matcher(jsp).results().count()).isEqualTo(3);
+        assertThat(Pattern.compile("</button>\\s*</font>").matcher(jsp).results().count()).isEqualTo(3);
     }
 
     @Test
