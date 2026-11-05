@@ -122,6 +122,25 @@ class FormListPageCalculatorUnitTest {
         }
 
         @Test
+        void shouldStepPreviousBackOnePage_whenThirdPageOfThirtyRows() {
+            FormListPageCalculator.Page page = FormListPageCalculator.calculate("20", "10", 30);
+
+            assertThat(rowsShown(page)).containsExactly(20, 21, 22, 23, 24, 25, 26, 27, 28, 29);
+            assertThat(page.hasPrevious()).isTrue();
+            assertThat(page.previousOffset()).isEqualTo(10);
+            assertThat(page.hasNext()).isFalse();
+        }
+
+        @Test
+        void shouldStepPreviousBackOnePageSize_whenOffsetIsUnaligned() {
+            FormListPageCalculator.Page page = FormListPageCalculator.calculate("15", "10", 30);
+
+            assertThat(rowsShown(page)).containsExactly(15, 16, 17, 18, 19, 20, 21, 22, 23, 24);
+            assertThat(page.previousOffset()).isEqualTo(5);
+            assertThat(page.nextOffset()).isEqualTo(25);
+        }
+
+        @Test
         void shouldUseRequestedPageSize_whenLimit2IsPositive() {
             FormListPageCalculator.Page page = FormListPageCalculator.calculate("3", "3", 11);
 
@@ -143,6 +162,16 @@ class FormListPageCalculatorUnitTest {
             assertThat(page.offset()).isEqualTo(10);
             assertThat(rowsShown(page)).containsExactly(10);
             assertThat(page.hasPrevious()).isTrue();
+            assertThat(page.hasNext()).isFalse();
+        }
+
+        @Test
+        void shouldMoveToFirstPage_whenEveryRowFitsOnOnePage() {
+            FormListPageCalculator.Page page = FormListPageCalculator.calculate("50", "25", 11);
+
+            assertThat(page.offset()).isZero();
+            assertThat(rowsShown(page)).hasSize(11);
+            assertThat(page.hasPrevious()).isFalse();
             assertThat(page.hasNext()).isFalse();
         }
 

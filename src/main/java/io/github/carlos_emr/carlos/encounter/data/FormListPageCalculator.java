@@ -29,8 +29,10 @@ package io.github.carlos_emr.carlos.encounter.data;
  * window over that whole list: rows are counted across form types, not within each one
  * (issue #5684). The window comes from the page's legacy request parameters, {@code limit1}
  * (zero-based index of the page's first row) and {@code limit2} (rows per page). Both arrive
- * from the address bar, so a missing, blank, nonnumeric or out-of-range value falls back to
- * the first page of {@value #DEFAULT_PAGE_SIZE} rows instead of failing the page.</p>
+ * from the address bar and are checked separately, so a bad value never fails the page: a
+ * missing, blank, nonnumeric or negative {@code limit1} starts at the first row, one past the
+ * end of the list moves to the last page, and a missing, blank, nonnumeric or non-positive
+ * {@code limit2} means {@value #DEFAULT_PAGE_SIZE} rows per page.</p>
  *
  * <p>Arithmetic is done in {@code long} so that a very large {@code limit1} or {@code limit2}
  * cannot overflow into a negative row index.</p>
@@ -92,6 +94,8 @@ public final class FormListPageCalculator {
     public record Page(int offset, int size, int totalRows) {
 
         /**
+         * Validates the page's bounds.
+         *
          * @throws IllegalArgumentException when {@code offset} or {@code totalRows} is negative
          *                                  or {@code size} is below {@code 1}
          */
@@ -112,17 +116,30 @@ public final class FormListPageCalculator {
             return rowIndex >= offset && rowIndex < end() && rowIndex < totalRows;
         }
 
-        /** @return {@code true} when rows come before this page, so a Previous link is shown */
+        /**
+         * Tells whether rows come before this page.
+         *
+         * @return {@code true} when a Previous link is shown
+         */
         public boolean hasPrevious() {
             return offset > 0;
         }
 
-        /** @return the {@code limit1} of the previous page; {@code 0} when it would start before the list */
+        /**
+         * Returns where the previous page starts.
+         *
+         * @return the {@code limit1} of the previous page; {@code 0} when it would start before
+         *         the list
+         */
         public int previousOffset() {
             return Math.max(0, offset - size);
         }
 
-        /** @return {@code true} when rows follow this page, so a Next link is shown */
+        /**
+         * Tells whether rows follow this page.
+         *
+         * @return {@code true} when a Next link is shown
+         */
         public boolean hasNext() {
             return end() < totalRows;
         }
