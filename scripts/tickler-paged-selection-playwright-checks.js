@@ -5,6 +5,7 @@
 const h=require('./lib/playwright-harness');
 const ui=require('./lib/playwright-ui');
 const {runWorkflow}=require('./lib/workflow-session');
+const {withTicklerConfirmations}=require('./lib/tickler-confirmation');
 const {waitForTicklerTable}=require('./tickler-forward-filters-playwright-checks');
 const all=process.env.TICKLER_SELECTION_ACTION==='first';
 const name=all?'tickler-first-page-delete':'tickler-last-page-complete';
@@ -39,11 +40,15 @@ async function workflow(s){
     await list.locator('#checkAllLink').click();
     await list.waitForFunction(n=>document.querySelectorAll('#ticklerResults input[name="checkbox"]:checked').length===n,selected.length);
     const action=all?'Delete':'Complete';
-    const [response]=await Promise.all([
-      list.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/tickler/DbTicklerMain')&&r.request().method()==='POST'),
-      list.waitForNavigation({waitUntil:'domcontentloaded'}),
-      list.locator(`input[type="button"][onclick*="submit_form.value='${action}'"]`).click(),
-    ]);
+    // Delete asks for confirmation (#5683) and Complete does not; the helper answers it and counts it.
+    let response;
+    await withTicklerConfirmations(list,all?1:0,async()=>{
+      [response]=await Promise.all([
+        list.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/tickler/DbTicklerMain')&&r.request().method()==='POST'),
+        list.waitForNavigation({waitUntil:'domcontentloaded'}),
+        list.locator(`input[type="button"][onclick*="submit_form.value='${action}'"]`).click(),
+      ]);
+    });
     h.assert(response.status()<400,`Paged action answered HTTP ${response.status()}`);
     const data=new URLSearchParams(response.request().postData());
     h.assert(data.get('CSRF-TOKEN')&&JSON.stringify(data.getAll('checkbox').sort())===JSON.stringify([...selected].sort()),'Action submitted other than the visible checked IDs');

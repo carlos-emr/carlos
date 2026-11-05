@@ -158,12 +158,6 @@
       "disposition": "required installed retake; blocks release readiness"
     },
     {
-      "check": "dialog-confirmations-tickler",
-      "finding": 337,
-      "step": "dismissing task Delete confirms once and preserves every task and status history",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "rx-save-failure-retry-only-lost",
       "finding": 334,
       "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved",

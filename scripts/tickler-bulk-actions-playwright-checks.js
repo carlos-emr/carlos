@@ -7,6 +7,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { waitForTicklerTable } = require('./tickler-forward-filters-playwright-checks');
+const { withTicklerConfirmations } = require('./lib/tickler-confirmation');
 
 async function workflow(s) {
   const manualRefresh = process.env.TICKLER_BULK_ONLY === 'state-actions';
@@ -56,11 +57,15 @@ async function workflow(s) {
     await waitForTicklerTable(list);
   }
   async function submit(action, selected) {
-    const [response] = await Promise.all([
-      list.waitForResponse(r => r.request().method() === 'POST' && h.pathOnly(r.url()).endsWith('/tickler/DbTicklerMain')),
-      list.waitForNavigation({ waitUntil: 'domcontentloaded' }),
-      button(action).click(),
-    ]);
+    // Delete asks for confirmation (#5683) and Complete does not; the helper answers it and counts it.
+    let response;
+    await withTicklerConfirmations(list, action === 'Delete' ? 1 : 0, async () => {
+      [response] = await Promise.all([
+        list.waitForResponse(r => r.request().method() === 'POST' && h.pathOnly(r.url()).endsWith('/tickler/DbTicklerMain')),
+        list.waitForNavigation({ waitUntil: 'domcontentloaded' }),
+        button(action).click(),
+      ]);
+    });
     h.assert(response.status() < 400, `${action} answered HTTP ${response.status()}`);
     const form = new URLSearchParams(response.request().postData());
     h.assert(JSON.stringify(form.getAll('checkbox').sort()) === JSON.stringify([...selected].sort()),

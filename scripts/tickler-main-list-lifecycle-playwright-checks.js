@@ -15,6 +15,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { withTicklerConfirmations } = require('./lib/tickler-confirmation');
 
 const TIMEOUT = 30000;
 const FORM = 'form[name="ticklerform"]';
@@ -104,14 +105,16 @@ async function workflow(s) {
       `The footer offers ${JSON.stringify(found)}; expected ${JSON.stringify(expected)}`);
   }
   async function press(button) {
-    await Promise.all([
+    // Only Delete asks for confirmation (#5683); the helper accepts it and fails if Delete stops asking
+    // or Complete / the legacy erase submission start to.
+    await withTicklerConfirmations(list, button === 'delete' ? 1 : 0, () => Promise.all([
       list.waitForEvent('domcontentloaded', { timeout: TIMEOUT }),
       button === 'legacyErase' ? list.evaluate(() => {
         const form = document.forms['ticklerform'];
         form.submit_form.value = 'Erase Completely';
         form.submit();
       }) : list.locator(BUTTON[button]).click(),
-    ]);
+    ]));
     h.assert(new URL(list.url()).pathname.endsWith('/tickler/ViewTicklerMain'), 'The bulk action returned to an unexpected page');
     await h.assertNotErrorPage(list, `the task list after ${button}`);
     h.assert(!new URL(list.url()).searchParams.has('failCount'), `${button} reported tasks it could not change`);
