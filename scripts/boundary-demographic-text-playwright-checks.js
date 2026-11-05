@@ -258,7 +258,10 @@ async function workflow(s) {
       const column = field === 'pronouns' ? 'pronoun' : 'gender';
       const maximum = b.columnLength(sql, 'demographic', column);
       const invalid = '😀'.repeat(maximum) + 'X';
-      await form.locator(`[name="${field}"]`).fill(invalid);
+      const box = form.locator(`[name="${field}"]`);
+      // Chromium's normal fill honors maxlength; direct POST probes must bypass it too.
+      await box.evaluate((element, value) => { element.value = value; }, invalid);
+      h.assert(await box.inputValue() === invalid, `The direct ${field} POST fixture was truncated`);
       const mark = failureMark(s.recorder);
       // Native submit bypasses both HTML validity and the form's submit listeners.
       const [response] = await Promise.all([
