@@ -56,6 +56,23 @@ class Directives(unittest.TestCase):
         self.assertEqual(self.audit({'page.jsp': '<%@ page import="app.UTF" contentType="text/html; charset=UTF-8" %>'}),
                          [('page.jsp', 'unused import', 'app.UTF')])
 
+    def test_tag_imports_are_audited_without_counting_their_own_names(self):
+        self.assertEqual(self.audit({'widget.tag': '''<%@ tag import="app.Unused, app.Used, absent.*" %>
+            <%@ attribute name="Unused" type="java.lang.String" %><%= Used.class %>'''}),
+                         [('widget.tag', 'unused import', 'app.Unused'),
+                          ('widget.tag', 'unresolvable wildcard import', 'absent.*')])
+
+    def test_tag_type_attributes_and_static_fragments_keep_imports(self):
+        self.assertEqual(self.audit({
+            'widget.tag': '''<%@ tag import="app.Value, app.Result, app.Argument, app.Shared, app.Variable" %>
+                <%@ include file="attributes.tagf" %><%= FragmentType.class %>''',
+            'attributes.tagf': '''<%@ tag import="app.FragmentType" %>
+                <%@ attribute name="value" type="Value" %>
+                <%@ attribute name="deferred" deferredValue="true" deferredValueType="Shared" %>
+                <%@ attribute name="method" deferredMethod="true" deferredMethodSignature="Result call(Argument)" %>
+                <%@ variable name-given="variable" variable-class="Variable" %>''',
+        }), [])
+
     def test_directives_and_jsp_comments_are_not_uses(self):
         findings = self.audit({'page.jsp': '''<%@ page import="app.Dead, app.Kept" %>
             <%-- Dead.class <dead:tag/> <%@ include file="absent.jsp" %> --%>
@@ -91,6 +108,58 @@ class Directives(unittest.TestCase):
                       {'a.jsp': '', 'WEB-INF/web.xml': '<include-prelude>p.jspf</include-prelude>'}):
             with self.subTest(pages=pages), self.assertRaises(ValueError):
                 self.audit(pages)
+
+    def test_xml_jsp_syntax_fails_closed_for_any_prefix_and_extension(self):
+        for filename in ('page.jspx', 'widget.tagx', 'page.jsp', 'widget.tag'):
+            for prefix, namespace in (('j:', 'xmlns:j="http://java.sun.com/JSP/Page"'),
+                                      ('', "xmlns='http://java.sun.com/JSP/Page'")):
+                with self.subTest(filename=filename, namespace=namespace), self.assertRaises(ValueError):
+                    self.audit({filename: '<' + prefix + 'root ' + namespace + ' version="2.0">'
+                                '<' + prefix + 'directive.page import="app.Unused"/></' + prefix + 'root>'})
+        # An XML fragment can have an arbitrary extension when statically included.
+        with self.assertRaises(ValueError):
+            self.audit({'page.jsp': '<%@ include file="fragment.inc" %>',
+                        'fragment.inc': '<j:root xmlns:j="http://java.sun.com/JSP/Page"/>'})
+
+    def test_xml_jsp_extensions_fail_closed_even_without_namespace_declarations(self):
+        for filename in ('page.jspx', 'widget.tagx'):
+            with self.subTest(filename=filename), self.assertRaises(ValueError):
+                self.audit({filename: '<body/>'})
+
+    def test_web_xml_rejects_xml_jsp_configuration_with_namespaces_and_character_references(self):
+        for prefix, namespace in (('', 'xmlns="https://jakarta.ee/xml/ns/jakartaee"'),
+                                  ('w:', 'xmlns:w="https://jakarta.ee/xml/ns/jakartaee"')):
+            for value in ('true', '1', '  &#116;rue  '):
+                with self.subTest(prefix=prefix, value=value), self.assertRaises(ValueError):
+                    self.audit({'page.jsp': '', 'WEB-INF/web.xml':
+                                '<' + prefix + 'web-app ' + namespace + '><' + prefix + 'jsp-config>'
+                                '<' + prefix + 'jsp-property-group><' + prefix + 'url-pattern>*.jsp</'
+                                + prefix + 'url-pattern><' + prefix + 'is-xml>' + value + '</' + prefix + 'is-xml>'
+                                '</' + prefix + 'jsp-property-group></' + prefix + 'jsp-config></'
+                                + prefix + 'web-app>'})
+
+    def test_web_xml_comments_and_disabled_xml_configuration_remain_supported(self):
+        for value in ('false', '0'):
+            with self.subTest(value=value):
+                self.assertEqual(self.audit({'page.jsp': '', 'WEB-INF/web.xml':
+                    '<web-app><!-- <is-xml>true</is-xml><include-prelude>unused.jspf</include-prelude> -->'
+                    '<jsp-config><jsp-property-group><url-pattern>*.jsp</url-pattern>'
+                    '<is-xml>' + value + '</is-xml></jsp-property-group></jsp-config></web-app>'}), [])
+
+    def test_malformed_web_xml_fails_closed(self):
+        with self.assertRaisesRegex(ValueError, 'cannot parse JSP configuration'):
+            self.audit({'page.jsp': '', 'WEB-INF/web.xml': '<web-app><jsp-config></web-app>'})
+
+    def test_xml_namespace_character_references_cannot_bypass_rejection(self):
+        for namespace in ('http://java.sun.com/JSP/&#80;age', 'http://java.sun.com/JSP/&#x50;age'):
+            with self.subTest(namespace=namespace), self.assertRaises(ValueError):
+                self.audit({'page.jsp': '<j:root xmlns:j="' + namespace + '" version="2.0">'
+                            '<j:directive.page import="java.util.Date"/></j:root>'})
+
+    def test_html_namespaces_and_jsp_comments_do_not_trigger_xml_rejection(self):
+        self.assertEqual(self.audit({'page.jsp': '''<html xmlns="http://www.w3.org/1999/xhtml"
+            xmlns:svg="http://www.w3.org/2000/svg"><body/></html>
+            <%-- <j:root xmlns:j="http://java.sun.com/JSP/Page"/> --%>'''}), [])
 
     def test_archive_classes_and_bad_archives(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -17,19 +17,22 @@ Exit codes: 0 clean; 1 dead directives; 2 missing/unsupported analysis inputs.
 
 import argparse
 from collections import defaultdict
+from html import unescape
 import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 import zipfile
 
 
-DIRECTIVE = re.compile(r'<%@\s*(page|taglib|include)\b.*?%>', re.S)
-ATTRIBUTE = re.compile(r'([\w:]+)\s*=\s*([\"\'])(.*?)\2', re.S)
+DIRECTIVE = re.compile(r'<%@\s*(page|tag|attribute|variable|taglib|include)\b.*?%>', re.S)
+ATTRIBUTE = re.compile(r'([\w:-]+)\s*=\s*([\"\'])(.*?)\2', re.S)
 COMMENT = re.compile(r'<%--.*?--%>', re.S)
 TOKEN = re.compile(r'\b[A-Za-z_$][\w$]*\b')
+XML_NAMESPACE = re.compile(r'\bxmlns(?::[\w.-]+)?\s*=\s*([\"\'])(.*?)\1', re.S)
 
 
 def attributes(text):
@@ -52,8 +55,17 @@ def translation_units(webapp):
     if not webapp.is_dir():
         raise ValueError(f'webapp does not exist: {webapp}')
     descriptor = webapp / 'WEB-INF/web.xml'
-    if descriptor.exists() and re.search(r'<(?:\w+:)?include-(?:prelude|coda)\b', descriptor.read_text()):
-        raise ValueError('implicit web.xml includes need analysis support before this check can run')
+    if descriptor.exists():
+        try:
+            configuration = ET.parse(descriptor)
+        except ET.ParseError as error:
+            raise ValueError(f'cannot parse JSP configuration in {descriptor}: {error}') from error
+        for element in configuration.iter():
+            name = element.tag.rsplit('}', 1)[-1]
+            if name in ('include-prelude', 'include-coda'):
+                raise ValueError('implicit web.xml includes need analysis support before this check can run')
+            if name == 'is-xml' and (element.text or '').strip() in ('true', '1'):
+                raise ValueError('XML JSP configuration in web.xml needs analysis support before this check can run')
     texts = {p: p.read_bytes().decode('latin1') for p in webapp.rglob('*')
              if p.suffix in ('.jsp', '.jspf', '.jspx', '.tag', '.tagf', '.tagx')}
     if not texts:
@@ -63,7 +75,12 @@ def translation_units(webapp):
     while pending:
         path = pending.pop()
         active = COMMENT.sub('', texts[path])
-        if re.search(r'<jsp:directive\.', active):
+        # JSP documents can bind the JSP namespace to any prefix, including the
+        # default namespace. Do not silently audit them as classic JSP syntax.
+        if (path.suffix in ('.jspx', '.tagx')
+                or any(unescape(value) == 'http://java.sun.com/JSP/Page'
+                       for quote, value in XML_NAMESPACE.findall(active))
+                or re.search(r'<jsp:directive\.', active)):
             raise ValueError(f'XML JSP directives need analysis support: {path}')
         for match in DIRECTIVE.finditer(active):
             attrs = attributes(match[0])
@@ -81,9 +98,16 @@ def translation_units(webapp):
             children[path].add(target)
             parents[target].add(path)
     def directive_body(match):
-        # Other page attributes may reference an imported type (extends="Base").
+        # Retain only type-bearing directive attributes, never import entries
+        # themselves or non-type literals that could hide an unused import.
+        attrs = attributes(match[0])
         if match[1] == 'page':
-            return attributes(match[0]).get('extends', '')
+            return attrs.get('extends', '')
+        if match[1] == 'attribute':
+            return ' '.join(attrs.get(name, '') for name in
+                            ('type', 'deferredValueType', 'deferredMethodSignature'))
+        if match[1] == 'variable':
+            return attrs.get('variable-class', '')
         return ''
 
     bodies = {p: DIRECTIVE.sub(directive_body, COMMENT.sub('', data)) for p, data in texts.items()}
@@ -142,7 +166,7 @@ def inspect(webapp, index):
         for match in DIRECTIVE.finditer(active):
             attrs = attributes(match[0])
             line = data.count('\n', 0, match.start()) + 1
-            if match[1] == 'page':
+            if match[1] in ('page', 'tag'):
                 for entry in attrs.get('import', '').split(','):
                     entry = entry.strip()
                     if not entry:
