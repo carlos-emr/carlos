@@ -22,15 +22,25 @@
 package io.github.carlos_emr.carlos.report.data;
 
 import io.github.carlos_emr.carlos.commn.dao.ReportTableFieldCaptionDao;
+import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
+import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-/** Caption reads retain their legacy empty-caption fallback for database failures. */
+/** Caption fallback remains compatible; field-discovery failures must not become empty exports. */
 @Tag("unit")
 class ReportCaptionReadUnitTest extends CarlosUnitTestBase {
+    @BeforeEach
+    @AfterEach
+    void resetEncounterFormDao() {
+        org.springframework.test.util.ReflectionTestUtils.setField(RptTableFieldNameCaption.class, "encounterFormDao", null);
+    }
+
     @Test
     void shouldRetainEmptyCaptions_whenDatabaseReadFails() {
         var dao = mock(ReportTableFieldCaptionDao.class);
@@ -47,4 +57,45 @@ class ReportCaptionReadUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> new RptTableFieldNameCaption().getNameCaptionProp("formAlpha"))
                 .isInstanceOf(IllegalStateException.class);
     }
+    @Test
+    void shouldDiscoverColumnsWithoutSelectingPatientRows_forAllowlistedForms() throws Exception {
+        var dao = mock(EncounterFormDao.class);
+        registerMock(EncounterFormDao.class, dao);
+        var form = new EncounterForm();
+        form.setFormTable("formAlpha");
+        when(dao.findAll()).thenReturn(java.util.List.of(form));
+        try (var queries = mockStatic(ConfiguredReportQuery.class)) {
+            queries.when(() -> ConfiguredReportQuery.columnNames("select * from formAlpha where 1=0"))
+                    .thenReturn(java.util.List.of("demographic_no", "large_value"));
+            assertThat(new RptTableFieldNameCaption().getMetaNameList("formAlpha"))
+                    .containsExactly("demographic_no", "large_value");
+        }
+    }
+
+    @Test
+    void shouldAbortFieldDiscovery_whenMetadataQueryFails() throws Exception {
+        var dao = mock(EncounterFormDao.class);
+        registerMock(EncounterFormDao.class, dao);
+        var form = new EncounterForm();
+        form.setFormTable("formAlpha");
+        when(dao.findAll()).thenReturn(java.util.List.of(form));
+        try (var queries = mockStatic(ConfiguredReportQuery.class)) {
+            queries.when(() -> ConfiguredReportQuery.columnNames("select * from formAlpha where 1=0"))
+                    .thenThrow(new java.sql.SQLException("synthetic metadata failure"));
+            assertThatThrownBy(() -> new RptTableFieldNameCaption().getMetaNameList("formAlpha"))
+                    .isInstanceOf(IllegalStateException.class).hasCauseInstanceOf(java.sql.SQLException.class);
+        }
+    }
+
+    @Test
+    void shouldRejectUnregisteredTables_withoutMetadataQueries() {
+        var dao = mock(EncounterFormDao.class);
+        registerMock(EncounterFormDao.class, dao);
+        when(dao.findAll()).thenReturn(java.util.List.of());
+        try (var queries = mockStatic(ConfiguredReportQuery.class)) {
+            assertThat(new RptTableFieldNameCaption().getMetaNameList("formUnknown")).isEmpty();
+            queries.verifyNoInteractions();
+        }
+    }
+
 }

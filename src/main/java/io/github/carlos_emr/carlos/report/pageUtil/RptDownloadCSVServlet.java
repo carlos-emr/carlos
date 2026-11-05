@@ -64,16 +64,17 @@ public class RptDownloadCSVServlet extends HttpServlet {
     private static final Logger _logger = MiscUtils.getLogger();
     public static final int MAX_CSV_EXPORT_BYTES = 5 * 1024 * 1024;
 
-    String reportName = "";
     String DELIMETER = "\t";
+
+    private record GeneratedCsv(String reportName, String content) { }
 
     public void service(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         if (session == null)
             return;
-        String in = "";
+        GeneratedCsv report;
         try {
-            in = request.getParameter("demoReport") != null ? demoReport(request) : formReport(request);
+            report = request.getParameter("demoReport") != null ? demoReport(request) : formReport(request);
         } catch (ServletException e1) {
             _logger.error("RptDownloadCSVServlet service() - form report failed", e1);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate report");
@@ -84,53 +85,35 @@ public class RptDownloadCSVServlet extends HttpServlet {
             return;
         }
 
-        if (in != null && in.getBytes(java.nio.charset.StandardCharsets.UTF_8).length
-                > MAX_CSV_EXPORT_BYTES) {
+        String in = report.content();
+        if (in == null) {
+            return;
+        }
+        byte[] bytes = in.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        if (bytes.length > MAX_CSV_EXPORT_BYTES) {
             response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, "Report is too large; narrow the report filters");
             return;
         }
 
-
-        String filename = reportName.replaceAll("[\\r\\n]", "") + ".csv"; // request.getParameter("filename");
-        OutputStream out = null;
-        try {
-            if (in != null) {
-                out = new BufferedOutputStream(response.getOutputStream());
-                byte[] b = in.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                int len = b.length;
-                int n = 0;
-                int FIXED_LEN = 2048;
-                response.setContentType("text/csv; charset=UTF-8");
-                response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
-                while (n <= len - FIXED_LEN) {
-                    out.write(b, n, FIXED_LEN); // b.flush();
-                    n += FIXED_LEN;
-                }
-                if (n > len - FIXED_LEN) {
-                    out.write(b, n, len - n);
-                }
-            }
-        } finally {
-            if (out != null)
-                try {
-                    out.close();
-                } catch (Exception e) {
-                }
+        String filename = report.reportName().replaceAll("[\\r\\n]", "") + ".csv";
+        try (OutputStream out = new BufferedOutputStream(response.getOutputStream())) {
+            response.setContentType("text/csv; charset=UTF-8");
+            response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
+            out.write(bytes);
         }
-
     }
 
     public void init(ServletConfig config) throws ServletException {
         super.init(config);
     }
 
-    private String formReport(HttpServletRequest request) throws ServletException {
+    private GeneratedCsv formReport(HttpServletRequest request) throws ServletException {
 
 
         String SAVE_AS = "default";
         String reportId = request.getParameter("id") != null ? request.getParameter("id") : "0";
         // get form name
-        //String reportName = "";
+        String reportName;
         String in = "";
         try {
             reportName = (new RptReportItem()).getReportName(reportId);
@@ -168,11 +151,10 @@ public class RptDownloadCSVServlet extends HttpServlet {
         } catch (Exception e1) {
             throw new ServletException("Unable to generate form report", e1);
         }
-        return in;
+        return new GeneratedCsv(reportName, in);
     }
 
-    private String demoReport(HttpServletRequest request) throws Exception {
-        reportName = "clientDatabaseReport";
+    private GeneratedCsv demoReport(HttpServletRequest request) throws Exception {
         String in = "";
 
 
@@ -705,6 +687,6 @@ public class RptDownloadCSVServlet extends HttpServlet {
         }
 
         in = swr.toString();
-        return in;
+        return new GeneratedCsv("clientDatabaseReport", in);
     }
 }

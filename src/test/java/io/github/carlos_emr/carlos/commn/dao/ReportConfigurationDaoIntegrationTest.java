@@ -25,6 +25,8 @@ import io.github.carlos_emr.carlos.commn.model.ReportConfig;
 import io.github.carlos_emr.carlos.commn.service.ReportConfigurationService;
 import io.github.carlos_emr.carlos.report.data.RptReportConfigData;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.aop.framework.ProxyFactory;
@@ -50,6 +52,7 @@ class ReportConfigurationDaoIntegrationTest extends CarlosTestBase {
     @Autowired private ReportTableFieldCaptionDao captions;
     @Autowired private ReportConfigurationService service;
     @Autowired private PlatformTransactionManager transactionManager;
+    @PersistenceContext(unitName = "entityManagerFactory") private EntityManager entityManager;
 
     private ReportConfig config(String name, int order, String save) {
         ReportConfig r = new ReportConfig();
@@ -97,6 +100,32 @@ class ReportConfigurationDaoIntegrationTest extends CarlosTestBase {
         } finally {
             cleanup();
         }
+    }
+
+    @Test
+    @Transactional
+    void shouldReadNullOrderAsZero_forLegacySavedConfigurations() throws Exception {
+        ReportConfig zeroOrder = config("zeroOrder", 0, "nullable-order");
+        ReportConfig nullOrder = config("nullOrder", 1, "nullable-order");
+        ReportConfig later = config("later", 2, "nullable-order");
+        configurations.persist(zeroOrder);
+        configurations.persist(nullOrder);
+        configurations.persist(later);
+        entityManager.flush();
+        entityManager.createNativeQuery("update reportConfig set order_no=NULL where id=?1")
+                .setParameter(1, nullOrder.getId()).executeUpdate();
+        entityManager.clear();
+
+        assertThat(configurations.findByReportIdAndSave(5549, "nullable-order"))
+                .extracting(ReportConfig::getId)
+                .containsExactly(nullOrder.getId(), zeroOrder.getId(), later.getId());
+        var row = (java.util.Properties) new RptReportConfigData()
+                .getConfigObj("nullable-order", "5549").getFirst();
+        assertThat(row).containsEntry("name", "nullOrder").containsEntry("order_no", "0");
+        assertThat(configurations.nextOrder(5549)).isEqualTo(3);
+        entityManager.flush();
+        assertThat(entityManager.createNativeQuery("select order_no from reportConfig where id=?1")
+                .setParameter(1, nullOrder.getId()).getSingleResult()).isNull();
     }
 
     @Test

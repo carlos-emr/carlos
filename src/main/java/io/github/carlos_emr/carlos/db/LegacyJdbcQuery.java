@@ -143,19 +143,42 @@ public final class LegacyJdbcQuery {
      */
     public static ResultSet getBoundedReportResultSet(ParameterizedSql sql, int maxRows, long deadlineNanos)
             throws SQLException {
+        return getBoundedReportResultSet(trustedReportSelectSql(sql.getSql()), maxRows, deadlineNanos,
+                sql.getParamsArray());
+    }
+
+    /**
+     * Streams a validated legacy report using an exact JDBC row ceiling and absolute deadline.
+     * Unlike {@link ParameterizedSql}, this path preserves quoted question marks in legacy SQL.
+     * Callers requesting a complete result include one overflow sentinel in {@code maxRows};
+     * first-row and metadata reads need no sentinel.
+     *
+     * <p>Connection acquisition consumes the deadline, although its blocking wait is governed
+     * by the datasource's pool timeout. Once acquired, the connection is interrupted at the
+     * deadline, including during statement setup and result consumption.</p>
+     *
+     * @param sql validated report SELECT
+     * @param maxRows positive JDBC row ceiling, including any caller-required overflow sentinel
+     * @param deadlineNanos absolute deadline from {@link System#nanoTime()}
+     * @param params JDBC-bound query values
+     * @return owned cursor that releases its statement and managed connection when closed
+     * @throws SQLException if acquisition, setup, execution or the deadline fails
+     */
+    public static ResultSet getBoundedReportResultSet(TrustedSql sql, int maxRows, long deadlineNanos,
+            Object... params) throws SQLException {
         if (maxRows < 1) {
             throw new IllegalArgumentException("Report row limit must be positive");
         }
         if (deadlineNanos - System.nanoTime() <= 0) {
             throw new SQLTimeoutException("Report query deadline exceeded");
         }
-        TrustedSql trusted = trustedReportSelectSql(sql.getSql());
         DataSource dataSource = dataSource();
         Connection connection = getRequiredConnection(dataSource);
         PreparedStatement ps = null;
         ReportQueryDeadline deadline = null;
         try {
-            ps = prepareStreamingReportStatement(connection, trusted);
+            deadline = new ReportQueryDeadline(connection, deadlineNanos);
+            ps = prepareStreamingReportStatement(connection, sql);
             ps.setMaxRows(maxRows);
             // The negative streaming sentinel is specific to Connector/J. Other
             // JDBC drivers (including H2) require a non-negative fetch size.
@@ -163,7 +186,7 @@ public final class LegacyJdbcQuery {
                 case "MySQL", "MariaDB" -> Integer.MIN_VALUE;
                 case null, default -> Math.min(100, maxRows);
             });
-            bindParams(ps, sql.getParamsArray());
+            bindParams(ps, params);
             long remainingNanos = deadlineNanos - System.nanoTime();
             if (remainingNanos <= 0) {
                 throw new SQLTimeoutException("Report query deadline exceeded");
@@ -173,7 +196,6 @@ public final class LegacyJdbcQuery {
             ps.setQueryTimeout(Math.clamp(
                     (remainingNanos + TimeUnit.SECONDS.toNanos(1) - 1) / TimeUnit.SECONDS.toNanos(1),
                     1, Integer.MAX_VALUE));
-            deadline = new ReportQueryDeadline(connection, deadlineNanos);
             ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- validated, parameterized report boundary
             return registerThreadResource(ReportQueryDeadline.wrap(
                     StatementClosingResultSet.wrap(rs, ps, connection, dataSource), deadline));
@@ -255,36 +277,17 @@ public final class LegacyJdbcQuery {
     }
 
     /**
-     * Bounded compatibility path for server-configured reports that still depend on JDBC metadata.
+     * Bounded streaming compatibility path for server-configured reports.
      * Callers must close the result, detect the extra sentinel row, and enforce their output budget.
      * This retains the managed legacy datasource; Query by Example uses its separate reporting account.
      */
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
-            value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
-            justification = "TrustedSql has a private constructor reached only after SELECT validation; values are JDBC-bound")
-    // TrustedSql has a private constructor reached only after SELECT validation; values are JDBC-bound.
     public static ResultSet getBoundedReportResultSet(TrustedSql sql, int maximumRows, int timeoutSeconds,
             Object... params) throws SQLException {
         if (maximumRows < 1 || maximumRows == Integer.MAX_VALUE || timeoutSeconds < 1) {
             throw new IllegalArgumentException("Invalid report query budget");
         }
-        DataSource dataSource = dataSource();
-        Connection connection = getRequiredConnection(dataSource);
-        PreparedStatement ps = null;
-        try {
-            // codeql[java/sql-injection] -- TrustedSql is constructed only after SELECT validation.
-            ps = connection.prepareStatement(sql.sql, ResultSet.TYPE_SCROLL_INSENSITIVE,
-                    ResultSet.CONCUR_READ_ONLY); // nosemgrep: formatted-sql-string -- validated server-configured SELECT; all values bound below
-            ps.setMaxRows(maximumRows + 1);
-            ps.setQueryTimeout(timeoutSeconds);
-            bindParams(ps, params);
-            ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- TrustedSql has a private constructor reached only after SELECT validation; request values are JDBC-bound
-            return registerThreadResource(StatementClosingResultSet.wrap(rs, ps, connection, dataSource));
-        } catch (SQLException | RuntimeException e) {
-            closeStatement(ps);
-            DataSourceUtils.releaseConnection(connection, dataSource);
-            throw e;
-        }
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds);
+        return getBoundedReportResultSet(sql, maximumRows + 1, deadlineNanos, params);
     }
 
     private static ResultSet getPreparedResultSetValidated(TrustedSql sql, boolean updatable, Object... params) throws SQLException {

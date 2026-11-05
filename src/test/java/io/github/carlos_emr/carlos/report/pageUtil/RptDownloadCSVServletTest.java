@@ -13,7 +13,16 @@
 package io.github.carlos_emr.carlos.report.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -21,6 +30,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Properties;
+import java.util.Vector;
 import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.AfterEach;
@@ -34,14 +45,23 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
+import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
+import io.github.carlos_emr.carlos.report.data.RptReportConfigData;
+import io.github.carlos_emr.carlos.report.data.RptReportCreator;
+import io.github.carlos_emr.carlos.report.data.RptReportItem;
 
 /**
- * Regression tests for {@link RptDownloadCSVServlet#demoReport(jakarta.servlet.http.HttpServletRequest)}.
+ * Regression tests for demographic SQL construction and the report CSV servlet response contract.
  *
  * <p>These tests target the empty-demographic-filter combinations fixed in PR #1639 and
  * verify the generated SQL shape and bind-parameter ordering without requiring a database.
  * They invoke the private servlet method via reflection and capture
  * {@link ConfiguredReportQuery#read(String, Object...)} calls with a static mock.</p>
+ *
+ * <p>Public {@code service()} tests also verify that query failures return HTTP 500 and
+ * UTF-8 payloads exceeding the export byte budget return HTTP 413 without a partial download,
+ * overlapping requests retain their own attachment filenames, and buffered write failures
+ * propagate while releasing the output stream.</p>
  *
  * @since 2026-04-20
  */
@@ -202,6 +222,70 @@ class RptDownloadCSVServletTest {
         new RptDownloadCSVServlet().service(request, response);
         assertThat(response.getStatus()).isEqualTo(413);
         assertThat(response.getContentAsString()).isEmpty();
+    }
+
+    @Test
+    void shouldKeepEachDownloadFilename_whenRequestsOverlap() throws Exception {
+        RptDownloadCSVServlet servlet = new RptDownloadCSVServlet();
+        MockHttpServletRequest first = baseRequest();
+        first.getSession(true);
+        first.setParameter("id", "1");
+        MockHttpServletRequest second = baseRequest();
+        second.getSession(true);
+        second.setParameter("id", "2");
+        var firstResponse = new org.springframework.mock.web.MockHttpServletResponse();
+        var secondResponse = new org.springframework.mock.web.MockHttpServletResponse();
+
+        try (var reports = mockConstruction(RptReportItem.class, (report, context) ->
+                     when(report.getReportName(anyString())).thenAnswer(call -> "report-" + call.getArgument(0)));
+             var queries = mockConstruction(RptFormQuery.class, (query, context) ->
+                     when(query.getQueryStr(anyString(), any())).thenAnswer(call ->
+                             new ParameterizedSql("select " + call.getArgument(0), List.of())));
+             var configs = mockConstruction(RptReportConfigData.class, (config, context) ->
+                     when(config.getAllFieldNameValue(anyString(), anyString())).thenReturn(new Vector[]{
+                             new Vector<>(List.of("value")), new Vector<>(List.of("value"))}));
+             var readers = mockConstruction(RptReportCreator.class, (reader, context) ->
+                     when(reader.query(anyString(), any(Vector.class), any(Object[].class))).thenAnswer(call -> {
+                         String sql = call.getArgument(0);
+                         if ("select 1".equals(sql)) {
+                             // Deterministically interleave a second request after the first
+                             // resolves its name but before it publishes its response headers.
+                             servlet.service(second, secondResponse);
+                         }
+                         Properties row = new Properties();
+                         row.setProperty("value", sql);
+                         return new Vector<>(List.of(row));
+                     }))) {
+            servlet.service(first, firstResponse);
+            assertThat(reports.constructed()).hasSize(2);
+            assertThat(queries.constructed()).hasSize(2);
+            assertThat(configs.constructed()).hasSize(2);
+            assertThat(readers.constructed()).hasSize(2);
+        }
+
+        assertThat(firstResponse.getStatus()).isEqualTo(200);
+        assertThat(secondResponse.getStatus()).isEqualTo(200);
+        assertThat(firstResponse.getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"report-1.csv\"");
+        assertThat(secondResponse.getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"report-2.csv\"");
+        assertThat(firstResponse.getContentAsString()).contains("select 1").doesNotContain("select 2");
+        assertThat(secondResponse.getContentAsString()).contains("select 2").doesNotContain("select 1");
+    }
+
+    @Test
+    void shouldPropagateWriteFailure_whenClosingBufferedDownload() throws Exception {
+        MockHttpServletRequest request = baseRequest();
+        request.getSession(true);
+        request.setParameter("demoReport", "true");
+        var output = mock(jakarta.servlet.ServletOutputStream.class);
+        doThrow(new java.io.IOException("synthetic output failure"))
+                .when(output).write(any(byte[].class), anyInt(), anyInt());
+        var response = mock(jakarta.servlet.http.HttpServletResponse.class);
+        when(response.getOutputStream()).thenReturn(output);
+
+        assertThatThrownBy(() -> new RptDownloadCSVServlet().service(request, response))
+                .isInstanceOf(java.io.IOException.class)
+                .hasMessage("synthetic output failure");
+        verify(output).close();
     }
 
     private MockHttpServletRequest baseRequest() {

@@ -53,7 +53,7 @@ async function workflow(s) {
     await h.assertNotErrorPage(page, 'typed report filter list');
   });
   await s.step('typed provider-role and PHCP report pages render native billed counts', async () => {
-    h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(roleProvider)}`) === '0', 'Synthetic role provider identifier is already in use');
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM provider WHERE provider_no=${q(roleProvider)}) + (SELECT COUNT(*) FROM secUserRole WHERE provider_no=${q(roleProvider)})`) === '0', 'Synthetic role provider identifier is already in use');
     ownsRoleProvider = true;
     sql.execute(`INSERT INTO provider (provider_no,first_name,last_name,provider_type,sex,specialty,ohip_no,lastUpdateDate) VALUES (${q(roleProvider)},'Workflow',${q(marker)},'doctor','F','','',NOW()); INSERT INTO secUserRole (provider_no,role_name,orgcd,activeyn,lastUpdateDate) VALUES (${q(roleProvider)},'doctor','',1,NOW())`);
     await page.goto(`${base}/report/ViewReportonbilledvisitprovider`);

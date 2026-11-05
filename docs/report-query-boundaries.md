@@ -5,9 +5,13 @@ Report configuration and fixed business reads belong to typed DAOs. The legacy
 `RptTableFieldNameCaption` beans retain the arrays, vectors, and properties expected
 by existing JSPs; their persistence reads return entities or typed projections,
 never open JDBC resources. Configuration ordering includes the identifier as a
-stable tie breaker. SQL NULL strings keep the legacy trimmed empty-string behavior.
+stable tie breaker. Nullable order numbers retain SQL ordering and expose the legacy zero value;
+nullable filter report IDs and report status remain readable without rewriting stored NULLs.
+SQL NULL strings keep the legacy trimmed empty-string behavior.
 CSV export dispatches to the registered servlet by name, preserving the existing
 report permission gate after the result JSP's relocation below `WEB-INF`.
+Attachment names stay local to each request, and buffered response write/close failures propagate
+instead of being swallowed.
 
 `ReportConfigurationService` owns append/order allocation, duplicate deletion,
 reordering/removal, and caption updates. Its transaction is REQUIRED; the report
@@ -30,22 +34,29 @@ SQL through the clinical EntityManager:
 
 | Workflow | Execution boundary and limits |
 | --- | --- |
-| Query by Example | Unchanged `RptByExampleData` and `ReportingConnectionService`: separate least-privileged reporting account, `QueryByExampleSqlValidator` table/column allowlists checked before execution (including favourites), 15 second timeout, 1,000 rows, 1,000,000 output characters, cancellation and audit. It fails closed when that account is unavailable. |
+| Query by Example | Unchanged `RptByExampleData` and `ReportingConnectionService`: separate least-privileged reporting account, `QueryByExampleSqlValidator` SQL-shape, schema and sensitive-table checks before execution (including favourites); column restrictions enforced by the reporting-account grant audit and database privileges, 15 second timeout, 1,000 rows, 1,000,000 output characters, cancellation and audit. It fails closed when that account is unavailable. |
 | Configured form/antenatal exports and clinical denominator/numerator SQL | `ConfiguredReportQuery`: validated report SELECT, bound values, managed legacy JDBC datasource, 30 seconds, 10,000 rows, 5 Mi characters per query. Results detach before returning; excess rows/output fail instead of returning partial results. Internal identifier sets use a separate 100,000-ID limit and the same 30 second timeout; the rendered row budget is applied only to result rows. The CSV servlet also rejects downloads exceeding 5 MiB in UTF-8. Existing form-table/column validation and configuration permissions remain in their callers. |
-| Report by Template | Template SQL is validated when saved and again before execution; `ReportObjectGeneric` parameterization and active-template checks remain. `SQLReporter` retains its metadata-dependent HTML/CSV rendering on a managed JDBC result, with the same 30 second, 10,000 row, 5 Mi character read budget and existing 5 MiB CSV cap. All resources close on success, timeout, limit rejection, and rendering failure. |
-| Form column discovery | The existing encounterForm table allowlist and bare-identifier validation remain; a bounded metadata read returns column names even when the table is empty. |
+| Report by Template | Template SQL is validated when saved and again before execution; `ReportObjectGeneric` parameterization and active-template checks remain. `SQLReporter` uses the release branch's streaming `ReportResultBudget`: one shared 30-second deadline, 10,000 rows, 32 queries, 256 columns, 64 Ki characters per cell, 10 MiB HTML and 5 MiB CSV across a sequenced report. Failed sequences discard earlier output. Resources are released on success, timeout, limit rejection and rendering failure. |
+| Form column discovery | The existing encounterForm table allowlist and bare-identifier validation remain; a zero-row metadata query returns column names without reading field values, including for empty tables. Query failures propagate instead of presenting empty fields. |
 
 Configured clinical and legacy form reports continue using their existing managed
 legacy datasource. Moving those templates to the restricted reporting account
 requires a separate compatibility and grant review; the Query by Example policy
-must not be widened to accommodate them. Timeout cancellation is performed by the
-JDBC driver's `setQueryTimeout`; closing the wrapper releases the statement and
-Spring-managed connection. No report SQL or patient values are added to audit logs.
+must not be widened to accommodate them. Configured JDBC queries use a monotonic deadline established before connection acquisition.
+The pool's configured timeout governs a blocking acquisition; that wait consumes the query budget,
+and an expired budget prevents statement execution. Once acquired, connection cancellation covers
+statement setup, execution and streaming reads; a rounded-up JDBC `setQueryTimeout` is a fallback.
+Closing an unread streaming cursor aborts it before asynchronous resource release so cleanup does
+not drain an unbounded result. The fixed antenatal birth-summary DAO also enforces the 100,000-ID
+ceiling with an overflow row and a query timeout. No report SQL or patient values are added to audit logs.
 
-Query failures and budget breaches intentionally propagate instead of becoming successful empty
-exports. Clinical denominator/numerator failures abort the report rather than reporting a zero
-population or silently excluding patients. Numerator existence/output checks read only their first
-matching row. Caption lookup retains its legacy empty-caption fallback for database failures.
+Configured form/clinical query failures and budget breaches propagate instead of becoming successful
+empty exports. Clinical denominator/numerator failures abort the report rather than reporting a zero
+population or silently excluding patients; denominators use the 100,000-ID budget. Numerator
+existence/output checks read only their first matching row. Report by Template preserves result-page
+navigation for an ordinary single-query SQL failure and displays the error with no CSV/XLS download;
+limit failures and failed sequences return to configuration. Caption lookup retains its legacy
+empty-caption fallback for database failures.
 
 ## Jasper and remaining legacy APIs
 

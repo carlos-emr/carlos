@@ -27,6 +27,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -433,7 +435,10 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
         DataSource dataSource = mock(DataSource.class);
         Connection connection = mock(Connection.class);
         PreparedStatement statement = mock(PreparedStatement.class);
+        DatabaseMetaData metadata = mock(DatabaseMetaData.class);
         when(dataSource.getConnection()).thenReturn(connection);
+        when(connection.getMetaData()).thenReturn(metadata);
+        when(metadata.getDatabaseProductName()).thenReturn("MySQL");
         when(connection.prepareStatement(anyString(), org.mockito.ArgumentMatchers.anyInt(),
                 org.mockito.ArgumentMatchers.anyInt())).thenReturn(statement);
         when(statement.executeQuery()).thenThrow(new java.sql.SQLTimeoutException("synthetic timeout"));
@@ -444,12 +449,92 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
                 .isInstanceOf(java.sql.SQLTimeoutException.class);
 
         InOrder order = inOrder(statement, connection);
+        order.verify(connection).prepareStatement("select 1 where 1=?", ResultSet.TYPE_FORWARD_ONLY,
+                ResultSet.CONCUR_READ_ONLY);
         order.verify(statement).setMaxRows(11);
-        order.verify(statement).setQueryTimeout(2);
+        order.verify(statement).setFetchSize(Integer.MIN_VALUE);
         order.verify(statement).setObject(1, 1);
+        order.verify(statement).setQueryTimeout(2);
         order.verify(statement).executeQuery();
+        verify(connection, org.mockito.Mockito.timeout(1000)).close();
+        order.verify(connection).abort(org.mockito.ArgumentMatchers.any());
         order.verify(statement).close();
         order.verify(connection).close();
+    }
+
+    @Test
+    void shouldPreserveQuotedQuestionMarks_forLegacyBoundedReports() throws Exception {
+        DataSource source = mock(DataSource.class);
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet rows = mock(ResultSet.class);
+        DatabaseMetaData metadata = mock(DatabaseMetaData.class);
+        registerMock(DataSource.class, source);
+        when(source.getConnection()).thenReturn(connection);
+        when(connection.getMetaData()).thenReturn(metadata);
+        when(metadata.getDatabaseProductName()).thenReturn("H2");
+        when(connection.prepareStatement("select '?' as label, ? as value", ResultSet.TYPE_FORWARD_ONLY,
+                ResultSet.CONCUR_READ_ONLY)).thenReturn(statement);
+        when(statement.executeQuery()).thenReturn(rows);
+
+        try (ResultSet result = LegacyJdbcQuery.getBoundedReportResultSet(
+                LegacyJdbcQuery.trustedReportSelectSql("select '?' as label, ? as value"), 10, 2, "bound")) {
+            assertThat(result.next()).isFalse();
+        }
+
+        verify(statement).setObject(1, "bound");
+        verify(statement).setMaxRows(11);
+        verify(connection).close();
+    }
+
+    @Test
+    void shouldRefuseExpiredReport_afterConnectionAcquisition() throws Exception {
+        DataSource source = mock(DataSource.class);
+        Connection connection = mock(Connection.class);
+        registerMock(DataSource.class, source);
+        when(source.getConnection()).thenAnswer(invocation -> {
+            TimeUnit.MILLISECONDS.sleep(1_050);
+            return connection;
+        });
+
+        assertThatThrownBy(() -> LegacyJdbcQuery.getBoundedReportResultSet(
+                LegacyJdbcQuery.trustedReportSelectSql("select 1"), 10, 1))
+                .isInstanceOf(java.sql.SQLTimeoutException.class);
+
+        verify(connection, never()).prepareStatement(anyString(), org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyInt());
+        verify(connection).close();
+    }
+
+    @Test
+    void shouldInterruptStatementPreparation_whenReportDeadlineExpires() throws Exception {
+        DataSource source = mock(DataSource.class);
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        DatabaseMetaData metadata = mock(DatabaseMetaData.class);
+        CountDownLatch aborted = new CountDownLatch(1);
+        registerMock(DataSource.class, source);
+        when(source.getConnection()).thenReturn(connection);
+        when(connection.getMetaData()).thenReturn(metadata);
+        when(metadata.getDatabaseProductName()).thenReturn("MySQL");
+        org.mockito.Mockito.doAnswer(invocation -> {
+            aborted.countDown();
+            return null;
+        }).when(connection).abort(org.mockito.ArgumentMatchers.any());
+        when(connection.prepareStatement("select 1", ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY))
+                .thenAnswer(invocation -> {
+                    assertThat(aborted.await(5, TimeUnit.SECONDS)).isTrue();
+                    return statement;
+                });
+
+        assertThatThrownBy(() -> LegacyJdbcQuery.getBoundedReportResultSet(
+                LegacyJdbcQuery.trustedReportSelectSql("select 1"), 1,
+                System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(500)))
+                .isInstanceOf(java.sql.SQLTimeoutException.class);
+
+        verify(statement, never()).executeQuery();
+        verify(connection, org.mockito.Mockito.timeout(1000)).close();
+        verify(statement).close();
     }
 
     @Test

@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
 import java.util.List;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,9 +35,20 @@ public class AntenatalReportDao {
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
-    /** Distinct demographic identifiers, retaining JDBC's historical NULL-to-zero integer conversion. */
-    public List<Integer> birthSummaryDemographics() {
-        List<?> values = entityManager.createNativeQuery("select distinct demographic_no from formBCBirthSumMo").getResultList();
+    /**
+     * Distinct demographic identifiers, retaining JDBC's historical NULL-to-zero integer conversion.
+     *
+     * @return the complete cohort within the internal identifier budget
+     * @throws ConfiguredReportQuery.LimitExceededException if the cohort exceeds that budget
+     */
+    public List<Integer> birthSummaryDemographics() throws ConfiguredReportQuery.LimitExceededException {
+        List<?> values = entityManager.createNativeQuery("select distinct demographic_no from formBCBirthSumMo")
+                .setMaxResults(ConfiguredReportQuery.MAX_IDENTIFIER_ROWS + 1)
+                .setHint("jakarta.persistence.query.timeout", ConfiguredReportQuery.TIMEOUT_SECONDS * 1000)
+                .getResultList();
+        if (values.size() > ConfiguredReportQuery.MAX_IDENTIFIER_ROWS) {
+            throw new ConfiguredReportQuery.LimitExceededException("Report identifier budget exceeded; narrow the filters");
+        }
         return values.stream().map(value -> value == null ? 0 : ((Number) value).intValue()).toList();
     }
 }

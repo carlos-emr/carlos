@@ -136,6 +136,13 @@ public class RptTableFieldNameCaption {
         return ret;
     }
 
+    /**
+     * Loads the columns of an allowlisted encounter form without reading patient values.
+     *
+     * @param tableName configured encounter-form table name
+     * @return column names, or an empty vector when the table is not allowlisted
+     * @throws IllegalStateException if database metadata cannot be loaded
+     */
     public Vector getMetaNameList(String tableName) {
         Vector ret = new Vector();
         String trustedTableName = validateEncounterFormTableName(tableName);
@@ -145,9 +152,10 @@ public class RptTableFieldNameCaption {
 
         String sql = metaNameListSql(trustedTableName);
         try {
-            ret.addAll(ConfiguredReportQuery.read(sql).columnNames());
+            ret.addAll(ConfiguredReportQuery.columnNames(sql));
         } catch (SQLException e) {
             logger.error("getMetaNameList() error for table: {}", LogSafe.sanitize(tableName), e);
+            throw new IllegalStateException("Report fields could not be loaded; retry the report", e);
         }
         return ret;
     }
@@ -185,7 +193,7 @@ public class RptTableFieldNameCaption {
         // Table identifiers cannot be JDBC-bound. trustedTableName has passed
         // validateEncounterFormTableName(), including the bare-identifier check
         // and encounterForm allowlist.
-        return "select * from " + trustedTableName + " limit 1";
+        return "select * from " + trustedTableName + " where 1=0";
     }
 
     public Vector getFormTableNameList() {

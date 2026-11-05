@@ -18403,7 +18403,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Owns the runWorkflow patient, a marker-named report with generated configuration/filter rows and a marker-named legacy billing header/detail and a synthetic provider/role; cleanup recovers generated identifiers by marker and asserts owned rows are gone.",
+      "fixtures": "Owns the runWorkflow patient, a marker-named report with generated configuration/filter rows and a marker-named legacy billing header/detail and a synthetic provider/role; cleanup recovers generated identifiers by marker and asserts owned rows are gone. Must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "Verifies typed report field metadata and add/delete commits, provider role and PHCP counts, and authenticated CSV dispatch after JSP relocation."
     }
   ]

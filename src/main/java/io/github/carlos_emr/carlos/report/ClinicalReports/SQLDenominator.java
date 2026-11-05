@@ -84,9 +84,7 @@ public class SQLDenominator implements Denominator {
             }
 
             MiscUtils.getLogger().debug("SQL Statement: " + exeSql);
-            for (var row : ConfiguredReportQuery.read(exeSql, paramValues.toArray()).rows()) {
-                list.add(row.text(resultString));
-            }
+            list.addAll(ConfiguredReportQuery.identifierColumn(exeSql, resultString, paramValues.toArray()));
         } catch (Exception e) {
             MiscUtils.getLogger().error("Clinical report denominator query failed", e);
             throw new IllegalStateException("Clinical report could not be completed; narrow the filters or retry", e);

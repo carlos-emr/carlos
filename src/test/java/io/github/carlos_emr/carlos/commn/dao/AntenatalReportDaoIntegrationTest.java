@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Fixed antenatal export ordering and cohort-selection compatibility checks. */
 @Tag("integration")
@@ -58,11 +59,32 @@ class AntenatalReportDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldMapDistinctIdentifiersAndNulls_forBirthSummaryRows() {
+    void shouldMapDistinctIdentifiersAndNulls_forBirthSummaryRows() throws Exception {
         entityManager.createNativeQuery("create temporary table formBCBirthSumMo (demographic_no integer)").executeUpdate();
         try {
             entityManager.createNativeQuery("insert into formBCBirthSumMo values (7), (7), (null), (11)").executeUpdate();
             assertThat(reports.birthSummaryDemographics()).containsExactlyInAnyOrder(7, 0, 11);
+        } finally {
+            entityManager.createNativeQuery("drop table formBCBirthSumMo").executeUpdate();
+        }
+    }
+
+    @Test
+    void shouldRejectOversizedCohorts_withoutReturningPartialBirthSummaryIdentifiers() throws Exception {
+        entityManager.createNativeQuery("create temporary table formBCBirthSumMo (demographic_no integer)").executeUpdate();
+        try {
+            entityManager.createNativeQuery("insert into formBCBirthSumMo values (0), (1), (2), (3), (4), (5), (6), (7), (8), (9)").executeUpdate();
+            for (int offset = 10; offset < 100_000; offset *= 10) {
+                for (int digit = 1; digit <= 9; digit++) {
+                    entityManager.createNativeQuery("insert into formBCBirthSumMo select demographic_no + ?1 from formBCBirthSumMo where demographic_no < ?2")
+                            .setParameter(1, offset * digit).setParameter(2, offset).executeUpdate();
+                }
+            }
+            assertThat(reports.birthSummaryDemographics()).hasSize(100_000);
+            entityManager.createNativeQuery("insert into formBCBirthSumMo values (100000)").executeUpdate();
+            assertThatThrownBy(() -> reports.birthSummaryDemographics())
+                    .isInstanceOf(io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery.LimitExceededException.class)
+                    .hasMessageContaining("identifier budget");
         } finally {
             entityManager.createNativeQuery("drop table formBCBirthSumMo").executeUpdate();
         }
