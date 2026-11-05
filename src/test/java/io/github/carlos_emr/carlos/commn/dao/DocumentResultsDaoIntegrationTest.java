@@ -47,12 +47,13 @@ import static org.assertj.core.api.Assertions.tuple;
  *
  * <p>The three builders return the same {@link LabResultData} rows the Inbox views render, and
  * every view shows a document row's {@code description}. The builders never set it, so any row
- * they built had none (#5685). The Inbox Hub list itself is built by {@link InboxResultsDao};
- * {@code InboxResultsDaoIntegrationTest} covers its description column.</p>
+ * they built had none (#5685). Two of them also threw on a document with no type, and their
+ * catch-all then ended the list at that row. The Inbox Hub list itself is built by
+ * {@link InboxResultsDao}; {@code InboxResultsDaoIntegrationTest} covers its description column.</p>
  *
  * <p>The test uses the production {@code documentResultsDao} bean,
- * {@link DocumentResultsMergedDemographicDaoImpl}, which adds merged patients' rows to what the
- * builders return.</p>
+ * {@link DocumentResultsMergedDemographicDaoImpl}. With no patient given it looks up the merges of
+ * no patient, so it returns the builders' rows unchanged.</p>
  *
  * @since 2026-11-05
  * @see DocumentResultsDaoImpl
@@ -89,8 +90,9 @@ public class DocumentResultsDaoIntegrationTest extends CarlosTestBase {
         doc.setContenttype("application/pdf");
         doc.setPublic1(0);
         doc.setNumberofpages(1);
+        // Two builders format the observation date without a null check; @PrePersist stamps
+        // updatedatetime itself.
         doc.setObservationdate(observed);
-        doc.setUpdatedatetime(observed);
         doc.setContentdatetime(observed);
         entityManager.persist(doc);
 
@@ -119,8 +121,9 @@ public class DocumentResultsDaoIntegrationTest extends CarlosTestBase {
     @DisplayName("should carry each document's saved description, and none for a blank one")
     void shouldCarrySavedDescription_inEveryDocumentResultBuilder(String builder) {
         int described = routeDocument("lab", "FAKE discharge summary");
+        int untyped = routeDocument(null, "FAKE referral letter");
         int undescribed = routeDocument("consult", "");
-        Set<String> owned = Set.of(String.valueOf(described), String.valueOf(undescribed));
+        Set<String> owned = Set.of(String.valueOf(described), String.valueOf(untyped), String.valueOf(undescribed));
 
         List<LabResultData> result = build(builder);
 
@@ -128,6 +131,7 @@ public class DocumentResultsDaoIntegrationTest extends CarlosTestBase {
                 .extracting(row -> row.segmentID, row -> row.description)
                 .containsExactlyInAnyOrder(
                         tuple(String.valueOf(described), "FAKE discharge summary"),
+                        tuple(String.valueOf(untyped), "FAKE referral letter"),
                         tuple(String.valueOf(undescribed), null));
     }
 }

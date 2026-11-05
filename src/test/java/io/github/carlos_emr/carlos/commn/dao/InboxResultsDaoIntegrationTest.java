@@ -144,9 +144,16 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
      * Creates a Document entity.
      */
     private Document createDocument(String doctype, String creator, char status) {
+        return createDocument(doctype, "Test document", creator, status);
+    }
+
+    /**
+     * Creates a Document entity with the given description.
+     */
+    private Document createDocument(String doctype, String docdesc, String creator, char status) {
         Document doc = new Document();
         doc.setDoctype(doctype);
-        doc.setDocdesc("Test document");
+        doc.setDocdesc(docdesc);
         doc.setDocfilename("test.pdf");
         doc.setDoccreator(creator);
         doc.setResponsible(creator);
@@ -673,10 +680,11 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
 
     /**
      * Every Inbox view shows a document row's own description ({@code document.docdesc}). Six of
-     * the query shapes read the document type into that column instead, so the Inbox of one
-     * patient, or of a name search, showed the type where the clinician had saved a description
-     * (#5685). A document with no type was worse: mapping the null type threw, and the catch-all
-     * ended the page there, dropping that row and every row after it.
+     * the query shapes read the document type into that column instead: every mixed labs-and-
+     * documents shape, and the separate shapes for one patient and for a name search. Those views
+     * showed the type where the clinician had saved a description (#5685). A document with no type
+     * was worse: mapping the null type threw, and the catch-all ended the page there, dropping
+     * that row and every row after it.
      */
     @Nested
     @DisplayName("populateDocumentResultsData description column")
@@ -684,8 +692,7 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
     class PopulateDocumentResultsDataDescription {
 
         private int routeDocument(int moduleId, String doctype, String docdesc) {
-            Document doc = createDocument(doctype, PROVIDER_NO, 'A');
-            doc.setDocdesc(docdesc);
+            Document doc = createDocument(doctype, docdesc, PROVIDER_NO, 'A');
             createCtlDocument("demographic", moduleId, doc.getDocumentNo());
             createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
             entityManager.flush();
@@ -696,7 +703,8 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
          * The same ten shapes as the acknowledged-since bound: the provider's whole list of
          * patient documents and of unmatched ones, one patient, a name search and the unmatched
          * view, each with labs and documents mixed and separate. Together they reach every query
-         * the method builds.
+         * the method builds. Three of them (the separate provider lists, matched and unmatched,
+         * and the separate unmatched view) already read the description; they pin it.
          */
         @ParameterizedTest(name = "{0}, mixLabsAndDocs={1}")
         @CsvSource({"provider,true", "provider,false", "providerUnmatched,true", "providerUnmatched,false",

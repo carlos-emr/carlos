@@ -220,10 +220,9 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
                     lbData.finalRes = false;
                 }
 
-                lbData.discipline = d.getDoctype();
-                if (lbData.discipline.trim().equals("")) {
-                    lbData.discipline = null;
-                }
+                // Null-safe: document.doctype is nullable, and a NullPointerException here
+                // ended the loop in the catch below, dropping this row and every later one.
+                lbData.discipline = StringUtils.defaultIfBlank(d.getDoctype(), null);
 
                 // The description every inbox view shows for a document row (#5685).
                 lbData.description = StringUtils.defaultIfBlank(d.getDocdesc(), null);
@@ -456,10 +455,9 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
                     lbData.finalRes = false;
                 }
 
-                lbData.discipline = d.getDoctype();
-                if (lbData.discipline.trim().equals("")) {
-                    lbData.discipline = null;
-                }
+                // Null-safe: document.doctype is nullable, and a NullPointerException here
+                // ended the loop in the catch below, dropping this row and every later one.
+                lbData.discipline = StringUtils.defaultIfBlank(d.getDoctype(), null);
 
                 // The description every inbox view shows for a document row (#5685).
                 lbData.description = StringUtils.defaultIfBlank(d.getDocdesc(), null);

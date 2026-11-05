@@ -232,7 +232,7 @@
       "check": "document-clinical-followup",
       "finding": 348,
       "step": "the forwarded Inbox row displays its exact seeded description and patient identity",
-      "disposition": "Source fix for #5685: every Inbox document query selects the saved description. Manifest pin retired; retained as an active regression. A fresh installed PASS of the whole check, including its review, comment and acknowledgement steps, is still required."
+      "disposition": "Source fix in #5689 for #5685: every Inbox document query selects the saved description. Manifest pin retired; retained as an active regression. A fresh installed PASS of the whole check, including its review, comment and acknowledgement steps, is still required."
     }
   ]
 }
