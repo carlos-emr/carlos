@@ -9,7 +9,10 @@ Provider discovery depended on classpath order: the issue's deployed application
 selected MOXy, while a fresh package made from release commit
 `112feaecb7b` selected Glassfish. Reproducing the old deployment requires explicitly
 selecting `org.eclipse.persistence.jaxb.JAXBContextFactory`. Ordinary Maven tests
-explicitly select Glassfish so the test oracle cannot become the default provider.
+explicitly select Glassfish so the test oracle cannot become the default provider,
+and the test dependency is declared after `jaxb-runtime` so `ServiceLoader` also
+finds Glassfish first where that system property is not applied;
+`JaxbProviderDiscoveryUnitTest` pins both.
 
 ## Preserved XML and JSON contracts
 
@@ -18,11 +21,25 @@ and an empty element for the NUL sentinel. Package annotations also cover primit
 characters and collection items. Map keys need an explicit adapter because JAXB's
 synthetic map-entry binding does not inherit that conversion.
 
-MOXy's Calendar output omits timezone offsets and uses a date-only value at local
-midnight. Its Date and Calendar values omit trailing fractional-second zeroes.
-The date adapters retain those lexical forms; schema annotations retain the
-existing `xs:dateTime` types. Two beans with lower-case accessor names also need
-explicit alphabetical XML ordering. Empty filter maps remain omitted.
+MOXy shapes a Calendar value from `Calendar.isSet`, not from the field values. A
+calendar with no time field set (`clear()` followed by year, month and day, as in
+`Demographic.getBirthDay`) is written as a date only; any other calendar is a full
+date-time, and its zone offset is written only when the zone fields are set. Every
+calendar produced by `DateUtils.toGregorianCalendar` goes through `setTime` and so
+has all fields set: those values carry their offset (`2026-07-15T09:30:00-04:00`,
+or `2026-07-15T13:30:00Z` for `useGMTTime`), and a midnight value keeps its time
+(`2026-07-15T00:00:00-04:00`). Glassfish without an adapter writes exactly the same
+strings for those production shapes, so the only behaviour the adapter has to add
+is the set-state rule. `CalendarXmlAdapter` reads the set-state before copying the
+calendar and `CalendarXmlAdapterUnitTest` pins the strings captured from the
+unmodified release classes under MOXy. Date and Calendar values omit trailing
+fractional-second zeroes; schema annotations retain the existing `xs:dateTime`
+types. Two beans with lower-case accessor names also need explicit alphabetical
+XML ordering. Empty filter maps remain omitted.
+
+The frozen fixture's populated Calendar is built with `clear()` and therefore has
+no zone fields set; it covers the date-only and offset-less forms but not the
+`setTime` shape, which is why the production shapes are pinned separately.
 
 Both production REST JSON mappers use `RestXmlAnnotationIntrospector`, which keeps
 JAXB names and existing adapters but excludes the `XmlCompatibilityAdapter` family.

@@ -46,6 +46,20 @@ class ProfessionalSpecialistAddressUnitTest {
     }
 
     @Test
+    void shouldReturnEmptyComponents_forSingleLineAddress() {
+        // Before #5476 a comma-less address left the component cache untouched, so getAddress()
+        // returned "," and the city, postal and province getters returned null. Contact consumers
+        // now receive the street and empty strings for the missing components.
+        ProfessionalSpecialist specialist = new ProfessionalSpecialist();
+        specialist.setStreetAddress("123 Synthetic Street");
+        assertThat(specialist.getAddress()).isEqualTo("123 Synthetic Street");
+        assertThat(specialist.getCity()).isEmpty();
+        assertThat(specialist.getPostal()).isEmpty();
+        assertThat(specialist.getProvince()).isEmpty();
+        assertThat(specialist.getStreetAddress()).isEqualTo("123 Synthetic Street");
+    }
+
+    @Test
     void shouldRetainSingleComponentStreet_whenSettingCity() {
         ProfessionalSpecialist specialist = new ProfessionalSpecialist();
         specialist.setStreetAddress("New street");

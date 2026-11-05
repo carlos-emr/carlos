@@ -270,8 +270,11 @@ public final class AppointmentTransfer {
         // not much we can do right now because it's a fault in oscars data structure.
         if (appointmentEndDateTime != null) {
             // also oscar sets end time funny, it is not exclusive so we need to calculate exclusivity ourselves.
-            appointmentEndDateTime.add(Calendar.MILLISECOND, -1);
-            appointment.setEndTime(appointmentEndDateTime.getTime());
+            // Work on a copy: the transfer must keep echoing the end the client sent, and a second
+            // copyTo on the same transfer must not drift by another millisecond.
+            Calendar exclusiveEnd = (Calendar) appointmentEndDateTime.clone();
+            exclusiveEnd.add(Calendar.MILLISECOND, -1);
+            appointment.setEndTime(exclusiveEnd.getTime());
         }
 
         return (appointment);
