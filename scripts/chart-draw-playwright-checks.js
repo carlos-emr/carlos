@@ -9,6 +9,7 @@
  *   3. Long medication names are shortened for the category axis, as the former chart did.
  *   4. A series observed within one day labels its date axis with the time, not the same date on
  *      every tick.
+ *   5. A medication started and stopped on the same day still draws a visible bar.
  */
 'use strict';
 const assert = require('node:assert/strict');
@@ -24,6 +25,7 @@ async function draw(page, spec, width, height) {
         const charts = window.carlosDrawChart(spec, width, height);
         return {
             canvases: [...document.querySelectorAll('canvas')].map(c => ({ width: c.width, height: c.height })),
+            barWidths: charts.length ? charts[charts.length - 1].getDatasetMeta(0).data.map(bar => Math.abs(bar.x - bar.base)) : [],
             labels: charts.map(chart => Object.values(chart.scales).map(scale => ({
                 id: scale.id, ticks: scale.ticks.map(tick => String(tick.label ?? tick.value)) }))),
         };
@@ -67,12 +69,17 @@ async function main() {
         const dateTicks = sameDay.labels[0].find(scale => scale.id === 'x').ticks;
         assert.ok(dateTicks.some(label => /\d{2}:\d{2}/.test(label)), `a same-day series shows times on its date axis: ${dateTicks}`);
 
+        const oneDay = await draw(page, { ...base, medications: [
+            { name: 'SYNTHETIC LONG COURSE', start: t0, end: t0 + 90 * day },
+            { name: 'SYNTHETIC SINGLE DOSE', start: t0 + 30 * day, end: t0 + 30 * day }] }, 1000, 360);
+        assert.ok(oneDay.barWidths[1] >= 2, `a same-day medication interval still draws a visible bar: widths ${oneDay.barWidths}`);
+
         const twoYears = { ...base, datasets: [{ ...series, data: [{ x: t0, y: 61 }, { x: t0 + 700 * day, y: 63 }] }], medications: [] };
         const long = await draw(page, twoYears, 1000, 600);
         const longTicks = long.labels[0].find(scale => scale.id === 'x').ticks;
         assert.ok(longTicks.every(label => /^\d{4}-\d{2}-\d{2}$/.test(label)), `a multi-year series shows dates only: ${longTicks}`);
         assert.deepEqual(errors, []);
-        console.log('PASS: medication-only layout, aligned panels, shortened names, time-aware date ticks');
+        console.log('PASS: medication-only layout, aligned panels, shortened names, time-aware date ticks, visible same-day intervals');
     } finally {
         if (browser) await browser.close();
     }

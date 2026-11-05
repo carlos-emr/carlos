@@ -14,7 +14,9 @@
     function drawChart(spec, width, height) {
         document.body.replaceChildren();
         document.body.style.cssText = 'margin:0;background:white';
-        const medications = spec.medications || [];
+        // A medication started and stopped the same day keeps a one-day extent, so its bar is
+        // still visible, as the former chart's minimum bar width made it.
+        const medications = (spec.medications || []).map(m => ({ ...m, end: Math.max(m.end, m.start + DAY) }));
         const datasets = spec.datasets || [];
         const allDates = datasets.flatMap(ds => ds.data.map(p => p.x));
         medications.forEach(m => allDates.push(m.start, m.end));
@@ -95,7 +97,7 @@
                 options: { indexAxis: 'y', responsive: false, animation: false, devicePixelRatio: 1,
                     scales: { x: { type: 'linear', min: scales.x.min, max: scales.x.max, ticks: { callback: dateLabel },
                         title: { display: true, text: 'Date/Time' } },
-                        y: { type: 'category', labels: names, ticks: { autoSkip: false, callback(value) {
+                        y: { type: 'category', labels: names, title: { display: true, text: 'Meds' }, ticks: { autoSkip: false, callback(value) {
                             // Long product names used to be shortened to thirty characters on the former axis.
                             const label = this.getLabelForValue(value);
                             return label.length > LABEL_LIMIT ? label.slice(0, LABEL_LIMIT - 3) + '...' : label;
