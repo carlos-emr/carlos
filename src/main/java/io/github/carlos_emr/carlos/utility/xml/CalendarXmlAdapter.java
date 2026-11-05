@@ -52,8 +52,11 @@ public final class CalendarXmlAdapter extends XmlCompatibilityAdapter<String, Ca
 
     @Override
     public Calendar unmarshal(String value) {
-        // xs:dateTime collapses XML whitespace; String-valued adapters receive it verbatim.
-        return value == null ? null : DATATYPE_FACTORY.newXMLGregorianCalendar(value.trim()).toGregorianCalendar();
+        if (value == null) return null;
+        // Native MOXy reads empty optional dates as null, including XML whitespace-only values.
+        // Retain that accepted-input contract without suppressing malformed nonempty dates.
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : DATATYPE_FACTORY.newXMLGregorianCalendar(normalized).toGregorianCalendar();
     }
 
     @Override

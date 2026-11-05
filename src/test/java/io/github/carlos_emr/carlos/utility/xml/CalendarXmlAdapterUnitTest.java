@@ -42,9 +42,11 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Pins the Calendar lexical forms of the SOAP contract.
@@ -128,6 +130,48 @@ class CalendarXmlAdapterUnitTest {
         assertThat(appointment.getAppointmentStartDateTime()).isNotNull();
         assertThat(appointment.getAppointmentStartDateTime().toInstant())
                 .isEqualTo(java.time.Instant.parse("2026-07-15T13:30:00Z"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "\t\r\n "})
+    void shouldPreserveAppointmentDates_whenXmlContainsEmptyOptionalDates(String value) throws Exception {
+        JAXBContext context = JAXBContext.newInstance(AppointmentTransfer.class);
+        Unmarshaller reader = context.createUnmarshaller();
+        // CXF rejects these adapter validation events; the plain JAXB default can hide them.
+        reader.setEventHandler(event -> false);
+        String input = "<value><appointmentStartDateTime>" + value
+                + "</appointmentStartDateTime><appointmentEndDateTime>" + value
+                + "</appointmentEndDateTime></value>";
+        AppointmentTransfer transfer = reader.unmarshal(new StreamSource(new StringReader(input)),
+                AppointmentTransfer.class).getValue();
+        assertThat(transfer.getAppointmentStartDateTime()).isNull();
+        assertThat(transfer.getAppointmentEndDateTime()).isNull();
+        Appointment appointment = appointment(9, 30);
+        java.util.Date savedDate = appointment.getAppointmentDate();
+        java.util.Date savedStart = appointment.getStartTime();
+        java.util.Date savedEnd = appointment.getEndTime();
+        transfer.copyTo(appointment);
+        assertThat(appointment.getAppointmentDate()).isEqualTo(savedDate);
+        assertThat(appointment.getStartTime()).isEqualTo(savedStart);
+        assertThat(appointment.getEndTime()).isEqualTo(savedEnd);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t\r\n "})
+    void shouldReadAbsentCalendar_whenValueIsBlank(String value) {
+        assertThat(new CalendarXmlAdapter().unmarshal(value)).isNull();
+    }
+
+    @Test
+    void shouldRejectMalformedCalendar_whenXmlValueIsNotBlank() throws Exception {
+        JAXBContext context = JAXBContext.newInstance(AppointmentTransfer.class);
+        Unmarshaller reader = context.createUnmarshaller();
+        reader.setEventHandler(event -> false);
+        String input = "<value><appointmentStartDateTime>not-a-date</appointmentStartDateTime></value>";
+        StreamSource source = new StreamSource(new StringReader(input));
+        assertThatThrownBy(() -> reader.unmarshal(source, AppointmentTransfer.class))
+                .isInstanceOf(jakarta.xml.bind.UnmarshalException.class);
     }
 
     @ParameterizedTest

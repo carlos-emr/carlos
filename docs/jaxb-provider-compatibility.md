@@ -43,6 +43,12 @@ uses an appointment DTO and rejects any JAXB validation event. Two beans with
 lower-case accessor names also need explicit alphabetical
 XML ordering. Empty filter maps remain omitted.
 
+Empty or XML-whitespace-only optional Calendar elements retain native MOXy's null
+interpretation. This matters for SOAP appointment updates, where null start/end
+values preserve the existing dates. The regression uses the actual appointment
+binding with strict validation events, matching CXF's reader; malformed nonempty
+dates are still rejected.
+
 The frozen fixture's populated Calendar is built with `clear()` and therefore has
 no zone fields set; it covers the date-only and offset-less forms but not the
 `setTime` shape, which is why the production shapes are pinned separately.
