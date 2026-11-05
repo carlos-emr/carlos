@@ -483,7 +483,8 @@ public class DemographicAddRecord2Action extends ActionSupport {
             waitingList.setIsHistory("N");
             waitingListDao.persist(waitingList);
         } catch (NumberFormatException e) {
-            logger.warn("DemographicAddRecord2Action: invalid list_id={}, skipping waiting list entry", listId, e);
+            logger.warn("DemographicAddRecord2Action: invalid list_id={}, skipping waiting list entry",
+                    LogSafe.sanitize(listId), e);
         }
     }
 
