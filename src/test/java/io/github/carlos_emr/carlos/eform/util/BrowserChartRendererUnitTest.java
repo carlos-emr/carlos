@@ -84,7 +84,7 @@ class BrowserChartRendererUnitTest {
     }
 
     @Test
-    void shouldRejectEmptyChart_andReleaseSession() throws Exception {
+    void shouldRejectEmptyChart_andReleaseSession() {
         RenderBrowser driver = mock(RenderBrowser.class);
         when(driver.executeScript(eq("return window.carlosDrawChart(arguments[0], arguments[1], arguments[2]).length > 0;"),
                 any(), eq(100), eq(100))).thenReturn(false);
@@ -92,7 +92,7 @@ class BrowserChartRendererUnitTest {
                 driver, URI.create("http://127.0.0.1:9515"), "synthetic-session");
         int permits = EFormBrowserPdfService.RENDER_SLOTS.availablePermits();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        try (MockedConstruction<EFormBrowserPdfService> services = mockConstruction(EFormBrowserPdfService.class,
+        try (MockedConstruction<EFormBrowserPdfService> _ = mockConstruction(EFormBrowserPdfService.class,
                 (service, ignored) -> when(service.createDriver(any())).thenReturn(session))) {
             assertThatThrownBy(() -> BrowserChartRenderer.write(context, output, chart(), 100, 100, "png"))
                     .isInstanceOf(IOException.class).hasMessage("Chart image is unavailable");
