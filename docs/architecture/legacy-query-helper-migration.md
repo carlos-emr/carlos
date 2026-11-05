@@ -5,8 +5,8 @@ This inventory starts from `release/2026.08` at
 that base. The operation index and caller counts below are a historical snapshot
 of that migration, not a live inventory of the current release tree. During
 release integration, [#5552](https://github.com/carlos-emr/carlos/pull/5552)
-already migrated the indexed `MSPReconcile` reads for #5546; those entries remain
-as the audit trail of the original inventory. The work is deliberately split into module changes, as requested by
+already migrated the indexed `MSPReconcile` reads and retired `dbExtract` for
+#5546; those entries remain as the audit trail of the original inventory. The work is deliberately split into module changes, as requested by
 [#5508](https://github.com/carlos-emr/carlos/issues/5508). It does not claim that
 all application SQL has been converted to JPA.
 
@@ -16,7 +16,7 @@ all application SQL has been converted to JPA.
 | --- | --- | --- |
 | `DxReference.getLatestDxCodes` | Connection, prepared statement and result set over `billingmaster`: `SELECT dx_code1, dx_code2, dx_code3, service_date ... WHERE demographic_no=? AND billingstatus != 'D' ORDER BY service_date DESC LIMIT 10` | `BillingmasterDAO.findRecentDiagnosisRows` returns `DiagnosisRow`; `BillingDiagnosisService` returns `DiagnosisDto`. Native SQL and string binding preserve MariaDB comparison semantics. The ten-bill limit precedes code expansion and deduplication; blank/null codes are skipped, original code whitespace is retained, first occurrence supplies the date, and descriptions use the existing `DiagnosticCodeDao`. The facade retains legacy date parsing, stable reverse ordering (including null dates first), and its empty-result database-failure behavior. |
 | Measurement graph LOINC read | `MeasurementGraphAction22Action` acquired a connection solely to pass it to `CommonLabTestValues.findValuesByLoinc2`, which never used it | Remove the parameter and acquisition. The existing `MeasurementDao.findMeasurementsWithIdentifiersByDemographicIdAndLocationCode` query, mapping, order and graph permissions are unchanged. This is connection retirement, not a change to the lab query. |
-| `DBHandler`, `DBPreparedHandler` | Deprecated forwarding classes with zero production consumers on the audited base | Remove both classes. The production-source guard rejects their symbols, including in Java/JSP comments and imports. Keep `DBPreparedHandlerParam`: scheduling, lookup procedures and report JSPs still use it. |
+| `DBHandler`, `DBPreparedHandler` | Deprecated forwarding classes with zero production consumers on the audited base | Remove both classes. The production-source guard rejects their symbols, including in Java/JSP comments and imports. Keep `DBPreparedHandlerParam`: scheduling, lookup DAO operations and report JSPs still use it. |
 | Waiting-list names | Already use `WaitingListDao` / `WaitingListNameDao` | Remove an obsolete JDBC/rollback comment; no business query migration is needed here. |
 
 `BillingDiagnosisService` is a Spring-managed read-only service. Its query method
@@ -76,7 +76,7 @@ lifecycle infrastructure, not additional business-query migrations.
 
 | Follow-up | SQL ownership and mapping to preserve | Candidate persistence replacement |
 | --- | --- | --- |
-| [#5546](https://github.com/carlos-emr/carlos/issues/5546): BC MSP/WCB | Bill extraction, provider/payee joins, remittance/private payment/reconciliation rows, amounts, statuses and dates; `dbExtract` currently exports cursors; fixed Jasper reports use connections | Existing `BillingmasterDAO`, Billing/WCB/provider/Teleplan models and DAOs, plus typed native payment/remittance projections. Preserve pagination/order, amounts, provider restrictions and reviewed write propagation. |
+| [#5546](https://github.com/carlos-emr/carlos/issues/5546): BC MSP/WCB | Bill extraction, provider/payee joins, remittance/private payment/reconciliation rows, amounts, statuses and dates; `dbExtract` exported cursors in the audited snapshot and was retired by #5552; fixed Jasper reports use connections | Existing `BillingmasterDAO`, Billing/WCB/provider/Teleplan models and DAOs, plus typed native payment/remittance projections. Preserve pagination/order, amounts, provider restrictions and reviewed write propagation. |
 | [#5547](https://github.com/carlos-emr/carlos/issues/5547): encounter/eForm/demographic | Demographic and eChart values; grouped/latest form IDs and dates; study/shortcut/property values; eForm groups and dynamic values/JSON; form XML import and scheduling wrapper operations; label templates and role-repair JSP | Existing demographic, eChart, encounter-form, study/property, eForm and scheduling/case-management DAOs. Retain dynamic-table allowlists, row budgets, null/date/string conventions, current JSP encoding/access checks and synchronous audit calls. XML import needs typed insert results and generated-ID/rollback checks. |
 | [#5548](https://github.com/carlos-emr/carlos/issues/5548): lab/MDS/Messenger/workflow | Lab routing/import writes; bounded `hl7TextInfo` status reads and `UPDATE LOW_PRIORITY`; MDS `HIGH_PRIORITY` patient counts; dynamic document-transfer fields; workflow first-ID lookups | Existing lab/routing/HL7, document/HRM and workflow DAOs, with typed count/schema projections. Preserve sign-off, matched/unmatched/abnormal counts, routing/duplicates, priorities, metadata and workflow state semantics. |
 | [#5549](https://github.com/carlos-emr/carlos/issues/5549): reports/lookup procedures | Report configuration/order/caption/filter/item rows; fixed CSV/day-sheet/clinical report results; lookup procedure parameters; dynamic SQL and metadata-based exports | Existing report configuration/item/filter/caption DAOs and clinical DAOs for fixed business queries; explicit procedure argument/result DTOs. Keep configurable reporting SQL and Jasper exceptions behind their existing validation, credentials, budgets and cleanup until separately reviewed. |
@@ -99,8 +99,7 @@ MsgGenerate's schema-driven exports likewise need typed metadata contracts;
 their current JDBC behavior remains explicitly tracked, not silently moved to
 JPA or declared complete.
 
-Retain `DBHelp` for report consumers, `dbExtract` for MSP extraction,
-`DBPreparedHandlerParam` for scheduling/procedures/report JSPs, `JDBCUtil` for
+Retain `DBHelp` for report consumers, `DBPreparedHandlerParam` for scheduling/lookup DAO operations/report JSPs, `JDBCUtil` for
 form import, and `LegacyJdbcQuery` / `StatementClosingResultSet` for their actual
 remaining callers. Request/worker finalizers and datasource shutdown cleanup
 remain required. Raw-accessor retirement is already complete under
@@ -137,9 +136,10 @@ mvn test -Dtest=BillingDiagnosisServiceIntegrationTest
 
 Use the environment's configured Maven proxy, CA trust and credentials. The
 harness requires physical MariaDB, creates a unique synthetic schema and drops
-only that schema after the pools close. The regular MariaDB CI lane also picks
-up this test through its inherited `spring-context` tag using generated tables;
-BC Flyway qualification must be run explicitly as above. H2 results alone do not
+only that schema after the pools close. The regular MariaDB CI lanes select an
+explicit `-Dtest` list that does not include this test; its inherited
+`spring-context` tag only filters tests already selected. Run this test explicitly
+for BC Flyway qualification using the command above. H2 results alone do not
 establish MariaDB-native comparison, metadata or transaction behavior.
 
 ## Historical caller index
@@ -148,7 +148,7 @@ establish MariaDB-native comparison, metadata or transaction behavior.
 | --- | --- | --- |
 | [AppointmentMainBean.java](../../src/main/java/io/github/carlos_emr/AppointmentMainBean.java) | `queryResults`, `queryResults_paged`, `queryResultsCaisi` | #5547 |
 | [ExtractBean.java](../../src/main/java/io/github/carlos_emr/carlos/billings/MSP/ExtractBean.java) | `dbQuery` | #5546 |
-| [dbExtract.java](../../src/main/java/io/github/carlos_emr/carlos/billings/MSP/dbExtract.java) | `openConnection` | #5546 |
+| [dbExtract.java (historical)](https://github.com/carlos-emr/carlos/blob/be931c3fcb0ff9161c6a9a0b317fa5ac52fc81bb/src/main/java/io/github/carlos_emr/carlos/billings/MSP/dbExtract.java) | `openConnection` | #5546 |
 | [CreateBillingReport2Action.java](../../src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/CreateBillingReport2Action.java) | `execute` | #5546 |
 | [MSPReconcile.java](../../src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/MSPReconcile.java) | `getBillsByType`, `getPayments`, `getPrivatePayments`, `getMSPRemittanceQuery`, `getAdjustmentsMSPRemittanceQuery`, `hasMatchingBillingRecord` | #5546 |
 | [ViewWCB2Action.java](../../src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/ViewWCB2Action.java) | `execute` | #5546 |
