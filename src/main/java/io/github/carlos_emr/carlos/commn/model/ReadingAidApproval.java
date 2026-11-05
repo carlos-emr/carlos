@@ -5,15 +5,20 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 /**
  * A clinician's recorded approval of one AI summary of one document (carlos#5537), kept so a
  * reading aid can be sent after the review session has ended. The approval id is opaque: a
  * random reference, never derived from the reviewer, and it is the only part of this row that
  * reaches the patient's device. Times are Unix seconds, as the delivery contract's claims.
+ *
+ * <p>One row per document and summary version: the unique key is the migration's (V1.0.84),
+ * repeated here so a schema generated from the entities (the H2 test database) has it too.
  */
 @Entity
-@Table(name = "clinical_reading_aid_approval")
+@Table(name = "clinical_reading_aid_approval", uniqueConstraints = @UniqueConstraint(
+        name = "reading_aid_approval_document_version", columnNames = {"document_no", "summary_version"}))
 public class ReadingAidApproval {
     @Id @Column(name = "approval_id", length = 64)
     private String approvalId;

@@ -155,6 +155,11 @@ class ChartUpdateTransactionIntegrationTest extends CarlosTestBase {
         transactions.executeWithoutResult(status -> {
             em.createQuery("delete from TicklerLink where ticklerNo in (select id from Tickler where demographicNo = :patient)")
                     .setParameter("patient", PATIENT).executeUpdate();
+            // The document attachment the commit test writes (plain columns, no cascade from
+            // Tickler): left behind, it would make the rollback test's "no ticklerdocs row for
+            // document 42" depend on the order the tests run in.
+            em.createQuery("delete from TicklerDocs where ticklerId in (select id from Tickler where demographicNo = :patient)")
+                    .setParameter("patient", PATIENT).executeUpdate();
             em.createQuery("delete from Tickler where demographicNo = :patient").setParameter("patient", PATIENT).executeUpdate();
             em.createQuery("delete from ChartUpdateReceipt where patient = :patient").setParameter("patient", PATIENT).executeUpdate();
             for (var note : em.createQuery("from CaseManagementNote where demographic_no = :patient", CaseManagementNote.class)
