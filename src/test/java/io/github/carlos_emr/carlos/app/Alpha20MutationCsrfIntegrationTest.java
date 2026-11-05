@@ -1,9 +1,6 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.app;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -24,11 +21,13 @@ class Alpha20MutationCsrfIntegrationTest {
     @ValueSource(strings={"/report/ViewReportonbilledvisitprovider","/admin/UpdateDemographicProvider","/CaseManagementEntry",
             "/billing/CA/BC/SaveBilling", "/billing/CA/BC/UpdateBilling"})
     void shouldRejectMissingAndWrongTokensButAllowValidPost(String path) throws Exception {
-        Properties properties=new Properties();
-        try(var input=Files.newInputStream(Path.of("src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties"))) {properties.load(input);}
-        properties.setProperty("org.owasp.csrfguard.configuration.provider.factory","org.owasp.csrfguard.config.PropertiesConfigurationProviderFactory");
-        CsrfGuard.load(properties);
-        var guard=CsrfGuard.getInstance();var filter=new CarlosCsrfGuardFilter();
+        try (CsrfGuardFixture fixture = CsrfGuardFixture.loadShippedConfiguration()) {
+            runAgainstShippedGuard(fixture.guard(), path);
+        }
+    }
+
+    private static void runAgainstShippedGuard(CsrfGuard guard, String path) throws Exception {
+        var filter=new CarlosCsrfGuardFilter();
         var request=new MockHttpServletRequest("GET",path);request.setServletPath(path);request.getSession();
         var reached=new AtomicBoolean();
         filter.doFilter(request,new MockHttpServletResponse(),(req,res)->reached.set(true));

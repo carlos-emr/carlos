@@ -344,6 +344,24 @@ async function workflow(s) {
     await leaveResult(frame.locator('input[type="button"][value="Back"]'), 'Back (spreadsheet)');
     await deleteFromConfiguration(id, guardedTitle);
   });
+
+  for (const [budget, sql] of [
+    ['row', 'SELECT seq FROM seq_1_to_10001'],
+    ['cell', "SELECT REPEAT('x', 65537) AS sample"],
+    ['CSV byte', "SELECT REPEAT('é', 32768) AS sample FROM seq_1_to_81"],
+  ]) {
+    await s.step(`${budget} budget refuses oversized output with a narrow-your-search response`, async () => {
+      const budgetTitle = `${s.marker} RBT ${budget} budget`;
+      const id = await uploadTemplate(templateXml(budgetTitle, `${s.marker} bounded report probe`, sql), budgetTitle);
+      await openFromLibrary(budgetTitle, id);
+      await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), `${budget} budget refusal`);
+      await frame.locator('.alert-danger', {hasText: 'Please narrow your search criteria.'}).waitFor();
+      h.assert(await frame.locator('table#report2').count() === 0, 'An oversized report exposed partial result rows');
+      h.assert(await frame.locator('input[name="csv"], input[name="getCSV"]').count() === 0,
+        'An oversized report exposed a CSV download');
+      await deleteFromConfiguration(id, budgetTitle);
+    });
+  }
 }
 
 if (require.main === module) runWorkflow('report-by-template', workflow, {openPatient: true, openMaster: false});

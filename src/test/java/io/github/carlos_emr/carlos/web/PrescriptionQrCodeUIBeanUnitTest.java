@@ -26,6 +26,8 @@ import java.util.stream.Collectors;
 import javax.imageio.ImageIO;
 
 import ca.uhn.hl7v2.model.v26.message.OMP_O09;
+import ca.uhn.hl7v2.DefaultHapiContext;
+import ca.uhn.hl7v2.util.idgenerator.InMemoryIDGenerator;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -65,9 +67,14 @@ public class PrescriptionQrCodeUIBeanUnitTest extends CarlosUnitTestBase {
     private final Demographic demographic = new Demographic();
     private final Prescription prescription = new Prescription();
     private final List<Drug> drugs = List.of(new Drug());
+    private DefaultHapiContext hapiContext;
 
     @BeforeEach
     void setUp() throws Exception {
+        hapiContext = new DefaultHapiContext();
+        // HAPI's default generator writes a shared ./id_file. Each synthetic
+        // message owns its test context and must not persist state in the checkout.
+        hapiContext.getParserConfiguration().setIdGenerator(new InMemoryIDGenerator());
         ClinicDAO clinicDao = createAndRegisterMock(ClinicDAO.class);
         ProviderDao providerDao = createAndRegisterMock(ProviderDao.class);
         DemographicDao demographicDao = createAndRegisterMock(DemographicDao.class);
@@ -92,15 +99,25 @@ public class PrescriptionQrCodeUIBeanUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void restoreDaos() throws Exception {
-        for (var entry : originalDaos.entrySet()) {
-            entry.getKey().set(null, entry.getValue());
+        try {
+            for (var entry : originalDaos.entrySet()) {
+                entry.getKey().set(null, entry.getValue());
+            }
+        } finally {
+            if (hapiContext != null) hapiContext.close();
         }
+    }
+
+    private OMP_O09 syntheticMessage() throws Exception {
+        OMP_O09 message = new OMP_O09();
+        message.setParser(hapiContext.getPipeParser());
+        message.initQuickstart("OMP", "O09", "P");
+        return message;
     }
 
     @Test
     void shouldPreserveQrPayload_withoutLoggingClinicalData() throws Exception {
-        OMP_O09 message = new OMP_O09();
-        message.initQuickstart("OMP", "O09", "P");
+        OMP_O09 message = syntheticMessage();
         message.getPATIENT().getPID().getPatientName(0).getFamilyName().getSurname().setValue(PATIENT);
         message.getORDER(0).getRXO().getRequestedGiveCode().getText().setValue(MEDICATION);
         String payload = Hl7ParserUtils.pipeParser.encode(message);
@@ -194,8 +211,7 @@ public class PrescriptionQrCodeUIBeanUnitTest extends CarlosUnitTestBase {
              LogCapture logs = LogCapture.forLogger(PrescriptionQrCodeUIBean.class)) {
             configuration.when(CarlosProperties::getInstance).thenReturn(properties);
             if (rendererFailure) {
-                OMP_O09 message = new OMP_O09();
-                message.initQuickstart("OMP", "O09", "P");
+                OMP_O09 message = syntheticMessage();
                 builder.when(() -> OmpO09Builder.makeOmpO09(any(), any(), any(), any(), anyList()))
                         .thenReturn(message);
                 renderer.when(() -> QrCodeUtils.toMultipleQrCodePngs(anyString(), any(), any(), anyInt()))

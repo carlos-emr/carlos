@@ -39,7 +39,6 @@ import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.Measurem
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementChart.ReferenceRange;
 import java.io.OutputStream;
 import java.io.Serializable;
-import java.sql.Connection;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -57,7 +56,6 @@ import io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -427,21 +425,18 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         SeriesCollection dataset = new SeriesCollection();
 
 
-        ArrayList<Map<String, Serializable>> list = new ArrayList<>();
+        List<Map<String, Serializable>> list = new ArrayList<>();
         boolean loincLab = "loinc".equals(labType);
         MiscUtils.getLogger().debug("lab type >{}< >{}< {} {}",
                 LogSafe.sanitize(labType), loincLab, LogSafe.sanitize(testName), LogSafe.sanitize(identifier));
         if (loincLab) {
             try {
-
-                try (Connection conn = LegacyJdbcQuery.getConnection()) {
-                    ArrayList<Map<String, Serializable>> loincValues =
-                            CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier, conn);
-                    if (loincValues != null) {
-                        list = loincValues;
-                    }
-                    MiscUtils.getLogger().debug("List ->{}", list.size());
+                List<Map<String, Serializable>> loincValues =
+                        CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier);
+                if (loincValues != null) {
+                    list = loincValues;
                 }
+                MiscUtils.getLogger().debug("List ->{}", list.size());
             } catch (Exception ed) {
                 MiscUtils.getLogger().error("Error", ed);
             }
