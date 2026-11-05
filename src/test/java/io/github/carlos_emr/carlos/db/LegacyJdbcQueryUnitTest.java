@@ -262,7 +262,6 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
             List<Path> offenders = files
                     .filter(path -> path.toString().endsWith(".java"))
                     .filter(path -> !path.endsWith(Path.of("db", "LegacyJdbcQuery.java")))
-                    .filter(path -> !path.endsWith(Path.of("db", "DBPreparedHandler.java")))
                     .filter(this::usesRawAdminSqlBoundary)
                     .toList();
 
@@ -359,8 +358,7 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
             String content = Files.readString(path);
             // Raw text is intentional: production comments, strings, and JavaDoc that
             // mention removed APIs should be updated to LegacyJdbcQuery terminology.
-            return content.contains("DBHandler.GetPreSQL")
-                    || content.contains("new DBPreparedHandler(")
+            return content.matches("(?s).*\\b(?:DBHandler|DBPreparedHandler)\\b.*")
                     || content.contains("getThreadLocalDbConnection");
         } catch (Exception e) {
             throw new IllegalStateException("Unable to inspect " + path, e);

@@ -36,6 +36,9 @@ Key testing resources:
 
 ### 🏥 Healthcare Modules
 
+The [Legacy Query Helper Migration](architecture/legacy-query-helper-migration.md)
+records the staged persistence migration and module follow-ups.
+
 | Document | Description |
 |----------|-------------|
 | [Spreadsheet exports](spreadsheet-exports.md) | BC billing CSV and Dx Research XLSX column contracts, compatibility changes, and failure behavior |

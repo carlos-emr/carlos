@@ -99,14 +99,15 @@ public class WLWaitingListNameUtil {
         return;
     }
 
-    /*
-     * This method adds the Waiting List note to the same position in the waitingListName table but
-     * do not delete previous ones - later on EditWaitingListName.jsp will display only the most
-     * current Waiting List Note record.
+    /**
+     * Updates the current name through the existing waiting-list DAOs.
+     * Null inputs, identifier {@code "0"}, or empty names/groups leave the record unchanged.
      *
-     * This update involves 8 calls to 2 separate tables and must be able to roll back if any of those calls failed !!!
-     * Currently it seems rather hard to implement the roll back function due to using existing DBHandler, so using the
-     * alternate synchronized feature for the 2 methods involved instead ...
+     * @param wlNameId String identifier of the waiting-list name to update
+     * @param wlName String replacement name
+     * @param groupNo String group used to check for a duplicate name
+     * @param providerNo String provider identifier required by the legacy validation contract
+     * @throws Exception when the proposed name already exists in the group
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")

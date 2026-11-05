@@ -30,22 +30,18 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.commn.dao.DiagnosticCodeDao;
-import io.github.carlos_emr.carlos.commn.model.DiagnosticCode;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.billings.ca.bc.service.BillingDiagnosisService;
+import org.springframework.dao.DataAccessException;
+import org.springframework.transaction.TransactionException;
+import org.springframework.core.NestedExceptionUtils;
+import jakarta.persistence.PersistenceException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -56,7 +52,7 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
  */
 public class DxReference {
     private static final Logger _log = MiscUtils.getLogger();
-    DiagnosticCodeDao diagnosticCodeDao = SpringUtils.getBean(DiagnosticCodeDao.class);
+    private final BillingDiagnosisService diagnosisService = SpringUtils.getBean(BillingDiagnosisService.class);
 
     /**
      * Creates a new instance of DxReference
@@ -72,62 +68,33 @@ public class DxReference {
 +----------+----------+----------+--------------+
      */
 
-    /*
-     * method looks in a paitnest
+    /**
+     * Returns the patient's recent distinct billing diagnoses in legacy picker order.
+     * Dates are parsed as {@code yyyyMMdd} and sorted newest first, with null or invalid
+     * dates first. Database and transaction failures produce an empty result.
+     *
+     * @param demo String patient identifier bound by the diagnosis query
+     * @return {@code List<DxCode>} containing diagnoses and nullable descriptions
      */
     @SuppressWarnings("unchecked")
     public List<DxCode> getLatestDxCodes(String demo) {
         ArrayList<DxCode> list = new ArrayList<DxCode>();
-        String nsql = "select dx_code1, dx_code2, dx_code3,service_date from billingmaster where demographic_no = ? and billingstatus != 'D' order by service_date desc limit 10";
-        try (Connection connection = getRequiredLegacyConnection();
-                PreparedStatement pstmt = connection.prepareStatement(nsql)) {
-            pstmt.setString(1, demo);
-            Map<String, String> m = new HashMap<String, String>();
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    String sDate = rs.getString("service_date");
-                    String[] dx = new String[3];
-                    dx[0] = rs.getString("dx_code1");
-                    dx[1] = rs.getString("dx_code2");
-                    dx[2] = rs.getString("dx_code3");
-                    Date sD = UtilDateUtilities.StringToDate(sDate, "yyyyMMdd");
-                    _log.debug("THIS IS THE DATE: " + sDate + " DATE PARSED " + sD);
-
-                    for (int i = 0; i < dx.length; i++) {
-                        if (dx[i] != null && !dx[i].trim().isEmpty()) {
-                            DxCode code = new DxCode(sD, dx[i]);
-                            if (!m.containsKey(dx[i])) {
-                                m.put(dx[i], dx[i]);
-                                fillDxCodeDescrition(code);
-                                list.add(code);
-                            }
-                        }
-                    }
-                }
+        try {
+            for (BillingDiagnosisService.DiagnosisDto diagnosis : diagnosisService.findRecentDiagnoses(demo)) {
+                DxCode code = new DxCode(UtilDateUtilities.StringToDate(diagnosis.serviceDate(), "yyyyMMdd"), diagnosis.code());
+                code.setDesc(diagnosis.description());
+                list.add(code);
             }
-        } catch (SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
+        } catch (DataAccessException | PersistenceException | TransactionException e) {
+            // Cause types aid diagnosis without logging SQL, bound values or exception messages.
+            Throwable cause = NestedExceptionUtils.getMostSpecificCause(e);
+            _log.error("Unable to read recent billing diagnoses ({}; cause={})",
+                    e.getClass().getSimpleName(), cause.getClass().getSimpleName());
         }
         Collections.sort(list, Collections.reverseOrder());
 
         return list;
     }
-
-    private static Connection getRequiredLegacyConnection() throws SQLException {
-        Connection connection = LegacyJdbcQuery.getConnection();
-        if (connection == null) {
-            throw new SQLException("Unable to acquire legacy JDBC connection");
-        }
-        return connection;
-    }
-
-    private void fillDxCodeDescrition(DxCode code) {
-        DiagnosticCode dxCode = diagnosticCodeDao.findByCode(code.getDx());
-        if (dxCode != null) {
-            code.setDesc(dxCode.getDescription());
-        }
-    }
-
 
     public class DxCode implements Comparable {
 
