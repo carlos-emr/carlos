@@ -95,11 +95,94 @@ class AiDocumentSummaryJspRegressionTest {
         assertThat(form).doesNotContain("name=\"affirmReview\"", "name=\"evidence\"", "contenteditable", " checked>");
         assertThat(source).contains("<p class=\"document-summary-text\"><carlos:encode value=\"${documentSummaryOverview}\"/></p>",
                 "name=\"affirmReview\" value=\"true\" required aria-describedby=\"summary-confirm-saved\"",
-                "Unsaved corrections and removal selections do not apply.",
-                "this exact saved summary displayed above");
+                "<p id=\"summary-confirm-saved\"><fmt:message key=\"documentSummary.review.confirmSaved\"/></p>",
+                "aria-describedby=\"summary-confirm-saved\"> <fmt:message key=\"documentSummary.review.affirm\"/></label>");
         String encoded = io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(
                 "FAKE document. </textarea><script>alert(1)</script>&");
         assertThat(encoded).doesNotContain("</textarea", "<script").contains("&lt;", "&amp;");
+    }
+
+    /** Every clinician-facing string on the page is a bundle key with a real translation in each locale. */
+    @Test
+    @DisplayName("should localize the review workflow through documentSummary keys present in every locale")
+    void shouldLocalizeReviewWorkflow_throughBundleKeysInEveryLocale() throws IOException {
+        String source = Files.readString(AI_DOCUMENT_SUMMARY_JSP, StandardCharsets.UTF_8);
+        assertThat(source).contains("<fmt:setBundle basename=\"oscarResources\"/>");
+        java.util.Set<String> keys = new java.util.LinkedHashSet<>();
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("<fmt:message\\b[^>]*\\bkey=\"([^\"$]+)\"").matcher(source);
+        while (matcher.find()) keys.add(matcher.group(1));
+        assertThat(keys).contains("documentSummary.review.prepare", "documentSummary.review.noticeLabel",
+                "documentSummary.review.openOriginal", "documentSummary.review.generated", "documentSummary.review.revised",
+                "documentSummary.review.downloadOriginal", "documentSummary.review.correctHeading",
+                "documentSummary.review.correctHelp", "documentSummary.overview", "documentSummary.review.point",
+                "documentSummary.review.removePoint", "documentSummary.review.save", "documentSummary.review.confirmSaved",
+                "documentSummary.review.affirm", "documentSummary.review.record", "documentSummary.review.recorded",
+                "documentSummary.review.deliveryUnavailable", "documentSummary.review.regenerate",
+                "documentSummary.review.discard");
+        // The action messages have no fmt:message tag; they resolve from the same bundle server-side.
+        keys.addAll(java.util.List.of("documentSummary.review.unavailable", "documentSummary.review.correctionNotSaved",
+                "documentSummary.changedDuringGeneration", "documentSummary.contentUnavailable"));
+        java.util.Properties english = bundle("en");
+        for (String locale : new String[] {"en", "fr", "es", "pl", "pt_BR"}) {
+            java.util.Properties bundle = bundle(locale);
+            for (String key : keys) {
+                String value = bundle.getProperty(key);
+                assertThat(value).as("%s in oscarResources_%s.properties", key, locale).isNotBlank();
+                if (!"en".equals(locale) && !key.endsWith(".point")) {
+                    assertThat(value).as("%s should be translated in %s", key, locale).isNotEqualTo(english.getProperty(key));
+                }
+            }
+        }
+        // No clinician-facing English sentence is left in the page source.
+        assertThat(source).doesNotContain("Prepare a clinician-reviewed summary", "Open current original document",
+                "Download the exact original", "Correct summary text", "Save corrections", "Record my clinician review",
+                "Clinician review is recorded", "Summary delivery is unavailable", "Generate a new draft",
+                "Discard this draft", "Remove point ${", ">Point ${", ">Overview<", "Generated: ", "Clinician text revision: ");
+    }
+
+    /** Bundle text inside an attribute must not close it, and {0} keys are exactly the ones given a fmt:param. */
+    @Test
+    @DisplayName("should keep attribute-bound values quote-free and parameterised keys matched to fmt:param")
+    void shouldKeepAttributeValuesQuoteFree_andParameterisedKeysMatchedToFmtParam() throws IOException {
+        String source = Files.readString(AI_DOCUMENT_SUMMARY_JSP, StandardCharsets.UTF_8);
+        java.util.Set<String> attributeKeys = new java.util.LinkedHashSet<>();
+        java.util.regex.Matcher inAttribute = java.util.regex.Pattern
+                .compile("=\"<fmt:message\\b[^>]*\\bkey=\"([^\"$]+)\"\\s*/>\"").matcher(source);
+        while (inAttribute.find()) attributeKeys.add(inAttribute.group(1));
+        assertThat(attributeKeys).contains("documentSummary.review.noticeLabel", "documentSummary.pending");
+        java.util.Set<String> parameterised = new java.util.LinkedHashSet<>();
+        java.util.regex.Matcher withParam = java.util.regex.Pattern
+                .compile("<fmt:message\\b[^>]*\\bkey=\"([^\"$]+)\"\\s*>\\s*<fmt:param\\b").matcher(source);
+        while (withParam.find()) parameterised.add(withParam.group(1));
+        assertThat(parameterised).containsExactlyInAnyOrder("documentSummary.review.point", "documentSummary.review.removePoint");
+        for (String locale : new String[] {"en", "fr", "es", "pl", "pt_BR"}) {
+            java.util.Properties bundle = bundle(locale);
+            for (String key : attributeKeys) {
+                assertThat(bundle.getProperty(key)).as("%s in oscarResources_%s.properties", key, locale)
+                        .isNotBlank().doesNotContain("\"");
+            }
+            java.util.Set<String> placeholderKeys = new java.util.TreeSet<>();
+            for (String name : bundle.stringPropertyNames()) {
+                if (name.startsWith("documentSummary.") && bundle.getProperty(name).contains("{0}")) placeholderKeys.add(name);
+            }
+            assertThat(placeholderKeys).as("documentSummary keys with {0} in %s", locale)
+                    .containsExactlyInAnyOrderElementsOf(parameterised);
+            // A parameterised value goes through MessageFormat, where a lone apostrophe swallows text
+            // up to the next one; it must be doubled ('') or absent.
+            for (String key : parameterised) {
+                assertThat(bundle.getProperty(key)).as("%s in %s must not hold a lone apostrophe", key, locale)
+                        .doesNotMatch("(?s).*(?<!')'(?!').*");
+            }
+        }
+    }
+
+    private static java.util.Properties bundle(String locale) throws IOException {
+        java.util.Properties properties = new java.util.Properties();
+        try (var in = Files.newInputStream(resolveProjectPath(Path.of("src", "main", "resources",
+                "oscarResources_" + locale + ".properties")))) {
+            properties.load(in);
+        }
+        return properties;
     }
 
     private static final Path AI_DOCUMENT_SUMMARY_JSP =

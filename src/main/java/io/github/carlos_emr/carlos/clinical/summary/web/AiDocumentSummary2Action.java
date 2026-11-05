@@ -86,7 +86,8 @@ public final class AiDocumentSummary2Action extends ActionSupport {
             return NONE;
         }
         var document = authorizedDocument(user, documentId);
-        ClinicalSummaryTextExtractor.Extract extract = extract(document.filename(), document.contentType());
+        String contentUnavailable = DocumentSummaryMessages.text(request, "documentSummary.contentUnavailable");
+        ClinicalSummaryTextExtractor.Extract extract = extract(document.filename(), document.contentType(), contentUnavailable);
         request.setAttribute("documentSummaryId", documentId);
         request.setAttribute("documentSummaryReviewAvailable",
                 io.github.carlos_emr.carlos.clinical.summary.DocumentSummaryReviewContext.enabled());
@@ -105,11 +106,11 @@ public final class AiDocumentSummary2Action extends ActionSupport {
                     throw new SecurityException("missing required sec object (_edoc)");
                 }
                 var fresh = authorizedDocument(user, documentId);
-                var freshExtract = extract(fresh.filename(), fresh.contentType());
+                var freshExtract = extract(fresh.filename(), fresh.contentType(), contentUnavailable);
                 if (!document.equals(fresh)
                         || !extract.text().equals(freshExtract.text())) {
                     throw new ClinicalSummaryGenerationException(
-                            "The document changed during generation. The draft was discarded; reopen the document and try again.");
+                            DocumentSummaryMessages.text(request, "documentSummary.changedDuringGeneration"));
                 }
                 request.setAttribute("documentSummaryOverview", summary.overview());
                 request.setAttribute("documentSummaryPoints", summary.points());
@@ -154,14 +155,13 @@ public final class AiDocumentSummary2Action extends ActionSupport {
                 document.getDocdesc(), document.getUpdatedatetime() == null ? null : document.getUpdatedatetime().getTime());
     }
 
-    private static ClinicalSummaryTextExtractor.Extract extract(String filename, String contentType) {
+    private static ClinicalSummaryTextExtractor.Extract extract(String filename, String contentType, String unavailableReason) {
         try {
             return ClinicalSummaryTextExtractor.document(filename, contentType);
         } catch (IOException | IllegalArgumentException | FileValidationException unavailable) {
             // A stored filename that is not one path component, or resolves outside DOCUMENT_DIR, makes only the text
             // unavailable; authorization failures are other SecurityExceptions and still reach the 403 handler.
-            return new ClinicalSummaryTextExtractor.Extract("", false,
-                    "Document content is unavailable or unreadable; review the original.");
+            return new ClinicalSummaryTextExtractor.Extract("", false, unavailableReason);
         }
     }
 
