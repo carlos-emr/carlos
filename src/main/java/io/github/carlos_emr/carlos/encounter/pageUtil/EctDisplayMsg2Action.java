@@ -47,7 +47,7 @@ public class EctDisplayMsg2Action extends EctDisplayAction {
     private static MessagingManager messagingManager = SpringUtils.getBean(MessagingManager.class);
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = getLoggedInInfo(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_msg", "r", null)) {
             return true; //Oscar message link won't show up on new CME screen.
         } else {

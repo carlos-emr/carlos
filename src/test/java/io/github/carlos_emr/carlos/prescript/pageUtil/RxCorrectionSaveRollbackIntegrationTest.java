@@ -16,8 +16,10 @@ import jakarta.persistence.PersistenceContext;
 import io.github.carlos_emr.carlos.commn.dao.DrugDao;
 import io.github.carlos_emr.carlos.commn.dao.DrugDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
+import io.github.carlos_emr.carlos.commn.dao.PartialDateDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Drug;
+import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.PrescriptionSignatureStampService;
@@ -48,23 +50,118 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
-/** Uses real prescription/drug writes to verify a late correction failure cannot orphan an active row. */
+/** Uses real prescription, drug and partial-date writes to verify late save failures roll back together. */
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = RxCorrectionSaveRollbackIntegrationTest.Config.class)
 @Tag("integration")
 @Tag("prescription")
 class RxCorrectionSaveRollbackIntegrationTest extends CarlosUnitTestBase {
     @Autowired private DrugDao drugDao;
+    @Autowired private PartialDateDao partialDates;
     @Autowired private PlatformTransactionManager transactions;
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager entityManager;
+
+    @Test
+    void shouldRollbackPartialDates_whenSecondDrugInsertFails() {
+        var template = new TransactionTemplate(transactions);
+        var first = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        first.setRandomId(1);
+        first.setBrandName("Synthetic first drug");
+        first.setSpecial("1 tab PO OD");
+        first.setWrittenDate(java.sql.Date.valueOf("2026-01-01"));
+        first.setWrittenDateFormat(PartialDate.YEARONLY);
+        var second = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        second.setRandomId(2);
+        second.setBrandName("X".repeat(256)); // H2's real drugs.BN VARCHAR(255) rejects this INSERT.
+        second.setSpecial("2 tabs PO OD");
+        var bean = new RxSessionBean();
+        bean.setDemographicNo(1001);
+        bean.setProviderNo("999998");
+        bean.getStashList().addAll(List.of(first, second));
+        var observedPartialWrite = new AtomicBoolean();
+        DrugDao observedDrugs = mock(DrugDao.class, delegatesTo(drugDao));
+        doAnswer(invocation -> {
+            Drug row = invocation.getArgument(0);
+            if (row.getBrandName().length() > 255) {
+                assertThat(count("Drug")).isEqualTo(1);
+                assertThat(count("PartialDate")).isEqualTo(1);
+                assertThat(drugDao.find(first.getDrugId()).getWrittenDate()).isEqualTo(first.getWrittenDate());
+                assertThat(partialDates.getPartialDate(PartialDate.DRUGS, first.getDrugId(), PartialDate.DRUGS_WRITTENDATE)
+                        .getFormat()).isEqualTo(PartialDate.YEARONLY);
+                observedPartialWrite.set(true);
+            }
+            drugDao.persist(row);
+            return null;
+        }).when(observedDrugs).persist(any(Drug.class));
+        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
+        registerMock(UserPropertyDAO.class, mock(UserPropertyDAO.class));
+        registerMock(PartialDateDao.class, partialDates);
+        registerMock(DemographicManager.class, mock(DemographicManager.class));
+        registerMock(RxManager.class, mock(RxManager.class));
+        registerMock(DrugDao.class, observedDrugs);
+        registerMock(PlatformTransactionManager.class, transactions);
+        var request = new MockHttpServletRequest();
+        var response = new MockHttpServletResponse();
+        var info = mock(LoggedInInfo.class);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        String firstRevision = first.getDraftRevision();
+        String secondRevision = second.getDraftRevision();
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var _ = mockConstruction(RxPrescriptionData.class, (mock, context) ->
+                     when(mock.saveScript(any(), any())).thenAnswer(invocation -> {
+                         var header = new Prescription();
+                         header.setProviderNo("999998");
+                         header.setDemographicId(1001);
+                         entityManager.persist(header);
+                         return header.getId().toString();
+                     }))) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            var action = new RxWriteScript2Action(mock(PrescriptionSignatureStampService.class));
+
+            assertThatThrownBy(() -> action.persistStash(info, bean))
+                    .isInstanceOf(RxWriteScript2Action.PrescriptionSaveException.class)
+                    .hasRootCauseInstanceOf(java.sql.SQLException.class);
+
+            assertThat(observedPartialWrite).isTrue();
+            template.executeWithoutResult(status -> {
+                assertThat(count("Drug")).isZero();
+                assertThat(count("Prescription")).isZero();
+                assertThat(count("PartialDate")).isZero();
+            });
+            assertThat(first.getDrugId()).isZero();
+            assertThat(second.getDrugId()).isZero();
+            assertThat(first.getDraftRevision()).isEqualTo(firstRevision);
+            assertThat(second.getDraftRevision()).isEqualTo(secondRevision);
+            logActionMock.verifyNoInteractions();
+
+            second.setBrandName("Synthetic second drug");
+            assertThat(action.persistStash(info, bean)).isNotBlank();
+            template.executeWithoutResult(status -> {
+                assertThat(count("Drug")).isEqualTo(2);
+                assertThat(count("Prescription")).isEqualTo(1);
+                assertThat(count("PartialDate")).isEqualTo(1);
+                assertThat(partialDates.getPartialDate(PartialDate.DRUGS, first.getDrugId(), PartialDate.DRUGS_WRITTENDATE)
+                        .getFormat()).isEqualTo(PartialDate.YEARONLY);
+            });
+        } finally {
+            template.executeWithoutResult(status -> {
+                entityManager.createQuery("delete from PartialDate").executeUpdate();
+                entityManager.createQuery("delete from Drug").executeUpdate();
+                entityManager.createQuery("delete from Prescription").executeUpdate();
+            });
+        }
+    }
 
     @Test
     void shouldRollbackRowsAndWorkspace_thenRetryTheSameOriginals_whenSecondArchiveFails() {
@@ -109,7 +206,7 @@ class RxCorrectionSaveRollbackIntegrationTest extends CarlosUnitTestBase {
         LoggedInInfo info = mock(LoggedInInfo.class);
         when(info.getLoggedInProviderNo()).thenReturn("999998");
         try (var servlet = mockStatic(ServletActionContext.class);
-             var data = mockConstruction(RxPrescriptionData.class, (mock, context) ->
+             var _ = mockConstruction(RxPrescriptionData.class, (mock, context) ->
                      when(mock.saveScript(any(), any())).thenAnswer(invocation -> {
                          Prescription header = new Prescription();
                          header.setProviderNo("999998");
@@ -190,7 +287,7 @@ class RxCorrectionSaveRollbackIntegrationTest extends CarlosUnitTestBase {
             var factory = new LocalContainerEntityManagerFactoryBean();
             factory.setDataSource(dataSource);
             factory.setPersistenceUnitName("entityManagerFactory");
-            factory.setManagedTypes(PersistenceManagedTypes.of(Drug.class.getName(), Prescription.class.getName()));
+            factory.setManagedTypes(PersistenceManagedTypes.of(Drug.class.getName(), Prescription.class.getName(), PartialDate.class.getName()));
             factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
             factory.setJpaPropertyMap(Map.of("hibernate.hbm2ddl.auto", "create-drop", "hibernate.show_sql", "false"));
             return factory;
@@ -199,5 +296,6 @@ class RxCorrectionSaveRollbackIntegrationTest extends CarlosUnitTestBase {
             return new JpaTransactionManager(factory);
         }
         @Bean DrugDao drugDao() { return new DrugDaoImpl(); }
+        @Bean PartialDateDao partialDateDao() { return new PartialDateDaoImpl(); }
     }
 }

@@ -885,7 +885,7 @@ function renderRxStage() {
 
                                                 <div id="prescriptionStageSet" style="display:none">
 
-                                                    <div id="interactingDrugErrorMsg" role="status" style="display:none;color:#856404;font-weight:bold;"></div>
+                                                    <output id="interactingDrugErrorMsg" style="display:none;color:#856404;font-weight:bold;"></output>
 
                                                     <div id="rxText"></div>
                                                         <%-- Prescriptions are staged here via the prescribe.jsp widget --%>
@@ -2837,10 +2837,33 @@ function updateQty(element){
     }
 
          function getRenalDosingInformation(divId,atcCode){
+               var panel = document.getElementById(divId);
+               if (!panel) return;
+               var requestNumber = (panel.renalDosingRequest || 0) + 1;
+               panel.renalDosingRequest = requestNumber;
                var url = "<%= request.getContextPath() %>/rx/ViewRenalDosing";
                var ran_number=Math.round(Math.random()*1000000);
-               var params = "demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&divId="+divId+"&rand="+ran_number;
-               CarlosAjax.updater(divId,url, {method:'get',parameters:params,insertion: 'bottom'});
+               var params = "demographicNo=<%=demoNo%>&atcCode="+encodeURIComponent(atcCode)+"&divId="+encodeURIComponent(divId)+"&rand="+ran_number;
+               CarlosAjax.request(url, {method:'get',parameters:params,onComplete:function(transport) {
+                   // A slow earlier response must not replace more recently requested guidance.
+                   if (panel.renalDosingRequest === requestNumber && document.getElementById(divId) === panel) {
+                       var renderable = false;
+                       if ((transport.status >= 200 && transport.status < 300) || transport.status === 400) {
+                           var fragment = document.createElement('template');
+                           fragment.innerHTML = transport.responseText || '';
+                           renderable = !!fragment.content.querySelector('[data-renal-dosing-panel]');
+                       }
+                       if (renderable) {
+                           panel.innerHTML = transport.responseText;
+                       } else {
+                           // Clear stale guidance, including on an initial failure, and keep a retry.
+                           panel.innerHTML = '<div data-renal-dosing-unavailable><h3>Dosing Information <small><button type="button" class="btn btn-link">Refresh</button></small></h3><output>N/A</output></div>';
+                           panel.querySelector('button').onclick = function() {
+                               getRenalDosingInformation(divId, atcCode);
+                           };
+                       }
+                   }
+               }});
          }
          function getLUC(divId,randomId,din){
              var url = ctx + "/rx/ViewLimitedUseCode";

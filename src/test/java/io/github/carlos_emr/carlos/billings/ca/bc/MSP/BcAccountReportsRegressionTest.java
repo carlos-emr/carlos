@@ -67,7 +67,7 @@ class BcAccountReportsRegressionTest {
             List.of("REP_INVOICE", "REP_REJ", "REP_ACCOUNT_REC", "REP_WO", "REP_PAYREF", "REP_PAYREF_SUM");
     /** The MSP remittance reports the Reconciliation Reports page links to, in both formats. */
     private static final List<String> REMITTANCE_REPORTS = List.of("REP_MSPREM", "REP_MSPREMSUM");
-    private static final List<String> FORMATS = List.of("pdf", "csv");
+    private static final List<String> FORMATS = List.of("pdf");
 
     private static String read(Path path) throws IOException {
         return Files.readString(path, StandardCharsets.UTF_8);

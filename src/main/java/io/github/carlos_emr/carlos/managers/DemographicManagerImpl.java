@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -196,8 +197,8 @@ public class DemographicManagerImpl implements DemographicManager {
         ids.remove(0);
         // Check every patient before reading any names. Keep the patient-specific
         // privilege path (including directives/session effects), rather than a global check.
-        for (Integer id : ids) {
-            checkPrivilege(loggedInInfo, SecurityInfoManager.READ, id);
+        if (!ids.isEmpty() && !securityInfoManager.hasDemographicReadPrivileges(loggedInInfo, ids)) {
+            throw new RuntimeException("missing required sec object (_demographic)");
         }
         Map<Integer, String> names = new HashMap<>();
         if (!ids.isEmpty()) {
@@ -470,8 +471,8 @@ public class DemographicManagerImpl implements DemographicManager {
         try {
             demographic.getBirthDay();
         } catch (Exception e) {
-            throw new IllegalArgumentException("Birth date was specified for " + demographic.getFullName() + ": "
-                    + demographic.getBirthDayAsString());
+            // Callers may log this exception: neither the message nor a cause may contain patient data.
+            throw new IllegalArgumentException("Invalid birth date.");
         }
 
         demographic.setPatientStatus(PatientStatus.AC.name());
@@ -510,8 +511,7 @@ public class DemographicManagerImpl implements DemographicManager {
         try {
             demographic.getBirthDay();
         } catch (Exception e) {
-            throw new IllegalArgumentException("Birth date was specified for " + demographic.getFullName() + ": "
-                    + demographic.getBirthDayAsString());
+            throw new IllegalArgumentException("Invalid birth date.");
         }
 
         // Archive previous demo
@@ -593,8 +593,7 @@ public class DemographicManagerImpl implements DemographicManager {
         try {
             demographic.getBirthDay();
         } catch (Exception e) {
-            throw new IllegalArgumentException("Birth date was specified for " + demographic.getFullName() + ": "
-                    + demographic.getBirthDayAsString());
+            throw new IllegalArgumentException("Invalid birth date.");
         }
 
         // save current demo

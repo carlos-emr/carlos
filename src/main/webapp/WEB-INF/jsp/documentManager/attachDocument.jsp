@@ -59,6 +59,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message var="previewAction" key="encounter.oscarConsultationRequest.AttachDocPopup.previewAction"/>
+<fmt:message var="hrmVersionsLabel" key="encounter.oscarConsultationRequest.AttachDocPopup.earlierVersions"/>
 <%-- Completeness-report category labels, shared with EFormRenderMissingContent.jsp and
      fax/EFormMissingContent.jsp so the nine categories cannot drift between surfaces. Resolved into
      vars here because they are consumed inside a JavaScript string literal further down. --%>
@@ -230,6 +231,11 @@
         .attachmentContainer .caret-down {
             transform: rotate(45deg) !important;
         }
+
+        .attachmentContainer .hrm-version-toggle {
+            min-width: 24px;
+            min-height: 24px;
+        }
     </style>
 
 
@@ -285,13 +291,17 @@
             'pagehide.carlosDocumentPreview', cancelAttachmentPreview);
 
         function toggleLabVersionList(collapseBtn) {
-            jQuery(collapseBtn).toggleClass('caret-down');
-            jQuery(collapseBtn).parent().find('.collapsible-content').slideToggle(100);
+            var arrow = jQuery(collapseBtn).is('button') ? jQuery(collapseBtn).find('.collapse-arrow') : jQuery(collapseBtn);
+            arrow.toggleClass('caret-down');
+            arrow.closest('li').children('.collapsible-content').slideToggle(100);
+            arrow.closest('li').children('.hrm-version-toggle').attr('aria-expanded', String(arrow.hasClass('caret-down')));
         }
 
         function expandLabVersionList(collapseBtn) {
-            jQuery(collapseBtn).addClass('caret-down');
-            jQuery(collapseBtn).parent().find('.collapsible-content').slideDown(100);
+            var arrow = jQuery(collapseBtn).is('button') ? jQuery(collapseBtn).find('.collapse-arrow') : jQuery(collapseBtn);
+            arrow.addClass('caret-down');
+            arrow.closest('li').children('.collapsible-content').slideDown(100);
+            arrow.closest('li').children('.hrm-version-toggle').attr('aria-expanded', 'true');
         }
 
         if (typeof pdfCache == 'undefined') {
@@ -299,7 +309,10 @@
         }
 
         function toggleSelectAll(element, startClassName) {
-            jQuery("[class^='" + startClassName + "']:not(input[disabled='disabled'])").prop('checked', jQuery(element).prop("checked"));
+            var checked = jQuery(element).prop("checked");
+            // Selecting every report must not add its older HRM versions as extra attachments.
+            var currentVersionsOnly = startClassName === 'hrm_' && checked ? ':not([data-version])' : '';
+            jQuery("[class^='" + startClassName + "']:not(input[disabled='disabled'])" + currentVersionsOnly).prop('checked', checked);
         }
 
         // advisoryIssues is cached with the PDF: a re-preview is served from here without another
@@ -683,10 +696,40 @@
                                         <label for="hrmNo${hrm['id']}">
                                             ${carlos:forHtml(hrm['name'])} ${carlos:forHtml(hrm['report_date'])}
                                         </label>
+                                        <%-- Keep prior versions grouped under their report so existing delegates
+                                             can be pre-checked and removed without silently changing attachments. --%>
+                                        <c:if test="${not empty hrm['duplicateLabIds']}">
+                                            <button class="preview-button hrm-version-toggle" type="button" onclick="toggleLabVersionList(this)"
+                                                    aria-label="${carlos:forHtmlAttribute(hrmVersionsLabel)}" aria-expanded="false"
+                                                    aria-controls="hrmVersions${carlos:forHtmlAttribute(hrm['id'])}"><i class="collapse-arrow" aria-hidden="true"></i></button>
+                                        </c:if>
                                         <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"
                                                  onclick="${carlos:forHtmlAttribute(hrmPreviewOnclick)}">
                                             ${carlos:forHtmlContent(previewAction)}
                                         </button>
+                                        <c:if test="${not empty hrm['duplicateLabIds']}">
+                                            <c:set var="hrmVersionIds" value="${fn:split(hrm['duplicateLabIds'], ',')}"/>
+                                            <ul id="hrmVersions${carlos:forHtmlAttribute(hrm['id'])}" class="collapsible-content" style="list-style-type: none;padding:0;">
+                                                <c:forEach items="${hrmVersionIds}" var="hrmVersionId" varStatus="hrmVersionLoop">
+                                                    <fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.earlierVersionOf" var="hrmVersionLabel">
+                                                        <fmt:param value="${hrmVersionLoop.count}"/>
+                                                        <fmt:param value="${fn:length(hrmVersionIds) + 1}"/>
+                                                    </fmt:message>
+                                                    <c:set var="hrmVersionPreviewParameters">method=renderHrmPDF&hrmId=${carlos:forUriComponent(hrmVersionId)}&demographicNo=${carlos:forUriComponent(demographicNo)}</c:set>
+                                                    <c:set var="hrmVersionPreviewOnclick">getPdf('HRM', '${carlos:forJavaScript(hrmVersionId)}', '${carlos:forJavaScript(hrmVersionPreviewParameters)}')</c:set>
+                                                    <li>
+                                                        <input class="hrm_check" type="checkbox" name="hrmNo"
+                                                               id="hrmNo${carlos:forHtmlAttribute(hrmVersionId)}"
+                                                               value="${carlos:forHtmlAttribute(hrmVersionId)}" data-version="true"
+                                                               title="${carlos:forHtmlAttribute(hrmVersionLabel)} ${carlos:forHtmlAttribute(hrm['name'])}"
+                                                               <c:if test="${attachmentSelectionDisabled}">disabled="disabled"</c:if>/>
+                                                        <label for="hrmNo${carlos:forHtmlAttribute(hrmVersionId)}">${carlos:forHtmlContent(hrmVersionLabel)}</label>
+                                                        <button class="preview-button" type="button" title="${carlos:forHtmlAttribute(previewAction)}"
+                                                                onclick="${carlos:forHtmlAttribute(hrmVersionPreviewOnclick)}">${carlos:forHtmlContent(previewAction)}</button>
+                                                    </li>
+                                                </c:forEach>
+                                            </ul>
+                                        </c:if>
                                     </li>
                                 </c:forEach>
                             </ul>

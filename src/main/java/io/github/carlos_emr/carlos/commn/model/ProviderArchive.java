@@ -85,6 +85,7 @@ public class ProviderArchive extends AbstractModel<Integer> {
     private String email;
     private String title;
     private String lastUpdateUser;
+    @Temporal(TemporalType.TIMESTAMP)
     private Date lastUpdateDate;
     @Column(name = "signed_confidentiality")
     private Date SignedConfidentiality;
