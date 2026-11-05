@@ -28,7 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@page import="org.apache.commons.lang3.StringUtils" %>
+
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%

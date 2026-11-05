@@ -100,7 +100,7 @@
 <%@ page import="java.util.*,java.text.*, io.github.carlos_emr.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -111,7 +111,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.PatientReadAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerComment" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerUpdate" %>
+
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData" %>
@@ -147,7 +147,7 @@
 %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>

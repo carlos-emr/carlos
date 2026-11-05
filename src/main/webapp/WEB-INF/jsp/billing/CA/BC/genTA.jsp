@@ -30,7 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -48,7 +48,7 @@
 
 
 <%@ page
-        import="java.math.*, java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*, java.net.*,io.github.carlos_emr.MyDateFormat,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*" %>
+        import="java.util.*, java.io.*, java.sql.*, io.github.carlos_emr.*" %>
 
 
 <jsp:useBean id="documentBean" class="io.github.carlos_emr.DocumentBean" scope="request"/>

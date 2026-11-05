@@ -30,11 +30,11 @@
 --%>
 
 <%@page import="java.util.*,io.github.carlos_emr.carlos.eform.*" %>
-<%@page import="io.github.carlos_emr.carlos.web.eform.EfmPatientFormList" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
 <%
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     String country = request.getLocale().getCountry();
@@ -49,7 +49,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <html>

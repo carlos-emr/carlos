@@ -54,9 +54,9 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setLocale value="<%= LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo, io.github.carlos_emr.carlos.commn.model.Facility" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
@@ -64,11 +64,11 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@ page import="java.util.Locale" %>
 
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

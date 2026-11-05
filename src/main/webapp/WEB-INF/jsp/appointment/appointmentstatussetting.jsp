@@ -45,7 +45,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="/struts-tags" prefix="s" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>

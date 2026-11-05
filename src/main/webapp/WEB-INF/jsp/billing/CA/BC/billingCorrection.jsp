@@ -30,7 +30,7 @@
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -82,8 +82,8 @@
     ResultSet rsPatient = null;
 
 %>
-<%@ page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+
 
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>

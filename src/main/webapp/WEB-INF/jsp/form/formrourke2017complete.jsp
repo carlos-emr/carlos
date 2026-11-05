@@ -34,7 +34,7 @@
     Parameters: demographic_no and formId select the patient and form; provNo and appointmentNo supply context.
     @since 2026-07-07
 --%>
-<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -57,7 +57,7 @@
 
 <%@ page import="io.github.carlos_emr.carlos.form.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>

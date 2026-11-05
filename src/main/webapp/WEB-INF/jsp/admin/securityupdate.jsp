@@ -33,7 +33,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -52,7 +52,7 @@
 %>
 
 
-<%@ page import="java.sql.*, java.util.*,java.security.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.db.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="java.sql.*, java.util.*, java.security.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>

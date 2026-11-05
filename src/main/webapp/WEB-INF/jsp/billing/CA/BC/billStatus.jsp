@@ -45,19 +45,19 @@
     }
 %>
 
-<%@ page import="java.math.*,java.util.*,io.github.carlos_emr.carlos.billing.ca.bc.MSP.*,io.github.carlos_emr.carlos.util.*" %>
+<%@ page import="java.math.*, java.util.*, io.github.carlos_emr.carlos.util.*" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingHistoryDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ReportProviderDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ReportProvider" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.projection.ReporterRow" %>
 
