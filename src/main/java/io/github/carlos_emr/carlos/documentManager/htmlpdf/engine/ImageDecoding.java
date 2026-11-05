@@ -83,9 +83,9 @@ import javax.imageio.stream.MemoryCacheImageInputStream;
  * a vetted provider: the JDK's own readers (the {@code java.desktop} module) or the TwelveMonkeys
  * TIFF reader. The first such reader that claims the input is used. A reader of another
  * provider is never asked about the input, and never given the stream: ImageIO registers every
- * reader it finds on the classpath, in an order that follows the class loader, and the JAI ImageIO
- * jar that is on this classpath registers its own BMP, WBMP and TIFF readers, ahead of the JDK's
- * for BMP and TIFF, under names that pass the list of formats. A decoder that turns up later, as a
+ * reader it finds on the classpath, in an order that follows the class loader. For example, the
+ * former transitive JAI ImageIO dependency registered its own BMP, WBMP and TIFF readers, ahead
+ * of the JDK's for BMP and TIFF, under names that pass the list of formats. A decoder that turns up later, as a
  * transitive dependency of another library for example, would otherwise start decoding untrusted bytes
  * without anyone noticing. Input no vetted reader claims is treated as one that no reader
  * recognises: {@link #readHeader(Path)} is empty and {@link #readSubsampled(Path, int)} throws
@@ -214,8 +214,8 @@ public final class ImageDecoding {
      * 512 times its length (a blank 1728 x 2200 CCITT fax page of under 800 bytes does), a check
      * that is skipped for a stream of unknown length, so a byte payload would be decoded where the
      * same file is refused. Which TIFF reader claims an input depends on the order of ImageIO's
-     * registry between the vetted ones (the JDK's reader has no such check); the JAI ImageIO reader, which
-     * has none either, is never asked.</p>
+     * registry between the vetted ones (the JDK's reader has no such check); an unvetted reader,
+     * including JAI ImageIO if reintroduced, is never asked.</p>
      *
      * @param data the image bytes, for example a decoded {@code data:} URI payload; not modified
      * @return the header, or empty in the cases listed for {@link #readHeader(Path)}

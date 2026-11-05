@@ -23,9 +23,11 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 import io.github.carlos_emr.carlos.casemgmt.model.ClientImage;
 import io.github.carlos_emr.carlos.casemgmt.service.ClientImageManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.persistence.PersistenceException;
 import java.io.File;
 import java.nio.file.Files;
 import java.util.List;
@@ -44,6 +46,7 @@ import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.dao.DataAccessResourceFailureException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -51,6 +54,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -185,7 +189,9 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
 
         String result = action.execute();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("No client selected.");
         verifyNoInteractions(clientImageManager);
     }
@@ -199,7 +205,9 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
 
         String result = action.execute();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("No client selected.");
         verifyNoInteractions(clientImageManager);
     }
@@ -212,7 +220,9 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
 
         String result = action.execute();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("No client selected.");
         verifyNoInteractions(clientImageManager);
     }
@@ -231,7 +241,9 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
 
         String result = action.execute();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("Only GIF and JPG image types are allowed for the client photo.");
         verifyNoInteractions(clientImageManager);
     }
@@ -241,7 +253,9 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
     void shouldReturnError_whenNoImageUploaded() {
         String result = action.execute();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("success")).isNull();
         assertThat(action.getActionErrors()).contains("Please select an image to upload.");
         verifyNoInteractions(clientImageManager);
     }
@@ -270,6 +284,133 @@ class ClientImage2ActionTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo("success");
         verify(clientImageManager).deleteClientImage(123);
         assertThat(request.getAttribute("success")).isEqualTo(true);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"saveImage", "deleteImage"})
+    @DisplayName("should return bad request from direct entry points without a patient")
+    void shouldReturnBadRequest_whenDirectEntryPointHasNoPatient(String method) {
+        request.removeParameter("demographicNo");
+
+        String result = "deleteImage".equals(method) ? action.deleteImage() : action.saveImage();
+
+        assertThat(result).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(action.getActionErrors()).containsExactly("No client selected.");
+        assertThat(request.getAttribute("success")).isNull();
+        verifyNoInteractions(clientImageManager);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"execute", "deleteImage"})
+    @DisplayName("should retain server error status when photo deletion fails")
+    void shouldReturnServerError_whenImageDeletionFails(String entry) {
+        request.setParameter("method", "deleteImage");
+        doThrow(new DataAccessResourceFailureException("storage unavailable")).when(clientImageManager).deleteClientImage(123);
+
+        String result = "execute".equals(entry) ? action.execute() : action.deleteImage();
+
+        assertThat(result).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(action.getActionErrors()).containsExactly("Error deleting image.");
+        assertThat(request.getAttribute("success")).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"spring", "jpa"})
+    @DisplayName("should retain server error status when photo storage fails")
+    void shouldReturnServerError_whenImageStorageFails(String failure) throws Exception {
+        tempUploadFile = File.createTempFile("client-image", ".jpg");
+        Files.write(tempUploadFile.toPath(), new byte[]{1, 2, 3});
+        action.setClientImage(tempUploadFile);
+        action.setClientImageFileName("photo.jpg");
+        RuntimeException exception = "jpa".equals(failure)
+                ? new PersistenceException("storage unavailable") : new DataAccessResourceFailureException("storage unavailable");
+        doThrow(exception).when(clientImageManager).saveClientImage(any(ClientImage.class));
+
+        assertThat(action.execute()).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(action.getActionErrors()).containsExactly("Error saving image.");
+        assertThat(request.getAttribute("success")).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"outside", "missing"})
+    @DisplayName("should return bad request when the upload path is invalid")
+    void shouldReturnBadRequest_whenUploadPathInvalid(String path) throws Exception {
+        if ("missing".equals(path)) {
+            tempUploadFile = File.createTempFile("client-image", ".jpg");
+            Files.delete(tempUploadFile.toPath());
+            action.setClientImage(tempUploadFile);
+        } else {
+            action.setClientImage(new File("photo.jpg").getAbsoluteFile());
+        }
+        action.setClientImageFileName("photo.jpg");
+
+        assertThat(action.execute()).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(action.getActionErrors()).containsExactly("Invalid image upload.");
+        assertThat(request.getAttribute("success")).isNull();
+        verifyNoInteractions(clientImageManager);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"framework", "request", "overridden"})
+    @DisplayName("should distinguish a framework temp-file failure from a request-bound path")
+    void shouldClassifyUploadFailure_byFileProvenance(String source) {
+        File outside = new File("photo.jpg").getAbsoluteFile();
+        if (!"request".equals(source)) {
+            UploadedFile uploaded = mock(UploadedFile.class);
+            when(uploaded.getAbsolutePath()).thenReturn(outside.getAbsolutePath());
+            when(uploaded.getOriginalName()).thenReturn("photo.jpg");
+            action.withUploadedFiles(List.of(uploaded));
+        }
+        if (!"framework".equals(source)) {
+            action.setClientImage(outside);
+            action.setClientImageFileName("photo.jpg");
+        }
+
+        assertThat(action.execute()).isEqualTo("photoError");
+        assertThat(response.getStatus()).isEqualTo("framework".equals(source) ? 500 : 400);
+        assertThat(action.getActionErrors()).containsExactly("framework".equals(source)
+                ? "Error saving image." : "Invalid image upload.");
+        assertThat(request.getAttribute("success")).isNull();
+        verifyNoInteractions(clientImageManager);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"saveImage", "deleteImage"})
+    @DisplayName("should propagate unexpected failures to the standard incident interceptor")
+    void shouldPropagateUnexpectedFailure_toIncidentHandling(String method) throws Exception {
+        request.setParameter("method", method);
+        NullPointerException failure = new NullPointerException("unexpected failure");
+        if ("saveImage".equals(method)) {
+            tempUploadFile = File.createTempFile("client-image", ".jpg");
+            Files.write(tempUploadFile.toPath(), new byte[]{1, 2, 3});
+            action.setClientImage(tempUploadFile);
+            action.setClientImageFileName("photo.jpg");
+            doThrow(failure).when(clientImageManager).saveClientImage(any(ClientImage.class));
+        } else {
+            doThrow(failure).when(clientImageManager).deleteClientImage(123);
+        }
+
+        assertThatThrownBy(() -> action.execute()).isSameAs(failure);
+        assertThat(action.getActionErrors()).isEmpty();
+        assertThat(request.getAttribute("success")).isNull();
+    }
+
+    @Test
+    @DisplayName("should propagate audit failures after a successful photo deletion")
+    void shouldPropagateAuditFailure_afterPhotoDeletion() {
+        request.setParameter("method", "deleteImage");
+        DataAccessResourceFailureException failure = new DataAccessResourceFailureException("audit unavailable");
+        logActionMock.when(() -> LogAction.addLogSynchronous(loggedInInfo,
+                "ClientImage2Action.deleteImage", "clientId=123")).thenThrow(failure);
+
+        assertThatThrownBy(() -> action.execute()).isSameAs(failure);
+        verify(clientImageManager).deleteClientImage(123);
+        assertThat(action.getActionErrors()).isEmpty();
+        assertThat(request.getAttribute("success")).isNull();
     }
 
     /**

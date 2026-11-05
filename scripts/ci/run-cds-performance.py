@@ -122,6 +122,35 @@ def is_import_command(command: list[bytes], source: str, provider: str) -> bool:
     return True
 
 
+def import_candidates(supervisor_pid: int, source: str, provider: str, service_uid: int) -> list[tuple[int, list[bytes]]]:
+    """Find only owned import JVMs descended from this exact supervisor."""
+    # Linux may report either ENOENT or ESRCH when a /proc task exits during a read.
+    parents = {}
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdecimal():
+            continue
+        try:
+            fields = (entry / "stat").read_text().rsplit(")", 1)[1].split()
+            parents[int(entry.name)] = int(fields[1])
+        except (FileNotFoundError, ProcessLookupError):
+            pass
+    children = {supervisor_pid}
+    for _ in range(8):
+        children |= {pid for pid, parent in parents.items() if parent in children}
+    candidates = []
+    for pid in children:
+        try:
+            command = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
+            if is_import_command(command,source,provider):
+                process_status = Path(f'/proc/{pid}/status').read_text()
+                uid = int(re.search(r'^Uid:\s+(\d+)',process_status,re.M)[1])
+                if uid == service_uid and uid != 0:
+                    candidates.append((pid,command))
+        except (FileNotFoundError, ProcessLookupError):
+            pass
+    return candidates
+
+
 def verify_java_identity(pid: int, uid: int, gid: int, executable: Path, started: str) -> None:
     # /proc/<other-uid>/exe is ptrace-protected on normal unprivileged Docker.
     # Read as that same service UID; do not add SYS_PTRACE to the clinical runtime.
@@ -139,13 +168,28 @@ def service_sample(pid: int) -> dict | None:
     try:
         started = Path(f'/proc/{pid}/stat').read_text().rsplit(')',1)[1].split()[19]
         status = Path(f'/proc/{pid}/status').read_text()
-    except FileNotFoundError:
+    except (FileNotFoundError, ProcessLookupError):
         return None  # A completed JVM may disappear before its supervisor is reaped.
     if re.search(r'^State:\s+[ZX]',status,re.M) and not re.search(r'^VmRSS:',status,re.M):
         return None
-    return {'started':started,'uid':int(re.search(r'^Uid:\s+(\d+)',status,re.M)[1]),
-            'rss':int(re.search(r'^VmRSS:\s+(\d+) kB$',status,re.M)[1])*1024,
-            'highWater':int(re.search(r'^VmHWM:\s+(\d+) kB$',status,re.M)[1])*1024}
+    uid = re.search(r'^Uid:\s+(\d+)',status,re.M)
+    rss = re.search(r'^VmRSS:\s+(\d+) kB$',status,re.M)
+    high_water = re.search(r'^VmHWM:\s+(\d+) kB$',status,re.M)
+    if uid is None or rss is None or high_water is None:
+        # Linux can drop mm before publishing the zombie state. Re-read stat:
+        # PF_EXITING (include/linux/sched.h) confirms that exit is in progress.
+        # Missing measurements from a live JVM must still fail the resource gate.
+        try:
+            final = Path(f'/proc/{pid}/stat').read_text().rsplit(')',1)[1].split()
+        except (FileNotFoundError, ProcessLookupError):
+            return None
+        if final[19] != started:
+            raise RuntimeError('service JVM identity changed during resource sampling')
+        if final[0] in ('Z','X') or int(final[6]) & 0x00000004:
+            return None
+        raise RuntimeError('live service JVM memory measurements are unavailable')
+    return {'started':started,'uid':int(uid[1]),
+            'rss':int(rss[1])*1024,'highWater':int(high_water[1])*1024}
 
 
 def private_json(path: Path, value: dict, *, exclusive: bool = False) -> None:
@@ -907,30 +951,7 @@ def main() -> None:
                         if time.monotonic() - started > args.timeout:
                             os.killpg(process.pid, signal.SIGTERM)
                             raise RuntimeError("benchmark deadline exceeded; retain exact accepted run and reconcile")
-                        # Only descendants of this exact installed supervisor can become the measured JVM.
-                        parents = {}
-                        for entry in Path("/proc").iterdir():
-                            if not entry.name.isdecimal():
-                                continue
-                            try:
-                                fields = (entry / "stat").read_text().rsplit(")", 1)[1].split()
-                                parents[int(entry.name)] = int(fields[1])
-                            except FileNotFoundError:
-                                pass
-                        children = {process.pid}
-                        for _ in range(8):
-                            children |= {pid for pid, parent in parents.items() if parent in children}
-                        candidates = []
-                        for pid in children:
-                            try:
-                                command = Path(f"/proc/{pid}/cmdline").read_bytes().split(b"\0")
-                                if is_import_command(command,source["source"],str(metadata["provider"])):
-                                    process_status = Path(f'/proc/{pid}/status').read_text()
-                                    uid = int(re.search(r'^Uid:\s+(\d+)',process_status,re.M)[1])
-                                    if uid == service_account.pw_uid and uid != 0:
-                                        candidates.append((pid,command))
-                            except FileNotFoundError:
-                                pass
+                        candidates = import_candidates(process.pid,source["source"],str(metadata["provider"]),service_account.pw_uid)
                         if len(candidates) > 1:
                             raise RuntimeError("ambiguous service JVM measurement target")
                         if candidates:

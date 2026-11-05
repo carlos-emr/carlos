@@ -207,10 +207,12 @@ async function workflow(s) {
     const where = `provider_no=${q(owner)} AND sdate=${q(bStart)} AND status='A'`;
     const fields = {provider_no: owner, provider_name: marker, sdate: bStart, delete: '1', deldate: 'all'};
     const route = h.appUrl(s.config.baseUrl, '/schedule/TemplateApplying');
-    await h.assertRefused(s, {label: 'GET schedule/TemplateApplying delete=1', table: 'rschedule', where, before: '1',
-      response: await probeFromPage(admin, route, 'GET', fields)});
-    await h.assertRefused(s, {label: 'POST schedule/TemplateApplying delete=1 without a CSRF token', table: 'rschedule', where, before: '1',
-      response: await probeFromPage(admin, route, 'POST', fields)});
+    const {failureMark,consumeExpectedFailure}=require('./lib/concurrency-support');
+    for(const [method,status] of [['GET',405],['POST',403]]) {
+      const mark=failureMark(s.recorder);
+      await h.assertRefused(s,{label:`${method} schedule period delete refusal`,table:'rschedule',where,before:'1',response:await probeFromPage(admin,route,method,fields)});
+      consumeExpectedFailure(s.recorder,mark,{status,method,path:/\/schedule\/TemplateApplying$/});
+    }
     h.assert(dates(bStart, bEnd, 'A') === '4', 'A refused delete changed a date of the second period');
   });
 }

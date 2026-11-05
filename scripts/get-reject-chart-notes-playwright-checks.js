@@ -16,6 +16,7 @@
  * notes and one private copied note. Cleanup verifies ownership and removes their clinical rows.
  * Risk sweep "get-reject" (STATE-CHANGING ACTIONS THAT ACCEPT GET).
  */
+const {authenticatedProbe} = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { captureRequest, replayParams, createLedger } = require('./lib/get-reject-probe');
@@ -200,7 +201,7 @@ async function workflow(s) {
       VALUES(${otherNote},10,${ticklerNo})`, 'cross-patient tickler link');
     s.cleanup(() => sql.execute(`DELETE FROM casemgmt_note_link WHERE id=${badLink} AND note_id=${otherNote}`));
     const linkedBaseline = both();
-    const response = await s.context.request.get(h.appUrl(s.config.baseUrl,
+    const response = await authenticatedProbe(s, h.appUrl(s.config.baseUrl,
       `/CaseManagementEntry?method=ticklerGetNote&ticklerNo=${ticklerNo}`), {maxRedirects: 0});
     try {
       h.assert(response.status() === 403 && Object.hasOwn(response.headers(), h.APPLICATION_HEADER),

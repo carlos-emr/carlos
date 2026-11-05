@@ -12,6 +12,7 @@
 // provider/ViewObar* have no UI entry on an Ontario install, so they get no check here.
 // Fixtures: the owned synthetic patient and a marker-named Forms-menu registration of the
 // Annual form (a clinic-wide menu entry, so run EXCLUSIVE=1); cleanup deletes both.
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
@@ -113,7 +114,7 @@ async function workflow(s) {
 
   await s.step('a GET carrying the save intent is refused without a write', async () => {
     const endpoint = new URL('decision/annualreview/annualreviewplanner', s.config.baseUrl.href + '/').href;
-    const response = await s.context.request.get(endpoint, { params: {
+    const response = await authenticatedProbe(s, endpoint, { params: {
       demographic_no: patient, formId: '0', submit: ' Save ', risk_TIA: 'checked' } });
     h.assert(response.status() === 405, 'A GET with the save intent was not refused');
     h.assert(sql.value(`SELECT COUNT(*) FROM desannualreviewplan WHERE demographic_no=${patient}`) === '2',

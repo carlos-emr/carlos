@@ -64,6 +64,18 @@ public class MeasurementsExtDaoIntegrationTest extends CarlosTestBase {
         return ext;
     }
 
+    @Test
+    void shouldFindOnlyMatchingExtensions_forRequestedMeasurementIdsAndKey() {
+        MeasurementsExt source = createExt(5911, "lab_no", "216");
+        MeasurementsExt second = createExt(5912, "lab_no", "217");
+        createExt(5911, "unit", "%");
+        createExt(5913, "lab_no", "218");
+
+        assertThat(measurementsExtDao.findByMeasurementIdsAndKey(List.of(5911, 5912), "lab_no"))
+                .extracting(MeasurementsExt::getId).containsExactlyInAnyOrder(source.getId(), second.getId());
+        assertThat(measurementsExtDao.findByMeasurementIdsAndKey(List.of(), "lab_no")).isEmpty();
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {

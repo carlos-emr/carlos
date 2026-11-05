@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2026. Magenta Health. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -25,11 +26,16 @@ import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.utility.DemographicContactCreator;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchRequest;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -113,6 +119,7 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
      */
     @BeforeEach
     void setUp() {
+        when(mockSecurityInfoManager.hasDemographicReadPrivileges(any(), anyCollection())).thenReturn(true);
         // Register mocks for SpringUtils BEFORE mocking any static classes
         // This order is critical - static initializers may call SpringUtils.getBean()
         registerMock(DemographicDao.class, mockDemographicDao);
@@ -195,6 +202,55 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
      *
      * @see SecurityInfoManager#hasPrivilege
      */
+    @Nested
+    @DisplayName("Bulk schedule names")
+    class BulkScheduleNames {
+        @Test
+        void shouldCheckEachPatientBeforeReading_whenNamesAreRequested() {
+            when(mockDemographicDao.getDemographicNames(anyCollection())).thenReturn(List.of(
+                new io.github.carlos_emr.carlos.commn.dao.projection.DemographicName(12, "O'Neil", "Zoë"),
+                new io.github.carlos_emr.carlos.commn.dao.projection.DemographicName(13, null, "")));
+
+            var names = manager.getDemographicFormattedNames(mockLoggedInInfo, Arrays.asList(12, 0, 13, 12, null, 99));
+
+            assertThat(names).containsEntry(12, "O'Neil, Zoë").containsEntry(13, "null, ").doesNotContainKey(99);
+            var order = inOrder(mockSecurityInfoManager, mockDemographicDao);
+            order.verify(mockSecurityInfoManager).hasDemographicReadPrivileges(mockLoggedInInfo,
+                new LinkedHashSet<>(List.of(12, 13, 99)));
+            order.verify(mockDemographicDao).getDemographicNames(new LinkedHashSet<>(List.of(12, 13, 99)));
+            verifyNoMoreInteractions(mockDemographicDao);
+            verifyNoInteractions(mockProviderManager, mockAppointmentManager);
+        }
+
+        @Test
+        void shouldReadNoNames_whenAnyPatientIsDenied() {
+            when(mockSecurityInfoManager.hasDemographicReadPrivileges(mockLoggedInInfo, new LinkedHashSet<>(List.of(12, 13))))
+                .thenReturn(false);
+
+            assertThatThrownBy(() -> manager.getDemographicFormattedNames(mockLoggedInInfo, List.of(12, 13)))
+                .isInstanceOf(RuntimeException.class).hasMessageContaining("missing required sec object");
+            verifyNoInteractions(mockDemographicDao, mockProviderManager, mockAppointmentManager);
+        }
+
+        @Test
+        void shouldPreservePatientDirective_whenPrivilegeCheckThrows() {
+            var directive = new io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException("restricted");
+            when(mockSecurityInfoManager.hasDemographicReadPrivileges(mockLoggedInInfo, new LinkedHashSet<>(List.of(12))))
+                .thenThrow(directive);
+
+            assertThatThrownBy(() -> manager.getDemographicFormattedNames(mockLoggedInInfo, List.of(12)))
+                .isSameAs(directive);
+            verifyNoInteractions(mockDemographicDao);
+        }
+
+        @Test
+        void shouldSkipPatientReads_whenOnlyBlankSlotsAreRequested() {
+            assertThat(manager.getDemographicFormattedNames(mockLoggedInInfo, Arrays.asList(0, null))).isEmpty();
+            assertThat(manager.getDemographicFormattedNames(mockLoggedInInfo, List.of())).isEmpty();
+            verifyNoInteractions(mockDemographicDao, mockSecurityInfoManager);
+        }
+    }
+
     @Nested
     @DisplayName("Security and Privilege Checks")
     @Tag("security")
@@ -928,6 +984,40 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
                 .isInstanceOf(IllegalArgumentException.class);
         }
 
+        @ParameterizedTest
+        @ValueSource(strings = {"create", "update", "add"})
+        void shouldOmitPatientData_fromInvalidBirthDateExceptions(String operation) {
+            Demographic demographic = createTestDemographic();
+            demographic.setFirstName("SYNTHETIC5322FIRST");
+            demographic.setLastName("SYNTHETIC5322LAST");
+            demographic.setYearOfBirth("SYNTHETIC5322DOB");
+            String callerLogger = getClass().getName() + ".validationCaller";
+            try (LogCapture managerLogs = LogCapture.forLogger(DemographicManagerImpl.class);
+                 LogCapture callerLogs = LogCapture.forLogger(callerLogger)) {
+                Throwable failure = catchThrowable(() -> {
+                    switch (operation) {
+                        case "create" -> manager.createDemographic(mockLoggedInInfo, demographic, TEST_PROGRAM_ID);
+                        case "update" -> manager.updateDemographic(mockLoggedInInfo, demographic);
+                        case "add" -> manager.addDemographic(mockLoggedInInfo, demographic);
+                        default -> throw new AssertionError(operation);
+                    }
+                });
+                assertThat(failure).isInstanceOf(IllegalArgumentException.class)
+                        .hasMessage("Invalid birth date.").hasNoCause();
+                // Model a caller logging the propagated exception, including its full stack trace.
+                LogManager.getLogger(callerLogger).error("Demographic validation rejected", failure);
+                PatternLayout layout = PatternLayout.newBuilder().withPattern("%m%n%ex").build();
+                String output = managerLogs.events().stream().map(layout::toSerializable)
+                        .collect(java.util.stream.Collectors.joining())
+                        + callerLogs.events().stream().map(layout::toSerializable)
+                        .collect(java.util.stream.Collectors.joining());
+                assertThat(output).contains("Invalid birth date.")
+                        .doesNotContain("SYNTHETIC5322FIRST", "SYNTHETIC5322LAST", "SYNTHETIC5322DOB");
+                verifyNoInteractions(mockDemographicDao, mockDemographicArchiveDao, mockAdmissionDao,
+                        mockDemographicExtDao);
+            }
+        }
+
         @Test
         @DisplayName("should update demographic with archiving previous record")
         void shouldUpdateDemographic_withArchivingPreviousRecord() {
@@ -1098,6 +1188,36 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
             manager.createUpdateDemographicCust(mockLoggedInInfo, updated);
 
             verify(mockDemographicCustArchiveDao).archiveDemographicCust(existing);
+            verify(mockDemographicCustDao).merge(updated);
+        }
+
+        @Test
+        void shouldArchiveNullToLiteralNullChange_whenUpdatingCustomFields() {
+            DemographicCust existing = createTestDemographicCust(TEST_DEMO_NO);
+            DemographicCust updated = createTestDemographicCust(TEST_DEMO_NO);
+            existing.setAlert(null);
+            updated.setAlert("null");
+            when(mockDemographicCustDao.find(TEST_DEMO_NO)).thenReturn(existing);
+
+            manager.createUpdateDemographicCust(mockLoggedInInfo, updated);
+
+            verify(mockDemographicCustArchiveDao).archiveDemographicCust(existing);
+            verify(mockDemographicCustDao).merge(updated);
+        }
+
+        @Test
+        void shouldPreserveNullEquality_whenCustomFieldsAreUnchanged() {
+            DemographicCust existing = createTestDemographicCust(TEST_DEMO_NO);
+            DemographicCust updated = createTestDemographicCust(TEST_DEMO_NO);
+            existing.setAlert(null);
+            updated.setAlert(null);
+            existing.setNotes("null");
+            updated.setNotes("null");
+            when(mockDemographicCustDao.find(TEST_DEMO_NO)).thenReturn(existing);
+
+            manager.createUpdateDemographicCust(mockLoggedInInfo, updated);
+
+            verify(mockDemographicCustArchiveDao, never()).archiveDemographicCust(any());
             verify(mockDemographicCustDao).merge(updated);
         }
 

@@ -54,10 +54,10 @@ MVN        := mvn -B -Dmaven.repo.local=$(MVN_REPO)
 # -Dmaven.compiler.fork=true: the in-process javac of this single-module WAR
 # holds the Maven JVM's jars and the whole compile file set in ONE process and
 # can exhaust a 4096 file-descriptor limit part-way through. Forking splits the
-# load. -Pskip-dependency-lock: JitPack artifacts re-hash between fetches, so
-# the lock check is a false positive on a normal build; a release build that
-# wants it enforced drops the profile.
-MVN_FLAGS  := -DskipTests=true -Dcheckstyle.skip=true -Dmaven.compiler.fork=true -Pskip-dependency-lock
+# load. Keep the normal validate-phase dependency lock check enabled: formerly
+# JitPack-served artifacts are now vendored with deterministic bytes in
+# local_repo, so release builds need no integrity-check exemptions.
+MVN_FLAGS  := -DskipTests=true -Dcheckstyle.skip=true -Dmaven.compiler.fork=true
 
 PKG        := carlos-emr
 DPKG       := carlos-emr-drugref
@@ -147,7 +147,10 @@ ifeq ($(SKIP_DRUGREF),)
 	    $(CURDIR)/debian/fetch-drugref.sh "$(DRUGREF_REF)" $(BUILDDIR)/drugref-src; \
 	    src=$(BUILDDIR)/drugref-src; \
 	  fi; \
-	  $(MVN) -f "$$src/pom.xml" $(MVN_FLAGS) -Dmaven.test.skip=true clean package; \
+	  lock="$$(realpath --relative-to="$$src" "$(CURDIR)/debian/drugref-dependencies-lock.json")"; \
+	  $(MVN) -f "$$src/pom.xml" $(MVN_FLAGS) -Dmaven.test.skip=true \
+	    "-DdependencyLock.filename=$$lock" \
+	    se.vandmo:dependency-lock-maven-plugin:1.1.1:check clean package; \
 	  cp -f "$$src"/target/drugref2*.war $(BUILDDIR)/drugref2.war; \
 	fi
 endif
@@ -318,12 +321,17 @@ override_dh_auto_install:
 	# (/usr/lib/carlos-ctl, /usr/sbin/carlos-ctl and the carlosctl alias);
 	# through 2026.08.0~alpha15 (snapshot24) it was installed here.
 	install -d $(STAGE)/$(LIBDIR)
+	install -m 0755 debian/assets/bin/carlos-emr-mariadb-init $(STAGE)/$(LIBDIR)/
 	install -m 0755 debian/assets/bin/carlos-emr-backup $(STAGE)/$(LIBDIR)/carlos-emr-backup
 	install -m 0755 debian/assets/bin/carlos-emr-cert $(STAGE)/$(LIBDIR)/carlos-emr-cert
 	install -m 0755 debian/assets/bin/carlos-emr-tomcat $(STAGE)/$(LIBDIR)/carlos-emr-tomcat
 	# The OSCAR 19 import-in-progress predicate, consulted by the unit's
 	# ExecCondition= and by the postinst (see the file's header).
 	install -m 0755 debian/assets/bin/carlos-emr-o19-guard $(STAGE)/$(LIBDIR)/carlos-emr-o19-guard
+	# Names (and, for another packaged web server, stops) what holds the
+	# front-door ports or keeps MariaDB from answering root; the postinst runs
+	# it on configure (see the file's header).
+	install -m 0755 debian/assets/bin/carlos-emr-host-conflicts $(STAGE)/$(LIBDIR)/carlos-emr-host-conflicts
 	# The OSCAR 19 import manifests, generated from THIS tree's schema by
 	# scripts/migration/o19/generate_manifests.py and read by carlos-ctl's
 	# importer at run time (its loader checks the "format" every file

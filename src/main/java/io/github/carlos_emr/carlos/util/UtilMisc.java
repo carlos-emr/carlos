@@ -206,7 +206,7 @@ public class UtilMisc {
     }
 
     public static String encode64(String plainText) {
-        return (new String(Base64.encodeBase64(plainText.getBytes())));
+        return (new String(java.util.Base64.getEncoder().encode(plainText.getBytes())));
     }
 
     public static String decode64(String encodedText) {

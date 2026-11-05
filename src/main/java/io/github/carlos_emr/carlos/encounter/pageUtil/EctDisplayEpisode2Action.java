@@ -47,7 +47,7 @@ public class EctDisplayEpisode2Action extends EctDisplayAction {
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
         boolean a = true;
         Vector v = OscarRoleObjectPrivilege.getPrivilegeProp("_newCasemgmt.episode");
-        String roleName = (String) request.getSession().getAttribute("userrole") + "," + (String) request.getSession().getAttribute("user");
+        String roleName = getRoleNames(request);
         a = OscarRoleObjectPrivilege.checkPrivilege(roleName, (Properties) v.get(0), (Vector) v.get(1));
         if (!a) {
             return true;

@@ -144,7 +144,7 @@ public class ClientImage extends BaseObject {
             return null;
         }
         try {
-            Blob imageBlob = new SerialBlob(Base64.encodeBase64(image_data));
+            Blob imageBlob = new SerialBlob(java.util.Base64.getEncoder().encode(image_data));
             return imageBlob;
         } catch (SQLException e) {
             MiscUtils.getLogger().error("Failed to create image blob", e);

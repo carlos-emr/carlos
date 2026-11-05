@@ -87,7 +87,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -134,7 +134,7 @@ jobs:
     # No dependency on the build job: make install --run-tests compiles from
     # scratch itself, and the Maven cache it restores has a prefix fallback, so
     # waiting for build only added its ~4.5 min to the critical path.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     permissions:
       contents: read
@@ -212,6 +212,10 @@ jobs:
                       kind = problem.tag.rsplit("}", 1)[-1]
                       if kind not in {"failure", "error"}:
                           continue
+                      # Publish identifiers only; messages/stacks stay in the sanitized artifact.
+                      test_id = f"{case.get('classname', '')}.{case.get('name', '')}"
+                      escaped_id = test_id.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+                      print(f"::error title=Java test {kind}::{escaped_id}")
                       lines.extend([f"{kind.upper()}: {case.get('classname', '')}.{case.get('name', '')}",
                                     problem.get("type", ""), problem.get("message", ""), problem.text or ""])
               (destination / (report.stem.removeprefix("TEST-") + ".txt")).write_text(
@@ -241,7 +245,7 @@ jobs:
 
   mariadb-dao-tests:
     name: MariaDB DAO integration tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     permissions:
       contents: read
@@ -272,12 +276,13 @@ jobs:
 
       - name: Run existing DAO suites on physical MariaDB
         run: |
+          # Schema-specific cases run in the next lane; this lane must have no skips.
           docker exec -e CARLOS_TEST_MARIADB_DAO=true \
             -e CARLOS_TEST_MARIADB_SCHEMA=generated \
             -e CARLOS_TEST_MARIADB_URL=jdbc:mysql://host.docker.internal:3306/ \
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress test \
             '-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest' \
-            '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=3
+            '-Dgroups=spring-context | mariadb-native' -DexcludedGroups=flyway-schema -Dtest.forkCount=3
 
       - name: Verify critical DAO paths against the Flyway schema
         if: always()
@@ -285,9 +290,20 @@ jobs:
           docker exec -e CARLOS_TEST_MARIADB_DAO=true -e CARLOS_TEST_MARIADB_SCHEMA=flyway \
             -e CARLOS_TEST_MARIADB_URL=jdbc:mysql://host.docker.internal:3306/ \
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress surefire:test \
-            -Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest \
+            -Dtest=ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest \
             -Dgroups=spring-context -Dtest.forkCount=1 -Dcarlos.test.schema.expected=flyway \
             -Dsurefire.reportNameSuffix=flyway
+
+      - name: Verify BC billing reads and transaction outcomes against the Flyway schema
+        if: always()
+        run: |
+          docker exec -e CARLOS_TEST_MARIADB_DAO=true -e CARLOS_TEST_MARIADB_SCHEMA=flyway \
+            -e CARLOS_TEST_MARIADB_PROVINCE=bc \
+            -e CARLOS_TEST_MARIADB_URL=jdbc:mysql://host.docker.internal:3306/ \
+            carlos-tomcat-dev mvn --batch-mode --no-transfer-progress surefire:test \
+            -Dtest=ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest \
+            '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=1 \
+            -Dsurefire.reportNameSuffix=bc-flyway
 
       - name: Verify MariaDB coverage and summarize results
         if: always()
@@ -316,7 +332,7 @@ jobs:
     #   B) Direct <e:forXxx>, ${e:forXxx()}, or Encode.forXxx() usage where
     #      the null-safe CARLOS wrappers are available.
     # Does not need the docker image or Maven cache — runs in ~10 seconds.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -343,7 +359,7 @@ jobs:
         run: bash scripts/lint/check-struts-dtd.sh
   jspc:
     # No dependency on the build job, for the same reason as the tests job.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
