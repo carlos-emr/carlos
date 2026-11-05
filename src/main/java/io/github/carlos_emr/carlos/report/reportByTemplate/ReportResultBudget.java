@@ -124,14 +124,16 @@ final class ReportResultBudget {
 
     private String readCell(ResultSet rs, int column, int type) throws SQLException, IOException {
         // Connector/J cannot expose numeric/date values as character streams.
-        // These scalar representations are small; large text/binary fields use a bounded reader.
-        boolean stream = switch (type) {
-            case Types.CHAR, Types.VARCHAR, Types.LONGVARCHAR, Types.NCHAR, Types.NVARCHAR,
-                    Types.LONGNVARCHAR, Types.CLOB, Types.NCLOB, Types.BINARY, Types.VARBINARY,
-                    Types.LONGVARBINARY, Types.BLOB -> true;
+        // Only bounded Connector/J scalar types may use getString; unfamiliar/large types
+        // must use the bounded reader or be refused by the driver.
+        boolean scalar = switch (type) {
+            case Types.NULL, Types.BOOLEAN, Types.BIT, Types.TINYINT, Types.SMALLINT,
+                    Types.INTEGER, Types.BIGINT, Types.REAL, Types.FLOAT, Types.DOUBLE,
+                    Types.NUMERIC, Types.DECIMAL, Types.DATE, Types.TIME, Types.TIMESTAMP,
+                    Types.TIME_WITH_TIMEZONE, Types.TIMESTAMP_WITH_TIMEZONE -> true;
             default -> false;
         };
-        if (!stream) {
+        if (scalar) {
             return checkedCell(rs.getString(column));
         }
         try (Reader reader = rs.getCharacterStream(column)) {

@@ -365,7 +365,7 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
 
         try (ResultSet owned = LegacyJdbcQuery.getBoundedReportResultSet(
                 new ParameterizedSql("select ?", List.of("synthetic")), 101, System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(7))) {
-            assertThat(owned).isNotNull();
+            assertThat(owned.next()).isFalse();
             InOrder order = inOrder(statement);
             order.verify(statement).setMaxRows(101);
             order.verify(statement).setFetchSize(fetchSize);
@@ -394,10 +394,10 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> LegacyJdbcQuery.getBoundedReportResultSet(
                 new ParameterizedSql("select 1", List.of()), 10, System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(1)))
                 .isInstanceOf(java.sql.SQLTimeoutException.class);
-        InOrder order = inOrder(statement, connection);
-        order.verify(statement).cancel();
-        order.verify(statement).close();
-        order.verify(connection).close();
+        verify(connection, org.mockito.Mockito.timeout(1000)).abort(org.mockito.ArgumentMatchers.any());
+        verify(connection, org.mockito.Mockito.timeout(1000)).close();
+        verify(statement).close();
+        verify(statement, never()).cancel();
     }
 
     @Test

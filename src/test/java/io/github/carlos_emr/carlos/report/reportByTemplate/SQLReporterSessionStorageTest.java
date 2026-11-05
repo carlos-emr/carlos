@@ -126,8 +126,6 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
         ResultSet resultSet = mock(ResultSet.class);
         java.util.concurrent.atomic.AtomicInteger consumedRows = new java.util.concurrent.atomic.AtomicInteger();
         when(resultSet.next()).thenAnswer(ignored -> consumedRows.getAndIncrement() < 81);
-        java.sql.Statement statement = mock(java.sql.Statement.class);
-        when(resultSet.getStatement()).thenReturn(statement);
         ResultSetMetaData metadata = mock(ResultSetMetaData.class);
         when(resultSet.getMetaData()).thenReturn(metadata);
         when(metadata.getColumnCount()).thenReturn(1);
@@ -148,7 +146,6 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
             verify(reportManagers.constructed().get(0)).getReportTemplateNoParam("1");
             verify(request).setAttribute("csv-0", "");
             verify(request).setAttribute("errormsg", SQLReporter.CSV_EXPORT_LIMIT_MESSAGE);
-            verify(statement).cancel();
             verify(resultSet).close();
             verify(report, never()).buildParameterizedSql(1, parameters);
         }
@@ -207,17 +204,70 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
                 (manager, context) -> when(manager.getReportTemplateNoParam("1")).thenReturn(report));
              MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
             jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong()))
-                    .thenReturn(rs).thenThrow(new java.sql.SQLException("synthetic query failure"));
+                    .thenReturn(rs).thenThrow(new java.sql.SQLException("synthetic <query> & failure"));
             assertThat(new SQLReporter().generateReport(request)).isFalse();
             assertThat(managers.constructed()).hasSize(2);
             assertThat(request.getAttribute("csv-0")).isNull();
             assertThat(request.getAttribute("sql-0")).isNull();
             assertThat(request.getAttribute("resultsethtml-0")).isNull();
             assertThat(request.getAttribute("errormsg").toString())
-                    .contains(missingParameters ? "Cannot find all parameters" : "synthetic query failure");
+                    .contains(missingParameters ? "Cannot find all parameters" : "synthetic <query> & failure");
             verify(report, never()).buildParameterizedSql(2, parameters);
             verify(rs).close();
         }
+    }
+
+    @Test
+    void shouldShareRowsAndAbsoluteDeadline_throughSequencedJdbcCalls() throws Exception {
+        ReportTemplatesDao dao = mock(ReportTemplatesDao.class);
+        registerMock(ReportTemplatesDao.class, dao);
+        ReportTemplates template = new ReportTemplates();
+        template.setActive(1);
+        when(dao.find(1)).thenReturn(template);
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
+        request.setParameter("templateId", "1");
+        var parameters = request.getParameterMap();
+        ReportObjectGeneric report = mock(ReportObjectGeneric.class);
+        when(report.buildParameterizedSql(0, parameters)).thenReturn(new ParameterizedSql("select 1", List.of()));
+        when(report.buildParameterizedSql(1, parameters)).thenReturn(new ParameterizedSql("select 2", List.of()));
+        ResultSet first = sequenceRows(6000);
+        ResultSet second = sequenceRows(4001);
+        List<Long> deadlines = new java.util.ArrayList<>();
+        List<Integer> rowLimits = new java.util.ArrayList<>();
+        try (MockedConstruction<ReportManager> managers = mockConstruction(ReportManager.class,
+                (manager, context) -> when(manager.getReportTemplateNoParam("1")).thenReturn(report));
+             MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong()))
+                    .thenAnswer(call -> {
+                        rowLimits.add(call.getArgument(1));
+                        deadlines.add(call.getArgument(2));
+                        return deadlines.size() == 1 ? first : second;
+                    });
+            assertThat(new SQLReporter().generateSequencedReport(request)).isFalse();
+            assertThat(managers.constructed()).hasSize(1);
+            assertThat(rowLimits).containsExactly(10001, 4001);
+            assertThat(deadlines).hasSize(2);
+            assertThat(deadlines.get(1)).isEqualTo(deadlines.get(0));
+            assertThat(request.getAttribute("errormsg")).isEqualTo(SQLReporter.REPORT_LIMIT_MESSAGE);
+            assertThat(request.getAttribute("resultsethtml-0")).isNull();
+            assertThat(request.getAttribute("csv-0")).isNull();
+            verify(report, never()).buildParameterizedSql(2, parameters);
+            verify(first).close();
+            verify(second).close();
+        }
+    }
+
+    private ResultSet sequenceRows(int count) throws Exception {
+        ResultSet rs = mock(ResultSet.class);
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(rs.getMetaData()).thenReturn(metadata);
+        when(metadata.getColumnCount()).thenReturn(1);
+        when(metadata.getColumnType(1)).thenReturn(java.sql.Types.INTEGER);
+        when(metadata.getColumnLabel(1)).thenReturn("h");
+        when(rs.getString(1)).thenReturn("1");
+        java.util.concurrent.atomic.AtomicInteger rows = new java.util.concurrent.atomic.AtomicInteger();
+        when(rs.next()).thenAnswer(ignored -> rows.getAndIncrement() < count);
+        return rs;
     }
 
 }

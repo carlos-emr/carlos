@@ -10,6 +10,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.jupiter.api.DisplayName;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -24,7 +26,7 @@ import static org.mockito.Mockito.when;
 
 @Tag("unit")
 @DisplayName("Template report consumption budgets")
-class ReportResultBudgetUnitTest {
+class ReportResultBudgetUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldStopAtRowSentinel_withoutReadingExtraCells() throws Exception {
         ResultSet rs = rows(ReportResultBudget.MAX_ROWS + 500, "a");
@@ -84,16 +86,24 @@ class ReportResultBudgetUnitTest {
         verify(rs, atMost(41)).next();
     }
 
-    @Test
-    void shouldStopHugeCellReader_beforeMaterializingCell() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {java.sql.Types.VARCHAR, java.sql.Types.SQLXML,
+            java.sql.Types.OTHER, java.sql.Types.JAVA_OBJECT, java.sql.Types.ARRAY, java.sql.Types.STRUCT})
+    void shouldStopHugeCellReader_beforeMaterializingCell(int type) throws Exception {
         ResultSet rs = rows(1, "unused");
+        when(rs.getMetaData().getColumnType(1)).thenReturn(type);
         AtomicInteger consumed = new AtomicInteger();
         Reader enormous = new Reader() {
             @Override
             public int read(char[] buffer, int offset, int length) {
-                java.util.Arrays.fill(buffer, offset, offset + length, 'a');
-                consumed.addAndGet(length);
-                return length;
+                int remaining = ReportResultBudget.MAX_CELL_CHARACTERS + 4096 - consumed.get();
+                if (remaining == 0) {
+                    return -1;
+                }
+                int count = Math.min(length, remaining);
+                java.util.Arrays.fill(buffer, offset, offset + count, 'a');
+                consumed.addAndGet(count);
+                return count;
             }
 
             @Override
@@ -105,6 +115,7 @@ class ReportResultBudgetUnitTest {
         assertThatThrownBy(() -> new ReportResultBudget().render(rs, null))
                 .isInstanceOf(ReportResultBudget.LimitExceededException.class);
         assertThat(consumed.get()).isLessThanOrEqualTo(ReportResultBudget.MAX_CELL_CHARACTERS + 2048);
+        verify(rs, never()).getString(1);
     }
 
     @Test

@@ -3,46 +3,55 @@ package io.github.carlos_emr.carlos.db;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLTimeoutException;
-import java.sql.Statement;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-/** Keeps cancellation armed while Connector/J is consuming a streaming result. */
+/** Keeps connection interruption armed while Connector/J consumes a streaming result. */
 final class ReportQueryDeadline implements AutoCloseable {
-    private final Statement statement;
+    private final Connection connection;
     private final CompletableFuture<Void> cancellation = new CompletableFuture<>();
-    private enum State { OPEN, EXPIRED, CLOSED }
-    private final AtomicReference<State> state = new AtomicReference<>(State.OPEN);
+    private CompletableFuture<Void> aborted;
+    private boolean closed;
     private volatile boolean expired;
 
-    ReportQueryDeadline(Statement statement, long deadlineNanos) throws SQLTimeoutException {
-        this.statement = statement;
+    ReportQueryDeadline(Connection connection, long deadlineNanos) throws SQLTimeoutException {
+        this.connection = connection;
         long remainingNanos = deadlineNanos - System.nanoTime();
         if (remainingNanos <= 0) {
             throw new SQLTimeoutException("Report query deadline exceeded");
         }
-        // CompletableFuture uses the JDK's shared delay scheduler. Its timer only
-        // dispatches work: a slow driver cannot delay other reports or hold cleanup.
+        // The shared timer only dispatches work; driver calls run on a virtual thread.
         cancellation.orTimeout(remainingNanos, TimeUnit.NANOSECONDS).exceptionallyAsync(failure -> {
             expire();
             return null;
         }, Thread::startVirtualThread);
     }
 
-    private void expire() {
-        if (state.compareAndSet(State.OPEN, State.EXPIRED)) {
+    private synchronized void expire() {
+        if (!closed) {
             expired = true;
-            try {
-                statement.cancel();
-            } catch (SQLException e) {
-                MiscUtils.getLogger().warn("Could not cancel expired report query", e);
-            }
+            abort();
+        }
+    }
+
+    private void abort() {
+        if (aborted == null) {
+            aborted = CompletableFuture.runAsync(() -> {
+                try {
+                    // Connector/J Statement.cancel() is a no-op after executeQuery().
+                    // abort closes its socket without waiting for the streaming read lock.
+                    connection.abort(Runnable::run);
+                } catch (SQLException | RuntimeException e) {
+                    MiscUtils.getLogger().warn("Could not abort report connection", e);
+                }
+            }, Thread::startVirtualThread);
         }
     }
 
@@ -50,16 +59,45 @@ final class ReportQueryDeadline implements AutoCloseable {
         return expired;
     }
 
+    private synchronized CompletableFuture<Void> stop(boolean discard) {
+        if (!closed && discard) {
+            abort();
+        }
+        close();
+        return aborted;
+    }
+
+    /** Aborts failed execution before releasing its JDBC resources, without blocking the request. */
+    void discard(Runnable cleanup) {
+        stop(true).thenRunAsync(cleanup, Thread::startVirtualThread);
+    }
+
     /** Transfers ownership of the cursor and its cancellation timer to the returned cursor. */
     static ResultSet wrap(ResultSet owned, ReportQueryDeadline deadline) {
+        AtomicBoolean released = new AtomicBoolean();
+        AtomicBoolean exhausted = new AtomicBoolean();
         return (ResultSet) Proxy.newProxyInstance(ResultSet.class.getClassLoader(), new Class<?>[]{ResultSet.class},
                 (proxy, method, args) -> {
                     if ("close".equals(method.getName())) {
-                        deadline.close();
+                        if (!released.compareAndSet(false, true)) {
+                            return null;
+                        }
                         try {
-                            return method.invoke(owned, args);
-                        } catch (InvocationTargetException e) {
-                            throw e.getCause();
+                            CompletableFuture<Void> abort = deadline.stop(!exhausted.get());
+                            if (abort == null) {
+                                owned.close();
+                            } else {
+                                // Never drain unread rows or return the connection to its pool
+                                // before abort finishes. Slow driver cleanup cannot stall refusal.
+                                abort.thenRunAsync(() -> {
+                                    try {
+                                        owned.close();
+                                    } catch (SQLException | RuntimeException e) {
+                                        MiscUtils.getLogger().warn("Could not close aborted report resources", e);
+                                    }
+                                }, Thread::startVirtualThread);
+                            }
+                            return null;
                         } finally {
                             LegacyJdbcQuery.unregisterThreadResource((AutoCloseable) proxy);
                         }
@@ -69,6 +107,9 @@ final class ReportQueryDeadline implements AutoCloseable {
                     }
                     try {
                         Object result = method.invoke(owned, args);
+                        if ("next".equals(method.getName()) && Boolean.FALSE.equals(result)) {
+                            exhausted.set(true);
+                        }
                         if (deadline.expired) {
                             throw new SQLTimeoutException("Report query deadline exceeded");
                         }
@@ -83,8 +124,8 @@ final class ReportQueryDeadline implements AutoCloseable {
     }
 
     @Override
-    public void close() {
-        state.set(State.CLOSED);
+    public synchronized void close() {
+        closed = true;
         // Completing the future removes its pending JDK timeout task.
         cancellation.complete(null);
     }

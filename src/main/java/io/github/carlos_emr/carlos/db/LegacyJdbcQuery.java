@@ -173,23 +173,24 @@ public final class LegacyJdbcQuery {
             ps.setQueryTimeout(Math.clamp(
                     (remainingNanos + TimeUnit.SECONDS.toNanos(1) - 1) / TimeUnit.SECONDS.toNanos(1),
                     1, Integer.MAX_VALUE));
-            deadline = new ReportQueryDeadline(ps, deadlineNanos);
+            deadline = new ReportQueryDeadline(connection, deadlineNanos);
             ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- validated, parameterized report boundary
             return registerThreadResource(ReportQueryDeadline.wrap(
                     StatementClosingResultSet.wrap(rs, ps, connection, dataSource), deadline));
         } catch (SQLException | RuntimeException e) {
-            if (deadline != null) {
-                deadline.close();
-            }
-            if (ps != null) {
+            PreparedStatement failedStatement = ps;
+            Runnable cleanup = () -> {
                 try {
-                    ps.cancel();
-                } catch (SQLException cancelFailure) {
-                    e.addSuppressed(cancelFailure);
+                    closeStatement(failedStatement);
+                } finally {
+                    DataSourceUtils.releaseConnection(connection, dataSource);
                 }
+            };
+            if (deadline == null) {
+                cleanup.run();
+            } else {
+                deadline.discard(cleanup);
             }
-            closeStatement(ps);
-            DataSourceUtils.releaseConnection(connection, dataSource);
             if (deadline != null && deadline.isExpired() && e instanceof SQLException) {
                 throw new SQLTimeoutException("Report query deadline exceeded", e);
             }

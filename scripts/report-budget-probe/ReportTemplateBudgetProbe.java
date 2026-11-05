@@ -6,7 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLTimeoutException;
 import java.util.List;
 
-import com.mysql.cj.jdbc.MysqlDataSource;
+import org.apache.commons.dbcp2.BasicDataSource;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
@@ -18,11 +18,22 @@ public final class ReportTemplateBudgetProbe {
     private ReportTemplateBudgetProbe() {
     }
 
+    /**
+     * Runs one synthetic scenario against a disposable MariaDB schema with sequence tables.
+     * Requires REPORT_PROBE_JDBC_URL, REPORT_PROBE_USER and REPORT_PROBE_PASSWORD.
+     *
+     * @param args one scenario: 10, 10000, 100000, large-cell, timeout or stream-timeout
+     * @throws Exception if configuration, JDBC access or rendering fails
+     * @throws AssertionError if the expected limit or timely interruption is not observed
+     */
     public static void main(String[] args) throws Exception {
         String scenario = args[0];
-        MysqlDataSource source = new MysqlDataSource();
-        source.setURL(System.getenv("REPORT_PROBE_JDBC_URL"));
-        source.setUser(System.getenv("REPORT_PROBE_USER"));
+        BasicDataSource source = new BasicDataSource();
+        source.setMaxTotal(1);
+        source.setMaxWait(java.time.Duration.ofSeconds(2));
+        source.setTestOnBorrow(true);
+        source.setUrl(System.getenv("REPORT_PROBE_JDBC_URL"));
+        source.setUsername(System.getenv("REPORT_PROBE_USER"));
         source.setPassword(System.getenv("REPORT_PROBE_PASSWORD"));
         DefaultListableBeanFactory beans = new DefaultListableBeanFactory();
         beans.registerSingleton("dataSource", source);
@@ -36,8 +47,11 @@ public final class ReportTemplateBudgetProbe {
         String sql = switch (scenario) {
             case "large-cell" -> "SELECT REPEAT('x', 16777216) AS sample";
             case "timeout" -> "SELECT SLEEP(5) AS slow";
-            case "stream-timeout" -> "SELECT seq, SLEEP(0.02) AS slow FROM seq_1_to_1000";
-            default -> "SELECT seq, REPEAT('é', 64) AS sample FROM seq_1_to_" + Integer.parseInt(scenario);
+            case "stream-timeout" -> "SELECT seq, REPEAT('x', 32768) AS sample, SLEEP(IF(seq = 1, 0, 0.2)) AS slow FROM seq_1_to_1000";
+            case "10" -> "SELECT seq, REPEAT('é', 64) AS sample FROM seq_1_to_10";
+            case "10000" -> "SELECT seq, REPEAT('é', 64) AS sample FROM seq_1_to_10000";
+            case "100000" -> "SELECT seq, REPEAT('é', 64) AS sample FROM seq_1_to_100000";
+            default -> throw new IllegalArgumentException("Unsupported probe scenario");
         };
         System.gc();
         long baseline = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
@@ -50,11 +64,13 @@ public final class ReportTemplateBudgetProbe {
         try (ResultSet rs = LegacyJdbcQuery.getBoundedReportResultSet(new ParameterizedSql(sql, List.of()),
                 ReportResultBudget.MAX_ROWS + 1, System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(
                         scenario.contains("timeout") ? 1 : ReportResultBudget.TIMEOUT_SECONDS))) {
+            if (scenario.equals("stream-timeout") && System.nanoTime() - started > 500_000_000L) {
+                throw new AssertionError("Streaming query must return before the deadline expires");
+            }
             try {
                 String[] output = budget.render(rs, null);
                 outcome = "complete html=" + output[0].length() + " csv=" + output[1].length();
             } catch (ReportResultBudget.LimitExceededException e) {
-                rs.getStatement().cancel();
                 outcome = "limited: " + e.getMessage();
             }
         } catch (SQLTimeoutException e) {
@@ -62,6 +78,16 @@ public final class ReportTemplateBudgetProbe {
         } finally {
             LegacyJdbcQuery.releaseThreadResources();
         }
+        // A discarded physical connection must leave the one-slot pool usable.
+        try (var connection = source.getConnection()) {
+            if (!connection.isValid(2)) {
+                throw new AssertionError("Pool returned an unusable connection after report cleanup");
+            }
+        }
+        if (source.getNumActive() != 0) {
+            throw new AssertionError("Report leaked an active pooled connection");
+        }
+        source.close();
         long peak = heapPools.stream().mapToLong(pool -> pool.getPeakUsage().getUsed()).sum();
         long millis = (System.nanoTime() - started) / 1_000_000;
         System.out.printf("scenario=%s duration_ms=%d baseline_heap=%d peak_heap=%d peak_delta=%d outcome=%s%n",
