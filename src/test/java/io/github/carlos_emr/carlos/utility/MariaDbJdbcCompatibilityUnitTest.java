@@ -229,4 +229,147 @@ class MariaDbJdbcCompatibilityUnitTest {
                 .containsEntry("user", "usér").containsEntry("password", "pāss🔒"); // ggignore - synthetic JDBC parsing/trust-store fixture, never a deployed credential
     }
 
+
+    @ParameterizedTest
+    @CsvSource({"tlsVersions,enabledSslProtocolSuites,TLSv1.2,TLSv1.3",
+            "enabledTLSProtocols,enabledSslProtocolSuites,TLSv1.2,TLSv1.3",
+            "ENABLEDSSLPROTOCOLSUITES,enabledSslProtocolSuites,TLSv1.2,TLSv1.3",
+            "tlsCiphersuites,enabledSslCipherSuites,TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384",
+            "enabledSSLCipherSuites,enabledSslCipherSuites,TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384"})
+    void shouldPreserveTlsRestrictionPrecedence_acrossLegacyAndNativeNames(String alias, String canonical,
+                                                                         String queryValue, String suppliedValue) throws Exception {
+        for (boolean reverse : new boolean[]{false, true}) {
+            Properties properties = new Properties();
+            properties.setProperty(reverse ? alias : canonical, suppliedValue);
+            var settings = MariaDbJdbcCompatibility.settings(MariaDbJdbcCompatibility.normalizeUrl(
+                    "jdbc:mysql://db/test?" + (reverse ? canonical : alias) + "=" + queryValue), properties);
+            assertThat(settings.properties()).containsEntry(canonical, suppliedValue);
+            var configuration = org.mariadb.jdbc.Configuration.parse(settings.url(), settings.properties());
+            String actual = canonical.equals("enabledSslProtocolSuites")
+                    ? configuration.enabledSslProtocolSuites() : configuration.enabledSslCipherSuites();
+            assertThat(actual).isEqualTo(suppliedValue);
+        }
+    }
+
+    @Test
+    void shouldRetainSupportedProtocols_withoutRestoringObsoleteOrEmptySelections() throws Exception {
+        var settings = MariaDbJdbcCompatibility.settings(
+                "jdbc:mysql://db/test?tlsVersions=TLSv1.1,TLSv1.2,unknown", new Properties());
+        assertThat(settings.properties()).containsEntry("enabledSslProtocolSuites", "TLSv1.2");
+        for (String value : new String[]{"", "TLSv1", "TLSv1.1", "unknown"}) {
+            assertThatThrownBy(() -> MariaDbJdbcCompatibility.settings("jdbc:mysql://db/test?tlsVersions=" + value, new Properties()))
+                    .isInstanceOf(SQLException.class).hasMessage("Invalid database connection configuration");
+        }
+    }
+
+    @Test
+    void shouldPreserveCertificateStoreAliases_andValidatedFallbackFlags() throws Exception {
+        Properties supplied = new Properties();
+        supplied.setProperty("clientCertificateKeyStoreUrl", "file:/tmp/client+100%25%20store.p12");
+        supplied.setProperty("clientCertificateKeyStoreType", "PKCS12");
+        supplied.setProperty("clientCertificateKeyStorePassword", "synthetic-client"); // ggignore - synthetic alias-parsing fixture, never a deployed credential
+        supplied.setProperty("trustCertificateKeyStoreUrl", "file:/tmp/trust store.p12");
+        supplied.setProperty("trustCertificateKeyStoreType", "PKCS12");
+        supplied.setProperty("trustCertificateKeyStorePassword", "synthetic-trust"); // ggignore - synthetic alias-parsing fixture, never a deployed credential
+        supplied.setProperty("FALLBACKTOSYSTEMKEYSTORE", "0");
+        supplied.setProperty("fallbackToSystemTrustStore", "no");
+        var settings = MariaDbJdbcCompatibility.settings("jdbc:mysql://db/test?keyStore=old&trustStore=old", supplied);
+        var configuration = org.mariadb.jdbc.Configuration.parse(settings.url(), settings.properties());
+        assertThat(configuration.keyStore()).isEqualTo("/tmp/client+100% store.p12");
+        assertThat(configuration.trustStore()).isEqualTo("/tmp/trust store.p12");
+        assertThat(configuration.keyStoreType()).isEqualTo("PKCS12");
+        assertThat(configuration.trustStoreType()).isEqualTo("PKCS12");
+        assertThat(configuration.keyStorePassword()).isEqualTo("synthetic-client"); // ggignore - synthetic alias-parsing fixture, never a deployed credential
+        assertThat(configuration.trustStorePassword()).isEqualTo("synthetic-trust"); // ggignore - synthetic alias-parsing fixture, never a deployed credential
+        assertThat(configuration.fallbackToSystemKeyStore()).isFalse();
+        assertThat(configuration.fallbackToSystemTrustStore()).isFalse();
+        assertThatThrownBy(() -> MariaDbJdbcCompatibility.settings("jdbc:mysql://db/test?fallbackToSystemTrustStore=invalid", new Properties()))
+                .isInstanceOf(SQLException.class).hasMessage("Invalid database connection configuration");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"file://remote/tmp/store.p12", "file://user@localhost/tmp/store.p12"})
+    void shouldRejectNonLocalOrAmbiguousFileUris_beforeOpeningCertificateStores(String location) {
+        Properties supplied = new Properties();
+        supplied.setProperty("trustCertificateKeyStoreUrl", location);
+        assertThatThrownBy(() -> MariaDbJdbcCompatibility.settings("jdbc:mysql://db/test", supplied))
+                .isInstanceOf(SQLException.class).hasMessage("Invalid database connection configuration").hasNoCause();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"fipsCompliantJsse=true", "keyManagerFactoryProvider=explicit",
+            "trustManagerFactoryProvider=explicit", "keyStoreProvider=explicit", "sslContextProvider=explicit"})
+    void shouldRejectUnsupportedSecurityProviders_withoutIgnoringTheRequestedPolicy(String option) {
+        assertThatThrownBy(() -> MariaDbJdbcCompatibility.settings("jdbc:mysql://db/test?" + option, new Properties()))
+                .isInstanceOf(SQLException.class).hasMessage("Invalid database connection configuration");
+    }
+
+    @Test
+    void shouldApplyFinalSecuritySelections_afterExplicitPropertyOverrides() throws Exception {
+        Properties supplied = new Properties();
+        supplied.setProperty("fipsCompliantJsse", "false");
+        supplied.setProperty("sslContextProvider", "");
+        supplied.setProperty("keyStore", "file:/tmp/replacement+100%25.p12");
+        var settings = MariaDbJdbcCompatibility.settings("jdbc:mysql://db/test?fipsCompliantJsse=true&sslContextProvider=explicit"
+                + "&clientCertificateKeyStoreUrl=earlier", supplied);
+        assertThat(settings.properties()).containsEntry("keyStore", "/tmp/replacement+100%.p12")
+                .containsEntry("fipsCompliantJsse", "false");
+    }
+
+
+    @ParameterizedTest
+    @CsvSource({"tlsVersions,enabledTLSProtocols,enabledSslProtocolSuites,TLSv1.3,TLSv1.2",
+            "tlsCiphersuites,enabledSSLCipherSuites,enabledSslCipherSuites,TLS_AES_256_GCM_SHA384,TLS_AES_128_GCM_SHA256"})
+    void shouldPreferCanonicalLegacyTlsNames_withConflictingAliasesInOneSource(String canonical, String alias,
+                                                                              String nativeName, String selected, String other) throws Exception {
+        for (String query : new String[]{canonical + "=" + selected + "&" + alias + "=" + other,
+                alias + "=" + other + "&" + canonical + "=" + selected}) {
+            assertThat(MariaDbJdbcCompatibility.settings("jdbc:mysql://db/test?" + query, new Properties()).properties())
+                    .containsEntry(nativeName, selected);
+        }
+        Properties properties = new Properties();
+        properties.setProperty(canonical, selected);
+        properties.setProperty(alias, other);
+        assertThat(MariaDbJdbcCompatibility.settings("jdbc:mysql://db/test", properties).properties())
+                .containsEntry(nativeName, selected);
+    }
+
+
+    @Test
+    void shouldPreserveNativeTlsListSeparators_withoutRestoringExcludedCiphers() throws Exception {
+        Properties supplied = new Properties();
+        supplied.setProperty("enabledSslProtocolSuites", "TLSv1.2;TLSv1.3");
+        supplied.setProperty("enabledSslCipherSuites", "TLS_RSA_WITH_3DES_EDE_CBC_SHA; TLS_AES_128_GCM_SHA256");
+        var settings = MariaDbJdbcCompatibility.settings("jdbc:mariadb://db/test", supplied);
+        assertThat(settings.properties()).containsEntry("enabledSslProtocolSuites", "TLSv1.3,TLSv1.2")
+                .containsEntry("enabledSslCipherSuites", "TLS_AES_128_GCM_SHA256");
+        for (String blocked : new String[]{"TLS_RSA_WITH_3DES_EDE_CBC_SHA", "TLS_RSA_WITH_NULL_SHA", "TLS_DH_RSA_WITH_AES_128_CBC_SHA", "TLS_ECDH_anon_WITH_AES_128_CBC_SHA"}) {
+            assertThatThrownBy(() -> MariaDbJdbcCompatibility.settings("jdbc:mysql://db/test?tlsCiphersuites=" + blocked, new Properties()))
+                    .isInstanceOf(SQLException.class).hasMessage("Invalid database connection configuration");
+        }
+    }
+
+
+    @Test
+    void shouldRetainCanonicalTlsPrecedence_withSingleHostDescriptors() throws Exception {
+        Properties supplied = new Properties();
+        supplied.setProperty("tlsVersions", "TLSv1.2");
+        for (String fields : new String[]{"(tlsVersions=TLSv1.3)(enabledTLSProtocols=TLSv1.2)",
+                "(enabledTLSProtocols=TLSv1.2)(tlsVersions=TLSv1.3)"}) {
+            var settings = MariaDbJdbcCompatibility.settings("jdbc:mysql://address=(host=db)" + fields + "/test", supplied);
+            assertThat(settings.properties()).containsEntry("enabledSslProtocolSuites", "TLSv1.3");
+        }
+    }
+
+    @Test
+    void shouldPreserveLocalFileUrlComponents_withoutTurningQueryIntoFilename() throws Exception {
+        for (String location : new String[]{"file://localhost/tmp/store+100%25.p12", "file:/tmp/store+100%25.p12?ignored",
+                "file:/tmp/store+100%25.p12#ignored"}) {
+            Properties supplied = new Properties();
+            supplied.setProperty("keyStore", location);
+            assertThat(MariaDbJdbcCompatibility.settings("jdbc:mysql://db/test", supplied).properties())
+                    .containsEntry("keyStore", "/tmp/store+100%.p12");
+        }
+    }
+
 }

@@ -93,7 +93,7 @@ public final class CdsJdbcConnectionTimeouts {
         } catch (SQLException malformed) {
             if ("CDS_JDBC_SINGLE_HOST_REQUIRED".equals(malformed.getMessage())) throw singleHostRequired();
             throw invalid();
-        } catch (RuntimeException ignoredMalformed) {
+        } catch (RuntimeException _) {
             // URL/property contents and credentials must not enter ordinary framework logs.
             throw invalid();
         }
@@ -139,7 +139,7 @@ public final class CdsJdbcConnectionTimeouts {
         if (configured==null) return Integer.toString(fallback);
         final int value;
         try { value=Integer.parseInt(configured); }
-        catch (NumberFormatException ignoredMalformed) { throw invalid(); }
+        catch (NumberFormatException _) { throw invalid(); }
         if (value<1 || value>maximum) throw invalid();
         return Integer.toString(value);
     }

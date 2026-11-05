@@ -25,7 +25,13 @@ import java.sql.SQLException;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import javax.net.ssl.KeyManager;
+import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
@@ -57,6 +63,8 @@ public final class MariaDbPreferredTlsPlugin implements TlsSocketPlugin {
         HostAddress effectiveHost = verifyIdentity ? host : HostAddress.from(host.host, host.port, "trust");
         if (verifyIdentity && mode != SslMode.TRUST && mode != SslMode.DISABLE
                 && configuration.serverSslCert() == null && configuration.trustStore() == null) {
+            Configuration selected = systemStoreConfiguration(configuration, true);
+            if (selected != configuration) return systemTrustManagers(selected, errors, effectiveHost);
             // MariaDB may defer an untrusted certificate to password-proof validation,
             // which is different from Connector/J's explicit CA/hostname requirements.
             // Use JSSE's actual configured roots and retain hostname verification.
@@ -76,9 +84,78 @@ public final class MariaDbPreferredTlsPlugin implements TlsSocketPlugin {
         return delegate.getTrustManager(configuration, errors, effectiveHost);
     }
 
-    /** Retain MariaDB's client-certificate and configured key-store handling. */
+    /** Load selected client certificates without silently omitting a failed system-store identity. */
     @Override public KeyManager[] getKeyManager(Configuration configuration, ExceptionFactory errors) throws SQLException {
-        return delegate.getKeyManager(configuration, errors);
+        Configuration selected = systemStoreConfiguration(configuration, false);
+        if (selected.keyStore() == null) return delegate.getKeyManager(selected, errors);
+        // The native manager silently drops keys it cannot decrypt. JSSE's factory
+        // retains Connector/J's refusal when a requested private key cannot be recovered.
+        try (InputStream input = storeInput(selected.keyStore())) {
+            KeyStore keys = KeyStore.getInstance(selected.keyStoreType() == null ? "JKS" : selected.keyStoreType());
+            char[] storePassword = selected.keyStorePassword() == null ? new char[0] : selected.keyStorePassword().toCharArray();
+            keys.load(input, storePassword);
+            char[] keyPassword = selected.keyPassword() == null ? storePassword : selected.keyPassword().toCharArray();
+            KeyManagerFactory factory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+            factory.init(keys, keyPassword);
+            return factory.getKeyManagers();
+        } catch (GeneralSecurityException | IOException | IllegalArgumentException failure) {
+            throw storeFailure("Could not initialize database client certificate authentication", failure);
+        }
+    }
+
+    /** Pin a selected system store so native fallback cannot discard it or substitute public roots. */
+    private static Configuration systemStoreConfiguration(Configuration configuration, boolean trust) throws SQLException {
+        String explicit = trust ? configuration.trustStore() : configuration.keyStore();
+        boolean fallback = trust ? configuration.fallbackToSystemTrustStore() : configuration.fallbackToSystemKeyStore();
+        if (explicit != null || !fallback) return configuration;
+        String property = trust ? "javax.net.ssl.trustStore" : "javax.net.ssl.keyStore";
+        String location = System.getProperty(property);
+        if (location == null || location.isEmpty()) return configuration;
+        String normalized = MariaDbJdbcCompatibility.normalizeStoreLocation(location);
+        String configuredType = trust ? configuration.trustStoreType() : configuration.keyStoreType();
+        String type = System.getProperty(property + "Type", configuredType == null ? "JKS" : configuredType);
+        // Connector/J does not use a connection-store password for a system-selected store.
+        String password = System.getProperty(property + "Password");
+        var selected = configuration.toBuilder();
+        if (trust) {
+            selected.trustStore(normalized).trustStoreType(type).trustStorePassword(password).fallbackToSystemTrustStore(false);
+        } else {
+            selected.keyStore(normalized).keyStoreType(type).keyStorePassword(password)
+                    .keyPassword(configuration.keyPassword() == null ? password : configuration.keyPassword())
+                    .fallbackToSystemKeyStore(false);
+        }
+        return selected.build();
+    }
+
+    private TrustManager[] systemTrustManagers(Configuration selected, ExceptionFactory errors, HostAddress host) throws SQLException {
+        try {
+            return delegate.getTrustManager(selected, errors, host);
+        } catch (SQLException failure) {
+            throw storeFailure("Could not initialize database certificate verification", failure);
+        }
+    }
+
+    /** Retain URL-backed stores and ordinary file paths, including relative paths. */
+    private static InputStream storeInput(String configured) throws IOException, SQLException {
+        String location = MariaDbJdbcCompatibility.normalizeStoreLocation(configured);
+        java.net.URL url;
+        try {
+            url = new URI(location).toURL();
+        } catch (java.net.MalformedURLException | URISyntaxException | IllegalArgumentException urlFailure) {
+            try {
+                return Files.newInputStream(Path.of(location));
+            } catch (IOException pathFailure) {
+                pathFailure.addSuppressed(urlFailure);
+                throw pathFailure;
+            }
+        }
+        return url.openStream();
+    }
+
+    private static SQLException storeFailure(String message, Exception failure) {
+        SQLException sanitized = new SQLException(message, "08000");
+        sanitized.setStackTrace(failure.getStackTrace());
+        return sanitized;
     }
 
     /** Verify the hostname whenever the selected policy requires verified server identity. */

@@ -45,8 +45,17 @@ host and finite, validated network timeouts.
 
 `serverTimezone` becomes `connectionTimeZone`. Both the modern `sslMode` values
 and the legacy `useSSL`, `requireSSL` and `verifyServerCertificate` flags retain
-their verification requirements. LOCAL INFILE remains disabled unless explicitly
-enabled. MariaDB always uses Unicode and INFORMATION_SCHEMA metadata; the former
+their verification requirements. Legacy `tlsVersions`/`enabledTLSProtocols` and
+`tlsCiphersuites`/`enabledSSLCipherSuites` restrictions map to MariaDB's protocol
+and cipher settings. Certificate-store URL/type/password aliases and system-store
+fallback flags retain their precedence; local `file:` values support encoded or
+unescaped spaces without changing literal plus signs. Explicit FIPS mode or JSSE
+provider selection cannot be represented and fails with a configuration error.
+A selected certificate store or private key that cannot be loaded causes a
+connection failure. The connection does not silently omit the requested client
+identity or substitute public trust roots for a configured trust store.
+LOCAL INFILE remains disabled unless explicitly enabled. MariaDB always uses
+Unicode and INFORMATION_SCHEMA metadata; the former
 `useInformationSchema` setting is accepted but no longer selects an implementation.
 The obsolete `useUnicode` flag remains accepted, as in MySQL Connector/J 9.6,
 where it no longer changes the encoding. Non-UTF-8 `characterEncoding` values,

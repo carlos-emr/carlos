@@ -21,9 +21,12 @@
  */
 package io.github.carlos_emr.carlos.utility;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,10 +53,88 @@ public final class MariaDbJdbcCompatibility {
     private static final String SSL_ALLOW = "allow";
     private static final String ZERO_DATE_TIME_BEHAVIOR = "zeroDateTimeBehavior";
     private static final String ADDRESS_PREFIX = "address=";
+    private static final String TLS_CIPHERS = "enabledSslCipherSuites";
+    private static final Set<String> EXCLUDED_CIPHER_TOKENS = Set.of("_ANON_", "_NULL_", "_EXPORT", "_MD5",
+            "_DES", "_3DES_", "_RC2_", "_RC4_", "_PSK_", "_DH_");
+    // Standard cipher identifiers allowed by the replaced Connector/J 9.6 TLS policy.
+    private static final Set<String> ALLOWED_CIPHER_NAMES = Set.of(
+            "AES_128_CCM_8_SHA256",
+            "AES_128_CCM_SHA256",
+            "AES_128_GCM_SHA256",
+            "AES_256_GCM_SHA384",
+            "CHACHA20_POLY1305_SHA256",
+            "DHE_DSS_WITH_AES_128_CBC_SHA",
+            "DHE_DSS_WITH_AES_128_CBC_SHA256",
+            "DHE_DSS_WITH_AES_128_GCM_SHA256",
+            "DHE_DSS_WITH_AES_256_CBC_SHA",
+            "DHE_DSS_WITH_AES_256_CBC_SHA256",
+            "DHE_DSS_WITH_AES_256_GCM_SHA384",
+            "DHE_RSA_WITH_AES_128_CBC_SHA",
+            "DHE_RSA_WITH_AES_128_CBC_SHA256",
+            "DHE_RSA_WITH_AES_128_CCM",
+            "DHE_RSA_WITH_AES_128_CCM_8",
+            "DHE_RSA_WITH_AES_128_GCM_SHA256",
+            "DHE_RSA_WITH_AES_256_CBC_SHA",
+            "DHE_RSA_WITH_AES_256_CBC_SHA256",
+            "DHE_RSA_WITH_AES_256_CCM",
+            "DHE_RSA_WITH_AES_256_CCM_8",
+            "DHE_RSA_WITH_AES_256_GCM_SHA384",
+            "DHE_RSA_WITH_CAMELLIA_128_CBC_SHA",
+            "DHE_RSA_WITH_CAMELLIA_128_CBC_SHA256",
+            "DHE_RSA_WITH_CAMELLIA_256_CBC_SHA",
+            "DHE_RSA_WITH_CAMELLIA_256_CBC_SHA256",
+            "DHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            "ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+            "ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
+            "ECDHE_ECDSA_WITH_AES_128_CCM",
+            "ECDHE_ECDSA_WITH_AES_128_CCM_8",
+            "ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+            "ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+            "ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
+            "ECDHE_ECDSA_WITH_AES_256_CCM",
+            "ECDHE_ECDSA_WITH_AES_256_CCM_8",
+            "ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+            "ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+            "ECDHE_RSA_WITH_AES_128_CBC_SHA",
+            "ECDHE_RSA_WITH_AES_128_CBC_SHA256",
+            "ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+            "ECDHE_RSA_WITH_AES_256_CBC_SHA",
+            "ECDHE_RSA_WITH_AES_256_CBC_SHA384",
+            "ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+            "ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+            "ECDH_ECDSA_WITH_AES_128_CBC_SHA",
+            "ECDH_ECDSA_WITH_AES_128_CBC_SHA256",
+            "ECDH_ECDSA_WITH_AES_128_GCM_SHA256",
+            "ECDH_ECDSA_WITH_AES_256_CBC_SHA",
+            "ECDH_ECDSA_WITH_AES_256_CBC_SHA384",
+            "ECDH_ECDSA_WITH_AES_256_GCM_SHA384",
+            "ECDH_RSA_WITH_AES_128_CBC_SHA",
+            "ECDH_RSA_WITH_AES_128_CBC_SHA256",
+            "ECDH_RSA_WITH_AES_128_GCM_SHA256",
+            "ECDH_RSA_WITH_AES_256_CBC_SHA",
+            "ECDH_RSA_WITH_AES_256_CBC_SHA384",
+            "ECDH_RSA_WITH_AES_256_GCM_SHA384",
+            "RSA_WITH_AES_128_CBC_SHA",
+            "RSA_WITH_AES_128_CBC_SHA256",
+            "RSA_WITH_AES_128_CCM",
+            "RSA_WITH_AES_128_CCM_8",
+            "RSA_WITH_AES_128_GCM_SHA256",
+            "RSA_WITH_AES_256_CBC_SHA",
+            "RSA_WITH_AES_256_CBC_SHA256",
+            "RSA_WITH_AES_256_CCM",
+            "RSA_WITH_AES_256_CCM_8",
+            "RSA_WITH_AES_256_GCM_SHA384",
+            "RSA_WITH_CAMELLIA_128_CBC_SHA",
+            "RSA_WITH_CAMELLIA_256_CBC_SHA");
+    private static final String TLS_PROTOCOLS = "enabledSslProtocolSuites";
+    private static final String FIPS_COMPLIANT_JSSE = "fipsCompliantJsse";
+    private static final Set<String> UNSUPPORTED_TLS_PROVIDERS = Set.of("keyManagerFactoryProvider",
+            "trustManagerFactoryProvider", "keyStoreProvider", "sslContextProvider");
     private static final Set<String> BOOLEAN_OPTIONS = Set.of(USE_SSL, REQUIRE_SSL, VERIFY_SERVER_CERTIFICATE,
             "useOldAliasMetadataBehavior", TRANSFORMED_BIT_IS_BOOLEAN, PRESERVE_INSTANTS, PURE_LOCAL_DATE_TIME,
             "tinyInt1isBit", ALLOW_LOCAL_INFILE, "useInformationSchema", DNS_SRV, "useUnicode",
-            "emptyStringsConvertToZero", "treatMysqlDatetimeAsTimestamp", "jdbcCompliantTruncation");
+            "emptyStringsConvertToZero", "treatMysqlDatetimeAsTimestamp", "jdbcCompliantTruncation",
+            "fallbackToSystemKeyStore", "fallbackToSystemTrustStore", FIPS_COMPLIANT_JSSE);
     private MariaDbJdbcCompatibility() { }
 
     /** Query-free driver URL and decoded options, owned by this connection preparation operation. */
@@ -101,6 +182,7 @@ public final class MariaDbJdbcCompatibility {
             throw invalid(malformed);
         }
         Properties properties = parsed.properties();
+        validateTlsSettings(properties);
         if (Boolean.parseBoolean(properties.getProperty(DNS_SRV, FALSE))) throw invalid();
         // These differ between the drivers and affect existing clinical values and metadata.
         properties.putIfAbsent(TRANSFORMED_BIT_IS_BOOLEAN, FALSE);
@@ -150,19 +232,33 @@ public final class MariaDbJdbcCompatibility {
             String base = query < 0 ? url : url.substring(0, query);
             base = normalizeBase(base);
             Properties properties = new Properties();
-            if (query >= 0) {
-                for (String option : url.substring(query + 1).split("&")) {
-                    if (option.isEmpty()) continue;
-                    String[] pair = option.split("=", 2);
-                    put(properties, URLDecoder.decode(pair[0], StandardCharsets.UTF_8),
-                            pair.length == 1 ? "true" : URLDecoder.decode(pair[1], StandardCharsets.UTF_8));
-                }
+            if (query >= 0) mergeQueryOptions(properties, url.substring(query + 1));
+            Properties preferredTls = new Properties();
+            for (String key : supplied.stringPropertyNames()) {
+                putSourceOption(properties, preferredTls, key, supplied.getProperty(key));
             }
-            for (String key : supplied.stringPropertyNames()) put(properties, key, supplied.getProperty(key));
+            properties.putAll(preferredTls);
             return new Settings(base, properties);
         } catch (IllegalArgumentException malformed) {
             throw invalid(malformed);
         }
+    }
+
+    private static void mergeQueryOptions(Properties properties, String query) throws SQLException {
+        Properties preferredTls = new Properties();
+        for (String option : query.split("&")) {
+            if (option.isEmpty()) continue;
+            String[] pair = option.split("=", 2);
+            putSourceOption(properties, preferredTls, URLDecoder.decode(pair[0], StandardCharsets.UTF_8),
+                    pair.length == 1 ? "true" : URLDecoder.decode(pair[1], StandardCharsets.UTF_8));
+        }
+        properties.putAll(preferredTls);
+    }
+
+    /** Connector/J's canonical TLS names beat their legacy aliases within the same property source. */
+    private static void putSourceOption(Properties properties, Properties preferredTls, String key, String value) throws SQLException {
+        put(properties, key, value);
+        if (asciiEquals(key, "tlsVersions") || asciiEquals(key, "tlsCiphersuites")) put(preferredTls, key, value);
     }
 
     private static String normalizeBase(String base) {
@@ -182,6 +278,21 @@ public final class MariaDbJdbcCompatibility {
             case "servertimezone", "connectiontimezone" -> "connectionTimeZone";
             case "sslmode" -> SSL_MODE;
             case "usessl" -> USE_SSL;
+            case "tlsversions", "enabledtlsprotocols", "enabledsslprotocolsuites" -> TLS_PROTOCOLS;
+            case "tlsciphersuites", "enabledsslciphersuites" -> TLS_CIPHERS;
+            case "clientcertificatekeystoreurl", "keystore" -> "keyStore";
+            case "clientcertificatekeystoretype", "keystoretype" -> "keyStoreType";
+            case "clientcertificatekeystorepassword", "keystorepassword" -> "keyStorePassword";
+            case "trustcertificatekeystoreurl", "truststore" -> "trustStore";
+            case "trustcertificatekeystoretype", "truststoretype" -> "trustStoreType";
+            case "trustcertificatekeystorepassword", "truststorepassword" -> "trustStorePassword";
+            case "fallbacktosystemkeystore" -> "fallbackToSystemKeyStore";
+            case "fallbacktosystemtruststore" -> "fallbackToSystemTrustStore";
+            case "fipscompliantjsse" -> FIPS_COMPLIANT_JSSE;
+            case "keymanagerfactoryprovider" -> "keyManagerFactoryProvider";
+            case "trustmanagerfactoryprovider" -> "trustManagerFactoryProvider";
+            case "keystoreprovider" -> "keyStoreProvider";
+            case "sslcontextprovider" -> "sslContextProvider";
             case "zerodatetimebehavior" -> ZERO_DATE_TIME_BEHAVIOR;
             case "useoldaliasmetadatabehavior" -> "useOldAliasMetadataBehavior";
             case "transformedbitisboolean" -> TRANSFORMED_BIT_IS_BOOLEAN;
@@ -229,6 +340,77 @@ public final class MariaDbJdbcCompatibility {
             putCollation(properties, key, value);
         } else {
             properties.setProperty(key, value);
+        }
+    }
+
+    /** Never silently replace an explicitly selected JSSE security implementation. */
+    private static void validateTlsSettings(Properties properties) throws SQLException {
+        if (Boolean.parseBoolean(properties.getProperty(FIPS_COMPLIANT_JSSE, FALSE))) throw invalid();
+        String protocols = properties.getProperty(TLS_PROTOCOLS);
+        if (protocols != null) properties.setProperty(TLS_PROTOCOLS, validatedTlsProtocols(protocols));
+        String ciphers = properties.getProperty(TLS_CIPHERS);
+        if (ciphers != null && !ciphers.isEmpty()) properties.setProperty(TLS_CIPHERS, validatedTlsCiphers(ciphers));
+        for (String provider : UNSUPPORTED_TLS_PROVIDERS) {
+            if (!properties.getProperty(provider, "").isEmpty()) throw invalid();
+        }
+        normalizeStorePaths(properties);
+    }
+
+    private static String validatedTlsProtocols(String protocols) throws SQLException {
+        List<String> requested = List.of(protocols.split("[,;\\s]+"));
+        List<String> accepted = new ArrayList<>();
+        for (String protocol : new String[]{"TLSv1.3", "TLSv1.2"}) {
+            if (requested.stream().anyMatch(value -> value.trim().equals(protocol))) accepted.add(protocol);
+        }
+        if (accepted.isEmpty()) throw invalid();
+        return String.join(",", accepted);
+    }
+
+    /** Retain the old connector's weak-cipher exclusions even when JVM security policy enables them. */
+    private static String validatedTlsCiphers(String ciphers) throws SQLException {
+        List<String> accepted = new ArrayList<>();
+        for (String cipher : ciphers.split("[,;\\s]+")) {
+            if (isAllowedCipher(cipher)) accepted.add(cipher);
+        }
+        if (accepted.isEmpty()) throw invalid();
+        return String.join(",", accepted);
+    }
+
+    private static boolean isAllowedCipher(String cipher) {
+        return (cipher.startsWith("TLS_") || cipher.startsWith("SSL_"))
+                && ALLOWED_CIPHER_NAMES.contains(cipher.substring(4))
+                && EXCLUDED_CIPHER_TOKENS.stream().noneMatch(cipher::contains);
+    }
+
+    private static void normalizeStorePaths(Properties properties) throws SQLException {
+        for (String store : new String[]{"keyStore", "trustStore"}) {
+            String value = properties.getProperty(store);
+            if (value != null) properties.setProperty(store, normalizeStoreLocation(value));
+        }
+    }
+
+    /** Share local URI handling with explicit JSSE system-store selection without changing plain paths. */
+    static String normalizeStoreLocation(String value) throws SQLException {
+        return value != null && value.length() >= 5 && asciiEquals(value.substring(0, 5), "file:")
+                ? localStorePath(value) : value;
+    }
+
+    /** Retain Connector/J's local file URI support, including encoded and unescaped spaces. */
+    private static String localStorePath(String value) throws SQLException {
+        String normalized = "file:" + value.substring(5);
+        try {
+            URI uri = new URI(normalized.replace(" ", "%20"));
+            if (uri.getAuthority() != null && !uri.getAuthority().isEmpty()
+                    && !asciiEquals(uri.getAuthority(), "localhost")) throw invalid();
+            // File URL handlers historically ignore query/fragment components. Decode only the path;
+            // URLDecoder would incorrectly convert a literal plus sign into a space.
+            String path = uri.isOpaque() ? new URI("file:/" + uri.getRawSchemeSpecificPart()).getPath().substring(1) : uri.getPath();
+            if (path == null || path.isEmpty() || path.startsWith("//")) throw invalid();
+            return Path.of(path).toString();
+        } catch (URISyntaxException | IllegalArgumentException malformed) {
+            SQLException sanitized = invalid();
+            sanitized.setStackTrace(malformed.getStackTrace());
+            throw sanitized;
         }
     }
 
@@ -293,16 +475,18 @@ public final class MariaDbJdbcCompatibility {
         var fields = Pattern.compile("\\(([^=()]+)=([^()]*)\\)").matcher(host);
         StringBuilder retained = new StringBuilder(ADDRESS_PREFIX);
         int consumed = ADDRESS_PREFIX.length();
+        Properties preferredTls = new Properties();
         while (fields.find()) {
             if (fields.start() != consumed) throw invalid();
             consumed = fields.end();
-            appendHostField(retained, properties, multiple, fields.group(1), fields.group(2));
+            appendHostField(retained, properties, preferredTls, multiple, fields.group(1), fields.group(2));
         }
         if (consumed != host.length() || retained.length() == ADDRESS_PREFIX.length()) throw invalid();
+        properties.putAll(preferredTls);
         return retained.toString();
     }
 
-    private static void appendHostField(StringBuilder retained, Properties properties, boolean multiple,
+    private static void appendHostField(StringBuilder retained, Properties properties, Properties preferredTls, boolean multiple,
                                         String encodedKey, String encodedValue) throws SQLException {
         String key = URLDecoder.decode(encodedKey, StandardCharsets.UTF_8);
         String value = URLDecoder.decode(encodedValue, StandardCharsets.UTF_8);
@@ -316,7 +500,7 @@ public final class MariaDbJdbcCompatibility {
         } else {
             // A global property cannot represent different policies on different hosts.
             if (multiple) throw invalid();
-            put(properties, key, value);
+            putSourceOption(properties, preferredTls, key, value);
         }
     }
 
@@ -357,12 +541,13 @@ public final class MariaDbJdbcCompatibility {
         private int brackets;
 
         private void accept(char current) throws SQLException {
-            switch (current) {
-                case '(' -> parentheses++;
-                case ')' -> parentheses--;
-                case '[' -> { if (parentheses == 0) brackets++; }
-                case ']' -> { if (parentheses == 0) brackets--; }
-                default -> { /* Ordinary host/descriptor character. */ }
+            if (current == '(') {
+                parentheses++;
+            } else if (current == ')') {
+                parentheses--;
+            } else if (parentheses == 0) {
+                if (current == '[') brackets++;
+                else if (current == ']') brackets--;
             }
             if (parentheses < 0 || parentheses > 1 || brackets < 0 || brackets > 1) throw invalid();
         }

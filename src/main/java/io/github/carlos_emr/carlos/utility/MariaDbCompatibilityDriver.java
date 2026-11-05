@@ -295,13 +295,13 @@ public final class MariaDbCompatibilityDriver implements Driver {
         }
 
         /** Reads a nullable textual boolean without losing the underlying SQL NULL state. */
-        private Boolean textBoolean(ResultSet rows, int column, int sqlType) throws SQLException {
+        private Object textBoolean(ResultSet rows, int column, int sqlType) throws SQLException {
             byte[] bytes = rows.getBytes(column);
             return bytes == null ? null : textBoolean(numericText(rows, column, sqlType, bytes));
         }
 
         /** Retains fractional truth values and the legacy special meaning of negative one. */
-        private static Boolean numericBoolean(ResultSet rows, int column, int sqlType) throws SQLException {
+        private static Object numericBoolean(ResultSet rows, int column, int sqlType) throws SQLException {
             java.math.BigDecimal value = sqlType == Types.BIT
                     ? java.math.BigDecimal.valueOf(rows.getLong(column)) : rows.getBigDecimal(column);
             if (rows.wasNull()) return null;
@@ -311,8 +311,8 @@ public final class MariaDbCompatibilityDriver implements Driver {
         /** Parses only the textual truth values accepted by the prior driver, rejecting unrecognized values. */
         private boolean textBoolean(String text) throws SQLException {
             if (text.isEmpty() && policy.emptyStringsConvertToZero()) return false;
-            Boolean named = namedBoolean(text);
-            if (named != null) return named;
+            Object named = namedBoolean(text);
+            if (named != NO_CONVERSION) return (Boolean) named;
             try {
                 if (text.contains("e") || text.contains("E") || text.matches("-?\\d*\\.\\d*")) {
                     double value = Double.parseDouble(text);
@@ -322,14 +322,15 @@ public final class MariaDbCompatibilityDriver implements Driver {
                     if (text.startsWith("-")) return Long.parseLong(text) == -1;
                     return new java.math.BigInteger(text).signum() > 0;
                 }
-            } catch (NumberFormatException ignoredInvalid) {
-                throw new java.sql.SQLDataException("SQL string cannot be converted to a boolean", INVALID_NUMERIC_STATE);
+            } catch (NumberFormatException invalid) {
+                throw withFailureLocation(new java.sql.SQLDataException(
+                        "SQL string cannot be converted to a boolean", INVALID_NUMERIC_STATE), invalid);
             }
             throw new java.sql.SQLDataException("SQL string cannot be converted to a boolean", INVALID_NUMERIC_STATE);
         }
 
         /** Retains Connector/J's case-insensitive truth tokens, including the Unicode long-s equivalence. */
-        private static Boolean namedBoolean(String text) {
+        private static Object namedBoolean(String text) {
             String folded = text.replace('\u017f', 's');
             for (String token : new String[]{"y", "yes", "t", TRUE_OPTION}) {
                 if (MariaDbJdbcCompatibility.asciiEquals(folded, token)) return true;
@@ -337,7 +338,7 @@ public final class MariaDbCompatibilityDriver implements Driver {
             for (String token : new String[]{"n", "no", "f", FALSE_OPTION}) {
                 if (MariaDbJdbcCompatibility.asciiEquals(folded, token)) return false;
             }
-            return null;
+            return NO_CONVERSION;
         }
 
         /** Decodes textual and binary values using the character encoding previously used for numeric conversions. */
@@ -428,8 +429,9 @@ public final class MariaDbCompatibilityDriver implements Driver {
                 if (!fields.trySetAccessible()) throw new SQLException("Database table alias metadata is unavailable", INVALID_CONVERSION_STATE);
                 var columns = (org.mariadb.jdbc.client.ColumnDecoder[]) fields.get(nativeMetadata);
                 return columns[column - 1].getTableAlias();
-            } catch (ReflectiveOperationException | SecurityException | ClassCastException ignoredUnsupported) {
-                throw new SQLException("Database table alias metadata is unavailable", INVALID_CONVERSION_STATE);
+            } catch (ReflectiveOperationException | SecurityException | ClassCastException unsupported) {
+                throw withFailureLocation(new SQLException(
+                        "Database table alias metadata is unavailable", INVALID_CONVERSION_STATE), unsupported);
             }
         }
 
@@ -453,8 +455,8 @@ public final class MariaDbCompatibilityDriver implements Driver {
             try {
                 return timeOnly ? timeValue(value, sqlType, zero, requested, args)
                         : dateValue(value, sqlType, zero, requested, args);
-            } catch (java.time.DateTimeException | IllegalArgumentException ignoredInvalid) {
-                throw invalidDate(); // Clinical values never enter the failure message.
+            } catch (java.time.DateTimeException | IllegalArgumentException invalid) {
+                throw withFailureLocation(invalidDate(), invalid); // Clinical values never enter the failure message.
             }
         }
 
@@ -611,9 +613,15 @@ public final class MariaDbCompatibilityDriver implements Driver {
                 int day = bytes[end - 1] & 0xff;
                 if (year > 9999 || month > 12 || day > 31) throw invalidDate();
                 return String.format(Locale.ROOT, "%04d-%02d-%02d", year, month, day);
-            } catch (ReflectiveOperationException | SecurityException | ClassCastException ignoredIncompatibleDriver) {
-                throw invalidDate();
+            } catch (ReflectiveOperationException | SecurityException | ClassCastException incompatibleDriver) {
+                throw withFailureLocation(invalidDate(), incompatibleDriver);
             }
+        }
+
+        /** Retain useful failure locations while excluding messages and causes that can contain clinical values. */
+        private static <T extends SQLException> T withFailureLocation(T sanitized, Exception failure) {
+            sanitized.setStackTrace(failure.getStackTrace());
+            return sanitized;
         }
 
         /** Creates a private strict calendar, preserving an explicitly supplied getter calendar's timezone. */

@@ -88,17 +88,29 @@ class MariaDbTlsPolicyUnitTest {
         assertThatThrownBy(() -> trust.checkServerTrusted(chain(), "RSA")).isInstanceOf(CertificateException.class);
     }
 
-    @Test
-    void shouldValidateHostname_withExplicitTrustStore() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"encoded", "raw", "localhost", "query", "fragment"})
+    void shouldValidateHostname_withExplicitTrustStore(String spelling) throws Exception {
         KeyStore roots = KeyStore.getInstance("PKCS12");
         roots.load(null, null);
         roots.setCertificateEntry("synthetic-server", chain()[0]);
-        Path store = temporary.resolve("trusted-server.p12");
+        Path store = temporary.resolve("trusted server+100%.p12");
         try (var output = Files.newOutputStream(store)) {
             roots.store(output, "synthetic-only".toCharArray()); // ggignore - synthetic JDBC parsing/trust-store fixture, never a deployed credential
         }
         Properties supplied = new Properties();
-        supplied.setProperty("trustCertificateKeyStoreUrl", store.toUri().toString());
+        String encoded = store.toUri().toString();
+        String location = switch (spelling) {
+            case "raw" -> encoded.replace("%20", " ");
+            case "localhost" -> encoded.replace("file:///", "file://localhost/");
+            case "query" -> encoded + "?ignored";
+            case "fragment" -> encoded + "#ignored";
+            default -> encoded;
+        };
+        supplied.setProperty("trustCertificateKeyStoreUrl", location);
+        supplied.setProperty("clientCertificateKeyStoreUrl", location);
+        supplied.setProperty("clientCertificateKeyStoreType", "PKCS12");
+        supplied.setProperty("clientCertificateKeyStorePassword", "synthetic-only"); // ggignore - synthetic temporary keystore fixture, never a deployed credential
         supplied.setProperty("trustCertificateKeyStorePassword", "synthetic-only"); // ggignore - synthetic JDBC parsing/trust-store fixture, never a deployed credential
         supplied.setProperty("trustCertificateKeyStoreType", "PKCS12");
         var settings = MariaDbJdbcCompatibility.settings("jdbc:mysql://localhost/test?sslMode=VERIFY_IDENTITY", supplied);
@@ -107,6 +119,7 @@ class MariaDbTlsPolicyUnitTest {
         MariaDbPreferredTlsPlugin plugin = new MariaDbPreferredTlsPlugin();
         X509TrustManager trust = trustManager(plugin, configuration, host);
         assertThatCode(() -> trust.checkServerTrusted(chain(), "RSA")).doesNotThrowAnyException();
+        assertThat(plugin.getKeyManager(configuration, new ExceptionFactory(configuration, host))).hasSize(1);
         SSLSession session = mock(SSLSession.class);
         when(session.getPeerCertificates()).thenReturn(chain());
         assertThatCode(() -> plugin.verify("localhost", session, 1)).doesNotThrowAnyException();
