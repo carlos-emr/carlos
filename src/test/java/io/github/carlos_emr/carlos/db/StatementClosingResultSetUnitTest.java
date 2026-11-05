@@ -38,11 +38,11 @@ import static org.mockito.Mockito.*;
  * Unit tests for {@link StatementClosingResultSet}.
  *
  * <p>Verifies that closing the wrapped {@link ResultSet} closes the parent
- * {@link Statement}, fixing the resource leak in {@link DBHandler}.</p>
+ * {@link Statement}, preserving the legacy query boundary's resource ownership.</p>
  *
  * @since 2026-04-07
  * @see StatementClosingResultSet
- * @see DBHandler
+ * @see LegacyJdbcQuery
  */
 @Tag("unit")
 @Tag("fast")
