@@ -180,11 +180,12 @@ class ReportConfigurationDaoIntegrationTest extends CarlosTestBase {
         try {
             ReportConfig first = config("first", 1, "A");
             service.insertWithOrder(first);
-            assertThatThrownBy(() -> service.shiftAndRemove(5549, "B", first.getId(), 1))
+            int configurationId = first.getId();
+            assertThatThrownBy(() -> service.shiftAndRemove(5549, "B", configurationId, 1))
                     .isInstanceOf(IllegalArgumentException.class);
-            assertThatThrownBy(() -> service.shiftAndRemove(5550, "A", first.getId(), 1))
+            assertThatThrownBy(() -> service.shiftAndRemove(5550, "A", configurationId, 1))
                     .isInstanceOf(IllegalArgumentException.class);
-            assertThat(configurations.find(first.getId())).isNotNull();
+            assertThat(configurations.find(configurationId)).isNotNull();
         } finally {
             cleanup();
         }

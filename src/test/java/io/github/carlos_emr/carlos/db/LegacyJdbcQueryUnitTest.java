@@ -491,16 +491,20 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
     void shouldRefuseExpiredReport_afterConnectionAcquisition() throws Exception {
         DataSource source = mock(DataSource.class);
         Connection connection = mock(Connection.class);
+        var clock = new java.util.concurrent.atomic.AtomicLong(100);
+        long deadline = 200;
         registerMock(DataSource.class, source);
         when(source.getConnection()).thenAnswer(invocation -> {
-            TimeUnit.MILLISECONDS.sleep(1_050);
+            clock.set(deadline);
             return connection;
         });
+        var sql = LegacyJdbcQuery.trustedReportSelectSql("select 1");
 
         assertThatThrownBy(() -> LegacyJdbcQuery.getBoundedReportResultSet(
-                LegacyJdbcQuery.trustedReportSelectSql("select 1"), 10, 1))
+                sql, 10, deadline, clock::get))
                 .isInstanceOf(java.sql.SQLTimeoutException.class);
 
+        verify(source).getConnection();
         verify(connection, never()).prepareStatement(anyString(), org.mockito.ArgumentMatchers.anyInt(),
                 org.mockito.ArgumentMatchers.anyInt());
         verify(connection).close();

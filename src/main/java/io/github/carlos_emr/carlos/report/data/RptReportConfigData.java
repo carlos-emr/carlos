@@ -49,9 +49,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public class RptReportConfigData {
 
-    private ReportConfigDao dao = SpringUtils.getBean(ReportConfigDao.class);
+    private final ReportConfigDao dao = SpringUtils.getBean(ReportConfigDao.class);
 
-    private ReportConfigurationService service = SpringUtils.getBean(ReportConfigurationService.class);
+    private final ReportConfigurationService service = SpringUtils.getBean(ReportConfigurationService.class);
 
     int report_id;
     String name;
@@ -60,6 +60,8 @@ public class RptReportConfigData {
     String table_name;
     String save;
 
+    // Retain the checked exception contract for legacy callers and subclasses compiled from source.
+    @SuppressWarnings("java:S1130")
     public boolean insertRecordWithOrder() throws SQLException {
         ReportConfig r = configuration();
         service.insertWithOrder(r);

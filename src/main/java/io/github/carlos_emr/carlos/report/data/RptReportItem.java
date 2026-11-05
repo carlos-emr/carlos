@@ -48,7 +48,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class RptReportItem {
     String report_name;
     int status = 1;
-    private ReportItemDao dao = SpringUtils.getBean(ReportItemDao.class);
+    private final ReportItemDao dao = SpringUtils.getBean(ReportItemDao.class);
 
 
     public boolean insertRecord() {
@@ -84,6 +84,8 @@ public class RptReportItem {
     }
 
     // 1 - name list, 0 - deleted name list
+    // Retain the checked exception contract for legacy callers and subclasses compiled from source.
+    @SuppressWarnings("java:S1130")
     public Vector getNameList(int n) throws SQLException {
         Vector ret = new Vector();
         for (ReportItem r : dao.findByStatus(n)) {

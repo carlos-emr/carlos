@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public class RptReportFilter {
 
-    private ReportFilterDao dao = SpringUtils.getBean(ReportFilterDao.class);
+    private final ReportFilterDao dao = SpringUtils.getBean(ReportFilterDao.class);
 
     int report_id = 0;
     String description;
@@ -91,6 +91,8 @@ public class RptReportFilter {
     }
 
     // Legacy JSP adapters retain their six-column array contract; persistence returns typed entities.
+    // Retain the checked exception contract for legacy callers and subclasses compiled from source.
+    @SuppressWarnings("java:S1130")
     public Vector getNameList(int n) throws SQLException {
         return rows(dao.findByReportIdAndStatus(null, n));
     }

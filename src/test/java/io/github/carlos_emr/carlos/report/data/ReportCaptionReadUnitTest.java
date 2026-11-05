@@ -54,11 +54,12 @@ class ReportCaptionReadUnitTest extends CarlosUnitTestBase {
         var dao = mock(ReportTableFieldCaptionDao.class);
         registerMock(ReportTableFieldCaptionDao.class, dao);
         when(dao.findByTableName("formAlpha")).thenThrow(new IllegalStateException("synthetic wiring failure"));
-        assertThatThrownBy(() -> new RptTableFieldNameCaption().getNameCaptionProp("formAlpha"))
+        var captions = new RptTableFieldNameCaption();
+        assertThatThrownBy(() -> captions.getNameCaptionProp("formAlpha"))
                 .isInstanceOf(IllegalStateException.class);
     }
     @Test
-    void shouldDiscoverColumnsWithoutSelectingPatientRows_forAllowlistedForms() throws Exception {
+    void shouldDiscoverColumnsWithoutSelectingPatientRows_forAllowlistedForms() {
         var dao = mock(EncounterFormDao.class);
         registerMock(EncounterFormDao.class, dao);
         var form = new EncounterForm();
@@ -73,7 +74,7 @@ class ReportCaptionReadUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAbortFieldDiscovery_whenMetadataQueryFails() throws Exception {
+    void shouldAbortFieldDiscovery_whenMetadataQueryFails() {
         var dao = mock(EncounterFormDao.class);
         registerMock(EncounterFormDao.class, dao);
         var form = new EncounterForm();
@@ -82,7 +83,8 @@ class ReportCaptionReadUnitTest extends CarlosUnitTestBase {
         try (var queries = mockStatic(ConfiguredReportQuery.class)) {
             queries.when(() -> ConfiguredReportQuery.columnNames("select * from formAlpha where 1=0"))
                     .thenThrow(new java.sql.SQLException("synthetic metadata failure"));
-            assertThatThrownBy(() -> new RptTableFieldNameCaption().getMetaNameList("formAlpha"))
+            var captions = new RptTableFieldNameCaption();
+            assertThatThrownBy(() -> captions.getMetaNameList("formAlpha"))
                     .isInstanceOf(IllegalStateException.class).hasCauseInstanceOf(java.sql.SQLException.class);
         }
     }

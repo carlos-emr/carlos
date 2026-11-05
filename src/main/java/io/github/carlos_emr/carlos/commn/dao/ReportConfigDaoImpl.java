@@ -41,6 +41,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class ReportConfigDaoImpl extends AbstractDaoImpl<ReportConfig> implements ReportConfigDao {
 
+    private static final String REPORT_ID_PARAMETER = "reportId";
+
     public ReportConfigDaoImpl() {
         super(ReportConfig.class);
     }
@@ -48,31 +50,31 @@ public class ReportConfigDaoImpl extends AbstractDaoImpl<ReportConfig> implement
     @Override
     public List<ReportConfig> findByReportIdAndSave(int reportId, String save) {
         return entityManager.createQuery("select x from ReportConfig x where x.reportId=:reportId and x.save=:save order by x.orderNo, x.id", ReportConfig.class)
-                .setParameter("reportId", reportId).setParameter("save", save).getResultList();
+                .setParameter(REPORT_ID_PARAMETER, reportId).setParameter("save", save).getResultList();
     }
 
     @Override
     public List<ReportConfig> findByReportId(int reportId) {
         return entityManager.createQuery("select x from ReportConfig x where x.reportId=:reportId order by x.orderNo, x.id", ReportConfig.class)
-                .setParameter("reportId", reportId).getResultList();
+                .setParameter(REPORT_ID_PARAMETER, reportId).getResultList();
     }
 
     @Override
     public List<String> findTableNames(int reportId) {
         return entityManager.createQuery("select distinct x.tableName from ReportConfig x where x.reportId=:reportId order by x.tableName desc", String.class)
-                .setParameter("reportId", reportId).getResultList();
+                .setParameter(REPORT_ID_PARAMETER, reportId).getResultList();
     }
 
     @Override
     public List<String> findFormTableNames(int reportId) {
         return entityManager.createQuery("select distinct x.tableName from ReportConfig x where x.reportId=:reportId and x.tableName like 'form%' order by x.tableName", String.class)
-                .setParameter("reportId", reportId).getResultList();
+                .setParameter(REPORT_ID_PARAMETER, reportId).getResultList();
     }
 
     @Override
     public int nextOrder(int reportId) {
         Integer maximum = entityManager.createQuery("select max(x.orderNo) from ReportConfig x where x.reportId=:reportId", Integer.class)
-                .setParameter("reportId", reportId).getSingleResult();
+                .setParameter(REPORT_ID_PARAMETER, reportId).getSingleResult();
         return maximum == null ? 1 : maximum + 1;
     }
 

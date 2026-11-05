@@ -30,7 +30,6 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
-import static org.mockito.ArgumentMatchers.*;
 
 /** Exercises detached metadata, null and whitespace compatibility, budgets, and cleanup on failure. */
 @Tag("unit")
@@ -60,7 +59,8 @@ class ConfiguredReportQueryUnitTest {
             assertThat(row.value("value")).isNull();
             assertThat(row.text("value")).isEmpty();
             assertThatThrownBy(() -> row.value("missing")).isInstanceOf(SQLException.class);
-            assertThatThrownBy(() -> row.columns().put("x", "y")).isInstanceOf(UnsupportedOperationException.class);
+            var columns = row.columns();
+            assertThatThrownBy(() -> columns.put("x", "y")).isInstanceOf(UnsupportedOperationException.class);
         }
         verify(rows).close();
     }

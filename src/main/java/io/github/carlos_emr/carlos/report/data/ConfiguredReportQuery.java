@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import java.io.IOException;
 import java.io.Reader;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -155,9 +156,7 @@ public final class ConfiguredReportQuery {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS);
         try (var rows = LegacyJdbcQuery.getBoundedReportResultSet(
                 LegacyJdbcQuery.trustedReportSelectSql(sql), 1, deadline, parameters)) {
-            var metadata = rows.getMetaData();
-            List<String> names = new ArrayList<>();
-            for (int i = 1; i <= metadata.getColumnCount(); i++) names.add(metadata.getColumnName(i));
+            List<String> names = readColumnNames(rows.getMetaData());
             // Observe exhaustion so the streaming connection can return to its pool without aborting.
             if (rows.next()) throw new SQLException("Metadata query must not return report rows");
             return List.copyOf(names);
@@ -174,8 +173,7 @@ public final class ConfiguredReportQuery {
         try (var rows = LegacyJdbcQuery.getBoundedReportResultSet(
                 LegacyJdbcQuery.trustedReportSelectSql(sql), firstOnly ? 1 : MAX_ROWS + 1, deadline, parameters)) {
             var metadata = rows.getMetaData();
-            List<String> names = new ArrayList<>();
-            for (int i = 1; i <= metadata.getColumnCount(); i++) names.add(metadata.getColumnName(i));
+            List<String> names = readColumnNames(metadata);
             List<Row> result = new ArrayList<>();
             long characters = names.stream().mapToLong(String::length).sum();
             if (characters > MAX_OUTPUT_CHARACTERS) throw new LimitExceededException("Report output budget exceeded; narrow the report filters");
@@ -183,24 +181,45 @@ public final class ConfiguredReportQuery {
                 // The exact one-row JDBC ceiling makes this final next() observe exhaustion.
                 if (firstOnly && !result.isEmpty()) break;
                 if (result.size() == MAX_ROWS) throw new LimitExceededException("Report row budget exceeded; narrow the report filters");
-                Map<String, String> columns = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-                List<String> values = new ArrayList<>();
-                for (int i = 1; i <= names.size(); i++) {
-                    String value = readValue(rows, i, MAX_OUTPUT_CHARACTERS - characters);
-                    values.add(value);
-                    if (!columns.containsKey(metadata.getColumnLabel(i))) columns.put(metadata.getColumnLabel(i), value);
-                    if (!columns.containsKey(names.get(i - 1))) columns.put(names.get(i - 1), value);
-                    String table = metadata.getTableName(i);
-                    if (table != null && !table.isEmpty() && !columns.containsKey(table + "." + names.get(i - 1))) {
-                        columns.put(table + "." + names.get(i - 1), value);
-                    }
-                    characters += value == null ? 0 : value.length();
-                    if (characters > MAX_OUTPUT_CHARACTERS) throw new LimitExceededException("Report output budget exceeded; narrow the report filters");
-                }
-                result.add(new Row(columns, values));
+                MaterializedRow row = readRow(rows, metadata, names, MAX_OUTPUT_CHARACTERS - characters);
+                characters += row.characterCount();
+                result.add(row.row());
             }
             return new Result(names, result);
         }
+    }
+
+    private static List<String> readColumnNames(ResultSetMetaData metadata) throws SQLException {
+        List<String> names = new ArrayList<>();
+        for (int i = 1; i <= metadata.getColumnCount(); i++) names.add(metadata.getColumnName(i));
+        return names;
+    }
+
+    private record MaterializedRow(Row row, long characterCount) { }
+
+    private static MaterializedRow readRow(ResultSet rows, ResultSetMetaData metadata, List<String> names,
+            long remainingCharacters) throws SQLException {
+        Map<String, String> columns = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        List<String> values = new ArrayList<>();
+        long characters = 0;
+        for (int i = 1; i <= names.size(); i++) {
+            String value = readValue(rows, i, remainingCharacters - characters);
+            values.add(value);
+            putFirstColumn(columns, metadata.getColumnLabel(i), value);
+            String name = names.get(i - 1);
+            putFirstColumn(columns, name, value);
+            String table = metadata.getTableName(i);
+            if (table != null && !table.isEmpty()) {
+                putFirstColumn(columns, table + "." + name, value);
+            }
+            characters += value == null ? 0 : value.length();
+        }
+        return new MaterializedRow(new Row(columns, values), characters);
+    }
+
+    private static void putFirstColumn(Map<String, String> columns, String name, String value) {
+        // A SQL NULL in the first matching column must not be replaced by a later duplicate.
+        if (!columns.containsKey(name)) columns.put(name, value);
     }
 
     private static String readValue(ResultSet rows, int column, long remainingCharacters) throws SQLException {

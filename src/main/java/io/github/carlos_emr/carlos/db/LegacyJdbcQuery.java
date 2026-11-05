@@ -40,6 +40,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 import java.util.regex.Pattern;
 
 import javax.sql.DataSource;
@@ -166,10 +167,15 @@ public final class LegacyJdbcQuery {
      */
     public static ResultSet getBoundedReportResultSet(TrustedSql sql, int maxRows, long deadlineNanos,
             Object... params) throws SQLException {
+        return getBoundedReportResultSet(sql, maxRows, deadlineNanos, System::nanoTime, params);
+    }
+
+    static ResultSet getBoundedReportResultSet(TrustedSql sql, int maxRows, long deadlineNanos,
+            LongSupplier nanoTime, Object... params) throws SQLException {
         if (maxRows < 1) {
             throw new IllegalArgumentException("Report row limit must be positive");
         }
-        if (deadlineNanos - System.nanoTime() <= 0) {
+        if (deadlineNanos - nanoTime.getAsLong() <= 0) {
             throw new SQLTimeoutException("Report query deadline exceeded");
         }
         DataSource dataSource = dataSource();
@@ -177,6 +183,9 @@ public final class LegacyJdbcQuery {
         PreparedStatement ps = null;
         ReportQueryDeadline deadline = null;
         try {
+            if (deadlineNanos - nanoTime.getAsLong() <= 0) {
+                throw new SQLTimeoutException("Report query deadline exceeded");
+            }
             deadline = new ReportQueryDeadline(connection, deadlineNanos);
             ps = prepareStreamingReportStatement(connection, sql);
             ps.setMaxRows(maxRows);
@@ -187,7 +196,7 @@ public final class LegacyJdbcQuery {
                 case null, default -> Math.min(100, maxRows);
             });
             bindParams(ps, params);
-            long remainingNanos = deadlineNanos - System.nanoTime();
+            long remainingNanos = deadlineNanos - nanoTime.getAsLong();
             if (remainingNanos <= 0) {
                 throw new SQLTimeoutException("Report query deadline exceeded");
             }

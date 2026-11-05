@@ -69,6 +69,8 @@ public class RptTableFieldNameCaption {
         return true;
     }
 
+    // Retain the legacy checked signature for subclasses and callers compiled against this API.
+    @SuppressWarnings("java:S1130")
     protected boolean recordExists() throws SQLException {
         return !dao().findByTableNameAndName(table_name, name).isEmpty();
     }

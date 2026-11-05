@@ -56,7 +56,7 @@ class ClinicalReportSqlJdbcUnitTest {
     }
 
     @Test
-    void shouldFailVisibly_whenDenominatorTimesOut() throws Exception {
+    void shouldFailVisibly_whenDenominatorTimesOut() {
         SQLDenominator denominator = new SQLDenominator();
         denominator.setSQL("select demographic_no from demographic");
         try (var queries = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery.class)) {
@@ -69,7 +69,7 @@ class ClinicalReportSqlJdbcUnitTest {
     }
 
     @Test
-    void shouldUseOnlyFirstMatchingRow_forNumeratorOutput() throws Exception {
+    void shouldUseOnlyFirstMatchingRow_forNumeratorOutput() {
         SQLNumerator numerator = new SQLNumerator();
         numerator.setSQL("select demographic_no from demographic where demographic_no=${demographic_no}");
         numerator.parseOutputFields("demographic_no");
@@ -88,7 +88,7 @@ class ClinicalReportSqlJdbcUnitTest {
     }
 
     @Test
-    void shouldAbortInsteadOfExcludingPatient_whenNumeratorTimesOut() throws Exception {
+    void shouldAbortInsteadOfExcludingPatient_whenNumeratorTimesOut() {
         SQLNumerator numerator = new SQLNumerator();
         numerator.setSQL("select demographic_no from demographic");
         try (var queries = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery.class)) {

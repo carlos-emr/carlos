@@ -63,7 +63,7 @@ public final class RptReportCreator {
         StringBuilder ret = new StringBuilder();
         for (var r : configurationDao().findByReportId(RptReportConfigData.parseReportId(recordId))) {
             String caption = RptReportConfigData.text(r.getCaption());
-            ret.append(ret.length() == 0 ? " " : ", ");
+            ret.append(ret.isEmpty() ? " " : ", ");
             ret.append(requireValidReportIdentifier(RptReportConfigData.text(r.getTableName()))).append(".")
                     .append(requireValidReportColumnIdentifier(RptReportConfigData.text(r.getName())));
             if (!caption.isEmpty()) ret.append(" as ").append(quoteSqlStringLiteral(caption));

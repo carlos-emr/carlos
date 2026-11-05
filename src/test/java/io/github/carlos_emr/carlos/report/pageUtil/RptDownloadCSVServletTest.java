@@ -15,6 +15,8 @@ package io.github.carlos_emr.carlos.report.pageUtil;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
@@ -30,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Vector;
 import java.util.regex.Pattern;
@@ -40,6 +43,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -49,6 +54,9 @@ import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.report.data.RptReportConfigData;
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
 import io.github.carlos_emr.carlos.report.data.RptReportItem;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 /**
  * Regression tests for demographic SQL construction and the report CSV servlet response contract.
@@ -84,7 +92,7 @@ class RptDownloadCSVServletTest {
     }
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         configuredQueryMock = mockStatic(ConfiguredReportQuery.class);
     }
 
@@ -191,17 +199,120 @@ class RptDownloadCSVServletTest {
         assertThat(subQuery.params()).containsExactly("Smith", "French");
     }
 
+    @ParameterizedTest
+    @EnumSource(CsvScenario.class)
+    void shouldPreserveSelectedColumnsAndCohorts_acrossCsvQueryBranches(CsvScenario scenario) throws Exception {
+        MockHttpServletRequest request = branchRequest(scenario);
+        List<SqlCall> calls = new ArrayList<>();
+        Map<String, String> values = Map.of("demographic_no", "41", "last_name", "O'Neil",
+                "first_name", "Zoë", "c_EDD", "2026-11-01");
+        var row = new ConfiguredReportQuery.Row(values, List.of());
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(anyString(), any(Object[].class)))
+                .thenAnswer(call -> {
+                    calls.add(new SqlCall(call.getArgument(0), extractBindParameters(call.getArguments())));
+                    return new ConfiguredReportQuery.Result(List.of(), List.of(row));
+                });
+        configuredQueryMock.when(() -> ConfiguredReportQuery.identifiers(anyString(), any(Object[].class)))
+                .thenAnswer(call -> {
+                    calls.add(new SqlCall(call.getArgument(0), extractBindParameters(call.getArguments())));
+                    return List.of(41, 42);
+                });
+        var properties = mock(CarlosProperties.class);
+        when(properties.getProperty("demographicExt")).thenReturn("prefer language");
+        when(properties.getProperty("demographicExt", "")).thenReturn("prefer language");
+        var extensions = mock(DemographicExtDao.class);
+        when(extensions.findReportValues(anyString(), anyCollection(), anyBoolean()))
+                .thenReturn(List.of(new DemographicExtDao.ReportValue(1, 41, "French")));
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var settings = mockStatic(CarlosProperties.class); var spring = mockStatic(SpringUtils.class)) {
+            settings.when(CarlosProperties::getInstance).thenReturn(properties);
+            spring.when(() -> SpringUtils.getBean(DemographicExtDao.class)).thenReturn(extensions);
+            new RptDownloadCSVServlet().service(request, response);
+        }
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        String header = "id\tLast Name\tFirst Name" + (scenario.antenatal ? "\tEDD" : "")
+                + (scenario.extension ? "\tprefer language" : "");
+        String data = "1\tO'Neil\tZoë" + (scenario.antenatal ? "\t2026-11-01" : "")
+                + (scenario.extension ? "\tFrench" : "");
+        assertThat(response.getContentAsString()).isEqualTo(header + "\r\n" + data);
+        assertBranchQueries(scenario, calls);
+        if (scenario.extension) {
+            List<Integer> cohort = scenario.extensionFilter ? List.of(41, 42) : List.of(41);
+            verify(extensions).findReportValues("prefer_language", cohort, scenario != CsvScenario.ALL_SELECTED);
+        }
+    }
+
+    private MockHttpServletRequest branchRequest(CsvScenario scenario) {
+        MockHttpServletRequest request = baseRequest();
+        request.getSession(true);
+        request.setParameter("demoReport", "true");
+        // Demographic projection order follows the legacy fixed list, not request order.
+        request.setParameter("first_name", "on");
+        request.setParameter("last_name", "on");
+        addFilter(request, 1, "demographic.last_name='${surname}'", "surname", "O'Neil");
+        if (scenario.antenatal) {
+            request.setParameter("c_EDD", "on");
+            addFilter(request, 2, "formBCAR.c_EDD>='${edd}'", "edd", "2026-11-01");
+        }
+        if (scenario.extension) {
+            request.setParameter("prefer_language", "on");
+        }
+        if (scenario.extensionFilter) {
+            addFilter(request, 3, "demographicExt.prefer_language='${language}'", "language", "French");
+        }
+        return request;
+    }
+
+    private void assertBranchQueries(CsvScenario scenario, List<SqlCall> calls) {
+        calls.forEach(this::assertSqlShape);
+        if (scenario.extensionFilter) {
+            assertThat(calls.getFirst().sql()).startsWith("select distinct(demographic.demographic_no)");
+            assertThat(calls.getFirst().params()).containsExactly("O'Neil", "French");
+        }
+        if (scenario.antenatal) {
+            SqlCall ids = findCallContaining(calls, "select max(ID) from formBCAR");
+            assertThat(ids.params()).containsExactly("O'Neil", "2026-11-01");
+            assertThat(calls.getLast().sql()).contains("formBCAR.ID in (41,42)");
+        }
+        if (scenario.extensionFilter) {
+            assertThat(calls.getLast().sql()).contains("demographic.demographic_no in (41,42)");
+        } else if (!scenario.antenatal) {
+            assertThat(calls.getLast().params()).containsExactly("O'Neil");
+        }
+    }
+
+    private enum CsvScenario {
+        DEMOGRAPHIC(false, false, false),
+        EXTENSION(false, true, false),
+        FILTERED_EXTENSION(false, true, true),
+        ANTENATAL(true, false, false),
+        ALL_SELECTED(true, true, false),
+        ALL_FILTERED(true, true, true);
+
+        private final boolean antenatal;
+        private final boolean extension;
+        private final boolean extensionFilter;
+
+        CsvScenario(boolean antenatal, boolean extension, boolean extensionFilter) {
+            this.antenatal = antenatal;
+            this.extension = extension;
+            this.extensionFilter = extensionFilter;
+        }
+    }
+
     @Test
     void shouldReturnFailureInsteadOfEmptyCsv_whenFormReportReadFails() throws Exception {
         MockHttpServletRequest request = baseRequest();
         request.getSession(true);
         request.setParameter("id", "5549");
         var response = new org.springframework.mock.web.MockHttpServletResponse();
-        try (var reports = org.mockito.Mockito.mockConstruction(
-                io.github.carlos_emr.carlos.report.data.RptReportItem.class,
-                (report, context) -> org.mockito.Mockito.when(report.getReportName("5549"))
+        try (var reports = mockConstruction(
+                RptReportItem.class,
+                (report, context) -> when(report.getReportName("5549"))
                         .thenThrow(new java.sql.SQLException("synthetic read failure")))) {
             new RptDownloadCSVServlet().service(request, response);
+            assertThat(reports.constructed()).hasSize(1);
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(response.getErrorMessage()).isEqualTo("Unable to generate report");
             assertThat(response.getContentAsString()).isEmpty();
